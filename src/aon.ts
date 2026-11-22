@@ -337,6 +337,30 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     else if (typeof v === 'string' && v) data[f] = v
     else if (Array.isArray(v) && v.length) data[f] = v.join(', ')
   }
+  if (system === 'sf2e' && kind === 'armor' && markdown) {
+    const table = [...markdown.matchAll(/<table>([\s\S]*?)<\/table>/gi)].find(match =>
+      /<th[^>]*>\s*Grade\s*<\/th>/i.test(match[1]) && /<th[^>]*>\s*Upgrades\s*<\/th>/i.test(match[1]))
+    if (table) {
+      const headers = [...table[1].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/gi)].map(match => plain(match[1]).toLowerCase())
+      const rows = [...table[1].matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)].map(match =>
+        [...match[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(cell => plain(cell[1])))
+      const gradeIndex = headers.indexOf('grade')
+      const levelIndex = headers.indexOf('level')
+      const row = rows.find(cells => cells[gradeIndex]?.toLowerCase() === name.toLowerCase())
+        ?? rows.find(cells => cells[gradeIndex]?.replace(/^(?:commercial|tactical|advanced|superior|elite|ultimate|paragon)\s+/i, '').toLowerCase() === name.toLowerCase()
+          && Number(cells[levelIndex]) === level)
+      if (row) {
+        const slots = row[headers.indexOf('upgrades')]
+        const ac = row[headers.indexOf('ac bonus')]
+        const grade = /^(commercial|tactical|advanced|superior|elite|ultimate|paragon)\b/i.exec(row[gradeIndex])?.[1]
+        const resilient = /\bresilient\s*\+(\d+)/i.exec(row[headers.indexOf('traits')] ?? '')?.[1]
+        if (/^\d+$/.test(slots ?? '')) data.upgrade_slots = Number(slots)
+        if (/^\+?\d+$/.test(ac ?? '')) data.ac = Number(ac)
+        if (grade) data.armor_grade = grade
+        data.grade_save_bonus = Number(resilient ?? 0)
+      }
+    }
+  }
   // The search index omits Intimidation: https://2e.aonsrd.com/deities/20-zon-shelyn
   if (system === 'sf2e' && kind === 'deity' && name === 'Zon-Shelyn') data.skill = 'Crafting, Intimidation'
   if (system === 'sf2e' && kind === 'class') {

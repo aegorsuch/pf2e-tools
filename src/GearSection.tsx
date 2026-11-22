@@ -323,10 +323,14 @@ const FILTERS: Record<'weapon' | 'armor' | 'shield', Filter[]> = {
     { label: 'Traits', values: (e) => e.traits },
   ],
 }
-const TABS = ['Standard', 'Magic', 'Custom', 'All'] as const
+const TABS = ['Standard', 'Specific', 'All'] as const
 const GEAR_SEARCH_PAGE = 100
+export const isSpecificGear = (e: ContentEntry) => isMagicItem(e)
+  || e.source === 'homebrew' && (e.traits.some(trait => /^magical$/i.test(trait))
+    || /specific|magic/i.test(String(e.data.item_subcategory ?? '')))
+  || e.kind === 'armor' && e.systems.includes('sf2e') && e.level >= 5
 const inTab = (e: ContentEntry, tab: (typeof TABS)[number]) =>
-  tab === 'All' || (tab === 'Custom' ? e.source === 'homebrew' : tab === 'Magic' ? isMagicItem(e) : (e.kind === 'weapon' || e.source !== 'homebrew') && !isMagicItem(e))
+  tab === 'All' || (tab === 'Specific' ? isSpecificGear(e) : !isSpecificGear(e))
 
 function GearAccess({ c, entries, entry, save }: SectionProps & { entry: ContentEntry }) {
   const access = gearAccess(c, entries, entry)
@@ -387,7 +391,7 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
   return (
     <div className="col gear-picker">
       <div className="gear-tabs" role="tablist">
-        {TABS.filter(t => kind !== 'weapon' || t !== 'Custom').map((t) => (
+        {TABS.map((t) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''}
             onClick={() => { setTab(t); setLimit(GEAR_SEARCH_PAGE) }}>{t}</button>
         ))}
@@ -1833,6 +1837,10 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const body = !!entry?.data.attached
         const wornLocked = body || !canWearWithAttachedArmor(a, attached)
         const sf2eArmor = !!entry?.systems.includes('sf2e')
+        const gradeOptions = sf2eArmor && !isGrantedArmor(a.id) && entry?.data.url ? entries.filter(candidate =>
+          candidate.kind === 'armor' && !candidate.deleted && candidate.systems.includes('sf2e')
+          && candidate.data.url === entry.data.url && candidate.data.armor_grade)
+          .sort((left, right) => left.level - right.level || left.name.localeCompare(right.name)) : []
         const upgradeSlots = armorUpgradeSlots(entry) + (sf2eArmor && c.heritage === 'Mod Fanatic Android' && entry?.data.upgrades_allowed !== false ? 1 : 0)
         const runesAllowed = !sf2eArmor && entry?.data.runes_allowed !== false
         const granted = isGrantedArmor(a.id)
@@ -1911,6 +1919,16 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={a.name} />
             {entry?.description && !entry.data.named_armor && <small>{entry.description}</small>}
             <NamedArmorAbilities entry={entry} inlineSummary />
+            {gradeOptions.length > 1 && <label>Armor grade{' '}
+              <select aria-label={`Armor grade: ${a.name}`} value={gradeOptions.some(grade => grade.name === a.name) ? a.name : gradeOptions[0].name}
+                onChange={event => {
+                  if (gradeOptions.some(grade => grade.name === event.target.value)) update(a.id, { name: event.target.value })
+                }}>
+                {gradeOptions.map(grade => <option key={grade.id} value={grade.name}>
+                  {String(grade.data.armor_grade)} (Level {grade.level})
+                </option>)}
+              </select>
+            </label>}
             {starfinder && <small>Grade: {String(starfinder.data.armor_grade)}</small>}
             {armorUpgradeSlots(entry) > 0 && (!sf2eArmor || entry?.data.upgrades_allowed === false)
               && <small>Armor upgrade slots: {armorUpgradeSlots(entry)}.</small>}
@@ -1957,7 +1975,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                   {[...ARMOR_MATERIALS].sort((a, b) => a.localeCompare(b)).map((name) => <option key={name}>{name}</option>)}
                 </SearchableSelect>
               </span>}
-              {sf2eArmor && entry && upgradeSlots > 0 && entry.data.upgrades_allowed !== false
+              {sf2eArmor && entry && (upgradeSlots > 0 || !!a.upgrades?.length) && entry.data.upgrades_allowed !== false
                 && <ArmorUpgrades entries={entries} upgrades={a.upgrades ?? []}
                   limit={upgradeSlots}
                   onChange={upgrades => update(a.id, { upgrades })} />}

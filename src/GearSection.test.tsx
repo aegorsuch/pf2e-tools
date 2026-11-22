@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, Search, ShieldAttachment, ShieldEquipment, WeaponList } from './GearSection'
+import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
@@ -129,7 +129,7 @@ it.each([false, true])('opens parameterized weapon trait definitions in both vie
   expect(markup).toContain('Volley trait rules.')
 })
 
-function OpenGearSearch({ tab = 'Standard', ...props }: Parameters<typeof Search>[0] & { tab?: 'Standard' | 'Magic' | 'Custom' | 'All' }) {
+function OpenGearSearch({ tab = 'Standard', ...props }: Parameters<typeof Search>[0] & { tab?: 'Standard' | 'Specific' | 'All' }) {
   const tree = Search(props)
   if (tree.type === 'button' && isValidElement<{ onClick?: () => void }>(tree)) tree.props.onClick?.()
   const control = findElement(tree, element => element.props.role === 'tab' && element.props.children === tab)
@@ -244,8 +244,8 @@ it('pages gear results and resets the page when searching', () => {
 })
 
 it.each([
-  { tab: 'Standard', visible: ['Longsword', 'Custom Longsword', 'Enchanted Custom Longsword'] },
-  { tab: 'Magic', visible: ['Magic Longsword'] },
+  { tab: 'Standard', visible: ['Longsword', 'Custom Longsword'] },
+  { tab: 'Specific', visible: ['Magic Longsword', 'Enchanted Custom Longsword'] },
   { tab: 'All', visible: ['Longsword', 'Custom Longsword', 'Enchanted Custom Longsword', 'Magic Longsword'] },
 ] as const)('includes homebrew weapons in $tab without a separate Custom tab', ({ tab, visible }) => {
   const custom: ContentEntry = { ...weapon, id: 'custom-sword', name: 'Custom Longsword', source: 'homebrew' }
@@ -271,19 +271,19 @@ it('shows specific magic item base types in the picker without changing saved na
   const armor: ContentEntry = { ...weapon, id: 'embrace', kind: 'armor', name: 'Ancestral Embrace', traits: ['Magical'],
     data: { named_armor: true, named_armor_base: 'Leather Armor', armor_category: 'Light' } }
   const markup = renderToStaticMarkup(<OpenGearSearch c={character([])} entries={[armor]} save={() => {}}
-    kind="armor" label="Add Armor" onPick={() => {}} tab="Magic" />)
+    kind="armor" label="Add Armor" onPick={() => {}} tab="Specific" />)
   expect(markup).toContain('>Ancestral Embrace Leather Armor</button>')
   expect(armor.name).toBe('Ancestral Embrace')
 })
 
-it.each(['armor', 'shield'] as const)('retains existing Custom filtering for %s', kind => {
+it.each(['armor', 'shield'] as const)('includes homebrew %s in Standard without a Custom tab', kind => {
   const custom: ContentEntry = { ...weapon, id: 'custom-gear', name: 'Custom Gear', kind, source: 'homebrew',
     data: kind === 'armor' ? { armor_category: 'Light', ac: 1 } : {} }
-  const render = (tab: 'Standard' | 'Custom') => renderToStaticMarkup(<OpenGearSearch c={character([])}
+  const render = (tab: 'Standard' | 'Specific') => renderToStaticMarkup(<OpenGearSearch c={character([])}
     entries={[custom]} save={() => {}} kind={kind} label="Add Gear" onPick={() => {}} tab={tab} />)
-  expect(render('Standard')).toContain('>Custom</button>')
-  expect(render('Standard')).not.toContain('aria-haspopup="dialog">Custom Gear</button>')
-  expect(render('Custom')).toContain('aria-haspopup="dialog">Custom Gear</button>')
+  expect(render('Standard')).not.toContain('>Custom</button>')
+  expect(render('Standard')).toContain('aria-haspopup="dialog">Custom Gear</button>')
+  expect(render('Specific')).not.toContain('aria-haspopup="dialog">Custom Gear</button>')
 })
 
 it.each(['unmet', 'automatic', 'approved'])('only shows unmet gear access helper text (%s)', state => {
@@ -2321,6 +2321,32 @@ it('uses armor upgrades instead of runes for SF2E-tagged armor', () => {
   expect(renderToStaticMarkup(select)).toContain('Thermal Capacitor')
   ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'armor-upgrade' } })
   expect(c.armors?.[0]).toMatchObject({ upgrades: ['armor-upgrade'], runes: ['Shadow'] })
+})
+
+it('places leveled SF2e and homebrew specific armor separately from standard armor', () => {
+  const armor: ContentEntry = { ...weapon, kind: 'armor', systems: ['sf2e'], name: 'Carvesong', level: 9,
+    data: { item_subcategory: 'Base Armor' } }
+  expect(isSpecificGear(armor)).toBe(true)
+  expect(isSpecificGear({ ...armor, name: 'Armored Coat', level: 0 })).toBe(false)
+  expect(isSpecificGear({ ...armor, name: 'Flight Suit', level: 1 })).toBe(false)
+  expect(isSpecificGear({ ...armor, source: 'homebrew', level: 0, traits: ['Magical'] })).toBe(true)
+  expect(isSpecificGear({ ...armor, source: 'homebrew', level: 0, traits: [] })).toBe(false)
+})
+
+it('changes SF2e armor grades without discarding installed upgrades', () => {
+  const armor: ContentEntry = { ...weapon, kind: 'armor', systems: ['sf2e'], name: 'Armored Coat', level: 0,
+    data: { url: 'coat', armor_category: 'Light', ac: 2, upgrade_slots: 1, armor_grade: 'Commercial' } }
+  const tactical = { ...armor, id: 'tactical', name: 'Tactical Armored Coat', level: 5,
+    data: { ...armor.data, ac: 3, upgrade_slots: 2, armor_grade: 'Tactical' } }
+  let c: Character = { ...character([]), systems: ['sf2e'], armors: [
+    { id: 'coat', name: armor.name, potency: 0, resilient: 0, runes: [], upgrades: ['upgrade'], worn: true },
+  ] }
+  const entries = [armor, tactical]
+  const tree = () => ArmorList({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  const select = findElement(tree(), element => element.props['aria-label'] === 'Armor grade: Armored Coat')!
+  ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: tactical.name } })
+  expect(c.armors?.[0]).toMatchObject({ name: tactical.name, upgrades: ['upgrade'], worn: true })
+  expect(renderToStaticMarkup(tree())).toContain('Armor upgrade slots: 1/2')
 })
 
 it('shows Vesk granted unarmed attacks without repeating Vesk in their names', () => {

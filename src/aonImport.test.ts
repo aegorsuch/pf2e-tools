@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { AON_IMPORT_VERSION, importFromAon, mapAonHits } from './aon'
+import sf2eSnapshot from '../public/data/aon-sf2e.json?raw'
 
 const stored = vi.hoisted(() => ({ bulkPut: vi.fn() }))
 vi.mock('./db', () => ({
@@ -10,6 +11,20 @@ vi.mock('./db', () => ({
   ensureSupplementalContent: async () => {},
 }))
 afterEach(() => vi.unstubAllGlobals())
+
+it('imports actual SF2e armor grade AC, upgrade slots, and resilient bonuses from improvement tables', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => ['Armored Coat', 'Tactical Armored Coat',
+    'Advanced Carvesong', 'Elite Carvesong'].includes(String(hit._source?.name))), 'sf2e')
+  expect(entries.find(entry => entry.name === 'Armored Coat')?.data)
+    .toMatchObject({ ac: 2, armor_grade: 'Commercial', upgrade_slots: 1, grade_save_bonus: 0 })
+  expect(entries.find(entry => entry.name === 'Tactical Armored Coat')?.data)
+    .toMatchObject({ ac: 3, armor_grade: 'Tactical', upgrade_slots: 2, grade_save_bonus: 0 })
+  expect(entries.find(entry => entry.name === 'Advanced Carvesong')?.data)
+    .toMatchObject({ ac: 3, armor_grade: 'Advanced', upgrade_slots: 1, grade_save_bonus: 1 })
+  expect(entries.find(entry => entry.name === 'Elite Carvesong')?.data)
+    .toMatchObject({ ac: 4, armor_grade: 'Elite', upgrade_slots: 2, grade_save_bonus: 2 })
+})
 
 it('imports fresh versioned snapshots rather than marking stale runtime-cached summaries as current', async () => {
   const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
