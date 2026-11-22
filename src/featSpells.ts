@@ -356,6 +356,15 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue
     }
+    if (feat.name === 'Lush Psychic' && c.systems.includes('sf2e')) {
+      for (const name of ['Cellular Stimulant', 'Gentle Landing']) {
+        const entry = matchingSpells(entries, name).find(spell => spell.systems.includes('sf2e'))
+        if (entry) out.push({ entry, source: feat.name,
+          rule: { kind: 'innate', spells: [name], tradition: 'primal', frequency: 'once per day', fixedRank: true },
+          rank: 1, usageKey: JSON.stringify([selection, feat.name, name.toLowerCase()]) })
+      }
+      continue
+    }
     if (feat.name === 'Kitsune Spell Familiarity') {
       const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
       if (entry) out.push({ entry, source: feat.name,
@@ -690,6 +699,11 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
   }
   return [...missingBoonSpells, ...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
+    if (feat.name === 'Lush Psychic' && c.systems.includes('sf2e')) {
+      return ['Cellular Stimulant', 'Gentle Landing']
+        .filter(name => !matchingSpells(entries, name).some(entry => entry.systems.includes('sf2e')))
+        .map(name => ({ name, source }))
+    }
     const training = hellknightTrainingBenefit(c, feat.name, feat.choice)
     if (training?.name === 'Dedication to the Five' && training.choice && GODCLAW_DOMAINS.includes(training.choice)
       && !domainFeatSpells(c, entries, 'Domain Initiate', training.choice).length) {

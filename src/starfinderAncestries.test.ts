@@ -92,6 +92,28 @@ it('grants Psychic Talent with an occult cantrip from the real catalog', () => {
     rule: { kind: 'innate', tradition: 'occult', frequency: 'at will' } }])
 })
 
+it('grants Lush Psychic primal innate spells with independent daily uses', () => {
+  const previous = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: false })
+  try {
+    const catalog = mapAonHits(hits.filter(hit => ['Lush Psychic', 'Cellular Stimulant', 'Gentle Landing']
+      .includes(String(hit._source?.name))), 'sf2e')
+    const lush = catalog.find(entry => entry.kind === 'feat' && entry.name === 'Lush Psychic')!
+    const c: Character = { ...base, ancestry: 'Lashunta', level: 5,
+      feats: [{ name: lush.name, sourceId: lush.id, type: 'Ancestry Feat', level: 5 }] }
+    const grants = grantedFeatSpells(c, catalog)
+    expect(grants.map(grant => [grant.entry.name, grant.rank, grant.rule.tradition, grant.rule.frequency]))
+      .toEqual([['Cellular Stimulant', 1, 'primal', 'once per day'], ['Gentle Landing', 1, 'primal', 'once per day']])
+    expect(grants.map(grant => dailyInnateUses(c, grant)?.remaining)).toEqual([1, 1])
+    const spent = { ...c, innateSpellUses: { [grants[0].usageKey]: 1 } }
+    expect(grants.map(grant => dailyInnateUses(spent, grant)?.remaining)).toEqual([0, 1])
+    expect(grantedFeatSpells({ ...c, level: 4 }, catalog)).toEqual([])
+    expect(unresolvedFeatSpells(c, [lush]).map(item => item.name)).toEqual(['Cellular Stimulant', 'Gentle Landing'])
+  } finally {
+    updateSettings({ innateAutoHeighten: previous })
+  }
+})
+
 it('applies Lashunta ancestral weapon familiarity to every grade of its listed weapons', () => {
   const catalog = mapAonHits(hits.filter(hit => hit._source?.name === 'Ancestral Weapon Familiarity'
     || /\b(?:seeker rifle|shuriken drone|singing spear|laser rifle)\b/i.test(String(hit._source?.name))), 'sf2e')
