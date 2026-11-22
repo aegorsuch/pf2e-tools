@@ -3140,8 +3140,23 @@ export function precisionEdgeDamageDice(c: Character, entries: ContentEntry[] = 
   return hits === 0 ? c.level >= 11 ? 2 : 1 : 0
 }
 
+export const CLASS_ARCHETYPES = [
+  { className: 'Barbarian', name: 'Bloodrager', subclass: 'Bloodrager' },
+  { className: 'Ranger', name: 'Vindicator', subclass: 'Vindication' },
+  { className: 'Rogue', name: 'Avenger', subclass: 'Avenger' },
+  { className: 'Wizard', name: 'Runelord', subclass: 'School of Thassilonian Rune Magic' },
+] as const
+
+export function selectedClassArchetype(c: Character, entries: ContentEntry[] = []) {
+  if (!c.systems.includes('pf2e')) return undefined
+  const subclass = selectedSubclass(c, entries)
+  return CLASS_ARCHETYPES.find(archetype => archetype.className === c.className && archetype.subclass === subclass)
+}
+
 export function classLabel(c: Character, entries: ContentEntry[] = []) {
   if (!c.className) return ''
+  const archetype = selectedClassArchetype(c, entries)
+  if (archetype) return archetype.name
   const subclass = selectedSubclass(c, entries)
   if (!subclass) return c.className
   if (c.className === 'Champion') return `Champion of ${subclass}`

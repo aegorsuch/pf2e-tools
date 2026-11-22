@@ -9,7 +9,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
-import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
+import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { featSectionGrants, SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
@@ -125,6 +125,20 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, lo
 }
 
 const NONE_LORES: string[] = []
+
+export function ClassPick({ c, entries, save, options }: SectionProps & { options: ContentEntry[] }) {
+  const archetypes = c.systems.includes('pf2e') ? CLASS_ARCHETYPES : []
+  const available = archetypes.flatMap(archetype => {
+    const base = options.find(option => option.name === archetype.className && option.systems.includes('pf2e'))
+    return base ? [{ ...base, name: `${archetype.className} (${archetype.name})` }] : []
+  })
+  const selected = selectedClassArchetype(c, entries)
+  return <Pick label="Class" kind="class" value={selected ? `${selected.className} (${selected.name})` : c.className}
+    options={[...options, ...available]} onChange={value => {
+      const archetype = archetypes.find(item => `${item.className} (${item.name})` === value)
+      save({ className: archetype?.className ?? value, subclass: archetype?.subclass ?? '', fatalMethod: undefined })
+    }} />
+}
 
 export function BackgroundLoreChoices({ c, entries, save, background, options }: SectionProps & {
   background: ContentEntry; options: string[]
@@ -712,7 +726,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
         </summary>
         <div className="character-section-content">
           <div className="row">
-            <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v, subclass: '', fatalMethod: undefined })} />
+            <ClassPick c={c} entries={entries} save={save} options={of('class')} />
             <label>Level <input key={`${c.id}:${c.level}`} aria-label="Character level" type="number" min={1} max={20}
               defaultValue={c.level} onBlur={(e) => {
                 const level = Math.min(20, Math.max(1, +e.currentTarget.value || 1))

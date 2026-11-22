@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
-import { BackgroundLoreChoices, CharacterBuilder as Builder, EquipmentSearch } from './CharacterBuilder'
+import { BackgroundLoreChoices, CharacterBuilder as Builder, ClassPick, EquipmentSearch } from './CharacterBuilder'
 import { Children, isValidElement, type ChangeEvent, type ReactNode } from 'react'
 import { mapAonHit } from './aon'
 import { fetchAonHits } from './aonQuery'
@@ -11,7 +11,7 @@ import * as equipmentGroups from './equipmentGroups'
 import { FeatSlots } from './FeatSlots'
 import { SearchableSelect } from './SearchableSelect'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
-import { armorClass, isSpellActive, spellActiveChange, subclassOptions } from './builder'
+import { armorClass, classLabel, isSpellActive, spellActiveChange, subclassOptions } from './builder'
 import { GearSystemFilter } from './GearSystemFilter'
 import type { GearSystem } from './gearSystem'
 
@@ -21,6 +21,31 @@ vi.mock('./DeferredDetails', () => ({ DeferredDetails: ({ children }: { children
   <details className="character-section">{children}</details> }))
 const CharacterBuilder = (props: Omit<Parameters<typeof Builder>[0], 'catalog'>) =>
   <Builder {...props} catalog={content.entries} />
+
+it.each([
+  ['Barbarian', 'Bloodrager', 'Bloodrager'],
+  ['Ranger', 'Vindicator', 'Vindication'],
+  ['Rogue', 'Avenger', 'Avenger'],
+  ['Wizard', 'Runelord', 'School of Thassilonian Rune Magic'],
+])('selects %s (%s) while retaining the base class and required subclass', (className, name, subclass) => {
+  const klass: ContentEntry = { id: className, name: className, systems: ['pf2e'], kind: 'class',
+    source: 'official', level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'class', name: 'Test', systems: ['pf2e'], level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = vi.fn()
+  const picker = ClassPick({ c, entries: [klass], options: [klass], save })
+  expect(picker.props.options.map((option: ContentEntry) => option.name)).toContain(`${className} (${name})`)
+  picker.props.onChange(`${className} (${name})`)
+  expect(save).toHaveBeenCalledWith({ className, subclass, fatalMethod: undefined })
+  const selected = { ...c, className, subclass }
+  expect(classLabel(selected)).toBe(name)
+  expect(ClassPick({ c: selected, entries: [klass], options: [klass], save }).props.value).toBe(`${className} (${name})`)
+  expect(ClassPick({ c: { ...selected, systems: ['sf2e'] }, entries: [klass], options: [klass], save }).props.options)
+    .not.toContainEqual(expect.objectContaining({ name: `${className} (${name})` }))
+  picker.props.onChange(className)
+  expect(save).toHaveBeenLastCalledWith({ className, subclass: '', fatalMethod: undefined })
+})
 
 it('counts granted feats alongside filled and empty slots in Skill and General headings', () => {
   const skills = ['Ride', 'Quick Jump', 'Battle Medicine', "Crafter's Appraisal", 'Dubious Knowledge', 'Student of the Canon']
