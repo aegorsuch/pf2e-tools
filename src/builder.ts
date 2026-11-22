@@ -1958,7 +1958,7 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
   const klass = byName(entries, 'class', c.className)
   const chosenSubclass = ['Mystic', 'Sorcerer', 'Summoner', 'Witch'].includes(c.className ?? '')
     ? subclassOptions(c, entries).find(entry => entry.name === selectedSubclass(c, entries)) : undefined
-  const traditions = c.className === 'Druid' ? ['Primal'] : c.className === 'Necromancer' ? ['Occult']
+  const traditions = isVindicator(c, entries) ? ['Divine'] : c.className === 'Druid' ? ['Primal'] : c.className === 'Necromancer' ? ['Occult']
     : c.className === 'Mystic' && c.systems.includes('sf2e')
       ? STARFINDER_MYSTIC_TRADITIONS[c.subclass ?? ''] ? [STARFINDER_MYSTIC_TRADITIONS[c.subclass ?? '']] : []
       : c.className === 'Technomancer' && c.systems.includes('sf2e') ? ['Arcane']
@@ -2880,7 +2880,9 @@ export function classSkills(klass?: ContentEntry) {
 export function characterClassSkills(c: Character, entries: ContentEntry[]) {
   if (barbarianInstinct(c, entries) === 'bloodrager')
     return { fixed: ['Athletics', 'Medicine'], choices: [], additional: 2 }
-  return classSkills(byName(entries, 'class', c.className))
+  const skills = classSkills(byName(entries, 'class', c.className))
+  if (isVindicator(c, entries)) return { ...skills, fixed: skills.fixed.map(skill => skill === 'Nature' ? 'Religion' : skill) }
+  return skills
 }
 
 // Some Starfinder class records concatenate proficiency sentences without commas.
@@ -2981,7 +2983,7 @@ const spellName = (entries: ContentEntry[], name: string) => {
     for (const e of entries) if (e.kind === 'spell') map.set(e.name.toLowerCase(), e.name)
     spellNameCache.set(entries, map)
   }
-  return map.get(name.toLowerCase()) ?? name.replace(/\b\w/g, (m) => m.toUpperCase())
+  return map.get(name.toLowerCase()) ?? name.replace(/\b\w/g, (m) => m.toUpperCase()).replace(/'S\b/g, "'s")
 }
 
 // Focus spells from the druid's order, Order Magic and feats that grant one; plus the resulting Focus Points
@@ -2992,6 +2994,7 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
     if (!out.has(name.toLowerCase())) out.set(name.toLowerCase(), { name, source })
   }
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
+  if (isVindicator(c, entries)) add("Vindicator's Mark", 'Vindication')
   if (c.level >= 1 && c.systems.includes('pf2e') && ['Bard', 'Oracle', 'Witch'].includes(c.className ?? '')) {
     const subclass = selectedSubclass(c, entries)
     const subclasses = [subclass, ...(c.className === 'Bard' ? active
@@ -3115,6 +3118,11 @@ export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {
       .find((order) => Object.hasOwn(DRUID_ORDERS, order) && !explored.has(order))
   }
   return subclassOptions(c, entries).find((entry) => names.has(entry.name))?.name
+}
+
+function isVindicator(c: Character, entries: ContentEntry[] = []) {
+  return c.systems.includes('pf2e') && c.className === 'Ranger' && c.level >= 1
+    && selectedSubclass(c, entries) === 'Vindication'
 }
 
 export function precisionEdgeDamageDice(c: Character, entries: ContentEntry[] = []) {
@@ -3710,6 +3718,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
 const shieldFeaturesCache = new WeakMap<ContentEntry[], ContentEntry[]>()
 export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   const grants: { name: string; source: string; level: number; choice?: string; choiceKey?: string; choiceIndex?: number }[] = []
+  if (vindicatorDeadlySimplicity(c, entries)) grants.push({ name: 'Deadly Simplicity', source: 'Vindicator', level: 1 })
   grants.push(...damayaSelfPerfectionLoreGrants(c))
   if (c.systems.includes('sf2e')) for (const feat of activeFeatsNamed(c, 'Damaya Self-Perfection')) {
     grants.push({ name: 'Legendary Professional', source: feat.name, level: featTakenLevel(feat) })
@@ -4291,12 +4300,14 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
   ) : 0
   const avengerRank = rogueRackets(c, entries).includes('Avenger') && isFavoredWeapon(c, entries, weapon.name)
     ? Math.max(1, baseWeaponRanks(c, entries).Simple, baseWeaponRanks(c, entries).Martial) : 0
+  const vindicatorRank = isVindicator(c, entries) && isFavoredWeapon(c, entries, weapon.name)
+    ? Math.max(1, category === 'Advanced' ? ranks.Martial : 0) : 0
   const martialExperience = activeFeatsNamed(c, 'Martial Experience').length > 0
   const expertise = familiarity?.expertise || unconventional && activeFeatsNamed(c, 'Unconventional Expertise').length > 0
   const rank = Math.max(category === 'Unarmed' ? 1 : 0, ranks[category], familiarCategory ? ranks[familiarCategory] : 0,
     unconventionalCategory ? ranks[unconventionalCategory] : 0, innovationCategory ? ranks[innovationCategory] : 0,
     familiarity?.trained ? 1 : 0, expertise ? Math.max(...Object.values(baseWeaponRanks(c, entries))) : 0,
-    advancedTraining ? c.level >= 11 ? 2 : 1 : 0, avengerRank, operativeRank, professionalRank,
+    advancedTraining ? c.level >= 11 ? 2 : 1 : 0, avengerRank, vindicatorRank, operativeRank, professionalRank,
     highestRank ? Math.max(...Object.values(ranks)) : 0)
   const proficiencySources = [
     { name: category, rank: Math.max(category === 'Unarmed' ? 1 : 0, ranks[category]) },
@@ -4307,6 +4318,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     ...(expertise ? [{ name: 'Weapon expertise', rank: Math.max(...Object.values(baseWeaponRanks(c, entries))) }] : []),
     ...(advancedTraining ? [{ name: 'Weapon Proficiency feat', rank: c.level >= 11 ? 2 : 1 }] : []),
     ...(avengerRank ? [{ name: 'Avenger favored weapon', rank: avengerRank }] : []),
+    ...(vindicatorRank ? [{ name: 'Vindicator favored weapon', rank: vindicatorRank }] : []),
     ...(operativeRank ? [{ name: strikerWeapon ? 'Striker' : 'Operative', rank: operativeRank }] : []),
     ...(professionalRank ? [{ name: 'Professional', rank: professionalRank }] : []),
     ...(highestRank ? [{ name: 'Cairn Form: highest weapon proficiency', rank: Math.max(...Object.values(ranks)) }] : []),
@@ -5304,7 +5316,7 @@ export function offensiveDefenseAttack(c: Character, entries: ContentEntry[]) {
 }
 
 export const hasDeityWeaponGrant = (c: Character) => !!c.deity && (['Champion', 'Cleric'].includes(c.className ?? '')
-  || c.className === 'Ranger' && activeFeatsNamed(c, 'Vindicator Dedication').length > 0)
+  || isVindicator(c) || c.className === 'Ranger' && activeFeatsNamed(c, 'Vindicator Dedication').length > 0)
 
 export function deityWeapon(c: Character, entries: ContentEntry[]) {
   if (!hasDeityWeaponGrant(c)) return undefined
@@ -6158,6 +6170,14 @@ function isDeadlySimplicityWeapon(c: Character, entries: ContentEntry[], entry?:
   return category === 'Unarmed' || category === 'Simple' && weaponRanks(c, entries).Simple >= 1
 }
 
+function vindicatorDeadlySimplicity(c: Character, entries: ContentEntry[]) {
+  return isVindicator(c, entries) && [...entries, ...SUPPLEMENTAL_WEAPONS].some(entry => {
+    if (entry.kind !== 'weapon' || entry.deleted || !isDeadlySimplicityWeapon(c, entries, entry)) return false
+    const die = /(?:\d+)?d(\d+)/i.exec(String(entry.data.damage ?? ''))
+    return !!die && Number(die[1]) < 6
+  })
+}
+
 export function blessedArmamentTargets(c: Character, entries: ContentEntry[]) {
   const favored = ownedWeapons(c, entries).filter((weapon) => isFavoredWeapon(c, entries, weapon.name))
   const manufactured = favored.filter((weapon) => weapon.id !== OVERSIZED_THROW.id && weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed')
@@ -6914,7 +6934,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ? traits.map(trait => /^two-hand\s+(?:1)?d(4|6|8|10|12)$/i.exec(trait.trim())?.[1]).find(Boolean) : undefined
   const baseDie = m ? Number(twoHandDie ?? m[2]) : 0
   const dieSteps = [4, 6, 8, 10, 12]
-  const baseDamageDie = hasFeat(c, 'Deadly Simplicity') && isDeadlySimplicityWeapon(c, entries, entry)
+  const baseDamageDie = isDeadlySimplicityWeapon(c, entries, entry) && (hasFeat(c, 'Deadly Simplicity') || vindicatorDeadlySimplicity(c, entries))
     ? category === 'Unarmed' ? Math.max(baseDie, 6) : dieSteps.find((step) => step > baseDie) ?? baseDie
     : baseDie
   const shieldWarfare = activeFeatsNamed(c, 'Shield Warfare').length > 0

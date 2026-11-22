@@ -5,12 +5,26 @@ import * as featChoices from './featChoices'
 import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
-import { classExtraSlots, classRepertoireRows, classSpellSlots } from './builder'
+import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting } from './builder'
 import { hasRemainingFeatSelections } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
   id: `${kind}:${name}`, systems: ['pf2e'], kind, source: 'official', name, level, traits, description: '', data, effects: [], updatedAt: 1,
+})
+
+it('grants Vindication starting skills and divine warden spell at level 1', () => {
+  const ranger = entry('class', 'Ranger', { skill_proficiency: 'Trained in Nature, Trained in Survival, Trained in a number of additional skills equal to 4 plus your Intelligence modifier' })
+  const mark = entry('spell', "Vindicator's Mark", {}, 1, ['Focus'])
+  const c: Character = { ...base, className: 'Ranger', subclass: 'Vindication', level: 1, feats: [] }
+  expect(characterClassSkills(c, [ranger]).fixed).toContain('Religion')
+  expect(characterClassSkills(c, [ranger]).fixed).not.toContain('Nature')
+  expect(focusSpells(c, [ranger, mark])).toMatchObject({ spells: [{ name: "Vindicator's Mark", source: 'Vindication' }], points: 1 })
+  expect(focusSpells(c, [ranger]).spells[0].name).toBe("Vindicator's Mark")
+  expect(classSpellcasting(c, [ranger])).toMatchObject({ traditions: ['Divine'], ability: 'wis' })
+  expect(focusSpells({ ...c, subclass: 'Flurry' }, [ranger]).spells).toEqual([])
+  expect(focusSpells({ ...c, level: 0 }, [ranger]).spells).toEqual([])
+  expect(focusSpells({ ...c, systems: ['sf2e'] }, [ranger]).spells).toEqual([])
 })
 
 it('detects unfilled current feat slots while respecting filled and skipped slots', () => {

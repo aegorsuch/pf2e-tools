@@ -12,6 +12,16 @@ vi.mock('react', async importOriginal => {
 
 afterEach(() => vi.restoreAllMocks())
 
+it('rolls heightened Vindicator mark damage and its dismissal separately', () => {
+  expect(spellDamage("Vindicator's Mark", 0)).toEqual([])
+  for (const [rank, initial, dismissal] of [[1, 2, 2], [2, 2, 2], [3, 4, 3], [9, 10, 6]]) {
+    expect(spellActionRolls("Vindicator's Mark", rank)).toEqual([
+      { damage: { label: 'Initial damage', dice: initial, sides: 4, type: 'spirit' }, actions: 'Two Actions' },
+      { damage: { label: 'Dismissal damage', dice: dismissal, sides: 6, type: 'spirit' }, actions: 'One Action' },
+    ])
+  }
+})
+
 it('rolls Verdant Code piercing damage without inventing heightening', () => {
   const entry: ContentEntry = { id: 'verdant-code', name: 'Verdant Code', systems: ['sf2e'], kind: 'spell',
     source: 'official', level: 2, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

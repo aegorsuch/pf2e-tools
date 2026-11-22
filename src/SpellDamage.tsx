@@ -9,6 +9,14 @@ type DamageResult = number | number[] | { primary: number; additional: number }
 
 export function spellDamage(name: string, rank: number, spellcastingModifier?: number): Damage[] {
   switch (name) {
+    case "Vindicator's Mark": {
+      if (rank < 1) return []
+      const heightened = Math.floor((rank - 1) / 2)
+      return [
+        { label: 'Initial damage', dice: 2 + 2 * heightened, sides: 4, type: 'spirit' },
+        { label: 'Dismissal damage', dice: 2 + heightened, sides: 6, type: 'spirit' },
+      ]
+    }
     case 'Verdant Code':
       return rank >= 2 ? [{ label: 'Damage', dice: 2, sides: 6, type: 'piercing' }] : []
     case 'Wall of Fire':
@@ -330,6 +338,7 @@ export function WarpWorldRoll({ rank }: { rank: number }) {
 
 export function spellActionRolls(name: string, rank: number, entry?: ContentEntry, spellcastingModifier?: number) {
   const rolls = spellDamage(name, rank, spellcastingModifier)
+  if (name === "Vindicator's Mark") return rolls.map((damage, index) => ({ damage, actions: index === 0 ? 'Two Actions' : 'One Action' }))
   if (name === 'Vampiric Revelry') return rolls.map(damage => ({ damage, actions: 'Two Actions' }))
   if (name === 'Harm') return rolls.flatMap(damage =>
     ['One Action', 'Two Actions', 'Three Actions'].map((actions, index) =>

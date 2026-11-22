@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canBeOsteoArmament, canBeWeaponInnovation, canInstallAugmentation, championBlessings, characterSummary, classDifficultyClass, combinationForms, combinationName, defenseSummary, deitySanctification, dinosaurForm, effectiveHandwraps, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featEffectChange, gearPickerEntries, hasAutomaticWeaponFundamentals, hasParryWeapon, isLockedWeapon, parryValue, savingThrowBreakdown, spellDifficultyClass,
+  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticFeatGrants, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canBeOsteoArmament, canBeWeaponInnovation, canInstallAugmentation, championBlessings, characterSummary, classDifficultyClass, combinationForms, combinationName, defenseSummary, deitySanctification, dinosaurForm, effectiveHandwraps, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featEffectChange, gearPickerEntries, hasAutomaticWeaponFundamentals, hasParryWeapon, isLockedWeapon, parryValue, savingThrowBreakdown, spellDifficultyClass,
   featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, signed, speed, weaponAttack, weaponEntry, weaponEquipped,
 } from './builder'
 import { companionStats } from './companions'
@@ -266,6 +266,23 @@ const haftStance = content('feat', 'Haft Striker Stance', {}, 4, ['Fighter', 'St
 const sword = content('weapon', 'Longsword', { damage: '1d8 slashing', hands: 1, weapon_category: 'Martial' })
 const deity = content('deity', 'Iomedae', { favored_weapon: 'longsword', sanctification: 'holy', sanctification_required: true })
 const main: OwnedWeapon = { id: 'main', name: 'Longsword', potency: 3, striking: 1, runes: [] }
+
+it('grants Vindicator favored weapon proficiency and qualifying Deadly Simplicity at level 1', () => {
+  const ranger = content('class', 'Ranger', { attack_proficiency: 'Trained in simple weapons, expert in martial weapons' })
+  const advanced = content('weapon', 'Advanced blade', { weapon_category: 'Advanced', damage: '1d8 slashing' })
+  const staff = content('weapon', 'Staff', { weapon_category: 'Simple', damage: '1d4 bludgeoning' })
+  const favored = { ...deity, data: { favored_weapon: 'advanced blade, staff' } }
+  const c: Character = { ...base, className: 'Ranger', subclass: 'Vindication', level: 1, feats: [] }
+  const weapon = (name: string): OwnedWeapon => ({ id: name, name, potency: 0, striking: 0, runes: [] })
+  const entries = [ranger, advanced, staff, favored]
+  expect(weaponAttack(c, entries, weapon(advanced.name)).rank).toBe(2)
+  expect(weaponAttack(c, entries, weapon(staff.name)).damage).toMatch(/^1d6/)
+  expect(automaticFeatGrants(c, entries)).toContainEqual({ name: 'Deadly Simplicity', source: 'Vindicator', level: 1 })
+  expect(automaticFeatGrants(c, [ranger, advanced, { ...favored, data: { favored_weapon: advanced.name } }]))
+    .not.toContainEqual(expect.objectContaining({ name: 'Deadly Simplicity' }))
+  expect(weaponAttack({ ...c, subclass: 'Flurry' }, entries, weapon(advanced.name)).rank).toBe(0)
+  expect(weaponAttack({ ...c, subclass: 'Flurry' }, entries, weapon(staff.name)).damage).toMatch(/^1d4/)
+})
 
 it.each([
   ['Tethered Living Weapon', 'Living Weapon', 'Ranger', 'livingWeapon'],
