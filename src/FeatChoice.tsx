@@ -9,6 +9,12 @@ import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { EntryDescription } from './EntryDescription'
 
 const repeatableFeatNames = new WeakMap<SectionProps['entries'], Set<string>>()
+const PLANAR_LORE_CHOICES = [
+  'Abaddon', 'Astral Plane', 'Axis', 'Boneyard', "Creation's Forge", 'Dimension of Time', 'Dreamlands',
+  'Elysium', 'Ethereal Plane', 'First World', 'Heaven', 'Hell', 'Maelstrom', 'Netherworld', 'Nirvana',
+  'Outer Rifts', 'Plane of Air', 'Plane of Earth', 'Plane of Fire', 'Plane of Metal', 'Plane of Water',
+  'Plane of Wood', 'Universe', 'Void',
+]
 function isRepeatableFeat(entries: SectionProps['entries'], name: string) {
   let names = repeatableFeatNames.get(entries)
   if (!names) {
@@ -45,6 +51,26 @@ export function AutomaticFeatChoice({ c, entries, save, name, source, choice, ch
 }) {
   if (name === 'Additional Lore') {
     const key = choiceKey ?? automaticFeatChoiceKey(source, name)
+    if (source === 'Nephilim Lore') {
+      const current = choice?.trim().replace(/\s+lore$/i, '') ?? ''
+      const selected = PLANAR_LORE_CHOICES.find(option => option.toLowerCase() === current.toLowerCase()) ?? current
+      const feat = entries.find(entry => entry.kind === 'feat' && entry.name === name && entry.systems.includes('pf2e') && !entry.deleted)
+      return <>
+        <SearchableSelect aria-label="Nephilim Lore Additional Lore" alwaysSearchable value={selected}
+          renderDetails={() => <EntryDescription character={c} name={name} entry={feat} entries={entries}
+            buttonLabel="Details" className="picker-details" />}
+          onChange={event => {
+            const value = event.target.value
+            if (!PLANAR_LORE_CHOICES.includes(value)) return
+            save({ automaticFeatChoices: { ...c.automaticFeatChoices, [key]: value } })
+          }}>
+          <option value="" disabled>Additional Lore</option>
+          {selected && !PLANAR_LORE_CHOICES.includes(selected) && <option value={selected} disabled>Additional Lore ({selected}) (unavailable)</option>}
+          {PLANAR_LORE_CHOICES.map(plane => <option key={plane} value={plane}>Additional Lore ({plane})</option>)}
+        </SearchableSelect>
+        {' '}<small>({source})</small>
+      </>
+    }
     return <label className="feat-choice">
       Lore subcategory{' '}
       <input key={`${key}:${choice ?? ''}`} aria-label={`${source} Additional Lore subcategory${choiceIndex ? ` ${choiceIndex}` : ''}`} defaultValue={choice ?? ''}

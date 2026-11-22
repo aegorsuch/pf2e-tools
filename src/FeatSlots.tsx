@@ -399,9 +399,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               {heading}
               <li className={`feat-slot-row ${background ? 'background' : 'automatic'}-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
                 {background && grantedType(feat.name) !== 'Skill Feat' && multi && <span>L{String(row.level).padStart(2, '0')} Background {grantedType(feat.name)}</span>}
-                <EntryDescription character={c} name={`${displayName(feat.name)}${row.kind === 'automatic' && row.feat.choice ? ` (${row.feat.choice})` : ''}`}
+                {!(row.kind === 'automatic' && feat.name === 'Additional Lore' && row.feat.source === 'Nephilim Lore') && <EntryDescription character={c} name={`${displayName(feat.name)}${row.kind === 'automatic' && row.feat.choice ? ` (${row.feat.choice})` : ''}`}
                   entry={entry} choice={row.kind === 'automatic' ? row.feat.choice : undefined} entries={entries} className="feat-name" access={entry ? featAccess(c, entry) : undefined}
-                  grantSource={row.kind === 'automatic' ? row.feat.source : c.background} />
+                  grantSource={row.kind === 'automatic' ? row.feat.source : c.background} />}
                 {row.kind === 'automatic' && !row.feat.fixedLore && <AutomaticFeatChoice c={c} entries={entries} save={save}
                   name={feat.name} source={row.feat.source} choice={row.feat.choice}
                   choiceKey={row.feat.choiceKey} choiceIndex={row.feat.choiceIndex} />}

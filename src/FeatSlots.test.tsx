@@ -13,6 +13,7 @@ import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
 import { TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
+import { SearchableSelect } from './SearchableSelect'
 
 let previousPlanning: boolean
 beforeEach(() => {
@@ -157,6 +158,28 @@ it('shows editable Lore choice for a heritage-granted Additional Lore feat', () 
   expect(markup).toContain('Additional Lore')
   expect(markup).toContain('aria-label="Sage Jotunborn Additional Lore subcategory"')
   expect(markup).toContain('value="Sailing"')
+})
+
+it('offers a clickable planar-only Additional Lore picker for Nephilim Lore', () => {
+  const key = automaticFeatChoiceKey('Nephilim Lore', 'Additional Lore')
+  let c: Character = { ...emptyRanger(), level: 7,
+    feats: [{ name: 'Nephilim Lore', type: 'Ancestry Feat', level: 1, choice: 'Diplomacy' }] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const render = () => renderToStaticMarkup(<FeatSlots c={c} entries={[]} categories={['skill']} save={save} />)
+  expect(render()).toContain('aria-label="Nephilim Lore Additional Lore" aria-haspopup="dialog"')
+  expect(render()).toContain('Additional Lore (Heaven)')
+  expect(render()).toContain('Additional Lore (Plane of Fire)')
+  expect(render()).not.toContain('Additional Lore (Sailing)')
+  const control = AutomaticFeatChoice({ c, entries: [], save, name: 'Additional Lore', source: 'Nephilim Lore' })
+  const select = Children.toArray(control!.props.children).find(child => isValidElement(child) && child.type === SearchableSelect)
+  if (!isValidElement<{ onChange: (event: unknown) => void }>(select)) throw new Error('Missing planar Lore picker')
+  select.props.onChange({ target: { value: 'Sailing' } })
+  expect(c.automaticFeatChoices?.[key]).toBeUndefined()
+  select.props.onChange({ target: { value: 'Heaven' } })
+  expect(c.automaticFeatChoices?.[key]).toBe('Heaven')
+  expect(ranksAt(c, [])['Heaven Lore']).toBe(3)
+  c = { ...c, automaticFeatChoices: { [key]: 'Sailing' } }
+  expect(render()).toContain('Additional Lore (Sailing) (unavailable)')
 })
 
 it('omits the subcategory selector for lore fixed by another feat', () => {
