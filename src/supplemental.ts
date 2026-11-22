@@ -31,6 +31,20 @@ export const PARRYING_RUNE: ContentEntry = {
   description: 'Defensive markings guide this weapon into a guarding position. Price 140 gp. Usage: etched onto a melee weapon.\n\nThe weapon gains the parry trait. If you are trained or better with this weapon, you can spend one action while wielding it to gain a +1 circumstance bonus to AC until the start of your next turn. This bonus does not stack with other circumstance bonuses to AC.',
 }
 
+export const GRAPPLING_MODULE: ContentEntry = {
+  id: 'homebrew:grappling-module', systems: ['sf2e'], kind: 'item', source: 'homebrew',
+  name: 'Grappling Module', level: 8, traits: ['Tech'],
+  description: 'This weapon upgrade grants the grapple trait.',
+  data: { item_category: 'Upgrades', item_subcategory: 'Weapon Upgrades', usage: 'installed in a melee weapon',
+    price: 4500, bulk: 0.1, rarity: 'common', sourceBook: 'Homebrew' },
+  effects: [], updatedAt: 1,
+}
+
+export const SHOVING_MODULE: ContentEntry = {
+  ...GRAPPLING_MODULE, id: 'homebrew:shoving-module', name: 'Shoving Module',
+  description: 'This weapon upgrade grants the shove trait.',
+}
+
 export const KILLERS_BELT_MAJOR: ContentEntry = {
   id: 'homebrew:killers-belt-major', systems: ['pf2e'], kind: 'item', source: 'homebrew',
   name: "Killer's Belt (Major)", level: 17, traits: ['Invested', 'Magical'],

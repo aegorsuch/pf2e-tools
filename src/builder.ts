@@ -6486,6 +6486,8 @@ export function weaponCategory(entry?: ContentEntry): (typeof WEAPON_CATEGORIES)
   return WEAPON_CATEGORIES.find((cat) => text.includes(cat.toLowerCase())) ?? 'Simple'
 }
 export const isRanged = (entry?: ContentEntry) => /ranged/i.test(String(entry?.data.weapon_type ?? '')) || num(entry?.data.range) > 0
+export const supportsMeleeWeaponUpgrade = (entry?: ContentEntry) =>
+  !!entry && (/^melee$/i.test(String(entry.data.weapon_type ?? '').trim()) || !isRanged(entry))
 
 export const INVENTIVE_OFFENSIVE_TRAITS = ['Deadly d6', 'Disarm', 'Nonlethal', 'Shove', 'Trip',
   'Versatile B', 'Versatile P', 'Versatile S'] as const
@@ -6650,6 +6652,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         || upgrades.some(upgrade => /^Protection Grid(?:\s*\(|$)/i.test(upgrade.name)) ? ['Parry'] : []),
       ...(twinShooter ? ['Agile'] : []),
       ...(upgrades.some(upgrade => upgrade.name === 'Merciful') ? ['Nonlethal'] : []),
+      ...(c.systems.includes('sf2e') && supportsMeleeWeaponUpgrade(entry) && upgrades.some(upgrade => upgrade.id === 'homebrew:grappling-module') ? ['Grapple'] : []),
+      ...(c.systems.includes('sf2e') && supportsMeleeWeaponUpgrade(entry) && upgrades.some(upgrade => upgrade.id === 'homebrew:shoving-module') ? ['Shove'] : []),
       ...(mechanicMods?.incapacitant ? ['Nonlethal'] : []),
       ...(upgrades.some(upgrade => /^Smuggler's Grip(?:\s*\(|$)/i.test(upgrade.name)) ? ['Concealed'] : []),
     ].filter(trait => !existingTraits.includes(trait.toLowerCase()))

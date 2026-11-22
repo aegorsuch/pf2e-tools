@@ -26,6 +26,7 @@ import { BRIAR_MAX_SHARPNESS, briarSharpnessPoints, namedWeaponAbilities, namedW
 import { hunterArrowheadBonus, isFeatEffectActive } from './builder'
 import { ARMIGER_ARMOR_ID, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, IRON_FIST, OVERSIZED_THROW, SPARK_FIST, UNTAMED_CLAWS } from './supplemental'
+import { supportsMeleeWeaponUpgrade } from './builder'
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { EnergyNeutralizer } from './EnergyNeutralizer'
 import { TransmutativeCasing } from './TransmutativeCasing'
@@ -461,6 +462,7 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange }: {
     if (/without a silencer/.test(text) && installed.some(item => item?.name.toLowerCase().startsWith('silencer'))) return false
     if (/without a loudener/.test(text) && installed.some(item => item?.name.toLowerCase().startsWith('loudener'))) return false
     if (/\branged\b/.test(text) && !isRanged(weapon)) return false
+    if (['homebrew:grappling-module', 'homebrew:shoving-module'].includes(entry.id) && !supportsMeleeWeaponUpgrade(weapon)) return false
     if (/\bthrown\b/.test(text) && !traits.some(trait => trait.startsWith('thrown'))) return false
     if (/\barea weapon\b/.test(text) && !traits.some(trait => trait.startsWith('area'))) return false
     if (/kickback trait/.test(text) && !traits.some(trait => trait.startsWith('kickback'))) return false

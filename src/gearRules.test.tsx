@@ -18,7 +18,7 @@ import { mapAonHit, mapAonHits } from './aon'
 import type { Character, ContentEntry, HardlightGrade, OwnedWeapon } from './types'
 import { parryBonus, ringCapacity, ringCount, twinnedDefenseActive } from './builder'
 import { canBeGiantWeapon, giantWeaponClumsy, isGiantWeapon, tradecraftTattooBonus } from './builder'
-import { PARRYING_RUNE } from './supplemental'
+import { GRAPPLING_MODULE, PARRYING_RUNE, SHOVING_MODULE } from './supplemental'
 import { groupHomebrew } from './HomebrewList'
 import { crocodileBattleForm, insectBattleForm } from './battleForms'
 import { activeBattleForm, animalRageFormChange, bulkLimits, classSpellcasting, dragonTransformationChange, giantStatureChange, giantStatureSize, spellActiveChange, thrashDamage } from './builder'
@@ -1391,6 +1391,26 @@ it('applies hardlight upgrades to fists and other unarmed attacks, including tac
   const normalWraps = { ...fistCharacter, handwraps: { ...c.handwraps!, kind: undefined } }
   expect(weaponAttack(normalWraps, entries, fist).upgrades).toEqual([])
   expect(hasParryWeapon(normalWraps, entries)).toBe(false)
+})
+
+it('applies grapple and shove modules only to eligible upgraded attacks', () => {
+  const blade = { ...content('weapon', 'Tech Blade', { weapon_category: 'Martial', weapon_type: 'Melee',
+    damage: '1d6 slashing', upgrade_slots: 2 }, 1, ['Tech', 'Grapple']), systems: ['sf2e' as const] }
+  const w: OwnedWeapon = { id: 'blade', name: blade.name, potency: 0, striking: 0, runes: [],
+    upgrades: [GRAPPLING_MODULE.id, SHOVING_MODULE.id] }
+  const entries = [blade, GRAPPLING_MODULE, SHOVING_MODULE]
+  const c: Character = { ...base, systems: ['sf2e'], weapons: [w] }
+  expect(weaponAttack(c, entries, w).traits.filter(t => t === 'Grapple')).toEqual(['Grapple'])
+  expect(weaponAttack(c, entries, w).traits).toContain('Shove')
+  expect(weaponAttack(c, entries, { ...w, upgrades: [] }).traits).not.toContain('Shove')
+  const ranged = { ...blade, traits: ['Tech'], data: { ...blade.data, weapon_type: 'Ranged', range: 30 } }
+  expect(weaponAttack(c, [ranged, ...entries.slice(1)], w).traits).not.toContain('Grapple')
+  expect(weaponAttack(c, [ranged, ...entries.slice(1)], w).traits).not.toContain('Shove')
+  const withWraps: Character = { ...c, weapons: [], handwraps: { kind: 'hardlight', grade: 'Elite',
+    potency: 0, striking: 0, runes: [], upgrades: [GRAPPLING_MODULE.id, SHOVING_MODULE.id] } }
+  const fist = ownedWeapons(withWraps, entries).find(attack => attack.name === 'Fist')!
+  expect(weaponAttack(withWraps, entries, fist).traits).toEqual(expect.arrayContaining(['Grapple', 'Shove']))
+  expect(weaponAttack({ ...withWraps, handwraps: undefined }, entries, fist).traits).not.toContain('Grapple')
 })
 
 it('uses only an equipped upgraded weapon for Protection Grid parry', () => {

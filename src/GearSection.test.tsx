@@ -1,12 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList } from './GearSection'
+import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
-import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_RUNE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
+import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
 import { getSettings, updateSettings } from './settings'
 import { canEquipShield, equippedHands, equippedShield, hardwoodShield, shieldEquipChange } from './builder'
 import { GearSystemFilter } from './GearSystemFilter'
@@ -2273,6 +2273,27 @@ it('installs compatible weapon upgrades within capacity without changing saved r
   const full = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
   expect(full).not.toContain('Upgrade slots:')
   expect(full).not.toContain('aria-label="Add weapon upgrade"')
+})
+
+it('offers grapple and shove modules for melee weapons and hardlight handwraps, but not ranged weapons', () => {
+  const melee: ContentEntry = { ...weapon, systems: ['sf2e'], traits: ['Tech'],
+    data: { weapon_type: 'Melee', range: 20, upgrade_slots: 2 } }
+  const ranged = { ...melee, data: { ...melee.data, weapon_type: 'Ranged' } }
+  const entries = [GRAPPLING_MODULE, SHOVING_MODULE]
+  let upgrades: string[] = []
+  const render = (target: ContentEntry) => WeaponUpgrades({ entries, weapon: target, upgrades, limit: 1, onChange: ids => { upgrades = ids } })
+  expect(renderToStaticMarkup(render(melee))).toContain('Grappling Module')
+  expect(renderToStaticMarkup(render(melee))).toContain('Shoving Module')
+  expect(renderToStaticMarkup(render(ranged))).not.toContain('Grappling Module')
+  const handwraps = { ...HARDLIGHT_HANDWRAPS, data: { ...HARDLIGHT_HANDWRAPS.data, weapon_type: 'Melee' } }
+  expect(renderToStaticMarkup(render(handwraps))).toContain('Shoving Module')
+  const select = findElement(render(melee), element => element.props['aria-label'] === 'Add weapon upgrade')!
+  ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: GRAPPLING_MODULE.id } })
+  expect(upgrades).toEqual([GRAPPLING_MODULE.id])
+  expect(renderToStaticMarkup(render(melee))).not.toContain('Add weapon upgrade')
+  const tag = findElement(render(melee), element => typeof element.type === 'function' && element.type.name === 'GearTag')!
+  ;(tag.props.onRemove as () => void)()
+  expect(upgrades).toEqual([])
 })
 
 it('treats Starfinder weapons without a tech trait but with upgrade slots as upgrade weapons and lists installed upgrades once', () => {
