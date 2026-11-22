@@ -167,11 +167,31 @@ export function familiarAbilityUnavailableReason(entry: ContentEntry, c: Charact
   return undefined
 }
 
+export function minionMovementSpeeds(abilities: string[], fastMovement?: string, aquatic = false) {
+  const selected = abilities.map(key)
+  const has = (name: string) => selected.includes(key(name))
+  const amphibious = has('Amphibious')
+  const speeds = [
+    ...(!aquatic || amphibious ? [{ movement: 'Land', feet: 25 }] : []),
+    ...(aquatic || amphibious ? [{ movement: 'Swim', feet: 25 }] : []),
+    ...(has('Burrower') ? [{ movement: 'Burrow', feet: 5 }] : []),
+    ...(has('Climber') ? [{ movement: 'Climb', feet: 25 }] : []),
+    ...(has('Flier') ? [{ movement: 'Fly', feet: 25 }] : []),
+  ]
+  const eligible = speeds.filter(speed => speed.feet === 25)
+  const chosen = eligible.find(speed => speed.movement === fastMovement) ?? eligible[0]
+  return speeds.map(speed => ({
+    ...speed,
+    feet: has('Fast Movement') && (speed.movement === chosen?.movement
+      || amphibious && ['Land', 'Swim'].includes(speed.movement) && ['Land', 'Swim'].includes(chosen?.movement ?? ''))
+      ? 40 : speed.feet,
+  }))
+}
+
 export function familiarAbilityEffects(abilities: string[], level: number,
   options?: NonNullable<Character['familiar']>['abilityOptions'], spellcastingModifier = 0) {
   const selected = abilities.map(key)
   const has = (name: string) => selected.includes(key(name))
-  const fastMovement = options?.fastMovement ?? 'Land'
   const resistanceRank = has('Major Resistance') ? level
     : has('Greater Resistance') ? 3 + Math.floor(level / 2)
       : has('Resistance') ? Math.max(1, Math.floor(level / 2)) : 0
@@ -180,13 +200,7 @@ export function familiarAbilityEffects(abilities: string[], level: number,
   const skillModifier = level + spellcastingModifier
   return {
     hitPoints: level * (5 + (has('Tough') ? 2 : 0)),
-    speeds: [
-      { movement: 'Land', feet: fastMovement === 'Land' && has('Fast Movement') ? 40 : 25 },
-      ...(has('Amphibious') ? [{ movement: 'Swim', feet: fastMovement === 'Swim' && has('Fast Movement') ? 40 : 25 }] : []),
-      ...(has('Burrower') ? [{ movement: 'Burrow', feet: 5 }] : []),
-      ...(has('Climber') ? [{ movement: 'Climb', feet: fastMovement === 'Climb' && has('Fast Movement') ? 40 : 25 }] : []),
-      ...(has('Flier') ? [{ movement: 'Fly', feet: fastMovement === 'Fly' && has('Fast Movement') ? 40 : 25 }] : []),
-    ],
+    speeds: minionMovementSpeeds(abilities, options?.fastMovement),
     senses: [
       ...(has('Darkvision') ? ['Darkvision'] : []),
       ...(has('Scent') ? ['Scent (imprecise, 30 feet)'] : []),

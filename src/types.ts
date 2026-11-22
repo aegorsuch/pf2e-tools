@@ -429,7 +429,7 @@ export interface Character {
     mascotLanguage?: string; mascotBannerAffixed?: boolean; paleHorse?: 'Fire' | 'Poison' | 'Void'; spiritAspect?: 'Might' | 'Swiftness' | 'Insight' | 'Alpha' }[]
   familiar?: { name?: string; leshyAbility?: 'Plant' | 'Fungus'; leshySecret?: 'Grasping Tendrils' | 'Purify Air' | 'Verdant Burst'; abilities?: string[]; abilityOptions?: { resistance?: string[]; skilled?: string[]; fastMovement?: string }; oakenResilienceActive?: boolean; oakenResilienceRank?: number }
   waspFamiliar?: Character['familiar']
-  pet?: { name?: string; aquatic?: boolean; abilities?: string[] }
+  pet?: { name?: string; aquatic?: boolean; abilities?: string[]; fastMovement?: string }
   faithfulSteedGranted?: boolean
   // Manually added slots on top of those from class/ancestry and granted effects
   extraSlots: FeatSlot[]

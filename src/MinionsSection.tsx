@@ -16,7 +16,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { activeCaypinAlly, activeLashuntaAlly } from './featSpells'
 import { DroneFeatures } from './DroneFeatures'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
-  familiarAbilityEntry, familiarAbilityUnavailableReason, familiarSelection, isFamiliarAbilityRepeatable } from './familiarAbilities'
+  familiarAbilityEntry, familiarAbilityUnavailableReason, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds } from './familiarAbilities'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
@@ -28,11 +28,9 @@ const PET_ABILITY_NOTES: Record<string, string> = {
   Climber: 'Climb Speed 25 feet.',
   Darkvision: 'Darkvision.',
   Echolocation: 'Precise hearing within 20 feet.',
-  'Fast Movement': 'Increase one 25-foot Speed to 40 feet.',
   Flier: 'Fly Speed 25 feet.',
   'Manual Dexterity': 'Can use up to two limbs as hands for manipulate actions.',
   Scent: 'Imprecise scent within 30 feet.',
-  Tough: 'Maximum HP increases by 2 per level.',
 }
 
 const SUMMONED_CREATURES = {
@@ -711,13 +709,14 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           })
           const castingAbility = classSpellcasting(c, entries)?.ability ?? c.spellcasting?.ability
           const spellcastingModifier = castingAbility ? Math.floor((c.abilities[castingAbility] - 10) / 2) : 0
-          const familiarEffects = familiarAbilityEffects(activeAbilities, c.level, data?.abilityOptions, spellcastingModifier)
-          const baseSpeeds = [
-            { movement: 'Land', feet: 25 },
-            ...(activeAbilities.some(ability => ability.toLowerCase() === 'amphibious') ? [{ movement: 'Swim', feet: 25 }] : []),
-            ...(activeAbilities.some(ability => ability.toLowerCase() === 'climber') ? [{ movement: 'Climb', feet: 25 }] : []),
-            ...(activeAbilities.some(ability => ability.toLowerCase() === 'flier') ? [{ movement: 'Fly', feet: 25 }] : []),
-          ]
+          const movementAbilities = [...activeAbilities, ...(isWasp ? ['Burrower', 'Flier'] : [])]
+          const familiarEffects = familiarAbilityEffects(movementAbilities, c.level, data?.abilityOptions, spellcastingModifier)
+          const amphibious = movementAbilities.some(ability => ability.toLowerCase() === 'amphibious')
+          const baseSpeeds = minionMovementSpeeds(movementAbilities.filter(ability => ability.toLowerCase() !== 'fast movement'))
+            .filter(speed => speed.feet === 25 && !(amphibious && speed.movement === 'Swim'))
+          const savedSpeed = amphibious && data?.abilityOptions?.fastMovement === 'Swim' ? 'Land' : data?.abilityOptions?.fastMovement
+          const selectedSpeed = baseSpeeds.find(speed => speed.movement === savedSpeed)?.movement
+            ?? baseSpeeds[0]?.movement
           const skilledCount = activeAbilities.filter(ability => ability.toLowerCase() === 'skilled').length
           const resistanceCount = activeAbilities.filter(ability => ability.toLowerCase() === 'resistance').length
           const saveFamiliar = (changes: Partial<NonNullable<Character['familiar']>>) =>
@@ -810,8 +809,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             .map(resistance => `${resistance.damage} ${resistance.value}`).join(', ')}</div>}
           {familiarEffects.skilled.length > 0 && <div><small>Skilled</small> {familiarEffects.skilled
             .map(skill => `${skill.skill} ${signed(skill.modifier)}`).join(', ')}</div>}
-          {activeAbilities.some(ability => ability.toLowerCase() === 'fast movement') && <label>Fast Movement{' '}
-            <select aria-label={`${familiarType} Fast Movement speed`} value={data?.abilityOptions?.fastMovement ?? 'Land'}
+          {activeAbilities.some(ability => ability.toLowerCase() === 'fast movement') && baseSpeeds.length > 1 && <label>Fast Movement{' '}
+            <select aria-label={`${familiarLabel} Fast Movement speed`} value={selectedSpeed}
               onChange={event => saveAbilityOptions({ fastMovement: event.target.value })}>
               {baseSpeeds.map(speed => <option key={speed.movement} value={speed.movement}>{speed.movement} ({speed.feet} feet)</option>)}
             </select>
@@ -868,11 +867,10 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
         </details>})}
         {pet && <details className="character-subsection" open>
           <summary><h4>{seaFriend ? 'Aquatic Pet' : 'Pet'}</h4></summary>
-          <label>Name <input aria-label="Pet name" value={c.pet?.name ?? ''}
-            onChange={event => save({ pet: { ...c.pet, name: event.target.value } })} /></label>
           {!seaFriend && <label><input type="checkbox" aria-label="Aquatic pet" checked={!!c.pet?.aquatic}
             onChange={event => save({ pet: { ...c.pet, aquatic: event.target.checked } })} /> Aquatic</label>}
-          <small>Level {c.level}; HP {c.level * (petAbilities.includes('Tough') || seaFriend ? 7 : 5)}; {seaFriend || c.pet?.aquatic ? 'swim Speed 25 feet; breathes water' : 'Speed 25 feet'}; low-light vision.</small>
+          <small>Level {c.level}; HP {c.level * (petAbilities.includes('Tough') || seaFriend ? 7 : 5)}; Speed {minionMovementSpeeds(petAbilities, c.pet?.fastMovement, !!(seaFriend || c.pet?.aquatic))
+            .map(speed => `${speed.movement === 'Land' ? '' : `${speed.movement} `}${speed.feet} feet`).join(', ')}; {seaFriend || c.pet?.aquatic ? 'breathes water; ' : ''}low-light vision.</small>
           {seaFriend && <small>Friend of the Sea grants Darkvision and Tough in addition to two pet abilities.</small>}
           {Array.from({ length: 2 }, (_, index) => <label key={index}>Pet ability {index + 1}{' '}
             <select aria-label={`Pet ability ${index + 1}`} value={petAbilities[index] ?? ''} onChange={event => {
@@ -889,7 +887,20 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 && !(seaFriend && ['Darkvision', 'Tough'].includes(ability))).map(ability => <option key={ability} disabled={seaFriend && ['Darkvision', 'Tough'].includes(ability)}>{ability}</option>)}
             </select>
           </label>)}
-          {[...new Set([...petAbilities.filter(ability => PET_ABILITIES.includes(ability)), ...(seaFriend ? ['Darkvision', 'Tough'] : [])])]
+          {petAbilities.includes('Fast Movement') && (() => {
+            const amphibious = petAbilities.includes('Amphibious')
+            const options = minionMovementSpeeds(petAbilities.filter(ability => ability !== 'Fast Movement'), undefined, !!(seaFriend || c.pet?.aquatic))
+              .filter(speed => speed.feet === 25 && !(amphibious && speed.movement === 'Swim'))
+            const saved = amphibious && c.pet?.fastMovement === 'Swim' ? 'Land' : c.pet?.fastMovement
+            const selected = options.find(speed => speed.movement === saved)?.movement ?? options[0]?.movement
+            return options.length > 1 && <label>Fast Movement{' '}
+              <select aria-label="Pet Fast Movement speed" value={selected}
+                onChange={event => save({ pet: { ...c.pet, fastMovement: event.target.value } })}>
+                {options.map(speed => <option key={speed.movement} value={speed.movement}>{speed.movement}</option>)}
+              </select>
+            </label>
+          })()}
+          {[...new Set([...petAbilities.filter(ability => PET_ABILITY_NOTES[ability]), ...(seaFriend ? ['Darkvision'] : [])])]
             .map(ability => <small key={ability}>{ability}: {PET_ABILITY_NOTES[ability]}</small>)}
           {seaFriend && petAbilities.some(ability => ['Darkvision', 'Tough'].includes(ability)) && <small>Choose a different pet ability; Darkvision and Tough are already granted.</small>}
           <MinionFerocity c={c} ferocity={ferocity} />

@@ -289,7 +289,7 @@ it('applies familiar ability prerequisites, movement, senses, skills, resistance
     c.level, { fastMovement: 'Swim', resistance: ['fire', 'cold'], skilled: ['Arcana'] }, 4)
   expect(familiar).toMatchObject({
     hitPoints: 56,
-    speeds: [{ movement: 'Land', feet: 25 }, { movement: 'Swim', feet: 40 }],
+    speeds: [{ movement: 'Land', feet: 40 }, { movement: 'Swim', feet: 40 }],
     senses: ['Hearing (precise, 20 feet)'],
     resistances: [{ damage: 'fire', value: 8 }, { damage: 'cold', value: 8 }],
     skilled: [{ skill: 'Arcana', modifier: 12 }],
@@ -916,9 +916,50 @@ it('shows a pet only when Beast Trainer grants Pet', () => {
     feats: [{ name: 'Beast Trainer', type: 'Ancestry Feat', level: 1, choice: 'Pet' }],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   }
-  expect(renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)).toContain('aria-label="Pet name"')
+  expect(renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)).toContain('<h4>Pet</h4>')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [{ ...c.feats[0], choice: 'Train Animal' }] }} entries={[]} save={() => {}} />))
-    .not.toContain('aria-label="Pet name"')
+    .not.toContain('<h4>Pet</h4>')
+})
+
+it('applies Fast Movement to pet Speeds without exposing the pet name or redundant ability notes', () => {
+  let c: Character = {
+    id: 'pet-speed', systems: ['pf2e'], name: 'Test', level: 4,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Beast Trainer', type: 'Ancestry Feat', level: 1, choice: 'Pet' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    pet: { name: 'Saved name', abilities: ['Fast Movement', 'Tough'] },
+  }
+  const tree = () => MinionsContent({ c, entries: [], save: patch => { c = { ...c, ...patch } } })
+  let html = renderToStaticMarkup(tree())
+  expect(html).toContain('HP 28; Speed 40 feet')
+  expect(html).not.toContain('aria-label="Pet name"')
+  expect(html).not.toContain('Increase one 25-foot Speed')
+  expect(html).not.toContain('Maximum HP increases by 2 per level')
+  expect(findSelect(tree(), 'Pet Fast Movement speed')).toBeUndefined()
+  expect(c.pet?.name).toBe('Saved name')
+
+  c = { ...c, pet: { ...c.pet, aquatic: true } }
+  expect(renderToStaticMarkup(tree())).toContain('Speed Swim 40 feet')
+  c = { ...c, pet: { ...c.pet, aquatic: false, abilities: ['Fast Movement', 'Flier'] } }
+  findSelect(tree(), 'Pet Fast Movement speed')!({ target: { value: 'Fly' } })
+  html = renderToStaticMarkup(tree())
+  expect(html).toContain('Speed 25 feet, Fly 40 feet')
+  expect(c.pet?.name).toBe('Saved name')
+  c = { ...c, pet: { ...c.pet, abilities: ['Tough'] } }
+  expect(renderToStaticMarkup(tree())).toContain('Speed 25 feet')
+})
+
+it('applies familiar Fast Movement to valid speeds and keeps amphibious movement equal', () => {
+  const c: Character = {
+    id: 'familiar-speed', systems: ['pf2e'], name: 'Test', level: 4, className: 'Wizard',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { abilities: ['Fast Movement', 'Amphibious'], abilityOptions: { fastMovement: 'Fly' } },
+  }
+  const html = renderToStaticMarkup(<MinionsContent c={c} entries={familiarEntries} save={() => {}} />)
+  expect(html).toContain('40 feet, Swim 40 feet')
+  expect(html).not.toContain('Familiar Fast Movement speed')
 })
 
 it('applies active familiar Tough and displays recognized daily ability effects', () => {
