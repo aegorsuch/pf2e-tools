@@ -1544,8 +1544,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 </SearchableSelect>
               </span>}
             </>}
-            {shieldSource ? null : fixed ? <small>Temporary thrown object; materials, runes, and enhancements cannot be changed.</small>
-              : linkedSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {linkedSource.name})</small>
+            {shieldSource || fixed ? null : linkedSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {linkedSource.name})</small>
               : unarmed ? alloyMaterial : <div className="row">
               {osteoArmament ? null : card ? <small>Material: playing cards</small> : <>
               {grantedClanWeapon ? <div className="gear-runes"><span>Material</span>
