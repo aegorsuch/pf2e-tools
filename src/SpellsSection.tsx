@@ -241,6 +241,7 @@ function groupedInnateSpells(c: Character, grants: ReturnType<typeof grantedFeat
     const match = compatible && grouped.find(group => {
       const first = group[0]
       return !first.rule.shared && !first.rule.condition && !!dailyInnateUses(c, first)
+        && first.rule.kind === grant.rule.kind
         && first.entry.name.toLowerCase() === grant.entry.name.toLowerCase()
         && first.rank === grant.rank && first.rule.tradition?.toLowerCase() === grant.rule.tradition?.toLowerCase()
         && first.rule.frequency?.toLowerCase() === grant.rule.frequency?.toLowerCase()
@@ -990,8 +991,8 @@ function spellSummaryData(c: Character, entries: ContentEntry[]) {
       && entry.name === 'Cornucopia' && entry.systems.some(system => c.systems.includes(system)))?.id ?? spell.entryId } : spell)
   const granted = grantedWardenSpells(c, entries)
   const featSpells = grantedFeatSpells(c, entries)
-  const special = featSpells.filter(grant => grant.rule.kind === 'feat')
-  const innate = featSpells.filter(grant => grant.rule.kind === 'innate')
+  const special = featSpells.filter(grant => grant.rule.kind === 'feat' && grant.source !== 'Heroic Presence')
+  const innate = featSpells.filter(grant => grant.rule.kind === 'innate' || grant.source === 'Heroic Presence')
     .sort((a, b) => a.entry.name.localeCompare(b.entry.name) || a.source.localeCompare(b.source))
   const { spells: focus, points: focusPoints } = focusSpells(c, entries)
   const manualSpells = spells.filter((s) => !granted.some((g) => g.id === s.entryId || g.name === s.name)
@@ -1171,7 +1172,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
   const grownOfOakSpell = featSpells.find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')
   const unresolved = unresolvedFeatSpells(c, entries)
-  const spellRank = Math.max(casting?.rank ?? 0, innate.length ? c.level >= 12 ? 2 : 1 : 0)
+  const spellRank = Math.max(casting?.rank ?? 0, innate.some(grant => grant.rule.kind === 'innate') ? c.level >= 12 ? 2 : 1 : 0)
   const spellPenalty = (ability: Ability) => Math.max(conditionPenalty(c, ability), ability === 'dex' ? giantWeaponClumsy(c, entries) : 0)
   const grantDetails = (grant: typeof featSpells[number]) => {
     const ability = grant.rule.kind === 'innate' ? innateSpellAbility(c, grant.rule.ability) : grant.rule.ability ?? casting?.ability
@@ -1455,8 +1456,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               ? { note: grant.rule.condition, dc: undefined, attackBonus: undefined, spellcastingModifier: undefined } : grantDetails(grant)
             return <SpellItem c={c} key={`${grant.usageKey}:${grant.entry.name}`} name={grant.entry.name}
               entry={grant.entry} rank={grant.rank} note={details.note} saveDC={details.dc} attackBonus={details.attackBonus} spellcastingModifier={details.spellcastingModifier}
-              actionControls={grant.source === 'Heroic Presence' ? <><ActionIcon actions="Single Action" />
-                <SourceNote source="Heroic Presence" note="A repugnant command immediately ends the effect on that target." /></> : undefined}
               inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
               effectControls={effectControls(grant.entry.name)} effectRank={activeRank(grant.entry.name)} {...buffProps(grant.entry.name)}>
               {controls(grant.entry.name, grant.rank, details.spellcastingModifier, grant.entry)}
@@ -1794,7 +1793,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             const grant = grants[0]
             const details = grantDetails(grant)
             return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc} attackBonus={details.attackBonus} spellcastingModifier={details.spellcastingModifier}
-              actionControls={c.systems.includes('sf2e') && c.ancestry === 'Lashunta'
+              actionControls={grant.source === 'Heroic Presence' ? <><ActionIcon actions="Single Action" />
+                <SourceNote source="Heroic Presence" note="A repugnant command immediately ends the effect on that target." /></>
+                : c.systems.includes('sf2e') && c.ancestry === 'Lashunta'
                 && grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal'
                 ? <ActiveSpellActions name={grant.entry.name} entry={grant.entry} rank={grant.rank} actions="Three Actions">
                   <LashuntaAllyOptions c={c} save={save} />
