@@ -230,6 +230,21 @@ it('applies Unconventional Weaponry only to its valid selected weapon and checks
   expect(weaponAccessSources({ ...c, feats: [selected('Unconventional Weaponry', martial.name, 9)] }, entries, martial)).toEqual([])
 })
 
+it('applies Unconventional Weaponry across grades of the selected SF2e weapon', () => {
+  const pistol: ContentEntry = { ...weapon('Rotating Pistol', 'Martial'), systems: ['sf2e'],
+    data: { weapon_category: 'Martial', damage: '1d6 P', upgrade_slots: 1, url: '/weapons/rotating-pistol' } }
+  const advanced: ContentEntry = { ...pistol, id: 'advanced', name: 'Advanced Rotating Pistol', level: 4 }
+  const other: ContentEntry = { ...pistol, id: 'other', name: 'Other Pistol', data: { ...pistol.data, url: '/weapons/other' } }
+  const c: Character = { ...character, className: 'Witchwarper', systems: ['sf2e'],
+    feats: [selected('Unconventional Weaponry', pistol.name)] }
+  const entries = [pistol, advanced, other]
+  expect(attack(c, pistol, entries).rank).toBe(1)
+  expect(attack(c, advanced, entries).rank).toBe(1)
+  expect(attack({ ...c, level: 11 }, advanced, entries).rank).toBe(2)
+  expect(attack(c, other, entries).rank).toBe(0)
+  expect(attack({ ...c, feats: [] }, advanced, entries).rank).toBe(0)
+})
+
 it('grants Access and familiarity to a selected cultural weapon without a separate approval', () => {
   const katana = weapon('Katana', 'Martial', [], 'uncommon')
   const entries = [wizard, katana]

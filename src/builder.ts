@@ -4153,6 +4153,8 @@ function unconventionalWeapon(c: Character, entries: ContentEntry[], weapon: Con
     const resolved = weaponEntry(entries, value)
     if (/^Shobhad Longrifle(?: \((?:Pathfinder|Starfinder)\))?$/.test(value) && resolved)
       return `Shobhad Longrifle:${resolved.systems.includes('sf2e') ? 'sf2e' : 'pf2e'}`
+    if (resolved?.systems.includes('sf2e') && usesWeaponUpgrades(resolved) && resolved.data.url)
+      return `sf2e:${resolved.data.url}`
     return combinationName(entries, value)
   }
   return activeFeatsNamed(c, 'Unconventional Weaponry').find(feat => !!feat.choice && identity(feat.choice) === identity(name)
