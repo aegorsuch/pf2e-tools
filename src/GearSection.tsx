@@ -1439,6 +1439,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           {arrowhead && <small><SourceNote source={arrowhead.source}
             note={`Against your Hunt Prey target: attack ${signed(a.attack + Math.max(0, arrowhead.value - a.item))}. +${arrowhead.value} item bonus replaces, rather than stacks with, weapon potency. Once per day, when a bow attack would miss, use a reaction to gain +2 circumstance to that roll; resolve manually.`} /></small>}
           {a.entry?.data.named_weapon_rules_missing && <small role="status">Named weapon enhancement details unavailable. Configure its runes and consult the item rules.</small>}
+          {namedSource === 'Debilitating Dart' && <SourceNote source="Debilitating Dart"
+            note="A creature struck and damaged takes a -2 status penalty to its next saving throw against a magical effect within 1 round, then becomes immune to this effect for 24 hours. Track the target's penalty and immunity manually." />}
           {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && <SourceNote source="Wintershot"
             note={`Ignores concealment from mist or precipitation; negates strong-wind attack penalties${a.entry?.data.named_weapon_source === 'Wintershot' ? ' up to -2' : ''}. Activations are tracked manually.`} />}
           {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && abilities.every(ability => ability.name === 'Summary' || ability.name === 'Senses')

@@ -54,6 +54,32 @@ const c: Character = {
 }
 const owned = (name: string): OwnedWeapon => ({ id: 'bow', name, potency: 0, striking: 0, runes: [] })
 
+it('implements Debilitating Dart as a returning dart with its conditional saving throw penalty', () => {
+  const item = mapAonHit({ _id: 'equipment-5017', _source: {
+    name: 'Debilitating Dart', category: 'equipment', level: 9, price: 65000, bulk: 0.1,
+    item_subcategory: 'Specific Magic Weapons', trait: ['Magical'],
+    markdown: '**Base Weapon** [Dart](/Weapons.aspx?ID=426)\n\n---\n\nForged from black steel, this _[+1 striking ](/Equipment.aspx?ID=2861) [returning ](/Equipment.aspx?ID=2845) [dart](/Weapons.aspx?ID=426)_ is etched with runes.',
+  } }, 'pf2e')!
+  const dart: ContentEntry = { ...bow('Dart', false, false), traits: ['Agile', 'Thrown'],
+    data: { weapon_type: 'Ranged', weapon_category: 'Simple', weapon_group: 'Dart', hands: 1, range: 20, damage: '1d4 piercing' } }
+  for (const entries of [[item, dart], [item, dart, rune('Returning')]]) {
+    const choices = gearPickerEntries(entries, 'weapon').filter(entry => entry.name === item.name)
+    expect(choices).toHaveLength(1)
+    expect(choices[0]).toMatchObject({ level: 9, data: { price: 65000, named_weapon_base: 'Dart', named_weapon_rules_missing: false } })
+    expect(effectiveWeapon(c, entries, owned(item.name))).toMatchObject({ potency: 1, striking: 1, runes: ['Returning'] })
+    expect(weaponAttack(c, entries, owned(item.name))).toMatchObject({ range: 20, damage: '2d4+2 piercing', item: 1 })
+    for (const displayOnly of [false, true]) {
+      const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [owned(item.name)] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+      expect(html).toContain('>Returning</button>')
+      expect(html).toContain('>Thrown 20</button>')
+      expect(html).toContain('-2 status penalty to its next saving throw against a magical effect within 1 round')
+      expect(html).toContain('immune to this effect for 24 hours')
+      expect(html).not.toContain('Named weapon enhancement details unavailable')
+    }
+  }
+  expect(gearPickerEntries([item], 'weapon').some(entry => entry.name === item.name)).toBe(false)
+})
+
 it.each([
   [1, 1, 1, 'Standard'], [10, 2, 1, 'Standard'], [12, 2, 2, 'Standard'],
   [16, 3, 2, 'Standard'], [18, 3, 2, 'High'], [19, 3, 3, 'High'],

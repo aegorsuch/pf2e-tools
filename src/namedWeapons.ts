@@ -6,7 +6,7 @@ export function briarSharpnessPoints(value: number | undefined) {
   return value !== undefined && Number.isSafeInteger(value) && value >= 0 ? Math.min(value, BRIAR_MAX_SHARPNESS) : 0
 }
 
-const basePattern = "(?:Composite )?(?:Shortbows?|Longbows?)|Dancer['\u2019]s Spear|Dwarven War ?Axe|Elven Curve Blade|Bastard Sword|Dueling Pistol|Fighting Fan|Light Hammer|Gun Sword|Longsword|Shortsword|Greatsword|Greataxe|Morningstar|Longspear|Guisarme|Glaive|Rapier|Spear|Club"
+const basePattern = "(?:Composite )?(?:Shortbows?|Longbows?)|Dancer['\u2019]s Spear|Dwarven War ?Axe|Elven Curve Blade|Bastard Sword|Dueling Pistol|Fighting Fan|Light Hammer|Gun Sword|Longsword|Shortsword|Greatsword|Greataxe|Morningstar|Longspear|Guisarme|Glaive|Rapier|Spear|Club|Dart"
 const weaponBase = new RegExp(`\\bBase Weapon\\s+(${basePattern})\\b`, 'i')
 const enchantment = new RegExp(`\\+([1-4])\\s+([^.!?\\n]{0,100}?)\\b(?:${basePattern})\\b`, 'i')
 const BASES: Record<string, string[]> = {
@@ -25,6 +25,7 @@ const BASES: Record<string, string[]> = {
   'Cane of the Maelstrom': ['Club'],
   "Cayden's Tankard": ['Light Hammer'],
   'Coldstar Pistols': ['Dueling Pistol'],
+  'Debilitating Dart': ['Dart'],
   "Freedom's Flame": ['Morningstar'],
   "Ghosthand's Comet": ["Ghosthand's Comet"],
   "Hunter's Dawn": ['Club', 'Dart', 'Javelin'],
@@ -105,7 +106,7 @@ function enhancements(item: ContentEntry, family: ContentEntry[], runes: { name:
     fixed.push('Bane')
     properties = properties.replace(/\b(?:beast-bane|dragon bane)\b/g, ' ')
   }
-  for (const rune of [...runes].sort((a, b) => b.name.length - a.name.length)) {
+  for (const rune of [...runes, ...(item.name === 'Debilitating Dart' ? [{ name: 'Returning' }] : [])].sort((a, b) => b.name.length - a.name.length)) {
     const phrase = rune.name.replace(/^(.+) \((Lesser|Greater|Major|True)\)$/, '$2 $1').toLowerCase()
     if (!properties.includes(` ${phrase} `)) continue
     fixed.push(rune.name)
