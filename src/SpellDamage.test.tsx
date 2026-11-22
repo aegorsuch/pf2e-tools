@@ -95,8 +95,75 @@ it('scales other cantrips with their heightening steps', () => {
   expect(spellDamage('Daze', 5)[0].dice).toBe(3)
   expect(spellDamage('Divine Lance', 4)[0]).toMatchObject({ dice: 5, sides: 4, type: 'spirit' })
   expect(spellDamage('Spirit Object', 3)[0].dice).toBe(6)
-  expect(spellDamage('Ghostly Shift', 6)[0].dice).toBe(2)
+  expect(spellDamage('Ghostly Shift', 6)[0]).toMatchObject({ dice: 4, type: 'force (amp only)' })
   expect(spellDamage('Vitality Lash', 0)).toEqual([])
+})
+
+it.each([[1, 0, 1], [3, 1, 2], [9, 4, 5]])('scales Ancient Dust at rank %i using the spellcasting modifier', (rank, dice, persistent) => {
+  expect(spellDamage('Ancient Dust', rank, 4)[0]).toMatchObject({
+    dice, sides: 6, bonus: 4, type: 'void', additional: { bonus: persistent, type: 'void' },
+  })
+  expect(spellDamage('Ancient Dust', rank)).toEqual([])
+})
+
+it('uses the spellcasting modifier for Torturous Trauma and reports when it is unavailable', () => {
+  expect(spellDamage('Torturous Trauma', 4, -1)[0]).toMatchObject({ dice: 4, sides: 4, bonus: -1 })
+  expect(spellDamage('Torturous Trauma', 1)).toEqual([])
+  const entry: ContentEntry = { id: 'trauma', name: 'Torturous Trauma', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: ['Cantrip'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={4} entry={entry} />)).toContain('Spellcasting modifier unavailable')
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={4} entry={entry} spellcastingModifier={-1} />))
+    .toContain('4d4-1 bludgeoning')
+})
+
+it.each([[1, 1], [2, 2], [5, 2], [6, 3], [9, 3], [10, 4]])('scales Thrall Charge at rank %i', (rank, dice) => {
+  expect(spellDamage('Thrall Charge', rank)[0]).toMatchObject({
+    dice, sides: 6, additional: { bonus: rank, label: 'Destroyed thrall status bonus' },
+  })
+})
+
+it.each([[1, 1], [2, 1], [3, 3], [5, 4], [7, 5], [9, 6], [10, 6]])('scales Glass Shield at rank %i', (rank, dice) => {
+  expect(spellDamage('Glass Shield', rank)[0]).toMatchObject({ dice, sides: 4, type: 'piercing' })
+})
+
+it('shows conditional and alternative damage for cantrips in one action roll', () => {
+  const entry: ContentEntry = { id: 'ignition', name: 'Ignition', systems: ['sf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: ['Cantrip'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage('Ignition', 3)).toMatchObject([
+    { label: 'Ranged', dice: 4, sides: 4, additional: { dice: 3, sides: 4 } },
+    { label: 'Melee', dice: 4, sides: 6, additional: { dice: 3, sides: 6 } },
+  ])
+  expect(renderToStaticMarkup(<SpellActions name="Ignition" rank={3} entry={entry} />).match(/<button /g)).toHaveLength(1)
+  expect(spellDamage('Bramble Bush', 5)).toMatchObject([
+    { dice: 3, sides: 4 }, { dice: 1, sides: 4, bonus: 2 },
+  ])
+  expect(spellDamage('Glimpse Weakness', 5)).toMatchObject([{ bonus: 6 }, { dice: 3, sides: 4, bonus: 3 }])
+  expect(spellDamage('Live Wire', 5)[0]).toMatchObject({
+    dice: 3, components: [{ dice: 3, type: 'electricity' }, { dice: 3, type: 'persistent electricity (critical hit)' }],
+  })
+  expect(spellDamage('Puff of Poison', 5)[0]).toMatchObject({ dice: 3, additional: { dice: 3, type: 'poison' } })
+  expect(spellDamage('Needle Darts', 5)[0].additional).toMatchObject({ bonus: 5, type: 'bleed' })
+  expect(spellDamage('Slashing Gust', 5)[0].additional).toMatchObject({ dice: 5, sides: 4, type: 'bleed' })
+  expect(spellDamage('Redistribute Potential', 1)[0].type).toBe('cold or fire')
+  expect(spellDamage('Redistribute Potential', 5)[1]).toMatchObject({ dice: 14, sides: 6, type: 'cold or fire' })
+  expect(spellDamage('Telekinetic Rend', 5)[1]).toMatchObject({ dice: 3, additional: { dice: 3, type: 'slashing' } })
+  expect(spellDamage('Dancing Blade', 5)[1]).toMatchObject({ dice: 5, sides: 10 })
+  expect(spellDamage('Shatter Mind', 5)[1]).toMatchObject({ dice: 7, sides: 10 })
+  expect(spellDamage('Imaginary Weapon', 5)[1]).toMatchObject({ dice: 10, sides: 6 })
+})
+
+it('uses the character spellcasting ability for cantrip damage in the spell list', () => {
+  const entry: ContentEntry = { id: 'trauma', name: 'Torturous Trauma', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: ['Cantrip'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const c: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 5,
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 }, feats: [], equipment: [], lores: [],
+    languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: {} },
+    spells: [{ name: entry.name, rank: 1, cantrip: true }],
+  }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[entry]} save={() => {}} />)
+  expect(markup).toContain('3d4+4 bludgeoning')
+  expect(markup).not.toContain('Spellcasting modifier unavailable')
 })
 
 it.each([[1, 2], [5, 6], [10, 11]])('scales Electric Arc, Frostbite, and Gouging Claw at rank %i', (rank, dice) => {
@@ -354,21 +421,20 @@ it.each([[1, 3], [5, 7], [10, 12]])('scales Needle Darts at rank %i to %id4 pier
   const entry: ContentEntry = { id: 'needle', name: 'Needle Darts', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: ['Cantrip'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
   const damage = spellDamage(entry.name, rank)[0]
-  expect(damage).toEqual({ label: 'Damage', dice, sides: 4, type: 'piercing' })
+  expect(damage).toMatchObject({ label: 'Damage', dice, sides: 4, type: 'piercing', additional: { bonus: rank } })
   expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
-    .toContain(`title="Two Actions; Damage: ${dice}d4 piercing"`)
+    .toContain(`Damage: ${dice}d4 piercing; Critical hit persistent: ${rank} bleed`)
   vi.spyOn(Math, 'random').mockReturnValue(0)
   expect(rollSpellDamage(damage)).toBe(dice)
   vi.mocked(Math.random).mockReturnValue(0.999999)
   expect(rollSpellDamage(damage)).toBe(dice * 4)
 })
 
-it('shows only the rolled Needle Darts damage', () => {
-  vi.mocked(useState).mockReturnValueOnce([17, vi.fn()])
+it('shows rolled Needle Darts damage and conditional persistent bleed', () => {
+  vi.mocked(useState).mockReturnValueOnce([{ primary: 17, additional: 5 }, vi.fn()])
   const markup = renderToStaticMarkup(<DamageRoll name="Needle Darts" damage={spellDamage('Needle Darts', 5)[0]} actions="Two Actions" />)
-  expect(markup).toContain('17 piercing</output>')
+  expect(markup).toContain('17 piercing; Critical hit persistent: 5 bleed')
   expect(markup).not.toContain('critical:')
-  expect(markup).not.toContain('persistent bleed')
 })
 
 it.each([[1, 2], [5, 6], [10, 11]])('rolls Telekinetic Projectile at rank %i as %id6', (rank, dice) => {

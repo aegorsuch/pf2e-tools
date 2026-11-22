@@ -611,7 +611,7 @@ function spellSave(save: string, dc?: number) {
   return dc !== undefined && /\b(?:Fortitude|Reflex|Will)\b/i.test(save) && !/\bDC\s+\d+/i.test(save) ? `${save} DC ${dc}` : save
 }
 
-function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLabel, children, inlineControls, effectControls, effectRank, rank, saveDC, actionControls }: {
+function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLabel, children, inlineControls, effectControls, effectRank, rank, saveDC, actionControls, spellcastingModifier }: {
   c: Character
   name: string; entry?: ContentEntry; note?: ReactNode; onRemove?: () => void
   active?: boolean; onToggle?: (active: boolean) => void
@@ -623,6 +623,7 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
   actionControls?: ReactNode
   rank: number
   saveDC?: number
+  spellcastingModifier?: number
 }) {
   const metadata = spellMetadata(entry, rank, c)
   const activeToggle = onToggle && <label><input type="checkbox" aria-label={`${name} active`} checked={!!active}
@@ -638,7 +639,7 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
           </ActiveSpellActions> : actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form', 'Dinosaur Form',
             'Shield', 'Bone Shield', 'False Vitality', 'Canopy Crawler', 'Enlarge Companion', 'Apex Companion'].includes(name)
             && !(name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length)
-            && <SpellActions name={name} entry={entry} rank={rank} />)}{inlineControls}</div>
+            && <SpellActions name={name} entry={entry} rank={rank} spellcastingModifier={spellcastingModifier} />)}{inlineControls}</div>
         {note && <small>{note}</small>}
       </div>
       <span><small>Duration</small>{metadata.duration}{metadata.durationNote
@@ -723,7 +724,7 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
   }
 }
 
-function InnateSpellRow({ c, grant, note, active, onToggle, activeLabel, inlineControls, effectControls, effectRank, actionControls, children, saveDC }: {
+function InnateSpellRow({ c, grant, note, active, onToggle, activeLabel, inlineControls, effectControls, effectRank, actionControls, children, saveDC, spellcastingModifier }: {
   c: Character
   grant: ReturnType<typeof grantedFeatSpells>[number]
   note?: ReactNode
@@ -736,9 +737,10 @@ function InnateSpellRow({ c, grant, note, active, onToggle, activeLabel, inlineC
   actionControls?: ReactNode
   children?: ReactNode
   saveDC?: number
+  spellcastingModifier?: number
 }) {
   return <SpellItem c={c} name={grant.entry.name} entry={grant.entry} rank={grant.rank} note={note}
-    active={active} onToggle={onToggle} activeLabel={activeLabel} inlineControls={inlineControls} effectControls={effectControls} effectRank={effectRank} actionControls={actionControls} saveDC={saveDC}>
+    active={active} onToggle={onToggle} activeLabel={activeLabel} inlineControls={inlineControls} effectControls={effectControls} effectRank={effectRank} actionControls={actionControls} saveDC={saveDC} spellcastingModifier={spellcastingModifier}>
     {children}
   </SpellItem>
 }
@@ -778,6 +780,7 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
   const casting = classSpellcasting(c, entries)
   const baseSlots = classSpellSlots(c)
   if (!paradox || !casting?.ability || !baseSlots) return null
+  const castingModifier = abilityMod(c.abilities[casting.ability])
   const benefits = familiarSpellBenefits(c, entries, baseSlots)
   const slots = { ...baseSlots }
   if (benefits.batteryRank !== undefined) slots[benefits.batteryRank] = (slots[benefits.batteryRank] ?? 0) + 1
@@ -869,7 +872,8 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
                 ? <FalseVitalityActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
                 : slot.entry.name === 'Tailwind'
                 ? <TailwindActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
-                : <SpellActions name={slot.entry.name} entry={slot.entry} rank={rank === 0 ? Math.ceil(c.level / 2) : castRank} />)}
+                : <SpellActions name={slot.entry.name} entry={slot.entry} rank={rank === 0 ? Math.ceil(c.level / 2) : castRank}
+                  spellcastingModifier={castingModifier} />)}
             </div>
             <span><small>Duration</small>{metadata.duration}</span>
             <span><small>Range</small>{metadata.range}</span>
@@ -1094,7 +1098,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       higherDC && resolution.save && classDC === undefined
         && <span role="status">Class DC unavailable: choose your class key attribute or sync class content.</span>,
     ].filter(Boolean)
-    return { dc, note: notes.length ? <>{notes.map((note, index) => <span key={index}>{index > 0 && '; '}{note}</span>)}</> : undefined }
+    return { dc, spellcastingModifier: ability ? abilityMod(c.abilities[ability]) : undefined,
+      note: notes.length ? <>{notes.map((note, index) => <span key={index}>{index > 0 && '; '}{note}</span>)}</> : undefined }
   }
   const buffProps = (name: string) => {
     if (!AUTOMATED_SPELL_EFFECTS.includes(name)) return {}
@@ -1106,13 +1111,13 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     }
   }
   const attackDamage = divineAttackDamage(c)
-  const controls = (name: string, rank = Math.ceil(c.level / 2)) => <>
+  const controls = (name: string, rank = Math.ceil(c.level / 2), spellcastingModifier?: number) => <>
     {attackDamage.length > 0 && entries.some(entry => entry.kind === 'spell' && !entry.deleted && entry.name === name
       && entry.systems.some(system => c.systems.includes(system)) && spellResolution(entry).attack)
       && attackDamage.map(damage => <small key={damage.source}>+{damage.value} <SourceNote inlineSource={false}
         source={damage.source} note={damage.note} /></small>)}
-    {!spellActionRolls(name, rank, entries.find(entry => entry.kind === 'spell' && entry.name === name)).length
-      && <SpellDamageRolls name={name} rank={rank} />}
+    {!spellActionRolls(name, rank, entries.find(entry => entry.kind === 'spell' && entry.name === name), spellcastingModifier).length
+      && <SpellDamageRolls name={name} rank={rank} spellcastingModifier={spellcastingModifier} />}
   </>
   const effectControls = (name: string) => name === 'Oaken Resilience' && (grownOfOakSpell
       ? <small>Cast rank {grownOfOakSpell.rank}</small>
@@ -1245,12 +1250,13 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         : necromancer && !entry?.traits.some(trait => trait.toLowerCase() === 'cantrip')
         ? entry?.level ?? 1 : Math.ceil(c.level / 2)
       return <SpellItem c={c} key={`${spell.name}-${spell.index}`} name={spell.name} entry={entry} rank={rank} saveDC={classSpellDC}
+         spellcastingModifier={castAbility ? abilityMod(c.abilities[castAbility]) : undefined}
         inlineControls={inlineControls(spell.name, rank)} effectControls={effectControls(spell.name)}
         effectRank={activeRank(spell.name)} {...buffProps(spell.name)}
         onRemove={spell.index >= 0 ? () => save({ spells: spells.filter((saved, index) => necromancer
           ? saved.name.toLowerCase() !== spell.name.toLowerCase() : index !== spell.index),
           activeSpells: c.activeSpells?.filter(name => name !== spell.name) }) : undefined}>
-        {controls(spell.name, rank)}
+        {controls(spell.name, rank, castAbility ? abilityMod(c.abilities[castAbility]) : undefined)}
       </SpellItem>
     })}</ul>
   </section>
@@ -1292,12 +1298,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           <SpellColumns />
           <ul>{special.filter(grant => grant.source === source).map(grant => {
             const details = grant.source === 'Natural Illusionist'
-              ? { note: grant.rule.condition, dc: undefined } : grantDetails(grant)
+              ? { note: grant.rule.condition, dc: undefined, spellcastingModifier: undefined } : grantDetails(grant)
             return <SpellItem c={c} key={`${grant.usageKey}:${grant.entry.name}`} name={grant.entry.name}
-              entry={grant.entry} rank={grant.rank} note={details.note} saveDC={details.dc}
+              entry={grant.entry} rank={grant.rank} note={details.note} saveDC={details.dc} spellcastingModifier={details.spellcastingModifier}
               inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
               effectControls={effectControls(grant.entry.name)} effectRank={activeRank(grant.entry.name)} {...buffProps(grant.entry.name)}>
-              {controls(grant.entry.name, grant.rank)}
+              {controls(grant.entry.name, grant.rank, details.spellcastingModifier)}
             </SpellItem>
           })}</ul>
         </section>)}
@@ -1490,7 +1496,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     ? <TailwindActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
                     : selectedEntry.name === 'Animal Feature' || selectedEntry.name === 'Untamed Shift' || selectedEntry.name === 'Dinosaur Form'
                     ? <SpellEffectActions c={c} entries={entries} save={save} entry={selectedEntry} name={selectedEntry.name} rank={rank} />
-                    : <SpellActions name={selectedEntry.name} entry={selectedEntry} rank={cantrip ? Math.ceil(c.level / 2) : rank} />)}
+                    : <SpellActions name={selectedEntry.name} entry={selectedEntry} rank={cantrip ? Math.ceil(c.level / 2) : rank}
+                      spellcastingModifier={castAbility ? abilityMod(c.abilities[castAbility]) : undefined} />)}
                 </div>
                 <span><small>Duration</small>{metadata.duration}{metadata.durationNote
                   && <SourceNote source="Persistent Animal Feature" note={metadata.durationNote} inlineSource={false} />}</span>
@@ -1598,9 +1605,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         <small>{ABILITY_LABEL[innateSpellAbility(c)]} spell attack {signed(abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level) - spellPenalty(innateSpellAbility(c)))};
           DC {10 + abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level) - spellPenalty(innateSpellAbility(c))} (trained).</small>
         <ul>{minorMagicSpells(c, entries).map(entry => <SpellItem c={c} key={entry.name} name={entry.name} entry={entry} rank={Math.ceil(c.level / 2)}
+          spellcastingModifier={abilityMod(c.abilities[innateSpellAbility(c)])}
           inlineControls={inlineControls(entry.name)} saveDC={10 + abilityMod(c.abilities[innateSpellAbility(c)]) + proficiencyBonus(1, c.level) - spellPenalty(innateSpellAbility(c))}
           note={`Minor Magic; rank ${Math.ceil(c.level / 2)} ${c.minorMagic?.tradition}`} {...buffProps(entry.name)}>
-          {controls(entry.name)}
+          {controls(entry.name, Math.ceil(c.level / 2), abilityMod(c.abilities[innateSpellAbility(c)]))}
         </SpellItem>)}</ul>
       </div>}
       {innate.length > 0 && <div>
@@ -1612,7 +1620,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           <ul>{group.grants.map(grants => {
             const grant = grants[0]
             const details = grantDetails(grant)
-            return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc}
+            return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc} spellcastingModifier={details.spellcastingModifier}
               actionControls={grant.entry.name === 'Resist Energy' && ['Order Training', 'Order Cross-Training'].includes(grant.source)
                 && grant.rule.condition?.startsWith('Self only. Fire resistance is at least ')
                 ? <PyreResistEnergyActions c={c} save={save} entry={grant.entry} rank={grant.rank} /> : undefined}
@@ -1621,7 +1629,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               effectControls={effectControls(grant.entry.name)}
               effectRank={activeRank(grant.entry.name)}
               {...buffProps(grant.entry.name)}>
-              {controls(grant.entry.name, grant.rank)}
+              {controls(grant.entry.name, grant.rank, details.spellcastingModifier)}
             </InnateSpellRow>
           })}</ul>
         </section>)}
@@ -1646,13 +1654,15 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 : casting && castAbility ? `${ABILITY_LABEL[castAbility]} Attack ${signed(mod)}`
                   : <span role="status">Check the granting rules for this spell's spellcasting attribute and proficiency.</span>
                 : undefined
-              return <SpellItem c={c} key={s.name} entry={entry} name={s.name} rank={Math.ceil(c.level / 2)} inlineControls={inlineControls(s.name)}
+              const focusModifier = details?.spellcastingModifier ?? (!casting && beastmasterCasting ? abilityMod(c.abilities.wis)
+                : castAbility ? abilityMod(c.abilities[castAbility]) : undefined)
+              return <SpellItem c={c} key={s.name} entry={entry} name={s.name} rank={Math.ceil(c.level / 2)} inlineControls={inlineControls(s.name)} spellcastingModifier={focusModifier}
                 note={note} effectControls={effectControls(s.name)}
                 effectRank={activeRank(s.name)}
                 saveDC={details ? details.dc : !casting && beastmasterCasting ? 10 + abilityMod(c.abilities.wis) + proficiencyBonus(beastmasterCasting, c.level) - spellPenalty('wis') : classSpellDC} {...buffProps(s.name)}
                 onRemove={s.index >= 0 ? () => save({ spells: spells.filter((_, index) => index !== s.index),
                   activeSpells: c.activeSpells?.filter(name => name !== s.name) }) : undefined}>
-                {controls(s.name)}
+                {controls(s.name, Math.ceil(c.level / 2), focusModifier)}
               </SpellItem>
             })}
             </ul>
@@ -1677,7 +1687,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             ? <FalseVitalityActions c={c} save={save} entry={spell.entry} rank={spell.rank} actions={spell.actions} />
             : spell.actions ? <ActionIcon actions={spell.actions}
             showOther={!(spell.name === 'Creation' && /^1 minute$/i.test(spell.actions.trim()))} />
-            : <SpellActions name={spell.name} entry={spell.entry} rank={spell.rank} />}
+            : <SpellActions name={spell.name} entry={spell.entry} rank={spell.rank}
+              spellcastingModifier={spell.usesSpellcasting && castAbility ? abilityMod(c.abilities[castAbility]) : undefined} />}
           note={spell.entry ? note || undefined : <>{note && `${note}; `}
             <span role="status">Spell data unavailable. Sync Archives of Nethys content to load it.</span>
           </>} />

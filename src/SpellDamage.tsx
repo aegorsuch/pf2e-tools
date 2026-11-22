@@ -7,8 +7,89 @@ type Damage = { label: string; dice: number; sides: number; type: string; bonus?
   components?: { dice: number; sides: number; type: string }[]; note?: string }
 type DamageResult = number | number[] | { primary: number; additional: number }
 
-export function spellDamage(name: string, rank: number): Damage[] {
+export function spellDamage(name: string, rank: number, spellcastingModifier?: number): Damage[] {
   switch (name) {
+    case 'Ancient Dust': {
+      if (rank < 1 || spellcastingModifier === undefined) return []
+      const heightened = Math.floor((rank - 1) / 2)
+      return [{ label: 'Damage', dice: heightened, sides: 6, bonus: spellcastingModifier, type: 'void',
+        additional: { label: 'Failure persistent', dice: 0, sides: 0, bonus: 1 + heightened, type: 'void' } }]
+    }
+    case 'Torturous Trauma':
+      return rank >= 1 && spellcastingModifier !== undefined
+        ? [{ label: 'Damage', dice: rank, sides: 4, bonus: spellcastingModifier, type: 'bludgeoning' }] : []
+    case 'Glimpse Weakness': {
+      if (rank < 1) return []
+      const ampDice = 1 + Math.floor((rank - 1) / 2)
+      return [
+        { label: 'Precision damage', dice: 0, sides: 0, bonus: 1 + rank, type: 'precision' },
+        { label: 'Amp precision damage', dice: ampDice, sides: 4, bonus: ampDice, type: 'precision' },
+      ]
+    }
+    case 'Thrall Charge':
+      return rank >= 1 ? [{ label: 'Strike bonus', dice: rank >= 10 ? 4 : rank >= 6 ? 3 : rank >= 2 ? 2 : 1,
+        sides: 6, type: 'weapon damage',
+        additional: { label: 'Destroyed thrall status bonus', dice: 0, sides: 0, bonus: rank, type: 'damage' } }] : []
+    case 'Glass Shield':
+      return rank >= 1 ? [{ label: 'Shield Block damage', dice: rank >= 3 ? 3 + Math.min(3, Math.floor((rank - 3) / 2)) : 1,
+        sides: 4, type: 'piercing', note: 'When shield breaks, creature that broke it must be within 5 feet' }] : []
+    case 'Bramble Bush': {
+      if (rank < 1) return []
+      const heightened = Math.floor((rank - 1) / 2)
+      return [
+        { label: 'Initial damage', dice: 1 + heightened, sides: 4, type: 'piercing' },
+        { label: 'Hazardous terrain', dice: 1, sides: 4, bonus: heightened, type: 'piercing' },
+      ]
+    }
+    case 'Ignition':
+      return rank >= 1 ? [4, 6].map(sides => ({
+        label: sides === 4 ? 'Ranged' : 'Melee', dice: rank + 1, sides, type: 'fire',
+        additional: { label: 'Critical hit persistent', dice: rank, sides, type: 'fire' },
+      })) : []
+    case 'Live Wire': {
+      if (rank < 1) return []
+      const dice = 1 + Math.floor((rank - 1) / 2)
+      return [{ label: 'Damage', dice, sides: 4, type: 'slashing', components: [
+        { dice, sides: 4, type: 'electricity' },
+        { dice, sides: 4, type: 'persistent electricity (critical hit)' },
+      ], note: 'On a failure, only electricity damage applies' }]
+    }
+    case 'Puff of Poison': {
+      if (rank < 1) return []
+      const dice = 1 + Math.floor((rank - 1) / 2)
+      return [{ label: 'Damage', dice, sides: 4, type: 'poison',
+        additional: { label: 'Failure persistent', dice, sides: 4, type: 'poison' } }]
+    }
+    case 'Slashing Gust':
+      return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 4, type: 'slashing',
+        additional: { label: 'Critical hit persistent', dice: rank, sides: 4, type: 'bleed' } }] : []
+    case 'Telekinetic Rend': {
+      if (rank < 1) return []
+      const dice = 1 + Math.floor((rank - 1) / 2)
+      return [
+        { label: 'Damage', dice, sides: 6, type: 'bludgeoning or slashing' },
+        { label: 'Amp damage', dice, sides: 6, type: 'bludgeoning', additional: { dice, sides: 6, type: 'slashing' } },
+      ]
+    }
+    case 'Dancing Blade': {
+      if (rank < 1) return []
+      const dice = 3 + Math.floor((rank - 1) / 2)
+      return [6, 10].map(sides => ({ label: sides === 6 ? 'Damage' : 'Amp damage', dice, sides, type: 'weapon damage type' }))
+    }
+    case 'Redistribute Potential':
+      return rank >= 1 ? [
+        { label: 'Damage', dice: rank + 3, sides: 4, type: 'cold or fire' },
+        { label: 'Amp damage', dice: 4 + 2 * rank, sides: 6, type: 'cold or fire' },
+      ] : []
+    case 'Shatter Mind':
+      return rank >= 1 ? [4, 10].map(sides => ({
+        label: sides === 4 ? 'Damage' : 'Amp damage', dice: rank + 2, sides, type: 'mental',
+      })) : []
+    case 'Imaginary Weapon':
+      return rank >= 1 ? [
+        { label: 'Damage', dice: rank + 1, sides: 6, type: 'force' },
+        { label: 'Amp damage', dice: 2 * rank, sides: 6, type: 'force' },
+      ] : []
     case 'Caustic Blast':
       return rank >= 1 ? [{ label: 'Damage', dice: 1 + Math.floor((rank - 1) / 2), sides: 8, type: 'acid',
         note: `Critical failure: ${1 + Math.floor((rank - 1) / 2)} persistent acid` }] : []
@@ -54,7 +135,8 @@ export function spellDamage(name: string, rank: number): Damage[] {
           note: 'Target reduced to 0 HP dies instantly; immune for 1 minute' },
       ] : []
     case 'Needle Darts':
-      return rank >= 1 ? [{ label: 'Damage', dice: rank + 2, sides: 4, type: 'piercing' }] : []
+      return rank >= 1 ? [{ label: 'Damage', dice: rank + 2, sides: 4, type: 'piercing',
+        additional: { label: 'Critical hit persistent', dice: 0, sides: 0, bonus: rank, type: 'bleed' } }] : []
     case 'Telekinetic Projectile':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 6, type: 'B/P/S' }] : []
     case 'Injury Echo': {
@@ -166,35 +248,24 @@ export function spellDamage(name: string, rank: number): Damage[] {
 
 // Cantrip damage by heightened rank: [base dice, dice added per step, rank step, sides, type]
 const CANTRIP_DAMAGE: Record<string, [number, number, number, number, string]> = {
-  'Ancient Dust': [1, 1, 2, 6, 'void'],
   'Astral Rain': [4, 1, 1, 4, 'bludgeoning or piercing'],
-  'Bramble Bush': [1, 1, 2, 4, 'piercing'],
   'Buzzing Bites': [1, 1, 1, 4, 'piercing'],
   'Clinging Ice': [1, 1, 1, 4, 'cold'],
   'Cosmic Cannon': [2, 1, 1, 4, 'force'],
-  'Dancing Blade': [3, 1, 2, 6, 'weapon damage type'],
   'Daze': [1, 1, 2, 6, 'mental'],
   'Divine Lance': [2, 1, 1, 4, 'spirit'],
   'Eldritch Lance': [2, 1, 1, 6, 'mental'],
   'Emoticon': [2, 1, 1, 4, 'bludgeoning or force'],
   'Forbidden Thought': [2, 1, 1, 6, 'mental'],
   'Gale Blast': [1, 1, 1, 6, 'bludgeoning'],
-  'Ghostly Shift': [2, 0, 1, 6, 'force'],
-  'Ignition': [2, 1, 1, 4, 'fire'],
-  'Imaginary Weapon': [2, 1, 1, 6, 'force'],
-  'Live Wire': [1, 1, 2, 4, 'slashing'],
+  'Ghostly Shift': [2, 1, 2, 6, 'force (amp only)'],
   'Murmuration': [1, 1, 1, 4, 'piercing or sonic'],
   'Pact Broker': [2, 1, 1, 4, 'mental'],
   'Phase Bolt': [3, 1, 1, 4, 'piercing'],
-  'Puff of Poison': [1, 1, 2, 4, 'poison'],
-  'Redistribute Potential': [4, 1, 1, 4, 'void'],
   'Ricochet': [2, 1, 1, 4, 'bludgeoning or slashing'],
   'Scatter Scree': [2, 1, 1, 4, 'bludgeoning'],
-  'Shatter Mind': [3, 1, 1, 4, 'mental'],
-  'Slashing Gust': [2, 1, 1, 4, 'slashing'],
   'Spirit Object': [2, 2, 1, 4, 'weapon damage type'],
   'Spout': [2, 1, 1, 4, 'bludgeoning'],
-  'Telekinetic Rend': [1, 1, 2, 6, 'bludgeoning or slashing'],
   'Timber': [2, 1, 1, 4, 'bludgeoning'],
   'Trade Death for Life': [1, 1, 1, 4, 'void'],
   'Vitality Lash': [2, 1, 1, 6, 'vitality'],
@@ -250,8 +321,8 @@ export function WarpWorldRoll({ rank }: { rank: number }) {
   </span>
 }
 
-export function spellActionRolls(name: string, rank: number, entry?: ContentEntry) {
-  const rolls = spellDamage(name, rank)
+export function spellActionRolls(name: string, rank: number, entry?: ContentEntry, spellcastingModifier?: number) {
+  const rolls = spellDamage(name, rank, spellcastingModifier)
   if (name === 'Vampiric Revelry') return rolls.map(damage => ({ damage, actions: 'Two Actions' }))
   if (name === 'Harm') return rolls.flatMap(damage =>
     ['One Action', 'Two Actions', 'Three Actions'].map((actions, index) =>
@@ -336,18 +407,19 @@ export function MultipleDamageRoll({ name, damages, actions }: { name: string; d
   </span>
 }
 
-export function SpellActions({ name, rank, entry }: { name: string; rank: number; entry?: ContentEntry }) {
+export function SpellActions({ name, rank, entry, spellcastingModifier }: { name: string; rank: number; entry?: ContentEntry; spellcastingModifier?: number }) {
   if (name === 'Warp World' && rank >= 4) return <WarpWorldRoll rank={rank} />
-  const rolls = spellActionRolls(name, rank, entry)
+  const rolls = spellActionRolls(name, rank, entry, spellcastingModifier)
   const groups = new Map<string, Damage[]>()
   for (const { damage, actions } of rolls) groups.set(actions, [...groups.get(actions) ?? [], damage])
   return rolls.length ? <>{[...groups].map(([actions, damages]) => damages.length > 1
     ? <MultipleDamageRoll key={actions} name={name} damages={damages} actions={actions} />
     : <DamageRoll key={actions} name={name} damage={damages[0]} actions={actions} toggleResult />)}</>
-    : <ActionIcon entry={entry} />
+    : <><ActionIcon entry={entry} />{rank >= 1 && spellcastingModifier === undefined && ['Ancient Dust', 'Torturous Trauma'].includes(name)
+      && <small role="status">Spellcasting modifier unavailable.</small>}</>
 }
 
-export function SpellDamageRolls({ name, rank }: { name: string; rank: number }) {
-  return <>{spellDamage(name, rank).map((damage) =>
+export function SpellDamageRolls({ name, rank, spellcastingModifier }: { name: string; rank: number; spellcastingModifier?: number }) {
+  return <>{spellDamage(name, rank, spellcastingModifier).map((damage) =>
     <DamageRoll key={`${damage.label}:${damage.dice}`} name={name} damage={damage} />)}</>
 }
