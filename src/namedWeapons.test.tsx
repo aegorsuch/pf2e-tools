@@ -70,10 +70,12 @@ it('implements Debilitating Dart as a returning dart with its conditional saving
     expect(weaponAttack(c, entries, owned(item.name))).toMatchObject({ range: 20, damage: '2d4+2 piercing', item: 1 })
     const level19 = { ...c, level: 19 }
     const level20 = { ...c, level: 20 }
-    expect(effectiveWeapon(level19, entries, owned(item.name)).runes).toEqual(['Returning'])
-    expect(effectiveWeapon(level20, entries, owned(item.name))).toMatchObject({ material: 'Orichalcum', runes: ['Returning', 'Impossible'] })
+    expect(effectiveWeapon({ ...c, level: 9 }, entries, owned(item.name)).runes).toEqual(['Returning'])
+    expect(effectiveWeapon({ ...c, level: 10 }, entries, owned(item.name)).runes).toEqual(['Returning', 'Cunning'])
+    expect(effectiveWeapon(level19, entries, owned(item.name)).runes).toEqual(['Returning', 'Cunning'])
+    expect(effectiveWeapon(level20, entries, owned(item.name))).toMatchObject({ material: 'Orichalcum', runes: ['Returning', 'Cunning', 'Impossible'] })
     expect(weaponAttack(level20, entries, owned(item.name)).range).toBe(40)
-    expect(effectiveWeapon(level20, entries, { ...owned(item.name), runes: ['Impossible'] }).runes).toEqual(['Returning', 'Impossible'])
+    expect(effectiveWeapon(level20, entries, { ...owned(item.name), runes: ['Cunning', 'Impossible'] }).runes).toEqual(['Returning', 'Cunning', 'Impossible'])
     for (const displayOnly of [false, true]) {
       const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [owned(item.name)] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)
       expect(html).toContain('>Returning</button>')
@@ -86,6 +88,8 @@ it('implements Debilitating Dart as a returning dart with its conditional saving
       if (displayOnly) expect(html).not.toContain('<summary>Summary')
       const maxLevel = renderToStaticMarkup(<WeaponList c={{ ...level20, weapons: [owned(item.name)] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)
       expect(maxLevel).toContain('>Impossible</button>')
+      expect(maxLevel).toContain('>Cunning</button>')
+      expect(maxLevel).not.toContain(' + Cunning')
       expect(maxLevel).toContain('>Thrown 40</button>')
       if (!displayOnly) expect(maxLevel).toContain('>Orichalcum</button>')
     }

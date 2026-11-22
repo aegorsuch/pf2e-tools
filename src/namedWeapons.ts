@@ -215,9 +215,11 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
     return { ...entry, data: { ...entry.data,
       named_weapon_material: `Peachwood (${(level ?? entry.level) >= 18 ? 'High' : 'Standard'}-Grade)` } }
   }
-  if (source === 'Debilitating Dart' && (level ?? entry.level) >= 20) {
+  if (source === 'Debilitating Dart' && (level ?? entry.level) >= 10) {
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
-    return { ...entry, data: { ...entry.data, named_weapon_runes: [...new Set([...runes, 'Impossible'])].join(';') } }
+    return { ...entry, data: { ...entry.data, named_weapon_runes: [...new Set([
+      ...runes, 'Cunning', ...((level ?? entry.level) >= 20 ? ['Impossible'] : []),
+    ])].join(';') } }
   }
   if (source === 'Coldstar Pistols') {
     const merged = weapon.coldstarForm === 'Merged'
