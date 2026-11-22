@@ -1966,7 +1966,11 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
           ? tokens(chosenSubclass.data.tradition) : tokens(klass?.data.tradition)
   const focusOnlyCaster = ['Champion', 'Monk', 'Ranger'].includes(c.className ?? '')
   const bloodrager = !traditions.length && c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Bloodrager Dedication')[0]?.choice : undefined
-  if (bloodrager === 'Arcane' || bloodrager === 'Divine') return { traditions: [bloodrager], rank: 1, ability: 'cha' as Ability | undefined }
+  if (bloodrager === 'Arcane' || bloodrager === 'Divine') {
+    const rank = activeFeatsNamed(c, 'Exultant Blood Magic').length ? 3
+      : activeFeatsNamed(c, 'Surging Blood Magic').length ? 2 : 1
+    return { traditions: [bloodrager], rank, ability: 'cha' as Ability | undefined }
+  }
   if (!traditions.length && !focusOnlyCaster) return undefined
 
   const progression: Record<string, number> = {

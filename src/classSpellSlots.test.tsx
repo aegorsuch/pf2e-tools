@@ -53,6 +53,21 @@ it('derives Mystic connection tradition and caster ability from selected class',
     .toMatchObject({ traditions: ['Arcane'], ability: 'int' })
 })
 
+it('scales Bloodrager spell attack and DC proficiency with active spellcasting feats', () => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Bloodrager', level: 20,
+    feats: [
+      { name: 'Bloodrager Dedication', type: 'Class Feat', level: 2, choice: 'Divine' },
+      { name: 'Surging Blood Magic', type: 'Class Feat', level: 12 },
+      { name: 'Exultant Blood Magic', type: 'Class Feat', level: 18 },
+    ] }
+  expect(classSpellcasting({ ...c, level: 1 }, [])).toBeUndefined()
+  expect(classSpellcasting({ ...c, level: 11 }, [])).toEqual({ traditions: ['Divine'], ability: 'cha', rank: 1 })
+  expect(classSpellcasting({ ...c, level: 12 }, [])).toEqual({ traditions: ['Divine'], ability: 'cha', rank: 2 })
+  expect(classSpellcasting({ ...c, level: 18 }, [])).toEqual({ traditions: ['Divine'], ability: 'cha', rank: 3 })
+  expect(classSpellcasting({ ...c, feats: c.feats.slice(0, 1) }, [])?.rank).toBe(1)
+  expect(classSpellcasting({ ...c, systems: ['sf2e'] }, [])).toBeUndefined()
+})
+
 it('renders automatically computed slots without manual slot controls or saved spellcasting data', () => {
   const c: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 3 }
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)
