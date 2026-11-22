@@ -1,4 +1,4 @@
-import { Fragment, useId, useRef, useState } from 'react'
+import { Fragment, useId, useMemo, useRef, useState } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { ActionIcon } from './ActionIcon'
@@ -24,6 +24,7 @@ interface FeatSlotsProps extends SectionProps {
   // Per-slot search text, held by the parent so this stays a pure render
   search?: Record<string, string>
   onSearch?: (key: string, text: string) => void
+  pickerEligibility?: (slot: PlannedSlot) => ContentEntry[]
 }
 
 const PAGE = 100
@@ -92,10 +93,27 @@ function FeatActionControls({ c, entries, save, entry }: SectionProps & { entry?
   </>
 }
 
-export function SearchableFeatSlots(props: Omit<FeatSlotsProps, 'search' | 'onSearch'>) {
+export function SearchableFeatSlots(props: Omit<FeatSlotsProps, 'search' | 'onSearch' | 'pickerEligibility'>) {
   const [search, setSearch] = useState<Record<string, string>>({})
-  return <FeatSlots {...props} search={search}
+  const pickerEligibility = useMemo(() => featPickerEligibility(props.c, props.entries), [props.c, props.entries])
+  return <FeatSlots {...props} search={search} pickerEligibility={pickerEligibility}
     onSearch={(key, text) => setSearch(previous => ({ ...previous, [key]: text }))} />
+}
+
+export function featPickerEligibility(c: Character, entries: ContentEntry[]) {
+  let previousKey: string | undefined
+  let previousSettings = getSettings()
+  let previous: ContentEntry[] = []
+  return (slot: PlannedSlot) => {
+    const key = JSON.stringify(slot)
+    const settings = getSettings()
+    if (key !== previousKey || settings !== previousSettings) {
+      previous = eligibleFeats(entries, c, slot, { includeUnmetPrerequisites: true })
+      previousKey = key
+      previousSettings = settings
+    }
+    return previous
+  }
 }
 
 export function featSectionGrants(c: Character, entries: ContentEntry[], categories?: FeatSlotCategory[], allSlots = plannedSlots(c, entries)) {
@@ -136,7 +154,7 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
   return { background, backgroundFeats, grants, automaticFeats, memories, grantedType }
 }
 
-export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch }: FeatSlotsProps) {
+export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch, pickerEligibility }: FeatSlotsProps) {
   const checks = selectedChecks(c, entries)
   const selectedPrerequisites = (slot: PlannedSlot, entry: ContentEntry) => {
     const key = JSON.stringify([slot, entry])
@@ -435,7 +453,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             }
             return variants
           }
-          const options = lazy ? [] : eligibleFeats(entries, c, s, { includeUnmetPrerequisites: true }).filter((o) =>
+          const options = lazy ? [] : (pickerEligibility
+            ? pickerEligibility(s) : eligibleFeats(entries, c, s, { includeUnmetPrerequisites: true })).filter((o) =>
             (matchesEntry(o) || variantsFor(o).length > 0)
             && matchesSkill(o, skill, featsByName)
             && (!skill || o.name !== 'Skill Training' || optionsFor(o, s, skill).length > 0)

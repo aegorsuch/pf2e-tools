@@ -1,7 +1,7 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
-import { FeatSlots } from './FeatSlots'
+import { FeatSlots, featPickerEligibility } from './FeatSlots'
 import { EntryDescription } from './EntryDescription'
 import { CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { mapAonHit } from './aon'
@@ -23,6 +23,28 @@ beforeEach(() => {
 afterEach(() => {
   updateSettings({ planSkillPrerequisites: previousPlanning })
   vi.unstubAllGlobals()
+})
+
+it('reuses feat eligibility while searching, but recomputes for another slot, character or rules', () => {
+  const c = emptyRanger()
+  const entries: ContentEntry[] = []
+  const slot = plannedSlots(c, entries).find(candidate => candidate.category === 'class')!
+  const compute = vi.spyOn(builder, 'eligibleFeats')
+  try {
+    const eligibility = featPickerEligibility(c, entries)
+    const first = eligibility(slot)
+    expect(eligibility({ ...slot })).toBe(first)
+    expect(compute).toHaveBeenCalledTimes(1)
+    eligibility({ ...slot, level: slot.level + 2 })
+    expect(compute).toHaveBeenCalledTimes(2)
+    updateSettings({ planSkillPrerequisites: true })
+    eligibility({ ...slot, level: slot.level + 2 })
+    expect(compute).toHaveBeenCalledTimes(3)
+    featPickerEligibility({ ...c, level: c.level + 1 }, entries)(slot)
+    expect(compute).toHaveBeenCalledTimes(4)
+  } finally {
+    compute.mockRestore()
+  }
 })
 
 it.each([
