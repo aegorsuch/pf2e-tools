@@ -350,11 +350,16 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
 
-it('shows Halo as the heightened divine Light effect, not a castable innate spell', () => {
+it('shows Halo Light as a heightened divine innate spell without helper text', () => {
   const light = { ...entry('Light', 'spell', {}, ['Cantrip']), level: 1 }
   const c: Character = { ...base, level: 9, feats: [taken('Halo')] }
   expect(grantedFeatSpells(c, [light])).toMatchObject([{ entry: { name: 'Light' }, source: 'Halo', rank: 5,
-    rule: { kind: 'feat', tradition: 'divine', condition: 'Halo sheds light; Sustain to suppress or reestablish it' } }])
+    rule: { kind: 'innate', tradition: 'divine' } }])
+  expect(grantedFeatSpells(c, [light])[0].rule.condition).toBeUndefined()
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[light]} save={() => {}} />)
+  expect(markup).toContain('Divine Spell Rank 5')
+  expect(markup).toContain('<b>Innate Spells</b>')
+  expect(markup).not.toContain('Halo sheds light')
   expect(unresolvedFeatSpells(c, []).map(item => item.name)).toContain('Light')
   expect(grantedFeatSpells({ ...c, feats: [] }, [light])).toEqual([])
   expect(grantedFeatSpells({ ...c, level: 0 }, [light])).toEqual([])

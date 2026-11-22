@@ -374,8 +374,7 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     if (feat.name === 'Halo' && c.systems.includes('pf2e')) {
       const entry = matchingSpells(entries, 'Light').find(spell => spell.systems.includes('pf2e'))
       if (entry) out.push({ entry, source: feat.name,
-        rule: { kind: 'feat', spells: [entry.name], tradition: 'divine', heightened: true,
-          condition: 'Halo sheds light; Sustain to suppress or reestablish it' },
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'divine', heightened: true },
         rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, 'light']) })
       continue
     }
