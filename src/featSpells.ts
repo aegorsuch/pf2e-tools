@@ -11,6 +11,10 @@ import { spellAccessGranted } from './featAccess'
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 export const KITSUNE_SPELL_FAMILIARITY_CANTRIPS = ['Daze', 'Forbidding Ward', 'Ghost Sound']
 export const automaticFeatChoiceKey = (source: string, feat: string) => JSON.stringify([source, feat])
+const PSYCHIC_FEAT_SPELLS: Record<string, { names: string[]; tradition: string; rank: number }> = {
+  'Lush Psychic': { names: ['Cellular Stimulant', 'Gentle Landing'], tradition: 'primal', rank: 1 },
+  'Psychic Investigator': { names: ['Hypercognition', 'Mind Reading'], tradition: 'occult', rank: 3 },
+}
 
 const domainSpellCache = new WeakMap<ContentEntry[], ContentEntry[]>()
 export function domainFeatSpells(c: Character, entries: ContentEntry[], featName: string, domain: string) {
@@ -371,12 +375,13 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: 2, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
       continue
     }
-    if (feat.name === 'Lush Psychic' && c.systems.includes('sf2e')) {
-      for (const name of ['Cellular Stimulant', 'Gentle Landing']) {
+    const psychicSpells = c.systems.includes('sf2e') ? PSYCHIC_FEAT_SPELLS[feat.name] : undefined
+    if (psychicSpells) {
+      for (const name of psychicSpells.names) {
         const entry = matchingSpells(entries, name).find(spell => spell.systems.includes('sf2e'))
         if (entry) out.push({ entry, source: feat.name,
-          rule: { kind: 'innate', spells: [name], tradition: 'primal', frequency: 'once per day', fixedRank: true },
-          rank: 1, usageKey: JSON.stringify([selection, feat.name, name.toLowerCase()]) })
+          rule: { kind: 'innate', spells: [name], tradition: psychicSpells.tradition, frequency: 'once per day', fixedRank: true },
+          rank: psychicSpells.rank, usageKey: JSON.stringify([selection, feat.name, name.toLowerCase()]) })
       }
       continue
     }
@@ -714,8 +719,9 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
   }
   return [...missingBoonSpells, ...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
-    if (feat.name === 'Lush Psychic' && c.systems.includes('sf2e')) {
-      return ['Cellular Stimulant', 'Gentle Landing']
+    const psychicSpells = c.systems.includes('sf2e') ? PSYCHIC_FEAT_SPELLS[feat.name] : undefined
+    if (psychicSpells) {
+      return psychicSpells.names
         .filter(name => !matchingSpells(entries, name).some(entry => entry.systems.includes('sf2e')))
         .map(name => ({ name, source }))
     }

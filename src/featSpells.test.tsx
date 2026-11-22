@@ -413,6 +413,22 @@ it('provides Psychic Mastery a common rank 2 occult spell slot and daily use', (
   } finally { updateSettings({ innateAutoHeighten: previous }) }
 })
 
+it('shows Psychic Investigator innate spells with separate daily trackers', () => {
+  const previous = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: true })
+  try {
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Lashunta', level: 13,
+    feats: [taken('Psychic Investigator', 13)] }
+  const spells = ['Hypercognition', 'Mind Reading'].map(name =>
+    ({ ...entry(name, 'spell'), systems: ['sf2e' as const], level: 3 }))
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
+  expect(html).toContain('Hypercognition')
+  expect(html).toContain('Mind Reading')
+  expect(html).toContain('Occult Spell Rank 7')
+  expect((html.match(/1 of 1 uses remaining/g) ?? [])).toHaveLength(2)
+  } finally { updateSettings({ innateAutoHeighten: previous }) }
+})
+
 it('tracks Natural Illusionist alternatives in one daily pool with their specific heightened rank', () => {
   const entries = ['Illusory Disguise', 'Item Facade', 'Ventriloquism'].map(name => entry(name, 'spell'))
   const c: Character = { ...base, level: 7, feats: [taken('Natural Illusionist', 5)] }

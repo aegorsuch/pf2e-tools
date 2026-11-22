@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
 import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
-import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, hasParryWeapon, isGrantedSlot, maxHp, movementSpeeds, ownedShields, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, shieldAcBonus, shieldRaisedChange, speed, tailbladeInheritance, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
+import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, hasParryWeapon, isGrantedSlot, maxHp, movementSpeeds, ownedShields, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, shieldAcBonus, shieldRaisedChange, speed, tailbladeInheritance, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 import { getSettings, updateSettings } from './settings'
 
@@ -107,6 +107,33 @@ it('grants Psychic Talent with an occult cantrip from the real catalog', () => {
   expect(featSpellOptions(c, catalog, c.feats[0])?.map(spell => spell.name)).toContain('Daze')
   expect(grantedFeatSpells(c, catalog)).toMatchObject([{ entry: { name: 'Daze' }, rank: 4,
     rule: { kind: 'innate', tradition: 'occult', frequency: 'at will' } }])
+})
+
+it('grants Psychic Investigator spells with independent daily uses', () => {
+  const previous = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: false })
+  try {
+    const catalog = mapAonHits(hits.filter(hit => ['Psychic Investigator', 'Psychic Bully', 'Psychic Scholar', 'Psychic Talent', 'Hypercognition', 'Mind Reading']
+      .includes(String(hit._source?.name))), 'sf2e')
+    const feat = catalog.find(entry => entry.kind === 'feat' && entry.name === 'Psychic Investigator')!
+    const c: Character = { ...base, ancestry: 'Lashunta', level: 13,
+      feats: [{ name: feat.name, sourceId: feat.id, type: 'Ancestry Feat', level: 13 }] }
+    expect(featPrerequisiteChecker(c, catalog)(feat).missing.length).toBeGreaterThan(0)
+    for (const name of ['Psychic Bully', 'Psychic Scholar', 'Psychic Talent']) {
+      const withPrerequisite = { ...c, feats: [...c.feats, { name, type: 'Ancestry Feat', level: 1 }] }
+      expect(featPrerequisiteChecker(withPrerequisite, catalog)(feat).missing).toEqual([])
+    }
+    const grants = grantedFeatSpells(c, catalog)
+    expect(grants.map(grant => [grant.entry.name, grant.rank, grant.rule.tradition, grant.rule.frequency]))
+      .toEqual([['Hypercognition', 3, 'occult', 'once per day'], ['Mind Reading', 3, 'occult', 'once per day']])
+    expect(grants.map(grant => dailyInnateUses(c, grant)?.remaining)).toEqual([1, 1])
+    const spent = { ...c, innateSpellUses: { [grants[0].usageKey]: 1 } }
+    expect(grants.map(grant => dailyInnateUses(spent, grant)?.remaining)).toEqual([0, 1])
+    expect(grantedFeatSpells({ ...c, level: 12 }, catalog)).toEqual([])
+    expect(unresolvedFeatSpells(c, [feat]).map(item => item.name)).toEqual(['Hypercognition', 'Mind Reading'])
+    updateSettings({ innateAutoHeighten: true })
+    expect(grantedFeatSpells(c, catalog).map(grant => grant.rank)).toEqual([7, 7])
+  } finally { updateSettings({ innateAutoHeighten: previous }) }
 })
 
 it('grants Lush Psychic primal innate spells with independent daily uses', () => {
