@@ -3344,3 +3344,17 @@ it('summarizes heritage, ancestry, subclass, and final level without duplicating
   expect(characterSummary(c, [])).toBe('Wintertouched Human Outwit Edge Ranger 20')
   expect(characterSummary({ ...c, heritage: 'Wintertouched' }, [])).toBe('Wintertouched Human Outwit Edge Ranger 20')
 })
+
+it("adds Witch's Armaments attacks, then upgrades them with Wild Witch's Armaments and the hair feats", () => {
+  const witch: Character = { ...base, className: 'Witch', level: 6, feats: [feat("Witch's Armaments", 1, 'Living Hair'), feat("Witch's Armaments", 2, 'Eldritch Nails')] }
+  const names = (c: Character) => ownedWeapons(c, []).map(weapon => weapon.name)
+  expect(names(witch)).toEqual(expect.arrayContaining(['Hair', 'Nails']))
+  expect(names(witch)).not.toContain('Quills')
+  const hair = (c: Character) => weaponAttack(c, [], ownedWeapons(c, []).find(weapon => weapon.name === 'Hair')!)
+  expect(hair(witch).damage).toContain('d4')
+  const upgraded: Character = { ...witch, level: 20, feats: [...witch.feats, feat("Wild Witch's Armaments", 6),
+    feat("Syu Tak-Nwa's Deadly Hair", 6), feat("Syu Tak-Nwa's Hexed Locks", 8), feat("Demon's Hair", 20)] }
+  expect(names(upgraded)).toContain('Quills')
+  expect(hair(upgraded).damage).toContain('d8')
+  expect(hair(upgraded).traits).toEqual(expect.arrayContaining(['Grapple', 'Reach', 'Sweep', 'Versatile S']))
+})

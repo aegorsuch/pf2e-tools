@@ -1063,6 +1063,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         heritages: characterHeritages(character, entries).map(heritage => heritage.name),
         ancestryTraits: ancestryFeatTraits(character),
         subclass, additionalSubclasses, fatalMethod: selectedFatalMethod(character), exocortexes: mechanicExocortexes(character),
+        witchArmaments: activeFeatsNamed(character, "Witch's Armaments").flatMap(feat => feat.choice ? [feat.choice] : []),
         orders: character.className === 'Druid' ? [
           character.order ?? subclass ?? '',
           ...character.feats.flatMap((feat) => feat.name === 'Order Explorer' && feat.choice ? [feat.choice] : []),
@@ -1450,7 +1451,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
         || e.name === 'Expansive Array'
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length === 1
-        || ['Iruxi Armaments', 'Brutal Anatomy', 'Predatory', 'Ancestral Resistance'].includes(e.name) && !!featChoiceOptions(e.name, c, entries, slot.key)?.length
+        || ['Iruxi Armaments', 'Brutal Anatomy', 'Predatory', 'Ancestral Resistance', "Witch's Armaments"].includes(e.name) && !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || (e.data.repeatable === true || isRepeatableCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key,
             slot.category === 'archetype' && archetypesOf(e).includes('Beastmaster'))))
   const takenLineage = entries.some(entry => entry.kind === 'feat' && !entry.deleted
@@ -1681,6 +1682,11 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     const used = new Set(c.feats.flatMap((feat, featIndex) =>
       featIndex !== index && feat.name === name && feat.choice ? [feat.choice] : []))
     return ['Claws', 'Fangs', 'Tail'].filter(choice => !used.has(choice))
+  }
+  if (name === "Witch's Armaments" && c.systems.includes('pf2e')) {
+    const used = new Set(c.feats.flatMap((feat, featIndex) =>
+      featIndex !== index && feat.name === name && feat.choice ? [feat.choice] : []))
+    return WITCH_ARMAMENTS.filter(choice => !used.has(choice))
   }
   if (name === 'Brutal Anatomy') {
     const used = new Set(c.feats.flatMap((feat, featIndex) =>
@@ -2927,7 +2933,7 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
     if (!out.has(name.toLowerCase())) out.set(name.toLowerCase(), { name, source })
   }
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
-  if (c.level >= 1 && c.systems.includes('pf2e') && ['Bard', 'Oracle'].includes(c.className ?? '')) {
+  if (c.level >= 1 && c.systems.includes('pf2e') && ['Bard', 'Oracle', 'Witch'].includes(c.className ?? '')) {
     const subclass = selectedSubclass(c, entries)
     const subclasses = [subclass, ...(c.className === 'Bard' ? active
       .filter(feat => feat.name === 'Multifarious Muse' && feat.choice)
@@ -2937,7 +2943,7 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
         && entry.data.class === c.className && entry.name === name
         && entry.systems.includes('pf2e'))
       if (typeof source?.data.grants_focus_spells === 'string') {
-        add(source.data.grants_focus_spells, `${name} ${c.className === 'Bard' ? 'muse' : 'mystery'}`)
+        add(source.data.grants_focus_spells, `${name} ${c.className === 'Bard' ? 'muse' : c.className === 'Witch' ? 'patron' : 'mystery'}`)
       }
     }
   }
@@ -4804,6 +4810,40 @@ const pahtraAttacks: ContentEntry[] = [
   { ...FIST, id: 'sf2e:pahtra:jaws', name: 'Jaws', systems: ['sf2e'],
     traits: ['Finesse', 'Grapple', 'Pahtra', 'Unarmed'], data: { ...FIST.data, damage: '1d6 piercing' } },
 ]
+const WITCH_BASE = { ...FIST, systems: ['pf2e' as const] }
+const witchNails = (wild: boolean): ContentEntry => ({ ...WITCH_BASE, id: wild ? 'witch:nails:wild' : 'witch:nails', name: 'Nails',
+  traits: ['Agile', 'Unarmed'], data: { ...FIST.data, damage: '1d6 slashing' },
+  description: wild ? "If you hit the same enemy with two consecutive nails Strikes, that enemy takes additional slashing damage equal to half your level on the second Strike." : '' })
+const witchJaws = (wild: boolean): ContentEntry => ({ ...WITCH_BASE, id: wild ? 'witch:jaws:wild' : 'witch:jaws', name: 'Jaws',
+  traits: ['Unarmed'], data: { ...FIST.data, damage: '1d8 piercing' },
+  description: wild ? 'A creature you critically hit with a jaws Strike must succeed at a Fortitude save against the higher of your class DC or spell DC or become sickened 1.' : '' })
+const witchHair = (deadly: boolean, hexed: boolean, demon: boolean): ContentEntry => {
+  const step = (deadly ? 1 : 0) + (demon ? 1 : 0)
+  return { ...WITCH_BASE, id: `witch:hair:${+deadly}${+hexed}${+demon}`, name: 'Hair',
+    traits: ['Agile', 'Disarm', 'Finesse', 'Trip', 'Unarmed', ...(deadly ? ['Grapple'] : []),
+      ...(hexed ? ['Reach'] : []), ...(demon ? [hexed ? 'Sweep' : 'Reach', 'Versatile S'] : [])],
+    data: { ...FIST.data, damage: `1d${4 + 2 * step} bludgeoning` },
+    description: hexed || demon ? 'You can deliver hexes through your hair.' : '' }
+}
+const witchQuills: ContentEntry = { ...WITCH_BASE, id: 'witch:quills', name: 'Quills', traits: ['Unarmed'],
+  data: { ...FIST.data, weapon_type: 'Ranged', weapon_group: 'Dart', damage: '1d4 piercing', range: 15 } }
+const witchAttacks: ContentEntry[] = [witchNails(false), witchNails(true), witchJaws(false), witchJaws(true),
+  ...[0, 1].flatMap(d => [0, 1].flatMap(h => [0, 1].map(m => witchHair(!!d, !!h, !!m)))), witchQuills]
+const witchAttackIds = new Set(witchAttacks.map(entry => entry.id))
+export const WITCH_ARMAMENTS = ['Eldritch Nails', 'Iron Teeth', 'Living Hair'] as const
+function activeWitchAttacks(c: Character): ContentEntry[] {
+  if (!c.systems.includes('pf2e')) return []
+  const wild = activeFeatsNamed(c, "Wild Witch's Armaments").length > 0
+  const choices = new Set(activeFeatsNamed(c, "Witch's Armaments").map(feat => feat.choice))
+  const has = (name: string) => activeFeatsNamed(c, name).length > 0
+  const find = (id: string) => witchAttacks.find(entry => entry.id === id)
+  return [
+    ...(choices.has('Eldritch Nails') ? [find(wild ? 'witch:nails:wild' : 'witch:nails')] : []),
+    ...(choices.has('Iron Teeth') ? [find(wild ? 'witch:jaws:wild' : 'witch:jaws')] : []),
+    ...(choices.has('Living Hair') ? [find(`witch:hair:${+has("Syu Tak-Nwa's Deadly Hair")}${+has("Syu Tak-Nwa's Hexed Locks")}${+has("Demon's Hair")}`),
+      ...(wild ? [witchQuills] : [])] : []),
+  ].filter((entry): entry is ContentEntry => !!entry)
+}
 const venomousVeskJaws: ContentEntry = { ...FIST, id: 'sf2e:vesk:venomous-jaws', name: 'Venomous Jaws',
   systems: ['sf2e'], traits: ['Grapple', 'Unarmed', 'Vesk'],
   data: { ...FIST.data, weapon_group: '', damage: '1d4 poison' } }
@@ -5215,6 +5255,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     veskAttacks.filter(entry => entry.id === `sf2e:vesk:${String(feat.choice).toLowerCase()}`))
   const predatoryAttacks = c.systems.includes('sf2e') ? activeFeatsNamed(c, 'Predatory').flatMap(feat =>
     pahtraAttacks.filter(entry => entry.id === `sf2e:pahtra:${String(feat.choice).toLowerCase()}`)) : []
+  const witchSelected = activeWitchAttacks(c)
   const venomousJaws = c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Fork-Tongued Vesk'
     ? [venomousVeskJaws] : []
   const cards = activeFeatsNamed(c, "Fane's Fourberie").length && c.activeStance === "Fane's Fourberie"
@@ -5227,6 +5268,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (!ysokiJaws.some(entry => entry.id === weapon.id) || nativeJaws.some(entry => entry.id === weapon.id))
     && (!veskAttacks.some(entry => entry.id === weapon.id) || brutalAttacks.some(entry => entry.id === weapon.id))
     && (!pahtraAttacks.some(entry => entry.id === weapon.id) || predatoryAttacks.some(entry => entry.id === weapon.id))
+    && (!witchAttackIds.has(weapon.id) || witchSelected.some(entry => entry.id === weapon.id))
     && (weapon.id !== venomousVeskJaws.id || venomousJaws.length > 0)
     && (![TENGU_BITE.id, TENGU_DOGFANG_BITE.id].includes(weapon.id) || tenguBite.some(entry => entry.id === weapon.id))
     && (weapon.name !== HAFT_STRIKER_WEAPON.name || haftStriker)
@@ -5236,10 +5278,10 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (![...animalAttacks, UNTAMED_CLAWS, UNTAMED_JAWS].some((entry) => entry.name === weapon.name)
       || [...selectedAttacks, ...untamedAttacks].some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...tenguBite, ...nativeJaws, ...brutalAttacks, ...predatoryAttacks, ...venomousJaws,
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...tenguBite, ...nativeJaws, ...brutalAttacks, ...predatoryAttacks, ...witchSelected, ...venomousJaws,
     ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []),
     ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...bestialAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
-    if (!available.some((weapon) => iruxiAttackIds.has(entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {
+    if (!available.some((weapon) => iruxiAttackIds.has(entry.id) || witchAttackIds.has(entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {
       available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
   }
@@ -5477,7 +5519,7 @@ export function activeUntamedShiftEffects(c: Character, entries: ContentEntry[])
 }
 
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, CAIRN_FIST.name, SPARK_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name, UNTAMED_CLAWS.name, UNTAMED_JAWS.name].includes(name)
-  || bestialWeapons.some(entry => entry.name === name) || [...ysokiJaws, ...veskAttacks, ...pahtraAttacks, venomousVeskJaws].some(entry => entry.name === name)
+  || bestialWeapons.some(entry => entry.name === name) || [...ysokiJaws, ...veskAttacks, ...pahtraAttacks, ...witchAttacks, venomousVeskJaws].some(entry => entry.name === name)
 export const PLAYING_CARD_WEAPONS = [
   { id: 'playing-card:dagger', name: 'Dagger (Playing Card)', base: 'Dagger' },
   { id: 'playing-card:dart', name: 'Dart (Playing Card)', base: 'Dart' },
@@ -5541,7 +5583,7 @@ function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) 
   if (id === solarianFlare.id || name === solarianFlare.name) return solarianFlare
   if (id === 'sf2e:solarian:solar-weapon' || name === 'Solar Weapon') return solarianWeaponEntry(false)
   if (id === 'sf2e:solarian:twin-weapon' || name === 'Twin Solar Weapon') return solarianWeaponEntry(true)
-  const jaws = [...ysokiJaws, ...veskAttacks, ...pahtraAttacks, venomousVeskJaws].find(entry => id ? entry.id === id : entry.name === name)
+  const jaws = [...ysokiJaws, ...veskAttacks, ...pahtraAttacks, ...witchAttacks, venomousVeskJaws].find(entry => id ? entry.id === id : entry.name === name)
   if (jaws) return jaws
   const bestial = id ? bestialWeapon(id) : bestialWeapons.find(entry => entry.name === name)
   if (bestial) return bestial

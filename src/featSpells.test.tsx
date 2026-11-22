@@ -2315,3 +2315,21 @@ it('grants Creature Ally and Creature Shape as daily innate spells from common s
   expect(grantedFeatSpells(c, spells).map(grant => [grant.entry.name, grant.rank, grant.rule.tradition]))
     .toEqual([['Summon Animal', 5, 'Primal'], ['Insect Form', 8, 'Primal']])
 })
+
+it('grants Witch patron hex cantrip, Cackle and chosen lesson hexes as focus spells', () => {
+  const hex = (name: string, level: number, lesson?: string) => mapAonHit({ _id: name, _source: { name, category: 'spell', level,
+    trait: ['Focus', 'Hex', 'Witch'], markdown: `Header\n\n${lesson ? `**Lesson**\n[${lesson}](/Lessons.aspx?ID=1)\n\n` : ''}---\n\nText` } }, 'pf2e')!
+  const patron = mapAonHit({ _id: 'p', _source: { name: 'The Resentment', category: 'patron',
+    markdown: 'Header\n\n---\n\n**Lesson of Rage** You gain the [_evil eye_](/Spells.aspx?ID=1) hex cantrip and your familiar learns [_fear_](/Spells.aspx?ID=2).' } }, 'pf2e')!
+  const spells = [{ ...hex('Cackle', 1), data: {} }, hex('Veil of Dreams', 1, 'Lesson of Dreams'), hex('Personal Blizzard', 3, 'Lesson of Snow'),
+    hex('Curse of Death', 5, 'Lesson of Death'), hex('Evil Eye', 1)]
+  expect(patron.data.grants_focus_spells).toBe('evil eye')
+  const c: Character = { ...base, className: 'Witch', level: 6, subclass: 'The Resentment', feats: [
+    { name: 'Cackle', type: 'Class Feat', level: 1, slot: 'class:1:0' }, { name: 'Basic Lesson', type: 'Class Feat', level: 2, choice: 'Veil of Dreams', slot: 'class:2:0' },
+    { name: 'Greater Lesson', type: 'Class Feat', level: 6, choice: 'Personal Blizzard', slot: 'class:6:0' }] }
+  const all = [patron, ...spells]
+  expect(focusSpells(c, all).spells.map(spell => spell.name)).toEqual(['Cackle', 'Evil Eye', 'Personal Blizzard', 'Veil of Dreams'])
+  expect(focusSpells(c, all).points).toBe(3)
+  expect(featSpellOptions(c, all, c.feats[1])?.map(spell => spell.name)).toEqual(['Veil of Dreams'])
+  expect(featSpellOptions(c, all, c.feats[2])?.map(spell => spell.name)).toEqual(['Personal Blizzard'])
+})

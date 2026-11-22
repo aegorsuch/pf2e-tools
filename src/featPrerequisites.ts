@@ -18,6 +18,7 @@ export interface PrerequisiteFacts {
   fatalMethod?: string
   additionalSubclasses: string[]
   exocortexes?: string[]
+  witchArmaments?: string[]
   orders: string[]
   feats: { name: string; level: number; category?: string }[]
   features: string[]
@@ -308,6 +309,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (key(facts.deity ?? '') === 'laws of mortality'
       && (name === 'you follow the laws of mortality' || name === "can't have a patron deity")) return met()
     if (name === 'you can cast untamed form') return resultFor(!!facts.untamedForm, text)
+    if (['eldritch nails', 'iron teeth', 'living hair'].includes(name)) return resultFor(!!facts.witchArmaments?.some(choice => key(choice) === name), text)
     const exocortex = /^(drone|mine|turret) exocortex$/.exec(name)
     if (exocortex) return resultFor(facts.className === 'Mechanic'
       && !!facts.exocortexes?.some(choice => key(choice) === exocortex[1]), text)

@@ -83,6 +83,16 @@ export function grenadeLimits(c: Character, entries: ContentEntry[]) {
   return { formulas: 2, prepared: (rank >= 4 ? 6 : rank >= 3 ? 4 : rank >= 2 ? 3 : 2) + 2 * extras }
 }
 
+export function cauldronLevels(c: Character) {
+  if (!c.systems.includes('pf2e') || !c.feats.some(feat => feat.name === 'Cauldron' && featTakenLevel(feat) <= c.level)) return []
+  return [1, 1, 1, 1, ...Array.from({ length: Math.max(0, Math.floor((c.level - 4) / 2) + 1) }, (_, i) => 4 + 2 * i)]
+}
+
+export function isCauldronConsumable(entry: ContentEntry) {
+  return !entry.deleted && entry.kind === 'item' && entry.traits.some(trait => ['oil', 'potion'].includes(formulaKey(trait)))
+    && !featRarity(entry)
+}
+
 export function isGrenade(entry: ContentEntry) {
   return !entry.deleted && entry.kind === 'item' && entry.traits.some(trait => formulaKey(trait) === 'grenade')
 }
@@ -101,11 +111,11 @@ export function formulaSources(c: Character, entries: ContentEntry[]) {
 
 export function formulaGrants(c: Character, entries: ContentEntry[]) {
   return { sources: formulaSources(c, entries), snares: snareAdvancements(c, entries),
-    gadgets: gadgetLimits(c, entries), grenades: grenadeLimits(c, entries), munitions: munitionsLimits(c) }
+    gadgets: gadgetLimits(c, entries), grenades: grenadeLimits(c, entries), munitions: munitionsLimits(c), cauldron: cauldronLevels(c) }
 }
 
 export function knownFormulas(c: Character, entries: ContentEntry[], grants = formulaGrants(c, entries)) {
-  const { sources: { snareCrafting, brastlewark, munitionsCrafter }, snares, gadgets, grenades } = grants
+  const { sources: { snareCrafting, brastlewark, munitionsCrafter }, snares, gadgets, grenades, cauldron } = grants
   const groups = [
     { source: 'Snare Crafting', names: snareCrafting ? c.snareFormulaChoices ?? [] : [] },
     ...snares.map(({ rank }) => ({
@@ -113,6 +123,7 @@ export function knownFormulas(c: Character, entries: ContentEntry[], grants = fo
     })),
     { source: 'Gadget Specialist', names: (c.gadgetFormulaChoices ?? []).slice(0, gadgets?.formulas ?? 0) },
     { source: 'Grenade Specialist', names: (c.grenadeFormulaChoices ?? []).slice(0, grenades?.formulas ?? 0) },
+    { source: 'Cauldron', names: (c.cauldronFormulaChoices ?? []).slice(0, cauldron.length) },
     { source: 'Munitions Crafter', names: munitionsCrafter
       ? [entries.find(entry => !entry.deleted && isBlackPowderDose(entry)
         && entry.systems.some(system => c.systems.includes(system)))?.name ?? BLACK_POWDER_FORMULA,
