@@ -3373,8 +3373,8 @@ it('applies the Bloodrager instinct rage damage, bleed, resistances and dedicati
 })
 
 it('links feat-granted Witch attacks to the granting feat', () => {
-  const armaments: ContentEntry = { id: 'wa', systems: ['pf2e'], kind: 'feat', name: "Witch's Armaments", level: 1,
-    traits: [], data: {}, description: 'Your nails grow into claws.' } as ContentEntry
+  const armaments: ContentEntry = { id: 'wa', systems: ['pf2e'], kind: 'feat', source: 'official', name: "Witch's Armaments", level: 1,
+    traits: [], data: {}, description: 'Your nails grow into claws.', effects: [], updatedAt: 0 }
   const c: Character = { ...base, className: 'Witch', level: 1, feats: [feat("Witch's Armaments", 1, 'Eldritch Nails')] }
   const html = renderToStaticMarkup(<WeaponList c={c} entries={[armaments]} save={() => {}} displayOnly />)
   expect(html).toContain('Your nails grow into claws.')
