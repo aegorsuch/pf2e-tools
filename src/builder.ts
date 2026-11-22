@@ -6312,6 +6312,23 @@ export function clanPistolRunes(c: Character, weapon: OwnedWeapon) {
   ]
 }
 
+const weaponGradeCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
+function weaponGrades(entries: ContentEntry[], url: string) {
+  let groups = weaponGradeCache.get(entries)
+  if (!groups) {
+    groups = new Map()
+    for (const entry of entries) {
+      if (entry.kind !== 'weapon' || entry.deleted || !usesWeaponUpgrades(entry) || typeof entry.data.url !== 'string') continue
+      const group = groups.get(entry.data.url) ?? []
+      group.push(entry)
+      groups.set(entry.data.url, group)
+    }
+    for (const group of groups.values()) group.sort((a, b) => b.level - a.level)
+    weaponGradeCache.set(entries, groups)
+  }
+  return groups.get(url) ?? []
+}
+
 export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
   if (BATTLE_FORM_WEAPONS.some(entry => entry.id === weapon.id))
     return { ...weapon, potency: 0, striking: 0, runes: [], material: undefined }
@@ -6355,7 +6372,17 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     const selectedForm = { ...weapon, name: form.name }
     weapon = { ...selectedForm, runes: selectedForm.runes.filter(rune => weaponRuneApplies(entries, selectedForm, rune)) }
   }
-  const entry = weaponEntry(entries, weapon.name, weapon.id)
+  let entry = weaponEntry(entries, weapon.name, weapon.id)
+  if (c.systems.includes('sf2e') && usesWeaponUpgrades(entry) && weaponCategory(entry) !== 'Unarmed'
+    && typeof entry?.data.url === 'string') {
+    const current = entry
+    const improved = weaponGrades(entries, entry.data.url)
+      .find(candidate => candidate.level > current.level && candidate.level <= c.level)
+    if (improved) {
+      weapon = { ...weapon, name: improved.name }
+      entry = improved
+    }
+  }
   const builtIn = namedWeaponEnhancements(withNamedWeaponState(entry, weapon, c.level))
   if (builtIn?.material) weapon = { ...weapon, material: builtIn.material }
   if (usesWeaponUpgrades(entry) && weaponCategory(entry) !== 'Unarmed') return { ...weapon, potency: Number(entry?.data.weapon_tracking ?? 0), striking: 0, runes: [] }

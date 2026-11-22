@@ -2444,11 +2444,7 @@ it('keeps the base name when displaying upgraded SF2E weapon grades', () => {
   ] }
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[base, tactical, paragon]} save={() => {}} />)
   expect(markup).toContain('aria-label="Doshko"')
-  expect(markup).toContain('Doshko (Level 0)')
-  expect(markup).toContain('Doshko (Level 2)')
-  expect(markup).toContain('Doshko (Level 20)')
-  expect(markup).toContain('value="Tactical Doshko">Doshko (Level 2)</option>')
-  expect(markup).toContain('value="Paragon Doshko" selected="">Doshko (Level 20)</option>')
+  expect(markup).not.toContain('Weapon grade')
 })
 
 it.each([false, true])('orders weapons alphabetically by displayed name regardless of equipped state (displayOnly=%s)', displayOnly => {

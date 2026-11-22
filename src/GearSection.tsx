@@ -1516,15 +1516,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 && <Info key={summary.form} label={`${summary.form} summary`}>{summary.attack.entry.description}</Info>)
               : a.entry?.description && !a.entry.data.named_weapon && <Info label="Summary">{a.entry.description}</Info>}
             {a.entry && !grantedClanWeapon && <GearAccess c={c} entries={entries} entry={a.entry} save={save} />}
-            {upgradeWeapon && gradeOptions.length > 1 && <label>Weapon grade{' '}
-              <select aria-label={`Weapon grade: ${displayName}`} value={w.name} onChange={event => {
-                if (gradeOptions.some(entry => entry.name === event.target.value)) update(w.id, { name: event.target.value })
-              }}>
-                {gradeOptions.map(entry => <option key={entry.id} value={entry.name}>
-                  {equipmentDisplayName(adoptedAncestryText(c, baseGradeName ?? entry.name))} (Level {entry.level})
-                </option>)}
-              </select>
-            </label>}
             {attackSummaries.map(summary => <div key={summary.form ?? 'weapon'} className="col">
               {summary.form && <strong>{summary.form} form</strong>}
               <div className="gear-stats">

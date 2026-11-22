@@ -1324,6 +1324,26 @@ it('uses Starfinder weapon grades rather than saved Pathfinder runes', () => {
   expect(markup).not.toContain('aria-label="Add property rune"')
 })
 
+it('automatically enhances Starfinder weapon grades without changing saved gear', () => {
+  const pistol = { ...content('weapon', 'Rotating Pistol', {
+    damage: '1d6 P', hands: 1, weapon_type: 'Ranged', weapon_category: 'Martial', upgrade_slots: 1,
+    weapon_tracking: 0, url: 'rotating-pistol',
+  }, 0, ['Analog']), systems: ['sf2e' as const] }
+  const tactical = { ...pistol, id: 'tactical', name: 'Tactical Rotating Pistol', level: 2,
+    data: { ...pistol.data, weapon_tracking: 1 } }
+  const advanced = { ...pistol, id: 'advanced', name: 'Advanced Rotating Pistol', level: 4,
+    data: { ...pistol.data, damage: '2d6 P', weapon_tracking: 1, upgrade_slots: 2 } }
+  const weapon: OwnedWeapon = { id: 'pistol', name: pistol.name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, systems: ['sf2e'], level: 1, weapons: [weapon] }
+  const entries = [pistol, tactical, advanced]
+  expect(weaponAttack(c, entries, weapon)).toMatchObject({ damage: '1d6 P', item: 0 })
+  expect(weaponAttack({ ...c, level: 2 }, entries, weapon)).toMatchObject({ damage: '1d6 P', item: 1 })
+  expect(weaponAttack({ ...c, level: 4 }, entries, weapon)).toMatchObject({ damage: '2d6 P', item: 1, entry: { data: { upgrade_slots: 2 } } })
+  expect(effectiveWeapon({ ...c, level: 1 }, entries, { ...weapon, name: advanced.name }).name).toBe(advanced.name)
+  expect(effectiveWeapon({ ...c, level: 4, systems: ['pf2e'] }, entries, weapon).name).toBe(pistol.name)
+  expect(weapon.name).toBe(pistol.name)
+})
+
 it('applies active mechanic weapon mods only to eligible weapons and damage types', () => {
   const laser = { ...content('weapon', 'Laser', {
     damage: '1d6 F', hands: 1, weapon_type: 'Ranged', range: 60, weapon_category: 'Simple', upgrade_slots: 1,
