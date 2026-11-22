@@ -17,6 +17,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { getSettings } from './settings'
 import { backgroundLoreChoiceOptions, backgroundLoreSlots, backgroundSkillSlots, chosenLoreFeats, normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
 import { SearchableSelect } from './SearchableSelect'
+import { PROFESSION_LORES } from './backgrounds'
 import { characterHeritages } from './heritages'
 import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
 import { artifactItemSkillBonus, hunterArrowheadBonus } from './builder'
@@ -25,6 +26,7 @@ import { isWitchwarper } from './witchwarper'
 import { hellknightBenefitActive, hellknightSkillNotes, hellknightTrainingBenefits } from './hellknight'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
+const LABORER_LORES = PROFESSION_LORES.filter(lore => !['First Ones Lore', 'Underworld Lore'].includes(lore))
 export { commonLoreOptions } from './builder'
 
 const RESISTANCE_NOTES: Record<string, string> = {
@@ -978,7 +980,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       {loreFeats.map(({ feat, index }) => {
         const value = feat.choice?.trim().replace(/\s+/g, ' ') ?? ''
         const selected = value && !/\s+lore$/i.test(value) ? `${value} Lore` : value.replace(/\s+lore$/i, ' Lore')
-        const options = commonLoreOptions(deityLores, c.deity)
+        const options = feat.name === 'Experienced Laborer' ? LABORER_LORES : commonLoreOptions(deityLores, c.deity)
         return <SearchableSelect key={feat.slot ?? index} label={`${feat.name} Lore`} aria-label={`${feat.name} Lore`}
           value={selected} onChange={event => {
             const choice = event.target.value

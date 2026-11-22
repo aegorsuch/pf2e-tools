@@ -1084,13 +1084,25 @@ it('saves feat Lore choices separately from ordinary skill picks', () => {
   const save = vi.fn()
   const picker = findLorePicker(SkillsSection({ c, entries: [], save }), 'Experienced Laborer Lore')!
   const onChange = picker.onChange as (event: { target: { value: string } }) => void
-  onChange({ target: { value: 'Athletics' } })
+  onChange({ target: { value: 'Abadar Lore' } })
+  onChange({ target: { value: 'First Ones Lore' } })
   expect(save).not.toHaveBeenCalled()
   onChange({ target: { value: 'Mining Lore' } })
   const patch = save.mock.calls[0][0]
   expect(patch.feats[0].choice).toBe('Mining Lore')
   expect(ranksAt({ ...c, ...patch }, [])['Mining Lore']).toBe(1)
   expect(c.skillPicks).toEqual(['Athletics'])
+})
+
+it('preserves an existing non-profession Experienced Laborer choice', () => {
+  const c: Character = { ...base, systems: ['sf2e'],
+    feats: [{ name: 'Experienced Laborer', type: 'Ancestry Feat', level: 1, choice: 'Abadar Lore' }] }
+  const picker = findLorePicker(SkillsSection({ c, entries: [], save: vi.fn() }), 'Experienced Laborer Lore')!
+  expect(picker.value).toBe('Abadar Lore')
+  expect(ranksAt(c, [])['Abadar Lore']).toBe(1)
+  const children = Children.toArray(picker.children as ReactNode)
+  const saved = children.find(child => isValidElement<Record<string, unknown>>(child) && child.props.value === 'Abadar Lore')
+  expect(isValidElement<Record<string, unknown>>(saved) && saved.props.disabled).toBe(true)
 })
 
 it('shows radioactive protection and tracks the two separate daily abilities', () => {
