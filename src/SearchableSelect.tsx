@@ -1,6 +1,6 @@
 import { Fragment, useId, useMemo, useRef, useState, type ComponentPropsWithoutRef, type ReactNode } from 'react'
 import { PickerDialog } from './PickerDialog'
-import { searchSelectOptions, selectOptionCount, selectOptionList } from './searchSelectOptions'
+import { selectOptionCount, selectOptionList } from './searchSelectOptions'
 
 type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue' | 'value'> & {
   'aria-label': string
@@ -28,10 +28,15 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
   const id = props.id ?? generatedId
   const searchLabel = `Search ${props['aria-label'].replace(/^(?:add|choose)\s+/i, '').toLowerCase()}`
   const searchable = useMemo(() => alwaysSearchable || (optionCount ?? selectOptionCount(children)) > 10, [children, optionCount, alwaysSearchable])
-  const activeQuery = searchable ? query.trim() : ''
-  const filtered = activeQuery ? searchSelectOptions(children, activeQuery, value, searchText) : { children, matches: 0 }
   const options = useMemo(() => selectOptionList(children), [children])
-  const matching = (activeQuery ? selectOptionList(filtered.children) : options).filter(option => !primaryDetails || option.value)
+  const activeQuery = searchable && open ? query.trim().toLowerCase() : ''
+  let matches = 0
+  const matching: typeof options = []
+  if (open) for (const option of options) {
+    const match = !activeQuery || `${option.label} ${option.value} ${searchText?.(option.value) ?? ''}`.toLowerCase().includes(activeQuery)
+    if (activeQuery && option.value && match) matches++
+    if ((!primaryDetails || option.value) && (match || !option.value || option.value === value)) matching.push(option)
+  }
   const shown = matching.slice(0, limit)
   const choose = (next: string) => {
     const control = select.current
@@ -82,7 +87,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
           </li>
         </Fragment>)}
       </ul>
-      {activeQuery && !filtered.matches && <small role="status">No matches.</small>}
+      {activeQuery && !matches && <small role="status">No matches.</small>}
       {matching.length > shown.length && <button type="button" onClick={() => setLimit(limit + PAGE)}>
         Show more ({matching.length - shown.length} left, or use search)
       </button>}

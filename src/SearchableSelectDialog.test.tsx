@@ -65,3 +65,47 @@ it('keeps spell details separate from the plus selection action', () => {
   expect(select.dispatchEvent).toHaveBeenCalledOnce()
   expect(setOpen).toHaveBeenCalledWith(false)
 })
+
+it('searches option labels and extra text while retaining the selected option and disabled groups', () => {
+  vi.mocked(useState).mockReturnValueOnce(['  flame  ', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
+    .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()])
+  vi.mocked(useRef).mockReturnValue({ current: null })
+  vi.mocked(useId).mockReturnValue('picker')
+  vi.mocked(useMemo).mockImplementation(fn => fn())
+  const found: Array<{ type: unknown; props: Record<string, unknown> }> = []
+  const visit = (node: ReactNode) => Children.forEach(node, child => {
+    if (!isValidElement<Record<string, unknown>>(child)) return
+    found.push({ type: child.type, props: child.props })
+    visit(child.props.children as ReactNode)
+  })
+  visit(SearchableSelect({
+    'aria-label': 'Spell', value: 'shield', alwaysSearchable: true,
+    searchText: value => value === 'fire' ? 'flame damage' : '',
+    children: <><option value="">None</option><option value="shield">Shield</option>
+      <optgroup label="Restricted" disabled><option value="fire">Fire</option></optgroup>
+      <option value="ice">Ice</option></>,
+  }))
+  const buttons = found.filter(item => item.type === 'button')
+  expect(buttons.find(item => item.props['aria-label'] === 'Spell: Shield')).toBeDefined()
+  expect(buttons.find(item => item.props['aria-label'] === 'Spell: Fire')?.props.disabled).toBe(true)
+  expect(buttons.find(item => item.props['aria-label'] === 'Spell: Ice')).toBeUndefined()
+  expect(found.some(item => item.props.role === 'status')).toBe(false)
+})
+
+it('reports no matches even when the selected option remains visible', () => {
+  vi.mocked(useState).mockReturnValueOnce(['missing', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
+    .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()])
+  vi.mocked(useRef).mockReturnValue({ current: null })
+  vi.mocked(useId).mockReturnValue('picker')
+  vi.mocked(useMemo).mockImplementation(fn => fn())
+  const found: Array<{ type: unknown; props: Record<string, unknown> }> = []
+  const visit = (node: ReactNode) => Children.forEach(node, child => {
+    if (!isValidElement<Record<string, unknown>>(child)) return
+    found.push({ type: child.type, props: child.props })
+    visit(child.props.children as ReactNode)
+  })
+  visit(SearchableSelect({ 'aria-label': 'Spell', value: 'shield', alwaysSearchable: true,
+    children: <option value="shield">Shield</option> }))
+  expect(found.some(item => item.props['aria-label'] === 'Spell: Shield')).toBe(true)
+  expect(found.some(item => item.props.role === 'status')).toBe(true)
+})

@@ -592,7 +592,8 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
       {!entries.some((e) => e.kind === 'class') && <p>No class data yet. Official content is still loading.</p>}
 
       <div className="row">
-        <label>Name <input value={c.name} onChange={(e) => save({ name: e.target.value })} /></label>
+        <label>Name <input key={`${c.id}:${c.name}`} defaultValue={c.name}
+          onBlur={(e) => { if (e.currentTarget.value !== c.name) void save({ name: e.currentTarget.value }) }} /></label>
       </div>
       <DeferredDetails>
         <summary className="character-section-summary"><strong>Ability Scores</strong></summary>
@@ -693,8 +694,12 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
         <div className="character-section-content">
           <div className="row">
             <Pick label="Class" kind="class" value={c.className} options={of('class')} onChange={(v) => save({ className: v, subclass: '', fatalMethod: undefined })} />
-            <label>Level <input aria-label="Character level" type="number" min={1} max={20} value={c.level}
-              onChange={(e) => save({ level: Math.min(20, Math.max(1, +e.target.value || 1)) })} /></label>
+            <label>Level <input key={`${c.id}:${c.level}`} aria-label="Character level" type="number" min={1} max={20}
+              defaultValue={c.level} onBlur={(e) => {
+                const level = Math.min(20, Math.max(1, +e.currentTarget.value || 1))
+                e.currentTarget.value = String(level)
+                if (level !== c.level) void save({ level })
+              }} /></label>
           </div>
           {c.className !== 'Druid' && subclasses.length > 0 && <>
             <Pick label={c.className === 'Necromancer' ? 'Grim Fascination' : c.className === 'Witch' ? 'Patron' : c.className === 'Rogue' ? 'Racket' : c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : c.className === 'Mechanic' ? 'Exocortex' : c.className === 'Envoy' ? 'Leadership style' : c.className === 'Mystic' ? 'Connection' : c.className === 'Operative' ? 'Specialization' : c.className === 'Witchwarper' ? 'Paradox' : c.className === 'Soldier' ? 'Fighting style' : 'Subclass'}
