@@ -89,6 +89,21 @@ describe('Witchwarper class setup', () => {
     expect(classSpellSlots({ ...base, level: 19, feats: [feat] })?.[10]).toBe(1)
   })
 
+  it('renders clickable damage actions for Anomaly paradox spells', () => {
+    const spells = [
+      { ...magic('Eldritch Wrath', 4), data: { actions: 'Two Actions' } },
+      { ...magic('Slice Reality', 6), data: { actions: 'Three Actions' } },
+      { ...magic('Death Sentence', 7), data: { actions: 'Two Actions' } },
+      { ...magic('Call Cosmos', 9), data: { actions: 'Two Actions' } },
+    ]
+    const html = renderToStaticMarkup(createElement(SpellsSection, {
+      c: { ...base, subclass: 'Anomaly', level: 19 }, entries: spells, save: () => {},
+    }))
+    for (const spell of spells) expect(html).toContain(`aria-label="Roll ${spell.name}: Damage"`)
+    expect(html).toContain('Three Actions; Damage: 7d8 void')
+    expect(html).toContain('Two Actions; Damage: 5d12 cold + 5d12 fire')
+  })
+
   it('adds a familiar cantrip to the repertoire without adding a ranked spell choice', () => {
     const c = { ...base, spellcasting: { ability: 'int' as const, tradition: 'Arcane', rank: 1, slots: {},
       repertoire: { 'familiar-cantrip-connection': 'Spare Cantrip' } } }

@@ -171,6 +171,54 @@ it('rolls verified Fireball, Void Warp, and Deathly Scream formulas at heightene
   expect(spellActionRolls('Fireball', 2, fireball)).toEqual([])
 })
 
+it.each([
+  ['Eldritch Wrath', 4, 3, 10, 9, 12, 'mental', 'Two Actions'],
+  ['Slice Reality', 6, 7, 10, 11, 8, 'void', 'Three Actions'],
+  ['Death Sentence', 7, 11, 10, 14, 10, 'spirit', 'Two Actions'],
+] as const)('rolls %s at base and heightened ranks', (name, baseRank, baseDice, highRank, highDice, sides, type, actions) => {
+  const entry: ContentEntry = { id: name, name, systems: ['sf2e'], kind: 'spell',
+    source: 'official', level: baseRank, traits: [], description: '', data: { actions }, effects: [], updatedAt: 1 }
+  expect(spellDamage(name, baseRank - 1)).toEqual([])
+  expect(spellDamage(name, baseRank)).toMatchObject([{ dice: baseDice, sides, type }])
+  const roll = spellActionRolls(name, highRank, entry)[0]
+  expect(roll).toMatchObject({ actions, damage: { dice: highDice, sides, type } })
+  expect(renderToStaticMarkup(<SpellActions name={name} rank={highRank} entry={entry} />))
+    .toContain(`title="${actions}; Damage: ${highDice}d${sides} ${type}"`)
+  const setResult = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, setResult])
+  const button = Children.toArray(DamageRoll({ name, damage: roll.damage, actions }).props.children)
+    .find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw Error('Missing damage roll')
+  vi.spyOn(Math, 'random').mockReturnValue(0.999999)
+  button.props.onClick()
+  expect(setResult).toHaveBeenCalledWith(highDice * sides)
+})
+
+it('rolls Call Cosmos cold and fire independently from the action icon', () => {
+  const name = 'Call Cosmos'
+  const entry: ContentEntry = { id: name, name, systems: ['sf2e'], kind: 'spell',
+    source: 'official', level: 9, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(name, 8)).toEqual([])
+  expect(spellDamage(name, 9)).toMatchObject([{ dice: 5, sides: 12, type: 'cold', additional: { dice: 5, sides: 12, type: 'fire' } }])
+  const roll = spellActionRolls(name, 10, entry)[0]
+  expect(roll.damage).toMatchObject({ dice: 7, sides: 12, type: 'cold', additional: { dice: 7, sides: 12, type: 'fire' } })
+  expect(renderToStaticMarkup(<SpellActions name={name} rank={10} entry={entry} />))
+    .toContain('title="Two Actions; Damage: 7d12 cold + 7d12 fire"')
+  const setResult = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, setResult])
+  const button = Children.toArray(DamageRoll({ name, damage: roll.damage, actions: roll.actions }).props.children)
+    .find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw Error('Missing damage roll')
+  const random = vi.spyOn(Math, 'random').mockReturnValue(0.999999)
+  for (let i = 0; i < 7; i++) random.mockReturnValueOnce(0)
+  button.props.onClick()
+  expect(random).toHaveBeenCalledTimes(14)
+  expect(setResult).toHaveBeenCalledWith({ primary: 7, additional: 84 })
+  vi.mocked(useState).mockReturnValueOnce([{ primary: 7, additional: 84 }, vi.fn()])
+  expect(renderToStaticMarkup(<DamageRoll name={name} damage={roll.damage} actions={roll.actions} />))
+    .toContain('7 cold + 84 fire')
+})
+
 it.each([[1, 3], [5, 7], [10, 12]])('scales Needle Darts at rank %i to %id4 piercing', (rank, dice) => {
   const entry: ContentEntry = { id: 'needle', name: 'Needle Darts', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: ['Cantrip'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

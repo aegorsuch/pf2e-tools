@@ -30,6 +30,18 @@ export function spellDamage(name: string, rank: number): Damage[] {
       ], note: 'Treat resistances as 10 lower' }] : []
     case 'Fireball':
       return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
+    case 'Eldritch Wrath':
+      return rank >= 4 ? [{ label: 'Damage', dice: rank - 1, sides: 12, type: 'mental' }] : []
+    case 'Slice Reality':
+      return rank >= 6 ? [{ label: 'Damage', dice: rank + 1, sides: 8, type: 'void' }] : []
+    case 'Death Sentence':
+      return rank >= 7 ? [{ label: 'Damage', dice: rank + 4, sides: 10, type: 'spirit' }] : []
+    case 'Call Cosmos': {
+      if (rank < 9) return []
+      const dice = rank >= 10 ? 7 : 5
+      return [{ label: 'Damage', dice, sides: 12, type: 'cold',
+        additional: { dice, sides: 12, type: 'fire' } }]
+    }
     case 'Needle Darts':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 2, sides: 4, type: 'piercing' }] : []
     case 'Telekinetic Projectile':
