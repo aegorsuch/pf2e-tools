@@ -13,6 +13,9 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return rank >= 2 ? [{ label: 'Damage', dice: 2, sides: 6, type: 'piercing' }] : []
     case 'Wall of Fire':
       return rank >= 4 ? [{ label: 'Damage', dice: rank, sides: 6, type: 'fire' }] : []
+    case 'Burstmoji':
+      return rank >= 4 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 4), sides: 6, type: 'fire',
+        additional: { label: 'Hazardous terrain', dice: 0, sides: 0, bonus: 5 + 2 * (rank - 4), type: 'fire' } }] : []
     case 'Ancient Dust': {
       if (rank < 1 || spellcastingModifier === undefined) return []
       const heightened = Math.floor((rank - 1) / 2)

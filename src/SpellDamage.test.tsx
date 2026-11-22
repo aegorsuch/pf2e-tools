@@ -23,6 +23,14 @@ it('rolls Verdant Code piercing damage without inventing heightening', () => {
   }
 })
 
+it('rolls Burstmoji damage and shows heightened hazardous terrain damage', () => {
+  expect(spellDamage('Burstmoji', 3)).toEqual([])
+  for (const [rank, dice, terrain] of [[4, 6, 5], [7, 12, 11], [10, 18, 17]]) {
+    expect(spellDamage('Burstmoji', rank)).toEqual([{ label: 'Damage', dice, sides: 6, type: 'fire',
+      additional: { label: 'Hazardous terrain', dice: 0, sides: 0, bonus: terrain, type: 'fire' } }])
+  }
+})
+
 it('rolls Wall of Fire damage at its actual cast rank', () => {
   const entry: ContentEntry = { id: 'wall-of-fire', name: 'Wall of Fire', systems: ['sf2e'], kind: 'spell',
     source: 'official', level: 4, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }

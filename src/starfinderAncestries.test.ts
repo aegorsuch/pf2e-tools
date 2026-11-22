@@ -210,23 +210,26 @@ it('grants Lush Psychic primal innate spells with independent daily uses', () =>
   }
 })
 
-it('grants Tectonic Psychic Wall of Fire and reports the missing Uncanny Eruption', () => {
+it('grants Tectonic Psychic Wall of Fire and Burstmoji as separate innate spells', () => {
   const previous = getSettings().innateAutoHeighten
   updateSettings({ innateAutoHeighten: false })
   try {
-    const catalog = mapAonHits(hits.filter(hit => ['Tectonic Psychic', 'Wall of Fire', 'Uncanny Eruption']
+    const catalog = mapAonHits(hits.filter(hit => ['Tectonic Psychic', 'Wall of Fire', 'Burstmoji']
       .includes(String(hit._source?.name))), 'sf2e')
     const feat = catalog.find(entry => entry.kind === 'feat' && entry.name === 'Tectonic Psychic')!
     const c: Character = { ...base, ancestry: 'Lashunta', level: 17,
       feats: [{ name: feat.name, sourceId: feat.id, type: 'Ancestry Feat', level: 17 }] }
     const grants = grantedFeatSpells(c, catalog)
-    expect(grants).toMatchObject([{ entry: { name: 'Wall of Fire' }, rank: 7,
-      rule: { kind: 'innate', tradition: 'primal', frequency: 'once per day' } }])
-    expect(dailyInnateUses(c, grants[0])?.remaining).toBe(1)
-    expect(unresolvedFeatSpells(c, catalog).map(item => item.name)).toEqual(['Uncanny Eruption'])
+    expect(grants.map(grant => [grant.entry.name, grant.rank, grant.rule.tradition, grant.rule.frequency]))
+      .toEqual([['Wall of Fire', 7, 'primal', 'once per day'], ['Burstmoji', 7, 'primal', 'once per day']])
+    expect(grants.map(grant => dailyInnateUses(c, grant)?.remaining)).toEqual([1, 1])
+    const spent = { ...c, innateSpellUses: { [grants[0].usageKey]: 1 } }
+    expect(grants.map(grant => dailyInnateUses(spent, grant)?.remaining)).toEqual([0, 1])
+    expect(unresolvedFeatSpells(c, catalog)).toEqual([])
+    expect(unresolvedFeatSpells(c, catalog.filter(entry => entry.name !== 'Burstmoji')).map(item => item.name)).toEqual(['Burstmoji'])
     expect(grantedFeatSpells({ ...c, level: 16 }, catalog)).toEqual([])
     updateSettings({ innateAutoHeighten: true })
-    expect(grantedFeatSpells(c, catalog)[0].rank).toBe(9)
+    expect(grantedFeatSpells(c, catalog).map(grant => grant.rank)).toEqual([9, 9])
   } finally { updateSettings({ innateAutoHeighten: previous }) }
 })
 

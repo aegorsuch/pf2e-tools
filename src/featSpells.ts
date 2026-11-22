@@ -15,7 +15,7 @@ export const automaticFeatChoiceKey = (source: string, feat: string, instance?: 
 const PSYCHIC_FEAT_SPELLS: Record<string, { names: string[]; tradition: string; rank: number }> = {
   'Lush Psychic': { names: ['Cellular Stimulant', 'Gentle Landing'], tradition: 'primal', rank: 1 },
   'Psychic Investigator': { names: ['Hypercognition', 'Mind Reading'], tradition: 'occult', rank: 3 },
-  'Tectonic Psychic': { names: ['Wall of Fire', 'Uncanny Eruption'], tradition: 'primal', rank: 7 },
+  'Tectonic Psychic': { names: ['Wall of Fire', 'Burstmoji'], tradition: 'primal', rank: 7 },
 }
 
 const domainSpellCache = new WeakMap<ContentEntry[], ContentEntry[]>()

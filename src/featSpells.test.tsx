@@ -1,6 +1,7 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, onTestFinished } from 'vitest'
+import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHit } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
 import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, hitPointBonuses, knowsSpell, maxHp, movementSpeeds, oakenResilience, ownedWeapons, resistances, spellDifficultyClass, untamedFormOptions, weaponAttack } from './builder'
@@ -11,6 +12,7 @@ import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionS
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
+import { EntryDescription } from './EntryDescription'
 import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
 import { getSettings, updateSettings } from './settings'
@@ -459,14 +461,24 @@ it('shows Psychic Investigator innate spells with separate daily trackers', () =
   } finally { updateSettings({ innateAutoHeighten: previous }) }
 })
 
-it('shows Tectonic Psychic Wall of Fire with its damage roll and missing spell warning', () => {
+it('shows Tectonic Psychic Wall of Fire and Burstmoji with damage rolls', () => {
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Lashunta', level: 17,
     feats: [taken('Tectonic Psychic', 17)] }
-  const spell = { ...entry('Wall of Fire', 'spell', { actions: 'Three Actions' }), systems: ['sf2e' as const], level: 4 }
-  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
+  const spells = ['Wall of Fire', 'Burstmoji'].map(name =>
+    ({ ...entry(name, 'spell', { actions: name === 'Burstmoji' ? 'Two Actions' : 'Three Actions' }), systems: ['sf2e' as const], level: 4 }))
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
   expect(html).toContain('aria-label="Roll Wall of Fire: Damage"')
-  expect(html).toContain('1 of 1 uses remaining')
-  expect(html).toContain('Spell data unavailable: Uncanny Eruption')
+  expect(html).toContain('aria-label="Roll Burstmoji: Damage and Hazardous terrain"')
+  expect((html.match(/1 of 1 uses remaining/g) ?? [])).toHaveLength(2)
+  expect(html).not.toContain('Spell data unavailable')
+})
+
+it('shows the Burstmoji substitution in Tectonic Psychic details', () => {
+  const hit = (JSON.parse(snapshot) as Parameters<typeof mapAonHit>[0][]).find(item => item._source?.name === 'Tectonic Psychic')!
+  const feat = mapAonHit(hit, 'sf2e')!
+  const html = renderToStaticMarkup(<EntryDescription name={feat.name} entry={feat} />)
+  expect(html).toContain('Burstmoji (substituted for uncanny eruption)')
+  expect(html).not.toContain('Nethys Note')
 })
 
 it('tracks Natural Illusionist alternatives in one daily pool with their specific heightened rank', () => {

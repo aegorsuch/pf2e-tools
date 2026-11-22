@@ -52,6 +52,10 @@ export function EntryDescription({ name, entry, choice, className, prerequisites
       ?? active.systems.map(system => index.names.get(`${system}:${link.name.toLowerCase()}`)).find(Boolean),
   }))
   let originalDescription = leads?.length ? active?.description.replace(/\n\n[^\n]*\bleads to\.\.\.[\s\S]*$/i, '') : active?.description
+  if (active?.kind === 'feat' && active.name === 'Tectonic Psychic' && active.systems.includes('sf2e')) {
+    originalDescription = originalDescription?.replace(/\n\n[^\n]*Nethys Note:[^\n]*uncanny eruption[^\n]*/i, '')
+      .replace(/\buncanny eruption\b/i, 'Burstmoji (substituted for uncanny eruption)')
+  }
   if (active && ignoresFeatPrerequisites(active) && typeof active.data.prerequisite === 'string') {
     const prerequisite = active.data.prerequisite.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
     originalDescription = originalDescription?.replace(new RegExp(`(?:^|\\n\\n)Prerequisites?\\s*:?\\s*${prerequisite}\\.?(?=\\n\\n|$)`, 'i'), '')
