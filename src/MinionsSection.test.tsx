@@ -535,6 +535,22 @@ it('shows feat-granted familiar choices and a separate aquatic pet with bonus ab
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).not.toContain('Leshy Familiar')
 })
 
+it.each(['Pet', 'Familiar'])('shows %s defenses without the owner’s status penalties', name => {
+  const c: Character = { id: 'minion-defenses', name: 'Test', systems: ['pf2e'], level: 8, className: 'Wizard',
+    abilities: { str: 10, dex: 14, con: 16, int: 18, wis: 12, cha: 10 },
+    feats: [{ name, type: name === 'Pet' ? 'General Feat' : 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    conditions: { frightened: 2 } }
+  const wizard: ContentEntry = { id: 'wizard', name: 'Wizard', kind: 'class', source: 'official', systems: ['pf2e'],
+    level: 1, traits: [], description: '', effects: [], updatedAt: 0,
+    data: { fortitude_proficiency: 'Trained', reflex_proficiency: 'Trained', will_proficiency: 'Expert' } }
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={[wizard]} save={() => {}} />)
+  expect(html).toContain('<small>Armor Class</small><b>12</b>')
+  expect(html).toContain('<small>Fortitude</small>+13')
+  expect(html).toContain('<small>Reflex</small>+12')
+  expect(html).toContain('<small>Will</small>+13')
+})
+
 it('shows clickable undead familiar rules and one daily ability', () => {
   const c: Character = {
     id: 'undead-familiar', systems: ['pf2e'], name: 'Test', level: 1, className: 'Necromancer',

@@ -325,7 +325,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const types = needsCompanionOptions ? companionTypes(companionEntries) : []
   const familiarCapacity = familiarAbilityCapacity(c, entries)
   const familiarAbilityCatalog = familiarAbilityEntries(entries, c)
-  const familiarDefense = familiar || wasp ? (() => {
+  const minionDefense = familiar || wasp || pet ? (() => {
     const base = (breakdown: TotalBreakdown) => breakdown.parts
       .filter(part => !/\((?:circumstance|status)\)/i.test(part.label)).reduce((sum, part) => sum + part.value, 0)
     const ranks = ranksAt(c, entries)
@@ -760,11 +760,11 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             <h5>Defenses</h5>
             <div className="gear-stats">
               <span><small>Hit Points</small><b>{familiarEffects.hitPoints}</b></span>
-              {familiarDefense && <>
-                <span><small>Armor Class</small><b>{familiarDefense.ac}</b></span>
-                <span><small>Fortitude</small>{signed(familiarDefense.fortitude)}</span>
-                <span><small>Reflex</small>{signed(familiarDefense.reflex)}</span>
-                <span><small>Will</small>{signed(familiarDefense.will)}</span>
+              {minionDefense && <>
+                <span><small>Armor Class</small><b>{minionDefense.ac}</b></span>
+                <span><small>Fortitude</small>{signed(minionDefense.fortitude)}</span>
+                <span><small>Reflex</small>{signed(minionDefense.reflex)}</span>
+                <span><small>Will</small>{signed(minionDefense.will)}</span>
               </>}
             </div>
             {familiarEffects.resistances.length > 0 && <div><small>Resistances</small> {familiarEffects.resistances
@@ -889,7 +889,14 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           </div>
           <section className="companion-actions">
             <h5>Defenses</h5>
-            <div className="gear-stats"><span><small>Hit Points</small><b>{c.level * (petAbilities.includes('Tough') || seaFriend ? 7 : 5)}</b></span></div>
+            <div className="gear-stats"><span><small>Hit Points</small><b>{c.level * (petAbilities.includes('Tough') || seaFriend ? 7 : 5)}</b></span>
+              {minionDefense && <>
+                <span><small>Armor Class</small><b>{minionDefense.ac}</b></span>
+                <span><small>Fortitude</small>{signed(minionDefense.fortitude)}</span>
+                <span><small>Reflex</small>{signed(minionDefense.reflex)}</span>
+                <span><small>Will</small>{signed(minionDefense.will)}</span>
+              </>}
+            </div>
           </section>
           <section className="companion-actions"><h5>Senses</h5>
             <div>Low-light vision{seaFriend || petAbilities.includes('Darkvision') ? ', Darkvision' : ''}</div>
