@@ -62,6 +62,19 @@ it('provides Caravan Contortionist background boosts, skills, and Quick Squeeze'
   expect(background.data.feat).toBe('Quick Squeeze')
 })
 
+it('provides Matanji Demon Hunter the Demon Slayer background benefits', () => {
+  const background = homebrewCharacterOptions([]).find(entry => entry.name === 'Matanji Demon Hunter')!
+  const c = { ...base, level: 1, background: background.name }
+  const feat: ContentEntry = { ...HAFT_STRIKER_WEAPON, id: 'recognize-spell', name: 'Recognize Spell',
+    kind: 'feat', level: 1, traits: ['General', 'Skill'] }
+  const entries = [background, feat]
+  expect(background).toMatchObject({ kind: 'background', source: 'homebrew', data: { feat: 'Recognize Spell' } })
+  expect(backgroundSkills(background)).toEqual(['Religion', 'Demon Lore'])
+  expect(boostSlots(c, entries).find(slot => slot.key === 'background:0')?.options).toEqual(['str', 'con'])
+  expect(boostSlots(c, entries).find(slot => slot.key === 'background:1')).toMatchObject({ label: 'Background (free)' })
+  expect(renderToStaticMarkup(createElement(FeatSlots, { c, entries, save: () => {} }))).toContain('Recognize Spell')
+})
+
 it('provides Direwolf Bonded boosts, training and Titan Wrestler without adding an animal companion', () => {
   const background = homebrewCharacterOptions([]).find(entry => entry.name === 'Direwolf Bonded')!
   const c: Character = { ...base, level: 1, className: 'Fighter', background: background.name }

@@ -353,6 +353,12 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       kind: 'background',
     },
     {
+      ...homebrewFeat('matanji-demon-hunter', 'Matanji Demon Hunter', 1, [],
+        'You learned the Matanji tradition of hunting demons, studying their powers and weaknesses alongside your training for battle.\n\nChoose two attribute boosts: one in Strength or Constitution, and one free boost.\n\nYou are trained in Religion and Demon Lore and gain the Recognize Spell skill feat.',
+        { attribute: 'Strength, Constitution', skill: 'Religion, Demon Lore', feat: 'Recognize Spell' }),
+      kind: 'background',
+    },
+    {
       ...homebrewFeat('direwolf-bonded', 'Direwolf Bonded', 1, ['Rare'],
         "You grew up hunting beside a direwolf, learning to read its signals and coordinate your movements. Sarkorian hunters passed down this partnership as a way to track and bring down quarry across their rugged homeland. Playful wrestling with your growing wolf taught you to hold your own against much larger creatures. Greater challenges, distant hunting grounds, or loyalty to your bonded wolf might draw you toward adventure.\n\nChoose two attribute boosts. One must be to Dexterity or Wisdom, and one is a free attribute boost.\n\nYou're trained in Nature and Sarkoris Lore. You gain the Canny Acumen general feat and the Titan Wrestler skill feat.\n\nTrained direwolves can Aid your Nature, Perception, and Survival checks; this benefit also applies to other characters with the Direwolf Bonded background.",
         { attribute: 'Dexterity, Wisdom', skill: 'Nature, Sarkoris Lore', feat: 'Canny Acumen, Titan Wrestler', rarity: 'rare' }),
