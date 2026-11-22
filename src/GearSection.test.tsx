@@ -744,6 +744,28 @@ it('does not duplicate or persist generated Offensive Defense when editing anoth
   expect(renderToStaticMarkup(tree([]))).not.toContain('Offensive Defense')
 })
 
+it('confirms Offense weapon removal and syncs it to Equipment without removing granted attacks', () => {
+  const c0 = character([])
+  const extra: OwnedWeapon = { id: 'sf2e:soldier:offensive-defense', name: 'Offensive Defense', potency: 0, striking: 0, runes: [] }
+  const extraEntry = { ...weapon, id: extra.id, name: extra.name, data: { ...weapon.data, hands: 0 } }
+  let c: Character = c0
+  const entries = [weapon, extraEntry]
+  const save = vi.fn((patch: Partial<Character>) => { c = { ...c, ...patch } })
+  const tree = (displayOnly: boolean) => WeaponList({ c, entries, save, displayOnly, additionalWeapons: displayOnly ? [extra] : [] })
+  expect(findElement(tree(true), e => e.props['aria-label'] === 'Remove Offensive Defense')).toBeUndefined()
+  expect(findElement(tree(true), e => e.props['aria-label'] === 'Remove Fist')).toBeUndefined()
+  const remove = () => findElement(tree(true), e => e.props['aria-label'] === 'Remove Longsword')!
+  vi.mocked(window.confirm).mockReturnValueOnce(false)
+  ;(remove().props.onClick as () => void)()
+  expect(save).not.toHaveBeenCalled()
+  expect(findElement(tree(false), e => e.props['aria-label'] === 'Remove Longsword')).toBeDefined()
+  ;(remove().props.onClick as () => void)()
+  expect(window.confirm).toHaveBeenLastCalledWith('Remove weapon "Longsword"?')
+  expect(c.weapons?.some(item => item.id === 'w')).toBe(false)
+  expect(findElement(tree(true), e => e.props['aria-label'] === 'Remove Longsword')).toBeUndefined()
+  expect(findElement(tree(false), e => e.props['aria-label'] === 'Remove Longsword')).toBeUndefined()
+})
+
 it.each([false, true])('syncs grip changes between views and preserves over-capacity saved weapons (displayOnly=%s)', displayOnly => {
   const sword = { ...weapon, name: 'Sword', data: { hands: 1 } }
   const spear = { ...weapon, name: 'Spear', data: { hands: '1 or 2' } }

@@ -1439,6 +1439,12 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             {ability.paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)}
           </details>)}
         </>
+        const removeWeapon = !attachmentSource && !additionalWeapons.some(extraWeapon => extraWeapon.id === w.id)
+          && !isLockedWeapon(c, w.name, entries, w.id) && <button type="button" className="spell-remove"
+            aria-label={`Remove ${displayName}`} title="Remove"
+            onClick={() => confirmRemoval(`weapon "${displayName}"`, () => saveWeapons(weapons.filter(x => x.id !== w.id),
+              { ...(c.mechanicEnduringMod?.kind === 'weapon' && c.mechanicEnduringMod.item === w.id ? setEnduringMod(c) : {}),
+                ...clearItemGlitching(c, 'weapon', w.id) }))}>×</button>
         if (displayOnly) return <div key={w.id} className="gear-card">
           <div className="weapon-offense-header">
             <strong><EntryDescription name={displayName} entry={witchAttackEntry(c, entries, w.id, a.entry)} className="equipment-name" /></strong>
@@ -1446,6 +1452,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             {c.hardpointWeaponId === w.id && hardpointWeaponEligible(c, entries, w) && weaponHeld(c, entries, w)
               && <SourceNote inlineSource={false} source="Hardpoint" note="Integrated weapon: cannot be disarmed, dropped, or stolen until stowed." />}
             {equipControls}
+            {removeWeapon}
           </div>
           {cannotEquip && (legacyPouchWeapon || hands === undefined || unknownHands)
             && <small>{legacyPouchWeapon ? 'Retrieve this weapon from your cheek pouch first.' : 'Weapon hands unavailable.'}</small>}
@@ -1637,10 +1644,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             <div className="row">
               {canUseInnovation && <label><input type="checkbox" aria-label={`Weapon Innovation: ${w.name}`} checked={!!w.inventorInnovation}
                 onChange={event => saveWeapons(weapons.map(weapon => ({ ...weapon, inventorInnovation: weapon.id === w.id && event.target.checked })))} /> Weapon Innovation</label>}
-              {!attachmentSource && !isLockedWeapon(c, w.name, entries, w.id) && <button type="button" className="spell-remove" aria-label={`Remove ${displayName}`} title="Remove"
-                onClick={() => confirmRemoval(`weapon "${displayName}"`, () => saveWeapons(weapons.filter((x) => x.id !== w.id),
-                  { ...(c.mechanicEnduringMod?.kind === 'weapon' && c.mechanicEnduringMod.item === w.id ? setEnduringMod(c) : {}),
-                    ...clearItemGlitching(c, 'weapon', w.id) }))}>×</button>}
+              {removeWeapon}
             </div>
             {innovation && <WeaponModifications c={c} weapon={w} entry={a.entry} weaponForms={forms} save={patch => update(w.id, patch)} />}
           </details>
