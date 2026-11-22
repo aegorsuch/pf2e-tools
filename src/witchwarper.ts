@@ -1,5 +1,6 @@
 import type { Character, ContentEntry } from './types'
 import { spellAccessGranted } from './featAccess'
+import { featTakenLevel } from './featChoices'
 
 export type WitchwarperParadoxName = 'Analyst' | 'Anomaly' | 'Gap Influenced' | 'Precog'
 export const WITCHWARPER_KEY_ATTRIBUTES = ['int', 'cha'] as const
@@ -84,7 +85,8 @@ export function witchwarperSpellcasting(c: Character) {
 
 export function witchwarperSpellSlots(c: Character): Record<number, number> | undefined {
   if (!isWitchwarper(c)) return undefined
-  const slots: Record<number, number> = { 0: 5 }
+  const slots: Record<number, number> = { 0: 5 + (c.feats.some(feat =>
+    feat.name === 'Cantrip Expansion' && featTakenLevel(feat) <= c.level) ? 2 : 0) }
   const highestRank = Math.min(9, Math.ceil(c.level / 2))
   for (let rank = 1; rank <= highestRank; rank++)
     slots[rank] = c.level === rank * 2 - 1 ? 3 : 4

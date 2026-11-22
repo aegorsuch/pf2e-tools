@@ -113,6 +113,30 @@ describe('Witchwarper class setup', () => {
     expect(slots.at(-1)).toMatchObject({ key: 'familiar-cantrip-connection', value: 'Spare Cantrip' })
   })
 
+  it('adds two cantrip repertoire choices only while Cantrip Expansion is active', () => {
+    const feat = { name: 'Cantrip Expansion', level: 2, type: 'Class Feat', slot: 'class:2:0' }
+    const c: Character = { ...base, level: 2, feats: [feat], spellcasting: {
+      ability: 'int', tradition: 'Arcane', rank: 1, slots: {},
+      repertoire: { '0:5': 'Extra One', '0:6': 'Extra Two' },
+    } }
+    expect(classSpellSlots(c)).toEqual({ 0: 7, 1: 4 })
+    const slots = witchwarperRepertoireSlots(c, true)
+    expect(slots.filter(slot => slot.rank === 0)).toHaveLength(8)
+    expect(slots.filter(slot => slot.rank === 1)).toHaveLength(4)
+    expect(slots.filter(slot => slot.key === '0:5' || slot.key === '0:6').map(slot => slot.value))
+      .toEqual(['Extra One', 'Extra Two'])
+    expect(witchwarperSpellSlots({ ...c, feats: [feat, feat] })?.[0]).toBe(7)
+    expect(witchwarperSpellSlots({ ...c, level: 1 })?.[0]).toBe(5)
+    expect(witchwarperSpellSlots({ ...c, feats: [{ ...feat, takenLevel: 4 }] })?.[0]).toBe(5)
+    expect(witchwarperSpellSlots({ ...c, feats: [{ ...feat, level: 1, slot: 'class:4:0' }] })?.[0]).toBe(5)
+    expect(witchwarperRepertoireSlots({ ...c, feats: [] }).some(slot => slot.key === '0:5')).toBe(false)
+    expect(witchwarperRepertoireSlots(c).find(slot => slot.key === '0:5')?.value).toBe('Extra One')
+    const html = renderToStaticMarkup(createElement(SpellsSection, { c: { ...c, spellcasting: undefined }, entries: [], save: () => {} }))
+    expect(html).toContain('Witchwarper cantrip 6')
+    expect(html).toContain('Witchwarper cantrip 7')
+    expect(renderToStaticMarkup(createElement(SpellsSummary, { c, entries: [] }))).toContain('5/12 spells')
+  })
+
   it('limits repertoire options to valid tradition, rank and access without including focus spells', () => {
     const entries = [
       magic('Arcane Bolt'), magic('Rare Bolt', 1, 'Arcane', ['Rare']),
