@@ -384,6 +384,45 @@ it.each(['Bane', 'Bless'])('grants Extraplanar Supplication %s as a daily divine
   expect(grantedFeatSpells({ ...c, feats: [taken(source.name, 5)] }, entries)).toEqual([])
 })
 
+it.each([
+  ['Grimspawn', ['False Vitality', 'See the Unseen']],
+  ['Pitborn', ['Paranoia', 'Shatter']],
+  ['Hellspawn', ['Invisibility', 'Disguise Magic']],
+] as const)('grants Fiendish Magic spells for %s', (lineage, names) => {
+  const source = feat('Fiendish Magic', 'Choose two spells.', 9)
+  const spells = names.map(name => entry(name, 'spell'))
+  const c: Character = { ...base, level: 9, feats: [taken(lineage), taken(source.name, 9)] }
+  const grants = grantedFeatSpells(c, [source, ...spells])
+  expect(grants.map(grant => grant.entry.name)).toEqual(names)
+  expect(grants).toMatchObject(names.map(name => ({ entry: { name }, source: source.name, rank: 2,
+    rule: { kind: 'innate', tradition: 'divine', frequency: 'once per day', fixedRank: true } })))
+  expect(new Set(grants.map(grant => grant.usageKey)).size).toBe(2)
+  expect(grants.map(grant => dailyInnateUses(c, grant)?.limit)).toEqual([1, 1])
+  expect(unresolvedFeatSpells(c, [source]).map(item => item.name)).toEqual(names)
+  expect(grantedFeatSpells({ ...c, level: 8 }, [source, ...spells])).toEqual([])
+  expect(grantedFeatSpells({ ...c, systems: ['sf2e'] }, [source, ...spells])).toEqual([])
+  expect(grantedFeatSpells({ ...c, feats: [taken(lineage, 10), taken(source.name, 9)] }, [source, ...spells])).toEqual([])
+  expect(grantedFeatSpells({ ...c, feats: [taken(source.name, 9)] }, [source, ...spells])).toEqual([])
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[source, ...spells]} save={() => {}} />)
+  for (const name of names) expect(markup).toContain(name)
+})
+
+it('grants both Fiendish Magic pairs when multiple named fiendish lineages are active', () => {
+  const source = feat('Fiendish Magic', 'Choose two spells.', 9)
+  const spells = ['Paranoia', 'Shatter', 'False Vitality', 'See the Unseen'].map(name => entry(name, 'spell'))
+  const c: Character = { ...base, level: 9, feats: [taken('Pitborn'), taken('Grimspawn', 5), taken(source.name, 9)] }
+  expect(grantedFeatSpells(c, [source, ...spells]).map(grant => grant.entry.name)).toEqual(spells.map(spell => spell.name))
+  expect(grantedFeatSpells({ ...c, feats: c.feats.filter(feat => feat.name !== 'Pitborn') }, [source, ...spells])
+    .map(grant => grant.entry.name)).toEqual(['False Vitality', 'See the Unseen'])
+})
+
+it.each(['Grimspawn', 'Pitborn', 'Hellspawn'])('allows Fiendish Magic with %s prerequisite', lineage => {
+  const source: ContentEntry = { ...entry('Fiendish Magic', 'feat'), level: 9, traits: ['Nephilim'],
+    data: { prerequisite: 'Grimspawn, Pitborn, Hellspawn, or another lineage feat associated with fiends' } }
+  const c: Character = { ...base, level: 9, ancestry: 'Human', heritage: 'Nephilim', feats: [taken(lineage)] }
+  expect(eligibleFeats([source], c, { key: 'ancestry:9:0', category: 'ancestry', level: 9 })).toContain(source)
+})
+
 it('offers Psychic Talent occult cantrips in Innate Spells and heightens the selected spell', () => {
   const talent = mapAonHit({ _id: 'psychic-talent', _source: { name: 'Psychic Talent', category: 'feat', level: 1,
     trait: ['Lashunta', 'Shirren'], markdown: 'Header\n\n---\n\nChoose one cantrip from the occult spell list. You can cast this cantrip as an occult innate spell at will.' } }, 'sf2e')!

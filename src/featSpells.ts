@@ -18,6 +18,17 @@ const PSYCHIC_FEAT_SPELLS: Record<string, { names: string[]; tradition: string; 
   'Psychic Investigator': { names: ['Hypercognition', 'Mind Reading'], tradition: 'occult', rank: 3 },
   'Tectonic Psychic': { names: ['Wall of Fire', 'Burstmoji'], tradition: 'primal', rank: 7 },
 }
+const FIENDISH_MAGIC_SPELLS: Record<string, string[]> = {
+  Grimspawn: ['False Vitality', 'See the Unseen'],
+  Pitborn: ['Paranoia', 'Shatter'],
+  Hellspawn: ['Invisibility', 'Disguise Magic'],
+}
+
+function fiendishMagicSpells(c: Character) {
+  if (!c.systems.includes('pf2e')) return []
+  return [...new Set(c.feats.filter(feat => featTakenLevel(feat) <= c.level)
+    .flatMap(feat => FIENDISH_MAGIC_SPELLS[feat.name] ?? []))]
+}
 
 const domainSpellCache = new WeakMap<ContentEntry[], ContentEntry[]>()
 export function domainFeatSpells(c: Character, entries: ContentEntry[], featName: string, domain: string) {
@@ -386,6 +397,15 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       if (entry) out.push({ entry, source: feat.name,
         rule: { kind: 'innate', spells: [entry.name], tradition: 'divine', frequency: 'once per day', fixedRank: true },
         rank: 1, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+      continue
+    }
+    if (feat.name === 'Fiendish Magic') {
+      for (const name of fiendishMagicSpells(c)) {
+        const entry = matchingSpells(entries, name).find(spell => spell.systems.includes('pf2e'))
+        if (entry) out.push({ entry, source: feat.name,
+          rule: { kind: 'innate', spells: [entry.name], tradition: 'divine', frequency: 'once per day', fixedRank: true },
+          rank: 2, usageKey: JSON.stringify([selection, feat.name, name.toLowerCase()]) })
+      }
       continue
     }
     if (feat.name === 'Psychic Talent' && c.systems.includes('sf2e')) {
@@ -761,6 +781,10 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
       const choice = feat.choice
       return c.systems.includes('pf2e') && choice && EXTRAPLANAR_SUPPLICATION_SPELLS.includes(choice)
         && !matchingSpells(entries, choice).some(entry => entry.systems.includes('pf2e')) ? [{ name: choice, source }] : []
+    }
+    if (feat.name === 'Fiendish Magic') {
+      return fiendishMagicSpells(c).filter(name => !matchingSpells(entries, name).some(entry => entry.systems.includes('pf2e')))
+        .map(name => ({ name, source }))
     }
     const psychicSpells = c.systems.includes('sf2e') ? PSYCHIC_FEAT_SPELLS[feat.name] : undefined
     if (psychicSpells) {
