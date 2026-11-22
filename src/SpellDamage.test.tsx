@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, useState } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { DamageRoll, rollSpellDamage, rollWarpWorld, spellActionRolls, spellDamage, SpellActions, SpellDamageRolls, WarpWorldRoll } from './SpellDamage'
+import { DamageRoll, MultipleDamageRoll, rollSpellDamage, rollWarpWorld, spellActionRolls, spellDamage, SpellActions, SpellDamageRolls, WarpWorldRoll } from './SpellDamage'
 import { SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
@@ -68,6 +68,26 @@ it('offers Quantum Negation damage by target level without calculating save outc
   expect(html).toContain('Reduce Will save success by one step')
   expect(html).toContain('25d10 untyped damage')
   expect(html).toContain('20d10 untyped damage')
+  expect(html.match(/<button /g)).toHaveLength(1)
+  const damages = rolls.map(roll => roll.damage)
+  const setResults = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, setResults])
+  const tree = MultipleDamageRoll({ name: entry.name, damages, actions: 'Two Actions' })
+  const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw new Error('Missing Quantum Negation roll')
+  button.props.onClick()
+  expect(setResults).toHaveBeenCalledWith([9999, 25, 20])
+  vi.mocked(useState).mockReturnValueOnce([[9999, 25, 20], setResults])
+  const result = renderToStaticMarkup(<MultipleDamageRoll name={entry.name} damages={damages} actions="Two Actions" />)
+  for (const text of ['Target level 13 or lower: 9999', 'Target level 14-16: 25', 'Target level 17 or higher: 20']) {
+    expect(result).toContain(text)
+  }
+  vi.mocked(useState).mockReturnValueOnce([[9999, 25, 20], setResults])
+  const shown = MultipleDamageRoll({ name: entry.name, damages, actions: 'Two Actions' })
+  const clear = Children.toArray(shown.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(clear)) throw new Error('Missing clear button')
+  clear.props.onClick()
+  expect(setResults).toHaveBeenLastCalledWith(undefined)
 })
 
 it('scales other cantrips with their heightening steps', () => {
@@ -249,8 +269,9 @@ it('uses a spell action icon for a supported damage roll and keeps non-rolling s
   expect(passive).toContain('aria-label="Two Actions"')
   expect(passive).not.toContain('<button')
   const multiple = renderToStaticMarkup(<SpellActions name="Pulverizing Wake" rank={7} entry={entry} />)
-  expect(multiple).toContain('<small>Strike bonus</small>')
-  expect(multiple).toContain('<small>Cone</small>')
+  expect(multiple.match(/<button /g)).toHaveLength(1)
+  expect(multiple).toContain('Strike bonus')
+  expect(multiple).toContain('Cone')
   expect(multiple).toContain('3d8 sonic')
   expect(multiple).toContain('8d8 sonic')
 })

@@ -5,6 +5,7 @@ import type { ContentEntry } from './types'
 type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number
   additional?: { dice: number; sides: number; type: string; label?: string; bonus?: number }; outcomes?: { label: string; dice: number }[]
   components?: { dice: number; sides: number; type: string }[]; note?: string }
+type DamageResult = number | number[] | { primary: number; additional: number }
 
 export function spellDamage(name: string, rank: number): Damage[] {
   switch (name) {
@@ -263,18 +264,46 @@ export function spellActionRolls(name: string, rank: number, entry?: ContentEntr
     ? rolls.map(damage => ({ damage, actions })) : []
 }
 
-export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll, toggleResult = false }: {
-  name: string; damage: Damage; actions?: string; showLabel?: boolean; disabled?: boolean; onRoll?: () => void; toggleResult?: boolean
-}) {
-  const [result, setResult] = useState<number | number[] | { primary: number; additional: number }>()
-  const formula = damage.outcomes ? `${damage.outcomes.map(outcome => `${outcome.dice}d${damage.sides}`).join(' / ')} ${damage.type}`
+function rollDamage(damage: Damage): DamageResult {
+  if (damage.outcomes) {
+    const dice = Array.from({ length: damage.dice }, () => Math.floor(Math.random() * damage.sides) + 1)
+    return damage.outcomes.map(outcome => dice.slice(0, outcome.dice).reduce((sum, roll) => sum + roll, 0))
+  }
+  const primary = rollSpellDamage(damage)
+  if (damage.components) return [primary, ...damage.components.map(component => rollSpellDamage({ label: damage.label, ...component }))]
+  return damage.additional ? { primary, additional: rollSpellDamage({ label: damage.label, ...damage.additional }) } : primary
+}
+
+function DamageResultText({ damage, result, showPrimaryLabel = true }: { damage: Damage; result: DamageResult; showPrimaryLabel?: boolean }) {
+  return Array.isArray(result) ? damage.components
+    ? <> {[{ type: damage.type }, ...damage.components].map((component, index) =>
+      <span key={index}>{index > 0 && '; '}{result[index]} {component.type}</span>)}</>
+    : <> {damage.outcomes?.map((outcome, index) =>
+      <span key={outcome.label}>{index > 0 && '; '}{outcome.label}: {result[index]} {damage.type}</span>)}</>
+    : <> {showPrimaryLabel && damage.additional?.label && `${damage.label}: `}{typeof result === 'number' ? result : result.primary} {damage.type}
+      {typeof result !== 'number' && damage.additional && <>{damage.additional.label ? `; ${damage.additional.label}: ` : ' + '}{result.additional} {damage.additional.type}</>}</>
+}
+
+function damageFormula(damage: Damage) {
+  return damage.outcomes ? `${damage.outcomes.map(outcome => `${outcome.dice}d${damage.sides}`).join(' / ')} ${damage.type}`
     : damage.dice > 0
     ? `${damage.dice}d${damage.sides}${damage.bonus ? `${damage.bonus > 0 ? '+' : ''}${damage.bonus}` : ''} ${damage.type}`
     : `${damage.bonus ?? 0} ${damage.type}`
+}
+
+function damageTitle(damage: Damage) {
+  return `${damage.label}: ${damageFormula(damage)}${damage.additional ? `${damage.additional.label ? `; ${damage.additional.label}: ` : ' + '}${damage.additional.dice ? `${damage.additional.dice}d${damage.additional.sides}${damage.additional.bonus ? `+${damage.additional.bonus}` : ''}` : damage.additional.bonus ?? 0} ${damage.additional.type}` : ''}${damage.components?.map(component => ` + ${component.dice}d${component.sides} ${component.type}`).join('') ?? ''}${damage.note ? `; ${damage.note}` : ''}`
+}
+
+export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll, toggleResult = false }: {
+  name: string; damage: Damage; actions?: string; showLabel?: boolean; disabled?: boolean; onRoll?: () => void; toggleResult?: boolean
+}) {
+  const [result, setResult] = useState<DamageResult>()
+  const title = damageTitle(damage)
   return <span>
     <button type="button" disabled={disabled} className={actions ? 'spell-action-button' : undefined}
       aria-label={toggleResult && result !== undefined ? `Hide ${name}: ${damage.label} result`
-        : `Roll ${name}: ${damage.label}${damage.additional?.label ? ` and ${damage.additional.label}` : ''}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}${damage.additional ? `${damage.additional.label ? `; ${damage.additional.label}: ` : ' + '}${damage.additional.dice ? `${damage.additional.dice}d${damage.additional.sides}${damage.additional.bonus ? `+${damage.additional.bonus}` : ''}` : damage.additional.bonus ?? 0} ${damage.additional.type}` : ''}${damage.components?.map(component => ` + ${component.dice}d${component.sides} ${component.type}`).join('') ?? ''}${damage.note ? `; ${damage.note}` : ''}`}
+        : `Roll ${name}: ${damage.label}${damage.additional?.label ? ` and ${damage.additional.label}` : ''}`} title={`${actions ? `${actions}; ` : ''}${title}`}
       onClick={() => {
         if (disabled) return
         if (toggleResult && result !== undefined) {
@@ -282,28 +311,27 @@ export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll,
           return
         }
         onRoll?.()
-        if (damage.outcomes) {
-          const dice = Array.from({ length: damage.dice }, () => Math.floor(Math.random() * damage.sides) + 1)
-          setResult(damage.outcomes.map(outcome => dice.slice(0, outcome.dice).reduce((sum, roll) => sum + roll, 0)))
-          return
-        }
-        const primary = rollSpellDamage(damage)
-        if (damage.components) {
-          setResult([primary, ...damage.components.map(component => rollSpellDamage({ label: damage.label, ...component }))])
-          return
-        }
-        setResult(damage.additional ? { primary, additional: rollSpellDamage({ label: damage.label, ...damage.additional }) } : primary)
+        setResult(rollDamage(damage))
       }}>
-      {actions ? <><ActionIcon actions={actions} />{showLabel && <small>{damage.label}</small>}</> : `${damage.label}: ${formula}`}
+      {actions ? <><ActionIcon actions={actions} />{showLabel && <small>{damage.label}</small>}</> : `${damage.label}: ${damageFormula(damage)}`}
     </button>
     {result !== undefined && <output aria-live="polite" aria-label={`${name}: ${damage.label} result`}>
-      {Array.isArray(result) ? damage.components
-        ? <> {[{ type: damage.type }, ...damage.components].map((component, index) =>
-          <span key={index}>{index > 0 && '; '}{result[index]} {component.type}</span>)}</>
-        : <> {damage.outcomes?.map((outcome, index) =>
-          <span key={outcome.label}>{index > 0 && '; '}{outcome.label}: {result[index]} {damage.type}</span>)}</>
-        : <> {damage.additional?.label && `${damage.label}: `}{typeof result === 'number' ? result : result.primary} {damage.type}
-          {typeof result !== 'number' && damage.additional && <>{damage.additional.label ? `; ${damage.additional.label}: ` : ' + '}{result.additional} {damage.additional.type}</>}</>}
+      <DamageResultText damage={damage} result={result} />
+    </output>}
+  </span>
+}
+
+export function MultipleDamageRoll({ name, damages, actions }: { name: string; damages: Damage[]; actions: string }) {
+  const [results, setResults] = useState<DamageResult[]>()
+  return <span>
+    <button type="button" className="spell-action-button" aria-label={`${results ? 'Hide' : 'Roll'} ${name}${results ? ' results' : ': Damage'}`}
+      title={`${actions}; ${damages.map(damageTitle).join('; ')}`}
+      onClick={() => setResults(results ? undefined : damages.map(rollDamage))}><ActionIcon actions={actions} /></button>
+    {results && <output aria-live="polite" aria-label={`${name}: Damage results`}>
+      {damages.map((damage, index) => <span key={`${damage.label}:${index}`}>
+        {index > 0 && '; '}{damage.label}:<DamageResultText damage={damage} result={results[index]} showPrimaryLabel={false} />
+        {damage.note && ` (${damage.note})`}
+      </span>)}
     </output>}
   </span>
 }
@@ -311,9 +339,11 @@ export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll,
 export function SpellActions({ name, rank, entry }: { name: string; rank: number; entry?: ContentEntry }) {
   if (name === 'Warp World' && rank >= 4) return <WarpWorldRoll rank={rank} />
   const rolls = spellActionRolls(name, rank, entry)
-  return rolls.length ? <>{rolls.map(({ damage, actions }) =>
-    <DamageRoll key={`${damage.label}:${damage.dice}:${actions}`} name={name} damage={damage} actions={actions}
-      toggleResult showLabel={rolls.length > 1 && name !== 'Heal Animal' && name !== 'Heal Companion' && name !== 'Harm'} />)}</>
+  const groups = new Map<string, Damage[]>()
+  for (const { damage, actions } of rolls) groups.set(actions, [...groups.get(actions) ?? [], damage])
+  return rolls.length ? <>{[...groups].map(([actions, damages]) => damages.length > 1
+    ? <MultipleDamageRoll key={actions} name={name} damages={damages} actions={actions} />
+    : <DamageRoll key={actions} name={name} damage={damages[0]} actions={actions} toggleResult />)}</>
     : <ActionIcon entry={entry} />
 }
 
