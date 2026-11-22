@@ -1,6 +1,7 @@
 import type { ContentEntry } from './types'
 
 const ANCESTRAL_HIDE = 'Ancestral Embrace Hide Armor'
+export const isAncestralEmbrace = (name?: string) => name === 'Ancestral Embrace' || name === ANCESTRAL_HIDE
 const ARMORS = new Set(['Ancestral Embrace', ANCESTRAL_HIDE, "Slithermaw's Bane", "Slithermaw's Bane (Artifact)"])
 const BODY = /\n\n-{3,}\s*\n\n/
 export const SCALE_OF_IGROON_FORTRESS = 'Scale of Igroon (Fortress Shield)'
@@ -81,6 +82,15 @@ export function namedArmorEnhancements(entry?: ContentEntry) {
     resilient: Number(entry.data.named_armor_resilient),
     runes: String(entry.data.named_armor_runes ?? '').split(';').filter(Boolean),
   }
+}
+
+export function scaleAncestralEmbrace(entry: ContentEntry | undefined, level: number) {
+  if (!entry?.data.named_armor || entry.name !== ANCESTRAL_HIDE || level < 12) return entry
+  const runes = String(entry.data.named_armor_runes ?? '').split(';').filter(Boolean)
+  return { ...entry, data: { ...entry.data,
+    named_armor_runes: [...runes, level >= 18 ? 'Fortification (Greater)' : 'Fortification'].join(';'),
+    bulk: Number(entry.data.bulk) + 1, strength: Number(entry.data.strength) + 1,
+  } }
 }
 
 export function namedArmorRuneLimit(entry?: ContentEntry) {

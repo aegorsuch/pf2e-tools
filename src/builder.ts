@@ -16,7 +16,7 @@ import { createFeatPrerequisiteChecker, featPrerequisiteSources, type Prerequisi
 import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
-import { isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
@@ -5886,9 +5886,10 @@ export function armorDisplayName(armor: Pick<OwnedArmor, 'name' | 'material'>, e
 
 export function armorEntry(c: Character, entries: ContentEntry[], name: string, armorId?: string) {
   const resolvedName = name === 'Ancestral Embrace' ? 'Ancestral Embrace Hide Armor' : name
-  return characterArmorGrants(c, entries).find(entry => entry.name === resolvedName && (!armorId || entry.id === armorId))
+  const entry = characterArmorGrants(c, entries).find(entry => entry.name === resolvedName && (!armorId || entry.id === armorId))
     ?? byName(entries, 'armor', resolvedName)
     ?? namedArmorEntries(entries).find(entry => entry.name === resolvedName)
+  return scaleAncestralEmbrace(entry, c.level)
 }
 
 function characterArmorGrants(c: Character, entries: ContentEntry[]) {

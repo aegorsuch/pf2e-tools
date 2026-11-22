@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server'
+import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import { armorClass, armorEntry, armorSaveBonus, effectiveArmor, gearPickerEntries, ownedArmors, perceptionItemBonus, resistances, savingThrowBreakdown, shieldAcBonus, shieldEntry, shieldMaterialOptions, shieldStats, speedBonuses } from './builder'
@@ -74,7 +75,7 @@ const shield: OwnedShield = { id: 'scale', name: scale.name, hardness: 0, hp: 0,
 
 it('gives Ancestral Embrace built-in major weave runes and its worn Sunweave Perception bonus', () => {
   const c = { ...character, armors: [owned(hideEmbraceName)] }
-  expect(effectiveArmor(c, entries, c.armors[0]).runes).toEqual(['Moonweave (Major)', 'Sunweave (Major)'])
+  expect(effectiveArmor(c, entries, c.armors[0]).runes).toEqual(['Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)'])
   expect(perceptionItemBonus(c, entries)).toBe(3)
   expect(perceptionItemBonus({ ...c, armors: [{ ...c.armors[0], worn: false }] }, entries)).toBe(0)
   const html = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} part="armor" />)
@@ -84,6 +85,7 @@ it('gives Ancestral Embrace built-in major weave runes and its worn Sunweave Per
   expect(html).toContain('<summary>Activation')
   expect(html).toContain('Moonweave (Major)')
   expect(html).toContain('Sunweave (Major)')
+  expect(html).toContain('Fortification (Greater)')
   expect(html).not.toContain('aria-label="Remove Moonweave (Major) rune"')
   expect(html).not.toContain('aria-label="Remove Sunweave (Major) rune"')
   expect(c.armors[0].name).toBe(hideEmbraceName)
@@ -232,9 +234,44 @@ it('keeps only artifact Ancestral Embrace Hide Armor with a three-property-rune 
   const c = { ...character, armors: [{ ...owned(hideEmbraceName), material: 'Grisantian Hide' as const }] }
   const html = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} part="armor" />)
   expect(html).toContain(`>${hideEmbraceName}</button>`)
-  expect(html).toContain('aria-label="Add property rune"')
+  expect(html).not.toContain('aria-label="Add property rune"')
   expect(effectiveArmor(c, entries, { ...c.armors[0], runes: ['Shadow', 'Acid Resistant'] }).runes)
-    .toEqual(['Moonweave (Major)', 'Sunweave (Major)', 'Shadow'])
+    .toEqual(['Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)'])
+})
+
+it.each([
+  [11, undefined, 2, 2],
+  [12, 'Fortification', 3, 3],
+  [17, 'Fortification', 3, 3],
+  [18, 'Fortification (Greater)', 3, 3],
+])('scales Ancestral Embrace Fortification at level %i without changing saved runes', (level, rune, bulk, strength) => {
+  const armor = { ...owned(hideEmbraceName), runes: ['Shadow'] }
+  const c = { ...character, level, armors: [armor] }
+  const entry = armorEntry(c, entries, armor.name)!
+  expect(entry.data).toMatchObject({ bulk, strength })
+  expect(effectiveArmor(c, entries, armor).runes)
+    .toEqual(['Moonweave (Major)', 'Sunweave (Major)', rune ?? 'Shadow'])
+  expect(armor.runes).toEqual(['Shadow'])
+})
+
+it('preserves displaced saved runes when changing Ancestral Embrace while Fortification is active', () => {
+  const armor = { ...owned(hideEmbraceName), runes: ['Shadow'] }
+  const c = { ...character, armors: [armor] }
+  let patch: Partial<Character> = {}
+  const tree = ArmorList({ c, entries, save: change => { patch = change }, part: 'armor' })
+  const find = (node: ReactNode): ((event: { target: { checked: boolean } }) => void) | undefined => {
+    let result: ((event: { target: { checked: boolean } }) => void) | undefined
+    Children.forEach(node, child => {
+      if (result || !isValidElement<{ children?: ReactNode; 'aria-label'?: string; onChange?: typeof result }>(child)) return
+      if (child.props['aria-label'] === `Worn ${hideEmbraceName}`) result = child.props.onChange
+      else result = find(child.props.children)
+    })
+    return result
+  }
+  find(tree)!({ target: { checked: false } })
+  expect(patch.armors?.[0].runes).toContain('Shadow')
+  expect(patch.armors?.[0].runes).not.toContain('Fortification (Greater)')
+  expect(effectiveArmor({ ...c, level: 11 }, entries, patch.armors![0]).runes).toContain('Shadow')
 })
 
 it("labels Slithermaw's Bane as an Elven Chain Shirt", () => {

@@ -6,7 +6,7 @@ import {
 import { newId } from './db'
 import { blessedShieldBenefit, canEquipShield, championBlessings, clanPistolRunes, equippedHands, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
-import { isScaleOfIgroonShield, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { isAncestralEmbrace, isScaleOfIgroonShield, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ABILITY_LABEL, APEX_AUGMENTATIONS, activeApexAugmentation, armorBulk, armorStrengthMet, installedApexAugmentations } from './builder'
@@ -1825,6 +1825,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         ? saved?.runes ?? []
         : armor.id === ARMIGER_ARMOR_ID
           ? [...armor.runes.filter(rune => !isAutomaticFamily(rune)), ...(saved?.runes.filter(isAutomaticFamily) ?? [])]
+          : isAncestralEmbrace(armor.name) && c.level >= 12
+            ? [...new Set([...armor.runes.filter(rune => runeBaseName(rune) !== 'Fortification'), ...(saved?.runes ?? [])])]
           : armorEntry(c, entries, armor.name, armor.id)?.systems.includes('sf2e')
             ? saved?.runes ?? armor.runes
           : armor.runes
