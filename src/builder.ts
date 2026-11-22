@@ -800,6 +800,12 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     || (groupOrder.get(`${a.category}:${a.level}`) ?? 0) - (groupOrder.get(`${b.category}:${b.level}`) ?? 0))
 }
 
+export function hasRemainingFeatSelections(c: Character, entries: ContentEntry[] = []): boolean {
+  const selected = new Set(c.feats.map(feat => feat.slot))
+  const skipped = new Set(c.skippedFeatSlots ?? [])
+  return plannedSlots(c, entries).some(slot => !selected.has(slot.key) && !skipped.has(slot.key))
+}
+
 function redundantFeatSlots(c: Character, entries: ContentEntry[], slots: PlannedSlot[]): PlannedSlot[] {
   if (!entries.length) return []
   // Replacement selections grant their normal benefits, but cannot create more replacement slots.

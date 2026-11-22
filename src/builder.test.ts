@@ -6,10 +6,41 @@ import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOpt
 import { getSettings, updateSettings } from './settings'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import { classExtraSlots, classRepertoireRows, classSpellSlots } from './builder'
+import { hasRemainingFeatSelections } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
   id: `${kind}:${name}`, systems: ['pf2e'], kind, source: 'official', name, level, traits, description: '', data, effects: [], updatedAt: 1,
+})
+
+it('detects unfilled current feat slots while respecting filled and skipped slots', () => {
+  const c: Character = { id: 'remaining', name: 'Remaining', systems: ['pf2e'], level: 2,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const slots = plannedSlots(c)
+  expect(hasRemainingFeatSelections(c)).toBe(true)
+  const filled = { ...c, feats: slots.map(slot => ({
+    name: 'Selected', type: 'Ancestry Feat', level: slot.level, slot: slot.key,
+  })) }
+  expect(hasRemainingFeatSelections(filled)).toBe(false)
+  expect(hasRemainingFeatSelections({ ...filled, feats: filled.feats.slice(1) })).toBe(true)
+  expect(hasRemainingFeatSelections({ ...filled, feats: filled.feats.slice(1), skippedFeatSlots: [slots[0].key] })).toBe(false)
+  expect(hasRemainingFeatSelections({ ...filled, level: 3 })).toBe(true)
+})
+
+it('detects catalog-dependent background feat selections', () => {
+  const c: Character = { id: 'background', name: 'Background', systems: ['pf2e'], level: 1, background: 'Scout',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const filled = { ...c, feats: plannedSlots(c).map(slot => ({
+    name: 'Selected', type: 'Ancestry Feat', level: slot.level, slot: slot.key,
+  })) }
+  const catalog = [entry('background', 'Scout', { feat: 'Assurance' }), entry('feat', 'Assurance', { repeatable: true }, 1, ['General', 'Skill'])]
+  expect(hasRemainingFeatSelections(filled)).toBe(false)
+  expect(hasRemainingFeatSelections(filled, catalog)).toBe(true)
+  const backgroundSlot = plannedSlots(filled, catalog).find(slot => slot.grantedFeat === 'Assurance')!
+  expect(hasRemainingFeatSelections({ ...filled, feats: [...filled.feats,
+    { name: 'Assurance', type: 'Skill Feat', level: 1, slot: backgroundSlot.key }] }, catalog)).toBe(false)
 })
 
 it('hides pack-only feats while multiple companions are disabled, including unmet-prerequisite browsing', () => {

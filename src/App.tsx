@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { db, ensureSupplementalContent, newId, removeEntry, saveEntry } from './db'
-import { characterSummary } from './builder'
+import { characterSummary, hasRemainingFeatSelections } from './builder'
 import { characterDeityLores } from './backgrounds'
 import { CharacterFilters, filterCharacters, type CharacterFilterValues } from './CharacterFilters'
 import { DeleteIcon, EditIcon } from './Icons'
@@ -53,7 +53,7 @@ function AccountIcon() {
 
 export default function App() {
   const enabled = ALL_SYSTEMS
-  useSettings()
+  const settings = useSettings()
   useEffect(() => { const id = setTimeout(() => void loadCharacterBuilder(), 1500); return () => clearTimeout(id) }, [])
   const [rulesOpen, setRulesOpen] = useState(false)
   const [showAccount, setShowAccount] = useState(false)
@@ -105,6 +105,18 @@ export default function App() {
   const entries = catalog?.entries
 
   const homebrew = entries?.filter((e) => e.source === 'homebrew') ?? []
+  const basicRemaining = useMemo(() => new Set((characters ?? [])
+    .filter(character => hasRemainingFeatSelections(character))
+    .map(character => character.id)), [characters, settings])
+  const needsFeatCatalog = !editingId && (characters ?? []).some(character => !basicRemaining.has(character.id))
+  const featCatalog = useLiveQuery(async () => needsFeatCatalog ? await db.content.toArray() : undefined, [needsFeatCatalog])
+  const remainingFeats = useMemo(() => {
+    const remaining = new Set(basicRemaining)
+    if (featCatalog) for (const character of characters ?? []) {
+      if (!remaining.has(character.id) && hasRemainingFeatSelections(character, featCatalog)) remaining.add(character.id)
+    }
+    return remaining
+  }, [basicRemaining, characters, featCatalog, settings])
   const sortedCharacters = filterCharacters(characters ?? [], characterFilters)
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 
@@ -242,7 +254,7 @@ export default function App() {
       <ul className="character-list">
         {sortedCharacters.map((c) => (
           <li className="character-row" key={c.id}>
-            <span><b>{c.name}</b> - {characterSummary(c, entries ?? [])}</span>
+            <span><b>{c.name}{remainingFeats.has(c.id) && <span title="Feat selections remaining" aria-label="Feat selections remaining"> *</span>}</b> - {characterSummary(c, entries ?? [])}</span>
             <span className="character-actions">
               <button type="button" className="icon-button" title="Edit character" aria-label={`Edit ${c.name}`}
                 onClick={() => { setCatalogRetry(value => value + 1); setEditingId(c.id) }}><EditIcon /></button>
