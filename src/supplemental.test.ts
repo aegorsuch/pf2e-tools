@@ -380,6 +380,21 @@ it('inherits fist and unarmed attack traits for gauntlets', () => {
   expect(spiked.traits).toEqual(['Agile', 'Free-Hand'])
 })
 
+it('gates gauntlet Finesse behind the Free-Hand rule without removing other or native traits', () => {
+  const previous = getSettings().freeHandFinesse
+  const bladed: ContentEntry = { ...GAUNTLET, id: 'bladed', name: 'Bladed Gauntlet', traits: ['Finesse', 'Free-Hand'] }
+  const spiked: ContentEntry = { ...GAUNTLET, id: 'spiked', name: 'Spiked Gauntlet' }
+  const owned = (name: string) => ({ id: name, name, potency: 0, striking: 0, runes: [] })
+  try {
+    updateSettings({ freeHandFinesse: false })
+    expect(weaponAttack(base, [spiked], owned('Gauntlet')).traits).not.toContain('Finesse')
+    expect(weaponAttack(base, [spiked], owned('Spiked Gauntlet')).traits).toContain('Nonlethal')
+    expect(weaponAttack(base, [bladed], owned(bladed.name)).traits).toContain('Finesse')
+    updateSettings({ freeHandFinesse: true })
+    expect(weaponAttack(base, [spiked], owned('Spiked Gauntlet')).traits).toContain('Finesse')
+  } finally { updateSettings({ freeHandFinesse: previous }) }
+})
+
 it('copies the specified Tekko-Kagi as Clawed Gauntlet without its Bastet flavor text', () => {
   const tekko: ContentEntry = {
     ...GAUNTLET, id: 'aon:pf2e:weapon-304', name: 'Tekko-Kagi',

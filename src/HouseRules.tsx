@@ -12,6 +12,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
     description: 'Barbarians gain Access to the War Javelin. Weapon proficiency is unchanged.' },
   { key: 'barbarianIgnoreAgile', label: 'Barbarians ignore Agile while Raging',
     description: 'Temporarily removes Agile from weapons while a Barbarian is raging. Agile returns when Rage ends.' },
+  { key: 'freeHandFinesse', label: 'Free-Hand Weapons Gain Finesse' },
   { key: 'bucklerMeleeFinesse', label: 'Buckler-Attached Melee Weapons Gain Finesse',
     description: 'Melee weapons attached to a buckler gain Finesse, allowing Dexterity instead of Strength for attacks when higher. Does not affect ranged attachments, Shield Bash, or other shields.' },
   { key: 'championFormNoFlight', label: 'Disable fly speed from Animal Feature, Auspice Specialization, Celestial Form, Fiendish Form, Untamed Shift' },

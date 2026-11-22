@@ -197,6 +197,30 @@ it('retains Iron Fists traits and Cairn Form dice for Spark Fist', () => {
   expect(attack.criticalNote).toContain('stunned 1')
 })
 
+it.each(['Battleglove', 'Tactical Battleglove', 'Magnet-Directed Battleglove', 'Tekko-Kagi'])('optionally adds Finesse to free-hand weapon %s', name => {
+  const previous = getSettings().freeHandFinesse
+  const entry: ContentEntry = { id: name, systems: ['sf2e'], kind: 'weapon', source: 'official', name,
+    level: 1, traits: ['Agile', 'Free-Hand'], description: '', data: { damage: '1d4 bludgeoning',
+      weapon_type: 'Melee', weapon_category: 'Simple', hands: '1' }, effects: [], updatedAt: 0 }
+  const weapon: OwnedWeapon = { id: name, name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, systems: ['sf2e'], weapons: [weapon] }
+  try {
+    updateSettings({ freeHandFinesse: true })
+    const enabled = weaponAttack(c, [entry], weapon)
+    expect(enabled.traits).toContain('Finesse')
+    expect(enabled.ability).toBe('dex')
+    expect(weaponAttack(c, [{ ...entry, data: { ...entry.data, weapon_type: 'Ranged' } }], weapon).traits).toContain('Finesse')
+    expect(weaponAttack(c, [{ ...entry, traits: ['Agile'] }], weapon).traits).not.toContain('Finesse')
+    updateSettings({ freeHandFinesse: false })
+    const disabled = weaponAttack(c, [entry], weapon)
+    expect(disabled.traits).not.toContain('Finesse')
+    expect(disabled.ability).toBe('str')
+    expect(enabled.attack - disabled.attack).toBe(3)
+    expect(enabled.damage).toBe(disabled.damage)
+    expect(entry.traits).toEqual(['Agile', 'Free-Hand'])
+  } finally { updateSettings({ freeHandFinesse: previous }) }
+})
+
 it.each(['Buckler', 'Gauntlet Buckler'])('optionally adds Finesse only to melee attachments on a %s', name => {
   const previous = getSettings().bucklerMeleeFinesse
   const entry: ContentEntry = { id: 'spikes', systems: ['pf2e'], kind: 'weapon', source: 'official', name: 'Shield Spikes',

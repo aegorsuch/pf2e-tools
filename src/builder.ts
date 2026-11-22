@@ -6526,13 +6526,18 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     const shield = getSettings().bucklerMeleeFinesse ? shieldAttachmentSource(c, w) : undefined
     const existingTraits = entry.traits.map(trait => trait.toLowerCase())
     const added = [
-      ...(gauntlet ? inheritedGauntletTraits(c, entries) : []),
+      ...(gauntlet ? inheritedGauntletTraits(c, entries).filter(trait => trait.toLowerCase() !== 'finesse') : []),
       ...(shield?.attachedWeapon && isBucklerShield(shield.name) ? ['Finesse'] : []),
       ...(/\bgauntlets?\b/i.test(entry.name) && c.feats.some(feat => /^Iron Fists?$/i.test(feat.name)
         && featTakenLevel(feat) <= c.level) ? ['Shove'] : []),
       ...(hydraulicFist ? ['Boost d4', 'Tech'] : []),
     ].filter(trait => !existingTraits.includes(trait.toLowerCase()))
     if (added.length) entry = { ...entry, traits: [...entry.traits, ...added] }
+  }
+  if (entry && getSettings().freeHandFinesse && weaponCategory(entry) !== 'Unarmed'
+    && entry.traits.some(trait => /^free[- ]hand$/i.test(trait.trim()))
+    && !entry.traits.some(trait => /^finesse$/i.test(trait.trim()))) {
+    entry = { ...entry, traits: [...entry.traits, 'Finesse'] }
   }
   if (entry) {
     const existingTraits = entry.traits.map(trait => trait.toLowerCase())
