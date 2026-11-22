@@ -507,7 +507,6 @@ export function ArmorUpgrades({ entries, upgrades, limit, onChange }: {
     {upgrades.map((id, index) => <GearTag key={`${id}:${index}`} name={installed[index]?.name ?? id} entry={installed[index]}
       kind="upgrade" onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />)}
     {installed.some(item => !item) && <small role="status">Saved armor upgrade unavailable. Sync official content to restore its effects.</small>}
-    <small>Armor upgrade slots: {upgrades.length}/{limit}.</small>
     {upgrades.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
     {upgrades.length < limit && options.length > 0 && <SearchableSelect aria-label="Add armor upgrade" value=""
       optionLevel={value => options.find(entry => entry.id === value)?.level} onChange={event => {
@@ -1937,8 +1936,6 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               </select>
             </label>}
             {starfinder && <small>Grade: {String(starfinder.data.armor_grade)}</small>}
-            {armorUpgradeSlots(entry) > 0 && (!sf2eArmor || entry?.data.upgrades_allowed === false)
-              && <small>Armor upgrade slots: {armorUpgradeSlots(entry)}.</small>}
             {entry?.data.upgrades_allowed === false && <small>Armor upgrades cannot be installed on this armor.</small>}
             {entry && <GearAccess c={c} entries={entries} entry={entry} save={save} />}
             {entry && entry.traits.length > 0 && <GearTraits traits={entry.traits} entries={entries} system={entry.systems[0]} />}

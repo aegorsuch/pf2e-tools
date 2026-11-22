@@ -2304,8 +2304,8 @@ it('uses armor upgrades instead of runes for SF2E-tagged armor', () => {
   let c: Character = { ...character([]), systems: ['sf2e'], armors: [
     { id: 'starfinder-armor', name: suit.name, potency: 2, resilient: 2, runes: ['Shadow'], worn: true },
   ] }
-  const entries = [suit, upgrade]
-  expect(renderToStaticMarkup(ArmorList({ c: { ...c, heritage: 'Mod Fanatic Android' }, entries, save: () => {} }))).toContain('Armor upgrade slots: 0/2.')
+  const second = { ...upgrade, id: 'armor-upgrade-2', name: 'Another Upgrade' }
+  const entries = [suit, upgrade, second]
   const tree = () => ArmorList({ c, entries, save: patch => { c = { ...c, ...patch } } })
   const markup = renderToStaticMarkup(tree())
   expect(markup).toContain('Add armor upgrade')
@@ -2321,6 +2321,10 @@ it('uses armor upgrades instead of runes for SF2E-tagged armor', () => {
   expect(renderToStaticMarkup(select)).toContain('Thermal Capacitor')
   ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'armor-upgrade' } })
   expect(c.armors?.[0]).toMatchObject({ upgrades: ['armor-upgrade'], runes: ['Shadow'] })
+  expect(renderToStaticMarkup(tree())).not.toContain('Add armor upgrade')
+  const extraSlot = renderToStaticMarkup(ArmorList({ c: { ...c, heritage: 'Mod Fanatic Android' }, entries, save: () => {} }))
+  expect(extraSlot).toContain('Add armor upgrade')
+  expect(extraSlot).not.toContain('Armor upgrade slots:')
 })
 
 it('places leveled SF2e and homebrew specific armor separately from standard armor', () => {
@@ -2349,7 +2353,7 @@ it('changes SF2e armor grades without discarding installed upgrades', () => {
   ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: tactical.name } })
   expect(c.armors?.[0]).toMatchObject({ name: tactical.name, upgrades: ['upgrade'], worn: true })
   const markup = renderToStaticMarkup(tree())
-  expect(markup).toContain('Armor upgrade slots: 1/2')
+  expect(markup).not.toContain('Armor upgrade slots:')
   expect(markup).toContain('class="equipment-name" aria-haspopup="dialog">Armored Coat</button>')
   expect(markup).toContain('aria-label="Armor grade: Armored Coat"')
   expect(markup).toContain('value="Tactical Armored Coat" selected="">Tactical (Level 5)</option>')
@@ -2369,7 +2373,7 @@ it('keeps the base name for paragon armor while retaining its grade and AC', () 
   expect(markup).toContain('aria-label="Armor grade: Tempweave"')
   expect(markup).toContain('value="Paragon Tempweave" selected="">Paragon (Level 20)</option>')
   expect(markup).toContain('<small>Armor Class</small><b>5</b>')
-  expect(markup).toContain('Armor upgrade slots: 0/4')
+  expect(markup).not.toContain('Armor upgrade slots:')
   expect(c.armors?.[0].name).toBe('Paragon Tempweave')
   expect(armorDisplayName({ name: 'Paragon Tempweave' }, { ...paragon, systems: ['pf2e'] })).toBe('Paragon Tempweave')
 })

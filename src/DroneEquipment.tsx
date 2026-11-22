@@ -73,7 +73,6 @@ export function DroneEquipment({ c, entries, save }: SectionProps) {
         {options.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (Level {entry.level})</option>)}
       </SearchableSelect>
     })}
-    <small>Armor upgrade slots: {armor.length}/{capacity.armorUpgrades}.</small>
     {armor.map((id, index) => {
       const entry = armorCatalog.find(item => item.id === id)
       const field = entry && index < capacity.armorUpgrades ? droneForceField(entry) : undefined
