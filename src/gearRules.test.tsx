@@ -538,6 +538,64 @@ it('applies supported Untamed Form battle statistics and Ferocious Shape without
   expect(activeBattleForm({ ...c, untamedForm: { form: 'Animal Form', shape: 'Unknown', rank: 10 } }, entries)).toBeUndefined()
 })
 
+it('applies and dismisses Pest Form statistics, weaknesses, and Strike restrictions', () => {
+  const c: Character = { ...base, level: 7, spells: [{ name: 'Pest Form', rank: 1, cantrip: false }],
+    activeSpells: ['Pest Form'], pestForm: { rank: 1, source: 'Pest Form', flying: true }, weapons: [main] }
+  const entries = [sword]
+  expect(activeBattleForm(c, entries)).toMatchObject({ size: 'Tiny', ac: 22, athletics: -4, flySpeed: 0 })
+  expect(armorClass(c, entries)).toBe(22)
+  expect(ownedWeapons(c, entries)).toEqual([])
+  expect(movementSpeeds(c, entries)).toEqual([{ name: 'Land', feet: 20, source: 'Pest Form', status: 0 }])
+  expect(senses(c, entries)).toEqual(expect.arrayContaining([
+    { value: 'Low-light vision', source: 'Pest Form' }, { value: 'Scent (imprecise) 30 feet', source: 'Pest Form' },
+  ]))
+  const skills = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="skills" />)
+  expect(skills).toMatch(/class="skill-name">Athletics.*?<b>-4/)
+  expect(skills).toMatch(/class="skill-name">Acrobatics.*?<b>\+10/)
+  expect(skills).toMatch(/class="skill-name">Stealth.*?<b>\+10/)
+  const trained = { ...c, rankOverrides: { Acrobatics: 4, Stealth: 4, Athletics: 4 } }
+  const trainedSkills = renderToStaticMarkup(<SkillsSection c={trained} entries={entries} save={() => {}} part="skills" />)
+  expect(trainedSkills).toMatch(/class="skill-name">Acrobatics.*?<b>\+19/)
+  expect(trainedSkills).toMatch(/class="skill-name">Athletics.*?<b>-4/)
+  const defense = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="defense" />)
+  expect(defense).toContain('Weakness: Physical 5')
+  expect(defense).toContain('Cannot Strike')
+  expect(defense).not.toContain('Temporary Hit Points')
+  const flying = { ...c, pestForm: { ...c.pestForm!, rank: 4 } }
+  expect(movementSpeeds(flying, entries)).toEqual([
+    { name: 'Land', feet: 20, source: 'Pest Form', status: 0 },
+    { name: 'Fly', feet: 20, source: 'Pest Form', status: 0 },
+  ])
+  const normal = { ...c, ...spellActiveChange(c, 'Pest Form', false) }
+  expect(activeBattleForm(normal, entries)).toBeUndefined()
+  expect(ownedWeapons(normal, entries).some(weapon => weapon.id === main.id)).toBe(true)
+})
+
+it('applies Ancestral Pest base Speed and swimming only to eligible forms', () => {
+  const ancestry = { ...content('ancestry', 'Brenneri', { speed: 30 }), systems: ['sf2e' as const] }
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Brenneri', feats: [feat('Ancestral Pest', 5)],
+    activeSpells: ['Pest Form'], pestForm: { rank: 1, source: 'Ancestral Pest' } }
+  expect(movementSpeeds(c, [ancestry])).toEqual([
+    { name: 'Land', feet: 30, source: 'Ancestral Pest', status: 0 },
+    { name: 'Swim', feet: 20, source: 'Ancestral Pest', status: 0 },
+  ])
+  expect(movementSpeeds({ ...c, ancestry: 'Lashunta' }, [ancestry]).map(move => move.name)).toEqual(['Land'])
+  expect(movementSpeeds({ ...c, ancestry: 'Entu Colony', pestForm: { ...c.pestForm!, swimming: true } }, [ancestry])
+    .map(move => move.name)).toEqual(['Land', 'Swim'])
+  expect(activeBattleForm({ ...c, feats: [] }, [ancestry])).toBeUndefined()
+})
+
+it('applies Untamed Pest Form and restricts insect shape to non-flying', () => {
+  const c: Character = { ...base, className: 'Druid', level: 9, feats: [feat('Untamed Form'), feat('Insect Shape', 6)],
+    activeSpells: ['Untamed Form'], untamedForm: { form: 'Pest Form', rank: 5, pestFlying: true }, weapons: [main] }
+  expect(activeBattleForm(c, [])).toMatchObject({ source: 'Untamed Form', size: 'Tiny', flySpeed: 20 })
+  expect(ownedWeapons(c, [])).toEqual([])
+  expect(activeBattleForm({ ...c, untamedForm: { ...c.untamedForm, form: 'Pest Form (Non-flying Insect)' } }, []))
+    .toMatchObject({ flySpeed: 0 })
+  expect(activeBattleForm({ ...c, feats: [feat('Untamed Form')], untamedForm: {
+    ...c.untamedForm, form: 'Pest Form (Non-flying Insect)' } }, [])).toBeUndefined()
+})
+
 it('applies animal form movement and attack details across Untamed Form shapes', () => {
   const c: Character = { ...base, className: 'Druid', level: 10, feats: [feat('Untamed Form', 1)],
     activeSpells: ['Untamed Form'], untamedForm: { form: 'Animal Form', shape: 'Snake', rank: 5 } }

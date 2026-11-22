@@ -103,6 +103,10 @@ export function UntamedFormOptions({ c, entries, save }: SectionProps) {
           save({ untamedForm: { ...state, shape: event.target.value } })
         }} />
     </label>}
+    {state?.form === 'Pest Form' && (state.rank && ranks.includes(state.rank) ? state.rank : ranks[0]) >= 4 && <label>
+    <input type="checkbox" aria-label="Untamed Pest Form flying" checked={!!state.pestFlying} disabled={active && !canChange}
+      onChange={event => save({ untamedForm: { ...state, pestFlying: event.target.checked } })} /> Flying creature
+    </label>}
     {!!activeFeatsNamed(c, 'Dragon Shape').length && <label>Dragon Shape resistance{' '}
       <select aria-label="Dragon Shape resistance" value={c.dragonShapeResistance ?? ''} onChange={event => {
         const value = event.target.value
@@ -336,6 +340,32 @@ export function DinosaurFormOptions({ c, save, rank }: Pick<SectionProps, 'c' | 
       dinosaurForm: undefined, ...spellActiveChange(c, 'Dinosaur Form', false),
     })}>Dismiss Dinosaur Form</button>
   </fieldset>
+}
+
+export function PestFormActions({ c, save, entry, rank, source = 'Pest Form', disabled }: Pick<SectionProps, 'c' | 'save'> & {
+  entry?: ContentEntry; rank: number; source?: 'Pest Form' | 'Ancestral Pest'; disabled?: boolean
+}) {
+  const state = c.pestForm?.source === source && c.pestForm.rank === rank ? c.pestForm : undefined
+  const active = !!c.activeSpells?.includes('Pest Form') && !!state
+  const transforming = !!c.activeSpells?.includes('Pest Form')
+  const valid = Number.isInteger(rank) && rank >= 1 && rank <= 10
+  const update = (patch: Partial<NonNullable<Character['pestForm']>>) =>
+    save({ pestForm: { rank, source, ...state, ...patch } })
+  return <ActiveSpellActions name="Pest Form" entry={entry} rank={rank} actions="Two Actions">
+    {source === 'Pest Form' && rank >= 4 && <label><input type="checkbox" aria-label="Pest Form flying"
+      checked={!!state?.flying} disabled={transforming || disabled} onChange={event => update({ flying: event.target.checked })} /> Flying creature</label>}
+    {source === 'Ancestral Pest' && c.ancestry === 'Entu Colony' && <label>
+      <input type="checkbox" aria-label="Ancestral Pest original animal swims" checked={!!state?.swimming}
+        disabled={transforming || disabled} onChange={event => update({ swimming: event.target.checked })} /> Original animal has a swim Speed
+    </label>}
+    <label><input type="checkbox" aria-label={`${source} active`} checked={active}
+      disabled={!active && (disabled || !valid)} onChange={event => {
+        const next = event.target.checked
+        if (next && (disabled || !valid)) return
+        save({ ...spellActiveChange(c, 'Pest Form', next),
+          pestForm: next ? { rank, source, flying: state?.flying, swimming: state?.swimming } : undefined })
+      }} /> Active</label>
+  </ActiveSpellActions>
 }
 
 export function CrocodileFormToggle({ c, entries, save }: SectionProps) {
@@ -671,7 +701,7 @@ function SpellItem({ c, name, entry, note, onRemove, active, onToggle, activeLab
             onClick={() => confirmRemoval(`spell "${name}"`, onRemove)}>×</button>}
           {onToggle ? <ActiveSpellActions name={name} entry={entry} rank={name === 'Oaken Resilience' ? effectRank : effectRank ?? rank}>
             {activeToggle}{effectControls}
-          </ActiveSpellActions> : actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form', 'Dinosaur Form',
+          </ActiveSpellActions> : actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form', 'Dinosaur Form', 'Pest Form',
             'Shield', 'Bone Shield', 'False Vitality', 'Canopy Crawler', 'Enlarge Companion', 'Apex Companion'].includes(name)
             && !(name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length)
             && <SpellActions name={name} entry={entry} rank={rank} spellcastingModifier={spellcastingModifier} />)}{inlineControls}</div>
@@ -909,6 +939,8 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
                 ? <FalseVitalityActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
                 : slot.entry.name === 'Tailwind'
                 ? <TailwindActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
+                : slot.entry.name === 'Pest Form'
+                ? <PestFormActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
                 : <SpellActions name={slot.entry.name} entry={slot.entry} rank={rank === 0 ? Math.ceil(c.level / 2) : castRank}
                   spellcastingModifier={castingModifier} />)}
             </div>
@@ -1176,6 +1208,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       ? featSpells.find(grant => grant.entry.name === name)?.rank ?? Math.ceil(c.level / 2) : undefined
   const inlineControls = (name: string, rank = Math.ceil(c.level / 2), source?: string) => name === 'Animal Feature' || name === 'Untamed Shift' || name === 'Untamed Form' || name === 'Dinosaur Form'
     ? <SpellEffectActions c={c} entries={entries} save={save} entry={spellEntry(name)} name={name} rank={rank} />
+    : name === 'Pest Form'
+    ? <PestFormActions c={c} save={save} entry={spellEntry(name)} rank={rank} source={source === 'Ancestral Pest' ? source : 'Pest Form'} />
     : name === 'Animal Form' && source !== 'Creature Shape' && activeFeatsNamed(c, 'Ancestral Form').length
     ? <CrocodileFormActions c={c} entries={entries} save={save} rank={rank} />
     : name === 'False Vitality'
@@ -1290,7 +1324,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     <SpellColumns />
     <ul>{listedSpells.filter(spell => spell.group === group).map(spell => {
       const entry = spellEntry(spell.name, spell.entryId)
-      const rank = spell.name === 'False Vitality' ? Number(spell.group.replace('Rank ', ''))
+      const rank = (spell.name === 'False Vitality' || spell.name === 'Pest Form') && spell.group.startsWith('Rank ')
+        ? Number(spell.group.replace('Rank ', ''))
         : necromancer && !entry?.traits.some(trait => trait.toLowerCase() === 'cantrip')
         ? entry?.level ?? 1 : Math.ceil(c.level / 2)
       return <SpellItem c={c} key={`${spell.name}-${spell.index}`} name={spell.name} entry={entry} rank={rank} saveDC={classSpellDC}
@@ -1541,6 +1576,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     ? <FalseVitalityActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
                     : selectedEntry.name === 'Tailwind'
                     ? <TailwindActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
+                    : selectedEntry.name === 'Pest Form'
+                    ? <PestFormActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
                     : selectedEntry.name === 'Animal Feature' || selectedEntry.name === 'Untamed Shift' || selectedEntry.name === 'Dinosaur Form'
                     ? <SpellEffectActions c={c} entries={entries} save={save} entry={selectedEntry} name={selectedEntry.name} rank={rank} />
                     : <SpellActions name={selectedEntry.name} entry={selectedEntry} rank={cantrip ? Math.ceil(c.level / 2) : rank}

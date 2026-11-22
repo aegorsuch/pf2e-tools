@@ -422,11 +422,14 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           .sort((a, b) => b.value - a.value)[0]
     const clumsyPenalty = ability === 'dex' ? clumsy : 0
     const statusPenalty = Math.max(conditionPenalty(c, ability), clumsyPenalty)
-    const ownTotal = abil + prof + item + armorPenalty
-    const formAthletics = s.name === 'Athletics' && form && form.source !== 'Animal Rage' ? form.athletics : undefined
+    const pest = !!form && 'pest' in form && form.pest
+    const ownTotal = abil + prof + (pest && ['Acrobatics', 'Athletics', 'Stealth'].includes(s.name) ? 0 : item) + armorPenalty
+    const formSkill = pest && ['Acrobatics', 'Stealth'].includes(s.name) ? 10
+      : s.name === 'Athletics' && form && form.source !== 'Animal Rage' ? form.athletics : undefined
     const total = s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
       ? savingThrowBreakdown(c, entries, s.name, ranks).total
-      : Math.max(ownTotal, formAthletics ?? ownTotal) - statusPenalty + status + (circumstance?.value ?? 0)
+      : (pest && s.name === 'Athletics' ? -4 : Math.max(ownTotal, formSkill ?? ownTotal))
+        - statusPenalty + status + (circumstance?.value ?? 0)
     const conditionalTotal = (bonus: number) => signed(total + Math.max(circumstance?.value ?? 0, bonus) - (circumstance?.value ?? 0))
     const itemTotal = (bonus: number) => signed(total + Math.max(0, bonus - item))
     const forestIncrease = ink ? Math.max(item, ink.value + 1) - item : 0
@@ -449,8 +452,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
                 skillTokenUpgrades: c.skillTokenUpgrades?.filter(purchase => purchase.skill !== s.name) } : {}) })
           })}>×</button>}<b>{s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
           ? <TotalBreakdown label={s.name} breakdown={savingThrowBreakdown(c, entries, s.name, ranks)} signedTotal />
-          : signed(total)}{formAthletics !== undefined && formAthletics > ownTotal
-          && <SourceNote source={form?.source ?? ''} note={`Athletics ${signed(formAthletics)} unless your own modifier is higher.`} />}{!!armorPenalty
+          : signed(total)}{formSkill !== undefined && (pest && s.name === 'Athletics' || formSkill > ownTotal)
+          && <SourceNote source={form?.source ?? ''} note={`${s.name} ${signed(formSkill)}${pest && s.name === 'Athletics' ? '.' : ' unless your own modifier is higher.'}`} />}{!!armorPenalty
           && <SourceNote inlineSource={false} source="Armor check penalty" note={`${armorPenalty} to Strength and Dexterity skill checks and DCs, except actions with the attack trait.`} />}{!!status
           && <SourceNote inlineSource={false} source={athleticRush ? 'Athletic Rush' : ferocious ? 'Ferocious Shape' : 'Imitate Fauna'}
             note={athleticRush ? '+2 status bonus to Athletics checks.' : ferocious ? '+1 status bonus to Athletics checks.' : '+4 status bonus when using Impersonate as an animal.'} />}
@@ -854,13 +857,14 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             onChange={event => save({ hardenFleshActive: event.target.checked })} /> Harden Flesh active
         </label>}
         {form && <div className="defense-summary">
-          {form.source !== 'Animal Rage' && <span><small>Temporary Hit Points</small><b>{form.temporaryHp}
+          {form.source !== 'Animal Rage' && form.temporaryHp > 0 && <span><small>Temporary Hit Points</small><b>{form.temporaryHp}
             <SourceNote source={form.source} note={form.source === 'Dragon Transformation'
               ? 'Add to temporary HP from entering Rage or another Rage action; not added to maximum Hit Points.'
               : 'Granted when cast; not added to maximum Hit Points.'} inlineSource={false} /></b></span>}
           <span><small>Size</small><b>{form.size}
             <SourceNote source={form.source} note={form.source === 'Dragon Transformation'
               ? 'Gain the dragon trait. Only dragon unarmed attacks can Strike; equipment is absorbed. You have hands and can use manipulate actions.'
+              : 'pest' in form && form.pest ? 'Gain the animal trait. Cannot Strike; equipment is absorbed. Cannot speak, Cast Spells, or use manipulate actions requiring hands.'
               : form.source === 'Animal Rage' ? `Gain the animal trait. Use your own unarmed attacks and retain constant gear abilities.${form.note ? ` ${form.note}` : ''} Cannot speak, Cast Spells, or use manipulate actions requiring hands.`
               : `${form.attacks[0]?.data.battle_form
               ? `Gain the animal trait.${form.note ? ` ${form.note}` : ''}`
@@ -936,6 +940,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         {divineWeaknesses.length > 0 && <small>Weaknesses: {divineWeaknesses.map((weakness, index) =>
           <span key={`${weakness.damage}:${weakness.source}`}>{index > 0 && ', '}{weakness.damage} {weakness.value}
             <SourceNote source={weakness.source} note="Weaknesses to the same damage type do not stack; apply only the highest." /></span>)}</small>}
+        {form && 'pest' in form && form.pest && <small>Weakness: Physical 5
+          <SourceNote source={form.source} note="Weaknesses to the same damage type do not stack; apply only the highest." /></small>}
         {testSubjectAdaptation(c) === 'Radioactive' && <small>Immunity: sickened from radiation sickness
           <SourceNote source="Test-Subject Ysoki" note="Grants immunity to sickened from radiation sickness." /></small>}
         {oaken && <small>Weakness: Fire {oaken.fireWeakness}

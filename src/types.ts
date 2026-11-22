@@ -392,11 +392,13 @@ export interface Character {
   pyreResistEnergy?: { damage: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic'; value?: number }
   boneShieldRaised?: boolean
   dinosaurForm?: { form: string; rank: number }
+  pestForm?: { rank: number; source: 'Pest Form' | 'Ancestral Pest'; flying?: boolean; swimming?: boolean }
   creatureShape?: { form: string; rank: number }
   creatureAllyActive?: boolean
   untamedForm?: {
     form?: string
     shape?: string
+    pestFlying?: boolean
     rank?: number
     originalDuration?: '1 minute' | '10 minutes' | '24 hours' | '1 hour' | 'unlimited'
   }

@@ -7,7 +7,7 @@ import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligible
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
 import { automaticFeatChoiceKey, boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
-import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, EnergizedFont, FalseVitalityActions, FloralRestoration, FocusPointTracker, InnateSpellUses, PyreResistEnergyActions, SpellsSection, UntamedFormOptions } from './SpellsSection'
+import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, EnergizedFont, FalseVitalityActions, FloralRestoration, FocusPointTracker, InnateSpellUses, PestFormActions, PyreResistEnergyActions, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
@@ -1010,6 +1010,30 @@ it('grants Pest Form at will from Ancestral Pest with its mechanics noted', () =
   expect(grants.map(grant => [grant.entry.name, grant.rank, grant.rule.frequency])).toEqual([['Pest Form', 1, 'at will']])
   expect(grants[0].rule.condition).toContain('20-foot swim Speed')
   expect(grantedFeatSpells({ ...pahtra, feats: [] }, [spell])).toEqual([])
+})
+
+it('activates and dismisses Pest Form with its chosen cast rank and flying form', () => {
+  let c: Character = { ...base, activeSpells: ['Dinosaur Form'] }
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  type Control = { checked?: boolean; disabled?: boolean; onChange: (event: { target: { checked: boolean } }) => void }
+  const search = (label: string, node: ReactNode): Control | undefined => {
+    let found: Control | undefined
+    Children.forEach(node, child => {
+      if (found || !isValidElement<{ children?: ReactNode; 'aria-label'?: string } & Control>(child)) return
+      found = child.props['aria-label'] === label ? child.props : search(label, child.props.children)
+    })
+    return found
+  }
+  const find = (label: string) => search(label, PestFormActions({ c, save, rank: 4 }))
+  find('Pest Form flying')!.onChange({ target: { checked: true } })
+  expect(c.pestForm).toMatchObject({ rank: 4, flying: true })
+  find('Pest Form active')!.onChange({ target: { checked: true } })
+  expect(c.activeSpells).toEqual(['Pest Form'])
+  expect(movementSpeeds(c, []).map(move => move.name)).toEqual(['Land', 'Fly'])
+  expect(find('Pest Form flying')?.disabled).toBe(true)
+  find('Pest Form active')!.onChange({ target: { checked: false } })
+  expect(c.activeSpells).toEqual([])
+  expect(c.pestForm).toBeUndefined()
 })
 
 it('shows original duration units, touch range and Sure Strike self-targeting without an Invisibility toggle', () => {

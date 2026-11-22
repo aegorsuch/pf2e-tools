@@ -1,5 +1,5 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, GameSystem, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
-import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm } from './battleForms'
+import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm, pestBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, KITSUNE_SPELL_FAMILIARITY_CANTRIPS, ancestralMagicAvailable, automaticFeatChoiceKey, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
@@ -5521,20 +5521,31 @@ export function activeBattleForm(c: Character, entries: ContentEntry[]) {
     if (form) return form
   }
   for (const name of [...c.activeSpells ?? []].reverse()) {
-    if (name === 'Untamed Form' && isSpellActive(c, entries, name) && c.untamedForm?.shape
+    if (name === 'Untamed Form' && isSpellActive(c, entries, name) && c.untamedForm
       && untamedFormOptions(c).some(option => option.name === c.untamedForm?.form)) {
       const ranks = untamedFormRanks(c)
       const rank = c.untamedForm.rank && ranks.includes(c.untamedForm.rank) ? c.untamedForm.rank : ranks[0]
-      if (c.untamedForm.form === 'Dinosaur Form') {
+      if (c.untamedForm.form === 'Pest Form' || c.untamedForm.form === 'Pest Form (Non-flying Insect)') {
+        const form = pestBattleForm(rank, c.level, c.untamedForm.form === 'Pest Form' && !!c.untamedForm.pestFlying)
+        if (form) return { ...form, source: 'Untamed Form' }
+      } else if (c.untamedForm.form === 'Dinosaur Form' && c.untamedForm.shape) {
         const form = dinosaurBattleForm(c.untamedForm.shape, rank, c.level)
         if (form) return { ...form, source: 'Untamed Form' }
-      } else if (c.untamedForm.form === 'Animal Form') {
+      } else if (c.untamedForm.form === 'Animal Form' && c.untamedForm.shape) {
         const form = animalBattleForm(c.untamedForm.shape, rank, c.level)
         if (form) return { ...form, source: 'Untamed Form' }
-      } else if (c.untamedForm.form === 'Insect Form') {
+      } else if (c.untamedForm.form === 'Insect Form' && c.untamedForm.shape) {
         const form = insectBattleForm(c.untamedForm.shape, rank, c.level)
         if (form) return { ...form, source: 'Untamed Form' }
       }
+    } else if (name === 'Pest Form' && c.pestForm) {
+      const ancestral = c.pestForm.source === 'Ancestral Pest'
+      if (ancestral && (!c.systems.includes('sf2e') || !activeFeatsNamed(c, 'Ancestral Pest').length)) continue
+      const swimming = ancestral && (["G'folian", 'Brenneri'].includes(c.ancestry ?? '')
+        || c.ancestry === 'Entu Colony' && !!c.pestForm.swimming)
+      const form = pestBattleForm(ancestral ? 1 : c.pestForm.rank, c.level, !ancestral && !!c.pestForm.flying,
+        ancestral ? heritageLandSpeed(c, entries) : 0, swimming)
+      if (form) return { ...form, source: c.pestForm.source }
     } else if (name === 'Dinosaur Form') {
       const form = dinosaurForm(c, entries)
       if (form) return form

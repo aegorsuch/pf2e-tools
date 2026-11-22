@@ -1,7 +1,18 @@
 import type { ContentEntry } from './types'
 import { DRAGON_FORMS } from './barbarian'
 
-export const BATTLE_FORM_SPELLS = new Set(['Animal Form', 'Dinosaur Form', 'Untamed Form'])
+export const BATTLE_FORM_SPELLS = new Set(['Animal Form', 'Dinosaur Form', 'Pest Form', 'Untamed Form'])
+
+export function pestBattleForm(rank: number, level: number, flying = false, ancestralSpeed = 0, swimming = false) {
+  if (!Number.isInteger(rank) || rank < 1 || rank > 10) return undefined
+  return {
+    name: 'Pest', source: 'Pest Form', rank, speed: Math.max(20, ancestralSpeed),
+    swimSpeed: swimming ? 20 : 0, climbSpeed: 0, flySpeed: rank >= 4 && flying ? 20 : 0,
+    note: undefined, senses: ['Scent (imprecise) 30 feet'], size: 'Tiny', ac: level + 15,
+    temporaryHp: 0, attack: 0, damageBonus: 0, athletics: -4, pest: true as const,
+    attacks: [] as ContentEntry[],
+  }
+}
 type DinosaurAttack = { name: string; damage: string; traits?: string[]; reach?: number; bleed?: string; criticalBleed?: string }
 export const DINOSAUR_FORMS: { name: string; speed: number; attacks: DinosaurAttack[] }[] = [
   { name: 'Ankylosaurus', speed: 25, attacks: [
