@@ -99,6 +99,14 @@ it.each(['feat', 'spell'] as const)('displays Litany against Wrath without renam
   expect(JSON.stringify(entry)).toBe(before)
 })
 
+it('displays Nimble Feet without changing the saved feat identity', () => {
+  const entry: ContentEntry = { ...spell('Nimble Hooves', 'Initiate'), kind: 'feat' }
+  expect(featDisplayName(entry)).toBe('Nimble Feet')
+  expect(featDisplayName(entry, 'Nimble Hooves (variant)')).toBe('Nimble Feet (variant)')
+  expect(renderToStaticMarkup(<EntryDescription name={entry.name} entry={entry} />)).toContain('>Nimble Feet</button>')
+  expect(entry.name).toBe('Nimble Hooves')
+})
+
 it('shows only the explicit variant row without changing shared rules, other tables, or future previews', () => {
   const entry = mapAonHit({ _id: 'variant-details', _source: { name: 'Variant Details', category: 'feat',
     markdown: 'Shared rules before.\n\n<table><tr><td>**Style**</td><td>**Skill**</td></tr>'

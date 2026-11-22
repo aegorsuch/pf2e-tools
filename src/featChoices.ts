@@ -15,6 +15,7 @@ export const isStanceFeat = (entry: ContentEntry) =>
 
 export function featDisplayName(entry: ContentEntry | undefined, name = entry?.name ?? '') {
   if (name === 'Litany Against Wrath') return 'Litany against Wrath'
+  if (name === 'Nimble Hooves' || name.startsWith('Nimble Hooves (')) return `Nimble Feet${name.slice('Nimble Hooves'.length)}`
   if (!entry || !isStanceFeat(entry)) return name
   const qualifier = / \(([^)]+)\)$/.exec(entry.name)
   const base = qualifier && entry.traits.some(trait => trait.toLowerCase() === qualifier[1].toLowerCase())
