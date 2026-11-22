@@ -18,11 +18,14 @@ export const PROFESSION_LORES = [
   'Mortuary', 'Metallurgy', 'Water Filtration', 'Aquaculture', 'Lumber', 'Ranching', 'Corporate', 'Piracy',
 ].map(topic => `${topic} Lore`).sort((a, b) => a.localeCompare(b))
 
-export function backgroundLoreOptions(background: ContentEntry) {
-  const open = names(background.data.skill).filter(isOpenBackgroundLore).join(', ')
-  const text = plain(open).replace(/\{\{[^{}]*?"([^"]+)"\}\}/g, '$1')
+function namedLores(value: string) {
+  const text = plain(value).replace(/\{\{[^{}]*?"([^"]+)"\}\}/g, '$1')
   const found = text.match(/\b[A-Z][\w'-]*(?:\s+(?:of|the|[A-Z][\w'-]*))* Lore\b/g) ?? []
   return [...new Set(found.map(name => name.replace(/^(?:This|The) /, '')))]
+}
+
+export function backgroundLoreOptions(background: ContentEntry) {
+  return namedLores(names(background.data.skill).filter(isOpenBackgroundLore).join(', '))
 }
 
 export function characterDeityLores(characters: Character[], extraLores: string[] = []) {
@@ -153,7 +156,17 @@ function choices(entry: ContentEntry, markdown: string) {
   }
   const conditional = new Set([...paired.values()].flat().map(feat => feat.name))
   const loreGroups = skillGroups.filter(group => group.every(name => / Lore$/i.test(name)))
-  const indexedSkills = names(entry.data.skill).flatMap(raw => {
+  let rawSkills = names(entry.data.skill)
+  const openIndex = rawSkills.findIndex(isOpenBackgroundLore)
+  const examples = [...plain(rules).matchAll(/\b(?:such as|for example)\s+([^.;)\n]*?)(?=\s+You gain\b|[.;)\n]|$)/gi)]
+    .flatMap(match => namedLores(match[1]))
+  if (openIndex >= 0 && examples.length) {
+    rawSkills = rawSkills.flatMap((name, index) => index === openIndex
+      ? [`${name} (such as ${[...new Set(examples)].join(' or ')})`]
+      : index > openIndex && (/^(?:such as|for example)\b/i.test(name)
+        || examples.includes(name.replace(/^or\s+/i, '').replace(/\s+skill[.]?$/i, ''))) ? [] : [name])
+  }
+  const indexedSkills = rawSkills.flatMap(raw => {
     const name = plain(raw).replace(/\s+skill[.]?$/i, '').trim()
     const fixedLore = /^([\w' -]+ Lore)\s*\.\s*Add\b/i.exec(name)
       ?? /\bThis ([\w' -]+ Lore) skill can be used\b/i.exec(name)

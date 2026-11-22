@@ -87,6 +87,18 @@ it.each([
   }
 })
 
+it.each([
+  ['Hitchhiker', ['Aballon Lore', 'Preluria Lore']],
+  ['Escort', ['Art Lore', 'Corporate Lore', 'Legal Lore', 'Underworld Lore']],
+] as const)('uses only named examples for %s without granting them all', (name, lores) => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => hit._source?.name === name && hit._source?.category === 'background'), 'sf2e')
+  expect(backgroundVariants(entries).map(option => option.value)).toEqual(lores.map(lore => `${name} (${lore})`))
+  const c = { ...base, systems: ['sf2e'] as const, background: name, backgroundLores: { [name]: [lores[0]] } }
+  const ranks = ranksAt({ ...c, systems: [...c.systems] }, entries)
+  for (const lore of lores) expect(ranks[lore] ?? 0).toBe(Number(lore === lores[0]))
+})
+
 it('offers only Street Urchin city variants while preserving skills, boosts, feat, and legacy choices', () => {
   const entries = mapAonHits([{ _id: 'street-urchin', _source: {
     name: 'Street Urchin', category: 'background', attribute: ['Dexterity', 'Constitution'], feat: ['Pickpocket'],
