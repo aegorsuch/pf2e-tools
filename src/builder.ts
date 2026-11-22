@@ -1857,6 +1857,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     return DEVOTED_BLESSINGS.filter((blessing) => !used.includes(blessing))
   }
   if (name === 'Inventor Dedication') return ['Armor', 'Construct', 'Weapon']
+  if (name === 'Bloodrager Dedication' && c.systems.includes('pf2e')) return ['Arcane', 'Divine']
   if (name === 'Second Innovation' || name === 'Third Innovation') {
     const used = [selectedSubclass(c, entries), ...c.feats.flatMap((feat) =>
       feat.slot !== slotKey && ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice ? [feat.choice] : [])]
@@ -1943,6 +1944,8 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
         : chosenSubclass && tokens(chosenSubclass.data.tradition).length
           ? tokens(chosenSubclass.data.tradition) : tokens(klass?.data.tradition)
   const focusOnlyCaster = ['Champion', 'Monk', 'Ranger'].includes(c.className ?? '')
+  const bloodrager = !traditions.length && c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Bloodrager Dedication')[0]?.choice : undefined
+  if (bloodrager === 'Arcane' || bloodrager === 'Divine') return { traditions: [bloodrager], rank: 1, ability: 'cha' as Ability | undefined }
   if (!traditions.length && !focusOnlyCaster) return undefined
 
   const progression: Record<string, number> = {
@@ -3458,6 +3461,8 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
     } else if (feat.name === "Stonemason's Eye" && !(ranks.Crafting ?? 0)) trained.push('Crafting')
   })
   if (activeFeatsNamed(c, 'Beast Trainer').length) trained.push('Nature')
+  const bloodragerTradition = c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Bloodrager Dedication')[0]?.choice : undefined
+  if (bloodragerTradition === 'Arcane' || bloodragerTradition === 'Divine') trained.push(bloodragerTradition === 'Arcane' ? 'Arcana' : 'Religion')
   const warmask = warmaskSource(c)
   if (warmask) {
     const index = c.feats.findIndex(feat => feat.name === 'Orc Warmask' && featTakenLevel(feat) <= c.level)
@@ -4486,6 +4491,10 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     const value = ragingResistance
     for (const damage of ['piercing', 'slashing'])
       out.push({ damage, value, source: 'Raging Resistance' })
+  }
+  if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'bloodrager') {
+    for (const damage of ['slashing', 'persistent bleed', 'damage dealt by the creature whose blood you last drank with Harvest Blood'])
+      out.push({ damage, value: ragingResistance, source: 'Raging Resistance' })
   }
   if (c.raging && c.level >= 9 && barbarianInstinct(c, entries) === 'fury')
     out.push({ damage: 'physical damage from weapons', value: ragingResistance, source: 'Raging Resistance' })
@@ -6139,7 +6148,8 @@ function rageDamageBonus(c: Character, entries: ContentEntry[], weapon: OwnedWea
     : instinct === 'dragon' && c.draconicRage && c.barbarianDragon && DRAGON_INSTINCTS[c.barbarianDragon] ? [4, 8, 16][stage]
     : instinct === 'elemental' && elementalRageType(c, entries) ? [4, 6, 12][stage]
     : (instinct === 'spirit' && c.spiritRage || instinct === 'superstition') ? [3, 7, 13][stage]
-    : instinct === 'fury' ? [3, 7, 13][stage] : 2
+    : instinct === 'fury' ? [3, 7, 13][stage]
+    : instinct === 'bloodrager' ? [4, 4, 8][stage] : 2
   return traits.includes('agile') ? Math.floor(value / 2) : value
 }
 
@@ -6688,6 +6698,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ]
       : [...divineAttackDamage(c), ...namedWeaponDamage(entry),
       ...(spiritDamage ? [{ source: 'Spirit Rage', value: `${rageDamage} spirit`, note: 'The attack gains ghost touch while using Spirit Rage.' }] : []),
+      ...(rageDamage > 0 && barbarianInstinct(c, entries) === 'bloodrager'
+        ? [{ source: 'Blood Rage', value: `${Math.floor(rageDamage / 2)} persistent bleed`,
+          note: 'Physical attacks deal persistent bleed damage equal to half your additional Rage damage.' }] : []),
       ...(bestial && traits.includes('venomous') ? [{ source: 'Venomous', value: `${w.striking >= 2 ? 2 : 1} persistent poison`,
         note: 'Persistent poison from a venomous unarmed attack.' }] : []),
       ...(sparkFist ? [{ source: 'Spark Fist', value: `${dice} fire`,

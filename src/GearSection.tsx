@@ -1393,7 +1393,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         </>
         if (displayOnly) return <div key={w.id} className="gear-card">
           <div className="weapon-offense-header">
-            <strong><EntryDescription name={displayName} entry={a.entry} className="equipment-name" /></strong>
+            <strong><EntryDescription name={displayName} entry={witchAttackEntry(c, entries, w.id, a.entry)} className="equipment-name" /></strong>
             {(w.id === OVERSIZED_THROW.id || a.entry?.name === 'Offensive Defense') && <> <ActionIcon entry={a.entry} /></>}
             {c.hardpointWeaponId === w.id && hardpointWeaponEligible(c, entries, w) && weaponHeld(c, entries, w)
               && <SourceNote inlineSource={false} source="Hardpoint" note="Integrated weapon: cannot be disarmed, dropped, or stolen until stowed." />}
@@ -1437,7 +1437,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             if (event.currentTarget.open === !collapsed.includes(w.id)) return
             save({ collapsedWeaponIds: event.currentTarget.open ? collapsed.filter(id => id !== w.id) : [...collapsed, w.id] })
           }}>
-            <summary><strong><EntryDescription name={displayName} entry={a.entry} className="equipment-name" /></strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>} <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
+            <summary><strong><EntryDescription name={displayName} entry={witchAttackEntry(c, entries, w.id, a.entry)} className="equipment-name" /></strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>} <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
               {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
               {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
                 <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
@@ -2083,4 +2083,28 @@ function ArmorModifications({ c, save }: SectionProps) {
       onChange={event => set({ overdrive: event.target.checked })} /> Overdrive active</label>}
     {selected.filter(mod => mod.note).map(mod => <small key={mod.name}><b>{mod.name}:</b> {mod.note}</small>)}
   </div>
+}
+
+const WITCH_ATTACK_FEATS: Record<string, { choice?: string; names: string[] }> = {
+  nails: { choice: 'Eldritch Nails', names: ["Wild Witch's Armaments"] },
+  jaws: { choice: 'Iron Teeth', names: ["Wild Witch's Armaments"] },
+  hair: { choice: 'Living Hair', names: ["Syu Tak-Nwa's Deadly Hair", "Syu Tak-Nwa's Hexed Locks", "Demon's Hair"] },
+  quills: { names: ["Wild Witch's Armaments"] },
+}
+
+function witchAttackFeats(c: Character, id: string) {
+  const rule = id.startsWith('witch:') ? WITCH_ATTACK_FEATS[id.split(':')[1]] : undefined
+  if (!rule) return []
+  return [
+    ...(rule.choice ? activeFeatsNamed(c, "Witch's Armaments").filter(feat => feat.choice === rule.choice) : []),
+    ...rule.names.flatMap(name => activeFeatsNamed(c, name)),
+  ]
+}
+
+function witchAttackEntry(c: Character, entries: ContentEntry[], id: string, entry?: ContentEntry) {
+  if (!entry) return entry
+  const sources = witchAttackFeats(c, id).map(feat => selectedFeatEntry(c, entries, feat.name, feat.sourceId))
+    .filter((source): source is ContentEntry => !!source?.description)
+  if (!sources.length) return entry
+  return { ...entry, description: sources.map(source => `**${source.name}**\n\n${source.description}`).join('\n\n---\n\n') }
 }
