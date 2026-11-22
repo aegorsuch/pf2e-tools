@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, useState } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { DamageRoll, rollSpellDamage, spellActionRolls, spellDamage, SpellActions, SpellDamageRolls } from './SpellDamage'
+import { DamageRoll, rollSpellDamage, rollWarpWorld, spellActionRolls, spellDamage, SpellActions, SpellDamageRolls, WarpWorldRoll } from './SpellDamage'
 import { SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
@@ -11,6 +11,45 @@ vi.mock('react', async importOriginal => {
 })
 
 afterEach(() => vi.restoreAllMocks())
+
+it.each([
+  [0, 'Supernova', 'fire', 'electricity', undefined],
+  [1, 'Earthquake', 'bludgeoning', undefined, undefined],
+  [2, 'Inferno', 'fire', undefined, undefined],
+  [3, 'Eldritch Storm', 'sonic', 'mental', undefined],
+  [4, 'Flash Freeze', 'cold', undefined, undefined],
+  [5, 'Radioactive Blast', 'bludgeoning', 'fire', 3],
+] as const)('rolls Warp World effect %i with heightened damage', (index, name, type, persistent, poison) => {
+  const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+  random.mockReturnValueOnce((index + 0.1) / 6)
+  const result = rollWarpWorld(6)
+  expect(result).toEqual({ index, damage: 6, persistent: persistent ? 3 : undefined, poison })
+  expect(random).toHaveBeenCalledTimes(1 + 6 + (persistent ? 3 : 0) + (poison ? 3 : 0))
+  vi.mocked(useState).mockReturnValueOnce([result, vi.fn()])
+  const html = renderToStaticMarkup(<WarpWorldRoll rank={6} />)
+  expect(html).toContain(`${name}: 6 ${type}`)
+  if (persistent) expect(html).toContain(`3 persistent ${persistent}`)
+  if (poison) expect(html).toContain('critical failure: 3 persistent poison')
+})
+
+it('toggles Warp World rolls from its action icon', () => {
+  const setResult = vi.fn()
+  const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+  vi.mocked(useState).mockReturnValueOnce([undefined, setResult])
+  const tree = WarpWorldRoll({ rank: 4 })
+  const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw new Error('Missing Warp World roll button')
+  button.props.onClick()
+  expect(setResult).toHaveBeenCalledWith({ index: 0, damage: 4, persistent: 1, poison: undefined })
+  vi.mocked(useState).mockReturnValueOnce([{ index: 0, damage: 4, persistent: 1 }, setResult])
+  const active = WarpWorldRoll({ rank: 4 })
+  const clear = Children.toArray(active.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(clear)) throw new Error('Missing Warp World clear button')
+  clear.props.onClick()
+  expect(setResult).toHaveBeenLastCalledWith(undefined)
+  expect(random).toHaveBeenCalledTimes(6)
+  expect(renderToStaticMarkup(<SpellActions name="Warp World" rank={4} />)).toContain('aria-label="Roll Warp World"')
+})
 
 it('offers Quantum Negation damage by target level without calculating save outcomes', () => {
   const entry: ContentEntry = { id: 'quantum-negation', name: 'Quantum Negation', systems: ['sf2e'], kind: 'spell',

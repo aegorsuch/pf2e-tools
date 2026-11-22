@@ -211,6 +211,44 @@ export function rollSpellDamage({ dice, sides, bonus = 0 }: Damage) {
     .reduce((sum, roll) => sum + roll, bonus)
 }
 
+const WARP_WORLD_EFFECTS = [
+  { name: 'Supernova', type: 'fire', persistent: 'electricity', note: 'Critical failure: double damage and dazzled for 1 round.' },
+  { name: 'Earthquake', type: 'bludgeoning', note: 'Critical failure: double damage and knocked prone.' },
+  { name: 'Inferno', type: 'fire', note: 'Everything in the aura is concealed by smoke for 1 round. Critical failure: double damage and sickened 1.' },
+  { name: 'Eldritch Storm', type: 'sonic', persistent: 'mental', note: 'Critical failure: double damage and confused for 1 round.' },
+  { name: 'Flash Freeze', type: 'cold', note: 'Critical failure: double damage and slowed 1 for 1 round.' },
+  { name: 'Radioactive Blast', type: 'bludgeoning', persistent: 'fire',
+    note: 'Critical failure: double damage and persistent poison damage; fatigued while persistent poison damage lasts.' },
+] as const
+
+export function rollWarpWorld(rank: number) {
+  const index = Math.floor(Math.random() * WARP_WORLD_EFFECTS.length)
+  const effect = WARP_WORLD_EFFECTS[index]
+  const persistentDice = rank - 3
+  const damage = rollSpellDamage({ label: 'Damage', dice: rank, sides: 12, type: effect.type })
+  const persistent = 'persistent' in effect
+    ? rollSpellDamage({ label: 'Persistent', dice: persistentDice, sides: 6, type: effect.persistent }) : undefined
+  const poison = index === 5
+    ? rollSpellDamage({ label: 'Critical failure persistent', dice: persistentDice, sides: 6, type: 'poison' }) : undefined
+  return { index, damage, persistent, poison }
+}
+
+export function WarpWorldRoll({ rank }: { rank: number }) {
+  const [result, setResult] = useState<ReturnType<typeof rollWarpWorld>>()
+  const effect = result && WARP_WORLD_EFFECTS[result.index]
+  return <span>
+    <button type="button" className="spell-action-button" aria-label={result ? 'Hide Warp World result' : 'Roll Warp World'}
+      title={`Two Actions; roll a Warp World effect and ${rank}d12 damage`}
+      onClick={() => setResult(result ? undefined : rollWarpWorld(rank))}><ActionIcon actions="Two Actions" /></button>
+    {result && effect && <output aria-live="polite" aria-label="Warp World result">
+      {' '}{effect.name}: {result.damage} {effect.type}
+      {'persistent' in effect && result.persistent !== undefined && <>; {result.persistent} persistent {effect.persistent}</>}
+      {result.poison !== undefined && <>; critical failure: {result.poison} persistent poison</>}
+      {' '}{effect.note}
+    </output>}
+  </span>
+}
+
 export function spellActionRolls(name: string, rank: number, entry?: ContentEntry) {
   const rolls = spellDamage(name, rank)
   if (name === 'Vampiric Revelry') return rolls.map(damage => ({ damage, actions: 'Two Actions' }))
@@ -271,6 +309,7 @@ export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll,
 }
 
 export function SpellActions({ name, rank, entry }: { name: string; rank: number; entry?: ContentEntry }) {
+  if (name === 'Warp World' && rank >= 4) return <WarpWorldRoll rank={rank} />
   const rolls = spellActionRolls(name, rank, entry)
   return rolls.length ? <>{rolls.map(({ damage, actions }) =>
     <DamageRoll key={`${damage.label}:${damage.dice}:${actions}`} name={name} damage={damage} actions={actions}
