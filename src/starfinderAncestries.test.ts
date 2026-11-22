@@ -62,6 +62,26 @@ it('grants doshko training and Vesk weapon familiarity without affecting unrelat
   expect(weaponAttack(c, [doshko], { ...own, name: 'Other Blade' }).criticalSpecialization).toBe(false)
 })
 
+it('shows limited telepathy and increases its range for each active Distant Telepath', () => {
+  const c: Character = { ...base, ancestry: 'Lashunta', level: 5, feats: [
+    { name: 'Distant Telepath', type: 'Ancestry Feat', level: 1 },
+    { name: 'Distant Telepath', type: 'Ancestry Feat', level: 1, takenLevel: 5 },
+    { name: 'Distant Telepath', type: 'Ancestry Feat', level: 1, takenLevel: 9 },
+  ] }
+  expect(senses({ ...c, feats: [] }, entries)).toContainEqual({ value: 'Limited Telepathy 30 feet', source: 'Lashunta' })
+  expect(senses(c, entries)).toContainEqual({ value: 'Limited Telepathy 60 feet', source: 'Lashunta, Distant Telepath' })
+  expect(senses({ ...c, heritage: 'Ascendant Psychic Lashunta' }, entries))
+    .toContainEqual({ value: 'Limited Telepathy 150 feet', source: 'Ascendant Psychic Lashunta, Distant Telepath' })
+  expect(senses({ ...c, heritage: 'Static Mind Lashunta' }, entries).some(sense => /telepathy/i.test(sense.value))).toBe(false)
+  expect(senses({ ...c, ancestry: 'Human', heritage: 'Damai Human' }, entries))
+    .toContainEqual({ value: 'Limited Telepathy 60 feet', source: 'Damai Human, Distant Telepath' })
+  expect(senses({ ...c, ancestry: 'Worlanisi', heritage: 'Luckless Worlanisi' }, entries)
+    .some(sense => /telepathy/i.test(sense.value))).toBe(false)
+  expect(senses({ ...c, ancestry: 'Human', heritage: undefined }, entries).some(sense => /telepathy/i.test(sense.value))).toBe(false)
+  expect(senses({ ...c, feats: [...c.feats, { name: 'Eyeswide Detective Dedication', type: 'Archetype Feat', level: 2 }] }, entries))
+    .toContainEqual({ value: 'Limited Telepathy 90 feet', source: 'Lashunta, Eyeswide Detective Dedication, Distant Telepath' })
+})
+
 it('applies Lashunta ancestral weapon familiarity to every grade of its listed weapons', () => {
   const catalog = mapAonHits(hits.filter(hit => hit._source?.name === 'Ancestral Weapon Familiarity'
     || /\b(?:seeker rifle|shuriken drone|singing spear|laser rifle)\b/i.test(String(hit._source?.name))), 'sf2e')

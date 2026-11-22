@@ -700,6 +700,17 @@ it('does not show an Elf ancestral weapon familiarity choice even with repeatabl
     .toContain('aria-label="Ancestral Weapon Familiarity choice"')
 })
 
+it('does not request or display a choice for repeatable Distant Telepath', () => {
+  const feat: ContentEntry = { id: 'distant-telepath', name: 'Distant Telepath', kind: 'feat', source: 'official',
+    systems: ['sf2e'], level: 1, traits: ['Lashunta'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Lashunta', level: 5,
+    feats: [{ name: feat.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: 'old choice' }] }
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[feat]} save={() => {}} index={0} />)).toBe('')
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feat]} categories={['ancestry']} save={() => {}} />)
+  expect(markup).not.toContain('Distant Telepath (old choice)')
+  expect(markup).not.toContain('aria-label="Distant Telepath choice"')
+})
+
 it('hides weapon choices for adopted Dwarf familiarity despite repeatable namesakes', () => {
   const dwarf: ContentEntry = { id: 'dwarf-familiarity', name: 'Ancestral Weapon Familiarity', kind: 'feat', source: 'official',
     systems: ['sf2e'], level: 1, traits: ['Dwarf'], description: 'Option(s): artillery laser, hammer', data: {}, effects: [], updatedAt: 0 }

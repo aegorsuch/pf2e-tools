@@ -1184,10 +1184,10 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           }
           return unknown ? undefined : false
         },
-        limitedTelepathy: character.systems.includes('sf2e') && (['Lashunta', 'Shirren', 'Formian', 'Orocoran', 'Urog', 'Worlanisi'].includes(character.ancestry ?? '')
-          || character.heritage === 'Asanan Elf' || testSubjectAdaptation(character) === 'Psychic Augmentation')
+        limitedTelepathy: character.heritage !== 'Static Mind Lashunta' && (!!limitedTelepathy(character, entries)
           || features.some(feature => /\blimited telepathy\b/i.test(`${feature.name} ${feature.description}`))
-          || character.feats.some(feat => /\byou (?:gain|have) limited telepathy\b/i.test(byName(entries, 'feat', feat.name)?.description ?? '')),
+          || character.feats.some(feat => featTakenLevel(feat) <= character.level
+            && /\byou (?:gain|have) limited telepathy\b/i.test(byName(entries, 'feat', feat.name)?.description ?? ''))),
         constructCompanion: character.className === 'Inventor' && /^construct(?: innovation)?$/i.test(subclass ?? '')
           || character.feats.some(feat => ['Inventor Dedication', 'Second Innovation', 'Third Innovation'].includes(feat.name)
             && /^construct(?: innovation)?$/i.test(feat.choice ?? '')),
@@ -3536,6 +3536,29 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   return trained
 }
 
+function limitedTelepathy(c: Character, entries: ContentEntry[]) {
+  if (!c.systems.includes('sf2e') || c.level < 1 || c.heritage === 'Static Mind Lashunta') return undefined
+  const heritages = new Set([c.heritage, ...characterHeritages(c, entries).map(heritage => heritage.name)])
+  let telepathy: { feet: number; source: string } | undefined
+  if (testSubjectAdaptation(c) === 'Psychic Augmentation') telepathy = { feet: 30, source: 'Test-Subject Ysoki' }
+  for (const heritage of ['Asanan Elf', 'Damai Human', 'Psychic Binnaquid']) {
+    if (heritages.has(heritage)) telepathy = { feet: 30, source: heritage }
+  }
+  if (['Lashunta', 'Shirren', 'Formian', 'Orocoran', 'Urog', 'Worlanisi', 'Mecenaic'].includes(c.ancestry ?? '')
+    && !(c.ancestry === 'Worlanisi' && heritages.has('Luckless Worlanisi'))) {
+    telepathy = heritages.has('Ascendant Psychic Lashunta')
+      ? { feet: 120, source: 'Ascendant Psychic Lashunta' } : { feet: 30, source: c.ancestry! }
+  }
+  for (const feat of ['Super Soul!', "Yaraesa's Antennae"]) {
+    if (!telepathy && activeFeatsNamed(c, feat).length) telepathy = { feet: 30, source: feat }
+  }
+  if (activeFeatsNamed(c, 'Eyeswide Detective Dedication').length) {
+    telepathy = telepathy ? { feet: telepathy.feet + 30, source: `${telepathy.source}, Eyeswide Detective Dedication` }
+      : { feet: 30, source: 'Eyeswide Detective Dedication' }
+  }
+  return telepathy
+}
+
 // Senses from the ancestry and from feats
 export function senses(c: Character, entries: ContentEntry[]) {
   const ancestry = byName(entries, 'ancestry', c.ancestry)?.data.vision
@@ -3592,11 +3615,16 @@ export function senses(c: Character, entries: ContentEntry[]) {
       addVision('Tremorsense (imprecise) 15 feet', c.heritage)
     }
   }
-  if (testSubjectAdaptation(c) === 'Psychic Augmentation') addVision('Limited Telepathy 30 feet', 'Test-Subject Ysoki')
   const hasVision = (value: string) => out.some((sense) => sense.value.toLowerCase().includes(value))
   const explicitVision = ['Acute Vision', 'Nocturnal Senses', 'Superior Sight', 'Adaptive Visual Receptors']
   const passive = { ...c, feats: c.feats.filter((feat) => featTakenLevel(feat) <= c.level && !explicitVision.includes(feat.name)) }
   for (const grant of featData(passive, entries, 'grants_vision')) addVision(grant.value, grant.source)
+  const telepathy = limitedTelepathy(c, entries)
+  if (telepathy) {
+    const distant = activeFeatsNamed(c, 'Distant Telepath').length
+    addVision(`Limited Telepathy ${telepathy.feet + 15 * distant} feet`,
+      `${telepathy.source}${distant ? ', Distant Telepath' : ''}`)
+  }
   if (activeFeatsNamed(c, 'Defy the Darkness').length) {
     const darkvision = out.findIndex((sense) => sense.value.toLowerCase() === 'darkvision')
     if (darkvision >= 0) out.splice(darkvision, 1)

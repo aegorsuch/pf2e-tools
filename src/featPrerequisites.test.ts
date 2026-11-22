@@ -1151,6 +1151,9 @@ describe('shared prerequisite enforcement', () => {
     expect(check('limited telepathy', elf).missing).toEqual([])
     expect(check('limited telepathy', { ...elf, heritage: 'Other Elf' }).missing).toEqual(['limited telepathy'])
     expect(check('limited telepathy', { ...elf, ancestry: 'Lashunta', heritage: undefined }).missing).toEqual([])
+    expect(check('limited telepathy', { ...elf, ancestry: 'Lashunta', heritage: 'Static Mind Lashunta' }).missing).toEqual(['limited telepathy'])
+    expect(check('limited telepathy', { ...elf, ancestry: 'Worlanisi', heritage: 'Luckless Worlanisi' }).missing).toEqual(['limited telepathy'])
+    expect(check('limited telepathy', { ...elf, ancestry: 'Human', heritage: 'Damai Human' }).missing).toEqual([])
     expect(check('limited telepathy', { ...elf, systems: ['pf2e'] }).missing).toEqual(['limited telepathy'])
   })
   it('requires a construct companion for No! No! I Created You!', () => {
