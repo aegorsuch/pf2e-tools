@@ -350,6 +350,17 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
 
+it('shows Halo as the heightened divine Light effect, not a castable innate spell', () => {
+  const light = { ...entry('Light', 'spell', {}, ['Cantrip']), level: 1 }
+  const c: Character = { ...base, level: 9, feats: [taken('Halo')] }
+  expect(grantedFeatSpells(c, [light])).toMatchObject([{ entry: { name: 'Light' }, source: 'Halo', rank: 5,
+    rule: { kind: 'feat', tradition: 'divine', condition: 'Halo sheds light; Sustain to suppress or reestablish it' } }])
+  expect(unresolvedFeatSpells(c, []).map(item => item.name)).toContain('Light')
+  expect(grantedFeatSpells({ ...c, feats: [] }, [light])).toEqual([])
+  expect(grantedFeatSpells({ ...c, level: 0 }, [light])).toEqual([])
+  expect(grantedFeatSpells({ ...c, systems: ['sf2e'] }, [light])).toEqual([])
+})
+
 it('offers Psychic Talent occult cantrips in Innate Spells and heightens the selected spell', () => {
   const talent = mapAonHit({ _id: 'psychic-talent', _source: { name: 'Psychic Talent', category: 'feat', level: 1,
     trait: ['Lashunta', 'Shirren'], markdown: 'Header\n\n---\n\nChoose one cantrip from the occult spell list. You can cast this cantrip as an occult innate spell at will.' } }, 'sf2e')!

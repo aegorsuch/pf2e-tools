@@ -371,6 +371,14 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (feat.name === 'Halo' && c.systems.includes('pf2e')) {
+      const entry = matchingSpells(entries, 'Light').find(spell => spell.systems.includes('pf2e'))
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'feat', spells: [entry.name], tradition: 'divine', heightened: true,
+          condition: 'Halo sheds light; Sustain to suppress or reestablish it' },
+        rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, 'light']) })
+      continue
+    }
     if (feat.name === 'Psychic Talent' && c.systems.includes('sf2e')) {
       const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
       if (entry) out.push({ entry, source: feat.name,
@@ -737,6 +745,9 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
   }
   return [...missingBoonSpells, ...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
+    if (feat.name === 'Halo' && c.systems.includes('pf2e')) {
+      return matchingSpells(entries, 'Light').some(entry => entry.systems.includes('pf2e')) ? [] : [{ name: 'Light', source }]
+    }
     const psychicSpells = c.systems.includes('sf2e') ? PSYCHIC_FEAT_SPELLS[feat.name] : undefined
     if (psychicSpells) {
       return psychicSpells.names
