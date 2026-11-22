@@ -6366,7 +6366,7 @@ function rageDamageBonus(c: Character, entries: ContentEntry[], weapon: OwnedWea
     : instinct === 'elemental' && elementalRageType(c, entries) ? [4, 6, 12][stage]
     : (instinct === 'spirit' && c.spiritRage || instinct === 'superstition') ? [3, 7, 13][stage]
     : instinct === 'fury' ? [3, 7, 13][stage]
-    : instinct === 'bloodrager' ? [4, 4, 8][stage] : 2
+    : instinct === 'bloodrager' ? [2, 4, 8][stage] : 2
   return traits.includes('agile') ? Math.floor(value / 2) : value
 }
 
@@ -7029,7 +7029,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ]
       : [...divineAttackDamage(c), ...namedWeaponDamage(entry),
       ...(spiritDamage ? [{ source: 'Spirit Rage', value: `${rageDamage} spirit`, note: 'The attack gains ghost touch while using Spirit Rage.' }] : []),
-      ...(rageDamage > 0 && barbarianInstinct(c, entries) === 'bloodrager'
+      ...(rageDamage > 0 && physicalTypes.includes(String(modifiedDamageType ?? '').toLowerCase())
+        && barbarianInstinct(c, entries) === 'bloodrager'
         ? [{ source: 'Blood Rage', value: `${Math.floor(rageDamage / 2)} persistent bleed`,
           note: 'Physical attacks deal persistent bleed damage equal to half your additional Rage damage.' }] : []),
       ...(bestial && traits.includes('venomous') ? [{ source: 'Venomous', value: `${w.striking >= 2 ? 2 : 1} persistent poison`,

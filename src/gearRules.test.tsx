@@ -3501,10 +3501,15 @@ it("adds Witch's Armaments attacks, then upgrades them with Wild Witch's Armamen
 
 it('applies the Bloodrager instinct rage damage, bleed, resistances and dedication casting', () => {
   const c: Character = { ...base, className: 'Barbarian', subclass: 'Bloodrager', level: 9, raging: true }
+  const starting = weaponAttack({ ...c, level: 1 }, [sword], main)
+  expect(starting.rageDamage).toBe(2)
+  expect(starting.additionalDamage).toContainEqual(expect.objectContaining({ source: 'Blood Rage', value: '1 persistent bleed' }))
   const attack = weaponAttack(c, [sword], main)
   expect(attack.rageDamage).toBe(4)
   expect(attack.additionalDamage).toContainEqual(expect.objectContaining({ source: 'Blood Rage', value: '2 persistent bleed' }))
   expect(weaponAttack({ ...c, level: 15 }, [sword], main).rageDamage).toBe(8)
+  const energySword = { ...sword, data: { ...sword.data, damage: '1d8 fire' } }
+  expect(weaponAttack(c, [energySword], main).additionalDamage.some(damage => damage.source === 'Blood Rage')).toBe(false)
   expect(resistances(c, []).filter(item => item.source === 'Raging Resistance').map(item => item.damage))
     .toEqual(expect.arrayContaining(['Slashing', 'Persistent bleed']))
   const dedicated = { ...c, feats: [{ ...feat('Bloodrager Dedication', 2), choice: 'Divine' }] }
