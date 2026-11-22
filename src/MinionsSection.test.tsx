@@ -469,7 +469,7 @@ it('shows granted Ferocity on each eligible minion without consuming familiar or
   expect(html.match(/One reaction per round, usable only for Orc Ferocity\. Gain 13 temporary HP when using Orc Ferocity\.<\/p>/g)).toHaveLength(4)
   expect(html).toContain('aria-label="Reaction"')
   expect(html).toContain('</h4> (1/2)')
-  expect(html).toContain('<option selected="">Climber</option>')
+  expect(html).toContain('>Climber</button>')
   const adopted = render({ ...c, ancestry: 'Human', feats: [
     ...c.feats, { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Orc' },
   ] })
@@ -528,9 +528,10 @@ it('shows feat-granted familiar choices and a separate aquatic pet with bonus ab
   expect(html).toContain('</h4> (1/4)')
   expect(html).toContain('Leshy familiar granted ability')
   expect(html).toContain('Aquatic Pet')
-  expect(html).toContain('HP 56')
-  expect(html).toContain('Darkvision and Tough')
-  expect(html).toContain('Climb Speed 25 feet.')
+  expect(html).toContain('<small>Hit Points</small><b>56</b>')
+  expect(html).toContain('>Darkvision</span>')
+  expect(html).toContain('>Tough</span>')
+  expect(html).toContain('Swim 25 feet, Climb 25 feet')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).not.toContain('Leshy Familiar')
 })
 
@@ -579,7 +580,7 @@ it('selects, details, removes, and applies familiar abilities without exposing s
   let html = renderToStaticMarkup(tree())
   expect(c.familiar?.abilities).toEqual(['Flier', 'Tough', 'Fast Movement'])
   expect(html).toContain('</h4> (3/4)')
-  expect(html).toContain('<small>Hit Points</small> <b>56</b>')
+  expect(html).toContain('<small>Hit Points</small><b>56</b>')
   expect(html).toContain('Fly 40 feet')
   expect(html).toContain('Your familiar’s maximum Hit Points increase by 2 per level.')
   expect(html).toContain('aria-label="Remove Familiar ability 2"')
@@ -593,7 +594,7 @@ it('selects, details, removes, and applies familiar abilities without exposing s
   expect(confirm).toHaveBeenCalledWith('Remove familiar ability "Tough"?')
   expect(c.familiar?.abilities).toEqual(['Flier', 'Fast Movement'])
   expect(c.familiar?.name).toBe('Kept in storage')
-  expect(html).toContain('<small>Hit Points</small> <b>40</b>')
+  expect(html).toContain('<small>Hit Points</small><b>40</b>')
 })
 
 it('groups familiar and master options without showing pet abilities', () => {
@@ -794,14 +795,14 @@ it('keeps one familiar while preserving dormant Calistria wasp choices', () => {
   expect(html).not.toContain('Wasp Familiar')
   expect(html).not.toContain('Burrower')
   expect(html).toContain('aria-label="Leshy familiar granted ability"')
-  expect(html).toContain('<small>Hit Points</small> <b>56</b>')
+  expect(html).toContain('<small>Hit Points</small><b>56</b>')
   expect(html).not.toContain('(includes Tough)')
   c = { ...c, feats: [] }
   html = markup()
   expect(html).toContain('</h4> (0/2)')
   expect(html).toContain('aria-label="Granted Burrower: Burrower"')
   expect(html).toContain('aria-label="Granted Flier: Flier"')
-  expect(html).toContain('<small>Hit Points</small> <b>40</b>')
+  expect(html).toContain('<small>Hit Points</small><b>40</b>')
   expect(findInput(tree(), 'Wasp familiar name')).toBeUndefined()
   findSelect(tree(), 'Wasp familiar ability')?.({ target: { value: 'familiar:Flier' } })
   findSelect(tree(), 'Wasp familiar ability')?.({ target: { value: 'familiar:Tough' } })
@@ -931,7 +932,8 @@ it('applies Fast Movement to pet Speeds without exposing the pet name or redunda
   }
   const tree = () => MinionsContent({ c, entries: [], save: patch => { c = { ...c, ...patch } } })
   let html = renderToStaticMarkup(tree())
-  expect(html).toContain('HP 28; Speed 40 feet')
+  expect(html).toContain('<small>Hit Points</small><b>28</b>')
+  expect(html).toContain('<h5>Speed</h5><div>40 feet</div>')
   expect(html).not.toContain('aria-label="Pet name"')
   expect(html).not.toContain('Increase one 25-foot Speed')
   expect(html).not.toContain('Maximum HP increases by 2 per level')
@@ -939,14 +941,43 @@ it('applies Fast Movement to pet Speeds without exposing the pet name or redunda
   expect(c.pet?.name).toBe('Saved name')
 
   c = { ...c, pet: { ...c.pet, aquatic: true } }
-  expect(renderToStaticMarkup(tree())).toContain('Speed Swim 40 feet')
+  expect(renderToStaticMarkup(tree())).toContain('<h5>Speed</h5><div>Swim 40 feet</div>')
   c = { ...c, pet: { ...c.pet, aquatic: false, abilities: ['Fast Movement', 'Flier'] } }
   findSelect(tree(), 'Pet Fast Movement speed')!({ target: { value: 'Fly' } })
   html = renderToStaticMarkup(tree())
-  expect(html).toContain('Speed 25 feet, Fly 40 feet')
+  expect(html).toContain('<h5>Speed</h5><div>25 feet, Fly 40 feet</div>')
   expect(c.pet?.name).toBe('Saved name')
   c = { ...c, pet: { ...c.pet, abilities: ['Tough'] } }
-  expect(renderToStaticMarkup(tree())).toContain('Speed 25 feet')
+  expect(renderToStaticMarkup(tree())).toContain('<h5>Speed</h5><div>25 feet</div>')
+})
+
+it('adds and removes pet abilities from compact choices while preserving other saved data', () => {
+  const confirm = vi.fn(() => true)
+  vi.stubGlobal('window', { confirm })
+  let c: Character = {
+    id: 'pet-choices', systems: ['pf2e'], name: 'Test', level: 4,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Beast Trainer', type: 'Ancestry Feat', level: 1, choice: 'Pet' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    pet: { name: 'Saved', abilities: ['', 'Flier'], fastMovement: 'Fly' },
+  }
+  const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
+  const initial = renderToStaticMarkup(tree())
+  expect(initial).toContain('class="gear-card"')
+  expect(initial).toContain('<h5>Defenses</h5>')
+  expect(initial).toContain('<h5>Senses</h5>')
+  expect(initial).toContain('<h5>Special</h5>')
+  expect(initial).toContain('<h5>Speed</h5>')
+  expect(initial).not.toContain('Pet ability 1</label>')
+  findSelect(tree(), 'Pet ability')!({ target: { value: 'Fast Movement' } })
+  expect(c.pet?.abilities).toEqual(['Fast Movement', 'Flier'])
+  expect(findSelect(tree(), 'Pet ability')).toBeUndefined()
+  expect(renderToStaticMarkup(tree())).toContain('Fly 40 feet')
+  findButton(tree(), 'Remove Pet ability 1')!()
+  expect(confirm).toHaveBeenCalledWith('Remove pet ability "Fast Movement"?')
+  expect(c.pet).toMatchObject({ name: 'Saved', abilities: ['', 'Flier'], fastMovement: 'Fly' })
+  findSelect(tree(), 'Pet ability')!({ target: { value: 'Flier' } })
+  expect(c.pet?.abilities).toEqual(['', 'Flier'])
 })
 
 it('applies familiar Fast Movement to valid speeds and keeps amphibious movement equal', () => {
@@ -972,12 +1003,12 @@ it('applies active familiar Tough and displays recognized daily ability effects'
     familiar: { abilities: ['Flier', '', 'tough', 'Climber'] },
   }
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => {}} />)
-  expect(markup).toContain('<small>Hit Points</small> <b>56</b>')
-  expect(markup).toContain('<small>Speed</small> 25 feet, Climb 25 feet, Fly 25 feet')
+  expect(markup).toContain('<small>Hit Points</small><b>56</b>')
+  expect(markup).toContain('<h5>Speed</h5><div>25 feet, Climb 25 feet, Fly 25 feet</div>')
   expect(markup).toContain('fly Speed of 25 feet')
   expect(markup).toContain('climb Speed of 25 feet')
   const reduced = renderToStaticMarkup(<MinionsSection c={{ ...c, feats: c.feats.slice(0, 1) }} entries={familiarEntries} save={() => {}} />)
-  expect(reduced).toContain('<small>Hit Points</small> <b>40</b>')
+  expect(reduced).toContain('<small>Hit Points</small><b>40</b>')
   expect(reduced).toContain('climb Speed of 25 feet')
   expect(reduced).toContain('(inactive)')
   expect(c.familiar?.abilities).toEqual(['Flier', '', 'tough', 'Climber'])

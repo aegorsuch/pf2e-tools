@@ -743,6 +743,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" open>
           <summary><h4>{isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
             : isCrocodile ? 'Crocodile Familiar' : 'Familiar'}</h4> ({activeAbilityChoices.length + Number(!!patronAbility)}/{dailyAbilityLimit})</summary>
+          <article className="gear-card">
           {isCrocodile && <small>Tiny crocodile familiar granted by Crocodile's Twin.</small>}
           {patronAbility && <div className="gear-traits"><EntryDescription name={patronAbility.name} entry={patronAbility}
             entries={entries} character={c} buttonLabel="Patron familiar ability" /></div>}
@@ -751,19 +752,30 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             return entry ? <EntryDescription key={name} name={name} entry={entry} entries={entries} character={c}
               buttonLabel={`Granted ${name}`} /> : <small key={name}>{name}</small>
           })}</div>}
-          <div><small>Hit Points</small> <b>{familiarEffects.hitPoints}</b></div>
           {isUndead && <>
             <div className="gear-traits"><EntryDescription name="Undead" entry={UNDEAD_FAMILIAR_TRAIT}
               className="gear-trait" entries={entries} character={c} /></div>
           </>}
-          {familiarDefense && <>
+          <section className="companion-actions">
+            <h5>Defenses</h5>
             <div className="gear-stats">
-              <span><small>Armor Class</small><b>{familiarDefense.ac}</b></span>
-              <span><small>Fortitude</small>{signed(familiarDefense.fortitude)}</span>
-              <span><small>Reflex</small>{signed(familiarDefense.reflex)}</span>
-              <span><small>Will</small>{signed(familiarDefense.will)}</span>
+              <span><small>Hit Points</small><b>{familiarEffects.hitPoints}</b></span>
+              {familiarDefense && <>
+                <span><small>Armor Class</small><b>{familiarDefense.ac}</b></span>
+                <span><small>Fortitude</small>{signed(familiarDefense.fortitude)}</span>
+                <span><small>Reflex</small>{signed(familiarDefense.reflex)}</span>
+                <span><small>Will</small>{signed(familiarDefense.will)}</span>
+              </>}
             </div>
-          </>}
+            {familiarEffects.resistances.length > 0 && <div><small>Resistances</small> {familiarEffects.resistances
+              .map(resistance => `${resistance.damage} ${resistance.value}`).join(', ')}</div>}
+          </section>
+          {familiarEffects.senses.length > 0 && <section className="companion-actions">
+            <h5>Senses</h5><div>{familiarEffects.senses.join(', ')}</div>
+          </section>}
+          {familiarEffects.skilled.length > 0 && <section className="companion-actions">
+            <h5>Skills</h5><div>{familiarEffects.skilled.map(skill => `${skill.skill} ${signed(skill.modifier)}`).join(', ')}</div>
+          </section>}
           {isLeshy && <label>Granted ability{' '}
             <select aria-label="Leshy familiar granted ability" value={data?.leshyAbility ?? ''} onChange={event => {
               const value = event.target.value
@@ -772,6 +784,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               <option value="">Choose ability</option><option>Plant</option><option>Fungus</option>
             </select>
           </label>}
+          <section className="companion-actions">
+          <h5>Special</h5>
           <div className="gear-runes">
             {[...savedAbilities].sort((a, b) => a.ability.localeCompare(b.ability, undefined, { sensitivity: 'base' }) || a.index - b.index)
               .map(({ ability, index }) => {
@@ -802,19 +816,17 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               })}
             </SearchableSelect>}
           </div>
-          <div><small>Speed</small> {familiarEffects.speeds.map(speed =>
+          </section>
+          <section className="companion-actions">
+          <h5>Speed</h5><div>{familiarEffects.speeds.map(speed =>
             `${speed.movement === 'Land' ? '' : `${speed.movement} `}${speed.feet} feet`).join(', ')}</div>
-          {familiarEffects.senses.length > 0 && <div><small>Senses</small> {familiarEffects.senses.join(', ')}</div>}
-          {familiarEffects.resistances.length > 0 && <div><small>Resistances</small> {familiarEffects.resistances
-            .map(resistance => `${resistance.damage} ${resistance.value}`).join(', ')}</div>}
-          {familiarEffects.skilled.length > 0 && <div><small>Skilled</small> {familiarEffects.skilled
-            .map(skill => `${skill.skill} ${signed(skill.modifier)}`).join(', ')}</div>}
           {activeAbilities.some(ability => ability.toLowerCase() === 'fast movement') && baseSpeeds.length > 1 && <label>Fast Movement{' '}
             <select aria-label={`${familiarLabel} Fast Movement speed`} value={selectedSpeed}
               onChange={event => saveAbilityOptions({ fastMovement: event.target.value })}>
               {baseSpeeds.map(speed => <option key={speed.movement} value={speed.movement}>{speed.movement} ({speed.feet} feet)</option>)}
             </select>
           </label>}
+          </section>
           {Array.from({ length: resistanceCount }, (_, index) => <label key={`resistance-${index}`}>Resistance type {index + 1}{' '}
             <select aria-label={`${familiarType} resistance type ${index + 1}`}
               value={data?.abilityOptions?.resistance?.[index] ?? ''} onChange={event => {
@@ -864,29 +876,62 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             <SourceNote source="Grown of Oak" note="Targets your leshy familiar only if within 30 feet when cast." />
           </>}
           <MinionFerocity c={c} ferocity={ferocity} />
+          </article>
         </details>})}
         {pet && <details className="character-subsection" open>
           <summary><h4>{seaFriend ? 'Aquatic Pet' : 'Pet'}</h4></summary>
+          <article className="gear-card">
           {!seaFriend && <label><input type="checkbox" aria-label="Aquatic pet" checked={!!c.pet?.aquatic}
             onChange={event => save({ pet: { ...c.pet, aquatic: event.target.checked } })} /> Aquatic</label>}
-          <small>Level {c.level}; HP {c.level * (petAbilities.includes('Tough') || seaFriend ? 7 : 5)}; Speed {minionMovementSpeeds(petAbilities, c.pet?.fastMovement, !!(seaFriend || c.pet?.aquatic))
-            .map(speed => `${speed.movement === 'Land' ? '' : `${speed.movement} `}${speed.feet} feet`).join(', ')}; {seaFriend || c.pet?.aquatic ? 'breathes water; ' : ''}low-light vision.</small>
-          {seaFriend && <small>Friend of the Sea grants Darkvision and Tough in addition to two pet abilities.</small>}
-          {Array.from({ length: 2 }, (_, index) => <label key={index}>Pet ability {index + 1}{' '}
-            <select aria-label={`Pet ability ${index + 1}`} value={petAbilities[index] ?? ''} onChange={event => {
-              const value = event.target.value
-              if (value && (!PET_ABILITIES.includes(value) || petAbilities.some((other, i) => i !== index && other === value)
-                || seaFriend && ['Darkvision', 'Tough'].includes(value))) return
-              const abilities = Array.from({ length: Math.max(petAbilities.length, index + 1) }, (_, i) => petAbilities[i] ?? '')
-              abilities[index] = value
-              save({ pet: { ...c.pet, abilities } })
-            }}>
-              <option value="">Choose ability</option>
-              {petAbilities[index] && !PET_ABILITIES.includes(petAbilities[index]) && <option value={petAbilities[index]}>{petAbilities[index]}</option>}
-              {PET_ABILITIES.filter(ability => ability === petAbilities[index] || !petAbilities.includes(ability)
-                && !(seaFriend && ['Darkvision', 'Tough'].includes(ability))).map(ability => <option key={ability} disabled={seaFriend && ['Darkvision', 'Tough'].includes(ability)}>{ability}</option>)}
-            </select>
-          </label>)}
+          <div className="gear-traits"><span>Level {c.level}</span>
+            {(seaFriend || c.pet?.aquatic) && <span>Aquatic<SourceNote source="Aquatic"
+              note={petAbilities.includes('Amphibious') ? 'Breathes air and water.' : 'Breathes water instead of air.'} /></span>}
+          </div>
+          <section className="companion-actions">
+            <h5>Defenses</h5>
+            <div className="gear-stats"><span><small>Hit Points</small><b>{c.level * (petAbilities.includes('Tough') || seaFriend ? 7 : 5)}</b></span></div>
+          </section>
+          <section className="companion-actions"><h5>Senses</h5>
+            <div>Low-light vision{seaFriend || petAbilities.includes('Darkvision') ? ', Darkvision' : ''}</div>
+          </section>
+          <section className="companion-actions">
+            <h5>Special</h5>
+            <div className="gear-runes">
+              {petAbilities.map((ability, index) => ability && <div key={`${index}:${ability}`} className="rune">
+                {(() => {
+                  const entry = entries.find(candidate => candidate.kind === 'familiar' && !candidate.deleted
+                    && candidate.name.toLowerCase() === ability.toLowerCase()
+                    && candidate.systems.some(system => c.systems.includes(system)))
+                    ?? (PET_ABILITY_NOTES[ability] ? { id: `pet:${ability}`, name: ability, kind: 'familiar' as const,
+                      systems: c.systems, source: 'official' as const, level: 1, traits: [], description: PET_ABILITY_NOTES[ability],
+                      data: {}, effects: [], updatedAt: 0 } : undefined)
+                  return entry ? <EntryDescription name={ability} entry={entry} entries={entries} character={c} /> : <span>{ability}</span>
+                })()}
+                <button type="button" aria-label={`Remove Pet ability ${index + 1}`}
+                  onClick={() => confirmRemoval(`pet ability "${ability}"`, () =>
+                    save({ pet: { ...c.pet, abilities: petAbilities.map((value, i) => i === index ? '' : value) } }))}>×</button>
+              </div>)}
+              {seaFriend && ['Darkvision', 'Tough'].map(ability => <span className="rune" key={ability}>{ability}</span>)}
+              {[0, 1].some(index => !petAbilities[index]) && <SearchableSelect aria-label="Pet ability" value=""
+                onChange={event => {
+                  const value = event.target.value
+                  const index = [0, 1].find(i => !petAbilities[i])
+                  if (index === undefined || !PET_ABILITIES.includes(value) || petAbilities.includes(value)
+                    || seaFriend && ['Darkvision', 'Tough'].includes(value)) return
+                  const abilities = [...petAbilities]
+                  abilities[index] = value
+                  save({ pet: { ...c.pet, abilities } })
+                }}>
+                <option value="">+</option>
+                {PET_ABILITIES.filter(ability => !petAbilities.includes(ability)
+                  && !(seaFriend && ['Darkvision', 'Tough'].includes(ability))).map(ability => <option key={ability}>{ability}</option>)}
+              </SearchableSelect>}
+            </div>
+            {seaFriend && petAbilities.some(ability => ['Darkvision', 'Tough'].includes(ability)) && <small>Choose a different pet ability; Darkvision and Tough are already granted.</small>}
+          </section>
+          <section className="companion-actions">
+          <h5>Speed</h5><div>{minionMovementSpeeds(petAbilities, c.pet?.fastMovement, !!(seaFriend || c.pet?.aquatic))
+            .map(speed => `${speed.movement === 'Land' ? '' : `${speed.movement} `}${speed.feet} feet`).join(', ')}</div>
           {petAbilities.includes('Fast Movement') && (() => {
             const amphibious = petAbilities.includes('Amphibious')
             const options = minionMovementSpeeds(petAbilities.filter(ability => ability !== 'Fast Movement'), undefined, !!(seaFriend || c.pet?.aquatic))
@@ -900,10 +945,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               </select>
             </label>
           })()}
-          {[...new Set([...petAbilities.filter(ability => PET_ABILITY_NOTES[ability]), ...(seaFriend ? ['Darkvision'] : [])])]
-            .map(ability => <small key={ability}>{ability}: {PET_ABILITY_NOTES[ability]}</small>)}
-          {seaFriend && petAbilities.some(ability => ['Darkvision', 'Tough'].includes(ability)) && <small>Choose a different pet ability; Darkvision and Tough are already granted.</small>}
+          </section>
           <MinionFerocity c={c} ferocity={ferocity} />
+          </article>
         </details>}
       </div>
   )
