@@ -85,6 +85,7 @@ export function RageToggle({ c, save, summary = false }: Pick<SectionProps, 'c' 
 
 export function SensesAndSpeed({ c, entries, save }: SectionProps) {
   const athlete = ragingAthleteBenefits(c, entries)
+  const form = activeBattleForm(c, entries)
   const terrain = favoredTerrainBenefits(c, entries)
   const characterSenses = senses(c, entries)
   const speeds = movementSpeeds(c, entries)
@@ -109,7 +110,8 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
         {index > 0 && '; '}{movement.name !== 'Land' && `${movement.name === 'Climb' ? 'Climbing' : movement.name} `}{movement.feet} ft.
         {movement.name === 'Land' && magneticLevitatorsActive(c, entries) && ' (hover)'}
         {(movement.source || bonuses.length > 0) && <SourceNote source={`${movement.name} Speed`}
-          note={[movement.source, ...bonuses.map(bonus => `+${bonus.feet} ${bonus.source}`)].filter(Boolean).join('; ')} />}
+          note={[movement.source, ...(movement.name === 'Land' && form?.source === 'Ancestral Embrace Avatar' ? [form.note] : []),
+            ...bonuses.map(bonus => `+${bonus.feet} ${bonus.source}`)].filter(Boolean).join('; ')} />}
       </span>
     })}{dashSpeeds && <SourceNote source="Uncanny Dash"
       note={`During Uncanny Dash, your conditional Speeds are ${dashSpeeds.map(movement => `${movement.name} ${movement.feet} feet`).join('; ')}.`} />}
@@ -869,6 +871,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           <span><small>Size</small><b>{form.size}
             <SourceNote source={form.source} note={form.source === 'Dragon Transformation'
               ? 'Gain the dragon trait. Only dragon unarmed attacks can Strike; equipment is absorbed. You have hands and can use manipulate actions.'
+              : form.source === 'Ancestral Embrace Avatar'
+              ? `Only Avatar attacks can Strike; equipment is absorbed. You have hands and can use manipulate actions. ${form.note}`
               : 'pest' in form && form.pest ? 'Gain the animal trait. Cannot Strike; equipment is absorbed. Cannot speak, Cast Spells, or use manipulate actions requiring hands.'
               : form.source === 'Animal Rage' ? `Gain the animal trait. Use your own unarmed attacks and retain constant gear abilities.${form.note ? ` ${form.note}` : ''} Cannot speak, Cast Spells, or use manipulate actions requiring hands.`
               : `${form.attacks[0]?.data.battle_form

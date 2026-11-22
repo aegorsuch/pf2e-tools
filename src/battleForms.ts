@@ -1,7 +1,24 @@
 import type { ContentEntry } from './types'
 import { DRAGON_FORMS } from './barbarian'
 
-export const BATTLE_FORM_SPELLS = new Set(['Animal Form', 'Dinosaur Form', 'Pest Form', 'Untamed Form'])
+export const ANCESTRAL_AVATAR = 'Ancestral Embrace Avatar'
+export const BATTLE_FORM_SPELLS = new Set(['Animal Form', 'Dinosaur Form', 'Pest Form', 'Untamed Form', ANCESTRAL_AVATAR])
+
+const AVATAR_WEAPONS: ContentEntry[] = [
+  { id: 'armor:ancestral-avatar:spear', name: 'Avatar Spear', kind: 'weapon', systems: ['pf2e'], source: 'official',
+    level: 10, traits: ['Thrown'], description: '', effects: [], updatedAt: 0,
+    data: { weapon_category: 'Unarmed', weapon_type: 'Melee', damage: '6d6 piercing', reach: 15, thrown_range: 50, form_damage_bonus: 6 } },
+  { id: 'armor:ancestral-avatar:blowgun', name: 'Avatar Blowgun', kind: 'weapon', systems: ['pf2e'], source: 'official',
+    level: 10, traits: [], description: '', effects: [], updatedAt: 0,
+    data: { weapon_category: 'Unarmed', weapon_type: 'Ranged', damage: '1d6 piercing', range: 120,
+      reach: 0, form_damage_bonus: 3, extra_damage: '5d6 poison' } },
+]
+
+export function ancestralAvatarForm(level: number) {
+  return { name: 'Avatar', source: ANCESTRAL_AVATAR, rank: 10, speed: 70, swimSpeed: 0, climbSpeed: 0,
+    note: 'Air walk; ignore difficult terrain and greater difficult terrain.', senses: ['Darkvision'],
+    size: 'Huge', ac: 25 + level, temporaryHp: 30, attack: 33, damageBonus: 0, athletics: 35, attacks: AVATAR_WEAPONS }
+}
 
 export function pestBattleForm(rank: number, level: number, flying = false, ancestralSpeed = 0, swimming = false) {
   if (!Number.isInteger(rank) || rank < 1 || rank > 10) return undefined
@@ -121,7 +138,7 @@ const DRAGON_WEAPONS: ContentEntry[] = [
   data: { weapon_category: 'Unarmed', weapon_group: 'Brawling', weapon_type: 'Melee', damage: attack.damage, reach: attack.reach },
 }))
 
-export const BATTLE_FORM_WEAPONS = [...DINOSAUR_WEAPONS, ...ANIMAL_WEAPONS, ...INSECT_WEAPONS, ...DRAGON_WEAPONS]
+export const BATTLE_FORM_WEAPONS = [...DINOSAUR_WEAPONS, ...ANIMAL_WEAPONS, ...INSECT_WEAPONS, ...DRAGON_WEAPONS, ...AVATAR_WEAPONS]
 
 export function dragonTransformationForm(name: string, level: number) {
   const dragon = DRAGON_FORMS[name]

@@ -1,5 +1,5 @@
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, GameSystem, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
-import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm, pestBattleForm } from './battleForms'
+import { ANCESTRAL_AVATAR, BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, ancestralAvatarForm, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm, pestBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, KITSUNE_SPELL_FAMILIARITY_CANTRIPS, ancestralMagicAvailable, automaticFeatChoiceKey, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
@@ -16,7 +16,7 @@ import { createFeatPrerequisiteChecker, featPrerequisiteSources, type Prerequisi
 import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
-import { isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { isAncestralEmbrace, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
@@ -5614,7 +5614,9 @@ export function activeBattleForm(c: Character, entries: ContentEntry[]) {
     if (form) return form
   }
   for (const name of [...c.activeSpells ?? []].reverse()) {
-    if (name === 'Untamed Form' && isSpellActive(c, entries, name) && c.untamedForm
+    if (name === ANCESTRAL_AVATAR && wornArmor(c, entries) && isAncestralEmbrace(wornArmor(c, entries)?.name)) {
+      return ancestralAvatarForm(c.level)
+    } else if (name === 'Untamed Form' && isSpellActive(c, entries, name) && c.untamedForm
       && untamedFormOptions(c).some(option => option.name === c.untamedForm?.form)) {
       const ranks = untamedFormRanks(c)
       const rank = c.untamedForm.rank && ranks.includes(c.untamedForm.rank) ? c.untamedForm.rank : ranks[0]
@@ -7044,7 +7046,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ? DRAGON_INSTINCTS[c.barbarianDragon]?.damage : undefined
   const elementalDamage = rageDamage && c.raging ? elementalRageType(c, entries) : undefined
   const spiritDamage = rageDamage && c.raging && c.spiritRage && barbarianInstinct(c, entries) === 'spirit'
-  const damageBonus = (formAttack && form ? form.damageBonus + (dragonFormAttack && !dragonDamage && !elementalDamage && !spiritDamage ? rageDamage : 0) : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + (dragonDamage || elementalDamage || spiritDamage ? 0 : rageDamage)
+  const damageBonus = (formAttack && form ? (formAttack.data.form_damage_bonus === undefined ? form.damageBonus : num(formAttack.data.form_damage_bonus)) + (dragonFormAttack && !dragonDamage && !elementalDamage && !spiritDamage ? rageDamage : 0) : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + (dragonDamage || elementalDamage || spiritDamage ? 0 : rageDamage)
     + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
   ) - damagePenalty
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
@@ -7094,7 +7096,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const devastator = classFeatures(entries, c).some(feature => feature.name === 'Devastator')
   const criticalDie = Number(traits.map(trait => /^fatal\s+d(4|6|8|10|12)$/i.exec(trait)?.[1]).find(Boolean) ?? die)
   const naturalForForm = { ...natural, conditions: undefined }
-  const ownUnarmed: number = formAttack ? Math.max(0, ...ownedWeapons(naturalForForm, entries)
+  const ownUnarmed: number = formAttack && form?.source !== ANCESTRAL_AVATAR ? Math.max(0, ...ownedWeapons(naturalForForm, entries)
     .filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed')
     .map((weapon): number => weaponAttack(naturalForForm, entries, weapon).attack - desperateWrath)) : 0
   const ownAttack = mod + prof + w.potency - attackPenalty + divineAttackBonus + desperateWrath

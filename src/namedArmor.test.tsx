@@ -1,9 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { Children, isValidElement, type ReactNode } from 'react'
+import { Children, isValidElement, type ComponentProps, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
-import { armorClass, armorEntry, armorSaveBonus, effectiveArmor, gearPickerEntries, ownedArmors, perceptionItemBonus, resistances, savingThrowBreakdown, shieldAcBonus, shieldEntry, shieldMaterialOptions, shieldStats, speedBonuses } from './builder'
-import { ArmorList } from './GearSection'
+import { activeBattleForm, armorClass, armorEntry, armorSaveBonus, effectiveArmor, gearPickerEntries, movementSpeeds, ownedArmors, ownedWeapons, perceptionItemBonus, resistances, savingThrowBreakdown, shieldAcBonus, shieldEntry, shieldMaterialOptions, shieldStats, speedBonuses, spellActiveChange, weaponAttack } from './builder'
+import { ArmorList, WeaponList } from './GearSection'
+import { ANCESTRAL_AVATAR } from './battleForms'
 import { makeNamedArmorEntries, makeNamedShieldEntry, namedArmorAbilities, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { specificMagicItemName } from './equipmentGroups'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
@@ -90,6 +91,48 @@ it('gives Ancestral Embrace built-in major weave runes and its worn Sunweave Per
   expect(html).not.toContain('aria-label="Remove Sunweave (Major) rune"')
   expect(c.armors[0].name).toBe(hideEmbraceName)
   expect(c.armors[0].runes).toEqual([])
+})
+
+it('activates and dismisses the armor avatar with its battle form and specific attacks', () => {
+  const c = { ...character, armors: [owned(hideEmbraceName)], activeSpells: ['Pest Form'] }
+  let patch: Partial<Character> = {}
+  const armorTree = ArmorList({ c, entries, save: change => { patch = change }, part: 'armor' })
+  const findAbilities = (node: ReactNode): ComponentProps<typeof NamedArmorAbilities> | undefined => {
+    let result: ComponentProps<typeof NamedArmorAbilities> | undefined
+    Children.forEach(node, child => {
+      if (result || !isValidElement<{ children?: ReactNode }>(child)) return
+      if (child.type === NamedArmorAbilities) result = child.props as ComponentProps<typeof NamedArmorAbilities>
+      else result = findAbilities(child.props.children)
+    })
+    return result
+  }
+  const tree = NamedArmorAbilities(findAbilities(armorTree)!)
+  const findButton = (node: ReactNode): (() => void) | undefined => {
+    let result: (() => void) | undefined
+    Children.forEach(node, child => {
+      if (result || !isValidElement<{ children?: ReactNode; 'aria-label'?: string; onClick?: (event: { preventDefault: () => void; stopPropagation: () => void }) => void }>(child)) return
+      if (child.props['aria-label'] === 'Activate Ancestral Embrace Avatar')
+        result = () => child.props.onClick?.({ preventDefault: () => {}, stopPropagation: () => {} })
+      else result = findButton(child.props.children)
+    })
+    return result
+  }
+  findButton(tree)!()
+  expect(patch.activeSpells).toEqual([ANCESTRAL_AVATAR])
+  const transformed = { ...c, ...patch }
+  expect(transformed.activeSpells).toEqual([ANCESTRAL_AVATAR])
+  expect(activeBattleForm(transformed, entries)).toMatchObject({ size: 'Huge', ac: 45, temporaryHp: 30, attack: 33, athletics: 35,
+    note: 'Air walk; ignore difficult terrain and greater difficult terrain.' })
+  expect(armorClass(transformed, entries)).toBe(45)
+  expect(movementSpeeds(transformed, entries)[0].feet).toBe(70)
+  const attacks = ownedWeapons(transformed, entries)
+  expect(attacks.map(a => a.name)).toEqual(['Avatar Spear', 'Avatar Blowgun'])
+  expect(weaponAttack(transformed, entries, attacks[0])).toMatchObject({ attack: 33, damage: '6d6+6 piercing', reach: 15, thrownRange: 50 })
+  expect(weaponAttack(transformed, entries, attacks[1])).toMatchObject({ attack: 33, damage: '1d6+3 piercing', range: 120,
+    additionalDamage: expect.arrayContaining([expect.objectContaining({ value: '5d6 poison' })]) })
+  expect(renderToStaticMarkup(<WeaponList c={transformed} entries={entries} save={() => {}} displayOnly />)).toContain('5d6 poison')
+  expect(activeBattleForm({ ...transformed, ...spellActiveChange(transformed, ANCESTRAL_AVATAR, false) }, entries)).toBeUndefined()
+  expect(activeBattleForm({ ...transformed, armors: [{ ...c.armors[0], worn: false }] }, entries)).toBeUndefined()
 })
 
 it('shows ordinary armor descriptions without a Summary toggle', () => {

@@ -41,6 +41,8 @@ import { clearItemGlitching, enduringGrenadeMods, enduringWeaponMods, setEndurin
 import { ItemTroubleshoot } from './ItemTroubleshoot'
 import { namedArmorEnhancements, namedArmorRuneLimit } from './namedArmor'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
+import { ANCESTRAL_AVATAR } from './battleForms'
+import { spellActiveChange } from './builder'
 import { shieldEntry } from './builder'
 import { intensifiedElementDamage, inventiveOffensiveOptions, ranksAt } from './builder'
 import { armorUpgradeSlots, jetpackSpeed } from './builder'
@@ -1843,7 +1845,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         runes, ...(!armor.worn ? { activeJetpack: undefined } : {}),
         ...(!canWearWithAttachedArmor(armor, attached) ? { worn: saved?.worn ?? armor.worn } : {}) }
     }),
-  ], ...extra })
+  ], ...(c.activeSpells?.includes(ANCESTRAL_AVATAR) && !next.some(armor => armor.worn && isAncestralEmbrace(armor.name))
+    ? spellActiveChange(c, ANCESTRAL_AVATAR, false) : {}), ...extra })
   const update = (id: string, patch: Partial<OwnedArmor>) => saveArmors(armors.map((a) => (a.id === id ? { ...a, ...patch } : a)))
   const shield = c.shield
   const shieldUpgrades = !shield || shieldAllowsUpgrades(shield)
@@ -1939,7 +1942,11 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             <EnergyNeutralizer c={c} save={save} id={a.id} label={labelName} />
             <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={labelName} />
             {entry?.description && !entry.data.named_armor && <small>{entry.description}</small>}
-            <NamedArmorAbilities entry={entry} inlineSummary />
+            <NamedArmorAbilities entry={entry} inlineSummary avatar={isAncestralEmbrace(entry?.name) ? {
+              active: !!c.activeSpells?.includes(ANCESTRAL_AVATAR) && a.worn,
+              disabled: !a.worn,
+              toggle: () => save(spellActiveChange(c, ANCESTRAL_AVATAR, !c.activeSpells?.includes(ANCESTRAL_AVATAR))),
+            } : undefined} />
             {sf2eArmor && entry?.data.armor_grade && <small>Grade: {String(entry.data.armor_grade)}</small>}
             {entry?.data.upgrades_allowed === false && <small>Armor upgrades cannot be installed on this armor.</small>}
             {entry && <GearAccess c={c} entries={entries} entry={entry} save={save} />}
