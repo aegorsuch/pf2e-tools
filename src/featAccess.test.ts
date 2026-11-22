@@ -374,7 +374,7 @@ it('offers only ethnicities associated with the selected ancestry', () => {
     { ...feat, id: 'deleted', deleted: true, traits: ['Human'], data: { access: 'Old ethnicity' } },
   ]
   expect(ethnicityOptions(entries, 'Human')).toEqual([
-    'Chelaxian', 'Erutaki', 'Garundi', 'Keleshite', 'Kellid', 'Lirgeni', 'Mauxi', 'Nidalese', 'Shoanti', 'Taldan', 'Tian-Dan', 'Tian-Yae', 'Ulfen', 'Varisian', 'Vudrani',
+    'Chelaxian', 'Erutaki', 'Garundi', 'Keleshite', 'Kellid', 'Lirgeni', 'Mauxi', 'Nidalese', 'Olehala', 'Shoanti', 'Taldan', 'Tian-Dan', 'Tian-Yae', 'Ulfen', 'Varisian', 'Vudrani',
   ])
   expect(ethnicityOptions(entries, 'dwarf')).toEqual(['Ergaksen (Surface)', 'Grondaksen (Underground)', 'Holtaksen (Mountain)'])
   expect(ethnicityOptions(entries, 'Elf')).toEqual(['Ekujae', 'Ilverani', 'Mualijae', 'Spiresworn', 'Vourinoi'])
@@ -385,7 +385,7 @@ it('offers only ethnicities associated with the selected ancestry', () => {
 
 it('offers the listed Human ethnicities without catalog data and deduplicates catalog matches', () => {
   const listed = ethnicityOptions([], 'Human')
-  expect(listed).toEqual(['Chelaxian', 'Erutaki', 'Garundi', 'Keleshite', 'Lirgeni', 'Mauxi', 'Nidalese', 'Shoanti', 'Taldan', 'Tian-Dan', 'Tian-Yae', 'Ulfen', 'Varisian', 'Vudrani'])
+  expect(listed).toEqual(['Chelaxian', 'Erutaki', 'Garundi', 'Keleshite', 'Lirgeni', 'Mauxi', 'Nidalese', 'Olehala', 'Shoanti', 'Taldan', 'Tian-Dan', 'Tian-Yae', 'Ulfen', 'Varisian', 'Vudrani'])
   const duplicate = { ...feat, traits: ['Human'], data: { access: 'varisian ethnicity' } }
   expect(ethnicityOptions([duplicate], 'Human')).toEqual(listed)
 })
