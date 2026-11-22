@@ -9,7 +9,7 @@ import { DeleteIcon, EditIcon } from './Icons'
 import { EffectsEditor } from './EffectsEditor'
 import { HomebrewList } from './HomebrewList'
 import { confirmRemoval } from './confirmRemoval'
-import { loadRequiredCatalogs } from './catalogLoading'
+import { loadRequiredCatalogs, readCatalog } from './catalogLoading'
 import { onAuthChange, signInWithGitHub, signOut, startAutoSync, supabase } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
 import { useSettings } from './settings'
@@ -99,15 +99,8 @@ export default function App() {
     return () => { live = false }
   }, [neededKey, requestKey])
   const catalog = useLiveQuery(
-    async () => {
-      const all = fullCatalog ? await db.content.toArray() : [
-        ...await db.content.where('source').equals('homebrew').toArray(),
-        ...await db.content.where('kind').anyOf('class', 'ancestry', 'subclass').toArray(),
-      ]
-      const unique = new Map(all.filter(e => !e.deleted && e.systems.some(s => enabled.includes(s))).map(e => [e.id, e]))
-      return { key: catalogReady, full: fullCatalog, entries: [...unique.values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) }
-    },
-    [enabled, catalogReady, fullCatalog],
+    () => readCatalog(fullCatalog, enabled, catalogReady, requestKey),
+    [enabled, catalogReady, requestKey, fullCatalog],
   )
   const entries = catalog?.entries
 
