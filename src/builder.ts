@@ -885,9 +885,10 @@ export function unslottedFeats(c: Character, entries: ContentEntry[] = []) {
 
 // Archetype feats whose archetype's Dedication isn't taken (e.g. the Dedication was removed or never picked)
 export function orphanedArchetypeFeats(c: Character, entries: ContentEntry[]) {
+  const ancestryTraits = ancestryFeatTraits(c)
   const info = c.feats.map(f => ({ f, sources: featPrerequisiteSources(entries, {
     ...c, name: f.name, category: f.slot?.split(':')[0] ?? f.type.toLowerCase().split(' ')[0],
-    ancestryTraits: ancestryFeatTraits(c),
+    ancestryTraits,
   }) }))
   const dedications = new Set(info.flatMap(({ sources }) => sources.flatMap(e => isDedication(e) ? archetypesOf(e) : [])))
   return info.filter(({ f, sources }) => sources.length > 0 && sources.every(e => !isDedication(e) && archetypesOf(e).length
