@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { classSpellcasting, classSpellSlots } from './builder'
+import { classRepertoireRows, classSpellcasting, classSpellSlots } from './builder'
 import { SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
@@ -66,6 +66,70 @@ it('scales Bloodrager spell attack and DC proficiency with active spellcasting f
   expect(classSpellcasting({ ...c, level: 18 }, [])).toEqual({ traditions: ['Divine'], ability: 'cha', rank: 3 })
   expect(classSpellcasting({ ...c, feats: c.feats.slice(0, 1) }, [])?.rank).toBe(1)
   expect(classSpellcasting({ ...c, systems: ['sf2e'] }, [])).toBeUndefined()
+})
+
+it('derives Bloodrager cantrips, spellcasting slots and repertoire from active feats', () => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Bloodrager', level: 20,
+    feats: [
+      { name: 'Bloodrager Dedication', type: 'Class Feat', level: 2, choice: 'Divine' },
+      { name: 'Rising Blood Magic', type: 'Class Feat', level: 4 },
+      { name: 'Surging Blood Magic', type: 'Class Feat', level: 12 },
+      { name: 'Exultant Blood Magic', type: 'Class Feat', level: 18 },
+    ] }
+  expect(classSpellSlots({ ...c, level: 1 })).toBeUndefined()
+  expect(classSpellSlots({ ...c, level: 2 })).toEqual({ 0: 2 })
+  expect(classSpellSlots({ ...c, level: 6 })).toEqual({ 0: 2, 1: 1, 2: 1 })
+  expect(classSpellSlots({ ...c, level: 12 })).toEqual({ 0: 2, 1: 1, 2: 1, 3: 1, 4: 1 })
+  expect(classSpellSlots(c)).toEqual({ 0: 2, 1: 2, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2, 7: 2, 8: 2 })
+  expect(classRepertoireRows(c)).toEqual({ 0: 2, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1 })
+  expect(classSpellSlots({ ...c, feats: c.feats.slice(0, 1) })).toEqual({ 0: 2 })
+  expect(classSpellSlots({ ...c, systems: ['sf2e'] })).toBeUndefined()
+})
+
+it('offers Bloodrager repertoire spells from the chosen tradition without manual spell setup', () => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Bloodrager', level: 4,
+    feats: [
+      { name: 'Bloodrager Dedication', type: 'Class Feat', level: 2, choice: 'Divine' },
+      { name: 'Rising Blood Magic', type: 'Class Feat', level: 4 },
+    ] }
+  const spell = (name: string, tradition: string, cantrip = false): ContentEntry => ({
+    id: name, name, kind: 'spell', systems: ['pf2e'], source: 'official', level: 1,
+    traits: cantrip ? ['Cantrip', 'Attack'] : [], data: { tradition }, description: '', effects: [], updatedAt: 0,
+  })
+  const entries = [spell('Divine Cantrip', 'Divine', true), spell('Divine Spell', 'Divine'), spell('Arcane Spell', 'Arcane')]
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain('Cantrip slot 1')
+  expect(html).toContain('Cantrip slot 2')
+  expect(html).toContain('Spell Rank 1 slot 1')
+  expect(html).toContain('Divine Cantrip')
+  expect(html).toContain('Divine Spell')
+  expect(html).not.toContain('Arcane Spell')
+  expect(html).not.toContain('Spell slots:')
+})
+
+it('keeps Bloodrager casting slots independent from repertoire and requires an attack cantrip', () => {
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Bloodrager', level: 18,
+    feats: [
+      { name: 'Bloodrager Dedication', type: 'Class Feat', level: 2, choice: 'Divine' },
+      { name: 'Rising Blood Magic', type: 'Class Feat', level: 4 },
+      { name: 'Surging Blood Magic', type: 'Class Feat', level: 12 },
+      { name: 'Exultant Blood Magic', type: 'Class Feat', level: 18 },
+    ],
+    spellcasting: { ability: 'cha', tradition: 'Divine', rank: 3, slots: {},
+      prepared: { '0:0': 'Guidance', '1:0': 'Fear' }, spentSlots: ['1:0'] } }
+  const spell = (name: string, traits: string[]): ContentEntry => ({
+    id: name, name, kind: 'spell', systems: ['pf2e'], source: 'official', level: 1,
+    traits, data: { tradition: 'Divine' }, description: '', effects: [], updatedAt: 0,
+  })
+  const entries = [spell('Guidance', ['Cantrip']), spell('Light', ['Cantrip']), spell('Divine Lance', ['Cantrip', 'Attack']), spell('Fear', [])]
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain('Divine Lance')
+  expect(html).not.toContain('>Light</option>')
+  expect(html).toContain('aria-label="Cast spell slot rank 1 slot 1"')
+  expect(html).not.toContain('disabled="" aria-label="Cast spell slot rank 1 slot 1"')
+  const exhausted = renderToStaticMarkup(<SpellsSection c={{ ...c, spellcasting: { ...c.spellcasting!, spentSlots: ['1:0', '1:1'] } }}
+    entries={entries} save={() => {}} />)
+  expect(exhausted).toContain('disabled="" aria-label="Cast spell slot rank 1 slot 1"')
 })
 
 it('renders automatically computed slots without manual slot controls or saved spellcasting data', () => {

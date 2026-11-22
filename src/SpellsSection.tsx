@@ -1129,6 +1129,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const preparedClass = ['Animist', 'Cleric', 'Druid', 'Magus', 'Necromancer', 'Technomancer', 'Witch', 'Wizard']
     .includes(c.className ?? '')
   const bard = automaticSlots !== undefined && isSpontaneousClass(c)
+  const bloodrager = c.className === 'Barbarian' && c.systems.includes('pf2e')
+    && activeFeatsNamed(c, 'Bloodrager Dedication').some(feat => feat.choice === 'Arcane' || feat.choice === 'Divine')
   const extraSlots = automaticSlots ? classExtraSlots(c) : []
   const sc: Character['spellcasting'] = automaticSlots ? { ...c.spellcasting,
     ability: casting?.ability ?? c.spellcasting?.ability ?? 'int',
@@ -1352,7 +1354,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       const entry = extra.spell ? spellIndex.byName.get(extra.spell) : undefined
       return entry ? [{ name: entry.name, entryId: entry.id, rank: entry.level, cantrip: false, forced: true }] : []
     }) : []
-    const available = [...((druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
+    const bloodragerSpells = bloodrager ? spellIndex.spells.filter(entry => spellAccessGranted(c, entry)
+      && (entry.traits.some(trait => /^cantrip$/i.test(trait)) || isCommonSpell(entry))) : undefined
+    const available = [...((bloodragerSpells ?? druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
       rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: false })) ?? (c.spells ?? [])
       .filter(spell => !forced.some(extra => extra.name === spell.name)).map(spell => ({ ...spell, forced: false }))), ...forced]
       .map(spell => {
@@ -1371,12 +1375,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       })
       .sort((a, b) => (rank === 0 ? 0 : b.baseRank - a.baseRank)
         || a.name.localeCompare(b.name) || (a.entryId ?? '').localeCompare(b.entryId ?? ''))
-      return { options, choices: preparedClass ? uniqueSpellVariants(options, spell => {
+      return { options, choices: preparedClass || bloodrager ? uniqueSpellVariants(options, spell => {
         const entry = spell.entryId ? spellIndex.byId.get(spell.entryId) : spellIndex.byName.get(spell.name)
         return [...entry?.systems ?? []].sort().join(',')
       }) : options }
     })
-  }, [druidAvailable, dirge, c.spells, preparedClass, selectedTradition, spellIndex, bard, c.feats, c.level])
+  }, [druidAvailable, dirge, c, preparedClass, selectedTradition, spellIndex, bard, bloodrager])
   const classSlotRanks = Array.from({ length: 11 }, (_, rank) => ({
     rank,
     count: Math.max(0, Math.min(20, Math.trunc(Number(sc?.slots[rank]) || 0)))
@@ -1547,7 +1551,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               .map(({ index, extra, slotKey, selectedValue, selectedSpell, selectedEntry }) => {
               const restricted = !!extra?.spell
               const metadata = spellMetadata(selectedEntry, cantrip ? Math.ceil(c.level / 2) : rank, c)
-              const spent = sc.spentSlots?.includes(slotKey) ?? false
+              const spent = !bloodrager && (sc.spentSlots?.includes(slotKey) ?? false)
               const extraOptions = extra?.allowedSpells?.flatMap(name => {
                 const entry = spellIndex.byName.get(name)
                 return entry && spellAccessGranted(c, entry) ? [{ name: entry.name, entryId: entry.id,
@@ -1557,10 +1561,19 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 || selectedSpell && !selectedSpell.entryId && spell.name === selectedSpell.name)
               const baseDisplayedSelection = preparedClass && baseSelectedOption && selectedValue === baseSelectedOption.name
                 ? { ...baseSelectedOption, entryId: undefined } : baseSelectedOption
-              const slotOptions = extra?.allowedSpells ? extraOptions
+              let slotOptions: { name: string; entryId?: string; baseRank: number; cantrip: boolean }[] = extra?.allowedSpells ? extraOptions
                 : extra ? options.filter(option => option.name === extra.spell)
                   : preparedClass && baseDisplayedSelection
                     ? choices.map(option => option.name === baseDisplayedSelection.name ? baseDisplayedSelection : option) : choices
+              if (bloodrager && cantrip) {
+                const other = sc.prepared?.[`0:${index === 0 ? 1 : 0}`]
+                const otherEntry = other ? spellIndex.byId.get(other) ?? spellIndex.byName.get(other) : undefined
+                slotOptions = slotOptions.filter(option => {
+                  const entry = option.entryId ? spellIndex.byId.get(option.entryId) : spellIndex.byName.get(option.name)
+                  return option.name !== otherEntry?.name && (!otherEntry || spellResolution(otherEntry).attack
+                    || !!entry && spellResolution(entry).attack)
+                })
+              }
               let optionIndex: Map<string, typeof slotOptions[number]> | undefined
               const spellOption = (value: string) => {
                 optionIndex ??= new Map(slotOptions.map(spell => [spell.entryId ?? spell.name, spell]))
@@ -1572,7 +1585,15 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 .filter(key => /^\d+:\d+$/.test(key) ? key.startsWith(`${rank}:`) : extras.some(slot => slot.key === key)).length
                 >= (automaticSlots[rank] ?? 0)
               const valid = !!selectedOption
-              const signature = bard && c.level >= 3 && !cantrip && valid
+              const bloodragerSignatureLimit = bloodrager && activeFeatsNamed(c, 'Rising Blood Magic').length && c.level >= 6
+                ? 1 + Number(!!activeFeatsNamed(c, 'Surging Blood Magic').length)
+                  + Number(!!activeFeatsNamed(c, 'Exultant Blood Magic').length) : 0
+              const bloodragerSignatures = Object.entries(sc.signatureSpells ?? {})
+                .filter(([spellRank, key]) => Number(spellRank) > 0 && !!sc.prepared?.[key]
+                  && Number(spellRank) in (sc.slots ?? {}))
+                .slice(0, bloodragerSignatureLimit).map(([, key]) => key)
+              const signature = bard && (bloodrager ? bloodragerSignatureLimit > 0 : c.level >= 3) && !cantrip && valid
+                && (!bloodrager || bloodragerSignatures.includes(slotKey))
                 && (!!extra || activeFeatsNamed(c, 'Ultimate Polymath').length > 0 || sc.signatureSpells?.[rank] === slotKey)
               const displayedSelection = preparedClass && selectedOption && selectedValue === selectedOption.name
                 ? { ...selectedOption, entryId: undefined } : selectedOption
@@ -1585,10 +1606,13 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     : !cantrip && <button type="button" disabled={!valid || spent || exhausted} aria-label={`Cast spell slot rank ${rank} slot ${index + 1}`}
                     onClick={() => {
                       if (!valid || spent || exhausted) return
-                      setSc({ spentSlots: [...new Set([...(sc.spentSlots ?? []), slotKey])] })
+                      const free = bloodrager ? Array.from({ length: automaticSlots?.[rank] ?? 0 }, (_, i) => `${rank}:${i}`)
+                        .find(key => !sc.spentSlots?.includes(key)) : slotKey
+                      if (free) setSc({ spentSlots: [...new Set([...(sc.spentSlots ?? []), free])] })
                     }}>Cast</button>}
-                  {bard && c.level >= 3 && !cantrip && valid && !extra && !activeFeatsNamed(c, 'Ultimate Polymath').length
+                  {bard && (bloodrager ? bloodragerSignatureLimit > 0 : c.level >= 3) && !cantrip && valid && !extra && !activeFeatsNamed(c, 'Ultimate Polymath').length
                     && <button type="button" className={signature ? 'on' : ''} aria-pressed={signature}
+                      disabled={bloodrager && !signature && bloodragerSignatures.length >= bloodragerSignatureLimit}
                       aria-label={`Signature spell rank ${rank} choice ${index + 1}`} onClick={() => {
                         const select = () => setSc({ signatureSpells: { ...sc.signatureSpells, [rank]: signature ? '' : slotKey } })
                         if (signature) confirmRemoval(`signature spell "${selectedEntry?.name ?? selectedValue}"`, select)

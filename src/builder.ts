@@ -12,6 +12,7 @@ import { getSettings } from './settings'
 import { BEASTMASTER_FEATS, beastmasterRequirementMissing } from './beastmasterFeats'
 import { companionAdvancement, companionAdvancementFor } from './companions'
 import { contentAccessGranted, featRarity, spellAccessGranted } from './featAccess'
+import { spellResolution } from './spellDefense'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
 import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
@@ -2055,7 +2056,23 @@ const slotTable = (c: Character) => {
 }
 
 export const isSpontaneousClass = (c: Character) =>
-  (c.className === 'Bard' && c.systems.includes('pf2e')) || !!slotTable(c)?.spontaneous
+  (c.className === 'Bard' && c.systems.includes('pf2e')) || !!slotTable(c)?.spontaneous || isBloodragerCaster(c)
+
+const isBloodragerCaster = (c: Character) => c.systems.includes('pf2e') && c.className === 'Barbarian'
+  && activeFeatsNamed(c, 'Bloodrager Dedication').some(feat => feat.choice === 'Arcane' || feat.choice === 'Divine')
+
+function bloodragerSpellSlots(c: Character, repertoire = false) {
+  const slots: Record<number, number> = { 0: 2 }
+  const basic = activeFeatsNamed(c, 'Rising Blood Magic').length > 0
+  const expert = basic && activeFeatsNamed(c, 'Surging Blood Magic').length > 0
+  const master = expert && activeFeatsNamed(c, 'Exultant Blood Magic').length > 0
+  for (let rank = 1; rank <= 8; rank++) {
+    const feat = rank <= 3 ? basic : rank <= 6 ? expert : master
+    const requiredLevel = rank <= 3 ? rank * 2 + 2 : rank * 2 + 4
+    if (feat && c.level >= requiredLevel) slots[rank] = repertoire ? 1 : 1 + Number(master)
+  }
+  return slots
+}
 
 function tableSpellSlots(c: Character, table: NonNullable<ReturnType<typeof slotTable>>) {
   const slots: Record<number, number> = {}
@@ -2070,6 +2087,7 @@ function tableSpellSlots(c: Character, table: NonNullable<ReturnType<typeof slot
 export function classRepertoireRows(c: Character) {
   if (FLEXIBLE_SPELLCASTER_CLASSES.has(c.className ?? '')
     && activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
+  if (isBloodragerCaster(c)) return bloodragerSpellSlots(c, true)
   const table = slotTable(c)
   if (table?.spontaneous) {
     const rows = tableSpellSlots(c, table)
@@ -2093,6 +2111,7 @@ export function classExtraSlots(c: Character) {
 
 export function classSpellSlots(c: Character): Record<number, number> | undefined {
   if (c.className === 'Witchwarper') return witchwarperSpellSlots(c)
+  if (isBloodragerCaster(c)) return bloodragerSpellSlots(c)
   if (FLEXIBLE_SPELLCASTER_CLASSES.has(c.className ?? '')
     && activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
   if (c.level < 1) return {}
@@ -5557,6 +5576,19 @@ function selectedShieldCantrip(c: Character, entries: ContentEntry[]) {
     const options = witchwarperSpellOptions(c, shield, 0)
     return witchwarperRepertoireSlots(c, extraCantrip).some(slot => slot.rank === 0
       && options.some(entry => entry.id === slot.value || entry.name === slot.value))
+  }
+  if (isBloodragerCaster(c)) {
+    const tradition = activeFeatsNamed(c, 'Bloodrager Dedication')[0]?.choice?.toLowerCase()
+    return shield.some(entry => spellAccessGranted(c, entry)
+      && String(entry.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(tradition ?? '')
+      && ['0:0', '0:1'].some((key, index) => {
+        if (saved[key] !== entry.id && saved[key] !== entry.name) return false
+        const other = saved[`0:${1 - index}`]
+        if (!other) return true
+        const otherEntry = entries.find(candidate => candidate.kind === 'spell' && !candidate.deleted
+          && candidate.systems.some(system => c.systems.includes(system)) && (candidate.id === other || candidate.name === other))
+        return !!otherEntry && otherEntry.name !== entry.name && spellResolution(otherEntry).attack
+      }))
   }
   if (c.className !== 'Druid') return false
   const options = druidSpellList(c, shield).filter(entry => spellAccessGranted(c, entry))
