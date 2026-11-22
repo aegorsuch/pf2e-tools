@@ -1387,6 +1387,10 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 </option>)}
               </select>
             </label>}
+            {!!a.entry?.data.raptorial_edge && <label>
+              <input type="checkbox" aria-label="Improved Raptorial Edge upgrade" checked={!!w.raptorialImproved}
+                onChange={event => update(w.id, { raptorialImproved: event.target.checked })} /> Improved acid upgrade (60,000 credits)
+            </label>}
             {!fixedEquipped && <label title={legacyPouchWeapon
               ? 'Retrieve this weapon from your cheek pouch first.' : cannotEquip
               ? hands === undefined || unknownHands ? 'Weapon hands unavailable; sync weapon content or unequip the unknown weapon.' : undefined
@@ -1516,9 +1520,9 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               </select>
             </label>}
             {forms.length > 0
-              ? attackSummaries.map(summary => summary.attack.entry?.description && !summary.attack.entry.data.named_weapon
+              ? attackSummaries.map(summary => summary.attack.entry?.description && !summary.attack.entry.data.named_weapon && !summary.attack.entry.data.special_weapon_source
                 && <Info key={summary.form} label={`${summary.form} summary`}>{summary.attack.entry.description}</Info>)
-              : a.entry?.description && !a.entry.data.named_weapon && <Info label="Summary">{a.entry.description}</Info>}
+              : a.entry?.description && !a.entry.data.named_weapon && !a.entry.data.special_weapon_source && <Info label="Summary">{a.entry.description}</Info>}
             {a.entry && !grantedClanWeapon && <GearAccess c={c} entries={entries} entry={a.entry} save={save} />}
             {attackSummaries.map(summary => <div key={summary.form ?? 'weapon'} className="col">
               {summary.form && <strong>{summary.form} form</strong>}
@@ -1611,7 +1615,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             {upgradeWeapon && a.entry && !linkedSource && <>
               {(w.runes.length > 0 || w.potency > 0 || w.striking > 0) && <small role="status">Saved runes are inactive on this weapon.</small>}
               <WeaponUpgrades entries={entries} weapon={a.entry} upgrades={w.upgrades ?? []}
-                limit={typeof a.entry.data.upgrade_slots === 'number' ? a.entry.data.upgrade_slots : undefined}
+                limit={typeof a.entry.data.upgrade_slots === 'number' ? Math.max(0, a.entry.data.upgrade_slots - (a.entry.data.raptorial_edge ? 1 : 0)) : undefined}
                 onChange={upgrades => update(w.id, { upgrades })} />
             </>}
             {!fixed && !upgradeWeapon && !(unarmed && handwraps?.kind === 'hardlight' && !iruxiGranted) && <Runes runes={livingWeapon ? shared.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(shared.potency))

@@ -4153,12 +4153,14 @@ export function weaponHasAncestryTrait(weapon: ContentEntry, entries: ContentEnt
 
 export function unconventionalWeaponChoice(entries: ContentEntry[], name: string) {
   const entry = weaponEntry(entries, name)
+  if (typeof entry?.data.proficiency_base === 'string') return entry.data.proficiency_base
   return entry?.data.weapon_grade_family === 'homebrew:slarp-rapid-laser-pistol'
     ? 'Rapid Laser Pistol' : combinationName(entries, name)
 }
 
 function unconventionalWeapon(c: Character, entries: ContentEntry[], weapon: ContentEntry) {
   const name = combinationName(entries, weapon.name)
+  const proficiencyWeapon = weaponEntry(entries, unconventionalWeaponChoice(entries, name)) ?? weapon
   const identity = (value: string) => {
     const resolved = weaponEntry(entries, unconventionalWeaponChoice(entries, value))
     if (/^Shobhad Longrifle(?: \((?:Pathfinder|Starfinder)\))?$/.test(value) && resolved)
@@ -4169,7 +4171,7 @@ function unconventionalWeapon(c: Character, entries: ContentEntry[], weapon: Con
     return combinationName(entries, value)
   }
   return activeFeatsNamed(c, 'Unconventional Weaponry').find(feat => !!feat.choice && identity(feat.choice) === identity(name)
-    && (uncommonWeapon(weapon) || !featRarity(weapon)
+    && (uncommonWeapon(proficiencyWeapon) || !featRarity(proficiencyWeapon)
       || /^Shobhad Longrifle(?: \(Pathfinder\))?$/.test(weapon.name) && featRarity(weapon) === 'Rare' && feat.rareWeaponOverride)
     && featChoiceOptions(feat.name, c, entries, feat.slot ?? '', c.feats.indexOf(feat))?.some(option => identity(option) === identity(name)))
 }
@@ -6833,7 +6835,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     pristineWeapon,
     rageDamage,
     areaAttacks,
-    additionalDamage: [...supportDamage, ...(dragonDamage ? [{ source: 'Draconic Rage', value: `${rageDamage} ${dragonDamage}`, note: 'Additional damage from Draconic Rage.' }] : []),
+    additionalDamage: [...supportDamage, ...(entry?.data.raptorial_edge ? [{ source: 'Raptorial Edge', value: '1d6 acid',
+      note: `${upgrades.some(upgrade => upgrade.name === 'Merciful') ? 'Merciful suppresses persistent damage.' : `Critical hit: ${w.raptorialImproved ? '2d10' : '1d10'} persistent acid damage.`}${w.raptorialImproved ? ' Acid damage ignores acid resistance.' : ''}` }] : []),
+      ...(dragonDamage ? [{ source: 'Draconic Rage', value: `${rageDamage} ${dragonDamage}`, note: 'Additional damage from Draconic Rage.' }] : []),
       ...(elementalDamage ? [{ source: 'Elemental Rage', value: `${rageDamage} ${elementalDamage}`, note: 'Additional damage from Elemental Rage.' }] : []), ...(formAttack ? [
       ...(formAttack.data.persistent_bleed && form
         ? [{ source: form.source, value: `${formAttack.data.persistent_bleed} persistent bleed`, note: 'Persistent bleed from the Deinonychus talon.' }] : []),

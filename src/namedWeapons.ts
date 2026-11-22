@@ -41,6 +41,11 @@ const BASES: Record<string, string[]> = {
   'Whisperer of Souls': ['Glaive'],
 }
 const ACTIONS: Record<string, { name: string; actions: string }[]> = {
+  'Starday Night Special': [{ name: 'Lucky Bullet', actions: 'Free Action' }],
+  SLARP: [{ name: 'Sample Return', actions: 'Free Action' }],
+  'Liminal Laser Rifle': [{ name: 'Liminal Lock', actions: 'Single Action' }],
+  'Stun Stick': [{ name: 'Short, Sharp Shock', actions: 'Single Action' }],
+  'Raptorial Edge': [{ name: 'Mind Slice', actions: 'Free Action' }],
   'Wintershot (Artifact)': [{ name: 'Auroral Shine', actions: 'Single Action' }, { name: 'Signal Flare', actions: 'Single Action' },
     { name: 'Rimecrust', actions: 'Two Actions' }],
   Shadowpiercer: [{ name: 'Absorb Shadows', actions: 'Two Actions' }, { name: 'Rebuff Gloom', actions: 'Reaction' }],
@@ -287,8 +292,8 @@ export function namedWeaponDamage(entry?: ContentEntry) {
 }
 
 export function namedWeaponAbilities(entry?: ContentEntry) {
-  if (!entry?.data.named_weapon) return []
-  const source = String(entry.data.named_weapon_source)
+  if (!entry?.data.named_weapon && !entry?.data.special_weapon_source) return []
+  const source = String(entry.data.special_weapon_source ?? entry.data.named_weapon_source)
   const definitions = ACTIONS[source] ?? []
   const blocks = entry.description.split(/\n\n-{3,}\s*\n\n/)
   const statBlock = blocks.length > 2 && /^Perception\b/.test(blocks[1].trim()) ? blocks[1] : ''

@@ -78,6 +78,7 @@ export interface OwnedWeapon {
   }
   combinationForm?: 'Melee' | 'Ranged'
   weaponMode?: string
+  raptorialImproved?: boolean
   stowed?: boolean
   cheekStored?: boolean
   cheekHolstered?: boolean
