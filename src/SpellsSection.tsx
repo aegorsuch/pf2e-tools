@@ -1455,6 +1455,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               ? { note: grant.rule.condition, dc: undefined, attackBonus: undefined, spellcastingModifier: undefined } : grantDetails(grant)
             return <SpellItem c={c} key={`${grant.usageKey}:${grant.entry.name}`} name={grant.entry.name}
               entry={grant.entry} rank={grant.rank} note={details.note} saveDC={details.dc} attackBonus={details.attackBonus} spellcastingModifier={details.spellcastingModifier}
+              actionControls={grant.source === 'Heroic Presence' ? <><ActionIcon actions="Single Action" />
+                <SourceNote source="Heroic Presence" note="A repugnant command immediately ends the effect on that target." /></> : undefined}
               inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
               effectControls={effectControls(grant.entry.name)} effectRank={activeRank(grant.entry.name)} {...buffProps(grant.entry.name)}>
               {controls(grant.entry.name, grant.rank, details.spellcastingModifier, grant.entry)}

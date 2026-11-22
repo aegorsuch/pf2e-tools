@@ -1006,6 +1006,21 @@ it("grants Heroism from Heroes' Call as a third-rank daily innate occult spell",
   }])
 })
 
+it('provides Heroic Presence as a once-daily rank 6 Zealous Conviction effect', () => {
+  const spell = { ...entry('Zealous Conviction', 'spell', { actions: 'Two Actions' }), level: 6 }
+  const c: Character = { ...base, systems: ['pf2e'], level: 17, feats: [taken('Heroic Presence', 17)] }
+  updateSettings({ innateAutoHeighten: true })
+  const [grant] = grantedFeatSpells(c, [spell])
+  expect(grant).toMatchObject({ entry: spell, source: 'Heroic Presence', rank: 6,
+    rule: { kind: 'feat', frequency: 'once per day' } })
+  expect(dailyInnateUses(c, grant)?.limit).toBe(1)
+  expect(unresolvedFeatSpells(c, [])).toMatchObject([{ name: 'Zealous Conviction' }])
+  expect(grantedFeatSpells({ ...c, level: 16 }, [spell])).toEqual([])
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
+  expect(markup).toContain('aria-label="Single Action"')
+  expect(markup).toContain('A repugnant command immediately ends the effect on that target.')
+})
+
 it.each([
   ["Stonegate", 'You gain [_magic passage_](Spells.aspx?ID=1591) as a 7th-rank divine innate spell that you can cast once per day.',
     'Magic Passage', 7, 'divine', 'once per day', 'pf2e'],

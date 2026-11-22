@@ -470,6 +470,13 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: 4, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
       continue
     }
+    if (feat.name === 'Heroic Presence' && c.systems.includes('pf2e')) {
+      const entry = matchingSpells(entries, 'Zealous Conviction').find(spell => spell.systems.includes('pf2e'))
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'feat', spells: [entry.name], frequency: 'once per day' },
+        rank: 6, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+      continue
+    }
     if (feat.name === 'Plant Shape' && c.systems.includes('pf2e')) {
       const rank = highestDruidSlotRank(c)
       if (!hasUntamedForm(c) && rank !== undefined && rank >= 5) {
@@ -808,6 +815,10 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
     if (feat.name === 'Celestial Mercy' && c.systems.includes('pf2e')) {
       return matchingSpells(entries, 'Cleanse Affliction').some(entry => entry.systems.includes('pf2e'))
         ? [] : [{ name: 'Cleanse Affliction', source }]
+    }
+    if (feat.name === 'Heroic Presence' && c.systems.includes('pf2e')) {
+      return matchingSpells(entries, 'Zealous Conviction').some(entry => entry.systems.includes('pf2e'))
+        ? [] : [{ name: 'Zealous Conviction', source }]
     }
     if (feat.name === 'Halo' && c.systems.includes('pf2e')) {
       return matchingSpells(entries, 'Light').some(entry => entry.systems.includes('pf2e')) ? [] : [{ name: 'Light', source }]
