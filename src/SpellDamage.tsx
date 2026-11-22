@@ -128,6 +128,11 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       ], note: 'Treat resistances as 10 lower' }] : []
     case 'Fireball':
       return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
+    case 'Vampiric Feast':
+      return rank >= 3 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'void' }] : []
+    case 'Blood Vendetta':
+      return rank >= 2 ? [{ label: 'Persistent damage', dice: 2 + 2 * Math.floor((rank - 2) / 2),
+        sides: 6, type: 'bleed' }] : []
     case 'Phantom Pain':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 4, type: 'mental',
         additional: { label: 'Persistent damage', dice: rank, sides: 4, type: 'persistent mental' } }] : []

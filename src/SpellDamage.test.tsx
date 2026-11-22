@@ -734,6 +734,34 @@ it('shows Blood-Feasting Breath damage without save outcomes', () => {
   expect(spellDamage('Blood-Feasting Breath', 4)).toEqual([])
 })
 
+it.each([
+  ['Vampiric Feast', 2, 0, 'void', 'Two Actions'],
+  ['Vampiric Feast', 3, 6, 'void', 'Two Actions'],
+  ['Vampiric Feast', 5, 10, 'void', 'Two Actions'],
+  ['Vampiric Feast', 10, 20, 'void', 'Two Actions'],
+  ['Blood Vendetta', 1, 0, 'bleed', 'Reaction'],
+  ['Blood Vendetta', 2, 2, 'bleed', 'Reaction'],
+  ['Blood Vendetta', 3, 2, 'bleed', 'Reaction'],
+  ['Blood Vendetta', 4, 4, 'bleed', 'Reaction'],
+  ['Blood Vendetta', 10, 10, 'bleed', 'Reaction'],
+])('rolls %s at rank %i as %id6 %s', (name, rank, dice, type, actions) => {
+  const entry: ContentEntry = { id: name, name, systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: name === 'Vampiric Feast' ? 3 : 2, traits: [], description: '',
+    data: { actions }, effects: [], updatedAt: 0 }
+  const damage = spellDamage(name, rank)[0]
+  if (!dice) {
+    expect(damage).toBeUndefined()
+    return
+  }
+  expect(damage).toMatchObject({ dice, sides: 6, type })
+  expect(renderToStaticMarkup(<SpellActions name={name} rank={rank} entry={entry} />))
+    .toContain(`${dice}d6 ${type}`)
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rollSpellDamage(damage)).toBe(dice)
+  vi.mocked(Math.random).mockReturnValue(0.999999)
+  expect(rollSpellDamage(damage)).toBe(dice * 6)
+})
+
 it.each([[6, 6], [7, 7], [10, 10]])("rolls Poltergeist's Fury at rank %i as %id4 piercing", (rank, dice) => {
   const entry: ContentEntry = { id: 'poltergeist', name: "Poltergeist's Fury", systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 6, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }
