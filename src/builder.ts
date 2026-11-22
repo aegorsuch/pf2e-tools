@@ -1724,6 +1724,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       .filter(damage => damage !== c.elementalDamage).map(cap) : []
   }
   if (name === 'Planar Resilience' && c.systems.includes('pf2e')) return ['Cold', 'Fire']
+  if (name === 'Bestial Manifestation' && c.systems.includes('pf2e')) return ['Claw', 'Hoof', 'Jaws', 'Tail']
   if (name === 'Sublime Mobility' && c.systems.includes('pf2e')) return ['Climb', 'Swim']
   if (name === 'Nephilim Lore' && c.systems.includes('pf2e')) return ['Diplomacy', 'Intimidation']
   if (name === 'Sanctified Soul' && c.systems.includes('pf2e')) return ['Holy', 'Unholy']
@@ -5150,6 +5151,19 @@ const DWARF_CLAN_PISTOL_ID = 'granted-weapon:dwarf:clan-pistol'
 const DWARF_CLAN_DAGGER_ID = 'granted-weapon:dwarf:clan-dagger'
 
 const iruxiAttackIds = new Set([IRUXI_CLAWS.id, IRUXI_FANGS.id, IRUXI_TAIL.id, TENGU_BITE.id, TENGU_DOGFANG_BITE.id])
+const nephilimAttackBase: ContentEntry = { ...FIST, systems: ['pf2e'],
+  description: 'Bestial Manifestation grants this unarmed attack.',
+  data: { ...FIST.data, url: 'https://2e.aonprd.com/Feats.aspx?ID=4548' } }
+const nephilimAttacks: ContentEntry[] = [
+  { ...nephilimAttackBase, id: 'pf2e:nephilim:claw', name: 'Claw',
+    traits: ['Agile', 'Finesse', 'Unarmed', 'Versatile P'], data: { ...nephilimAttackBase.data, damage: '1d4 slashing' } },
+  { ...nephilimAttackBase, id: 'pf2e:nephilim:hoof', name: 'Hoof',
+    traits: ['Finesse', 'Unarmed'], data: { ...nephilimAttackBase.data, damage: '1d6 bludgeoning' } },
+  { ...nephilimAttackBase, id: 'pf2e:nephilim:jaws', name: 'Jaws',
+    traits: ['Finesse', 'Unarmed'], data: { ...nephilimAttackBase.data, damage: '1d6 piercing' } },
+  { ...nephilimAttackBase, id: 'pf2e:nephilim:tail', name: 'Tail',
+    traits: ['Agile', 'Finesse', 'Unarmed'], data: { ...nephilimAttackBase.data, damage: '1d4 bludgeoning' } },
+]
 const ysokiJaws: ContentEntry[] = [
   { ...FIST, id: 'sf2e:ysoki:jaws', name: 'Jaws', systems: ['sf2e'],
     traits: ['Agile', 'Finesse', 'Unarmed'], data: { ...FIST.data, damage: '1d4 piercing' } },
@@ -5559,10 +5573,11 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   }
   const featAttacks = entries.filter(entry => entry.kind === 'weapon' && !entry.deleted
     && typeof entry.data.granted_by_feat === 'string')
+  const importedNephilimAttacks = new Set(featAttacks.filter(entry => entry.data.granted_by_feat === 'Bestial Manifestation').map(entry => entry.id))
   const legacyTusksJaws = new Set(featAttacks.filter(entry => entry.data.granted_by_feat === 'Tusks'
     && entry.name === 'Jaws').map(entry => entry.id))
   for (const entry of featAttacks) {
-    if (legacyTusksJaws.has(entry.id) || !entry.systems.some(system => c.systems.includes(system))) continue
+    if (legacyTusksJaws.has(entry.id) || importedNephilimAttacks.has(entry.id) || !entry.systems.some(system => c.systems.includes(system))) continue
     const featName = String(entry.data.granted_by_feat)
     const selectedFeat = activeFeatsNamed(c, featName).find(feat =>
       !entry.data.granted_by_feat_choice
@@ -5633,6 +5648,8 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const iruxiAttacks = activeFeatsNamed(c, 'Iruxi Armaments').flatMap(feat =>
     feat.choice === 'Claws' ? [IRUXI_CLAWS] : feat.choice === 'Fangs' ? [IRUXI_FANGS]
       : feat.choice === 'Tail' ? [IRUXI_TAIL] : [])
+  const nephilimSelected = c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Bestial Manifestation').flatMap(feat =>
+    nephilimAttacks.filter(entry => entry.name === feat.choice)) : []
   const nativeJaws = c.systems.includes('sf2e') && c.ancestry === 'Ysoki'
     ? [ysokiJaws[c.heritage === 'Fierce Ysoki' ? 1 : 0]] : []
   const tenguBite = c.systems.includes('pf2e') && c.ancestry === 'Tengu'
@@ -5647,7 +5664,8 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const cards = activeFeatsNamed(c, "Fane's Fourberie").length && c.activeStance === "Fane's Fourberie"
     ? PLAYING_CARD_WEAPONS.filter(card => !!byName(entries, 'weapon', card.base)) : []
   const available = weapons.filter((weapon) =>
-    !legacyTusksJaws.has(weapon.id)
+    !legacyTusksJaws.has(weapon.id) && !importedNephilimAttacks.has(weapon.id)
+    && (!nephilimAttacks.some(entry => entry.id === weapon.id) || nephilimSelected.some(entry => entry.id === weapon.id))
     && (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks)
     && (weapon.name !== CAIRN_FIST.name || cairnAttacks.length > 0)
     && (weapon.name !== SPARK_FIST.name || sparkAttacks.length > 0)
@@ -5665,10 +5683,10 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (![...animalAttacks, UNTAMED_CLAWS, UNTAMED_JAWS].some((entry) => entry.name === weapon.name)
       || [...selectedAttacks, ...untamedAttacks].some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...tenguBite, ...nativeJaws, ...brutalAttacks, ...predatoryAttacks, ...witchSelected, ...venomousJaws,
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...nephilimSelected, ...tenguBite, ...nativeJaws, ...brutalAttacks, ...predatoryAttacks, ...witchSelected, ...venomousJaws,
     ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []),
     ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...bestialAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
-    if (!available.some((weapon) => iruxiAttackIds.has(entry.id) || witchAttackIds.has(entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {
+    if (!available.some((weapon) => iruxiAttackIds.has(entry.id) || witchAttackIds.has(entry.id) || nephilimAttacks.some(attack => attack.id === entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {
       available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
   }
@@ -5961,7 +5979,7 @@ export function activeUntamedShiftEffects(c: Character, entries: ContentEntry[])
 }
 
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, CAIRN_FIST.name, SPARK_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name, UNTAMED_CLAWS.name, UNTAMED_JAWS.name].includes(name)
-  || bestialWeapons.some(entry => entry.name === name) || [...ysokiJaws, ...veskAttacks, ...pahtraAttacks, ...witchAttacks, venomousVeskJaws].some(entry => entry.name === name)
+  || bestialWeapons.some(entry => entry.name === name) || [...ysokiJaws, ...veskAttacks, ...pahtraAttacks, ...witchAttacks, ...nephilimAttacks, venomousVeskJaws].some(entry => entry.name === name)
 export const PLAYING_CARD_WEAPONS = [
   { id: 'playing-card:dagger', name: 'Dagger (Playing Card)', base: 'Dagger' },
   { id: 'playing-card:dart', name: 'Dart (Playing Card)', base: 'Dart' },
@@ -6025,7 +6043,7 @@ function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) 
   if (id === solarianFlare.id || name === solarianFlare.name) return solarianFlare
   if (id === 'sf2e:solarian:solar-weapon' || name === 'Solar Weapon') return solarianWeaponEntry(false)
   if (id === 'sf2e:solarian:twin-weapon' || name === 'Twin Solar Weapon') return solarianWeaponEntry(true)
-  const jaws = [...ysokiJaws, ...veskAttacks, ...pahtraAttacks, ...witchAttacks, venomousVeskJaws].find(entry => id ? entry.id === id : entry.name === name)
+  const jaws = [...ysokiJaws, ...veskAttacks, ...pahtraAttacks, ...witchAttacks, ...nephilimAttacks, venomousVeskJaws].find(entry => id ? entry.id === id : entry.name === name)
   if (jaws) return jaws
   const bestial = id ? bestialWeapon(id) : bestialWeapons.find(entry => entry.name === name)
   if (bestial) return bestial

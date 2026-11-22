@@ -29,6 +29,26 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it.each([
+  ['Claw', '1d4 slashing', ['Agile', 'Finesse', 'Unarmed', 'Versatile P']],
+  ['Hoof', '1d6 bludgeoning', ['Finesse', 'Unarmed']],
+  ['Jaws', '1d6 piercing', ['Finesse', 'Unarmed']],
+  ['Tail', '1d4 bludgeoning', ['Agile', 'Finesse', 'Unarmed']],
+])('grants the selected Bestial Manifestation %s attack', (choice, damage, traits) => {
+  const feat = { name: 'Bestial Manifestation', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice }
+  const c: Character = { ...base, feats: [feat] }
+  expect(featChoiceOptions(feat.name, c, [], feat.slot)).toEqual(['Claw', 'Hoof', 'Jaws', 'Tail'])
+  const attacks = ownedWeapons(c, []).filter(weapon => weapon.id.startsWith('pf2e:nephilim:'))
+  expect(attacks).toHaveLength(1)
+  const entry = weaponEntry([], attacks[0].name, attacks[0].id)
+  expect(entry?.data).toMatchObject({ damage, weapon_group: 'Brawling', weapon_category: 'Unarmed' })
+  expect(entry?.traits).toEqual(traits)
+  expect(weaponAttack(c, [], attacks[0]).traits).toEqual(expect.arrayContaining(traits))
+  expect(isLockedWeapon(c, attacks[0].name, [], attacks[0].id)).toBe(true)
+  expect(ownedWeapons({ ...c, level: 0, weapons: attacks }, []).some(weapon => weapon.id === attacks[0].id)).toBe(false)
+  expect(ownedWeapons({ ...c, feats: [{ ...feat, choice: undefined }] }, []).some(weapon => weapon.id.startsWith('pf2e:nephilim:'))).toBe(false)
+})
+
 it('uses the unpenalized melee attack for Reactive Strike regardless of Rage', () => {
   const weapon: ContentEntry = { id: 'reactive-blade', systems: ['pf2e'], name: 'Reactive Blade', kind: 'weapon',
     source: 'official', level: 0, traits: [], description: '', effects: [], updatedAt: 0,
