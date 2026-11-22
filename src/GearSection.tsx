@@ -7,7 +7,7 @@ import { newId } from './db'
 import { blessedShieldBenefit, canEquipShield, championBlessings, clanPistolRunes, equippedHands, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { isAncestralEmbrace, isScaleOfIgroonShield, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
-import { Info, SourceNote } from './Info'
+import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ABILITY_LABEL, APEX_AUGMENTATIONS, activeApexAugmentation, armorBulk, armorStrengthMet, installedApexAugmentations } from './builder'
 import { barbarianInstinct, classHandwrapKind, isGiantWeapon } from './builder'
@@ -1446,7 +1446,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             note={`Ignores concealment from mist or precipitation; negates strong-wind attack penalties${a.entry?.data.named_weapon_source === 'Wintershot' ? ' up to -2' : ''}. Activations are tracked manually.`} />}
           {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && abilities.every(ability => ability.name === 'Summary' || ability.name === 'Senses')
             && <small role="status">Wintershot activation details unavailable. Sync content or open its item description.</small>}
-          {abilities.filter(ability => !displayOnly || ability.name !== 'Summary').map(ability => <details key={ability.name}>
+          {abilities.filter(ability => ability.name !== 'Summary').map(ability => <details key={ability.name}>
             <summary>{ability.name} <ActionIcon actions={ability.actions} />
               {namedSource === 'Briar' && ability.name === 'Oaken Resilience' && <label onClick={event => event.stopPropagation()}>
                 {' '}<input type="checkbox" aria-label="Briar Oaken Resilience active" checked={!!w.briarOakenResilienceActive}
@@ -1548,10 +1548,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 {[...ARMOR_GAUNTLETS].sort((a, b) => a.localeCompare(b)).map((name) => <option key={name}>{name}</option>)}
               </select>
             </label>}
-            {forms.length > 0
-              ? attackSummaries.map(summary => summary.attack.entry?.description && !summary.attack.entry.data.named_weapon && !summary.attack.entry.data.special_weapon_source
-                && <Info key={summary.form} label={`${summary.form} summary`}>{summary.attack.entry.description}</Info>)
-              : a.entry?.description && !a.entry.data.named_weapon && !a.entry.data.special_weapon_source && <Info label="Summary">{a.entry.description}</Info>}
             {a.entry && !grantedClanWeapon && <GearAccess c={c} entries={entries} entry={a.entry} save={save} />}
             {attackSummaries.map(summary => <div key={summary.form ?? 'weapon'} className="col">
               {summary.form && <strong>{summary.form} form</strong>}

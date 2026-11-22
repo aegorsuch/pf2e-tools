@@ -85,7 +85,7 @@ it('implements Debilitating Dart as a returning dart with its conditional saving
       expect(html).not.toContain('Named weapon enhancement details unavailable')
       expect(html).toMatch(/Damage 2d4\+2 P<button[^>]*aria-label="Debilitating Dart note"/)
       expect(html.match(/aria-label="Debilitating Dart note"/g)).toHaveLength(1)
-      if (displayOnly) expect(html).not.toContain('<summary>Summary')
+      expect(html).not.toContain('<summary>Summary')
       const maxLevel = renderToStaticMarkup(<WeaponList c={{ ...level20, weapons: [owned(item.name)] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)
       expect(maxLevel).toContain('>Impossible</button>')
       expect(maxLevel).toContain('>Cunning</button>')
@@ -97,7 +97,7 @@ it('implements Debilitating Dart as a returning dart with its conditional saving
   expect(gearPickerEntries([item], 'weapon').some(entry => entry.name === item.name)).toBe(false)
 })
 
-it('places passive strike effects beside damage and hides only the offense summary', () => {
+it('places passive strike effects beside damage and hides duplicate summaries', () => {
   const item: ContentEntry = { ...winter, id: 'hunter', name: 'Splithead Bow', description: [
     'Base Weapon Composite Longbow. A +1 magic composite longbow.',
     'A creature struck by this bow is dazzled for 1 round.',
@@ -109,8 +109,7 @@ it('places passive strike effects beside damage and hides only the offense summa
     expect(html).toMatch(/Damage 1d8\+1 P<button[^>]*aria-label="Splithead Bow note"/)
     expect(html).toContain('A creature struck by this bow is dazzled for 1 round.')
     expect(html).toContain('<summary>Dazzling Arrow ')
-    if (displayOnly) expect(html).not.toContain('<summary>Summary')
-    else expect(html).toContain('<summary>Summary')
+    expect(html).not.toContain('<summary>Summary')
   }
 })
 
@@ -452,10 +451,11 @@ it('keeps Serithtial blade selection and item abilities in Equipment only', () =
   const offense = render(true)
   expect(equipment).toContain('aria-label="Serithtial weapon type"')
   expect(offense).not.toContain('aria-label="Serithtial weapon type"')
-  for (const heading of ['Senses', 'Summary', 'Grace of the Inheritor', 'Destruction']) {
+  for (const heading of ['Senses', 'Grace of the Inheritor', 'Destruction']) {
     expect(equipment).toContain(`<summary>${heading} `)
     expect(offense).not.toContain(`<summary>${heading} `)
   }
+  expect(equipment).not.toContain('<summary>Summary ')
   expect(offense).toContain('Damage ')
 })
 
@@ -787,8 +787,7 @@ it.each([false, true])('shows named weapon properties, action costs, reactions a
   expect(gun).toContain('6d8 cold')
   expect(gun).toContain('high-grade cold siccatite')
   const last = render('Final Stand')
-  if (displayOnly) expect(last).not.toContain('<summary>Summary ')
-  else expect(last).toContain('<summary>Summary ')
+  expect(last).not.toContain('<summary>Summary ')
   expect(last).toContain('DC 11 flat check')
   expect(last).toContain('cannot regain HP')
   expect(last).toContain('<summary>Destruction ')

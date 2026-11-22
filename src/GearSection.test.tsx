@@ -1962,6 +1962,14 @@ it('keeps Grievous visible as a rune but excludes it from both damage displays',
   expect(markup).toContain('aria-label="Remove Grievous rune"')
 })
 
+it('keeps weapon descriptions in the item dialog without a separate equipment summary', () => {
+  const c = character([])
+  const entry = { ...weapon, description: 'A distinctive weapon description.' }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[entry]} save={() => {}} />)
+  expect(markup).toContain('A distinctive weapon description.')
+  expect(markup).not.toContain('<summary>Summary</summary>')
+})
+
 it.each(['Bloodthirsty', 'Cunning', 'Greater Bloodthirsty', 'Cunning (Greater)'])(
   'keeps %s visible as a rune without adding its name to damage', (rune) => {
     const c = character([])
