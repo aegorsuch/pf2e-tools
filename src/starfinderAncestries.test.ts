@@ -1,8 +1,8 @@
 import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
-import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
-import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, hasParryWeapon, isGrantedSlot, maxHp, movementSpeeds, ownedShields, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, shieldAcBonus, shieldRaisedChange, speed, tailbladeInheritance, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
+import { automaticFeatChoiceKey, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
+import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, computeAbilities, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, hasParryWeapon, isGrantedSlot, maxHp, movementSpeeds, ownedShields, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, shieldAcBonus, shieldRaisedChange, speed, tailbladeInheritance, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 import { getSettings, updateSettings } from './settings'
 
@@ -47,6 +47,34 @@ it('grants heritage training, duplicate replacement slots and fixed skill feats'
   const soldier: Character = { ...base, className: 'Soldier', ancestry: 'Vesk', heritage: 'Frilled Vesk' }
   expect(ranksAt(soldier, entries).Intimidation).toBe(1)
   expect(additionalSkillCount(soldier, entries)).toBe(additionalSkillCount({ ...soldier, heritage: undefined }, entries) + 1)
+})
+
+it('applies Damaya Lashunta ability adjustments, Diplomacy and Additional Lore from the real catalog', () => {
+  const catalog = mapAonHits(hits.filter(hit => ['Lashunta', 'Damaya Lashunta'].includes(String(hit._source?.name))
+    && ['ancestry', 'heritage'].includes(String(hit._source?.category))), 'sf2e')
+  const heritage = catalog.find(entry => entry.name === 'Damaya Lashunta')!
+  const c: Character = { ...base, className: undefined, ancestry: 'Lashunta', heritage: heritage.name,
+    boosts: { 'ancestry:1': 'int' },
+    automaticFeatChoices: { [automaticFeatChoiceKey(heritage.name, 'Additional Lore')]: 'Astronomy' } }
+  expect(heritage.data).toMatchObject({ heritage_ability_boosts: 'Intelligence', heritage_ability_flaws: 'Constitution',
+    heritage_free_boost_exclusions: 'Intelligence', grants_skill: 'Diplomacy', grants_heritage_feats: 'Additional Lore' })
+  expect(boostSlots(c, catalog)).toEqual(expect.arrayContaining([
+    expect.objectContaining({ fixed: 'int' }),
+    expect.objectContaining({ key: 'ancestry:1', options: expect.not.arrayContaining(['int']) }),
+  ]))
+  expect(ancestryFlaws(c, catalog)).toContain('con')
+  expect(computeAbilities(c, catalog)).toMatchObject({ int: 12, con: 8 })
+  expect(ranksAt(c, catalog).Diplomacy).toBe(1)
+  expect(automaticFeatGrants(c, catalog)).toContainEqual({ name: 'Additional Lore', source: heritage.name, level: 1 })
+  expect(featLores(c, catalog)).toContain('Astronomy Lore')
+  for (const [level, rank] of [[1, 1], [3, 2], [7, 3], [15, 4]]) {
+    expect(ranksAt({ ...c, level }, catalog)['Astronomy Lore']).toBe(rank)
+  }
+  const background: ContentEntry = { id: 'envoy-background', name: 'Envoy Background', kind: 'background', systems: ['sf2e'],
+    source: 'official', level: 1, traits: [], description: '', data: { skill: 'Diplomacy' }, effects: [], updatedAt: 0 }
+  const withBackground = { ...c, background: background.name }
+  expect(additionalSkillCount(withBackground, [...catalog, background])
+    - additionalSkillCount({ ...withBackground, heritage: undefined }, [...catalog, background])).toBe(1)
 })
 
 it('grants doshko training and Vesk weapon familiarity without affecting unrelated weapons', () => {
@@ -156,6 +184,26 @@ it('grants Lush Psychic primal innate spells with independent daily uses', () =>
   } finally {
     updateSettings({ innateAutoHeighten: previous })
   }
+})
+
+it('grants Tectonic Psychic Wall of Fire and reports the missing Uncanny Eruption', () => {
+  const previous = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: false })
+  try {
+    const catalog = mapAonHits(hits.filter(hit => ['Tectonic Psychic', 'Wall of Fire', 'Uncanny Eruption']
+      .includes(String(hit._source?.name))), 'sf2e')
+    const feat = catalog.find(entry => entry.kind === 'feat' && entry.name === 'Tectonic Psychic')!
+    const c: Character = { ...base, ancestry: 'Lashunta', level: 17,
+      feats: [{ name: feat.name, sourceId: feat.id, type: 'Ancestry Feat', level: 17 }] }
+    const grants = grantedFeatSpells(c, catalog)
+    expect(grants).toMatchObject([{ entry: { name: 'Wall of Fire' }, rank: 7,
+      rule: { kind: 'innate', tradition: 'primal', frequency: 'once per day' } }])
+    expect(dailyInnateUses(c, grants[0])?.remaining).toBe(1)
+    expect(unresolvedFeatSpells(c, catalog).map(item => item.name)).toEqual(['Uncanny Eruption'])
+    expect(grantedFeatSpells({ ...c, level: 16 }, catalog)).toEqual([])
+    updateSettings({ innateAutoHeighten: true })
+    expect(grantedFeatSpells(c, catalog)[0].rank).toBe(9)
+  } finally { updateSettings({ innateAutoHeighten: previous }) }
 })
 
 it('applies Lashunta ancestral weapon familiarity to every grade of its listed weapons', () => {

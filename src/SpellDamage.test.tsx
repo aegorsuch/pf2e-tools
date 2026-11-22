@@ -23,6 +23,16 @@ it('rolls Verdant Code piercing damage without inventing heightening', () => {
   }
 })
 
+it('rolls Wall of Fire damage at its actual cast rank', () => {
+  const entry: ContentEntry = { id: 'wall-of-fire', name: 'Wall of Fire', systems: ['sf2e'], kind: 'spell',
+    source: 'official', level: 4, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 3)).toEqual([])
+  for (const rank of [4, 7, 10]) {
+    expect(spellDamage(entry.name, rank)).toEqual([{ label: 'Damage', dice: rank, sides: 6, type: 'fire' }])
+    expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)).toContain(`${rank}d6 fire`)
+  }
+})
+
 it.each([
   [0, 'Supernova', 'fire', 'electricity', undefined],
   [1, 'Earthquake', 'bludgeoning', undefined, undefined],

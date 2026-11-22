@@ -413,20 +413,60 @@ it('provides Psychic Mastery a common rank 2 occult spell slot and daily use', (
   } finally { updateSettings({ innateAutoHeighten: previous }) }
 })
 
+it('provides Psychic Paragon a common rank 6 occult spell slot and daily use', () => {
+  const previous = getSettings().innateAutoHeighten
+  const occult = { ...entry('Occult Six', 'spell', { tradition: 'Occult' }), systems: ['sf2e' as const], level: 6 }
+  const spells = [occult, { ...occult, name: 'Rare Six', id: 'rare', traits: ['Rare'] },
+    { ...occult, name: 'Other Rank', id: 'other-rank', level: 2 },
+    { ...occult, name: 'Other Tradition', id: 'other-tradition', data: { tradition: 'Arcane' } },
+    { ...occult, name: 'Focus Six', id: 'focus', traits: ['Focus'] }]
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Lashunta', level: 17,
+    feats: [taken('Psychic Paragon', 17)] }
+  try {
+    updateSettings({ innateAutoHeighten: false })
+    expect(featSpellOptions(c, spells, c.feats[0])?.map(spell => spell.name)).toEqual(['Occult Six'])
+    const empty = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
+    expect(empty).toContain('Occult Spell Rank 6')
+    expect(empty).toContain('aria-label="Psychic Paragon spell"')
+    const selected = { ...c, feats: [taken('Psychic Paragon', 17, 'Occult Six')] }
+    const [grant] = grantedFeatSpells(selected, spells)
+    expect(grant).toMatchObject({ source: 'Psychic Paragon', rank: 6,
+      rule: { kind: 'innate', tradition: 'occult', frequency: 'once per day' } })
+    expect(dailyInnateUses(selected, grant)?.remaining).toBe(1)
+    const html = renderToStaticMarkup(<SpellsSection c={selected} entries={spells} save={() => {}} />)
+    expect(html).toContain('Clear Occult Six spell slot')
+    expect(html).toContain('1 of 1 uses remaining')
+    expect((html.match(/class="innate-spell-row"/g) ?? [])).toHaveLength(1)
+    expect(grantedFeatSpells({ ...selected, level: 16 }, spells)).toEqual([])
+    updateSettings({ innateAutoHeighten: true })
+    expect(grantedFeatSpells(selected, spells)[0].rank).toBe(9)
+  } finally { updateSettings({ innateAutoHeighten: previous }) }
+})
+
 it('shows Psychic Investigator innate spells with separate daily trackers', () => {
   const previous = getSettings().innateAutoHeighten
   updateSettings({ innateAutoHeighten: true })
   try {
-  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Lashunta', level: 13,
-    feats: [taken('Psychic Investigator', 13)] }
-  const spells = ['Hypercognition', 'Mind Reading'].map(name =>
-    ({ ...entry(name, 'spell'), systems: ['sf2e' as const], level: 3 }))
-  const html = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
-  expect(html).toContain('Hypercognition')
-  expect(html).toContain('Mind Reading')
-  expect(html).toContain('Occult Spell Rank 7')
-  expect((html.match(/1 of 1 uses remaining/g) ?? [])).toHaveLength(2)
+    const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Lashunta', level: 13,
+      feats: [taken('Psychic Investigator', 13)] }
+    const spells = ['Hypercognition', 'Mind Reading'].map(name =>
+      ({ ...entry(name, 'spell'), systems: ['sf2e' as const], level: 3 }))
+    const html = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
+    expect(html).toContain('Hypercognition')
+    expect(html).toContain('Mind Reading')
+    expect(html).toContain('Occult Spell Rank 7')
+    expect((html.match(/1 of 1 uses remaining/g) ?? [])).toHaveLength(2)
   } finally { updateSettings({ innateAutoHeighten: previous }) }
+})
+
+it('shows Tectonic Psychic Wall of Fire with its damage roll and missing spell warning', () => {
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Lashunta', level: 17,
+    feats: [taken('Tectonic Psychic', 17)] }
+  const spell = { ...entry('Wall of Fire', 'spell', { actions: 'Three Actions' }), systems: ['sf2e' as const], level: 4 }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
+  expect(html).toContain('aria-label="Roll Wall of Fire: Damage"')
+  expect(html).toContain('1 of 1 uses remaining')
+  expect(html).toContain('Spell data unavailable: Uncanny Eruption')
 })
 
 it('tracks Natural Illusionist alternatives in one daily pool with their specific heightened rank', () => {

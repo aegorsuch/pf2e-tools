@@ -14,6 +14,7 @@ export const automaticFeatChoiceKey = (source: string, feat: string) => JSON.str
 const PSYCHIC_FEAT_SPELLS: Record<string, { names: string[]; tradition: string; rank: number }> = {
   'Lush Psychic': { names: ['Cellular Stimulant', 'Gentle Landing'], tradition: 'primal', rank: 1 },
   'Psychic Investigator': { names: ['Hypercognition', 'Mind Reading'], tradition: 'occult', rank: 3 },
+  'Tectonic Psychic': { names: ['Wall of Fire', 'Uncanny Eruption'], tradition: 'primal', rank: 7 },
 }
 
 const domainSpellCache = new WeakMap<ContentEntry[], ContentEntry[]>()
@@ -193,8 +194,9 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
       && spellAccessGranted(c, spell))
       .sort((a, b) => a.name.localeCompare(b.name))
   }
-  if (feat.name === 'Psychic Mastery' && c.systems.includes('sf2e')) {
-    return spellIndex(entries).spells.filter(spell => spell.systems.includes('sf2e') && spell.level === 2
+  if (['Psychic Mastery', 'Psychic Paragon'].includes(feat.name) && c.systems.includes('sf2e')) {
+    const rank = feat.name === 'Psychic Mastery' ? 2 : 6
+    return spellIndex(entries).spells.filter(spell => spell.systems.includes('sf2e') && spell.level === rank
       && !spell.traits.some(trait => /^(?:cantrip|focus|uncommon|rare|unique)$/i.test(trait))
       && !/^(?:uncommon|rare|unique)$/i.test(String(spell.data.rarity ?? ''))
       && String(spell.data.tradition ?? '').split(',').some(tradition => /^occult$/i.test(tradition.trim()))
@@ -368,11 +370,11 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue
     }
-    if (feat.name === 'Psychic Mastery' && c.systems.includes('sf2e')) {
+    if (['Psychic Mastery', 'Psychic Paragon'].includes(feat.name) && c.systems.includes('sf2e')) {
       const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
       if (entry) out.push({ entry, source: feat.name,
         rule: { kind: 'innate', spells: [entry.name], tradition: 'occult', frequency: 'once per day' },
-        rank: 2, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+        rank: feat.name === 'Psychic Mastery' ? 2 : 6, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
       continue
     }
     const psychicSpells = c.systems.includes('sf2e') ? PSYCHIC_FEAT_SPELLS[feat.name] : undefined
