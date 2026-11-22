@@ -271,8 +271,14 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const saveFeatChanges = (patch: Partial<Character>) => {
     const next = { ...c, ...patch }
     const savedLevel = Math.max(next.level, ...next.feats.map(featTakenLevel))
-    const keys = new Set(plannedSlots({ ...next, level: savedLevel, dismissedFeatSlots: [] }, entries).map((slot) => slot.key))
-    const feats = next.feats.filter((feat) => !feat.slot || !isGrantedSlot(feat.slot) || keys.has(feat.slot))
+    let feats = next.feats
+    let keys: Set<string>
+    for (;;) {
+      keys = new Set(plannedSlots({ ...next, feats, level: savedLevel, dismissedFeatSlots: [] }, entries).map((slot) => slot.key))
+      const retained = feats.filter((feat) => !feat.slot || !isGrantedSlot(feat.slot) || keys.has(feat.slot))
+      if (retained.length === feats.length) break
+      feats = retained
+    }
     const remaining = new Set(feats.map((feat) => feat.name))
     const removed = new Set(c.feats.filter((feat) => !remaining.has(feat.name)).map((feat) => feat.name))
     const removedIds = new Set(entries.filter((entry) => entry.kind === 'feat' && removed.has(entry.name)).map((entry) => entry.id))
@@ -337,7 +343,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const removeSlot = (slot: PlannedSlot, extra: boolean) => {
     const selection = c.feats.find((feat) => feat.slot === slot.key)
     const remove = () => {
-      if (slot.grantedFeat || slot.redundantFeat || slot.grantedAncestry || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === "Operative's Specialization" || slot.grantedBy === 'Sniper' || slot.grantedBy === 'Social Chameleon' || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'Pitborn' || slot.grantedBy === 'In Another Life'
+      if (slot.grantedFeat || slot.redundantFeat || slot.grantedAncestry || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === "Operative's Specialization" || slot.grantedBy === 'Sniper' || slot.grantedBy === 'Social Chameleon' || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'Pitborn' || slot.grantedBy === 'Scion of Many Planes' || slot.grantedBy === 'In Another Life'
         || allSlots.filter((other) => other.category === slot.category && other.level === slot.level).length === 1) {
         choose(slot.key, slot.category, slot.level, '')
       } else if (extra) {
@@ -527,7 +533,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
           const classDedication = s.key === 'class:2:0' && !!s.grantedFeat
           const locked = !!homebrewDedication(s.key) || classDedication
-          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer' || s.grantedBy === 'Pitborn' || s.grantedBy === 'In Another Life'
+          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer' || s.grantedBy === 'Pitborn' || s.grantedBy === 'Scion of Many Planes' || s.grantedBy === 'In Another Life'
           const automaticOrderFeat = s.grantedBy === 'Order Explorer' && !!current
             && (() => {
               const eligible = eligibleFeats(entries, c, s)

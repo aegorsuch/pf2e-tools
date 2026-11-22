@@ -676,6 +676,43 @@ it('selects and replaces In Another Life ancestry feats and removes the grant wi
   expect(c.feats).toEqual([])
 })
 
+it('grants Scion of Many Planes a distinct Nephilim lineage and removes dependent grants with it', () => {
+  const source: ContentEntry = { id: 'scion', name: 'Scion of Many Planes', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 5, traits: ['Nephilim'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const grimspawn: ContentEntry = { ...source, id: 'grimspawn', name: 'Grimspawn', level: 1, traits: ['Nephilim', 'Lineage'] }
+  const pitborn: ContentEntry = { ...grimspawn, id: 'pitborn', name: 'Pitborn' }
+  const elfLineage: ContentEntry = { ...grimspawn, id: 'elf-lineage', name: 'Elf Lineage', traits: ['Elf', 'Lineage'] }
+  const otherNephilim: ContentEntry = { ...grimspawn, id: 'other', name: 'Other Nephilim', traits: ['Nephilim'] }
+  const athletic: ContentEntry = { ...source, id: 'athletic', name: 'Athletic Skill', level: 1,
+    traits: ['General', 'Skill'], data: { prerequisite: 'trained in Athletics' } }
+  const entries = [source, grimspawn, pitborn, elfLineage, otherNephilim, athletic]
+  let c: Character = { ...emptyRanger(), ancestry: 'Human', heritage: 'Nephilim', level: 5,
+    rankOverrides: { Athletics: 1 }, feats: [
+      { name: grimspawn.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+      { name: source.name, type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' },
+    ] }
+  const tree = (categories: ('ancestry' | 'skill')[]) => FeatSlots({ c, entries, categories,
+    save: patch => { c = { ...c, ...patch } } })
+  const key = 'ancestry:1:scion-of-many-planes:ancestry:5:0'
+  const slot = plannedSlots(c, entries).find(item => item.key === key)!
+  expect(slot).toMatchObject({ level: 5, category: 'ancestry', grantedBy: source.name })
+  expect(eligibleFeats(entries, c, slot).map(item => item.name)).toEqual(['Pitborn'])
+  expect(plannedSlots({ ...c, level: 4 }, entries).some(item => item.key === key)).toBe(false)
+  expect(plannedSlots({ ...c, systems: ['sf2e'] }, entries).some(item => item.key === key)).toBe(false)
+  expect(plannedSlots({ ...c, dismissedFeatSlots: [key] }, entries).some(item => item.key === key)).toBe(true)
+  findSelect(tree(['ancestry']), 'L05 Ancestry feat')!({ target: { value: pitborn.name } })
+  expect(c.feats.find(item => item.name === pitborn.name)).toMatchObject({ slot: key, takenLevel: 5, sourceId: pitborn.id })
+  expect(eligibleFeats(entries, c, slot).map(item => item.name)).toEqual(['Pitborn'])
+  const pitbornSlot = `skill:1:pitborn:${key}`
+  expect(plannedSlots(c, entries).some(item => item.key === pitbornSlot)).toBe(true)
+  findSelect(tree(['skill']), 'L05 Skill feat')!({ target: { value: athletic.name } })
+  expect(c.feats.find(item => item.name === athletic.name)?.slot).toBe(pitbornSlot)
+  findButton(tree(['ancestry']), 'Remove L05 Ancestry feat slot 0')!()
+  expect(c.feats.map(item => item.name)).toEqual(['Grimspawn'])
+  expect(c.entryIds).not.toContain(pitborn.id)
+  expect(c.entryIds).not.toContain(athletic.id)
+})
+
 it("shows Battle Medicine granted by Officer's Medical Training", () => {
   const battleMedicine: ContentEntry = { id: 'feat-5125', name: 'Battle Medicine', kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 1, traits: ['General', 'Healing', 'Manipulate', 'Skill'],

@@ -623,6 +623,7 @@ export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWi
   || key.startsWith('skill:1:mechanic-ingenuity:')
   || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
   || key.startsWith('general:1:social-chameleon:') || key.startsWith('ancestry:1:social-chameleon:')
+  || key.startsWith('ancestry:1:scion-of-many-planes:')
   || key === 'ancestry:1:in-another-life'
   || key === 'general:1:direwolf-bonded' || key === 'skill:1:scholar' || key.startsWith('skill:1:background:')
   || key === TORAG_BOON_FEAT_SLOT || key.includes(':redundant:')
@@ -796,6 +797,14 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     slots.push({ key: `skill:1:pitborn:${feat.slot ?? 'unslotted'}`, category: 'skill', level,
       maxFeatLevel: 1, grantedBy: 'Pitborn', grantedSkill: 'Athletics' })
   }
+  for (const feat of activeFeatsNamed(c, 'Scion of Many Planes')) {
+    if (!c.systems.includes('pf2e')) continue
+    const level = featTakenLevel(feat)
+    const group = `ancestry:${level}`
+    if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+    slots.push({ key: `ancestry:1:scion-of-many-planes:${feat.slot ?? 'unslotted'}`, category: 'ancestry', level,
+      grantedBy: 'Scion of Many Planes' })
+  }
   let unslottedRogue = 0
   const takenRackets = new Set([selectedSubclass(c)])
   for (const feat of [...c.feats].sort((a, b) => featTakenLevel(a) - featTakenLevel(b))) {
@@ -831,7 +840,7 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
   const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key) || !!slot.grantedFeat || !!slot.redundantFeat
     || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
     || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon'
-    || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'Pitborn' || slot.grantedBy === 'In Another Life' || slot.grantedBy === "Operative's Specialization"
+    || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'Pitborn' || slot.grantedBy === 'Scion of Many Planes' || slot.grantedBy === 'In Another Life' || slot.grantedBy === "Operative's Specialization"
     || slot.grantedBy === 'Sniper' || !!slot.grantedAncestry)
   for (const slot of slots) {
     if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
@@ -1466,6 +1475,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || e.name === 'Assurance')
       && (slot.grantedBy !== 'Pitborn' || !featRarity(e)
         && /\btrained in athletics\b/i.test(String(e.data.prerequisite ?? '')))
+      && (slot.grantedBy !== 'Scion of Many Planes'
+        || e.systems.includes('pf2e') && traits.has('nephilim') && traits.has('lineage') && !taken.has(e.name))
       && (slot.grantedBy !== "Mechanic's Ingenuity"
         || e.name === 'Assurance' || tokens(e.data.skill).some(skill => /^(computers|crafting)$/i.test(skill)))
       && (slot.grantedBy !== "Operative's Specialization" || !!slot.grantedSkill
@@ -1576,7 +1587,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     }
   }
   return candidates.filter(({ entry, equivalence }) => {
-       if (entry.traits.some(trait => trait.toLowerCase() === 'lineage')
+       if (slot.grantedBy !== 'Scion of Many Planes' && entry.traits.some(trait => trait.toLowerCase() === 'lineage')
          && (slot.level !== 1 || takenLineage)
          && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
       if (entry.name === 'Overcrowd' && entry.source === 'official' && entry !== overcrowd) return false
