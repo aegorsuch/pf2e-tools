@@ -60,7 +60,8 @@ export function DroneEquipment({ c, entries, save }: SectionProps) {
     {([false, true] as const).map(held => {
       const options = available(held ? capacity.hands - handsUsed : capacity.mounts - used)
       return options.length > 0 && <SearchableSelect key={String(held)}
-        aria-label={`Add drone ${held ? 'held' : 'mounted'} weapon`} value="" onChange={event => {
+        aria-label={`Add drone ${held ? 'held' : 'mounted'} weapon`} value=""
+        optionLevel={value => options.find(item => item.id === value)?.level} onChange={event => {
           const entry = options.find(item => item.id === event.target.value)
           if (entry) {
             const id = newId()
@@ -123,7 +124,8 @@ export function DroneEquipment({ c, entries, save }: SectionProps) {
       </div>
     })}
     {capacity.armorUpgrades > armor.length && armorOptions.length > 0 && <SearchableSelect
-      aria-label="Add drone armor upgrade" value="" onChange={event => {
+      aria-label="Add drone armor upgrade" value=""
+      optionLevel={value => armorOptions.find(item => item.id === value)?.level} onChange={event => {
         if (armorOptions.some(item => item.id === event.target.value)) save({ mechanicDroneArmorUpgrades: [...armor, event.target.value] })
       }}>
       <option value="">Add armor upgrade...</option>

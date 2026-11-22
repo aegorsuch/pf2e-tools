@@ -206,7 +206,8 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     return <details className="feat-choice-details">
       <summary>{choice ? `Weapon: ${choice}` : 'Choose weapon'}</summary>
       <span className="feat-choice feat-choice-with-note">
-        <SearchableSelect label="Weapon" aria-label={`${feat.name} weapon`} value={choice} onChange={event => {
+        <SearchableSelect label="Weapon" aria-label={`${feat.name} weapon`} value={choice}
+          optionLevel={value => weaponEntry(entries, value)?.level} onChange={event => {
           const choice = event.target.value || undefined
           if (choice && !options.includes(choice)) return
           save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice, culturalWeapon: undefined, rareWeaponOverride: undefined } : existing) })
@@ -359,7 +360,8 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   const spellOptions = featSpellOptions(c, entries, feat)
   if (['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip', 'Free Heart', 'Bone Magic', 'Widespread Fascination'].includes(feat.name)) return null
   if (spellOptions) return <span className="feat-choice">
-    <SearchableSelect aria-label={`${feat.name} spell`} value={feat.choice ?? ''} onChange={event => {
+    <SearchableSelect aria-label={`${feat.name} spell`} value={feat.choice ?? ''}
+      optionLevel={value => spellOptions.find(spell => spell.name === value)?.level} onChange={event => {
       const choice = event.target.value || undefined
       if (choice && !spellOptions.some(spell => spell.name === choice)) return
       save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
@@ -436,7 +438,8 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   const options = available.filter((spell) => !selected.has(spell.name) || spell.name === feat.choice)
   return (
     <span className="feat-choice">
-      <SearchableSelect aria-label={`${feat.name} warden spell`} value={feat.choice ?? ''} onChange={(e) => {
+      <SearchableSelect aria-label={`${feat.name} warden spell`} value={feat.choice ?? ''}
+        optionLevel={value => options.find(spell => spell.name === value)?.level} onChange={(e) => {
         const choice = e.target.value || undefined
         save({ feats: c.feats.map((f, i) => i === index ? { ...f, choice } : f) })
       }}>

@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { featTakenLevel, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
+import { SearchableSelect } from './SearchableSelect'
+import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
 import { contentAccessGranted, featRarity } from './featAccess'
 import { formulaGrants, formulaKey as key, isCauldronConsumable, isGrenade, knownFormulas, munitionsFormulaOptions, STANDARD_SNARE_FORMULAS, updateFormulaChoice } from './formulas'
 import type { Character, ContentEntry } from './types'
@@ -16,12 +18,14 @@ export function FormulaSearch({ c, items, knownKeys, allowRestricted, save }: {
   c: Character; items: ContentEntry[]; knownKeys: Set<string>; allowRestricted: boolean; save: SectionProps['save']
 }) {
   const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<PickerSortOrder>('name')
   const q = key(query)
   const restricted = new Set(STANDARD_SNARE_FORMULAS.map(key))
-  const matches = q.length < 2 ? [] : availableFormulas(c, items.filter(item => key(item.name).includes(q) && !knownKeys.has(key(item.name))
-    && (allowRestricted || !restricted.has(key(item.name))))).slice(0, 40)
+  const matches = q.length < 2 ? [] : sortPickerOptions(availableFormulas(c, items.filter(item => key(item.name).includes(q) && !knownKeys.has(key(item.name))
+    && (allowRestricted || !restricted.has(key(item.name))))), sort, item => item.name, item => item.level).slice(0, 40)
   return <>
     <label>Search formulas <input type="search" value={query} onChange={event => setQuery(event.target.value)} /></label>
+    <PickerSort label="Sort formulas by" value={sort} onChange={setSort} />
     {q.length >= 2 && <ul>{matches.map(item => <li key={item.id}>
       <EntryDescription name={item.name} entry={item} /> (Level {item.level}){' '}
       <button type="button" aria-label={`Add ${item.name} formula`} onClick={() => {
@@ -84,7 +88,8 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
         || !values.slice(0, count).some((name, i) => i !== index && typeof name === 'string' && key(name) === key(item.name)))
         && (key(item.name) === key(current) || !knownKeys.has(key(item.name))))
       return <label key={index}>{label} {i + 1}{' '}
-        <select aria-label={`${label} ${i + 1}`} value={current} onChange={event => {
+        <SearchableSelect aria-label={`${label} ${i + 1}`} value={current}
+          optionLevel={value => choices.find(item => item.name === value)?.level} onChange={event => {
           const value = event.target.value
           if (value && !choices.some(item => item.name === value)) return
           const update = () => {
@@ -96,7 +101,7 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
           <option value="">Choose formula</option>
           {current && !choices.some(item => item.name === current) && <option value={current} disabled>{current} (unavailable)</option>}
           {choices.map(item => <option key={item.id} value={item.name}>{item.name} (Level {item.level})</option>)}
-        </select>
+        </SearchableSelect>
       </label>
     })
   }

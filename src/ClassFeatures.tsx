@@ -368,7 +368,8 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           </span> : target ? <span>Blessed armament: {target.name}</span> : null}
           {!targets.length && <small>Add your deity's favored weapon, or handwraps for a favored unarmed attack.</small>}
           <span>Free property rune{' '}
-            <SearchableSelect aria-label="Blessed armament rune" disabled={!target} value={c.blessedArmament?.rune ?? ''} onChange={(e) => {
+            <SearchableSelect aria-label="Blessed armament rune" disabled={!target} value={c.blessedArmament?.rune ?? ''}
+              optionLevel={value => entries.find(entry => entry.kind === 'item' && runeName(entry.name) === runeName(value))?.level} onChange={(e) => {
               if (target) save({ blessedArmament: { weaponId: target.id, rune: e.target.value } })
             }}>
               <option value="">Choose rune</option>

@@ -1348,6 +1348,14 @@ it('pins prerequisite suggestions before pagination, searches unlocks, and saves
   expect(markup).toContain('Show more')
   expect(markup).toContain('aria-label="Details: Titan Wrestler"')
   expect(markup).toContain('Grapple larger creatures.')
+  search['general:3:0:sort'] = 'name'
+  const alphabetical = renderToStaticMarkup(tree())
+  expect(alphabetical.indexOf('L03 General: A Filler')).toBeLessThan(alphabetical.indexOf('Show more'))
+  expect(alphabetical).not.toContain(label)
+  search['general:3:0:sort'] = 'level'
+  search['general:3:0:limit'] = '200'
+  const byLevel = renderToStaticMarkup(tree())
+  expect(byLevel.indexOf('L03 General: A Filler')).toBeLessThan(byLevel.indexOf(label))
   search['general:3:0:query'] = 'harder they fall'
   expect(renderToStaticMarkup(tree())).toContain(label)
   expect(renderToStaticMarkup(tree())).not.toContain('L03 General: A Filler')

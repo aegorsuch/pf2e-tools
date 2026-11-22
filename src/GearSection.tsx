@@ -18,6 +18,7 @@ import { gearAccess } from './gearAccess'
 import { ActionIcon } from './ActionIcon'
 import { formulaKey, gadgetLimits, grenadeLimits, isGrenade, isMunitionsAmmunition, isMunitionsConsumable, knownFormulas, munitionsLimits } from './formulas'
 import { SearchableSelect } from './SearchableSelect'
+import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
 import { TotalBreakdown } from './TotalBreakdown'
 import { BRIAR_MAX_SHARPNESS, briarSharpnessPoints, namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
 import { hunterArrowheadBonus, isFeatEffectActive } from './builder'
@@ -260,6 +261,7 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       <option value="none">None</option>
     </select></label>}
     {installable.length > 0 && <SearchableSelect label="Augmentation" aria-label="Choose augmentation" value="" alwaysSearchable={installable.some(isApex)}
+      optionLevel={value => shownOptions.find(entry => entry.id === value)?.level}
       filters={installable.some(isApex) && <label><input type="checkbox" checked={apexOnly} onChange={event => setApexOnly(event.target.checked)} /> Apex only</label>} onChange={event => {
       const chosen = installable.find(entry => entry.id === event.target.value)
       if (!chosen) return
@@ -342,6 +344,7 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
   const [tab, setTab] = useState<(typeof TABS)[number]>('Standard')
   const [picked, setPicked] = useState<Record<string, string>>({})
   const [limit, setLimit] = useState(GEAR_SEARCH_PAGE)
+  const [sort, setSort] = useState<PickerSortOrder>('name')
   const pickerEntries = useMemo(() => !open || kind !== 'weapon' ? entries
     : entries.filter(entry => entry.kind !== 'weapon' || !isLockedWeapon(c, entry.name, entries)), [c, entries, kind, open])
   const pool = useMemo(() => open ? gearPickerEntries(pickerEntries, kind).map(entry => {
@@ -366,8 +369,9 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
       const key = kind === 'weapon' ? combinationName(entries, entry.name) : entry.name
       if (!unique.has(key)) unique.set(key, entry)
     }
-    return [...unique.values()]
-  }, [entries, kind, picked, query, tabPool])
+    return sortPickerOptions([...unique.values()], sort,
+      entry => equipmentDisplayName(specificMagicItemName(entry)), entry => entry.level)
+  }, [entries, kind, picked, query, tabPool, sort])
   if (!open) return <button type="button" className="gear-add" onClick={() => setOpen(true)}>{label}</button>
   const close = () => { setOpen(false); setQ(''); setPicked({}); setLimit(GEAR_SEARCH_PAGE) }
   return (
@@ -390,6 +394,7 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
       <div className="row">
         <input type="search" aria-label={`Search ${kind}s`} autoFocus placeholder={`Search ${kind}s`} value={q}
           onChange={(e) => { setQ(e.target.value); setLimit(GEAR_SEARCH_PAGE) }} />
+        <PickerSort label={`Sort ${kind}s by`} value={sort} onChange={value => { setSort(value); setLimit(GEAR_SEARCH_PAGE) }} />
         <button type="button" onClick={close}>Cancel</button>
       </div>
       <ul className="gear-results">
@@ -465,7 +470,8 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange }: {
     {installed.some(item => !item) && <small role="status">Saved upgrade unavailable. Sync official content to restore its effects.</small>}
     {limit === undefined && <small role="status">Weapon upgrade slots unavailable. Sync official content.</small>}
     {limit !== undefined && upgrades.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
-    {limit !== undefined && upgrades.length < limit && options.length > 0 && <SearchableSelect aria-label="Add weapon upgrade" value="" onChange={event => {
+    {limit !== undefined && upgrades.length < limit && options.length > 0 && <SearchableSelect aria-label="Add weapon upgrade" value=""
+      optionLevel={value => options.find(entry => entry.id === value)?.level} onChange={event => {
       if (options.some(entry => entry.id === event.target.value)) onChange([...upgrades, event.target.value])
     }}>
       <option value="">Add weapon upgrade...</option>
@@ -488,7 +494,8 @@ export function ArmorUpgrades({ entries, upgrades, limit, onChange }: {
     {installed.some(item => !item) && <small role="status">Saved armor upgrade unavailable. Sync official content to restore its effects.</small>}
     <small>Armor upgrade slots: {upgrades.length}/{limit}.</small>
     {upgrades.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
-    {upgrades.length < limit && options.length > 0 && <SearchableSelect aria-label="Add armor upgrade" value="" onChange={event => {
+    {upgrades.length < limit && options.length > 0 && <SearchableSelect aria-label="Add armor upgrade" value=""
+      optionLevel={value => options.find(entry => entry.id === value)?.level} onChange={event => {
       if (options.some(entry => entry.id === event.target.value)) onChange([...upgrades, event.target.value])
     }}>
       <option value="">Add armor upgrade...</option>
@@ -530,7 +537,7 @@ function Runes({ runes, options, entries, limit, freeRunes = [], onChange, sourc
       ))}
       {[...freeRunes].sort((a, b) => a.name.localeCompare(b.name)).map((r) => <GearTag key={r.name} name={r.name} entry={entryFor(r.name)} source={r.source} />)}
       {onChange && runes.length < limit && options.some((option) => !runes.includes(option.name)) && (
-        <SearchableSelect aria-label="Add property rune" value="" onChange={(e) => {
+        <SearchableSelect aria-label="Add property rune" value="" optionLevel={value => options.find(option => option.name === value)?.level} onChange={(e) => {
           if (options.some((option) => option.name === e.target.value) && !runes.includes(e.target.value)) {
             onChange([...runes, e.target.value].sort((a, b) => a.localeCompare(b)))
           }
@@ -573,13 +580,14 @@ function ShieldRune({ rune, granted, locked, entries, onChange }: {
         source="Protected by Blessed Shield" onRemove={locked ? undefined : () => onChange(undefined)} />
     </div></>
   }
-  return <>{automatic}<label>{granted ? 'Installed shield rune' : 'Shield rune'}{' '}<select aria-label="Add shield rune" value="" onChange={event => {
+  return <>{automatic}<label>{granted ? 'Installed shield rune' : 'Shield rune'}{' '}<SearchableSelect aria-label="Add shield rune" value=""
+    optionLevel={value => Object.entries(SHIELD_RUNES).find(([name]) => name === value)?.[1].level} onChange={event => {
     const choice = (['Minor', 'Lesser', 'Moderate', 'Greater', 'Major', 'Supreme'] as const).find(name => name === event.target.value)
     if (choice) onChange(choice)
   }}>
     <option value="">Add reinforcing rune...</option>
     {Object.entries(SHIELD_RUNES).sort(([a], [b]) => a.localeCompare(b)).map(([name, data]) => <option key={name} value={name}>{name} (Level {data.level})</option>)}
-  </select></label></>
+  </SearchableSelect></label></>
 }
 
 function Level({ label, value, options, format, onChange, disabled, minimum = 0 }: {
@@ -689,7 +697,8 @@ export function Gadgets({ c, entries, save }: SectionProps) {
     {Array.from({ length: limits.prepared }, (_, index) => {
       const current = preparations[index] ?? ''
       return <div className="row" key={index}>
-        <SearchableSelect label={`Gadget ${index + 1}`} aria-label={`Prepared gadget ${index + 1}`} value={current} onChange={event => {
+        <SearchableSelect label={`Gadget ${index + 1}`} aria-label={`Prepared gadget ${index + 1}`} value={current}
+          optionLevel={value => candidates.find(entry => entry.name === value)?.level} onChange={event => {
           const value = event.target.value
           if (value && !candidates.some(entry => entry.name === value)) return
           const update = () => {
@@ -733,7 +742,8 @@ export function MunitionsCrafter({ c, entries, save }: SectionProps) {
       const selected = candidates.find(entry => entry.name === current)
       const quantity = selected ? isMunitionsAmmunition(selected) ? '4 rounds' : '1 item' : ''
       return <div className="row" key={index}>
-        <SearchableSelect label={`Munitions preparation ${index + 1}`} aria-label={`Prepared munition ${index + 1}`} value={current} onChange={event => {
+        <SearchableSelect label={`Munitions preparation ${index + 1}`} aria-label={`Prepared munition ${index + 1}`} value={current}
+          optionLevel={value => candidates.find(entry => entry.name === value)?.level} onChange={event => {
           const value = event.target.value
           if (value && !candidates.some(entry => entry.name === value)) return
           const update = () => {
@@ -780,7 +790,8 @@ export function GrenadeSpecialist({ c, entries, save }: SectionProps) {
       const grenade = candidates.find(entry => entry.name === current)
       const key = `prepared:${index}`
       return <div className="col" key={index}><div className="row">
-        <SearchableSelect label={`Grenade ${index + 1}`} aria-label={`Prepared grenade ${index + 1}`} value={current} onChange={event => {
+        <SearchableSelect label={`Grenade ${index + 1}`} aria-label={`Prepared grenade ${index + 1}`} value={current}
+          optionLevel={value => candidates.find(entry => entry.name === value)?.level} onChange={event => {
           const value = event.target.value
           if (value && !candidates.some(entry => entry.name === value)) return
           const update = () => {
@@ -1980,7 +1991,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               <GearTag name={shield.material.name} kind="material"
                 entry={entries.find(entry => entry.kind === 'item' && entry.name === shield.material?.name)}
                 onRemove={() => save({ shield: { ...shield, material: undefined } })} />
-            </div> : <SearchableSelect label="Material" aria-label="Shield material" value="" onChange={event => {
+            </div> : <SearchableSelect label="Material" aria-label="Shield material" value=""
+              optionLevel={value => materialOptions.find(option => option.id === value)?.level} onChange={event => {
               const entry = materialOptions.find(option => option.id === event.target.value)
               if (entry) save({ shield: { ...shield, material: shieldMaterial(entry) } })
             }}>

@@ -829,7 +829,7 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
                 : slot.value ? <SelectedSlotSpell name={slot.entry?.name ?? slot.value} entry={slot.entry}
                   onClear={() => setSc({ repertoire: { ...sc.repertoire, [slot.key]: '' } })} />
                 : <SearchableSelect aria-label={`Witchwarper ${rank === 0 ? 'cantrip' : `rank ${rank} spell`} ${index + 1}`}
-                  value={value} alwaysSearchable primaryDetails renderDetails={choice => {
+                  value={value} alwaysSearchable primaryDetails optionLevel={choice => spellIndex.byId.get(choice)?.level} renderDetails={choice => {
                     const entry = spellIndex.byId.get(choice) ?? spellIndex.byName.get(choice)
                     return entry && <span className="picker-spell-name"><EntryDescription name={entry.name} entry={entry} /></span>
                   }} onChange={event => {
@@ -1396,6 +1396,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 : extra ? options.filter(option => option.name === extra.spell)
                   : preparedClass && baseDisplayedSelection
                     ? choices.map(option => option.name === baseDisplayedSelection.name ? baseDisplayedSelection : option) : choices
+              let optionIndex: Map<string, typeof slotOptions[number]> | undefined
+              const spellOption = (value: string) => {
+                optionIndex ??= new Map(slotOptions.map(spell => [spell.entryId ?? spell.name, spell]))
+                return optionIndex.get(value)
+              }
               const selectedOption = slotOptions.find(spell => (spell.entryId ?? spell.name) === selectedValue
                 || selectedSpell && !selectedSpell.entryId && spell.name === selectedSpell.name)
               const exhausted = bard && !spent && !!automaticSlots && (sc.spentSlots ?? [])
@@ -1434,6 +1439,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     }} />
                   : <SearchableSelect aria-label={`${cantrip ? 'Cantrip' : `Spell Rank ${rank}`} slot ${index + 1}`}
                     value={selectedValue} optionCount={slotOptions.length} disabled={spent || restricted} alwaysSearchable primaryDetails
+                    optionLevel={value => spellOption(value)?.baseRank} optionSortName={value => spellOption(value)?.name}
                     renderDetails={value => {
                       const option = slotOptions.find(spell => (spell.entryId ?? spell.name) === value)
                       const entry = option && spellEntry(option.name, option.entryId)

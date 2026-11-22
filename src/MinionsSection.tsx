@@ -164,7 +164,7 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
           {[...selectedOther].sort((a, b) => a.name.localeCompare(b.name))
             .map(item => itemTag(slot, item, slotOptions.find(entry => entry.id === item.entryId)))}
           {remaining.length > 0 && <SearchableSelect aria-label={`${companion.name || companion.type} Add other equipment`}
-            value="" optionCount={remaining.length} renderDetails={value => {
+            value="" optionCount={remaining.length} optionLevel={value => remaining.find(option => option.id === value)?.level} renderDetails={value => {
               const entry = remaining.find(option => option.id === value)
               return entry && <EntryDescription name={itemName(entry.name)} entry={entry} entries={entries} character={c} buttonLabel="Details" />
             }} onChange={event => {
@@ -183,7 +183,7 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
       return <div key={slot} className="row companion-equipment-slot">
         <strong>{slot}</strong>
         {selected ? itemTag(slot, selected, selectedEntry) : <SearchableSelect aria-label={`${companion.name || companion.type} ${slot} equipment`}
-          value="" optionCount={slotOptions.length}
+          value="" optionCount={slotOptions.length} optionLevel={value => slotOptions.find(option => option.id === value)?.level}
           renderDetails={value => {
             const entry = slotOptions.find(option => option.id === value)
             return entry && <EntryDescription name={itemName(entry.name)} entry={entry} entries={entries} character={c} buttonLabel="Details" />

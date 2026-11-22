@@ -6,6 +6,7 @@ import { AbilitiesContent, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
+import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
 import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { featSectionGrants, SearchableFeatSlots } from './FeatSlots'
@@ -222,6 +223,7 @@ function AncestryDetails({ entry }: { entry: ContentEntry }) {
 
 export function EquipmentSearch({ c, entries, save, category, onClose }: SectionProps & { category?: EquipmentGroupName; onClose?: () => void }) {
   const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<PickerSortOrder>('name')
   const ringsFull = ringCount(c, entries) >= ringCapacity(c)
   const active = !!query.trim() || !!category
   const candidates = useMemo(() => active ? entries.filter(entry => entry.kind === 'item'
@@ -247,12 +249,14 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
       if (!previous || owned.has(entry.name) || !owned.has(previous.name)
         && entry.data.price !== undefined && previous.data.price === undefined) unique.set(key, candidate)
     }
-    return [...unique.values()].sort((a, b) => a.displayName.localeCompare(b.displayName)).map(candidate => candidate.entry)
-  }, [candidates, query, c.equipment])
+    return sortPickerOptions([...unique.values()], sort, candidate => candidate.displayName, candidate => candidate.entry.level)
+      .map(candidate => candidate.entry)
+  }, [candidates, query, c.equipment, sort])
   return <div className="equipment-search">
     <div className="row">
       <input type="search" aria-label={`Search ${category?.toLowerCase() ?? 'equipment'}`} placeholder={`Search ${category?.toLowerCase() ?? 'equipment'}`}
         autoFocus={!!onClose} value={query} onChange={event => setQuery(event.target.value)} />
+      <PickerSort label={`Sort ${category?.toLowerCase() ?? 'equipment'} by`} value={sort} onChange={setSort} />
       {onClose && <button type="button" onClick={onClose}>Cancel</button>}
     </div>
     <ul className="gear-results">

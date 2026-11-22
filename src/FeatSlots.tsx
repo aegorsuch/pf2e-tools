@@ -3,6 +3,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { ActionIcon } from './ActionIcon'
 import { PickerDialog } from './PickerDialog'
+import { sortPickerOptions } from './PickerSort'
 import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, isFeatEffectActive, isGrantedSlot, matchesSkill, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
@@ -459,11 +460,22 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             && matchesSkill(o, skill, featsByName)
             && (!skill || o.name !== 'Skill Training' || optionsFor(o, s, skill).length > 0)
             && (!picksType || (type === 'dedication') === isDedication(o)))
-          if (suggestible) options.sort((a, b) => Number(suggestions.has(b.name) || synergies.has(b.name))
-            - Number(suggestions.has(a.name) || synergies.has(a.name))
-            || featSelectionLevel(a, c, entries, s.category, s) - featSelectionLevel(b, c, entries, s.category, s)
-            || displayName(a.name).localeCompare(displayName(b.name)))
-          const shown = popup ? options.slice(0, Number(search[`${s.key}:limit`]) || PAGE) : options
+          const sortValue = search[`${s.key}:sort`]
+          const sort = sortValue === 'name' || sortValue === 'level' ? sortValue : suggestible ? 'suggested' : 'level'
+          const optionLevels = new Map<string, number>()
+          const byLevel = (option: ContentEntry) => {
+            let level = optionLevels.get(option.id)
+            if (level === undefined) {
+              level = featSelectionLevel(option, c, entries, s.category, s)
+              optionLevels.set(option.id, level)
+            }
+            return level
+          }
+          const orderedOptions = popup || suggestible ? sortPickerOptions(options, sort === 'name' ? 'name' : 'level',
+            option => displayName(option.name), byLevel) : options
+          if (sort === 'suggested') orderedOptions.sort((a, b) =>
+            Number(suggestions.has(b.name) || synergies.has(b.name)) - Number(suggestions.has(a.name) || synergies.has(a.name)))
+          const shown = popup ? orderedOptions.slice(0, Number(search[`${s.key}:limit`]) || PAGE) : orderedOptions
           const names = new Set<string>()
           const sourceVariants = new Set<string>()
           for (const option of options) {
@@ -494,7 +506,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               }
               continue
             }
-            const level = featSelectionLevel(option, c, entries, s.category, s)
+            const level = byLevel(option)
             const variants = variantsFor(option)
             const bucket = optionsByLevel.get(level)
             if (bucket) bucket.push(...variants)
@@ -597,6 +609,14 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                           onSearch?.(`${s.key}:query`, query)
                           onSearch?.(`${s.key}:limit`, '')
                         }}>
+                    <label>Sort by{' '}<select aria-label={`Sort ${label} feats by`} value={sort} onChange={event => {
+                      onSearch?.(`${s.key}:sort`, event.target.value)
+                      onSearch?.(`${s.key}:limit`, '')
+                    }}>
+                      {suggestible && <option value="suggested">Suggested</option>}
+                      <option value="name">Alphabetical</option>
+                      <option value="level">Level</option>
+                    </select></label>
                     {s.category === 'skill' && <label>Skill{' '}
                       <select aria-label={`Filter ${label} feats by skill`} value={skill} onChange={event => {
                         onSearch?.(`${s.key}:skill`, event.target.value)
@@ -616,18 +636,18 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     <ul className="feat-modal-list">
                       <li><button type="button" aria-label={`${label} clear`} onClick={() => { choose(s.key, s.category, s.level, ''); onSearch?.(`${s.key}:open`, '') }}>{emptyLabel}</button></li>
                       {picksType && s.grantedBy !== 'Eldritch Trickster' && <li><button type="button" aria-label={`${label} N/A`} onClick={() => { choose(s.key, s.category, s.level, 'N/A'); onSearch?.(`${s.key}:open`, '') }}>N/A</button></li>}
-                      {suggested.length > 0 && <>
-                        <li className="feat-modal-level">Suggested prerequisites</li>
-                        {popupOptions(suggested)}
+                      {sort === 'suggested' && <>
+                        {suggested.length > 0 && <><li className="feat-modal-level">Suggested prerequisites</li>{popupOptions(suggested)}</>}
+                        {paired.length > 0 && <><li className="feat-modal-level">Suggested combinations</li>{popupOptions(paired)}</>}
                       </>}
-                      {paired.length > 0 && <>
-                        <li className="feat-modal-level">Suggested combinations</li>
-                        {popupOptions(paired)}
-                      </>}
-                      {[...optionsByLevel].sort(([a], [b]) => a - b).map(([level, levelOptions]) => [
-                        <li key={`l${level}`} className="feat-modal-level">L{String(level).padStart(2, '0')}</li>,
-                        ...popupOptions(levelOptions),
-                      ])}
+                      {sort === 'name' ? popupOptions(shown.flatMap(variantsFor))
+                        : sort === 'suggested' ? [...optionsByLevel].sort(([a], [b]) => a - b).map(([level, levelOptions]) => [
+                          <li key={`l${level}`} className="feat-modal-level">L{String(level).padStart(2, '0')}</li>,
+                          ...popupOptions(levelOptions),
+                        ]) : [...new Set(shown.map(byLevel))].map(level => [
+                          <li key={`l${level}`} className="feat-modal-level">L{String(level).padStart(2, '0')}</li>,
+                          ...popupOptions(shown.filter(option => byLevel(option) === level).flatMap(variantsFor)),
+                        ])}
                     </ul>
                     {!options.length && <small role="status">No matching feats.</small>}
                     {options.length > shown.length && (

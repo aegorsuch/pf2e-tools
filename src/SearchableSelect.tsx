@@ -1,6 +1,7 @@
 import { Fragment, useId, useMemo, useRef, useState, type ComponentPropsWithoutRef, type ReactNode } from 'react'
 import { PickerDialog } from './PickerDialog'
 import { selectOptionCount, selectOptionList } from './searchSelectOptions'
+import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
 
 type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue' | 'value'> & {
   'aria-label': string
@@ -14,21 +15,26 @@ type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue
   primaryDetails?: boolean
   renderDetails?: (value: string) => ReactNode
   searchText?: (value: string) => string
+  optionLevel?: (value: string) => number | undefined
+  optionSortName?: (value: string) => string | undefined
 }
 
 const PAGE = 100
 
-export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, filters, primaryDetails = false, renderDetails, searchText, children, onChange, value, ...props }: Props) {
+export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, filters, primaryDetails = false, renderDetails, searchText, optionLevel, optionSortName, children, onChange, value, ...props }: Props) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [limit, setLimit] = useState(PAGE)
   const [container, setContainer] = useState<HTMLElement>()
+  const [sort, setSort] = useState<PickerSortOrder>('name')
   const select = useRef<HTMLSelectElement>(null)
   const generatedId = useId()
   const id = props.id ?? generatedId
   const searchLabel = `Search ${props['aria-label'].replace(/^(?:add|choose)\s+/i, '').toLowerCase()}`
-  const searchable = useMemo(() => alwaysSearchable || (optionCount ?? selectOptionCount(children)) > 10, [children, optionCount, alwaysSearchable])
+  const searchable = useMemo(() => alwaysSearchable || !!optionLevel || (optionCount ?? selectOptionCount(children)) > 10, [children, optionCount, alwaysSearchable, optionLevel])
   const options = useMemo(() => selectOptionList(children), [children])
+  const levels = useMemo(() => optionLevel && open && sort === 'level'
+    ? new Map(options.map(option => [option.value, optionLevel(option.value)])) : undefined, [optionLevel, open, options, sort])
   const activeQuery = searchable && open ? query.trim().toLowerCase() : ''
   let matches = 0
   const matching: typeof options = []
@@ -37,7 +43,12 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
     if (activeQuery && option.value && match) matches++
     if ((!primaryDetails || option.value) && (match || !option.value || option.value === value)) matching.push(option)
   }
-  const shown = matching.slice(0, limit)
+  const ordered = optionLevel && open ? [
+    ...matching.filter(option => !option.value),
+    ...sortPickerOptions(matching.filter(option => !!option.value), sort,
+      option => optionSortName?.(option.value) ?? option.label, option => levels?.get(option.value)),
+  ] : matching
+  const shown = ordered.slice(0, limit)
   const choose = (next: string) => {
     const control = select.current
     if (!control || props.disabled || !options.some(option => option.value === next && !option.disabled)) return
@@ -69,10 +80,11 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
     {searchable && open && <PickerDialog label={`${props['aria-label']} picker`} searchLabel={searchLabel}
       container={container}
       query={query} onQuery={next => { setQuery(next); setLimit(PAGE) }} onClose={() => setOpen(false)}>
+      {optionLevel && <PickerSort label={`Sort ${props['aria-label']} by`} value={sort} onChange={next => { setSort(next); setLimit(PAGE) }} />}
       {filters}
       <ul className="feat-modal-list">
         {shown.map((option, index) => <Fragment key={option.value}>
-          {option.group && (index === 0 || shown[index - 1].group !== option.group)
+          {!optionLevel && option.group && (index === 0 || shown[index - 1].group !== option.group)
             && <li className="feat-modal-level">{option.group}</li>}
           <li className="picker-option-row">
             {primaryDetails ? <>
