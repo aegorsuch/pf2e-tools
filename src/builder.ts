@@ -619,7 +619,7 @@ export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWi
   || key.startsWith('skill:1:operative-specialization:') || key === 'class:1:operative-sniper'
   || key.startsWith('ancestry:1:warblood-vesk:')
   || key.startsWith('skill:1:versatile-rogue:') || key.startsWith('skill:1:exceptional-artisan:')
-  || key.startsWith('skill:1:natural-performer:')
+  || key.startsWith('skill:1:natural-performer:') || key.startsWith('skill:1:pitborn:')
   || key.startsWith('skill:1:mechanic-ingenuity:')
   || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
   || key.startsWith('general:1:social-chameleon:') || key.startsWith('ancestry:1:social-chameleon:')
@@ -788,6 +788,14 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     slots.push({ key: `skill:1:natural-performer:${feat.slot ?? 'unslotted'}`, category: 'skill', level,
       maxFeatLevel: 1, grantedBy: 'Natural Performer', grantedSkill: 'Performance' })
   }
+  for (const feat of activeFeatsNamed(c, 'Pitborn')) {
+    if (!c.systems.includes('pf2e')) continue
+    const level = featTakenLevel(feat)
+    const group = `skill:${level}`
+    if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+    slots.push({ key: `skill:1:pitborn:${feat.slot ?? 'unslotted'}`, category: 'skill', level,
+      maxFeatLevel: 1, grantedBy: 'Pitborn', grantedSkill: 'Athletics' })
+  }
   let unslottedRogue = 0
   const takenRackets = new Set([selectedSubclass(c)])
   for (const feat of [...c.feats].sort((a, b) => featTakenLevel(a) - featTakenLevel(b))) {
@@ -823,7 +831,7 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
   const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key) || !!slot.grantedFeat || !!slot.redundantFeat
     || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
     || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon'
-    || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'In Another Life' || slot.grantedBy === "Operative's Specialization"
+    || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'Pitborn' || slot.grantedBy === 'In Another Life' || slot.grantedBy === "Operative's Specialization"
     || slot.grantedBy === 'Sniper' || !!slot.grantedAncestry)
   for (const slot of slots) {
     if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
@@ -1452,6 +1460,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (slot.grantedBy !== 'Natural Performer'
         || tokens(e.data.skill).some(skill => skill.toLowerCase() === 'performance')
         || e.name === 'Assurance')
+      && (slot.grantedBy !== 'Pitborn' || !featRarity(e)
+        && /\btrained in athletics\b/i.test(String(e.data.prerequisite ?? '')))
       && (slot.grantedBy !== "Mechanic's Ingenuity"
         || e.name === 'Assurance' || tokens(e.data.skill).some(skill => /^(computers|crafting)$/i.test(skill)))
       && (slot.grantedBy !== "Operative's Specialization" || !!slot.grantedSkill
@@ -1628,6 +1638,7 @@ export function rogueRackets(c: Character, entries: ContentEntry[]) {
   return [...new Set(taken.filter((name): name is string => !!name && ROGUE_RACKETS.some(racket => racket === name)))]
 }
 const ANCESTRY_SKILL_GRANTS: Record<string, { skill: string; feat?: string }> = {
+  Pitborn: { skill: 'Athletics' },
   "Caretaker's Intuition": { skill: 'Nature' },
   'Jotunborn Grappler': { skill: 'Athletics', feat: 'Titan Wrestler' },
   'Guardian Dedication': { skill: 'Athletics' },
@@ -1648,14 +1659,14 @@ const ANCESTRY_SKILL_GRANTS: Record<string, { skill: string; feat?: string }> = 
   'Well-Connected': { skill: 'Society', feat: 'Streetwise' },
   'Harmonic Sensitivity': { skill: 'Performance' },
 }
-const SKILLS_TAB_ANCESTRY_GRANTS = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication',
+const SKILLS_TAB_ANCESTRY_GRANTS = ['Pitborn', "Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication',
   'Earned Glory', 'Round Ears', 'Sociable', 'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker',
   'Adroit Manipulation', 'Innocuous', 'Magically Melodious', 'Prairie Rider', 'Overlooked Mastermind',
   'Land Feet First', 'Night Eyes', 'Well-Connected', 'Harmonic Sensitivity']
 
 function ancestrySkillGrant(c: Character, entries: ContentEntry[], name: string) {
   const grant = ANCESTRY_SKILL_GRANTS[name]
-  const system = ["Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication', 'Earned Glory', 'Round Ears',
+  const system = ['Pitborn', "Caretaker's Intuition", 'Jotunborn Grappler', 'Guardian Dedication', 'Earned Glory', 'Round Ears',
     'Sociable', 'Adroit Manipulation', 'Innocuous', 'Prairie Rider', 'Overlooked Mastermind'].includes(name)
     ? 'pf2e' : 'sf2e'
   if (!grant || !c.systems.includes(system)) return undefined

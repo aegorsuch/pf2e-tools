@@ -2206,6 +2206,27 @@ describe('languageAllowance', () => {
     expect(additionalSkillCount(trained, [performerClass])).toBe(additionalSkillCount({ ...trained, feats: [] }, [performerClass]) + 1)
   })
 
+  it('grants Pitborn Athletics training and a common first-level Athletics skill feat', () => {
+    const titan = entry('feat', 'Titan Wrestler', { prerequisite: 'Trained in Athletics' }, 1, ['General', 'Skill'])
+    const uncommon = entry('feat', 'Uncommon Athlete', { prerequisite: 'Trained in Athletics' }, 1, ['General', 'Skill', 'Uncommon'])
+    const advanced = entry('feat', 'Advanced Athlete', { prerequisite: 'Trained in Athletics' }, 2, ['General', 'Skill'])
+    const noPrerequisite = entry('feat', 'Other Athlete', { skill: 'Athletics' }, 1, ['General', 'Skill'])
+    const entries = [titan, uncommon, advanced, noPrerequisite]
+    const selection = { name: 'Pitborn', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' }
+    const c: Character = { ...base, level: 5, feats: [selection] }
+    const slot = plannedSlots(c, entries).find(slot => slot.grantedBy === 'Pitborn')!
+    expect(slot).toMatchObject({ level: 5, maxFeatLevel: 1, grantedSkill: 'Athletics' })
+    expect(ranksAt(c, entries).Athletics).toBe(1)
+    expect(eligibleFeats(entries, c, slot)).toEqual([titan])
+    expect(plannedSlots({ ...c, level: 4 }, entries).some(s => s.grantedBy === 'Pitborn')).toBe(false)
+    expect(plannedSlots({ ...c, feats: [] }, entries).some(s => s.grantedBy === 'Pitborn')).toBe(false)
+    expect(plannedSlots({ ...c, systems: ['sf2e'] }, entries).some(s => s.grantedBy === 'Pitborn')).toBe(false)
+    expect(plannedSlots({ ...c, dismissedFeatSlots: [slot.key] }, entries)).toContainEqual(slot)
+    const athleteClass = entry('class', 'Athlete', { skill_proficiency: 'Trained in Athletics' })
+    const trained = { ...c, className: 'Athlete' }
+    expect(additionalSkillCount(trained, [athleteClass])).toBe(additionalSkillCount({ ...trained, feats: [] }, [athleteClass]) + 1)
+  })
+
   it('grants Gnome Obsession Lore progression and Assurance for its selected specialty', () => {
     const obsession = { name: 'Gnome Obsession', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: 'Circus Lore' }
     const c: Character = { ...base, level: 15, ancestry: 'Gnome', feats: [obsession], lores: [{ name: 'Custom Lore', rank: 0 }] }
