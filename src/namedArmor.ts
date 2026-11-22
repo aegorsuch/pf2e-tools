@@ -2,14 +2,22 @@ import type { ContentEntry } from './types'
 
 const ANCESTRAL_HIDE = 'Ancestral Embrace Hide Armor'
 export const isAncestralEmbrace = (name?: string) => name === 'Ancestral Embrace' || name === ANCESTRAL_HIDE
-const ARMORS = new Set(['Ancestral Embrace', ANCESTRAL_HIDE, "Slithermaw's Bane", "Slithermaw's Bane (Artifact)"])
+const ARMORS = new Set(['Ancestral Embrace', ANCESTRAL_HIDE, "Slithermaw's Bane", "Slithermaw's Bane (Artifact)",
+  'Highhelm Stronghold Plate', 'Bastion of the Inheritor', 'Immortal Bastion'])
+const BASTION_NAMES: Record<string, string> = {
+  'Highhelm Stronghold Plate': 'Highhelm Stronghold Bastion Plate',
+  'Bastion of the Inheritor': 'Bastion Plate of the Inheritor',
+  'Immortal Bastion': 'Immortal Bastion Plate',
+}
+export const isBastionNamedArmor = (name?: string) =>
+  !!name && (Object.hasOwn(BASTION_NAMES, name) || Object.values(BASTION_NAMES).includes(name))
 const BODY = /\n\n-{3,}\s*\n\n/
 export const SCALE_OF_IGROON_FORTRESS = 'Scale of Igroon (Fortress Shield)'
 export const isScaleOfIgroonShield = (name?: string) =>
   name === 'Scale of Igroon' || name === SCALE_OF_IGROON_FORTRESS
 
 export function isNamedArmor(name: string) {
-  return ARMORS.has(name)
+  return ARMORS.has(name) || isBastionNamedArmor(name)
 }
 
 const WEAVE_ARMORS = new Set([ANCESTRAL_HIDE, "Slithermaw's Bane"])
@@ -35,12 +43,14 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
       const base = baseName && entries.find(entry => entry.kind === 'armor' && !entry.deleted
         && entry.systems.includes('pf2e') && entry.name.toLowerCase() === baseName.toLowerCase())
       if (!base || /\belven chain\b/i.test(item.description) && !elven) return []
-      const enchantment = /\+([1-4])\s+([^.!?\n]{0,100}?)\b(?:leather armor|hide armor|elven chain)\b/i.exec(item.description)
+      const enchantment = /\+([1-4])\s+([^.!?\n]{0,100}?)\b(?:leather armor|hide armor|elven chain|bastion plate)\b/i.exec(item.description)
       if (!enchantment) return []
       let properties = ` ${enchantment[2].toLowerCase()} `
       const fixed: string[] = WEAVE_ARMORS.has(item.name) ? ['Moonweave (Major)', 'Sunweave (Major)'] : []
-      const candidates = [...runes, ...(/\bgreater fortification\b/i.test(enchantment[2])
-        && !runes.some(rune => rune.name === 'Fortification (Greater)') ? [{ name: 'Fortification (Greater)' }] : [])]
+      const candidates = [...runes]
+      for (const name of ['Fortification', 'Fortification (Greater)']) {
+        if (!candidates.some(rune => rune.name === name)) candidates.push({ name })
+      }
       for (const rune of candidates.sort((a, b) => b.name.length - a.name.length)) {
         const phrase = rune.name.replace(/^(.+) \((Lesser|Greater|Major|True)\)$/, '$2 $1').toLowerCase()
         if (!properties.includes(` ${phrase} `)) continue
@@ -52,10 +62,11 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
       const fortification = fixed.some(rune => /^Fortification(?: \(Greater\))?$/.test(rune))
         ? entries.find(entry => entry.kind === 'item' && !entry.deleted && entry.name === 'Fortification'
           && entry.systems.includes('pf2e')) : undefined
-      const thickening = fortification && /increasing its Bulk by (\d+) and the Strength modifier[^.]+?by (\d+)/i.exec(fortification.description)
+      const thickening = fortification && /increasing its Bulk by (\d+) and the Strength (?:modifier )?[^.]+?by (\d+)/i.exec(fortification.description)
+      const fortifiedBastion = isBastionNamedArmor(item.name) && fixed.some(rune => /^Fortification(?: \(Greater\))?$/.test(rune))
       const traits = [...new Set([...base.traits.filter(trait => !notNoisy || trait.toLowerCase() !== 'noisy'), ...item.traits])]
       return [{
-        ...item, kind: 'armor' as const, traits,
+        ...item, name: BASTION_NAMES[item.name] ?? item.name, kind: 'armor' as const, traits,
         data: {
           ...base.data, ...item.data, price: item.data.price ?? '', item_subcategory: 'Specific Magic Armor',
           named_armor: true, named_armor_base: base.name,
@@ -65,8 +76,9 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
           named_armor_runes: fixed.join(';'),
           ...(item.name === ANCESTRAL_HIDE ? { named_armor_rune_limit: 3 } : {}),
           ...(quiet ? { check_penalty: 0 } : {}),
-          ...(thickening ? { bulk: Number(item.data.bulk ?? base.data.bulk) + Number(thickening[1]),
-            strength: Number(base.data.strength) + Number(thickening[2]) } : {}),
+          ...(thickening || fortifiedBastion ? { bulk: fortifiedBastion && item.data.bulk !== undefined
+            ? Number(item.data.bulk) : Number(item.data.bulk ?? base.data.bulk) + Number(thickening?.[1] ?? 1),
+            strength: Number(base.data.strength) + Number(thickening?.[2] ?? 1) } : {}),
           ...(elven ? { named_armor_elven: true, named_armor_material: /\bhigh-grade elven chain\b/i.test(item.description) ? 'High-grade dawnsilver elven chain' : 'Dawnsilver elven chain' } : {}),
           ...(WEAVE_ARMORS.has(item.name) ? { named_armor_material: 'Orichalcum' } : {}),
         },
@@ -139,6 +151,12 @@ const ACTIONS: Record<string, string[]> = {
   'Scale of Igroon': ['Single Action', 'Single Action', 'Free Action'],
   [SCALE_OF_IGROON_FORTRESS]: ['Single Action', 'Single Action', 'Free Action'],
   'Shadowed Scale, the Jungle Secret': ['Single Action', 'Single Action'],
+  'Highhelm Stronghold Plate': ['Three Actions'],
+  'Highhelm Stronghold Bastion Plate': ['Three Actions'],
+  'Bastion of the Inheritor': ['Single Action'],
+  'Bastion Plate of the Inheritor': ['Single Action'],
+  'Immortal Bastion': ['Reaction', 'Reaction'],
+  'Immortal Bastion Plate': ['Reaction', 'Reaction'],
 }
 
 export function namedArmorAbilities(entry?: ContentEntry) {

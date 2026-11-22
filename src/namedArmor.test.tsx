@@ -2,12 +2,13 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ComponentProps, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
-import { activeBattleForm, armorClass, armorEntry, armorSaveBonus, effectiveArmor, gearPickerEntries, movementSpeeds, ownedArmors, ownedWeapons, perceptionItemBonus, resistances, savingThrowBreakdown, shieldAcBonus, shieldEntry, shieldMaterialOptions, shieldStats, speedBonuses, spellActiveChange, weaponAttack } from './builder'
+import { activeBattleForm, armorClass, armorClassBreakdown, armorEntry, armorSaveBonus, effectiveArmor, gearPickerEntries, movementSpeeds, ownedArmors, ownedWeapons, perceptionItemBonus, resistances, savingThrowBreakdown, shieldAcBonus, shieldEntry, shieldMaterialOptions, shieldStats, speedBonuses, spellActiveChange, weaponAttack, wornArmor } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
 import { ANCESTRAL_AVATAR } from './battleForms'
 import { makeNamedArmorEntries, makeNamedShieldEntry, namedArmorAbilities, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { specificMagicItemName } from './equipmentGroups'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
+import { SkillsSection } from './SkillsSection'
 import type { Character, ContentEntry, OwnedArmor, OwnedShield } from './types'
 
 const item = (name: string, markdown: string, extra: Record<string, unknown> = {}) => mapAonHit({
@@ -73,6 +74,101 @@ const character: Character = {
 }
 const owned = (name: string): OwnedArmor => ({ id: name, name, potency: 0, resilient: 0, runes: [], worn: true })
 const shield: OwnedShield = { id: 'scale', name: scale.name, hardness: 0, hp: 0, raised: false, damage: 8 }
+
+it('derives named bastion plate profiles and fixed runes even without rune catalog records', () => {
+  const found = makeNamedArmorEntries(bastionEntries, [])
+  expect(found.map(entry => entry.name)).toEqual([
+    'Highhelm Stronghold Bastion Plate', 'Bastion Plate of the Inheritor', 'Immortal Bastion Plate',
+  ])
+  expect(found.map(entry => [entry.data.named_armor_potency, entry.data.named_armor_resilient, entry.data.named_armor_runes,
+    entry.data.bulk, entry.data.strength])).toEqual([
+    [2, 1, 'Fortification', 5, 5], [2, 1, '', 5, 4], [3, 2, 'Fortification (Greater)', 5, 5],
+  ])
+  expect(gearPickerEntries(bastionEntries, 'armor').map(entry => entry.name)).toContain('Immortal Bastion Plate')
+})
+
+const bastionPlate: ContentEntry = { ...hide, id: 'bastion', name: 'Bastion Plate', traits: ['Bulwark', 'Entrench'],
+  data: { ...hide.data, ac: 6, dex_cap: 0, strength: 4, armor_category: 'Heavy', armor_group: 'Plate', bulk: 5, speed_penalty: -10 } }
+const bastionItem = (name: string, enhancement: string, actions: string[]) => item(name, [
+  '**Base Armor** [Bastion Plate](/Armor.aspx?ID=17)', '---',
+  `This is +${enhancement} bastion plate.`,
+  ...actions.map(action => `**Activate** <actions string="${action}" /> (concentrate) **Effect** Use the armor.`),
+].join('\n\n'), { bulk: 5 })
+const bastionEntries: ContentEntry[] = [
+  bastionPlate,
+  bastionItem('Highhelm Stronghold Plate', '2 resilient fortification', ['Three Actions']),
+  bastionItem('Bastion of the Inheritor', '2 resilient', ['Single Action']),
+  bastionItem('Immortal Bastion', '3 greater resilient greater fortification', ['Reaction', 'Reaction']),
+]
+const bastionFighter: ContentEntry = { ...hide, id: 'fighter', kind: 'class', name: 'Fighter',
+  data: { heavy_armor_proficiency: 'trained', unarmored_proficiency: 'trained' } }
+const plateGroup: ContentEntry = { ...hide, id: 'plate-group', kind: 'armorGroup', name: 'Plate', data: {}, description: 'Plate armor.' }
+const armorExpertise: ContentEntry = { ...hide, id: 'armor-expertise', kind: 'classFeature', name: 'Armor Expertise',
+  level: 1, data: { class: 'Fighter' }, description: 'Gain armor specialization.' }
+
+it('applies Highhelm piercing specialization only while armor benefits apply', () => {
+  const data = [...bastionEntries, bastionFighter, plateGroup, armorExpertise]
+  const armor = owned('Highhelm Stronghold Bastion Plate')
+  const c = { ...character, className: 'Fighter', armors: [armor] }
+  expect(resistances(c, data)).toEqual(expect.arrayContaining([
+    expect.objectContaining({ damage: 'Slashing', value: 4 }),
+    expect.objectContaining({ damage: 'Piercing', value: 4, source: armor.name }),
+  ]))
+  const wall = { ...c, armors: [{ ...armor, strongholdWallActive: true }] }
+  expect(wornArmor(wall, data)).toBeUndefined()
+  expect(resistances(wall, data).some(resistance => resistance.source === armor.name)).toBe(false)
+  expect(armorClass(wall, data)).toBeLessThan(armorClass(c, data))
+  expect(resistances({ ...c, className: undefined }, data).some(resistance => resistance.source === armor.name)).toBe(false)
+})
+
+it('calculates conditional melee AC without stacking circumstance bonuses', () => {
+  const data = [...bastionEntries, bastionFighter]
+  const armor = { ...owned('Immortal Bastion Plate'), entrenchMeleeActive: true }
+  const c = { ...character, className: 'Fighter', armors: [armor], shield: { id: 'shield', name: 'Shield', hardness: 5,
+    hp: 20, damage: 0, raised: true } }
+  const ac = armorClassBreakdown(c, data)
+  expect(ac.notes).toContain(`Entrench Melee: AC ${ac.total} against melee attacks (+2 circumstance; circumstance bonuses do not stack).`)
+  expect(armorClassBreakdown({ ...c, armors: [{ ...armor, worn: false }] }, data).notes?.join(' ')).not.toContain('Entrench Melee')
+})
+
+it('shows Inheritor Diplomacy only with its white cloak and grants melee protection when red', () => {
+  const data = [...bastionEntries, bastionFighter]
+  const armor = owned('Bastion Plate of the Inheritor')
+  const c = { ...character, className: 'Fighter', armors: [armor] }
+  const render = (value: Character) => renderToStaticMarkup(<SkillsSection c={value} entries={data} save={() => {}} />)
+  expect(render(c)).toContain('to Make an Impression against targets without enmity toward Iomedae')
+  const red = { ...c, armors: [{ ...armor, inheritorCloakRed: true }] }
+  expect(render(red)).not.toContain('to Make an Impression against targets without enmity toward Iomedae')
+  expect(armorClassBreakdown(red, data).notes?.join(' ')).toContain('against melee attacks (+1 circumstance')
+  expect(render({ ...c, armors: [{ ...armor, worn: false }] })).not.toContain('to Make an Impression against targets')
+})
+
+it('tracks armor activations independently and restores armor when the wall is dismissed', () => {
+  const data = [...bastionEntries, bastionFighter]
+  let c: Character = { ...character, className: 'Fighter', armors: [owned('Highhelm Stronghold Bastion Plate')] }
+  const props = () => {
+    let result: ComponentProps<typeof NamedArmorAbilities> | undefined
+    const visit = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<{ children?: ReactNode }>(child)) return
+      if (child.type === NamedArmorAbilities) result = child.props as ComponentProps<typeof NamedArmorAbilities>
+      else visit(child.props.children)
+    })
+    visit(ArmorList({ c, entries: data, save: patch => { c = { ...c, ...patch } }, part: 'armor' }))
+    return result!
+  }
+  props().activations!['Activation 1'].toggle()
+  expect(c.armors?.[0]).toMatchObject({ worn: false, strongholdWallActive: true, strongholdWallUsed: true })
+  expect(wornArmor(c, data)).toBeUndefined()
+  props().activations!['Activation 1'].toggle()
+  expect(c.armors?.[0]).toMatchObject({ worn: true, strongholdWallActive: false, strongholdWallUsed: true })
+  expect(props().activations!['Activation 1'].disabled).toBe(true)
+
+  c = { ...c, armors: [owned('Immortal Bastion Plate')] }
+  props().activations!['Activation 1'].toggle()
+  expect(props().activations!['Activation 2'].disabled).toBe(false)
+  props().activations!['Activation 2'].toggle()
+  expect(c.armors?.[0]).toMatchObject({ immortalSurvivalUsed: true, immortalConditionUsed: true })
+})
 
 it('gives Ancestral Embrace built-in major weave runes and its worn Sunweave Perception bonus', () => {
   const c = { ...character, armors: [owned(hideEmbraceName)] }

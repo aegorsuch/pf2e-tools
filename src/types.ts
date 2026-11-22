@@ -101,6 +101,13 @@ export interface OwnedArmor {
   runes: string[]
   upgrades?: string[]
   activeJetpack?: string
+  strongholdWallActive?: boolean
+  strongholdWallUsed?: boolean
+  inheritorCloakRed?: boolean
+  entrenchMeleeActive?: boolean
+  immortalSurvivalUsed?: boolean
+  immortalSurvivalActive?: boolean
+  immortalConditionUsed?: boolean
   worn: boolean
   material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Grisantian Hide' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
   gauntlet?: 'Gauntlet' | 'Spiked Gauntlet' | 'Bladed Gauntlet' | 'Clawed Gauntlet'

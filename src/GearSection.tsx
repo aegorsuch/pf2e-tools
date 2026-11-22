@@ -6,7 +6,7 @@ import {
 import { newId } from './db'
 import { blessedShieldBenefit, canEquipShield, championBlessings, clanPistolRunes, equippedHands, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
-import { isAncestralEmbrace, isScaleOfIgroonShield, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { isAncestralEmbrace, isBastionNamedArmor, isScaleOfIgroonShield, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ABILITY_LABEL, APEX_AUGMENTATIONS, activeApexAugmentation, armorBulk, armorStrengthMet, installedApexAugmentations } from './builder'
@@ -1839,7 +1839,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           : armor.runes
       return { ...armor, ...(saved && !isGrantedArmor(armor.id)
         && armorEntry(c, entries, saved.name, saved.id)?.systems.includes('sf2e') ? { name: saved.name } : {}),
-        runes, ...(!armor.worn ? { activeJetpack: undefined } : {}),
+        runes, ...(!armor.worn ? { activeJetpack: undefined, entrenchMeleeActive: false, inheritorCloakRed: false, immortalSurvivalActive: false } : {}),
         ...(!canWearWithAttachedArmor(armor, attached) ? { worn: saved?.worn ?? armor.worn } : {}) }
     }),
   ], ...(c.activeSpells?.includes(ANCESTRAL_AVATAR) && !next.some(armor => armor.worn && isAncestralEmbrace(armor.name))
@@ -1858,7 +1858,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const entry = armorEntry(c, entries, a.name, a.id)
         const bonyPlates = a.id === BONY_PLATES_ID
         const body = !!entry?.data.attached
-        const wornLocked = body || !canWearWithAttachedArmor(a, attached)
+        const wornLocked = body || !!a.strongholdWallActive || !canWearWithAttachedArmor(a, attached)
         const sf2eArmor = !!entry?.systems.includes('sf2e')
         const displayName = armorDisplayName({ ...a, name: specificMagicItemName(entry, a.name, true) }, entry)
         const labelName = armorDisplayName({ name: a.name }, entry)
@@ -1894,6 +1894,27 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           : Math.min(0, speedPenalty + iron + (strengthMet ? mobility ? 10 : 5 : 0))
         const penalty = (value: number) => value === 0 ? '0' : String(value)
         const acRank = entry ? armorProficiencyRank(c, entries, entry) : 0
+        const wall = a.name === 'Highhelm Stronghold Bastion Plate'
+        const inheritor = a.name === 'Bastion Plate of the Inheritor'
+        const immortal = a.name === 'Immortal Bastion Plate'
+        const activations: Record<string, { label: string; active?: boolean; disabled?: boolean; toggle: () => void }> | undefined = wall ? {
+          'Activation 1': { label: `${a.strongholdWallActive ? 'Dismiss' : 'Activate'} Highhelm wall`,
+            active: a.strongholdWallActive, disabled: !a.strongholdWallActive && (!a.worn || !!a.strongholdWallUsed),
+            toggle: () => saveArmors(armors.map(armor => armor.id === a.id
+              ? { ...armor, worn: !!a.strongholdWallActive, strongholdWallActive: !a.strongholdWallActive, strongholdWallUsed: true }
+              : a.strongholdWallActive ? { ...armor, worn: false } : armor)) },
+        } : inheritor ? {
+          'Activation 1': { label: `${a.inheritorCloakRed ? 'End' : 'Activate'} red cloak`,
+            active: a.inheritorCloakRed, disabled: !a.worn,
+            toggle: () => update(a.id, { inheritorCloakRed: !a.inheritorCloakRed, entrenchMeleeActive: false }) },
+        } : immortal ? {
+          'Activation 1': { label: `${a.immortalSurvivalActive ? 'End' : 'Use'} Immortal Bastion survival`,
+            active: a.immortalSurvivalActive, disabled: !a.worn || !!a.immortalSurvivalUsed && !a.immortalSurvivalActive,
+            toggle: () => update(a.id, { immortalSurvivalUsed: true, immortalSurvivalActive: !a.immortalSurvivalActive }) },
+          'Activation 2': { label: 'Use Immortal Bastion condition protection',
+            disabled: !a.worn || !!a.immortalConditionUsed,
+            toggle: () => update(a.id, { immortalConditionUsed: true }) },
+        } : undefined
         const booster = a.id === INVENTOR_ARMOR_ID && a.worn
           ? speedBonuses(c, entries).find(bonus => /Boosters/.test(bonus.source))
           : undefined
@@ -1939,11 +1960,22 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             <EnergyNeutralizer c={c} save={save} id={a.id} label={labelName} />
             <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={labelName} />
             {entry?.description && !entry.data.named_armor && <small>{entry.description}</small>}
-            <NamedArmorAbilities entry={entry} inlineSummary avatar={isAncestralEmbrace(entry?.name) ? {
+            <NamedArmorAbilities entry={entry} inlineSummary activations={activations} avatar={isAncestralEmbrace(entry?.name) ? {
               active: !!c.activeSpells?.includes(ANCESTRAL_AVATAR) && a.worn,
               disabled: !a.worn,
               toggle: () => save(spellActiveChange(c, ANCESTRAL_AVATAR, !c.activeSpells?.includes(ANCESTRAL_AVATAR))),
             } : undefined} />
+            {isBastionNamedArmor(a.name) && <div className="row">
+              <button type="button" className={`spell-action-button${a.entrenchMeleeActive ? ' on' : ''}`}
+                aria-label={`${a.entrenchMeleeActive ? 'End' : 'Activate'} Entrench Melee: ${labelName}`}
+                aria-pressed={!!a.entrenchMeleeActive} disabled={!a.worn || !acRank || !!a.inheritorCloakRed}
+                onClick={() => update(a.id, { entrenchMeleeActive: !a.entrenchMeleeActive })}><ActionIcon actions="Single Action" /></button>
+              <span>Entrench Melee</span>
+              {immortal && a.entrenchMeleeActive && <span>10 temporary HP until your next turn</span>}
+              {immortal && a.immortalSurvivalActive && <span>1 HP; 100 temporary HP until your next turn</span>}
+              {(a.strongholdWallUsed || a.immortalSurvivalUsed || a.immortalConditionUsed) && <button type="button"
+                onClick={() => update(a.id, { strongholdWallUsed: false, immortalSurvivalUsed: false, immortalConditionUsed: false })}>Daily preparations</button>}
+            </div>}
             {sf2eArmor && entry?.data.armor_grade && <small>Grade: {String(entry.data.armor_grade)}</small>}
             {entry?.data.upgrades_allowed === false && <small>Armor upgrades cannot be installed on this armor.</small>}
             {entry && <GearAccess c={c} entries={entries} entry={entry} save={save} />}

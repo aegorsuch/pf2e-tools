@@ -4814,6 +4814,10 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     damage: specialization.benefit.damage, value: specialization.benefit.value,
     source: `${specialization.group} Armor Specialization`,
   })
+  if (armor?.name === 'Highhelm Stronghold Bastion Plate' && specialization?.benefit?.kind === 'resistance'
+    && specialization.benefit.damage === 'Slashing') {
+    out.push({ damage: 'piercing', value: specialization.benefit.value, source: 'Highhelm Stronghold Bastion Plate' })
+  }
   const aegis = abilityMod(c.abilities.wis)
   if (activeFeatsNamed(c, 'Primal Aegis').length && aegis > 0) {
     for (const damage of ['acid', 'cold', 'electricity', 'fire', 'vitality', 'void']) {
@@ -4853,7 +4857,7 @@ export function oakenResilience(c: Character, entries: ContentEntry[], target: '
 }
 
 export const wornArmor = (c: Character, entries: ContentEntry[] = []): OwnedArmor | undefined =>
-  ownedArmors(c, entries).find(armor => armor.worn)
+  ownedArmors(c, entries).find(armor => armor.worn && !(armor.name === 'Highhelm Stronghold Bastion Plate' && armor.strongholdWallActive))
 export const perceptionItemBonus = (c: Character, entries: ContentEntry[] = []) => Math.max(0, ...(wornArmor(c, entries)?.runes ?? []).map((rune) => {
   const name = runeName(rune)
   return name === 'Sunweave' ? 1 : name === 'Sunweave (Greater)' ? 2 : name === 'Sunweave (Major)' ? 3 : 0
@@ -4996,6 +5000,10 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   if (c.systems.includes('sf2e') && c.className === 'Operative' && activeFeatsNamed(c, 'Elusive Target').length)
     notes.push('Elusive Target: when a Strike targeting you fails, react to Step.')
   if (currentSpell) notes.push(`Current Spell: AC ${parts.reduce((sum, part) => sum + part.value, 0) + Math.max(0, 2 - best)} against ranged attacks; circumstance bonuses do not stack.`)
+  if (worn && rank > 0 && (worn.entrenchMeleeActive || worn.name === 'Bastion Plate of the Inheritor' && worn.inheritorCloakRed)) {
+    const bonus = worn.name === 'Immortal Bastion Plate' ? 2 : 1
+    notes.push(`Entrench Melee: AC ${parts.reduce((sum, part) => sum + part.value, 0) + Math.max(0, bonus - best)} against melee attacks (+${bonus} circumstance; circumstance bonuses do not stack).`)
+  }
   notes.push(...hellknightSkillNotes(c, 'AC').map(benefit => `${benefit.name}: ${benefit.description} Circumstance bonuses do not stack.`))
   return { total: parts.reduce((sum, part) => sum + part.value, 0), parts, notes }
 }
@@ -6076,7 +6084,7 @@ export function effectiveArmor(c: Character, entries: ContentEntry[], armor: Own
 }
 
 export function armorGauntlet(c: Character, entries: ContentEntry[]) {
-  const armor = ownedArmors(c, entries).find((armor) => armor.worn)
+  const armor = wornArmor(c, entries)
   if (armor?.id === INVENTOR_ARMOR_ID && getSettings().inventorArmorGauntlets) return { armor, name: 'Bladed Gauntlet', locked: true }
   return armor && ['Full Plate', 'Half Plate', 'Hellknight Plate', 'Splint Mail', 'Power Suit'].includes(armor.name)
     ? { armor, name: armor.gauntlet ?? GAUNTLET.name, locked: false } : undefined

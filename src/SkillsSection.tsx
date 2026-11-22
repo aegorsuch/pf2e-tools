@@ -491,6 +491,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             && <SourceNote source="Ghost Wrangler" note="Can use Strength-based skill checks against incorporeal creatures until the beginning of your next turn." />}
           {s.kind !== 'save' && hellknightSkillNotes(c, s.name).map(benefit =>
             <SourceNote key={`${benefit.feat.slot ?? benefit.feat.name}:${benefit.name}`} source={benefit.name} note={benefit.description} />)}
+          {s.name === 'Diplomacy' && wornArmor(c, entries)?.name === 'Bastion Plate of the Inheritor'
+            && !wornArmor(c, entries)?.inheritorCloakRed && <SourceNote source="Bastion Plate of the Inheritor"
+              note={`${itemTotal(2)} to Make an Impression against targets without enmity toward Iomedae (+2 item; item bonuses do not stack).`} />}
           {isWitchwarper(c) && c.witchwarper?.anchor === 'Tangible Object' && ['Perception', 'Will'].includes(s.name)
             && <SourceNote source="Tangible Object" note={`${conditionalTotal(1)} against illusions and holograms (+1 circumstance).`} />}
           {isSoldier(c) && c.level >= 3 && ['Athletics', 'Intimidation'].includes(s.name)
