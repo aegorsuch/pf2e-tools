@@ -2237,6 +2237,23 @@ it('lets an existing unassigned Mercy choose an unused option without replacing 
   expect(c.feats.map(feat => feat.choice)).toEqual(['Mercy of the Mind', 'Mercy of Grace'])
 })
 
+it('locks Bloodrager Dedication while allowing its tradition to change', () => {
+  const dedication: ContentEntry = { id: 'bloodrager', kind: 'feat', name: 'Bloodrager Dedication', level: 2,
+    traits: ['Archetype', 'Dedication'], source: 'official', systems: ['pf2e'], description: '',
+    data: { prerequisite: 'Bloodrager', archetype: 'Bloodrager' }, effects: [], updatedAt: 0 }
+  let c: Character = { ...emptyRanger(), className: 'Barbarian', subclass: 'Bloodrager', level: 2,
+    feats: [{ name: dedication.name, type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Arcane' }] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const html = renderToStaticMarkup(<FeatSlots c={c} entries={[dedication]} save={save} categories={['class']} />)
+  expect(html).toMatch(/aria-label="L02 Class dedication required by class archetype"[^>]*disabled/)
+  expect(html).toContain('aria-label="Bloodrager Dedication tradition"')
+  expect(html).not.toContain('check prerequisites')
+  const choice = FeatChoice({ c, entries: [dedication], save, index: 0 })
+  expect(choice?.props.onChange).toBeTypeOf('function')
+  choice?.props.onChange({ target: { value: 'Divine' } })
+  expect(c.feats[0].choice).toBe('Divine')
+})
+
 it('allows correcting a duplicate Mercy choice without offering already-selected options', () => {
   const c: Character = { ...emptyRanger(), className: 'Champion', level: 8, feats: [
     { name: 'Mercy', type: 'Class Feat', level: 4, slot: 'class:4:0', choice: 'Mercy of the Body' },

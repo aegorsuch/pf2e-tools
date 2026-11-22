@@ -111,6 +111,18 @@ export function AutomaticFeatChoice({ c, entries, save, name, source, choice, ch
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
+  if (feat.name === 'Bloodrager Dedication' && feat.slot === 'class:2:0') {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot, index) ?? []
+    return <SearchableSelect label="Tradition" aria-label="Bloodrager Dedication tradition" value={feat.choice ?? ''} onChange={event => {
+      const choice = event.target.value || undefined
+      if (choice && !options.includes(choice)) return
+      save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+    }}>
+      <option value="">Choose tradition</option>
+      {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
+      {options.map(option => <option key={option}>{option}</option>)}
+    </SearchableSelect>
+  }
   if (feat.name === 'Carry Their Memories' || feat.name === 'Dongun Education'
     || isFixedAncestralWeaponFamiliarity(c, entries, feat)) return null
   if (c.systems.includes('sf2e') && c.ancestry === 'Lashunta'

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, movementSpeeds, plannedSlots, ranksAt, resistances, senses, syncOrderExplorerFeats } from './builder'
+import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, movementSpeeds, plannedSlots, ranksAt, resistances, senses, syncClassArchetypeDedication, syncOrderExplorerFeats } from './builder'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, featPrerequisiteSuggestions, type PrerequisiteFacts } from './featPrerequisites'
 import { mapAonHit } from './aon'
 import { getSettings, updateSettings } from './settings'
@@ -20,6 +20,91 @@ const selected = (name: string, level = 1) => ({ name, type: 'Class Feat', level
 const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite }, 1, ['Barbarian'])
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
+
+it.each([
+  ['Barbarian', 'Bloodrager', 'Bloodrager'],
+  ['Ranger', 'Vindication', 'Vindicator'],
+  ['Rogue', 'Avenger', 'Avenger'],
+  ['Wizard', 'School of Thassilonian Rune Magic', 'Runelord'],
+])('locks %s class archetype dedication at level 2', (className, subclass, name) => {
+  const dedication = entry('feat', `${name} Dedication`, { prerequisite: name }, 2, ['Archetype', 'Dedication'])
+  const c: Character = { ...base, className, subclass, level: 2, feats: [] }
+  const synced = { ...c, ...syncClassArchetypeDedication(c, [dedication]) }
+  const slot = plannedSlots(synced, [dedication]).find(item => item.key === 'class:2:0')!
+  expect(slot.grantedFeat).toBe(dedication.name)
+  expect(synced.feats).toEqual([{ name: dedication.name, type: 'Class Feat', level: 2, slot: slot.key, sourceId: dedication.id }])
+  expect(featSelectionPrerequisiteChecker(synced, [dedication], slot)(dedication)).toEqual({ missing: [], manual: [] })
+  expect(featPrerequisiteChecker({ ...synced, subclass: '' }, [dedication])(dedication).missing).toEqual([name])
+  expect(syncClassArchetypeDedication(synced, [dedication])).toBeUndefined()
+  expect(syncClassArchetypeDedication({ ...c, level: 1 }, [dedication])).toBeUndefined()
+  expect(syncClassArchetypeDedication({ ...synced, level: 1 }, [dedication])).toBeUndefined()
+})
+
+it('preserves displaced feats and previously selected dedication choices when switching archetypes', () => {
+  const dedication = entry('feat', 'Bloodrager Dedication', { prerequisite: 'Bloodrager' }, 2, ['Archetype', 'Dedication'])
+  const displaced = { name: 'Other Feat', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Choice' }
+  const previous = { name: dedication.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0', choice: 'Divine' }
+  const c: Character = { ...base, level: 4, subclass: 'Bloodrager', feats: [displaced, previous], entryIds: [dedication.id] }
+  const locked = { ...c, ...syncClassArchetypeDedication(c, [dedication]) }
+  expect(locked.feats).toMatchObject([{ ...previous, type: 'Class Feat', slot: 'class:2:0' }])
+  expect(locked.classArchetypeDisplacedFeats?.[0].feat).toEqual(displaced)
+  const updated = { ...locked, feats: locked.feats.map(feat => ({ ...feat, choice: 'Arcane' })) }
+  const switched = { ...updated, subclass: 'Fury' }
+  const restored = { ...switched, ...syncClassArchetypeDedication(switched, [dedication]) }
+  expect(restored.feats).toContainEqual(displaced)
+  expect(restored.feats).toContainEqual({ ...previous, choice: 'Arcane' })
+  expect(restored.entryIds).toContain(dedication.id)
+  expect(syncClassArchetypeDedication(restored, [dedication])).toBeUndefined()
+})
+
+it('checks every Bloodrager feat prerequisite and the selected tradition skill', () => {
+  const feats = [
+    entry('feat', 'Bloodrager Dedication', { prerequisite: 'Bloodrager', archetype: 'Bloodrager' }, 2, ['Archetype', 'Dedication']),
+    ...[
+      ['Blood Calls Blood', 4, 'Bloodrager Dedication'],
+      ['Rising Blood Magic', 4, 'Bloodrager Dedication'],
+      ['Siphon Magic', 6, 'Bloodrager Dedication'],
+      ['Spelldrinker', 8, 'Rising Blood Magic'],
+      ['Hematocritical', 10, 'Bloodrager Dedication'],
+      ['Surging Blood Magic', 12, 'Rising Blood Magic; master in Arcana or Religion, depending on your chosen tradition'],
+      ['Exultant Blood Magic', 18, 'Surging Blood Magic; legendary in Arcana or Religion, depending on your chosen tradition'],
+    ].map(([name, level, prerequisite]) => entry('feat', name as string, { prerequisite, archetype: 'Bloodrager' }, level as number, ['Archetype'])),
+  ]
+  const byName = (name: string) => feats.find(feat => feat.name === name)!
+  const dedicated: Character = { ...base, level: 20, subclass: 'Bloodrager', rankOverrides: { Arcana: 4, Religion: 2 },
+    feats: [{ name: 'Bloodrager Dedication', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Arcane' },
+      { name: 'Rising Blood Magic', type: 'Class Feat', level: 4, slot: 'class:4:0' },
+      { name: 'Surging Blood Magic', type: 'Class Feat', level: 12, slot: 'class:12:0' }] }
+  for (const name of ['Blood Calls Blood', 'Rising Blood Magic', 'Siphon Magic', 'Spelldrinker',
+    'Hematocritical', 'Surging Blood Magic', 'Exultant Blood Magic']) {
+    expect(featPrerequisiteChecker(dedicated, feats)(byName(name))).toEqual({ missing: [], manual: [] })
+  }
+  const divine = { ...dedicated, feats: dedicated.feats.map(feat => feat.name === 'Bloodrager Dedication' ? { ...feat, choice: 'Divine' } : feat) }
+  expect(featPrerequisiteChecker({ ...divine, rankOverrides: { Arcana: 0, Religion: 4 } }, feats)(byName('Exultant Blood Magic')))
+    .toEqual({ missing: [], manual: [] })
+  expect(featPrerequisiteChecker({ ...dedicated, feats: dedicated.feats.map(feat =>
+    feat.name === 'Bloodrager Dedication' ? { ...feat, choice: undefined } : feat) }, feats)(byName('Surging Blood Magic')).missing)
+    .toContain('master in Arcana or Religion, depending on your chosen tradition')
+  expect(featPrerequisiteChecker({ ...dedicated, feats: dedicated.feats.slice(0, 1) }, feats)(byName('Spelldrinker')).missing)
+    .toContain('Rising Blood Magic')
+  expect(featPrerequisiteChecker({ ...dedicated, feats: [] }, feats)(byName('Blood Calls Blood')).missing)
+    .toContain('Bloodrager Dedication')
+})
+
+it('offers Bloodrager archetype feats in class slots at their archetype levels', () => {
+  const dedication = entry('feat', 'Bloodrager Dedication', { prerequisite: 'Bloodrager', archetype: 'Bloodrager' }, 2, ['Archetype', 'Dedication'])
+  const rising = entry('feat', 'Rising Blood Magic', { prerequisite: dedication.name, archetype: 'Bloodrager' }, 4, ['Archetype'])
+  const energy = entry('feat', 'Energy Ward', { archetype: 'Bloodrager', archetype_levels: 'Bloodrager:12' }, 6, ['Sorcerer'])
+  const entries = [dedication, rising, energy]
+  const c: Character = { ...base, level: 12, subclass: 'Bloodrager',
+    feats: [{ name: dedication.name, type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Arcane' }] }
+  const slot = (level: number) => ({ key: `class:${level}:0`, category: 'class' as const, level })
+  expect(eligibleFeats(entries, c, slot(4))).toContain(rising)
+  expect(eligibleFeats(entries, c, slot(6))).not.toContain(energy)
+  expect(eligibleFeats(entries, c, slot(12))).toContain(energy)
+  expect(eligibleFeats(entries, { ...c, feats: [] }, slot(4))).not.toContain(rising)
+  expect(eligibleFeats(entries, { ...c, subclass: 'Fury' }, slot(4))).not.toContain(rising)
+})
 
 it('requires the Tusks feat for Demonblood Frenzy', () => {
   const prerequisite = 'tusks unarmed attack'

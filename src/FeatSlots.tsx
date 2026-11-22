@@ -525,7 +525,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             : s.redundantFeat || s.grantedAncestry && s.grantedBy !== 'Social Chameleon' ? `Empty (${s.grantedBy})`
               : s.grantedFeat === 'Canny Acumen' ? '- empty -' : s.grantedFeat || '- empty -'
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
-          const locked = !!homebrewDedication(s.key)
+          const classDedication = s.key === 'class:2:0' && !!s.grantedFeat
+          const locked = !!homebrewDedication(s.key) || classDedication
           const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer' || s.grantedBy === 'In Another Life'
           const automaticOrderFeat = s.grantedBy === 'Order Explorer' && !!current
             && (() => {
@@ -659,7 +660,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     )}
                 </PickerDialog>
               )}
-              {featIndex >= 0 && (!selection.choice || selectedChoices === undefined || selection.name === 'Favored Terrain'
+              {featIndex >= 0 && (classDedication && selection.name === 'Bloodrager Dedication' || !selection.choice || selectedChoices === undefined || selection.name === 'Favored Terrain'
                 || ['Bone Magic', 'Reinforced Skeleton'].includes(selection.name)
                 || selection.name === 'Lizardfolk Lore' && !selectedChoices.includes(selection.choice)
                 || DOMAIN_FEATS.includes(selection.name) && !selectedChoices.some(choice => choice.toLowerCase() === selection.choice?.trim().toLowerCase())
@@ -680,10 +681,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                       : c.featAccessOverrides?.filter(id => id !== currentEntry.id) })} /> Approve access
                 </label>}
               </div>}
-              {!automaticOrderFeat && <button type="button" aria-label={locked ? `${label} slot is granted by a house rule`
+              {!automaticOrderFeat && <button type="button" aria-label={classDedication ? `${label} dedication required by class archetype`
+                : locked ? `${label} slot is granted by a house rule`
                 : lastSlot || requiredGrant ? `Clear ${label} feat selection`
                 : `Remove ${label}${extra ? ' extra' : ''} feat slot ${s.key.split(':')[2]}`}
-                title={locked ? 'Granted by a house rule' : lastSlot || requiredGrant ? 'Clear selection' : 'Remove slot'}
+                title={classDedication ? 'Required by class archetype' : locked ? 'Granted by a house rule' : lastSlot || requiredGrant ? 'Clear selection' : 'Remove slot'}
                 disabled={locked || !current && !extra && (lastSlot || requiredGrant)}
                 onClick={() => removeSlot(s, extra)}>−</button>}
               <button type="button" aria-label={`Add ${label} feat slot`}

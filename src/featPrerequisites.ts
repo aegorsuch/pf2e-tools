@@ -16,6 +16,8 @@ export interface PrerequisiteFacts {
   ethnicity?: string
   ancestryTraits?: string[]
   subclass?: string
+  classArchetype?: string
+  bloodragerTradition?: string
   fatalMethod?: string
   additionalSubclasses: string[]
   exocortexes?: string[]
@@ -272,6 +274,14 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   const atom = (text: string, level: number, trail: Set<string>, inheritedRank?: string, survivalForCrafting = false): PrerequisiteCheck | undefined => {
     const facts = context.facts(level)
     const name = key(text).replace(/\.$/, '')
+    if (['bloodrager', 'vindicator', 'avenger', 'runelord'].includes(name)
+      && trail.has(`${name} dedication`)) return resultFor(key(facts.classArchetype ?? '') === name, text)
+    const bloodragerSkill = /^(master|legendary) in arcana or religion, depending on your chosen tradition$/.exec(name)
+    if (bloodragerSkill && (trail.has('surging blood magic') || trail.has('exultant blood magic'))) {
+      const skill = facts.bloodragerTradition === 'Arcane' ? 'Arcana'
+        : facts.bloodragerTradition === 'Divine' ? 'Religion' : undefined
+      return resultFor(!!skill && (facts.buildSkillRanks ?? facts.ranks)[skill] >= RANKS.indexOf(bloodragerSkill[1]), text)
+    }
     if (name === 'master in a paradox skill for a paradox other than your chosen paradox') {
       const selected = WITCHWARPER_PARADOXES.find(paradox => key(paradox.name) === key(facts.subclass ?? ''))
       const ranks = facts.buildSkillRanks ?? facts.ranks

@@ -251,6 +251,7 @@ it('uses Bloodrager starting skills and replaces duplicate background training',
   const barbarian = entry('class', 'Barbarian', {
     skill_proficiency: 'Trained in Athletics, Trained in a number of additional skills equal to 3 plus your Intelligence modifier',
   })
+
   const healer = entry('background', 'Healer', { skill: 'Medicine' })
   const c: Character = { ...base, className: 'Barbarian', subclass: 'Bloodrager', background: undefined }
   expect(autoClassSkills(c, [barbarian])).toEqual(expect.arrayContaining(['Athletics', 'Medicine']))
@@ -258,6 +259,27 @@ it('uses Bloodrager starting skills and replaces duplicate background training',
   expect(additionalSkillCount({ ...c, background: 'Healer' }, [barbarian, healer])).toBe(3)
   expect(autoClassSkills({ ...c, subclass: 'Fury' }, [barbarian])).not.toContain('Medicine')
   expect(additionalSkillCount({ ...c, subclass: 'Fury' }, [barbarian])).toBe(3)
+})
+
+it.each([['Arcane', 'Arcana', 'Religion'], ['Divine', 'Religion', 'Arcana']])(
+  'scales Bloodrager %s tradition skill for free', (choice, skill, other) => {
+    const dedication = { name: 'Bloodrager Dedication', type: 'Class Feat', level: 2, slot: 'class:2:0', choice }
+    const c: Character = { ...base, className: 'Barbarian', subclass: 'Bloodrager', background: undefined, feats: [dedication] }
+    for (const [level, rank] of [[1, 0], [2, 1], [3, 2], [6, 2], [7, 3], [14, 3], [15, 4], [20, 4]]) {
+      const ranks = ranksAt({ ...c, level }, [])
+      expect(ranks[skill] ?? 0).toBe(rank)
+      expect(ranks[other] ?? 0).toBe(0)
+    }
+    expect(ranksAt({ ...c, level: 15, rankOverrides: { [skill]: 0 } }, [])[skill]).toBe(4)
+    expect(ranksAt({ ...c, level: 15, systems: ['sf2e'] }, [])[skill] ?? 0).toBe(0)
+  },
+)
+
+it('returns a training choice when Bloodrager Dedication duplicates background training', () => {
+  const c: Character = { ...base, level: 2, className: 'Barbarian', subclass: 'Bloodrager', background: 'Scholar',
+    feats: [{ name: 'Bloodrager Dedication', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Arcane' }] }
+  expect(additionalSkillCount(c, entries)).toBe(additionalSkillCount({ ...c, feats: [] }, entries) + 1)
+  expect(ranksAt(c, entries, 2).Arcana).toBe(1)
 })
 
 it.each([

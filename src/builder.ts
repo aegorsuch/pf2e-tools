@@ -671,7 +671,9 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
       if (!groupOrder.has(id)) groupOrder.set(id, groupOrder.size)
       const n = counters.get(id) ?? 0
       counters.set(id, n + 1)
-      slots.push({ key: `${id}:${n}`, category: s.category, level: s.level })
+      const archetype = s.category === 'class' && s.level === 2 && n === 0 ? selectedClassArchetype(c, entries) : undefined
+      slots.push({ key: `${id}:${n}`, category: s.category, level: s.level,
+        ...(archetype ? { grantedBy: archetype.name, grantedFeat: `${archetype.name} Dedication` } : {}) })
     }
     if (barbarianInstinct(c, entries) === 'fury') {
       if (!groupOrder.has('class:1')) groupOrder.set('class:1', groupOrder.size)
@@ -1024,7 +1026,9 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
   }
   if (entry.name === 'Ubiquitous Gadgets' && category === 'class' && slot && slot.level >= 14
     && c.feats.filter(feat => feat.name === entry.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1) return 14
-  if (category !== 'archetype' || typeof entry.data.archetype_levels !== 'string') return entry.level
+  const classArchetype = category === 'class' && !entry.traits.some(trait => trait.toLowerCase() === c.className?.toLowerCase())
+    ? selectedClassArchetype(c, entries)?.name : undefined
+  if (category !== 'archetype' && !classArchetype || typeof entry.data.archetype_levels !== 'string') return entry.level
   const dedications = new Set(c.feats.flatMap((feat) => {
     const content = featByName(entries).get(feat.name)
     return isDedication(content) ? archetypesOf(content) : []
@@ -1033,7 +1037,8 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
     const colon = pair.lastIndexOf(':')
     return [pair.slice(0, colon), Number(pair.slice(colon + 1))] as const
   }))
-  const available = archetypesOf(entry).filter((name) => dedications.has(name)).map((name) => levels.get(name) ?? entry.level)
+  const available = archetypesOf(entry).filter((name) => dedications.has(name) && (!classArchetype || name === classArchetype))
+    .map((name) => levels.get(name) ?? entry.level)
   return available.length ? Math.min(...available) : entry.level
 }
 
@@ -1099,6 +1104,8 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         heritages: characterHeritages(character, entries).map(heritage => heritage.name),
         ancestryTraits: ancestryFeatTraits(character),
         subclass: character.className === 'Witchwarper' ? witchwarperParadox(character)?.name : subclass,
+        classArchetype: selectedClassArchetype(character, entries)?.name,
+        bloodragerTradition: character.feats.find(feat => feat.name === 'Bloodrager Dedication')?.choice,
         additionalSubclasses, fatalMethod: selectedFatalMethod(character), exocortexes: mechanicExocortexes(character),
         witchArmaments: activeFeatsNamed(character, "Witch's Armaments").flatMap(feat => feat.choice ? [feat.choice] : []),
         orders: character.className === 'Druid' ? [
@@ -1387,6 +1394,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const specializations = c.feats.filter((feat) => feat.slot !== slot.key && isCompanionSpecialization(feat.name)).length
   const generalOnly = slot.category === 'general' && getSettings().generalFeatsOnly
   const classTrait = c.className?.toLowerCase()
+  const classArchetype = slot.category === 'class' ? selectedClassArchetype(c, entries)?.name : undefined
+  const classArchetypeDedication = classArchetype && c.feats.some(feat => feat.name === `${classArchetype} Dedication`
+    && feat.slot !== slot.key && featTakenLevel(feat) <= Math.min(c.level, slot.level))
   const skillFeats = slot.grantedBy === "Operative's Specialization" ? featByName(entries) : undefined
   const classCompanionStages = new Set<string>()
   if (getSettings().singleAnimalCompanion && classTrait) {
@@ -1419,7 +1429,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       : featSelectionLevel(e, c, entries, slot.category, slot)) <= (slot.grantedBy === 'Eldritch Trickster'
       ? slot.maxFeatLevel ?? 2 : Math.min(slot.level, slot.maxFeatLevel ?? slot.level))
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
-        || slot.category === 'archetype' && archetypesOf(e).length > 0)
+        || slot.category === 'archetype' && archetypesOf(e).length > 0
+        || !!classArchetypeDedication && !!classArchetype && archetypesOf(e).includes(classArchetype))
       && !(generalOnly && traits.has('skill'))
       && !(getSettings().disableAdoptedAncestry && ['Adopted Ancestry', 'Cultural Adaptability', 'Orc Kinship', 'Social Chameleon'].includes(e.name))
       && !(getSettings().disableAncientElfMultitalented && ['Ancient Elf', 'Multitalented'].includes(e.name))
@@ -3195,6 +3206,52 @@ export function selectedClassArchetype(c: Character, entries: ContentEntry[] = [
   return CLASS_ARCHETYPES.find(archetype => archetype.className === c.className && archetype.subclass === subclass)
 }
 
+export function syncClassArchetypeDedication(c: Character, entries: ContentEntry[]): Partial<Character> | undefined {
+  const slot = 'class:2:0'
+  const archetype = selectedClassArchetype(c, entries)
+  const wanted = archetype ? `${archetype.name} Dedication` : undefined
+  let managed = c.classArchetypeDedication
+  let feats = [...c.feats]
+  let saved = [...c.classArchetypeDisplacedFeats ?? []]
+  let entryIds = [...c.entryIds]
+  if (managed && managed.name !== wanted) {
+    const current = feats.find(feat => feat.slot === slot && feat.name === managed!.name)
+    if (current) feats = feats.filter(feat => feat !== current)
+    if (managed.previous) saved.push({ className: managed.className,
+      feat: { ...managed.previous, ...(current?.choice ? { choice: current.choice } : {}) } })
+    if (managed.addedEntryId && !feats.some(feat => feat.name === managed!.name)
+      && !saved.some(item => item.feat.name === managed!.name)) entryIds = entryIds.filter(id => id !== managed!.addedEntryId)
+    managed = undefined
+  }
+  const reserved = !!wanted && (c.level >= 2 || !!managed)
+  saved = saved.filter(item => {
+    if (item.className !== c.className || reserved && item.feat.slot === slot
+      || item.feat.slot && feats.some(feat => feat.slot === item.feat.slot)) return true
+    feats.push(item.feat)
+    return false
+  })
+  if (wanted && archetype && c.level >= 2) {
+    const inSlot = feats.find(feat => feat.slot === slot)
+    const existing = inSlot?.name === wanted ? inSlot : feats.find(feat => feat.name === wanted)
+    if (!managed) managed = { name: wanted, className: archetype.className, ...(existing ? { previous: existing } : {}) }
+    if (inSlot && inSlot !== existing) saved.push({ className: archetype.className, feat: inSlot })
+    const entry = entries.find(candidate => candidate.kind === 'feat' && !candidate.deleted
+      && candidate.systems.includes('pf2e') && candidate.name === wanted)
+    const required = { ...existing, name: wanted, type: 'Class Feat', level: 2, slot,
+      ...(existing?.takenLevel !== undefined ? { takenLevel: 2 } : {}),
+      ...(existing?.sourceId || !entry ? {} : { sourceId: entry.id }) }
+    feats = [...feats.filter(feat => feat !== inSlot && feat !== existing), required]
+    if (entry && !entryIds.includes(entry.id)) {
+      entryIds.push(entry.id)
+      managed = { ...managed, addedEntryId: entry.id }
+    }
+  }
+  if (JSON.stringify([feats, managed, saved, entryIds]) === JSON.stringify([
+    c.feats, c.classArchetypeDedication, c.classArchetypeDisplacedFeats ?? [], c.entryIds,
+  ])) return undefined
+  return { feats, classArchetypeDedication: managed, classArchetypeDisplacedFeats: saved.length ? saved : undefined, entryIds }
+}
+
 export function classLabel(c: Character, entries: ContentEntry[] = []) {
   if (!c.className) return ''
   const archetype = selectedClassArchetype(c, entries)
@@ -3304,6 +3361,12 @@ export function freeHeartBackground(c: Character, entries: ContentEntry[]) {
 export const skillIncreaseLevels = (c: Character) => range(3, 19, 2).filter((l) => l <= c.level)
 const rankCap = (level: number) => (level >= 15 ? 4 : level >= 7 ? 3 : 2)
 export const canIncreaseTo = (level: number, currentRank: number) => currentRank < rankCap(level)
+
+export function bloodragerSkill(c: Character) {
+  if (!c.systems.includes('pf2e')) return undefined
+  const choice = activeFeatsNamed(c, 'Bloodrager Dedication')[0]?.choice
+  return choice === 'Arcane' ? 'Arcana' : choice === 'Divine' ? 'Religion' : undefined
+}
 
 export const LONGEVITY_EXPERT_SLOT = 'expert-longevity'
 export function longevityExpertLevel(c: Character) {
@@ -3634,8 +3697,8 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
     } else if (feat.name === "Stonemason's Eye" && !(ranks.Crafting ?? 0)) trained.push('Crafting')
   })
   if (activeFeatsNamed(c, 'Beast Trainer').length) trained.push('Nature')
-  const bloodragerTradition = c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Bloodrager Dedication')[0]?.choice : undefined
-  if (bloodragerTradition === 'Arcane' || bloodragerTradition === 'Divine') trained.push(bloodragerTradition === 'Arcane' ? 'Arcana' : 'Religion')
+  const bloodrager = bloodragerSkill(c)
+  if (bloodrager) trained.push(bloodrager)
   const warmask = warmaskSource(c)
   if (warmask) {
     const index = c.feats.findIndex(feat => feat.name === 'Orc Warmask' && featTakenLevel(feat) <= c.level)
@@ -4166,6 +4229,10 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
     ...(isPioneerHuman(c) ? ['Survival'] : []),
     ...skillTrainingSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries),
   ]) ranks[name] = Math.max(1, ranks[name] ?? 0)
+  const effectiveLevel = Math.min(c.level, beforeLevel - 1)
+  const bloodrager = bloodragerSkill({ ...c, level: effectiveLevel })
+  if (bloodrager) ranks[bloodrager] = Math.max(ranks[bloodrager] ?? 0,
+    effectiveLevel >= 15 ? 4 : effectiveLevel >= 7 ? 3 : effectiveLevel >= 3 ? 2 : 1)
   if (getSettings().skillTokenConversion && c.skillTokenUpgrades?.length) {
     const state = skillTokenState({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)
     for (const { purchase } of state.active) ranks[purchase.skill] = Math.max(ranks[purchase.skill] ?? 0, purchase.rank)
@@ -7450,6 +7517,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
         : feat.name === 'Rat Retinal HUD' ? ['Computers']
         : feat.name === 'Shiny' ? ['Performance']
         : feat.name === 'Hold Mark' && HOLD_MARK_SKILLS[feat.choice ?? ''] ? [HOLD_MARK_SKILLS[feat.choice!]]
+        : feat.name === 'Bloodrager Dedication' && bloodragerSkill({ ...c, feats: [feat] }) ? [bloodragerSkill({ ...c, feats: [feat] })!]
         : warmask ? [warmask.skill] : [])
       if (!named.length) return total
       const ranks = ancestrySkillBefore({ ...c, skillPicks: [] }, entries, index)
