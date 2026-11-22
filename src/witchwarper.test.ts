@@ -89,6 +89,32 @@ describe('Witchwarper class setup', () => {
     expect(classSpellSlots({ ...base, level: 19, feats: [feat] })?.[10]).toBe(1)
   })
 
+  it.each([
+    ['Analyst', 'Alternate Outcome', 'Quantum Analysis'],
+    ['Anomaly', 'Warp World', 'Parallel Forms'],
+    ['Gap Influenced', 'Forget', 'Reality Wipe'],
+    ['Precog', 'Accelerate', 'Time Loop'],
+  ] as const)('grants %s advanced and greater warp spells when their feats are active', (subclass, advanced, greater) => {
+    const feats = [{ name: 'Advanced Warp', level: 8, type: 'Class Feat' },
+      { name: 'Greater Warp', level: 12, type: 'Class Feat' }]
+    const c: Character = { ...base, subclass, level: 12, feats }
+    const result = focusSpells(c, [])
+    expect(result.spells).toEqual(expect.arrayContaining([
+      { name: advanced, source: 'Advanced Warp' }, { name: greater, source: 'Greater Warp' },
+    ]))
+    expect(result.points).toBe(3)
+    expect(focusSpells({ ...c, level: 7 }, []).spells.map(spell => spell.name)).not.toContain(advanced)
+    expect(focusSpells({ ...c, level: 11 }, []).spells.map(spell => spell.name)).not.toContain(greater)
+    expect(focusSpells({ ...c, feats: [feats[1]] }, []).spells.map(spell => spell.name)).not.toContain(advanced)
+    expect(focusSpells({ ...c, subclass: undefined }, []).spells).toEqual([])
+    expect(focusSpells({ ...c, className: 'Mystic' }, []).spells.map(spell => spell.name)).not.toContain(greater)
+    expect(focusSpells({ ...c, feats: [...feats, feats[0]] }, []).points).toBe(3)
+    const entries = [magic(advanced, 4, 'Arcane', ['Focus']), magic(greater, 6, 'Arcane', ['Focus'])]
+    const html = renderToStaticMarkup(createElement(SpellsSection, { c, entries, save: () => {} }))
+    expect(html).toContain(advanced)
+    expect(html).toContain(greater)
+  })
+
   it('renders clickable damage actions for Anomaly paradox spells', () => {
     const spells = [
       { ...magic('Eldritch Wrath', 4), data: { actions: 'Two Actions' } },

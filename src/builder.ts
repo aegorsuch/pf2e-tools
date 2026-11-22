@@ -2965,7 +2965,11 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
     }
   }
   const paradox = witchwarperParadox(c)
-  if (paradox) add(paradox.initialWarpSpell, `${paradox.name} paradox`)
+  if (paradox) {
+    add(paradox.initialWarpSpell, `${paradox.name} paradox`)
+    if (active.some(feat => feat.name === 'Advanced Warp')) add(paradox.advancedWarpSpell, 'Advanced Warp')
+    if (active.some(feat => feat.name === 'Greater Warp')) add(paradox.greaterWarpSpell, 'Greater Warp')
+  }
   const champion = c.className === 'Champion' && c.level >= 1
   const devotionAvailable = c.devotionSpell && (championDevotionOptions(c, entries).includes(c.devotionSpell)
     || !!c.deity && !byName(entries, 'deity', c.deity))

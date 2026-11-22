@@ -16,6 +16,8 @@ export interface WitchwarperParadox {
   tradition: 'Arcane' | 'Occult'
   spells: readonly string[]
   initialWarpSpell: string
+  advancedWarpSpell: string
+  greaterWarpSpell: string
   quantumField: string
   sourceUrl: string
 }
@@ -28,6 +30,8 @@ export const WITCHWARPER_PARADOXES: readonly WitchwarperParadox[] = [
     spells: ['Analyze Target', 'Sure Strike', 'Sift the Sphere', 'Hypercognition', 'Translocate',
       'Subjective Reality', 'Truesight', 'Retrocognition', 'Disappearance', 'Foresight'],
     initialWarpSpell: 'Warp Probability',
+    advancedWarpSpell: 'Alternate Outcome',
+    greaterWarpSpell: 'Quantum Analysis',
     quantumField: 'When you Seek or Recall Knowledge, you can apply the result against two related targets in your quantum field. When you Sustain the field, you can Seek or Recall Knowledge against a target in it as a free action.',
     sourceUrl: 'https://2e.aonsrd.com/classes/6-witchwarper/paradoxes/1-analyst',
   },
@@ -38,6 +42,8 @@ export const WITCHWARPER_PARADOXES: readonly WitchwarperParadox[] = [
     spells: ['Stumble', 'Shifting Surge', 'Dispel Magic', 'Void Whispers', 'Eldritch Wrath', 'Wall of Stone',
       'Slice Reality', 'Death Sentence', 'Void Vessel', 'Call Cosmos'],
     initialWarpSpell: 'Warp Terrain',
+    advancedWarpSpell: 'Warp World',
+    greaterWarpSpell: 'Parallel Forms',
     quantumField: 'When an enemy in your quantum field attempts an action with the concentrate trait, the action is disrupted unless it succeeds at a DC 5 flat check; after its first failure, it is temporarily immune for 24 hours.',
     sourceUrl: 'https://2e.aonsrd.com/classes/6-witchwarper/paradoxes/2-anomaly',
   },
@@ -48,6 +54,8 @@ export const WITCHWARPER_PARADOXES: readonly WitchwarperParadox[] = [
     spells: ['Daze', 'Delete', 'Instant Virus', 'Entropy Strike', 'Confusion', 'Synaptic Pulse', 'Repulsion',
       'Warp Mind', 'Disappearance', 'Phantasmagoria'],
     initialWarpSpell: 'Warp Presence',
+    advancedWarpSpell: 'Forget',
+    greaterWarpSpell: 'Reality Wipe',
     quantumField: 'You are concealed to creatures within your quantum field. When a creature in the field hits you with an attack, you lose this benefit against that creature until the start of your next turn.',
     sourceUrl: 'https://2e.aonsrd.com/classes/6-witchwarper/paradoxes/3-gap-influenced',
   },
@@ -58,6 +66,8 @@ export const WITCHWARPER_PARADOXES: readonly WitchwarperParadox[] = [
     spells: ['Injury Echo', 'Fleet Step', 'Temporal Bullets', "Time's Edge", 'Weight of Ages', 'Chrono Push',
       'Phantasmal Calamity', 'True Target', 'Moment of Renewal', 'Foresight'],
     initialWarpSpell: 'Warp Time',
+    advancedWarpSpell: 'Accelerate',
+    greaterWarpSpell: 'Time Loop',
     quantumField: 'An enemy using a move action inside your quantum field takes a -5-foot status penalty to Speed during that action. You and your allies gain a +5-foot status bonus to Speed during move actions used inside the field.',
     sourceUrl: 'https://2e.aonsrd.com/classes/6-witchwarper/paradoxes/4-precog',
   },
