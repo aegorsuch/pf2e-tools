@@ -13,6 +13,17 @@ const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['dat
   id: `${kind}:${name}`, systems: ['pf2e'], kind, source: 'official', name, level, traits, description: '', data, effects: [], updatedAt: 1,
 })
 
+it('grants permanent flight at land Speed from Eternal Wings only when active', () => {
+  const c: Character = { ...base, systems: ['pf2e'], level: 17,
+    feats: [{ name: 'Eternal Wings', type: 'Ancestry Feat', level: 17, takenLevel: 17 }] }
+  expect(movementSpeeds(c, [])).toContainEqual({ name: 'Fly', feet: 25, source: 'Eternal Wings' })
+  const ancestry = entry('ancestry', 'Fast Ancestry', { speed: 30 })
+  expect(movementSpeeds({ ...c, ancestry: ancestry.name }, [ancestry]))
+    .toContainEqual({ name: 'Fly', feet: 30, source: 'Eternal Wings' })
+  expect(movementSpeeds({ ...c, level: 16 }, []).some(speed => speed.name === 'Fly')).toBe(false)
+  expect(movementSpeeds({ ...c, feats: [] }, []).some(speed => speed.name === 'Fly')).toBe(false)
+})
+
 it('grants Vindication starting skills and divine warden spell at level 1', () => {
   const ranger = entry('class', 'Ranger', { skill_proficiency: 'Trained in Nature, Trained in Survival, Trained in a number of additional skills equal to 4 plus your Intelligence modifier' })
   const mark = entry('spell', "Vindicator's Mark", {}, 1, ['Focus'])

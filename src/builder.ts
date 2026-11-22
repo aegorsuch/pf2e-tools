@@ -2642,6 +2642,9 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
   if (activeFeatsNamed(c, 'Soaring Armor').length && wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID) {
     movement.push(atLandSpeed('Fly', 'Soaring Armor'))
   }
+  if (c.systems.includes('pf2e') && activeFeatsNamed(c, 'Eternal Wings').length) {
+    movement.push(atLandSpeed('Fly', 'Eternal Wings'))
+  }
   if (!getSettings().championFormNoFlight) {
     for (const name of ['Celestial Form', 'Fiendish Form']) {
       if (activeFeatsNamed(c, name).length) movement.push(atLandSpeed('Fly', name))
