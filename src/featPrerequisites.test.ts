@@ -151,6 +151,44 @@ it('checks Summon Nephilim Kin against selected Nephilim lineage feats', () => {
   expect(result(selectedOther, [...entries, differentSource])).toEqual({ missing: [prerequisite], manual: [] })
 })
 
+it('checks Celestial Mercy against celestial lineage feats', () => {
+  const prerequisite = 'Angelkin, Lawbringer, Musetouched, or another lineage feat associated with celestials'
+  const mercy = entry('feat', 'Celestial Mercy', { prerequisite }, 13, ['Nephilim'])
+  const lineages = ['Angelkin', 'Lawbringer', 'Musetouched', 'Pitborn'].map(name =>
+    entry('feat', name, {}, 1, ['Nephilim', 'Lineage']))
+  const custom = entry('feat', 'Custom Lineage', {}, 1, ['Nephilim', 'Lineage'])
+  const entries = [mercy, ...lineages, custom]
+  const c: Character = { ...base, level: 13, ancestry: 'Human', heritage: 'Nephilim' }
+  const slot = { key: 'ancestry:13:0', category: 'ancestry' as const, level: 13 }
+  const result = (character: Character) => featSelectionPrerequisiteChecker(character, entries, slot)(mercy)
+  expect(result(c)).toEqual({ missing: [prerequisite], manual: [] })
+  expect(result({ ...c, feats: [selected('Pitborn')] })).toEqual({ missing: [prerequisite], manual: [] })
+  expect(result({ ...c, feats: [selected('Custom Lineage')] })).toEqual({ missing: [], manual: [prerequisite] })
+  for (const lineage of lineages.slice(0, 3)) {
+    const withLineage = { ...c, feats: [selected(lineage.name)] }
+    expect(result(withLineage)).toEqual({ missing: [], manual: [] })
+    expect(eligibleFeats(entries, withLineage, slot)).toContain(mercy)
+  }
+  const gainedThroughScion = { ...c, feats: [selected('Pitborn'), { ...selected('Angelkin', 5), takenLevel: 5 }] }
+  expect(result(gainedThroughScion)).toEqual({ missing: [], manual: [] })
+})
+
+it('grants Celestial Mercy as a fourth-rank divine innate spell twice daily', () => {
+  const previous = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: false })
+  onTestFinished(() => updateSettings({ innateAutoHeighten: previous }))
+  const mercy = mapAonHit({ _id: 'celestial-mercy', _source: {
+    category: 'feat', name: 'Celestial Mercy', level: 13,
+    markdown: 'You can cast [_cleanse affliction_](/Spells.aspx?ID=1467) twice per day as a 4th-rank divine [innate spell](/Rules.aspx?ID=279).',
+  } }, 'pf2e')!
+  const spell = entry('spell', 'Cleanse Affliction', {}, 2)
+  const c: Character = { ...base, level: 13, feats: [{ ...selected('Celestial Mercy', 13), takenLevel: 13 }] }
+  const [grant] = featSpells.grantedFeatSpells(c, [mercy, spell])
+  expect(grant).toMatchObject({ entry: spell, rank: 4, rule: { kind: 'innate', tradition: 'divine', frequency: 'twice per day' } })
+  expect(featSpells.dailyInnateUses(c, grant)?.limit).toBe(2)
+  expect(featSpells.unresolvedFeatSpells(c, [mercy])).toMatchObject([{ name: 'Cleanse Affliction' }])
+})
+
 it('requires a damage-changing instinct for Scouring Rage', () => {
   const prerequisite = 'an instinct that allows you to change your additional damage from Rage to a different damage type'
   for (const subclass of ['Dragon', 'Spirit', 'Elemental'])

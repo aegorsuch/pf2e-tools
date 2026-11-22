@@ -374,6 +374,18 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     }
     if (facts.className === 'Champion' && name === "champion's aura") return resultFor(level >= 1, text)
     if (facts.className === 'Champion' && name === 'devotion spells') return resultFor(level >= 1, text)
+    if (name === 'angelkin, lawbringer, musetouched, or another lineage feat associated with celestials') {
+      if (facts.feats.some(feat => ['angelkin', 'lawbringer', 'musetouched'].includes(key(feat.name)))) return met()
+      const nonCelestial = ['aeonbound', 'battleblooded', 'faultspawn', 'proteankin', 'grimspawn', 'hellspawn', 'pitborn']
+      const uncertain = facts.feats.filter(feat => !nonCelestial.includes(key(feat.name))).some(feat => {
+        const sources = feat.sourceId
+          ? knownEntries(feat.name).filter(entry => entry.kind === 'feat' && entry.id === feat.sourceId)
+          : featPrerequisiteSources(entries, { ...facts, name: feat.name, category: feat.category, entryIds: context.entryIds })
+        return !sources.length || sources.some(entry =>
+          ['nephilim', 'lineage'].every(required => entry.traits.some(trait => key(trait) === required)))
+      })
+      return uncertain ? manual(text) : missing(text)
+    }
     if (name === 'any nephilim lineage feat') {
       const selectedSources = facts.feats.map(feat => feat.sourceId
         ? knownEntries(feat.name).filter(entry => entry.kind === 'feat' && entry.id === feat.sourceId)

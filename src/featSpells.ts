@@ -463,6 +463,13 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue
     }
+    if (feat.name === 'Celestial Mercy' && c.systems.includes('pf2e')) {
+      const entry = matchingSpells(entries, 'Cleanse Affliction').find(spell => spell.systems.includes('pf2e'))
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'divine', frequency: 'twice per day' },
+        rank: 4, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+      continue
+    }
     if (feat.name === 'Plant Shape' && c.systems.includes('pf2e')) {
       const rank = highestDruidSlotRank(c)
       if (!hasUntamedForm(c) && rank !== undefined && rank >= 5) {
@@ -798,6 +805,10 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
   }
   return [...missingBoonSpells, ...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
+    if (feat.name === 'Celestial Mercy' && c.systems.includes('pf2e')) {
+      return matchingSpells(entries, 'Cleanse Affliction').some(entry => entry.systems.includes('pf2e'))
+        ? [] : [{ name: 'Cleanse Affliction', source }]
+    }
     if (feat.name === 'Halo' && c.systems.includes('pf2e')) {
       return matchingSpells(entries, 'Light').some(entry => entry.systems.includes('pf2e')) ? [] : [{ name: 'Light', source }]
     }
