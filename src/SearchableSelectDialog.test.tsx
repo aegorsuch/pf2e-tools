@@ -5,11 +5,12 @@ import { SearchableSelect } from './SearchableSelect'
 import { EntryDescription } from './EntryDescription'
 import { PickerSort } from './PickerSort'
 import { SpellDefenseFilter } from './SpellDefenseFilter'
+import { GearSystemFilter } from './GearSystemFilter'
 import type { ContentEntry } from './types'
 
 vi.mock('react', async importOriginal => {
   const react = await importOriginal<typeof import('react')>()
-  return { ...react, useState: vi.fn(), useRef: vi.fn(), useMemo: vi.fn(), useId: vi.fn() }
+  return { ...react, useState: vi.fn((initial: unknown) => [initial, vi.fn()]), useRef: vi.fn(), useMemo: vi.fn(), useId: vi.fn() }
 })
 
 it('opens a searchable picker in the enclosing native dialog', () => {
@@ -201,6 +202,7 @@ it('filters spell choices by defense together with search and resets pagination'
     found.push({ type: child.type, props: child.props })
     visit(child.props.children as ReactNode)
   })
+
   visit(SearchableSelect({ 'aria-label': 'Spell', value: '', primaryDetails: true,
     optionSpell: value => entries.find(entry => entry.id === value),
     children: <>{entries.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</> }))
@@ -211,3 +213,38 @@ it('filters spell choices by defense together with search and resets pagination'
   expect(setDefense).toHaveBeenCalledWith('ac')
   expect(setLimit).toHaveBeenCalledWith(100)
 })
+
+it.each([
+    ['both', ['Select Shared PF2E', 'Select Shared SF2E']],
+    ['pf2e', ['Select Shared PF2E']],
+    ['sf2e', ['Select Shared SF2E']],
+  ] as const)('filters spell choices by %s and defense', (system, expected) => {
+    const setSystem = vi.fn()
+    const setLimit = vi.fn()
+    vi.mocked(useState).mockReturnValueOnce(['shared', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
+      .mockReturnValueOnce([100, setLimit]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
+      .mockReturnValueOnce(['reflex', vi.fn()]).mockReturnValueOnce([system, setSystem])
+    vi.mocked(useRef).mockReturnValue({ current: null })
+    vi.mocked(useId).mockReturnValue('picker')
+    vi.mocked(useMemo).mockImplementation(fn => fn())
+    const spell = (id: string, game: 'pf2e' | 'sf2e', defense: string): ContentEntry =>
+      ({ id, name: 'Shared', kind: 'spell', systems: [game], source: 'official', level: 1,
+        traits: [], description: '', data: { saving_throw: defense }, effects: [], updatedAt: 0 })
+    const entries = [spell('pf', 'pf2e', 'Reflex'), spell('sf', 'sf2e', 'Reflex'), spell('ac', 'sf2e', 'AC')]
+    const found: Array<{ type: unknown; props: Record<string, unknown> }> = []
+    const visit = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<Record<string, unknown>>(child)) return
+      found.push({ type: child.type, props: child.props })
+      visit(child.props.children as ReactNode)
+    })
+    visit(SearchableSelect({ 'aria-label': 'Spell', value: '', primaryDetails: true,
+      optionSpell: value => entries.find(entry => entry.id === value),
+      children: <><option value="pf">Shared PF2E</option><option value="sf">Shared SF2E</option>
+        <option value="ac">Shared AC</option></> }))
+    expect(found.filter(item => item.type === 'button' && String(item.props['aria-label']).startsWith('Select '))
+      .map(item => item.props['aria-label'])).toEqual(expected)
+    const filter = found.find(item => item.type === GearSystemFilter)!
+    ;(filter.props.onChange as (value: string) => void)('pf2e')
+    expect(setSystem).toHaveBeenCalledWith('pf2e')
+    expect(setLimit).toHaveBeenCalledWith(100)
+  })

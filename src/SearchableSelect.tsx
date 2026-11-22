@@ -4,6 +4,8 @@ import { selectOptionCount, selectOptionList } from './searchSelectOptions'
 import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
 import { SpellDefenseFilter } from './SpellDefenseFilter'
 import { matchesSpellDefense, type SpellDefense } from './spellDefense'
+import { GearSystemFilter } from './GearSystemFilter'
+import { matchesGearSystem, type GearSystem } from './gearSystem'
 import type { ContentEntry } from './types'
 
 type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue' | 'value'> & {
@@ -32,6 +34,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
   const [container, setContainer] = useState<HTMLElement>()
   const [sort, setSort] = useState<PickerSortOrder>('name')
   const [defense, setDefense] = useState<SpellDefense>('all')
+  const [system, setSystem] = useState<GearSystem>('both')
   const select = useRef<HTMLSelectElement>(null)
   const generatedId = useId()
   const id = props.id ?? generatedId
@@ -45,9 +48,12 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
   const matching: typeof options = []
   if (open) for (const option of options) {
     const match = !activeQuery || `${option.label} ${option.value} ${searchText?.(option.value) ?? ''}`.toLowerCase().includes(activeQuery)
-    const defenseMatch = !optionSpell || defense === 'all' || matchesSpellDefense(optionSpell(option.value), defense)
-    if (option.value && match && defenseMatch) matches++
-    if ((!primaryDetails || option.value) && ((!option.value || match || option.value === value) && (!option.value || defenseMatch))) matching.push(option)
+    const spell = optionSpell?.(option.value)
+    const defenseMatch = !optionSpell || defense === 'all' || matchesSpellDefense(spell, defense)
+    const systemMatch = !optionSpell || system === 'both' || !!spell && matchesGearSystem(spell, system, spell.systems)
+    if (option.value && match && defenseMatch && systemMatch) matches++
+    if ((!primaryDetails || option.value) && ((!option.value || match || option.value === value)
+      && (!option.value || defenseMatch && systemMatch))) matching.push(option)
   }
   const ordered = optionLevel && open ? [
     ...matching.filter(option => !option.value),
@@ -63,6 +69,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
     setOpen(false)
     setQuery('')
     setDefense('all')
+    setSystem('both')
   }
   return <span className="searchable-select">
     {label && <label htmlFor={id}>{label}</label>}
@@ -89,6 +96,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
       query={query} onQuery={next => { setQuery(next); setLimit(PAGE) }} onClose={() => setOpen(false)}>
       {optionLevel && <PickerSort label={`Sort ${props['aria-label']} by`} value={sort} onChange={next => { setSort(next); setLimit(PAGE) }} />}
       {optionSpell && <SpellDefenseFilter value={defense} onChange={next => { setDefense(next); setLimit(PAGE) }} />}
+      {optionSpell && <GearSystemFilter value={system} onChange={next => { setSystem(next); setLimit(PAGE) }} />}
       {filters}
       <ul className="feat-modal-list">
         {shown.map((option, index) => <Fragment key={option.value}>
@@ -107,7 +115,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
           </li>
         </Fragment>)}
       </ul>
-      {(activeQuery || defense !== 'all') && !matches && <small role="status">No matches.</small>}
+      {(activeQuery || defense !== 'all' || system !== 'both') && !matches && <small role="status">No matches.</small>}
       {matching.length > shown.length && <button type="button" onClick={() => setLimit(limit + PAGE)}>
         Show more ({matching.length - shown.length} left, or use search)
       </button>}

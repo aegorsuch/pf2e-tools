@@ -28,6 +28,8 @@ import { familiarSpellBenefits } from './familiarAbilities'
 import { PYRE_ENERGY_TYPES } from './hellknight'
 import { SpellDefenseFilter } from './SpellDefenseFilter'
 import { matchesSpellDefense, spellResolution, type SpellDefense } from './spellDefense'
+import { GearSystemFilter } from './GearSystemFilter'
+import { matchesGearSystem, type GearSystem } from './gearSystem'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Tailwind']
@@ -35,11 +37,12 @@ const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Imitate Fauna',
 const isCommonSpell = (entry?: ContentEntry) => !!entry && !entry.traits.some(trait => /^(?:uncommon|rare|unique)$/i.test(trait))
   && !/^(?:uncommon|rare|unique)$/i.test(String(entry.data.rarity ?? ''))
 
-function uniqueSpellNames<T extends { name: string }>(spells: T[]) {
+function uniqueSpellVariants<T extends { name: string }>(spells: T[], systems: (spell: T) => string) {
   const names = new Set<string>()
   return spells.filter(spell => {
-    if (names.has(spell.name)) return false
-    names.add(spell.name)
+    const key = `${spell.name}\0${systems(spell)}`
+    if (names.has(key)) return false
+    names.add(key)
     return true
   })
 }
@@ -555,6 +558,7 @@ export function DirgeLearnOptions({ options, onLearn }: { options: ContentEntry[
     {options.map(entry => <li key={entry.id}>
       <button type="button" aria-label={`Learn ${entry.name}`} onClick={() => onLearn(entry)}>+</button>
       <EntryDescription name={entry.name} entry={entry} />
+      {' '}<small>{entry.systems.map(system => system.toUpperCase()).join(' / ')}</small>
     </li>)}
   </ul>
 }
@@ -813,11 +817,12 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
           .sort((a, b) => compareSelectedSpells(a.slot.entry?.name ?? a.slot.granted ?? a.slot.value,
             b.slot.entry?.name ?? b.slot.granted ?? b.slot.value))
           .map(({ slot, index }) => {
-          const choices = uniqueSpellNames([
+          const choices = uniqueSpellVariants([
             ...(slot.entry && options[rank].some(entry => entry.id === slot.entry?.id) ? [slot.entry] : []),
             ...options[rank].filter(entry => !known.some(other => other.key !== slot.key
-              && other.rank === rank && other.valid && other.entry?.name === entry.name)),
-          ])
+              && other.rank === rank && other.valid && other.entry?.name === entry.name)
+              && entry.id !== slot.entry?.id),
+          ], entry => [...entry.systems].sort().join(','))
           const signature = c.level >= 3 && rank > 0 && sc.signatureSpells?.[rank] === slot.key && slot.valid
           const requestedRank = castRanks[slot.key] ?? rank
           const allowedRanks = signature ? Object.keys(slots).map(Number)
@@ -837,7 +842,8 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
                   value={value} alwaysSearchable primaryDetails optionLevel={choice => spellIndex.byId.get(choice)?.level}
                   optionSpell={choice => spellIndex.byId.get(choice) ?? spellIndex.byName.get(choice)} renderDetails={choice => {
                     const entry = spellIndex.byId.get(choice) ?? spellIndex.byName.get(choice)
-                    return entry && <span className="picker-spell-name"><EntryDescription name={entry.name} entry={entry} /></span>
+                    return entry && <span className="picker-spell-name"><EntryDescription name={entry.name} entry={entry} />
+                      {' '}<small>{entry.systems.map(system => system.toUpperCase()).join(' / ')}</small></span>
                   }} onChange={event => {
                     const value = event.target.value
                     if (value && !choices.some(entry => entry.id === value)) return
@@ -1015,6 +1021,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const [dirgeRank, setDirgeRank] = useState(0)
   const [dirgeQuery, setDirgeQuery] = useState('')
   const [dirgeDefense, setDirgeDefense] = useState<SpellDefense>('all')
+  const [dirgeSystem, setDirgeSystem] = useState<GearSystem>('both')
   const dirgeDialog = useRef<HTMLDialogElement>(null)
   const dirgeTitleId = useId()
   const casting = classSpellcasting(c, entries)
@@ -1052,13 +1059,15 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     [druidList, c.spells, c.ancestry, c.ethnicity, c.background, c.achievements, c.featAccessOverrides])
   const dirge = useMemo(() => necromancer ? necromancerDirge(c, spellIndex.spells) : undefined,
     [necromancer, c, spellIndex])
-  const dirgeOptions = useMemo(() => necromancer ? uniqueSpellNames(necromancerSpellList(c, spellIndex.spells)
-    .filter(entry => spellAccessGranted(c, entry) && necromancerDirgeCanLearn(c, spellIndex.spells, entry))) : [],
+  const dirgeOptions = useMemo(() => necromancer ? uniqueSpellVariants(necromancerSpellList(c, spellIndex.spells)
+    .filter(entry => spellAccessGranted(c, entry) && necromancerDirgeCanLearn(c, spellIndex.spells, entry)),
+    entry => [...entry.systems].sort().join(',')) : [],
     [necromancer, c, spellIndex, dirge])
   const rankedDirgeOptions = dirgeOptions.filter(entry => (dirgeRank === 0
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
     : entry.level === dirgeRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
-    && entry.name.toLowerCase().includes(dirgeQuery.trim().toLowerCase()) && matchesSpellDefense(entry, dirgeDefense))
+    && entry.name.toLowerCase().includes(dirgeQuery.trim().toLowerCase()) && matchesSpellDefense(entry, dirgeDefense)
+    && matchesGearSystem(entry, dirgeSystem, c.systems))
   const { spells, granted, featSpells, innate, special, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
   const available = spellCategoryAvailability(c, entries, data ?? spellSummaryData(c, entries))
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
@@ -1227,7 +1236,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       })
       .sort((a, b) => (rank === 0 ? 0 : b.baseRank - a.baseRank)
         || a.name.localeCompare(b.name) || (a.entryId ?? '').localeCompare(b.entryId ?? ''))
-      return { options, choices: preparedClass ? uniqueSpellNames(options) : options }
+      return { options, choices: preparedClass ? uniqueSpellVariants(options, spell => {
+        const entry = spell.entryId ? spellIndex.byId.get(spell.entryId) : spellIndex.byName.get(spell.name)
+        return [...entry?.systems ?? []].sort().join(',')
+      }) : options }
     })
   }, [druidAvailable, dirge, c.spells, preparedClass, selectedTradition, spellIndex, bard, c.feats, c.level])
   const classSlotRanks = Array.from({ length: 11 }, (_, rank) => ({
@@ -1276,6 +1288,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     setDirgeRank(rank)
     setDirgeQuery('')
     setDirgeDefense('all')
+    setDirgeSystem('both')
     setDirgeOpen(true)
     dirgeDialog.current?.showModal()
     dirgeDialog.current?.querySelector('h4')?.focus()
@@ -1324,6 +1337,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           <label>Search spells{' '}<input type="search" aria-label="Search dirge spells" value={dirgeQuery}
             onChange={event => setDirgeQuery(event.target.value)} /></label>
           <SpellDefenseFilter value={dirgeDefense} onChange={setDirgeDefense} />
+          <GearSystemFilter value={dirgeSystem} onChange={setDirgeSystem} />
           {dirgeOpen && <DirgeLearnOptions options={rankedDirgeOptions} onLearn={entry => {
             if (!rankedDirgeOptions.some(option => option.id === entry.id)) return
             save({ spells: [...(c.spells ?? []), { name: entry.name, entryId: entry.id, rank: entry.level,
@@ -1464,6 +1478,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                       return entry && <span className="picker-spell-name">
                         {!cantrip && rank > option.baseRank ? `+${rank - option.baseRank} ` : ''}
                         <EntryDescription name={entry.name} entry={entry} />
+                        {' '}<small>{entry.systems.map(system => system.toUpperCase()).join(' / ')}</small>
                       </span>
                     }}
                     title={extra?.source} onPrepare={() => setPreparedSlot(slotKey)}
