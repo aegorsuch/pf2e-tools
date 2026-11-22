@@ -1,5 +1,5 @@
 import type { Character, ContentEntry } from './types'
-import { activeFeatsNamed, classSpellcasting, classSpellSlots } from './builder'
+import { activeFeatsNamed, classSpellcasting, classSpellSlots, selectedSubclass } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
 
 export const FAMILIAR_RESISTANCE_TYPES = ['acid', 'cold', 'electricity', 'fire', 'poison', 'sonic'] as const
@@ -33,11 +33,45 @@ export function familiarSelection(c: Character) {
   return { leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, dailyAbilityLimit }
 }
 
+export function witchPatronFamiliarAbility(c: Character, entries: ContentEntry[]) {
+  const selected = c.className === 'Witch' ? selectedSubclass(c, entries) : undefined
+  if (!selected) return undefined
+  const patron = entries.find(entry => entry.kind === 'subclass' && !entry.deleted && entry.data.class === 'Witch'
+    && entry.name.trim().toLowerCase() === selected.trim().toLowerCase()
+    && entry.systems.some(system => c.systems.includes(system))
+    && typeof entry.data.grants_familiar_ability === 'string')
+  const name = patron?.data.grants_familiar_ability
+  if (!patron || typeof name !== 'string' || !name) return undefined
+  return {
+    id: `${patron.id}:familiar-ability`,
+    systems: patron.systems,
+    kind: 'familiar' as const,
+    source: patron.source,
+    name,
+    level: 1,
+    traits: [],
+    description: String(patron.data.familiar_ability_description ?? ''),
+    data: { ability_type: 'Patron' },
+    effects: [],
+    updatedAt: patron.updatedAt,
+  }
+}
+
+export function familiarAbilityCapacity(c: Character, entries: ContentEntry[]) {
+  const dailyAbilityLimit = familiarSelection(c).dailyAbilityLimit
+  const patronAbility = witchPatronFamiliarAbility(c, entries)
+  return {
+    dailyAbilityLimit,
+    selectableAbilityLimit: Math.max(0, dailyAbilityLimit - Number(!!patronAbility)),
+    patronAbility,
+  }
+}
+
 export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
   const state = familiarSelection(c)
   if (!state.familiar && !state.wasp) return []
   const data = state.wasp ? c.waspFamiliar : c.familiar
-  const choices = (data?.abilities ?? []).slice(0, state.dailyAbilityLimit)
+  const choices = (data?.abilities ?? []).slice(0, familiarAbilityCapacity(c, entries).selectableAbilityLimit)
   const catalog = familiarAbilityEntries(entries, c)
   return choices.flatMap((name, index) => {
     const entry = familiarAbilityEntry(name, catalog, c)

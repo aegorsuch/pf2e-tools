@@ -14,7 +14,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { bardingOptions, equippedBarding, isCompanionEquipmentItem } from './companions'
 import { confirmRemoval } from './confirmRemoval'
 import { DroneFeatures } from './DroneFeatures'
-import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityEffects, familiarAbilityEntries,
+import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
   familiarAbilityEntry, familiarAbilityUnavailableReason, familiarSelection, isFamiliarAbilityRepeatable } from './familiarAbilities'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
 
@@ -244,7 +244,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const needsCompanionOptions = companions.length === 0 && !!companionGrant
     || companions.length > 0 && companions.length < companionLimit
   const types = needsCompanionOptions ? companionTypes(companionEntries) : []
-  const familiarCapacity = familiarSelection(c).dailyAbilityLimit
+  const familiarCapacity = familiarAbilityCapacity(c, entries)
   const familiarAbilityCatalog = familiarAbilityEntries(entries, c)
   const familiarDefense = familiar || wasp ? (() => {
     const base = (breakdown: TotalBreakdown) => breakdown.parts
@@ -608,12 +608,14 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           const isLeshy = leshy && !isWasp
           const isUndead = undeadFamiliar && !isWasp
           const isCrocodile = crocodileFamiliar && !isWasp && !isUndead && !isLeshy
-          const dailyAbilityLimit = familiarCapacity
+          const patronAbility = !isWasp ? familiarCapacity.patronAbility : undefined
+          const dailyAbilityLimit = familiarCapacity.dailyAbilityLimit
+          const selectableAbilityLimit = patronAbility ? familiarCapacity.selectableAbilityLimit : dailyAbilityLimit
           const familiarType = isUndead ? 'Undead familiar' : isLeshy ? 'Leshy familiar'
             : isCrocodile ? 'Crocodile familiar' : 'Familiar'
           const familiarLabel = isWasp ? 'Wasp familiar' : familiarType
           const savedAbilities = (data?.abilities ?? []).map((ability, index) => ({ ability, index })).filter(item => !!item.ability)
-          const activeAbilityChoices = savedAbilities.filter(item => item.index < dailyAbilityLimit)
+          const activeAbilityChoices = savedAbilities.filter(item => item.index < selectableAbilityLimit)
           const abilityStatus = (ability: string, index: number) => {
             const entry = familiarAbilityEntry(ability, familiarAbilityCatalog, c)
             if (!entry) return { entry, reason: 'Ability rules are unavailable.' }
@@ -641,11 +643,11 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             saveFamiliar({ abilityOptions: { ...data?.abilityOptions, ...abilityOptions } })
           const chooseAbility = (event: { target: { value: string } }) => {
             const ability = familiarAbilityCatalog.find(entry => entry.id === event.target.value)
-            if (!ability || activeAbilityChoices.length >= dailyAbilityLimit
+            if (!ability || activeAbilityChoices.length >= selectableAbilityLimit
               || /^specific familiar\b/i.test(String(ability.data.ability_type ?? ''))
               || familiarAbilityUnavailableReason(ability, c, savedAbilities.map(item => item.ability), isUndead, entries)) return
             const abilities = [...(data?.abilities ?? [])]
-            const slot = Array.from({ length: dailyAbilityLimit }, (_, index) => index).find(index => !abilities[index])
+            const slot = Array.from({ length: selectableAbilityLimit }, (_, index) => index).find(index => !abilities[index])
             if (slot === undefined) return
             abilities[slot] = ability.name
             saveFamiliar({ abilities })
@@ -658,8 +660,10 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           })
           return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" open>
           <summary><h4>{isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
-            : isCrocodile ? 'Crocodile Familiar' : 'Familiar'}</h4> ({activeAbilityChoices.length}/{dailyAbilityLimit})</summary>
+            : isCrocodile ? 'Crocodile Familiar' : 'Familiar'}</h4> ({activeAbilityChoices.length + Number(!!patronAbility)}/{dailyAbilityLimit})</summary>
           {isCrocodile && <small>Tiny crocodile familiar granted by Crocodile's Twin.</small>}
+          {patronAbility && <div className="gear-traits"><EntryDescription name={patronAbility.name} entry={patronAbility}
+            entries={entries} character={c} buttonLabel="Patron familiar ability" /></div>}
           {isWasp && <div className="gear-runes">{['Burrower', 'Flier'].map(name => {
             const entry = familiarAbilityEntry(name, familiarAbilityCatalog, c)
             return entry ? <EntryDescription key={name} name={name} entry={entry} entries={entries} character={c}
@@ -692,14 +696,14 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               const { entry, reason } = abilityStatus(ability, index)
               return <div key={`${index}:${ability}`} className="rune">
                 <EntryDescription name={entry?.name ?? ability} entry={entry} entries={entries} character={c} />
-                {index >= dailyAbilityLimit && <small> (inactive)</small>}
-                {reason && index < dailyAbilityLimit && <small title={reason}> (unavailable)</small>}
+                {index >= selectableAbilityLimit && <small> (inactive)</small>}
+                {reason && index < selectableAbilityLimit && <small title={reason}> (unavailable)</small>}
                 <button type="button" aria-label={`Remove ${familiarLabel} ability ${index + 1}`}
                   onClick={() => confirmRemoval(`familiar ability "${ability}"`, () =>
                     saveFamiliar({ abilities: (data?.abilities ?? []).filter((_, abilityIndex) => abilityIndex !== index) }))}>×</button>
               </div>
             })}
-            {activeAbilityChoices.length < dailyAbilityLimit && <SearchableSelect aria-label={`${familiarLabel} ability`}
+            {activeAbilityChoices.length < selectableAbilityLimit && <SearchableSelect aria-label={`${familiarLabel} ability`}
               value="" optionCount={abilityOptions.length}
               renderDetails={value => {
                 const entry = abilityOptions.find(option => option.id === value)
@@ -773,7 +777,6 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               ? <small>On familiar death, three-action Heal at rank {highestSlot - 1}; plants regain an additional {2 * (highestSlot - 1)} HP.</small>
               : <small>Verdant Burst requires a 2nd-rank spell slot.</small>)}
           </div>}
-          {!isWasp && c.className === 'Witch' && <small>One ability must be your patron's unique familiar ability.</small>}
           {isLeshy && activeFeatsNamed(c, 'Grown of Oak').length > 0 && knowsSpell(c, entries, 'Oaken Resilience') && <>
             {oaken && <small>Oaken Resilience: Bludgeoning and piercing resistance {oaken.resistance}; fire weakness {oaken.fireWeakness}.</small>}
             <SourceNote source="Grown of Oak" note="Targets your leshy familiar only if within 30 feet when cast." />

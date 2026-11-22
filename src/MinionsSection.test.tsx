@@ -458,6 +458,25 @@ it('groups familiar and master options without showing pet abilities', () => {
   expect(html).toContain('<option value="" selected="">+</option>')
 })
 
+it('shows the selected Witch patron ability as granted and reserves its familiar slot', () => {
+  const c: Character = {
+    id: 'witch-patron', systems: ['pf2e'], name: 'Test', level: 1, className: 'Witch', subclass: 'Wilding Steward',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const patron: ContentEntry = {
+    ...familiarAbility('Wilding Steward', ''), id: 'patron:wilding-steward', kind: 'subclass',
+    data: { class: 'Witch', grants_familiar_ability: 'Familiar of Keen Senses',
+      familiar_ability_description: 'Your familiar gains scent or tremorsense after you Cast or Sustain a hex.' },
+  }
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={[patron]} save={() => {}} />)
+
+  expect(html).toContain('<h4>Familiar</h4> (1/4)')
+  expect(html).toContain('Patron familiar ability')
+  expect(html).toContain('Familiar of Keen Senses')
+  expect(html).not.toContain('One ability must be your patron')
+})
+
 it('offers usable generic familiar abilities and applies Necromancer spellcasting without saved slots', () => {
   let c: Character = { id: 'necro-familiar', name: 'Test', systems: ['pf2e'], level: 11, className: 'Necromancer',
     abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },

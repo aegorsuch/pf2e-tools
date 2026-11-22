@@ -52,3 +52,22 @@ it('imports feat-granted natural weapons with damage, traits, range, and feat so
     granted_by_feat: 'Scalding Spit',
   })
 })
+
+it('imports a Witch patron’s mandatory familiar ability separately from patron text', () => {
+  const [patron] = mapAonHits([{
+    _id: 'patron-wilding-steward',
+    _source: {
+      name: 'Wilding Steward', category: 'patron', level: 1,
+      markdown: '<column>\n**Familiar of Keen Senses** Your familiar gains your choice of scent or tremorsense.\n</column>',
+    },
+  }], 'pf2e')
+
+  expect(patron).toMatchObject({
+    kind: 'subclass',
+    data: {
+      class: 'Witch',
+      grants_familiar_ability: 'Familiar of Keen Senses',
+      familiar_ability_description: 'Your familiar gains your choice of scent or tremorsense.',
+    },
+  })
+})

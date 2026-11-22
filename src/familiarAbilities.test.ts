@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
-import { familiarAbilityEffects, familiarAbilityEntries, familiarAbilityUnavailableReason, familiarSpellBenefits } from './familiarAbilities'
+import { activeFamiliarAbilities, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
+  familiarAbilityUnavailableReason, familiarSpellBenefits } from './familiarAbilities'
 import type { Character, ContentEntry } from './types'
 
 const character: Character = {
@@ -88,4 +89,27 @@ it('activates spell benefits only for valid familiar choices within the daily li
   expect(familiarSpellBenefits(manual, entries, { 0: 5, 1: 2, 4: 1 })).toEqual({ cantrip: true, batteryRank: 1 })
   expect(familiarSpellBenefits({ ...manual, familiar: { abilities: ['Spell Battery', 'Spell Battery'] } }, entries, slots))
     .toEqual({ cantrip: false, batteryRank: undefined })
+})
+
+it('reserves one Witch familiar ability for the selected patron', () => {
+  const patron: ContentEntry = {
+    ...ability('Wilding Steward', ''),
+    id: 'patron:wilding-steward',
+    kind: 'subclass',
+    data: { class: 'Witch', grants_familiar_ability: 'Familiar of Keen Senses',
+      familiar_ability_description: 'Your familiar gains scent or tremorsense after you Cast or Sustain a hex.' },
+  }
+  const abilities = ['Flier', 'Tough', 'Skilled', 'Fast Movement'].map(name => ability(name, ''))
+  const witch: Character = { ...character, className: 'Witch', subclass: 'Wilding Steward', level: 1,
+    familiar: { abilities: abilities.map(entry => entry.name) } }
+
+  expect(familiarAbilityCapacity(witch, [patron])).toMatchObject({
+    dailyAbilityLimit: 4,
+    selectableAbilityLimit: 3,
+    patronAbility: { name: 'Familiar of Keen Senses', description: expect.stringContaining('scent or tremorsense') },
+  })
+  expect(activeFamiliarAbilities(witch, [...abilities, patron])).toEqual(['Flier', 'Tough', 'Skilled'])
+  expect(familiarAbilityCapacity({ ...witch, subclass: undefined,
+    imported: { source: 'pathbuilder', raw: { build: { class: 'Witch', specials: ['Wilding Steward'] } }, unmapped: [] } },
+  [patron]).selectableAbilityLimit).toBe(3)
 })

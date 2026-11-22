@@ -402,6 +402,12 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     } else if (category === 'mystery') {
       const spell = /\*\*Initial Revelation Spell\*\*\s*\[([^\]]+)\]/i.exec(markdown)?.[1]
       if (spell) data.grants_focus_spells = plain(spell)
+    } else if (category === 'patron') {
+      const ability = /\*\*(Familiar of [^*]+)\*\*\s*([\s\S]*?)(?=\n\s*<\/column\b|$)/i.exec(markdown)
+      if (ability) {
+        data.grants_familiar_ability = plain(ability[1])
+        data.familiar_ability_description = plain(ability[2])
+      }
     }
   }
   if (kind === 'familiar') {
