@@ -62,6 +62,33 @@ it('grants doshko training and Vesk weapon familiarity without affecting unrelat
   expect(weaponAttack(c, [doshko], { ...own, name: 'Other Blade' }).criticalSpecialization).toBe(false)
 })
 
+it('applies Lashunta ancestral weapon familiarity to every grade of its listed weapons', () => {
+  const catalog = mapAonHits(hits.filter(hit => hit._source?.name === 'Ancestral Weapon Familiarity'
+    || /\b(?:seeker rifle|shuriken drone|singing spear|laser rifle)\b/i.test(String(hit._source?.name))), 'sf2e')
+  const source = catalog.find(entry => entry.name === 'Ancestral Weapon Familiarity' && entry.traits.includes('Lashunta'))!
+  const wizard: ContentEntry = { id: 'wizard', name: 'Wizard', kind: 'class', source: 'official', systems: ['sf2e'],
+    level: 1, traits: [], description: '', data: { attack_proficiency: 'Expert in simple weapons, Trained in martial weapons' },
+    effects: [], updatedAt: 0 }
+  const allEntries = [...catalog, wizard]
+  const c: Character = { ...base, level: 5, ancestry: 'Lashunta', className: 'Wizard',
+    feats: [{ name: source.name, sourceId: source.id, type: 'Ancestry Feat', level: 1 }] }
+  for (const name of ['Shuriken Drone', 'Singing Spear', 'Seeker Rifle']) {
+    const weapon: OwnedWeapon = { id: name, name, potency: 0, striking: 0, runes: [] }
+    const tactical = { ...weapon, name: `Tactical ${name}` }
+    expect(weaponAttack({ ...c, level: 1 }, allEntries, weapon).rank).toBe(2)
+    expect(weaponAttack(c, allEntries, weapon)).toMatchObject({ rank: 2, criticalSpecialization: true })
+    expect(weaponAttack(c, allEntries, tactical)).toMatchObject({ rank: 2, criticalSpecialization: true })
+    if (name !== 'Seeker Rifle') expect(weaponAttack({ ...c, feats: [] }, allEntries, weapon).rank).toBe(1)
+    if (name !== 'Seeker Rifle') expect(weaponAttack({ ...c, ancestry: 'Vesk' }, allEntries, weapon).rank).toBe(1)
+    expect(weaponAttack({ ...c, feats: [] }, allEntries, weapon).criticalSpecialization).toBe(false)
+    expect(weaponAttack({ ...c, level: 4 }, allEntries, weapon).criticalSpecialization).toBe(false)
+    expect(weaponAttack({ ...c, level: 20 }, allEntries, weapon)).toMatchObject({ rank: 2, criticalSpecialization: true })
+  }
+  const other: OwnedWeapon = { id: 'other', name: 'Laser Rifle', potency: 0, striking: 0, runes: [] }
+  expect(weaponAttack(c, allEntries, other).rank).toBe(weaponAttack({ ...c, feats: [] }, allEntries, other).rank)
+  expect(weaponAttack(c, allEntries, other).criticalSpecialization).toBe(false)
+})
+
 it('provides Warblood Vesk two distinct Brutal Anatomy choices and attacks', () => {
   const c: Character = { ...base, ancestry: 'Vesk', heritage: 'Warblood Vesk', level: 5 }
   const slots = plannedSlots(c, entries).filter(slot => slot.grantedBy === 'Warblood Vesk')

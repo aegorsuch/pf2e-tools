@@ -51,6 +51,27 @@ const RULES: Record<string, FamiliarityRule> = {
 const key = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '')
 const named = (names: string[] | undefined, weapon: ContentEntry) => names?.some(name => key(name) === key(weapon.name)) ?? false
 const DWARF_STARFINDER_WEAPONS = ['Artillery Laser', 'Breaching Gun', 'Hammer', 'Machine Gun', 'Roto Laser', 'Stellar Cannon']
+const gradeFamilies = new WeakMap<ContentEntry[], Map<string, Set<string>>>()
+
+function gradeFamilyNames(entries: ContentEntry[], weapon: ContentEntry) {
+  const family = weapon.data.weapon_grade_family ?? weapon.data.url
+  if (!weapon.systems.includes('sf2e') || typeof family !== 'string' || !family) return undefined
+  let families = gradeFamilies.get(entries)
+  if (!families) {
+    families = new Map()
+    for (const entry of entries) {
+      const entryFamily = entry.data.weapon_grade_family ?? entry.data.url
+      if (entry.kind !== 'weapon' || entry.deleted || !entry.systems.includes('sf2e')
+        || typeof entryFamily !== 'string' || !entryFamily) continue
+      const names = families.get(entryFamily) ?? new Set<string>()
+      names.add(key(entry.name))
+      families.set(entryFamily, names)
+    }
+    gradeFamilies.set(entries, families)
+  }
+  return families.get(family)
+}
+
 export const uncommonWeapon = (weapon: ContentEntry) => !/^(rare|unique)$/i.test(String(weapon.data.rarity))
   && !weapon.traits.some(trait => /^(rare|unique)$/i.test(trait))
   && (String(weapon.data.rarity).toLowerCase() === 'uncommon' || weapon.traits.some(trait => trait.toLowerCase() === 'uncommon'))
@@ -103,14 +124,16 @@ export function weaponFamiliarity(c: Character, weapon: ContentEntry, category: 
       const ancestralTrait = weapon.traits.some(trait => key(trait) === key(source.ancestry))
       const dwarfStarfinder = key(source.ancestry) === 'dwarf'
       const group = key(String(weapon.data.weapon_group ?? ''))
-      const matchesList = dwarfStarfinder && DWARF_STARFINDER_WEAPONS.some(name => key(name) === key(weapon.name))
-        || options.split(/\s*,\s*|\s+or\s+/i).some(option => key(option) === key(weapon.name))
+      const listedNames = [...(dwarfStarfinder ? DWARF_STARFINDER_WEAPONS : []), ...options.split(/\s*,\s*|\s+or\s+/i)]
+      const familyNames = gradeFamilyNames(entries, weapon)
+      const dwarfWeapon = dwarfStarfinder && DWARF_STARFINDER_WEAPONS.some(name =>
+        key(name) === key(weapon.name) || familyNames?.has(key(name)))
+      const matchesList = listedNames.some(name => key(name) === key(weapon.name) || familyNames?.has(key(name)))
         || /\ball bows\b/i.test(options) && group === 'bow'
         || /\baxes\b/i.test(options) && group === 'axe'
         || /\bany doshko\b/i.test(options) && /\bdoshko\b/i.test(weapon.name)
         || /\bany pick\b/i.test(options) && group === 'pick'
-      if ((ancestralTrait || dwarfStarfinder && DWARF_STARFINDER_WEAPONS.some(name => key(name) === key(weapon.name)))
-        && uncommonWeapon(weapon)) access.push(feat.name)
+      if ((ancestralTrait || dwarfWeapon) && uncommonWeapon(weapon)) access.push(feat.name)
       if (ancestralTrait || matchesList) {
         if (category === 'Martial') proficiency = 'Simple'
         else if (category === 'Advanced' && proficiency !== 'Simple') proficiency = 'Martial'
