@@ -189,6 +189,14 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
       && spellAccessGranted(c, spell))
       .sort((a, b) => a.name.localeCompare(b.name))
   }
+  if (feat.name === 'Psychic Mastery' && c.systems.includes('sf2e')) {
+    return spellIndex(entries).spells.filter(spell => spell.systems.includes('sf2e') && spell.level === 2
+      && !spell.traits.some(trait => /^(?:cantrip|focus|uncommon|rare|unique)$/i.test(trait))
+      && !/^(?:uncommon|rare|unique)$/i.test(String(spell.data.rarity ?? ''))
+      && String(spell.data.tradition ?? '').split(',').some(tradition => /^occult$/i.test(tradition.trim()))
+      && spellAccessGranted(c, spell))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
   if (feat.name === 'Kitsune Spell Familiarity' && c.systems.includes('pf2e')) {
     return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e')
       && KITSUNE_SPELL_FAMILIARITY_CANTRIPS.includes(spell.name)
@@ -354,6 +362,13 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       if (entry) out.push({ entry, source: feat.name,
         rule: { kind: 'innate', spells: [entry.name], tradition: 'occult', frequency: 'at will', heightened: true },
         rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
+      continue
+    }
+    if (feat.name === 'Psychic Mastery' && c.systems.includes('sf2e')) {
+      const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'occult', frequency: 'once per day' },
+        rank: 2, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
       continue
     }
     if (feat.name === 'Lush Psychic' && c.systems.includes('sf2e')) {

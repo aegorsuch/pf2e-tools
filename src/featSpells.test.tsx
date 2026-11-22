@@ -329,10 +329,10 @@ it.each(['int', 'wis', 'cha'] as const)('uses highest %s for innate attacks and 
   try {
     updateSettings({ innateHighestMental: true })
     expect(render()).toContain('Will DC 23')
-    expect(render()).toContain(`${highest === 'int' ? 'Intelligence' : highest === 'wis' ? 'Wisdom' : 'Charisma'} Attack +13`)
+    expect(render()).toContain('AC, +13')
     updateSettings({ innateHighestMental: false })
     expect(render()).toContain(`Will DC ${highest === 'cha' ? 23 : 17}`)
-    expect(render()).toContain(`Charisma Attack +${highest === 'cha' ? 13 : 7}`)
+    expect(render()).toContain(`AC, +${highest === 'cha' ? 13 : 7}`)
   } finally { updateSettings({ innateHighestMental: previous }) }
 })
 
@@ -364,15 +364,53 @@ it('offers Psychic Talent occult cantrips in Innate Spells and heightens the sel
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(markup).toContain('Innate Spells')
   expect(markup).toContain('aria-label="Psychic Talent spell"')
+  expect(markup).toContain('Occult Spell Rank 4')
+  expect(markup).toContain('class="spellbook-row"')
+  expect(markup).toContain('0/1 spells')
   expect(markup).toContain('Uncommon Occult')
   expect(markup).not.toContain('Arcane Only')
   expect(markup).not.toContain('Restricted Occult')
   const selected: Character = { ...c, feats: [taken(talent.name, 1, 'Daze')] }
   expect(grantedFeatSpells(selected, entries)).toMatchObject([{ entry: { name: 'Daze' }, source: 'Psychic Talent', rank: 4,
     rule: { kind: 'innate', tradition: 'occult', frequency: 'at will', heightened: true } }])
-  expect(renderToStaticMarkup(<SpellsSection c={selected} entries={entries} save={() => {}} />)).toContain('Daze')
+  const selectedMarkup = renderToStaticMarkup(<SpellsSection c={selected} entries={entries} save={() => {}} />)
+  expect(selectedMarkup).toContain('Clear Daze spell slot')
+  expect(selectedMarkup).toContain('1 spells')
+  expect(selectedMarkup).not.toContain('aria-label="Psychic Talent spell"')
+  expect((selectedMarkup.match(/class="innate-spell-row"/g) ?? [])).toHaveLength(1)
   expect(grantedFeatSpells({ ...c, feats: [taken(talent.name, 1, 'Arcane Only')] }, entries)).toEqual([])
   expect(grantedFeatSpells({ ...selected, level: 0 }, entries)).toEqual([])
+})
+
+it('provides Psychic Mastery a common rank 2 occult spell slot and daily use', () => {
+  const previous = getSettings().innateAutoHeighten
+  const occult = { ...entry('Mind Spell', 'spell', { tradition: 'Occult' }), systems: ['sf2e' as const], level: 2 }
+  const spells = [occult, { ...occult, name: 'Rare Mind', id: 'rare', traits: ['Rare'] },
+    { ...occult, name: 'Uncommon Mind', id: 'uncommon', data: { ...occult.data, rarity: 'uncommon' } },
+    { ...occult, name: 'Other Rank', id: 'other-rank', level: 3 },
+    { ...occult, name: 'Other Tradition', id: 'other-tradition', data: { tradition: 'Arcane' } },
+    { ...occult, name: 'Focus', id: 'focus', traits: ['Focus'] }]
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Lashunta', level: 9,
+    feats: [taken('Psychic Mastery', 9)] }
+  try {
+    updateSettings({ innateAutoHeighten: false })
+    expect(featSpellOptions(c, spells, c.feats[0])?.map(spell => spell.name)).toEqual(['Mind Spell'])
+    const empty = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
+    expect(empty).toContain('Occult Spell Rank 2')
+    expect(empty).toContain('aria-label="Psychic Mastery spell"')
+    expect(empty).toContain('0/1 spells')
+    const selected = { ...c, feats: [taken('Psychic Mastery', 9, 'Mind Spell')] }
+    const [grant] = grantedFeatSpells(selected, spells)
+    expect(grant).toMatchObject({ source: 'Psychic Mastery', rank: 2,
+      rule: { kind: 'innate', tradition: 'occult', frequency: 'once per day' } })
+    expect(dailyInnateUses(selected, grant)?.remaining).toBe(1)
+    const html = renderToStaticMarkup(<SpellsSection c={selected} entries={spells} save={() => {}} />)
+    expect(html).toContain('Clear Mind Spell spell slot')
+    expect(html).toContain('1 of 1 uses remaining')
+    expect((html.match(/class="innate-spell-row"/g) ?? [])).toHaveLength(1)
+    updateSettings({ innateAutoHeighten: true })
+    expect(grantedFeatSpells(selected, spells)[0].rank).toBe(5)
+  } finally { updateSettings({ innateAutoHeighten: previous }) }
 })
 
 it('tracks Natural Illusionist alternatives in one daily pool with their specific heightened rank', () => {
@@ -1323,7 +1361,7 @@ it('shows the class spell attack modifier for Impaling Briars without an Attack 
     feats: [taken(feat.name, 16)] }
   expect(grantedFeatSpells(c, [feat, spell])).toHaveLength(0)
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={[feat, spell]} save={() => {}} />)
-  expect(html).toContain('<small>Wisdom Attack +33</small>')
+  expect(html).toContain('<small>Save</small>AC, +33; Reflex DC 43')
   expect(html).toContain('Reflex DC 43')
 })
 
@@ -1972,8 +2010,8 @@ it.each<{ data: ContentEntry['data']; traits: string[]; description: string; dc:
   const spell = { ...entry('Test Spell', 'spell', data, traits), description }
   const c: Character = { ...base, feats: [taken(grant.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, spell]} save={() => {}} />)
-  expect(/<small>Save<\/small>(?:basic )?(?:Will|Reflex|Fortitude) DC 21/i.test(markup)).toBe(dc)
-  expect(markup.includes('Attack +11')).toBe(attack)
+  expect(/(?:Will|Reflex|Fortitude) DC 21/i.test(markup)).toBe(dc)
+  expect(markup.includes('AC, +11')).toBe(attack)
 })
 
 it.each(['One with Stone', 'Seek the Stars', 'Seek The Stars'])('shows %s range and targets as Self', name => {
@@ -2307,7 +2345,7 @@ it.each([[1, 1], [6, 1], [7, 2], [14, 2], [15, 3], [18, 3], [19, 4], [20, 4]])(
     expect(classSpellcasting(c, entries)).toEqual({ traditions: ['Occult'], rank, ability: 'int' })
     expect(spellDifficultyClass(c, entries)).toBe(10 + mod)
     const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-    expect(markup).toContain(`Intelligence Attack +${mod}`)
+    expect(markup).toContain(`AC, +${mod}`)
     expect(markup).toContain(`Fortitude DC ${10 + mod}`)
     expect(markup).not.toContain('Check granting source')
   },

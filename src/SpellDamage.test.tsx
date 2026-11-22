@@ -12,6 +12,17 @@ vi.mock('react', async importOriginal => {
 
 afterEach(() => vi.restoreAllMocks())
 
+it('rolls Verdant Code piercing damage without inventing heightening', () => {
+  const entry: ContentEntry = { id: 'verdant-code', name: 'Verdant Code', systems: ['sf2e'], kind: 'spell',
+    source: 'official', level: 2, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 1)).toEqual([])
+  for (const rank of [2, 6, 10]) {
+    expect(spellDamage(entry.name, rank)).toEqual([{ label: 'Damage', dice: 2, sides: 6, type: 'piercing' }])
+    expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+      .toContain('2d6 piercing')
+  }
+})
+
 it.each([
   [0, 'Supernova', 'fire', 'electricity', undefined],
   [1, 'Earthquake', 'bludgeoning', undefined, undefined],

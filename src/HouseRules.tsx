@@ -2,6 +2,7 @@ import { updateSettings, useSettings, type Settings } from './settings'
 
 const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'singleAdditionalArms', label: 'Additional Arms: Once' },
+  { key: 'singleDistantTelepath', label: 'Distant Telepath: Once' },
   { key: 'adoptedDwarfClanDagger', label: 'Adopted Ancestry (Dwarf) Grants Clan Dagger' },
   { key: 'autoClassSkills', label: 'Auto-Advance Class-Specific Skills' },
   { key: 'autoLores', label: 'Auto-Advance Lores' },

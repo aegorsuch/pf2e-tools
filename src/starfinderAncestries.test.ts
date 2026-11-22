@@ -63,6 +63,9 @@ it('grants doshko training and Vesk weapon familiarity without affecting unrelat
 })
 
 it('shows limited telepathy and increases its range for each active Distant Telepath', () => {
+  const previous = getSettings().singleDistantTelepath
+  updateSettings({ singleDistantTelepath: false })
+  try {
   const c: Character = { ...base, ancestry: 'Lashunta', level: 5, feats: [
     { name: 'Distant Telepath', type: 'Ancestry Feat', level: 1 },
     { name: 'Distant Telepath', type: 'Ancestry Feat', level: 1, takenLevel: 5 },
@@ -80,6 +83,20 @@ it('shows limited telepathy and increases its range for each active Distant Tele
   expect(senses({ ...c, ancestry: 'Human', heritage: undefined }, entries).some(sense => /telepathy/i.test(sense.value))).toBe(false)
   expect(senses({ ...c, feats: [...c.feats, { name: 'Eyeswide Detective Dedication', type: 'Archetype Feat', level: 2 }] }, entries))
     .toContainEqual({ value: 'Limited Telepathy 90 feet', source: 'Lashunta, Eyeswide Detective Dedication, Distant Telepath' })
+  updateSettings({ singleDistantTelepath: true })
+  expect(senses(c, entries)).toContainEqual({ value: 'Limited Telepathy 45 feet', source: 'Lashunta, Distant Telepath' })
+  } finally { updateSettings({ singleDistantTelepath: previous }) }
+})
+
+it('grants Sensitive Antennae thoughtsense and improves its precision at level 9', () => {
+  const c: Character = { ...base, ancestry: 'Lashunta', level: 5,
+    feats: [{ name: 'Sensitive Antennae', type: 'Ancestry Feat', level: 5 }] }
+  const catalog = mapAonHits(hits.filter(hit => hit._source?.name === 'Sensitive Antennae'), 'sf2e')
+  expect(senses({ ...c, level: 4 }, catalog).some(sense => /thoughtsense/i.test(sense.value))).toBe(false)
+  expect(senses(c, catalog).filter(sense => /thoughtsense/i.test(sense.value)))
+    .toEqual([{ value: 'Thoughtsense (vague) 30 feet', source: 'Sensitive Antennae' }])
+  expect(senses({ ...c, level: 9 }, catalog).filter(sense => /thoughtsense/i.test(sense.value)))
+    .toEqual([{ value: 'Thoughtsense (imprecise) 30 feet', source: 'Sensitive Antennae' }])
 })
 
 it('grants Psychic Talent with an occult cantrip from the real catalog', () => {

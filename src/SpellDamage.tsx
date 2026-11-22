@@ -9,6 +9,8 @@ type DamageResult = number | number[] | { primary: number; additional: number }
 
 export function spellDamage(name: string, rank: number, spellcastingModifier?: number): Damage[] {
   switch (name) {
+    case 'Verdant Code':
+      return rank >= 2 ? [{ label: 'Damage', dice: 2, sides: 6, type: 'piercing' }] : []
     case 'Ancient Dust': {
       if (rank < 1 || spellcastingModifier === undefined) return []
       const heightened = Math.floor((rank - 1) / 2)

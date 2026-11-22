@@ -489,6 +489,24 @@ it.each(['Cyborg', 'SRO'])('limits Additional Arms for %s while preserving its c
   } finally { updateSettings({ singleAdditionalArms: previous }) }
 })
 
+it('optionally limits Distant Telepath while preserving its existing slot', () => {
+  const previous = getSettings().singleDistantTelepath
+  const feat = { ...entry('feat', 'Distant Telepath', { repeatable: true }, 1, ['Lashunta']), systems: ['sf2e' as const] }
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Lashunta',
+    feats: [{ name: feat.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+  const slot = { key: 'ancestry:5:0', category: 'ancestry' as const, level: 5 }
+  try {
+    updateSettings({ singleDistantTelepath: true })
+    expect(eligibleFeats([feat], { ...c, feats: [] }, slot)).toContain(feat)
+    expect(eligibleFeats([feat], c, slot, { includeUnmetPrerequisites: true })).not.toContain(feat)
+    expect(eligibleFeats([feat], c, { ...slot, key: 'ancestry:1:0', level: 1 })).toContain(feat)
+    expect(featSelectionPrerequisiteChecker(c, [feat], slot)(feat).missing.join()).toContain('only be selected once')
+    updateSettings({ singleDistantTelepath: false })
+    expect(eligibleFeats([feat], c, slot)).toContain(feat)
+    expect(featSelectionPrerequisiteChecker(c, [feat], slot)(feat).missing).toEqual([])
+  } finally { updateSettings({ singleDistantTelepath: previous }) }
+})
+
 it.each(['Machine Heart', 'Mortal Heart'])('optionally excludes the other Cyborg heart after %s', name => {
   const previous = getSettings().exclusiveCyborgHearts
   const data = ['Machine Heart', 'Mortal Heart'].map(name =>

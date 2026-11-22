@@ -1270,6 +1270,10 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
       && character.feats.some(feat => feat.name === entry.name)) {
       missing.push('Additional Arms can only be selected once (house rule)')
     }
+    if (getSettings().singleDistantTelepath && entry.name === 'Distant Telepath'
+      && character.feats.some(feat => feat.name === entry.name)) {
+      missing.push('Distant Telepath can only be selected once (house rule)')
+    }
     if (getSettings().exclusiveCyborgHearts && CYBORG_HEART_FEATS.includes(entry.name)) {
       const other = CYBORG_HEART_FEATS.find(name => name !== entry.name && character.feats.some(feat => feat.name === name))
       if (other) missing.push(`${entry.name} cannot be combined with ${other} (house rule)`)
@@ -1432,6 +1436,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === e.name && (!feat.sourceId || feat.sourceId === e.id)))
       && !(getSettings().singleTrainingFeats && ['General Training', 'Advanced General Training'].includes(e.name) && taken.has(e.name))
       && !(getSettings().singleAdditionalArms && e.name === 'Additional Arms' && taken.has(e.name))
+      && !(getSettings().singleDistantTelepath && e.name === 'Distant Telepath' && taken.has(e.name))
       && (e.name !== "Officer's Education" || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
       && (e.name !== 'Adaptive Visual Receptors' || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
       && (!['Commercial Customization', 'Tactical Customization', 'Advanced Customization', 'Superior Customization', 'Superior Drone'].includes(e.name)
@@ -3585,6 +3590,9 @@ export function senses(c: Character, entries: ContentEntry[]) {
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Vibration Whiskers').length) {
     addVision('Motion sense (imprecise) 30 feet', 'Vibration Whiskers')
   }
+  if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Sensitive Antennae').length) {
+    addVision(`Thoughtsense (${c.level >= 9 ? 'imprecise' : 'vague'}) 30 feet`, 'Sensitive Antennae')
+  }
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Melodic Adaptation').length) {
     const rank = c.level >= 17 ? 4 : c.level >= 13 ? 3 : 1
     addVision(`Detect magic (30-foot emanation, rank ${rank})`, 'Melodic Adaptation')
@@ -3616,12 +3624,13 @@ export function senses(c: Character, entries: ContentEntry[]) {
     }
   }
   const hasVision = (value: string) => out.some((sense) => sense.value.toLowerCase().includes(value))
-  const explicitVision = ['Acute Vision', 'Nocturnal Senses', 'Superior Sight', 'Adaptive Visual Receptors']
+  const explicitVision = ['Acute Vision', 'Nocturnal Senses', 'Superior Sight', 'Adaptive Visual Receptors', 'Sensitive Antennae']
   const passive = { ...c, feats: c.feats.filter((feat) => featTakenLevel(feat) <= c.level && !explicitVision.includes(feat.name)) }
   for (const grant of featData(passive, entries, 'grants_vision')) addVision(grant.value, grant.source)
   const telepathy = limitedTelepathy(c, entries)
   if (telepathy) {
-    const distant = activeFeatsNamed(c, 'Distant Telepath').length
+    const distantCount = activeFeatsNamed(c, 'Distant Telepath').length
+    const distant = getSettings().singleDistantTelepath ? Math.min(1, distantCount) : distantCount
     addVision(`Limited Telepathy ${telepathy.feet + 15 * distant} feet`,
       `${telepathy.source}${distant ? ', Distant Telepath' : ''}`)
   }
