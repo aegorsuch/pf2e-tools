@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
-import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
+import { dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, hasParryWeapon, isGrantedSlot, maxHp, movementSpeeds, ownedShields, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, shieldAcBonus, shieldRaisedChange, speed, tailbladeInheritance, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 import { getSettings, updateSettings } from './settings'
@@ -80,6 +80,16 @@ it('shows limited telepathy and increases its range for each active Distant Tele
   expect(senses({ ...c, ancestry: 'Human', heritage: undefined }, entries).some(sense => /telepathy/i.test(sense.value))).toBe(false)
   expect(senses({ ...c, feats: [...c.feats, { name: 'Eyeswide Detective Dedication', type: 'Archetype Feat', level: 2 }] }, entries))
     .toContainEqual({ value: 'Limited Telepathy 90 feet', source: 'Lashunta, Eyeswide Detective Dedication, Distant Telepath' })
+})
+
+it('grants Psychic Talent with an occult cantrip from the real catalog', () => {
+  const catalog = mapAonHits(hits.filter(hit => ['Psychic Talent', 'Daze'].includes(String(hit._source?.name))), 'sf2e')
+  const talent = catalog.find(entry => entry.kind === 'feat' && entry.name === 'Psychic Talent')!
+  const c: Character = { ...base, ancestry: 'Lashunta', level: 7,
+    feats: [{ name: talent.name, sourceId: talent.id, type: 'Ancestry Feat', level: 1, choice: 'Daze' }] }
+  expect(featSpellOptions(c, catalog, c.feats[0])?.map(spell => spell.name)).toContain('Daze')
+  expect(grantedFeatSpells(c, catalog)).toMatchObject([{ entry: { name: 'Daze' }, rank: 4,
+    rule: { kind: 'innate', tradition: 'occult', frequency: 'at will' } }])
 })
 
 it('applies Lashunta ancestral weapon familiarity to every grade of its listed weapons', () => {

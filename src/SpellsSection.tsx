@@ -1022,6 +1022,7 @@ export function spellCategoryAvailability(c: Character, entries: ContentEntry[],
   const innateAvailable = innate.length > 0 || c.heritage === 'Mage Automaton' && c.level >= 1
     || c.systems.includes('pf2e') && c.level >= 1 && ['fey-touched gnome', 'wellspring gnome'].includes(heritage)
     || !!activeFeatsNamed(c, 'Minor Magic').length || !!activeFeatsNamed(c, 'First World Magic').length
+    || c.systems.includes('sf2e') && !!activeFeatsNamed(c, 'Psychic Talent').length
   return { class: class_, focus: focusAvailable, innate: innateAvailable, feat: special.length > 0, items: items.length > 0,
     rituals: characterRituals(c, entries).ritualNames.length > 0 }
 }
@@ -1608,20 +1609,23 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         </SearchableSelect>
       })()}
       {c.feats.map((feat, index) => {
-        if (feat.name !== 'First World Magic' || featTakenLevel(feat) > c.level) return null
+        if (!(feat.name === 'First World Magic' || feat.name === 'Psychic Talent' && c.systems.includes('sf2e'))
+          || featTakenLevel(feat) > c.level) return null
         const options = featSpellOptions(c, entries, feat) ?? []
         return <span className="feat-choice" key={feat.slot ?? `${feat.name}:${index}`}>
           <SearchableSelect label={`${feat.name} spell`} aria-label={`${feat.name} spell`} value={feat.choice ?? ''}
             optionSpell={value => options.find(entry => entry.name === value)} onChange={event => {
             const choice = event.target.value || undefined
             if (choice && !options.some(spell => spell.name === choice)) return
-            save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+            const select = () => save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+            if (feat.name === 'Psychic Talent' && !choice && feat.choice) confirmRemoval(`${feat.name} cantrip "${feat.choice}"`, select)
+            else select()
           }}>
             <option value="">Choose spell</option>
             {feat.choice && !options.some(spell => spell.name === feat.choice) && <option disabled value={feat.choice}>{feat.choice} (unavailable)</option>}
             {[...new Set(options.map(spell => spell.name))].map(name => <option key={name}>{name}</option>)}
           </SearchableSelect>
-          {!options.length && <small>No available spells. Check ancestry, earlier choices, and imported spell data.</small>}
+          {feat.name === 'First World Magic' && !options.length && <small>No available spells. Check ancestry, earlier choices, and imported spell data.</small>}
         </span>
       })}
       {!!activeFeatsNamed(c, 'Minor Magic').length && <div className="col">

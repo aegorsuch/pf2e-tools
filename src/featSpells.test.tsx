@@ -348,6 +348,33 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
 
+it('offers Psychic Talent occult cantrips in Innate Spells and heightens the selected spell', () => {
+  const talent = mapAonHit({ _id: 'psychic-talent', _source: { name: 'Psychic Talent', category: 'feat', level: 1,
+    trait: ['Lashunta', 'Shirren'], markdown: 'Header\n\n---\n\nChoose one cantrip from the occult spell list. You can cast this cantrip as an occult innate spell at will.' } }, 'sf2e')!
+  const occult = entry('Daze', 'spell', { tradition: 'Occult, Divine' }, ['Cantrip'])
+  const uncommon = entry('Uncommon Occult', 'spell', { tradition: 'Occult', rarity: 'uncommon' }, ['Cantrip', 'Uncommon'])
+  const restricted = entry('Restricted Occult', 'spell', { tradition: 'Occult', access: 'Member of the Hellknights' }, ['Cantrip'])
+  const arcane = entry('Arcane Only', 'spell', { tradition: 'Arcane' }, ['Cantrip'])
+  const ranked = entry('Occult Rank One', 'spell', { tradition: 'Occult' })
+  const focus = entry('Occult Focus', 'spell', { tradition: 'Occult' }, ['Cantrip', 'Focus'])
+  const entries = [talent, occult, uncommon, restricted, arcane, ranked, focus]
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Lashunta', level: 7, feats: [taken(talent.name)] }
+  expect(featSpellOptions(c, entries, c.feats[0])?.map(spell => spell.name)).toEqual(['Daze', 'Uncommon Occult'])
+  expect(grantedFeatSpells(c, entries)).toEqual([])
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('Innate Spells')
+  expect(markup).toContain('aria-label="Psychic Talent spell"')
+  expect(markup).toContain('Uncommon Occult')
+  expect(markup).not.toContain('Arcane Only')
+  expect(markup).not.toContain('Restricted Occult')
+  const selected: Character = { ...c, feats: [taken(talent.name, 1, 'Daze')] }
+  expect(grantedFeatSpells(selected, entries)).toMatchObject([{ entry: { name: 'Daze' }, source: 'Psychic Talent', rank: 4,
+    rule: { kind: 'innate', tradition: 'occult', frequency: 'at will', heightened: true } }])
+  expect(renderToStaticMarkup(<SpellsSection c={selected} entries={entries} save={() => {}} />)).toContain('Daze')
+  expect(grantedFeatSpells({ ...c, feats: [taken(talent.name, 1, 'Arcane Only')] }, entries)).toEqual([])
+  expect(grantedFeatSpells({ ...selected, level: 0 }, entries)).toEqual([])
+})
+
 it('tracks Natural Illusionist alternatives in one daily pool with their specific heightened rank', () => {
   const entries = ['Illusory Disguise', 'Item Facade', 'Ventriloquism'].map(name => entry(name, 'spell'))
   const c: Character = { ...base, level: 7, feats: [taken('Natural Illusionist', 5)] }

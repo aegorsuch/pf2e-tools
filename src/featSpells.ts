@@ -6,6 +6,7 @@ import { divineBoonSpells } from './divineIntercessions'
 import { getSettings } from './settings'
 import { cantripOptions } from './minorMagic'
 import { GODCLAW_DOMAINS, hellknightTrainingBenefit, hellknightTrainingSpellRules } from './hellknight'
+import { spellAccessGranted } from './featAccess'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 export const KITSUNE_SPELL_FAMILIARITY_CANTRIPS = ['Daze', 'Forbidding Ward', 'Ghost Sound']
@@ -180,6 +181,14 @@ export function witchLessonOptions(c: Character, entries: ContentEntry[], feat: 
 
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   if (feat.name in WITCH_LESSON_RANKS) return witchLessonOptions(c, entries, feat)
+  if (feat.name === 'Psychic Talent' && c.systems.includes('sf2e')) {
+    return spellIndex(entries).spells.filter(spell => spell.systems.includes('sf2e')
+      && spell.traits.some(trait => /^cantrip$/i.test(trait))
+      && !spell.traits.some(trait => /^focus$/i.test(trait))
+      && String(spell.data.tradition ?? '').split(',').some(tradition => /^occult$/i.test(tradition.trim()))
+      && spellAccessGranted(c, spell))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
   if (feat.name === 'Kitsune Spell Familiarity' && c.systems.includes('pf2e')) {
     return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e')
       && KITSUNE_SPELL_FAMILIARITY_CANTRIPS.includes(spell.name)
@@ -340,6 +349,13 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (feat.name === 'Psychic Talent' && c.systems.includes('sf2e')) {
+      const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'occult', frequency: 'at will', heightened: true },
+        rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
+      continue
+    }
     if (feat.name === 'Kitsune Spell Familiarity') {
       const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
       if (entry) out.push({ entry, source: feat.name,
