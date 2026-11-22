@@ -149,7 +149,7 @@ it('shows Witchwarper anchor selection alongside class choices even without a pa
   expect(save).toHaveBeenLastCalledWith({ witchwarper: { anchor: undefined, coreMemorySkill: 'Computers' } })
 })
 
-it('shares roster deity Lore with background variants and the Skills picker', () => {
+it('keeps deity Lore in the Skills picker and normalizes legacy Acolyte variants', () => {
   content.entries = [{
     id: 'acolyte', systems: ['pf2e'], kind: 'background', source: 'official', name: 'Acolyte', level: 1,
     traits: [], description: 'Trained in Religion and Scribing Lore.', effects: [], updatedAt: 0,
@@ -165,9 +165,9 @@ it('shares roster deity Lore with background variants and the Skills picker', ()
   expect(picker).toContain('>Zon-Shelyn Lore</option>')
   const saved = renderToStaticMarkup(<CharacterBuilder character={{ ...c, background: 'Acolyte (Zon-Shelyn Lore)' }}
     onClose={() => {}} />)
-  expect(saved).toContain('<option value="Acolyte (Zon-Shelyn Lore)" selected="">Acolyte (Zon-Shelyn Lore)</option>')
-  expect(saved).toContain('Trained in Religion and Zon-Shelyn Lore.')
-  expect(saved).not.toContain('Trained in Religion and Scribing Lore.')
+  expect(saved).toContain('<option value="Acolyte" selected="">Acolyte</option>')
+  expect(saved).toContain('Trained in Religion and Scribing Lore.')
+  expect(saved).not.toContain('Acolyte (Zon-Shelyn Lore)')
 })
 
 it.each(['Scout', 'Nomad'])('shows saved %s Lore as a background variant without a separate skill picker', name => {

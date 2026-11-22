@@ -2,10 +2,10 @@ import { expect, it } from 'vitest'
 import { mapAonHits } from './aon'
 import pf2eSnapshot from '../public/data/aon-pf2e.json?raw'
 import sf2eSnapshot from '../public/data/aon-sf2e.json?raw'
-import { backgroundLoreCount, characterDeityLores, deityLoreBackgroundEntries } from './backgrounds'
+import { backgroundLoreCount, characterDeityLores, normalizeAcolyte } from './backgrounds'
 import { backgroundLoreChoiceOptions, backgroundLoreIncreaseSlots, backgroundLoreSlots, backgroundSkills, backgroundSkillSlots, backgroundVariants, boostSlots, featChoiceOptions, plannedSlots, ranksAt, skillRankBudget, skillTokenPurchase } from './builder'
 import { getSettings, updateSettings } from './settings'
-import type { Character, ContentEntry } from './types'
+import type { Character } from './types'
 
 const compile = (name: string, markdown: string, skill: string[] = [], feat: string[] = []) => mapAonHits([{
   _id: `background-${name}`, _source: { name, category: 'background', markdown, skill, feat },
@@ -142,23 +142,23 @@ it('shares selected deities across characters without duplicates or deleted char
   expect(characterDeityLores(characters)).toEqual(['Abadar Lore', 'Meyel Lore', 'Sarenrae Lore', 'Zon-Shelyn Lore'])
 })
 
-it('adds saved deity Lore variants to Acolyte while preserving its default and other backgrounds', () => {
+it('uses only Acolyte and restores its actual benefits for legacy deity Lore variants', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(pf2eSnapshot)
+  const official = mapAonHits(hits.filter(hit => hit._source?.name === 'Acolyte' && hit._source?.category === 'background'), 'pf2e')
+  expect(backgroundVariants(official).map(option => option.value)).toEqual(['Acolyte'])
   const catalog = compile('Acolyte', `You're trained in ${skill('Religion')} and ${skill('Scribing Lore')}.
 You gain the ${feat('Student of the Canon')} skill feat.`, ['Religion', 'Scribing Lore'], ['Student of the Canon'])
-  const entries = deityLoreBackgroundEntries(catalog, characterDeityLores([{ ...base, deity: 'Zon-Shelyn' }]))
-  expect(backgroundVariants(entries, ['Cooking Lore']).map(option => option.value))
-    .toEqual(['Acolyte'])
-  expect(backgroundSkills(entries[0])).toEqual(['Religion', 'Scribing Lore'])
+  expect(backgroundVariants(catalog, ['Zon-Shelyn Lore']).map(option => option.value)).toEqual(['Acolyte'])
+  expect(backgroundSkills(catalog[0])).toEqual(['Religion', 'Scribing Lore'])
   const saved: Character = JSON.parse(JSON.stringify({ ...base, background: 'Acolyte (Zon-Shelyn Lore)' }))
-  const restored = deityLoreBackgroundEntries(catalog, characterDeityLores([saved]))
-  expect(ranksAt(saved, restored)).toMatchObject({ Religion: 1, 'Zon-Shelyn Lore': 1 })
-  expect(ranksAt(saved, restored)['Scribing Lore'] ?? 0).toBe(0)
-  expect(restored.find(entry => entry.name === saved.background)?.data.feat).toBe('Student of the Canon')
-  expect(restored.find(entry => entry.name === saved.background)?.description).toContain('Zon-Shelyn Lore')
-  expect(restored.find(entry => entry.name === saved.background)?.description).not.toContain('Scribing Lore')
-  expect(ranksAt({ ...saved, background: undefined }, restored).Religion ?? 0).toBe(0)
-  const sf = catalog.map<ContentEntry>(entry => ({ ...entry, systems: ['sf2e'] }))
-  expect(deityLoreBackgroundEntries(sf, ['Zon-Shelyn Lore'])).toEqual(sf)
+  const restored = normalizeAcolyte(saved)
+  expect(restored.background).toBe('Acolyte')
+  expect(ranksAt(restored, catalog)).toMatchObject({ Religion: 1, 'Scribing Lore': 1 })
+  expect(ranksAt(restored, catalog)['Zon-Shelyn Lore'] ?? 0).toBe(0)
+  expect(catalog[0].data.feat).toBe('Student of the Canon')
+  const freeHeart = normalizeAcolyte({ ...base, feats: [{ name: 'Free Heart', type: 'Ancestry Feat', level: 1, choice: 'Acolyte (Meyel Lore)' }] })
+  expect(freeHeart.feats[0].choice).toBe('Acolyte')
+  expect(normalizeAcolyte(base)).toBe(base)
 })
 
 it('lists only deity variants for Disciple, including Zon-Shelyn, with matching grants and boosts', () => {

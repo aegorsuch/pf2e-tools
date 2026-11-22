@@ -46,20 +46,13 @@ export function characterDeityLores(characters: Character[], extraLores: string[
   return [...lores.values()].sort((a, b) => a.localeCompare(b))
 }
 
-export function deityLoreBackgroundEntries(entries: ContentEntry[], lores: string[]): ContentEntry[] {
-  if (!lores.length) return entries
-  return entries.flatMap(entry => {
-    const skills = names(entry.data.skill)
-    if (entry.kind !== 'background' || entry.name !== 'Acolyte' || entry.source !== 'official'
-      || !entry.systems.includes('pf2e') || !skills.includes('Religion') || !skills.includes('Scribing Lore')) return [entry]
-    return [entry, ...lores.filter(lore => !skills.some(skill => skill.toLowerCase() === lore.toLowerCase()))
-      .map(lore => ({
-        ...entry, id: `${entry.id}:deity-lore:${encodeURIComponent(lore)}`, name: `Acolyte (${lore})`,
-        description: entry.description.replaceAll('Scribing Lore', lore),
-        data: { ...entry.data, background_base: entry.name, background_choice_required: true,
-          skill: skills.map(skill => skill === 'Scribing Lore' ? lore : skill).join(', ') },
-      }))]
-  })
+export function normalizeAcolyte(character: Character): Character {
+  const legacy = (value?: string) => /^Acolyte \(.+ Lore\)$/.test(value ?? '')
+  const background = legacy(character.background) ? 'Acolyte' : character.background
+  const feats = character.feats.map(feat => feat.name === 'Free Heart' && legacy(feat.choice)
+    ? { ...feat, choice: 'Acolyte' } : feat)
+  return background !== character.background || feats.some((feat, index) => feat !== character.feats[index])
+    ? { ...character, background, feats } : character
 }
 
 export function deityBackgroundEntries(entries: ContentEntry[]) {

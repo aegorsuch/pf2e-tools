@@ -2,6 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 import type { Character, ContentEntry } from './types'
 import { DISARMING_RUNE, GRAPPLING_MODULE, GRAPPLING_RUNE, PARRYING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HUNTERS_ARROWHEADS, KILLERS_BELT_MAJOR, homebrewCharacterOptions, homebrewCompanions, homebrewWeapons, removeColdIronTusks } from './supplemental'
 import { sfSpecificWeapons } from './sfSpecificWeapons'
+import { normalizeAcolyte } from './backgrounds'
 
 export const db = new Dexie('2e-builder') as Dexie & {
   characters: EntityTable<Character, 'id'>
@@ -20,7 +21,7 @@ export async function ensureSupplementalContent() {
     const tusks = await db.content.get('homebrew:cold-iron-tusks')
     if (tusks && !tusks.deleted) await removeEntry(tusks.id)
     for (const character of await db.characters.toArray()) {
-      const updated = removeColdIronTusks(character)
+      const updated = normalizeAcolyte(removeColdIronTusks(character))
       if (updated !== character) await db.characters.put({ ...updated, updatedAt: Date.now() })
     }
     if (!await db.content.get(HAFT_STRIKER_WEAPON.id)) await db.content.add(HAFT_STRIKER_WEAPON)

@@ -39,7 +39,7 @@ import { DivineIntercessions } from './intercessionPicker'
 import { syncDivineBoonFeats } from './divineIntercessions'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
 import { backgroundVariants, type BackgroundVariant } from './builder'
-import { characterDeityLores, deityLoreBackgroundEntries } from './backgrounds'
+import { characterDeityLores, normalizeAcolyte } from './backgrounds'
 import { getSettings } from './settings'
 import { fatalMethodOptions, selectedFatalMethod, type FatalMethod } from './fatalMethods'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
@@ -370,14 +370,15 @@ function characterCatalog(catalog: ContentEntry[], systemsKey: string) {
   return entries
 }
 
-export function CharacterBuilder({ character: c, catalog, onClose, deityLores = NONE_LORES }: {
+export function CharacterBuilder({ character, catalog, onClose, deityLores = NONE_LORES }: {
   character: Character; catalog: ContentEntry[]; onClose: () => void; deityLores?: string[]
 }) {
+  const c = useMemo(() => normalizeAcolyte(character), [character])
   const systemsKey = c.systems.join()
   const baseEntries = characterCatalog(catalog, systemsKey)
   const deityLoreKey = JSON.stringify(characterDeityLores([c], deityLores))
   const availableDeityLores = useMemo<string[]>(() => JSON.parse(deityLoreKey), [deityLoreKey])
-  const entries = useMemo(() => deityLoreBackgroundEntries(baseEntries, availableDeityLores), [baseEntries, availableDeityLores])
+  const entries = baseEntries
   const latest = useRef(c)
   latest.current = c
   const [undo, setUndo] = useState<{ label: string; snapshot: Character } | null>(null)
@@ -395,7 +396,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
     return db.transaction('rw', db.characters, async () => {
       const current = await db.characters.get(c.id)
       if (!current) throw new Error('Character no longer exists')
-      const next = { ...current, ...patch, updatedAt: Math.max(Date.now(), current.updatedAt + 1) }
+      const next = normalizeAcolyte({ ...current, ...patch, updatedAt: Math.max(Date.now(), current.updatedAt + 1) })
       Object.assign(next, syncClassArchetypeDedication(next, entries))
       Object.assign(next, syncDivineBoonFeats(next))
       Object.assign(next, syncOrderExplorerFeats(next, entries))
