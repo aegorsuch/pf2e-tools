@@ -18,8 +18,11 @@ export const PROFESSION_LORES = [
   'Mortuary', 'Metallurgy', 'Water Filtration', 'Aquaculture', 'Lumber', 'Ranching', 'Corporate', 'Piracy',
 ].map(topic => `${topic} Lore`).sort((a, b) => a.localeCompare(b))
 
-export function backgroundLoreOptions(background: ContentEntry, options: string[]) {
-  return (background.data.background_base ?? background.name) === 'Grifter' ? PROFESSION_LORES : options
+export function backgroundLoreOptions(background: ContentEntry) {
+  const open = names(background.data.skill).filter(isOpenBackgroundLore).join(', ')
+  const text = plain(open).replace(/\{\{[^{}]*?"([^"]+)"\}\}/g, '$1')
+  const found = text.match(/\b[A-Z][\w'-]*(?:\s+(?:of|the|[A-Z][\w'-]*))* Lore\b/g) ?? []
+  return [...new Set(found.map(name => name.replace(/^(?:This|The) /, '')))]
 }
 
 export function characterDeityLores(characters: Character[], extraLores: string[] = []) {
@@ -50,7 +53,7 @@ export function deityLoreBackgroundEntries(entries: ContentEntry[], lores: strin
       .map(lore => ({
         ...entry, id: `${entry.id}:deity-lore:${encodeURIComponent(lore)}`, name: `Acolyte (${lore})`,
         description: entry.description.replaceAll('Scribing Lore', lore),
-        data: { ...entry.data, background_base: entry.name,
+        data: { ...entry.data, background_base: entry.name, background_choice_required: true,
           skill: skills.map(skill => skill === 'Scribing Lore' ? lore : skill).join(', ') },
       }))]
   })
@@ -149,12 +152,25 @@ function choices(entry: ContentEntry, markdown: string) {
     if (skill) paired.set(skill, [...(paired.get(skill) ?? []), grant(feat.name)])
   }
   const conditional = new Set([...paired.values()].flat().map(feat => feat.name))
-  const indexedSkills = names(entry.data.skill).flatMap(name => / Lore$/i.test(name) ? choiceNames(name.replace(/^or\s+/, '')) : [name])
+  const loreGroups = skillGroups.filter(group => group.every(name => / Lore$/i.test(name)))
+  const indexedSkills = names(entry.data.skill).flatMap(raw => {
+    const name = plain(raw).replace(/\s+skill[.]?$/i, '').trim()
+    const fixedLore = /^([\w' -]+ Lore)\s*\.\s*Add\b/i.exec(name)
+      ?? /\bThis ([\w' -]+ Lore) skill can be used\b/i.exec(name)
+    if (fixedLore) return [fixedLore[1]]
+    const schoolLore = /^(.+? Lore) or a Lore skill associated with your school[.]?$/i.exec(name)
+    if (schoolLore && entry.systems.includes('pf2e')) return [schoolLore[1]]
+    if (loreGroups.some(group => group.every(lore => name.includes(lore)))) return []
+    const combined = name.split(/\s+and (?:the )?/i)
+    if (combined.length > 1 && combined.every(skill => /^[\w' -]+ Lore$/i.test(skill))) return combined
+    return / Lore$/i.test(name) ? choiceNames(name.replace(/^or\s+/, '')) : [name]
+  })
   const unlinkedLores = [...plain(rules).matchAll(/\b(?:the|and|or)\s+(?:the\s+)?([A-Z][\w'-]*(?: [A-Z][\w'-]*)* Lore)\b/g)]
     .map(match => match[1])
   const fixedSkills = [...new Set(indexedSkills.length ? indexedSkills : [...skillLinks.map(link => link.name), ...unlinkedLores])]
     .filter(name => /^[A-Z][\w'-]*(?: [A-Z][\w'-]*)*$/.test(name) || isOpenBackgroundLore(name))
     .filter(name => !skillGroups.some(group => group.includes(name) || group.includes(`${name} Lore`)))
+    .filter(name => name !== 'Lore' || !loreGroups.length || !/\bcorresponding\s+Lore\s+skill\s*:/i.test(plain(rules)))
   const fixedFeats = [...new Set([...names(entry.data.feat), ...featLinks.filter(feat =>
     /\byou (?:also )?gain(?: the)?$/i.test(plain(rules.slice(0, feat.start)))).map(feat => feat.name)])]
     .map(grant).filter(feat => !conditional.has(feat.name) && !featGroups.some(group => group.map(name => grant(name).name).includes(feat.name)))
@@ -172,6 +188,20 @@ function choices(entry: ContentEntry, markdown: string) {
 
 export function backgroundEntries(entry: ContentEntry, markdown: string): ContentEntry[] {
   if (!markdown.trim()) return [entry]
+  const listed = /\b(?:one of the following Lore skills of your choice:|your choice of the|Lore skills associated with a profession, as befits your history:)\s+(.+)$/i
+    .exec(plain(String(entry.data.skill ?? '')))
+  if (listed) {
+    const loreNames = [...new Set(listed[1].match(/\b[A-Z][\w'-]*(?:\s+(?:of|the|[A-Z][\w'-]*))* Lore\b/g) ?? [])]
+    if (loreNames.length > 1) {
+      const skills = names(entry.data.skill).filter(name => !/\blore\b/i.test(name))
+      return [{ ...entry, data: { ...entry.data, skill: skills.join(', '), background_choice_required: true } },
+        ...loreNames.map(lore => ({
+          ...entry, id: `${entry.id}:variant:${encodeURIComponent(lore)}`, name: `${entry.name} (${lore})`,
+          data: { ...entry.data, background_base: entry.name, background_choice_required: false,
+            skill: [...skills, lore].join(', ') },
+        }))]
+    }
+  }
   const packages = markdown.split(/\n\s*\n/).flatMap(paragraph => {
     const heading = /^\s*\*\*([^*:]+)\*\*:/.exec(paragraph)
     return heading && /\btrained in\b/i.test(paragraph) ? [{ label: heading[1], rules: paragraph }] : []
@@ -195,8 +225,9 @@ export function backgroundEntries(entry: ContentEntry, markdown: string): Conten
     return [{ ...entry, data: { ...entry.data, background_choice_required: true } },
       ...['Absalom', 'Katapesh', 'Magnimar'].map(city => ({
         ...entry, id: `${entry.id}:variant:${city}`, name: `${entry.name} (${city})`,
-        data: { ...entry.data, background_base: entry.name, background_choice_required: false,
-          skill: [...skills, `${city} Lore`].join(', '), feat: fixedFeats.map(feat => feat.name).join(', ') },
+        data: { ...entry.data, background_base: entry.name,
+          skill: [...skills, `${city} Lore`].join(', '), feat: fixedFeats.map(feat => feat.name).join(', '),
+          background_choice_required: !plain(markdown).includes(`${city} Lore`) },
       }))]
   }
   if (!hasChoices && (markdown.match(/\btrained in\b/gi)?.length ?? 0) > 1) return [entry]

@@ -352,10 +352,10 @@ it('grants a replacement skill and chosen terrain Lore for Scout', () => {
   }
   expect(html).not.toContain('aria-label="Scout terrain Lore"')
   const variants = builder.backgroundVariants([scout])
-  expect(variants.map(option => option.value)).toEqual(builder.FAVORED_TERRAINS.map(terrain => `Scout (${terrain} Lore)`))
+  expect(variants.map(option => option.value)).toEqual(['Scout (Forest Lore)', 'Scout (Cavern Lore)'])
   const selected = variants.find(option => option.value === 'Scout (Forest Lore)')!
-  c = { ...c, background: selected.background.name, backgroundTerrainLore: { Scout: selected.terrain! } }
-  expect(c.backgroundTerrainLore).toEqual({ Scout: 'Forest' })
+  c = { ...c, background: selected.background.name, backgroundLores: { Scout: [selected.lore!] } }
+  expect(c.backgroundLores).toEqual({ Scout: ['Forest Lore'] })
   expect(ranksAt(c, entries)['Forest Lore']).toBe(1)
   expect(skillRankBudget(c, entries).trained).toBe(5)
   const restored = JSON.parse(JSON.stringify(c)) as Character

@@ -1,6 +1,8 @@
 import { expect, it } from 'vitest'
 import { mapAonHits } from './aon'
-import { backgroundLoreCount, characterDeityLores, deityLoreBackgroundEntries, PROFESSION_LORES } from './backgrounds'
+import pf2eSnapshot from '../public/data/aon-pf2e.json?raw'
+import sf2eSnapshot from '../public/data/aon-sf2e.json?raw'
+import { backgroundLoreCount, characterDeityLores, deityLoreBackgroundEntries } from './backgrounds'
 import { backgroundLoreIncreaseSlots, backgroundLoreSlots, backgroundSkills, backgroundSkillSlots, backgroundVariants, boostSlots, featChoiceOptions, plannedSlots, ranksAt, skillRankBudget, skillTokenPurchase } from './builder'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
@@ -16,6 +18,75 @@ const base: Character = {
   feats: [], lores: [], equipment: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('keeps academic backgrounds on their named Lore without unrelated picker variants', () => {
+  const expected: Record<string, string> = {
+    'Academic Scion': 'Academia Lore', 'Convocation Scout': 'Politics Lore', Ghostwriter: 'Scribing Lore',
+    'Library Dweller': 'Library Lore', 'Party Scholar': 'Alcohol Lore', 'Respected Mentor': 'Academia Lore',
+    'School Medic': 'Academia Lore', 'Star Athlete': 'Games Lore', 'Working Student': 'Labor Lore',
+  }
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(pf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => Object.hasOwn(expected, String(hit._source?.name))
+    && hit._source?.category === 'background'), 'pf2e')
+  expect(entries).toHaveLength(Object.keys(expected).length)
+  for (const entry of entries) {
+    expect(backgroundVariants([entry], ['Abadar Lore']).map(option => option.value)).toEqual([entry.name])
+    expect(backgroundSkills(entry)).toContain(expected[entry.name])
+    expect(backgroundLoreCount(entry)).toBe(0)
+    expect(ranksAt({ ...base, background: entry.name, backgroundLores: { [entry.name]: ['Abadar Lore'] } }, entries))
+      .toMatchObject({ [expected[entry.name]]: 1 })
+  }
+})
+
+it('does not offer deity Lore for unrelated open Lore backgrounds', () => {
+  const entries = compile('Animal Wrangler', `You're trained in ${skill('Nature')} and a ${skill('Lore')} skill related to an animal.`,
+    ['Nature', 'Lore related to an animal'])
+  expect(backgroundVariants(entries, ['Abadar Lore']).map(option => option.value)).toEqual(['Animal Wrangler'])
+  const c = { ...base, background: 'Animal Wrangler', backgroundLores: { 'Animal Wrangler': ['Equine Lore'] } }
+  expect(ranksAt(c, entries)).toMatchObject({ Nature: 1, 'Equine Lore': 1 })
+})
+
+it('keeps explicitly selected Lore alternatives from adding another open Lore slot', () => {
+  const pfHits: Parameters<typeof mapAonHits>[0] = JSON.parse(pf2eSnapshot)
+  const sfHits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+  for (const [hits, system, name, skills] of [
+    [pfHits, 'pf2e', 'Guard', ['Legal Lore', 'Warfare Lore']],
+    [pfHits, 'pf2e', 'Elementally Infused', ['Plane of Air Lore', 'Plane of Fire Lore']],
+    [sfHits, 'sf2e', 'Wayfinder', ['Life Science Lore', 'Physical Science Lore']],
+  ] as const) {
+    const entries = mapAonHits(hits.filter(hit => hit._source?.name === name && hit._source?.category === 'background'), system)
+    for (const lore of skills) {
+      const selected = entries.find(entry => entry.name === `${name} (${lore})`)!
+      expect(selected).toBeDefined()
+      expect(backgroundLoreCount(selected)).toBe(0)
+      expect(backgroundSkills(selected)).toContain(lore)
+      expect(backgroundVariants([selected], ['Abadar Lore']).map(option => option.value)).toEqual([selected.name])
+    }
+  }
+})
+
+it('recovers fixed Lore skills from combined indexed fields', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(pf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => hit._source?.name === 'Hookclaw Digger'), 'pf2e')
+  expect(backgroundSkills(entries[0])).toEqual(['Crafting', 'Mining Lore', 'Engineering Lore'])
+  expect(backgroundLoreCount(entries[0])).toBe(0)
+})
+
+it.each([
+  ['pf2e', 'Keys to Destiny', ['Art Lore', 'Engineering Lore', 'Farming Lore', 'Herbalism Lore', 'Labor Lore',
+    'Mercantile Lore', 'Scribing Lore', 'Theater Lore', 'Warfare Lore']],
+  ['sf2e', 'Lorespire Archivist', ['Academia Lore', 'Library Lore', 'Museum Lore']],
+  ['sf2e', 'Skyrigger', ['Bretheda Lore', 'Liavara Lore', 'Mining Lore']],
+] as const)('offers only explicitly listed Lore choices for %s %s', (system, name, lores) => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(system === 'pf2e' ? pf2eSnapshot : sf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => hit._source?.name === name && hit._source?.category === 'background'), system)
+  expect(backgroundVariants(entries).map(option => option.value)).toEqual(lores.map(lore => `${name} (${lore})`))
+  for (const lore of lores) {
+    const selected = entries.find(entry => entry.name === `${name} (${lore})`)!
+    expect(backgroundLoreCount(selected)).toBe(0)
+    expect(backgroundSkills(selected).filter(skill => / Lore$/.test(skill))).toEqual([lore])
+  }
+})
+
 it('offers only Street Urchin city variants while preserving skills, boosts, feat, and legacy choices', () => {
   const entries = mapAonHits([{ _id: 'street-urchin', _source: {
     name: 'Street Urchin', category: 'background', attribute: ['Dexterity', 'Constitution'], feat: ['Pickpocket'],
@@ -23,11 +94,9 @@ it('offers only Street Urchin city variants while preserving skills, boosts, fea
     markdown: `You're trained in the ${skill('Thievery')} skill, and a ${skill('Lore')} skill for the city you lived in as a street urchin (such as Absalom Lore or Magnimar Lore). You gain the ${feat('Pickpocket')} skill feat.`,
   } }], 'pf2e')
   const options = backgroundVariants(entries, ['Cooking Lore', 'Iomedae Lore'])
-  expect(options.map(option => option.value)).toEqual([
-    'Street Urchin (Absalom)', 'Street Urchin (Katapesh)', 'Street Urchin (Magnimar)',
-  ])
+  expect(options.map(option => option.value)).toEqual(['Street Urchin (Absalom)', 'Street Urchin (Magnimar)'])
   for (const city of ['Absalom', 'Katapesh', 'Magnimar']) {
-    const background = options.find(option => option.value === `Street Urchin (${city})`)!.background
+    const background = entries.find(entry => entry.name === `Street Urchin (${city})`)!
     const saved: Character = JSON.parse(JSON.stringify({ ...base, background: background.name }))
     expect(ranksAt(saved, entries)).toMatchObject({ Thievery: 1, [`${city} Lore`]: 1 })
     expect(ranksAt({ ...saved, level: 20 }, entries)[`${city} Lore`]).toBe(1)
@@ -39,17 +108,13 @@ it('offers only Street Urchin city variants while preserving skills, boosts, fea
   expect(ranksAt(legacy, entries)).toMatchObject({ Thievery: 1, 'Old City Lore': 1 })
 })
 
-it('offers only professional Lore variants for Grifter and preserves chosen training', () => {
+it('offers no invented Lore variants for Grifter and preserves saved training', () => {
   const entries = compile('Grifter', `You're trained in ${skill('Deception')} and a ${skill('Lore')} skill related to a profession or subject you fake expertise in.
 You gain the ${feat('Charming Liar')} skill feat.`, ['Deception', 'Lore related to a profession or subject you fake expertise in'], ['Charming Liar'])
   const variants = backgroundVariants(entries, ['Abadar Lore', 'Zon-Shelyn Lore', 'Forest Lore', 'Accounting Lore'])
-  expect(variants.filter(option => option.lore).map(option => option.lore)).toEqual(PROFESSION_LORES)
-  expect(variants.at(-1)).toMatchObject({ value: 'Grifter (Custom Profession Lore)', custom: true })
-  expect(variants.some(option => /Abadar|Zon-Shelyn|Forest/.test(option.value))).toBe(false)
+  expect(variants.map(option => option.value)).toEqual(['Grifter'])
   for (const lore of ['Accounting Lore', 'Physical Science Lore', 'First Ones Lore']) {
-    const selected = variants.find(option => option.lore === lore)
-    expect(selected?.value).toBe(`Grifter (${lore})`)
-    const c: Character = { ...base, background: selected!.background.name, backgroundLores: { Grifter: [lore] } }
+    const c: Character = { ...base, background: 'Grifter', backgroundLores: { Grifter: [lore] } }
     expect(ranksAt(c, entries)).toMatchObject({ Deception: 1, [lore]: 1 })
   }
   expect(entries[0].data.feat).toBe('Charming Liar')
@@ -70,7 +135,7 @@ it('adds saved deity Lore variants to Acolyte while preserving its default and o
 You gain the ${feat('Student of the Canon')} skill feat.`, ['Religion', 'Scribing Lore'], ['Student of the Canon'])
   const entries = deityLoreBackgroundEntries(catalog, characterDeityLores([{ ...base, deity: 'Zon-Shelyn' }]))
   expect(backgroundVariants(entries, ['Cooking Lore']).map(option => option.value))
-    .toEqual(['Acolyte', 'Acolyte (Zon-Shelyn Lore)'])
+    .toEqual(['Acolyte'])
   expect(backgroundSkills(entries[0])).toEqual(['Religion', 'Scribing Lore'])
   const saved: Character = JSON.parse(JSON.stringify({ ...base, background: 'Acolyte (Zon-Shelyn Lore)' }))
   const restored = deityLoreBackgroundEntries(catalog, characterDeityLores([saved]))
@@ -192,12 +257,15 @@ it('keeps named lineage packages separate and recovers unlinked fixed Lore', () 
   ])
 })
 
-it('does not turn illustrative Lore examples into exhaustive choices', () => {
+it('uses only named Lore examples for each skill variant', () => {
   const entries = compile('Animal Wrangler', `You're trained in ${skill('Athletics')} or ${skill('Nature')},
 and a ${skill('Lore')} skill related to an animal (such as ${skill('Equine Lore')} or ${skill('Feline Lore')}).
 You gain ${feat('Titan Wrestler')} if you chose Athletics or ${feat('Train Animal')} if you chose Nature.`,
   ['Athletics', 'Nature', 'Lore related to an animal (such as Equine Lore or Feline Lore)'])
-  expect(backgroundVariants(entries).map(option => option.value)).toEqual(['Animal Wrangler (Athletics)', 'Animal Wrangler (Nature)'])
+  expect(backgroundVariants(entries).map(option => option.value)).toEqual([
+    'Animal Wrangler (Athletics) (Equine Lore)', 'Animal Wrangler (Athletics) (Feline Lore)',
+    'Animal Wrangler (Nature) (Equine Lore)', 'Animal Wrangler (Nature) (Feline Lore)',
+  ])
   expect(backgroundLoreCount(entries[1])).toBe(1)
   expect(backgroundSkills(entries[1])).toEqual(['Athletics'])
 })
@@ -205,20 +273,17 @@ You gain ${feat('Titan Wrestler')} if you chose Athletics or ${feat('Train Anima
 it.each(['Scout', 'Nomad'])('uses Scout-style terrain variants for %s and keeps saved choices', name => {
   const entries = compile(name, `You're trained in ${skill('Survival')} and a ${skill('Lore')} skill related to one terrain.`,
     ['Survival', 'Lore related to one terrain'])
-  const variant = backgroundVariants(entries).find(option => option.value === `${name} (Forest Lore)`)!
-  expect(variant.terrain).toBe('Forest')
-  const c = { ...base, background: name, backgroundTerrainLore: { [name]: variant.terrain! } }
+  expect(backgroundVariants(entries).map(option => option.value)).toEqual([name])
+  const c = { ...base, background: name, backgroundTerrainLore: { [name]: 'Forest' } }
   expect(backgroundSkills(entries[0], JSON.parse(JSON.stringify(c)))).toEqual(['Survival', 'Forest Lore'])
   expect(backgroundLoreSlots(c, entries)).toEqual([])
 })
 
-it('offers named and custom open Lore variants without spending unrestricted skill training', () => {
+it('preserves saved open Lore without inventing deity or custom variants', () => {
   const entries = compile('Cultist', `You're trained in ${skill('Occultism')} and a ${skill('Lore')} skill related to your deity or cult.`,
     ['Occultism', 'Lore related to your deity or cult.'])
   const variants = backgroundVariants(entries, ['Abadar Lore', 'Iomedae Lore'])
-  expect(variants.map(option => option.value)).toEqual([
-    'Cultist (Abadar Lore)', 'Cultist (Iomedae Lore)', 'Cultist (Custom Lore)',
-  ])
+  expect(variants.map(option => option.value)).toEqual(['Cultist'])
   const c = { ...base, background: 'Cultist', backgroundLores: { Cultist: ['Iomedae Lore'] } }
   expect(backgroundSkills(entries[0], JSON.parse(JSON.stringify(c)))).toEqual(['Occultism', 'Iomedae Lore'])
   expect(skillRankBudget(c, entries).trained).toBe(skillRankBudget({ ...c, backgroundLores: undefined }, entries).trained)

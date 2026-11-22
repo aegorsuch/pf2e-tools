@@ -3195,17 +3195,13 @@ export const backgroundHasTerrainLore = (bg?: ContentEntry) =>
 
 export type BackgroundVariant = { value: string; background: ContentEntry; terrain?: string; lore?: string; custom?: boolean }
 
-export function backgroundVariants(options: ContentEntry[], lores: string[] = []) {
+export function backgroundVariants(options: ContentEntry[], _lores: string[] = []) {
   return options.filter(background => !background.data.background_choice_required)
     .flatMap<BackgroundVariant>(background => {
-      const available = backgroundLoreOptions(background, lores)
-      return backgroundHasTerrainLore(background)
-        ? FAVORED_TERRAINS.map(terrain => ({ value: `${background.name} (${terrain} Lore)`, background, terrain }))
-        : backgroundLoreCount(background) && available.length
-          ? [...(backgroundLoreCount(background) === 1 ? available.map(lore => ({
-            value: `${background.name} (${lore})`, background, lore,
-          })) : []), { value: `${background.name} (Custom${available === lores ? '' : ' Profession'} Lore)`, background, custom: true }]
-          : [{ value: background.name, background }]
+      const available = backgroundLoreOptions(background)
+      return backgroundLoreCount(background) === 1 && available.length
+        ? available.map(lore => ({ value: `${background.name} (${lore})`, background, lore }))
+        : [{ value: background.name, background }]
     })
 }
 

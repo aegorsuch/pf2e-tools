@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
-import { BackgroundLoreChoices, CharacterBuilder as Builder, ClassPick, EquipmentSearch } from './CharacterBuilder'
+import { CharacterBuilder as Builder, ClassPick, EquipmentSearch } from './CharacterBuilder'
 import { Children, isValidElement, type ChangeEvent, type ReactNode } from 'react'
 import { mapAonHit } from './aon'
 import { fetchAonHits } from './aonQuery'
@@ -95,25 +95,6 @@ it('lists Steady Balance as a granted skill feat for Uncanny Agility', () => {
   expect(markup).toContain('Steady Balance')
 })
 
-it('restricts custom Grifter Lore suggestions to professions without changing unrestricted backgrounds', () => {
-  const background: ContentEntry = {
-    id: 'grifter', systems: ['sf2e'], kind: 'background', source: 'official', name: 'Grifter', level: 1,
-    traits: [], description: '', effects: [], updatedAt: 0, data: { skill: 'Deception, Lore related to a profession' },
-  }
-  const c: Character = { id: 'c', systems: ['sf2e'], name: 'Test', level: 1, background: 'Grifter',
-    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
-  const markup = renderToStaticMarkup(<BackgroundLoreChoices c={c} entries={[background]} background={background}
-    save={() => {}} options={['Zon-Shelyn Lore', 'Forest Lore', 'Accounting Lore']} />)
-  expect(markup).toContain('value="Accounting Lore"')
-  expect(markup).toContain('value="Sailing Lore"')
-  expect(markup).not.toContain('value="Zon-Shelyn Lore"')
-  expect(markup).not.toContain('value="Forest Lore"')
-  expect(renderToStaticMarkup(<BackgroundLoreChoices c={c} entries={[background]}
-    background={{ ...background, data: { ...background.data, background_choice_required: true } }}
-    save={() => {}} options={[]} />)).toBe('')
-})
-
 it('shows Witchwarper anchor selection alongside class choices even without a paradox', () => {
   content.entries = []
   const c: Character = { id: 'anchor', systems: ['sf2e'], name: 'Test', level: 1, className: 'Witchwarper',
@@ -177,59 +158,6 @@ it.each(['Scout', 'Nomad'])('shows saved %s Lore as a background variant without
   expect(markup).not.toContain(`aria-label="${name} terrain Lore"`)
   expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, backgroundTerrainLore: undefined }} onClose={() => {}} />))
     .toContain(`<option value="${name}" selected="">${name}</option>`)
-})
-
-it('saves custom background Lore in Background, validates duplicate slots, and confirms clearing', () => {
-  const background: ContentEntry = {
-    id: 'time-traveler', systems: ['pf2e'], kind: 'background', source: 'official', name: 'Time Traveler', level: 1,
-    traits: [], description: 'You are trained in three Lore skills of your choice.', effects: [], updatedAt: 0,
-    data: { skill: 'Lore' },
-  }
-  let c: Character = { id: 'lore', systems: ['pf2e'], name: 'Test', level: 1, background: background.name,
-    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
-    backgroundLores: { Cultist: ['Iomedae Lore'] } }
-  const inputs = () => {
-    const result: Record<string, unknown>[] = []
-    const walk = (node: ReactNode) => Children.forEach(node, child => {
-      if (!isValidElement<Record<string, unknown>>(child)) return
-      if (child.type === 'input') result.push(child.props)
-      walk(child.props.children as ReactNode)
-    })
-    walk(BackgroundLoreChoices({ c, entries: [background], background, options: ['Abadar Lore'],
-      save: patch => { c = { ...c, ...patch } } }))
-    return result
-  }
-  const input = {
-    value: '', error: '', setCustomValidity(message: string) { this.error = message },
-    reportValidity() { return !this.error },
-  }
-  const change = (index: number, value: string) => {
-    input.value = value
-    input.error = ''
-    ;(inputs()[index].onBlur as (event: unknown) => void)({ currentTarget: input })
-  }
-  const confirm = vi.fn(() => false)
-  vi.stubGlobal('window', { confirm })
-  try {
-    expect(inputs()).toHaveLength(3)
-    change(0, '  Ancient   History ')
-    expect(c.backgroundLores).toEqual({ Cultist: ['Iomedae Lore'], 'Time Traveler': ['Ancient History Lore'] })
-    change(1, 'ancient history lore')
-    expect(input.error).toBe('This Lore skill is already selected.')
-    change(1, 'Lore')
-    expect(input.error).toBe('Enter a Lore specialty.')
-    change(1, 'Farming Lore')
-    expect(c.backgroundLores!['Time Traveler']).toEqual(['Ancient History Lore', 'Farming Lore'])
-    change(0, '')
-    expect(confirm).toHaveBeenCalledOnce()
-    expect(c.backgroundLores!['Time Traveler'][0]).toBe('Ancient History Lore')
-    expect(input.value).toBe('Ancient History Lore')
-    confirm.mockReturnValue(true)
-    change(0, '')
-    expect(c.backgroundLores!['Time Traveler'][0]).toBe('')
-    expect(c.lores).toEqual([])
-  } finally { vi.unstubAllGlobals() }
 })
 
 it('shows background rules inline and keeps ancestry and background boost choices in Ability Scores', () => {
