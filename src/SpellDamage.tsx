@@ -3,7 +3,7 @@ import { ActionIcon } from './ActionIcon'
 import type { ContentEntry } from './types'
 
 type Damage = { label: string; dice: number; sides: number; type: string; bonus?: number
-  additional?: { dice: number; sides: number; type: string; label?: string }; outcomes?: { label: string; dice: number }[]
+  additional?: { dice: number; sides: number; type: string; label?: string; bonus?: number }; outcomes?: { label: string; dice: number }[]
   components?: { dice: number; sides: number; type: string }[]; note?: string }
 
 export function spellDamage(name: string, rank: number): Damage[] {
@@ -18,7 +18,8 @@ export function spellDamage(name: string, rank: number): Damage[] {
         note: `Critical failure: weakness ${rank} to bludgeoning until the start of your next turn` }] : []
     case 'Gouging Claw':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 6, type: 'piercing or slashing',
-        note: `${rank + 1} persistent bleed; double damage and bleed on a critical success` }] : []
+        additional: { dice: 0, sides: 0, bonus: rank + 1, type: 'persistent bleed' },
+        note: 'Double damage and bleed on a critical success' }] : []
     case 'Cataclysm':
       return rank >= 10 ? [{ label: 'Damage', dice: 3, sides: 10, type: 'acid', components: [
         { dice: 3, sides: 10, type: 'bludgeoning (grounded)' },
@@ -215,8 +216,8 @@ export function spellActionRolls(name: string, rank: number, entry?: ContentEntr
     ? rolls.map(damage => ({ damage, actions })) : []
 }
 
-export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll }: {
-  name: string; damage: Damage; actions?: string; showLabel?: boolean; disabled?: boolean; onRoll?: () => void
+export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll, toggleResult = false }: {
+  name: string; damage: Damage; actions?: string; showLabel?: boolean; disabled?: boolean; onRoll?: () => void; toggleResult?: boolean
 }) {
   const [result, setResult] = useState<number | number[] | { primary: number; additional: number }>()
   const formula = damage.outcomes ? `${damage.outcomes.map(outcome => `${outcome.dice}d${damage.sides}`).join(' / ')} ${damage.type}`
@@ -225,9 +226,14 @@ export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll 
     : `${damage.bonus ?? 0} ${damage.type}`
   return <span>
     <button type="button" disabled={disabled} className={actions ? 'spell-action-button' : undefined}
-      aria-label={`Roll ${name}: ${damage.label}${damage.additional?.label ? ` and ${damage.additional.label}` : ''}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}${damage.additional ? `${damage.additional.label ? `; ${damage.additional.label}: ` : ' + '}${damage.additional.dice}d${damage.additional.sides} ${damage.additional.type}` : ''}${damage.components?.map(component => ` + ${component.dice}d${component.sides} ${component.type}`).join('') ?? ''}${damage.note ? `; ${damage.note}` : ''}`}
+      aria-label={toggleResult && result !== undefined ? `Hide ${name}: ${damage.label} result`
+        : `Roll ${name}: ${damage.label}${damage.additional?.label ? ` and ${damage.additional.label}` : ''}`} title={`${actions ? `${actions}; ` : ''}${damage.label}: ${formula}${damage.additional ? `${damage.additional.label ? `; ${damage.additional.label}: ` : ' + '}${damage.additional.dice ? `${damage.additional.dice}d${damage.additional.sides}${damage.additional.bonus ? `+${damage.additional.bonus}` : ''}` : damage.additional.bonus ?? 0} ${damage.additional.type}` : ''}${damage.components?.map(component => ` + ${component.dice}d${component.sides} ${component.type}`).join('') ?? ''}${damage.note ? `; ${damage.note}` : ''}`}
       onClick={() => {
         if (disabled) return
+        if (toggleResult && result !== undefined) {
+          setResult(undefined)
+          return
+        }
         onRoll?.()
         if (damage.outcomes) {
           const dice = Array.from({ length: damage.dice }, () => Math.floor(Math.random() * damage.sides) + 1)
@@ -259,7 +265,7 @@ export function SpellActions({ name, rank, entry }: { name: string; rank: number
   const rolls = spellActionRolls(name, rank, entry)
   return rolls.length ? <>{rolls.map(({ damage, actions }) =>
     <DamageRoll key={`${damage.label}:${damage.dice}:${actions}`} name={name} damage={damage} actions={actions}
-      showLabel={rolls.length > 1 && name !== 'Heal Animal' && name !== 'Heal Companion' && name !== 'Harm'} />)}</>
+      toggleResult showLabel={rolls.length > 1 && name !== 'Heal Animal' && name !== 'Heal Companion' && name !== 'Harm'} />)}</>
     : <ActionIcon entry={entry} />
 }
 

@@ -39,7 +39,59 @@ it.each([[1, 2], [5, 6], [10, 11]])('scales Electric Arc, Frostbite, and Gouging
     vi.restoreAllMocks()
   }
   expect(spellDamage('Frostbite', rank)[0].note).toContain(`weakness ${rank}`)
-  expect(spellDamage('Gouging Claw', rank)[0].note).toContain(`${rank + 1} persistent bleed`)
+  expect(spellDamage('Gouging Claw', rank)[0].additional).toMatchObject({ bonus: rank + 1, type: 'persistent bleed' })
+})
+
+it.each([[1, 2], [5, 6], [10, 11]])('shows Gouging Claw persistent bleed at rank %i', (rank, bleed) => {
+  const damage = spellDamage('Gouging Claw', rank)[0]
+  const setResult = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, setResult])
+  const tree = DamageRoll({ name: 'Gouging Claw', damage, actions: 'Two Actions', toggleResult: true })
+  const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw Error('Missing damage roll')
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  button.props.onClick()
+  expect(Math.random).toHaveBeenCalledTimes(rank + 1)
+  expect(setResult).toHaveBeenCalledWith({ primary: rank + 1, additional: bleed })
+  vi.mocked(useState).mockReturnValueOnce([{ primary: rank + 1, additional: bleed }, vi.fn()])
+  const html = renderToStaticMarkup(<DamageRoll name="Gouging Claw" damage={damage} actions="Two Actions" toggleResult />)
+  expect(html).toContain(`${rank + 1} piercing or slashing + ${bleed} persistent bleed`)
+  expect(html).toContain('Double damage and bleed on a critical success')
+})
+
+it('toggles spell damage off before rolling again without counting a clear as a roll', () => {
+  const damage = { label: 'Damage', dice: 2, sides: 6, type: 'fire' }
+  const setResult = vi.fn()
+  const onRoll = vi.fn()
+  const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+  const click = (result: number | undefined) => {
+    vi.mocked(useState).mockReturnValueOnce([result, setResult])
+    const tree = DamageRoll({ name: 'Test', damage, actions: 'Two Actions', toggleResult: true, onRoll })
+    const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+    if (!isValidElement<{ onClick: () => void; 'aria-label': string }>(button)) throw Error('Missing damage roll')
+    expect(button.props['aria-label']).toBe(result === undefined ? 'Roll Test: Damage' : 'Hide Test: Damage result')
+    button.props.onClick()
+  }
+  click(undefined)
+  expect(setResult).toHaveBeenLastCalledWith(2)
+  expect(random).toHaveBeenCalledTimes(2)
+  click(2)
+  expect(setResult).toHaveBeenLastCalledWith(undefined)
+  expect(random).toHaveBeenCalledTimes(2)
+  expect(onRoll).toHaveBeenCalledTimes(1)
+  random.mockReturnValue(0.999999)
+  click(undefined)
+  expect(setResult).toHaveBeenLastCalledWith(12)
+  expect(random).toHaveBeenCalledTimes(4)
+  expect(onRoll).toHaveBeenCalledTimes(2)
+  click(0)
+  expect(setResult).toHaveBeenLastCalledWith(undefined)
+  expect(onRoll).toHaveBeenCalledTimes(2)
+  const entry: ContentEntry = { id: 'fireball', name: 'Fireball', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 3, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const actions = SpellActions({ name: entry.name, rank: 3, entry })
+  const roll = Children.toArray(actions.props.children).find(child => isValidElement(child) && child.type === DamageRoll)
+  expect(isValidElement<{ toggleResult: boolean }>(roll) && roll.props.toggleResult).toBe(true)
 })
 
 it.each([[1, 1], [3, 2], [5, 3], [9, 5]])('scales Caustic Blast rank %i to %id8 acid', (rank, dice) => {
