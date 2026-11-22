@@ -240,6 +240,7 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
       .sort((a, b) => a.name.localeCompare(b.name))
   }
   if (feat.name === 'Creature Ally' || feat.name === 'Creature Shape') {
+    if (c.systems.includes('sf2e') && c.ancestry === 'Lashunta') return undefined
     const trait = feat.name === 'Creature Ally' ? 'summon' : 'polymorph'
     return spellIndex(entries).spells.filter(spell => spell.kind === 'spell' && !spell.deleted
       && spell.systems.some(system => c.systems.includes(system))

@@ -11,7 +11,9 @@ import { companionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NA
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
-import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
+import { featSpellOptions, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
+import { FeatChoice } from './FeatChoice'
+import { FeatSlots } from './FeatSlots'
 
 function findSelect(node: ReactNode, label: string): ((event: { target: { value: string } }) => void) | undefined {
   let found: ((event: { target: { value: string } }) => void) | undefined
@@ -130,6 +132,14 @@ it('grants Lashunta Creature Shape as occult Animal Form with two custom creatur
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   expect(featChoiceOptions('Creature Shape', c, entries, 'ancestry:17:0')).toBeUndefined()
+  expect(featSpellOptions(c, entries, c.feats[0])).toBeUndefined()
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={entries} save={save} index={0} />)).toBe('')
+  const legacy = { ...c, feats: [{ ...c.feats[0], choice: 'Dinosaur Form' }] }
+  const legacyMarkup = renderToStaticMarkup(<FeatSlots c={legacy} entries={entries} save={save} categories={['ancestry']} />)
+  expect(legacyMarkup).not.toContain('Creature Shape (Dinosaur Form)')
+  expect(legacyMarkup).not.toContain('Creature Shape spell')
+  expect(grantedFeatSpells(legacy, entries)[0].entry.name).toBe('Animal Form')
+  expect(featSpellOptions({ ...c, ancestry: 'Vesk' }, entries, c.feats[0])?.map(option => option.name)).toContain('Animal Form')
   expect(grantedFeatSpells(c, entries)).toEqual([expect.objectContaining({ entry: spell, source: 'Creature Shape', rank: 8,
     rule: expect.objectContaining({ tradition: 'occult', frequency: 'once per day', fixedRank: true }) })])
   expect(grantedFeatSpells({ ...c, level: 16 }, entries)).toEqual([])
@@ -172,6 +182,8 @@ it('grants Lashunta Creature Ally as occult Summon Animal and shows the selected
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   expect(featChoiceOptions('Creature Ally', c, entries, 'ancestry:13:0')).toBeUndefined()
+  expect(featSpellOptions(c, entries, c.feats[0])).toBeUndefined()
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={entries} save={save} index={0} />)).toBe('')
   expect(grantedFeatSpells(c, entries)).toEqual([expect.objectContaining({ entry: spell, source: 'Creature Ally', rank: 5,
     rule: expect.objectContaining({ tradition: 'occult', frequency: 'once per day' }) })])
   expect(grantedFeatSpells({ ...c, level: 12 }, entries)).toEqual([])
