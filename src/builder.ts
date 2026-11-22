@@ -5336,6 +5336,9 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   if (available.some((weapon) => /\bgauntlets?\b/i.test(weapon.name))) {
     return available.filter((weapon) => weapon.id === favored?.id || weapon.name !== FIST.name && weapon.name !== IRON_FIST.name)
   }
+  if (available.some((weapon) => /\bbattlegloves?$/i.test(weapon.name))) {
+    return available.filter((weapon) => weapon.name !== FIST.name)
+  }
   const hasOtherUnarmed = available.some((weapon) => weapon.name !== FIST.name && weapon.name !== SPARK_FIST.name
     && weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed')
   if (hasOtherUnarmed) return available.filter((weapon) => weapon.id === favored?.id || weapon.name !== FIST.name)

@@ -454,6 +454,25 @@ it.each(['Gauntlet', 'Spiked Gauntlet', 'Bladed Gauntlet', 'Clawed Gauntlet', 'C
   expect(c.weapons?.[0]).toEqual(fist)
 })
 
+it.each(['Battleglove', 'Commercial Battleglove', 'Tactical Battleglove', 'Advanced Battleglove',
+  'Superior Battleglove', 'Elite Battleglove', 'Ultimate Battleglove', 'Paragon Battleglove',
+  'Magnet-Directed Battleglove'])('hides ordinary Fist with %s but keeps special fists', name => {
+  const fist = { id: FIST.id, name: FIST.name, potency: 2, striking: 1, runes: ['Flaming'] }
+  const glove = { id: 'glove', name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, level: 10, systems: ['pf2e', 'sf2e'], weapons: [fist, glove],
+    feats: [{ name: 'Spark Fist', type: 'Ancestry Feat', level: 5 }, { name: 'Iron Fists', type: 'Ancestry Feat', level: 1 }] }
+  expect(ownedWeapons(c, []).map(weapon => weapon.name)).toEqual([name, 'Iron Fist', 'Spark Fist'])
+  expect(ownedWeapons({ ...c, weapons: [fist], feats: [] }, [])).toEqual([fist])
+  expect(c.weapons?.[0]).toEqual(fist)
+})
+
+it('does not hide Fist for unrelated glove weapons', () => {
+  const glove = { id: 'glove', name: 'Battleglove Launcher', potency: 0, striking: 0, runes: [] }
+  expect(ownedWeapons({ ...base, weapons: [glove] }, []).map(weapon => weapon.name)).toEqual(['Battleglove Launcher', 'Fist'])
+  const other = { ...glove, name: 'Glove' }
+  expect(ownedWeapons({ ...base, weapons: [other] }, []).map(weapon => weapon.name)).toEqual(['Glove', 'Fist'])
+})
+
 it('adds Iron Fist only with Iron Fists and retains other unarmed attacks', () => {
   const c = { ...base, feats: ['Iron Fists', 'Tusks'].map((name) => ({ name, type: 'Ancestry Feat', level: 1 })) }
   const weapons = ownedWeapons(c, [])
