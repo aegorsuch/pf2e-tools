@@ -130,6 +130,8 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
     case 'Shatter':
       return rank >= 2 ? [{ label: 'Damage', dice: rank, sides: 10, type: 'sonic' }] : []
+    case 'Breath of Life':
+      return rank >= 5 ? [{ label: 'Healing', dice: 5 + Math.floor((rank - 5) / 2), sides: 8, type: 'HP' }] : []
     case 'Divine Decree':
       return rank >= 7 ? [{ label: 'Damage', dice: rank, sides: 10, type: 'spirit' }] : []
     case 'Vampiric Feast':

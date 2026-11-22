@@ -101,6 +101,21 @@ it('rolls Shatter sonic damage at its cast rank', () => {
   }
 })
 
+it('rolls Breath of Life healing as a reaction with two-rank heightening', () => {
+  const entry: ContentEntry = { id: 'breath-of-life', name: 'Breath of Life', systems: ['pf2e', 'sf2e'], kind: 'spell',
+    source: 'official', level: 5, traits: [], description: '', data: { actions: 'Reaction' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 4)).toEqual([])
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  for (const [rank, dice] of [[5, 5], [6, 5], [7, 6], [9, 7], [10, 7]]) {
+    const [damage] = spellDamage(entry.name, rank)
+    expect(damage).toEqual({ label: 'Healing', dice, sides: 8, type: 'HP' })
+    expect(rollSpellDamage(damage)).toBe(dice)
+    const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)
+    expect(markup).toContain('aria-label="Roll Breath of Life: Healing"')
+    expect(markup).toContain(`title="Reaction; Healing: ${dice}d8 HP"`)
+  }
+})
+
 it.each([
   [0, 'Supernova', 'fire', 'electricity', undefined],
   [1, 'Earthquake', 'bludgeoning', undefined, undefined],
