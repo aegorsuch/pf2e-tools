@@ -3074,6 +3074,7 @@ export function classLabel(c: Character, entries: ContentEntry[] = []) {
   if (c.className === 'Ranger') return `${subclass.replace(/ Edge$/, '')} Edge Ranger`
   if (c.className === 'Rogue') return `${subclass.replace(/ Racket$/, '')} Racket Rogue`
   if (c.className === 'Bard') return `${subclass.replace(/ Muse$/, '')} Muse Bard`
+  if (c.className === 'Witch') return `Witch of ${subclass.replace(/^The /, 'the ')}`
   return `${subclass} ${c.className}`
 }
 

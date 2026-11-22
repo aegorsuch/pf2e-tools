@@ -2841,3 +2841,11 @@ describe('Bard repertoire', () => {
     expect(classExtraSlots(c).map(extra => extra.spell)).toEqual(['Pest Form', 'Animal Form'])
   })
 })
+
+it('labels Witches by their patron', () => {
+  const witch = { id: 'w', name: 'W', className: 'Witch', systems: ['pf2e'], level: 1, subclass: 'The Resentment',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 } as Character
+  expect(classLabel(witch)).toBe('Witch of the Resentment')
+  expect(classLabel({ ...witch, subclass: "Faith's Flamekeeper" })).toBe("Witch of Faith's Flamekeeper")
+})
