@@ -678,6 +678,18 @@ it('applies Cyborg frame training, granted feats, and selected resistance', () =
   expect(automaticFeatGrants(pistons, [])).toContainEqual({ name: 'Quick Jump', source: 'Hydraulic Pistons', level: 5 })
 })
 
+it('offers Sublime Mobility variants and grants the selected speed', () => {
+  const feat = { name: 'Sublime Mobility', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' }
+  const c: Character = { ...base, level: 5, feats: [feat] }
+  expect(featChoiceOptions(feat.name, c, [], feat.slot)).toEqual(['Climb', 'Swim'])
+  for (const choice of ['Climb', 'Swim']) {
+    const selected = { ...c, feats: [{ ...feat, choice }] }
+    expect(movementSpeeds(selected, [])).toContainEqual({ name: choice, feet: 10, source: feat.name })
+    expect(movementSpeeds({ ...selected, level: 4 }, [])).toHaveLength(1)
+  }
+  expect(movementSpeeds(c, [])).toHaveLength(1)
+})
+
 it('gives Halfling Climbing Specialist a 15-foot climb Speed', () => {
   const feat = mapAonHit({ _id: 'cs', _source: { category: 'feat', name: 'Climbing Specialist', level: 5, trait: ['Halfling'],
     markdown: 'x\n---\nYou can climb.<br/><br/>**[Option(s)](/feats/1059-climbing-specialist)**: 15 feet' } }, 'sf2e')!

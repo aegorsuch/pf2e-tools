@@ -1720,6 +1720,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       .filter(damage => damage !== c.elementalDamage).map(cap) : []
   }
   if (name === 'Planar Resilience' && c.systems.includes('pf2e')) return ['Cold', 'Fire']
+  if (name === 'Sublime Mobility' && c.systems.includes('pf2e')) return ['Climb', 'Swim']
   if (name === 'Kitsune Spell Familiarity' && c.systems.includes('pf2e')) {
     return KITSUNE_SPELL_FAMILIARITY_CANTRIPS.filter(spell =>
       entries.some(entry => entry.kind === 'spell' && !entry.deleted && entry.name === spell
@@ -2613,6 +2614,11 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     }
   }
   if (activeFeatsNamed(c, 'Natural Swimmer').length) movement.push(fixed('Swim', 15, 'Natural Swimmer'))
+  if (c.systems.includes('pf2e')) {
+    for (const feat of activeFeatsNamed(c, 'Sublime Mobility')) {
+      if (feat.choice === 'Climb' || feat.choice === 'Swim') movement.push(fixed(feat.choice, 10, feat.name))
+    }
+  }
   if (activeFeatsNamed(c, "Gecko's Grip").length
     && characterHeritages(c, entries).some(heritage => heritage.name === 'Cliffscale Lizardfolk')) {
     movement.push(fixed('Climb', 15, "Gecko's Grip"))
