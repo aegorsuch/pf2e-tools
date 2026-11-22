@@ -410,6 +410,21 @@ export function CaypinAllyToggle({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
   </label>
 }
 
+export function LashuntaAllyOptions({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
+  return <label>Summoned creature{' '}
+    <select aria-label="Creature Ally summoned creature" value={c.lashuntaCreatureAlly ?? ''} onChange={event => {
+      const value = event.target.value
+      if (value !== '' && value !== 'Shotalashu' && value !== 'Squox') return
+      save({ lashuntaCreatureAlly: value || undefined })
+    }}>
+      <option value="">None</option>
+      <option>Shotalashu</option>
+      <option>Squox</option>
+    </select>
+    <SourceNote source="Shotalashu" note="GM approval required: shotalashu has the beast trait, not the animal trait required by Summon Animal." />
+  </label>
+}
+
 function CrocodileFormActions({ c, entries, save, rank }: SectionProps & { rank: number }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -1753,7 +1768,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             const grant = grants[0]
             const details = grantDetails(grant)
             return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc} attackBonus={details.attackBonus} spellcastingModifier={details.spellcastingModifier}
-              actionControls={c.systems.includes('sf2e') && c.ancestry === 'Vesk'
+              actionControls={c.systems.includes('sf2e') && c.ancestry === 'Lashunta'
+                && grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal'
+                ? <ActiveSpellActions name={grant.entry.name} entry={grant.entry} rank={grant.rank} actions="Three Actions">
+                  <LashuntaAllyOptions c={c} save={save} />
+                </ActiveSpellActions>
+                : c.systems.includes('sf2e') && c.ancestry === 'Vesk'
                 && grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal'
                 ? <ActiveSpellActions name={grant.entry.name} entry={grant.entry} rank={grant.rank} actions="Three Actions">
                   <CaypinAllyToggle c={c} save={save} />

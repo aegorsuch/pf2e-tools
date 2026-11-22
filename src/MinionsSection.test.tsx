@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 import { CompanionEquipmentSlots, MinionsContent, MinionsSection } from './MinionsSection'
 import { SearchableSelect } from './SearchableSelect'
-import { CaypinAllyToggle, CompanionSpellOptions, CreatureShapeOptions, SpellsSection } from './SpellsSection'
+import { CaypinAllyToggle, CompanionSpellOptions, CreatureShapeOptions, LashuntaAllyOptions, SpellsSection } from './SpellsSection'
 import { activeBattleForm, armorClass, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, movementSpeeds, ownedWeapons, spellActiveChange } from './builder'
 import { familiarAbilityEffects, familiarAbilityUnavailableReason } from './familiarAbilities'
 import { EntryDescription } from './EntryDescription'
@@ -151,6 +151,41 @@ it('grants Lashunta Creature Shape as occult Animal Form with two custom creatur
   ]))
   expect(activeBattleForm({ ...c, feats: [] }, entries)).toBeUndefined()
   expect(spellActiveChange(c, 'Dinosaur Form', true).creatureShape).toBeUndefined()
+})
+
+it('grants Lashunta Creature Ally as occult Summon Animal and shows the selected summoned creature', () => {
+  const previous = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: false })
+  onTestFinished(() => updateSettings({ innateAutoHeighten: previous }))
+  const spell: ContentEntry = { id: 'summon-animal', name: 'Summon Animal', kind: 'spell', systems: ['sf2e'],
+    source: 'official', level: 1, traits: ['Summon'], description: '', data: { tradition: 'Arcane, Primal' },
+    effects: [], updatedAt: 0 }
+  const entries = [spell]
+  let c: Character = { id: 'lashunta', name: 'Test', systems: ['sf2e'], level: 13, ancestry: 'Lashunta',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Creature Ally', type: 'Ancestry Feat', level: 13, slot: 'ancestry:13:0' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  expect(featChoiceOptions('Creature Ally', c, entries, 'ancestry:13:0')).toBeUndefined()
+  expect(grantedFeatSpells(c, entries)).toEqual([expect.objectContaining({ entry: spell, source: 'Creature Ally', rank: 5,
+    rule: expect.objectContaining({ tradition: 'occult', frequency: 'once per day' }) })])
+  expect(grantedFeatSpells({ ...c, level: 12 }, entries)).toEqual([])
+  expect(unresolvedFeatSpells(c, [])).toContainEqual(expect.objectContaining({ name: 'Summon Animal' }))
+  const spells = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)
+  expect(spells).toContain('Occult Spell Rank 5')
+  expect(spells).toContain('aria-label="Creature Ally summoned creature"')
+  const select = () => findSelect(LashuntaAllyOptions({ c, save }), 'Creature Ally summoned creature')!
+  const minions = () => renderToStaticMarkup(<MinionsSection c={c} entries={entries} save={save} />)
+  select()({ target: { value: 'Squox' } })
+  expect(minions()).toContain('Summoned Squox')
+  expect(minions()).toContain('Jaws +6, 1d4 piercing')
+  select()({ target: { value: 'Shotalashu' } })
+  expect(minions()).toContain('Summoned Shotalashu')
+  expect(minions()).not.toContain('Summoned Squox')
+  expect(renderToStaticMarkup(<MinionsSection c={{ ...c, level: 12 }} entries={entries} save={save} />)).not.toContain('Summoned Shotalashu')
+  expect(renderToStaticMarkup(<MinionsSection c={{ ...c, ancestry: 'Vesk' }} entries={entries} save={save} />)).not.toContain('Summoned Shotalashu')
+  select()({ target: { value: '' } })
+  expect(minions()).not.toContain('Summoned Shotalashu')
 })
 
 it('selects one mounted companion for Mounted Parry and shows its AC source', () => {

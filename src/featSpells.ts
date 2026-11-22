@@ -66,6 +66,12 @@ export function activeCaypinAlly(c: Character) {
     && c.feats.some(feat => feat.name === 'Creature Ally' && feat.choice === 'Summon Animal' && featTakenLevel(feat) <= c.level)
 }
 
+export function activeLashuntaAlly(c: Character) {
+  return c.systems.includes('sf2e') && c.ancestry === 'Lashunta'
+    && c.feats.some(feat => feat.name === 'Creature Ally' && featTakenLevel(feat) <= c.level)
+    ? c.lashuntaCreatureAlly : undefined
+}
+
 const hasUntamedForm = (c: Character) =>
   c.feats.some(feat => feat.name === 'Untamed Form' && featTakenLevel(feat) <= c.level)
   || !!c.spells?.some(spell => spell.name === 'Untamed Form')
@@ -594,11 +600,12 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: highest - 1, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue
     }
-    if (feat.name === 'Creature Shape' && c.systems.includes('sf2e') && c.ancestry === 'Lashunta') {
-      const entry = matchingSpells(entries, 'Animal Form').find(spell => spell.systems.includes('sf2e'))
+    if (['Creature Shape', 'Creature Ally'].includes(feat.name) && c.systems.includes('sf2e') && c.ancestry === 'Lashunta') {
+      const name = feat.name === 'Creature Shape' ? 'Animal Form' : 'Summon Animal'
+      const entry = matchingSpells(entries, name).find(spell => spell.systems.includes('sf2e'))
       if (entry) out.push({ entry, source: feat.name,
         rule: { kind: 'innate', spells: [entry.name], tradition: 'occult', frequency: 'once per day', fixedRank: true },
-        rank: 8, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
+        rank: feat.name === 'Creature Shape' ? 8 : 5, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue
     }
     if (feat.name === 'Creature Ally' || feat.name === 'Creature Shape') {
@@ -735,9 +742,9 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
         .filter(name => !matchingSpells(entries, name).some(entry => entry.systems.includes('sf2e')))
         .map(name => ({ name, source }))
     }
-    if (feat.name === 'Creature Shape' && c.systems.includes('sf2e') && c.ancestry === 'Lashunta') {
-      return matchingSpells(entries, 'Animal Form').some(entry => entry.systems.includes('sf2e'))
-        ? [] : [{ name: 'Animal Form', source }]
+    if (['Creature Shape', 'Creature Ally'].includes(feat.name) && c.systems.includes('sf2e') && c.ancestry === 'Lashunta') {
+      const name = feat.name === 'Creature Shape' ? 'Animal Form' : 'Summon Animal'
+      return matchingSpells(entries, name).some(entry => entry.systems.includes('sf2e')) ? [] : [{ name, source }]
     }
     const training = hellknightTrainingBenefit(c, feat.name, feat.choice)
     if (training?.name === 'Dedication to the Five' && training.choice && GODCLAW_DOMAINS.includes(training.choice)

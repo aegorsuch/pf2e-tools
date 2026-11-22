@@ -13,7 +13,7 @@ import { getSettings } from './settings'
 import { SearchableSelect } from './SearchableSelect'
 import { bardingOptions, equippedBarding, isCompanionEquipmentItem } from './companions'
 import { confirmRemoval } from './confirmRemoval'
-import { activeCaypinAlly } from './featSpells'
+import { activeCaypinAlly, activeLashuntaAlly } from './featSpells'
 import { DroneFeatures } from './DroneFeatures'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
   familiarAbilityEntry, familiarAbilityUnavailableReason, familiarSelection, isFamiliarAbilityRepeatable } from './familiarAbilities'
@@ -213,7 +213,8 @@ export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
     }), ...(c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' ? ['Drone'] : []),
       ...(familiar ? [leshy ? 'Leshy Familiar' : undeadFamiliar ? 'Undead Familiar'
         : crocodileFamiliar ? 'Crocodile Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
-      ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Caypin'] : [])].join(', ') || '0 minions'}</span>
+      ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Caypin'] : []),
+      ...(activeLashuntaAlly(c) ? [activeLashuntaAlly(c)] : [])].join(', ') || '0 minions'}</span>
   </summary>
 }
 
@@ -279,6 +280,20 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             Speed 40 feet, swim 30 feet; darkvision.</p>
           <p>Claw +16, 2d6+8 slashing (agile); jaws +16, 2d8+8 piercing.</p>
           <a href="https://2e.aonsrd.com/creatures/183-caypin" target="_blank" rel="noreferrer">Caypin abilities and statistics</a>
+        </details>}
+        {activeLashuntaAlly(c) === 'Squox' && <details className="character-subsection" open>
+          <summary><h4>Summoned Squox</h4></summary>
+          <p>Tiny animal, level -1. AC 14; HP 7; Fortitude +2, Reflex +7, Will +2.
+            Speed 25 feet, climb 20 feet; low-light vision, scent (imprecise) 30 feet.</p>
+          <p>Jaws +6, 1d4 piercing (agile, finesse).</p>
+          <a href="https://2e.aonsrd.com/creatures/98-squox" target="_blank" rel="noreferrer">Squox abilities and statistics</a>
+        </details>}
+        {activeLashuntaAlly(c) === 'Shotalashu' && <details className="character-subsection" open>
+          <summary><h4>Summoned Shotalashu</h4></summary>
+          <p>Large beast, level 2. AC 18; HP unavailable; Fortitude +8, Reflex +10, Will +11.
+            Speed 40 feet; darkvision.</p>
+          <p>Claw +10, 1d6+2 slashing plus 1d4 mental (agile, finesse).</p>
+          <a href="https://app.demiplane.com/nexus/starfinder2e/creatures/shotalashu" target="_blank" rel="noreferrer">Shotalashu abilities and statistics</a>
         </details>}
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" open>
           <summary><h4>Drone</h4></summary>
