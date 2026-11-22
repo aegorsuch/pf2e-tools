@@ -12,7 +12,10 @@ export function specificMagicItemName(entry: ContentEntry | undefined, name = en
   const base = !!entry?.data.named_armor_elven && rawBase === 'Chain Shirt' ? 'Elven Chain Shirt' : rawBase
   const source = sourceName === 'Soulcutter (Artifact)' ? 'Soulcutter'
     : owned ? sourceName.replace(/ \(Artifact\)/gi, '') : sourceName
-  return base && !source.toLowerCase().endsWith(base.toLowerCase()) ? `${source} ${base}` : source
+  const lowerSource = source.toLowerCase()
+  const lowerBase = base.toLowerCase()
+  return base && !lowerSource.endsWith(lowerBase) && !lowerSource.startsWith(`${lowerBase} of `)
+    ? `${source} ${base}` : source
 }
 
 const wornPlacements: [typeof WORN_EQUIPMENT_GROUPS[number], RegExp][] = [

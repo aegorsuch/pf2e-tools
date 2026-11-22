@@ -80,6 +80,10 @@ it('derives named bastion plate profiles and fixed runes even without rune catal
   expect(found.map(entry => entry.name)).toEqual([
     'Highhelm Stronghold Bastion Plate', 'Bastion Plate of the Inheritor', 'Immortal Bastion Plate',
   ])
+  expect(found.map(entry => specificMagicItemName(entry))).toEqual([
+    'Highhelm Stronghold Bastion Plate', 'Bastion Plate of the Inheritor', 'Immortal Bastion Plate',
+  ])
+  expect(specificMagicItemName(found[1], found[1].name, true)).toBe('Bastion Plate of the Inheritor')
   expect(found.map(entry => [entry.data.named_armor_potency, entry.data.named_armor_resilient, entry.data.named_armor_runes,
     entry.data.bulk, entry.data.strength])).toEqual([
     [2, 1, 'Fortification', 5, 5], [2, 1, '', 5, 4], [3, 2, 'Fortification (Greater)', 5, 5],
