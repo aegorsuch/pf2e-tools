@@ -31,9 +31,21 @@ const winter: ContentEntry = {
   data: { item_subcategory: 'Specific Magic Weapons', rarity: 'unique', url: 'https://2e.aonprd.com/Equipment.aspx?ID=3702' },
   effects: [], updatedAt: 0,
 }
+const winterArtifact: ContentEntry = {
+  ...winter, id: 'wintershot-artifact', name: 'Wintershot (Artifact)', level: 20,
+  traits: [...winter.traits, 'Artifact'],
+  data: { ...winter.data, item_subcategory: '', item_category: 'Artifacts', url: 'https://2e.aonprd.com/Equipment.aspx?ID=3703' },
+  description: [
+    'Base Weapon Composite Shortbow. This +3 major striking greater frost holy composite shortbow ignores mist and precipitation.',
+    'Activate\u2014Auroral Shine (cold, concentrate, light, primal) Frequency once per minute; Effect DC 43 Fortitude.',
+    'Critical Success Unaffected. Success Dazzled for 2 rounds. Failure 6d6 persistent cold damage. Critical Failure 6d6 persistent cold damage.',
+    'Activate\u2014Signal Flare (light, manipulate, primal) Frequency once per hour; Effect Counteract rank 9 with a +25 modifier.',
+    'Activate\u2014Rimecrust (cold, concentrate, incapacitation) Frequency once per day; Effect DC 43 Fortitude.',
+  ].join('\n\n'),
+}
 const rune = (name: string): ContentEntry => ({ ...winter, id: name, name,
   data: { item_subcategory: 'Weapon Property Runes' }, description: '' })
-const catalog = [bow('Composite Shortbow', false), bow('Composite Longbow', true), winter,
+const catalog = [bow('Composite Shortbow', false), bow('Composite Longbow', true), winterArtifact,
   rune('Frost'), rune('Greater Frost'), rune('Holy'), rune('Thundering'), rune('Greater Thundering'), rune('Astral')]
 const c: Character = {
   id: 'c', systems: ['pf2e'], name: 'Bow test', level: 1, className: 'Fighter',
@@ -122,49 +134,49 @@ it('keeps specific bow activation costs and conditional damage rather than grant
     .toContainEqual(expect.objectContaining({ name: 'Song of the Bow', actions: 'Two Actions' }))
 })
 
-it('offers explicit shortbow and longbow versions with inherited composite traits and unchanged original records', () => {
+it('offers only artifact Wintershot as a composite longbow and suppresses non-artifact Wintershot', () => {
   const choices = gearPickerEntries(catalog, 'weapon').filter(entry => entry.data.named_weapon)
-  expect(choices.map(entry => entry.name)).toEqual(['Wintershot (Shortbow)', 'Wintershot (Longbow)'])
-  const short = weaponAttack(c, catalog, owned(choices[0].name))
-  const long = weaponAttack(c, catalog, owned(choices[1].name))
-  expect(short.range).toBe(60)
-  expect(long.range).toBe(100)
-  expect(short.damage).toBe('3d6+1 piercing')
-  expect(long.damage).toBe('3d8+1 piercing')
-  expect(short.traits).toContain('Propulsive')
-  expect(long.traits).toContain('Propulsive')
-  expect(short.traits.some(trait => /volley/i.test(trait))).toBe(false)
-  expect(long.traits).toContain('Volley 30 ft.')
+  expect(choices.map(entry => entry.name)).toEqual(['Wintershot (Artifact)'])
+  expect(choices[0].data.named_weapon_base).toBe('Composite Longbow')
+  const attack = weaponAttack(c, catalog, owned(choices[0].name))
+  expect(attack.range).toBe(100)
+  expect(attack.damage).toBe('4d8+1 piercing')
+  expect(attack.traits).toContain('Propulsive')
+  expect(attack.traits).toContain('Volley 30 ft.')
   expect(choices.every(isMagicItem)).toBe(true)
-  expect(choices[0].source).toBe('official')
-  expect(choices[1].source).toBe('homebrew')
+  expect(choices[0].source).toBe('homebrew')
+  expect(gearPickerEntries([...catalog, winter], 'weapon').filter(entry => entry.data.named_weapon_source === 'Wintershot'))
+    .toEqual([])
   expect(winter.kind).toBe('item')
   expect(catalog[0].traits).toEqual(['Deadly d10', 'Propulsive'])
-  expect(weaponAttack(c, catalog, JSON.parse(JSON.stringify(owned('Wintershot')))).damage).toBe(short.damage)
+  expect(weaponAttack(c, catalog, JSON.parse(JSON.stringify(owned('Wintershot')))).damage).toBe(attack.damage)
 })
 
 it('applies Wintershot fundamental and Frost runes, preserves upgrades, and shows its manual activations in both views', () => {
-  const weapon = owned('Wintershot (Longbow)')
-  expect(effectiveWeapon(c, catalog, weapon)).toMatchObject({ potency: 2, striking: 2, runes: ['Frost'] })
+  const weapon = owned('Wintershot (Artifact)')
+  expect(effectiveWeapon(c, catalog, weapon)).toMatchObject({ potency: 3, striking: 3, runes: ['Frost (Greater)', 'Holy', 'Grievous'] })
   expect(effectiveWeapon(c, catalog, { ...weapon, potency: 3, striking: 3, runes: ['Frost', 'Holy'] }))
-    .toMatchObject({ potency: 3, striking: 3, runes: ['Frost', 'Holy'] })
+    .toMatchObject({ potency: 3, striking: 3, runes: expect.arrayContaining(['Frost (Greater)', 'Holy', 'Grievous', 'Frost']) })
   for (const displayOnly of [false, true]) {
     const markup = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [weapon] }} entries={catalog} save={() => {}} displayOnly={displayOnly} />)
     expect(markup).toContain('1d6 cold')
     const activations = [...markup.matchAll(/<details>([\s\S]*?)<\/details>/g)].map(match => match[1])
       .filter(text => !text.startsWith('<summary>Summary '))
-    expect(activations).toHaveLength(2)
+    expect(activations).toHaveLength(3)
     expect(activations[0]).toContain('<summary>Auroral Shine ')
     expect(activations[0]).toContain('aria-label="Single Action"')
-    expect(activations[0]).toContain('once per 10 minutes')
-    expect(activations[0]).toContain('DC 34 Fortitude')
+    expect(activations[0]).toContain('once per minute')
+    expect(activations[0]).toContain('DC 43 Fortitude')
     expect(activations[0]).toContain('<p>Critical Success Unaffected.</p>')
     expect(activations[0]).not.toContain('Signal Flare')
+    expect(activations[1]).toContain('<summary>Rimecrust ')
     expect(activations[1]).toContain('once per day')
-    expect(activations[1]).toContain('Counteract rank 7')
+    expect(activations[1]).toContain('DC 43 Fortitude')
+    expect(activations[2]).toContain('<summary>Signal Flare ')
+    expect(activations[2]).toContain('Counteract rank 9')
     expect(markup).not.toContain('Wintershot activation details unavailable.')
     expect(markup).toContain('Ignores concealment from mist or precipitation')
-    expect(markup).toContain('up to -2')
+    expect(markup).not.toContain('up to -2')
     expect(markup).toContain('Activations are tracked manually')
     expect(markup).toContain('1 (hold)')
     expect(markup).toContain('2 (shoot)')
@@ -176,16 +188,19 @@ it('applies Wintershot fundamental and Frost runes, preserves upgrades, and show
   expect(weapon.runes).toEqual([])
 })
 
-it('keeps the artifact version distinct with +3 major striking, Greater Frost and Holy', () => {
+it('resolves former Wintershot bow names to the artifact composite longbow', () => {
   const artifact = { ...winter, name: 'Wintershot (Artifact)', id: 'wintershot-artifact', level: 20,
     traits: [...winter.traits, 'Artifact'],
     data: { ...winter.data, item_subcategory: '', item_category: 'Artifacts' },
     description: 'Wintershot is a +3 major striking greater frost holy composite shortbow. Auroral Shine requires DC 43 Fortitude.' }
-  const entries = [...catalog, artifact]
+  const entries = [...catalog.filter(entry => entry !== winterArtifact), artifact]
   expect(effectiveWeapon(c, entries, owned('Wintershot (Artifact) (Shortbow)')))
     .toMatchObject({ potency: 3, striking: 3, runes: ['Frost (Greater)', 'Holy', 'Grievous'] })
   expect(weaponAttack(c, entries, owned('Wintershot (Artifact) (Longbow)')).damage).toBe('4d8+1 piercing')
+  expect(weaponAttack(c, entries, owned('Wintershot (Longbow)')).damage).toBe('4d8+1 piercing')
   expect(weaponEntry(entries, 'Wintershot (Artifact)')?.level).toBe(20)
+  expect(gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === 'Wintershot (Artifact)'))
+    .toHaveLength(1)
   for (const displayOnly of [false, true]) {
     const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [owned('Wintershot (Artifact) (Longbow)')] }}
       entries={entries} save={() => {}} displayOnly={displayOnly} />)
@@ -208,7 +223,7 @@ it.each(['Shortbow', 'Longbow'])('shows all artifact activations and outcomes fo
       '_Nethys Note: unrelated reference._',
     ].join('\n\n'),
   } }, 'pf2e')!
-  const entries = [...catalog, artifact]
+  const entries = [...catalog.filter(entry => entry !== winterArtifact), artifact]
   const name = `Wintershot (Artifact) (${type})`
   const parsed = namedWeaponAbilities(weaponEntry(entries, name))
   expect(parsed.map(activation => activation.name)).toEqual(['Summary', 'Auroral Shine', 'Rimecrust', 'Signal Flare'])
@@ -237,9 +252,9 @@ it.each(['Shortbow', 'Longbow'])('shows all artifact activations and outcomes fo
 })
 
 it('reports missing Wintershot activation text instead of silently hiding its abilities', () => {
-  const incomplete = { ...winter, description: 'Base Weapon Composite Shortbow. A +2 greater striking frost composite shortbow.' }
+  const incomplete = { ...winterArtifact, description: 'Base Weapon Composite Shortbow. A +3 major striking composite shortbow.' }
   const markup = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [owned(winter.name)] }}
-    entries={catalog.map(entry => entry.id === winter.id ? incomplete : entry)} save={() => {}} displayOnly />)
+    entries={catalog.map(entry => entry.id === winterArtifact.id ? incomplete : entry)} save={() => {}} displayOnly />)
   expect(markup).toContain('Wintershot activation details unavailable. Sync content or open its item description.')
 })
 
@@ -254,33 +269,33 @@ it('uses each named tier rather than applying the stronger family version to eve
     .toMatchObject({ potency: 3, striking: 2, runes: ['Thundering (Greater)'] })
 })
 
-it('does not make crossbow variants or add Propulsive to non-composite bows', () => {
+it('makes named bow versions composite longbows without creating crossbow variants', () => {
   const hunter = { ...winter, name: "Hunter's Bow", id: 'hunter',
     description: 'Base Weapon Shortbow. A +1 magic shortbow.' }
   const crossbow = { ...hunter, name: 'Tidal Crossbow', id: 'crossbow', description: 'Base Weapon Crossbow. A +2 striking crossbow.' }
   const entries = [...catalog, bow('Shortbow', false, false), bow('Longbow', true, false), hunter, crossbow]
   const variant = weaponEntry(entries, "Hunter's Bow (Longbow)")
-  expect(variant?.traits).not.toContain('Propulsive')
+  expect(variant?.data.named_weapon_base).toBe('Composite Longbow')
+  expect(variant?.traits).toContain('Propulsive')
   expect(effectiveWeapon(c, entries, owned("Hunter's Bow (Longbow)"))).toMatchObject({ potency: 1, striking: 0 })
   expect(gearPickerEntries(entries, 'weapon').some(entry => entry.name.startsWith('Tidal Crossbow'))).toBe(false)
 })
 
-it('applies Erastil moderate boon to longbow variants and saved native magic longbows', () => {
+it('applies Erastil moderate boon to the artifact composite longbow and saved native magic longbows', () => {
   const native = { ...winter, id: 'native-longbow', name: "Hunter's Anthem",
     description: 'Base Weapon Composite Longbow. A +2 greater striking composite longbow.' }
   const entries = [...catalog, native]
   const blessed = { ...c, deity: 'Erastil', divineIntercessions: { Erastil: ['moderate-boon'] } }
-  for (const name of ['Wintershot (Longbow)', native.name]) {
+  for (const name of ['Wintershot (Artifact)', 'Wintershot (Shortbow)', native.name]) {
     const attack = weaponAttack(blessed, entries, owned(name))
     expect(attack.range).toBe(200)
     expect(attack.traits).toContain('Volley (if beneficial)')
     expect(attack.traits).not.toContain('Volley 30 ft.')
   }
-  expect(weaponAttack(blessed, entries, owned('Wintershot (Shortbow)')).range).toBe(60)
 })
 
 it('reports missing fixed rune data in both views instead of silently omitting its effects', () => {
-  const entries = catalog.filter(entry => entry.name !== 'Frost')
+  const entries = catalog.filter(entry => entry.name !== 'Greater Frost')
   for (const displayOnly of [false, true]) {
     const markup = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [owned('Wintershot')] }}
       entries={entries} save={() => {}} displayOnly={displayOnly} />)
@@ -310,6 +325,8 @@ const callooh = specific('Callooh Callay', 'Longsword', '+3 major striking vorpa
   'Activate\u2014Rest Thee by the Tumtum (concentrate) Frequency once per 10 minutes; Effect Recall Knowledge; on success, Strike or Stride.',
   'Destruction Dissolves after being swallowed by a Tane for a year.',
 ])
+const melothBase = specific("Meloth's Lifedrinker", 'Longsword', '+2 striking', [])
+const melothImproved = specific("Meloth's Lifedrinker (Improved)", 'Longsword', '+3 major striking', [])
 const fallenStars = specific('Blade of Fallen Stars', 'Gun Sword', '+4 major striking greater frost', [
   'Made from high-grade cold siccatite.',
   'Activate Interact; Effect Unfold a bipod to negate the kickback penalty; reverse it before moving or using melee.',
@@ -399,7 +416,8 @@ it('offers only Soulcutter artifact, labeled with its base weapon', () => {
   const entry = soulcutters[0]
   expect(entry.data.named_weapon_source).toBe(name)
   expect(specificMagicItemName(entry)).toBe('Soulcutter Elven Curve Blade')
-  expect(entry).toMatchObject({ name, data: { named_weapon_base: 'Elven Curve Blade' } })
+  expect(entry).toMatchObject({ name, traits: expect.arrayContaining(['Artifact']),
+    data: { named_weapon_base: 'Elven Curve Blade' } })
   expect(effectiveWeapon(c, entries, owned(name))).toMatchObject({
     potency: 3, runes: expect.arrayContaining(['Astral (Greater)', 'Holy', 'Grievous']),
   })
@@ -556,14 +574,26 @@ it.each([[9, 5, 4], [20, 10, 10]])('heightens earned Briar spells and their actu
   expect(oakenResilience({ ...character, weapons: [{ ...character.weapons![0], briarSharpness: 0 }] }, entries)).toBeUndefined()
 })
 
-it('changes named weapon types without losing upgrades or saved artifact access', () => {
-  const weapon: OwnedWeapon = { ...owned('Callooh Callay'), runes: ['Flaming'], stowed: true }
+it('resolves saved Callooh Callay variants to its only longsword form', () => {
+  const weapon: OwnedWeapon = { ...owned('Callooh Callay (Shortsword)'), runes: ['Flaming'], stowed: true }
   let saved = { ...c, weapons: [weapon],
     gearAccessOverrides: [`${callooh.id}:longsword`] }
-  const save = (patch: Partial<Character>) => { saved = { ...saved, ...patch } }
-  changeControl(WeaponList({ c: saved, entries: namedCatalog, save }), 'Callooh Callay weapon type', 'Shortsword')
-  expect(saved.weapons[0]).toMatchObject({ id: 'bow', name: 'Callooh Callay (Shortsword)', runes: ['Flaming'], stowed: true })
+  expect(namedWeaponBases(weaponEntry(namedCatalog, weapon.name))).toEqual([])
+  expect(weaponAttack(saved, namedCatalog, weapon).damage).toBe('4d8+2 slashing')
+  const html = renderToStaticMarkup(<WeaponList c={saved} entries={namedCatalog} save={() => {}} />)
+  expect(html).not.toContain('aria-label="Callooh Callay weapon type"')
   expect(gearAccess(saved, namedCatalog, weaponEntry(namedCatalog, saved.weapons[0].name)!)?.approved).toBe(true)
+})
+
+it("offers only Meloth's improved Lifedrinker as the canonical Longsword", () => {
+  const entries = [...namedCatalog, melothBase, melothImproved]
+  const choices = gearPickerEntries(entries, 'weapon')
+    .filter(entry => entry.data.named_weapon_source === "Meloth's Lifedrinker")
+  expect(choices.map(entry => entry.name)).toEqual(["Meloth's Lifedrinker"])
+  expect(choices[0].data.named_weapon_base).toBe('Longsword')
+  expect(namedWeaponBases(choices[0])).toEqual([])
+  expect(weaponEntry(entries, "Meloth's Lifedrinker (Improved)")?.data.named_weapon_source).toBe("Meloth's Lifedrinker")
+  expect(specificMagicItemName(choices[0], choices[0].name, true)).toBe("Meloth's Lifedrinker Longsword")
 })
 
 it('creates stronger arrowheads with conditional nonstacking bonuses and unchanged daily reaction', () => {
@@ -586,8 +616,8 @@ it('creates stronger arrowheads with conditional nonstacking bonuses and unchang
 })
 
 it.each([
-  ['Shadowpiercer', ["Shadowpiercer (Dancer's Spear)", 'Shadowpiercer (Spear)'], 'Spear'],
-  ['Callooh Callay', ['Callooh Callay (Longsword)', 'Callooh Callay (Shortsword)', 'Callooh Callay (Bastard Sword)'], 'Longsword'],
+  ['Shadowpiercer', ['Shadowpiercer'], 'Spear'],
+  ['Callooh Callay', ['Callooh Callay'], 'Longsword'],
   ['Blade of Fallen Stars', ['Blade of Fallen Stars (Melee)', 'Blade of Fallen Stars (Ranged)'], 'Gun Sword (Melee)'],
   ['Final Stand', ['Final Stand'], 'Rapier'],
 ] as const)('offers requested %s variants, resolves saved original names, and preserves their source records', (name, names, base) => {
@@ -597,12 +627,12 @@ it.each([
   expect(weaponEntry(namedCatalog, name)?.data.named_weapon_base).toBe(base)
   expect(weaponEntry(namedCatalog, name)?.kind).toBe('weapon')
   expect(namedCatalog.find(entry => entry.name === name)?.kind).toBe('item')
-  expect(choices.filter(entry => entry.source === 'homebrew').length).toBe(name === 'Shadowpiercer' ? 1 : name === 'Callooh Callay' ? 2 : 0)
+  expect(choices.filter(entry => entry.source === 'homebrew').length).toBe(0)
 })
 
-it('preserves existing Wintershot variant IDs and saved access approvals', () => {
-  const choice = gearPickerEntries(namedCatalog, 'weapon').find(entry => entry.name === 'Wintershot (Longbow)')!
-  const saved = { ...c, gearAccessOverrides: [`${winter.id}:longbow`] }
+it('preserves Wintershot artifact access approvals', () => {
+  const choice = gearPickerEntries(namedCatalog, 'weapon').find(entry => entry.name === 'Wintershot (Artifact)')!
+  const saved = { ...c, gearAccessOverrides: [winterArtifact.id] }
   expect(gearAccess(saved, namedCatalog, choice)?.approved).toBe(true)
 })
 
@@ -615,16 +645,16 @@ it('does not duplicate Grievous when already present in an artifact source or sa
   expect(weapon.runes).toEqual(['Grievous', 'Flaming'])
 })
 
-it('gives both Shadowpiercer bases +4 major striking and Ghost Touch with base-specific hands, range, and traits', () => {
+it('resolves saved Shadowpiercer variants to its only spear form', () => {
   for (const name of ["Shadowpiercer (Dancer's Spear)", 'Shadowpiercer (Spear)', 'Shadowpiercer']) {
     const weapon = owned(name)
     expect(effectiveWeapon(c, namedCatalog, weapon)).toMatchObject({ potency: 4, striking: 3, runes: ['Ghost Touch', 'Grievous'] })
     const attack = weaponAttack(c, namedCatalog, weapon)
     expect(attack.damage).toBe('4d6+2 piercing')
     expect(attack.additionalDamage[0].value).toBe('2d6 precision vs. incorporeal or shadow creatures')
-    expect(weaponHands(namedCatalog, weapon)).toBe(name.includes("Dancer's") ? 2 : 1)
-    expect(attack.thrownRange).toBe(name.includes("Dancer's") ? 0 : 20)
-    expect(attack.traits.includes('Reach')).toBe(name.includes("Dancer's"))
+    expect(weaponHands(namedCatalog, weapon)).toBe(1)
+    expect(attack.thrownRange).toBe(20)
+    expect(attack.traits).not.toContain('Reach')
   }
   const enhanced = effectiveWeapon(c, namedCatalog, { ...owned('Shadowpiercer'), striking: 3, runes: ['Flaming'] })
   expect(enhanced.runes).toEqual(['Ghost Touch', 'Grievous', 'Flaming'])
@@ -634,16 +664,14 @@ it('uses Callooh Callay base dice, finesse and two-hand traits, preserves Vorpal
   const longsword = owned('Callooh Callay (Longsword)')
   expect(effectiveWeapon(c, namedCatalog, longsword)).toMatchObject({ potency: 3, striking: 3, runes: ['Vorpal', 'Grievous'] })
   expect(weaponAttack(c, namedCatalog, longsword).damage).toBe('4d8+2 slashing')
-  expect(weaponAttack(c, namedCatalog, owned('Callooh Callay (Shortsword)')).traits).toContain('Finesse')
-  const bastard = { ...owned('Callooh Callay (Bastard Sword)'), handsHeld: 2 as const }
-  expect(weaponAttack(c, namedCatalog, bastard).damage).toBe('4d12+2 slashing')
-  expect(weaponAttack({ ...c, deity: 'Gorum', divineIntercessions: { Gorum: ['moderate-boon'] } }, namedCatalog, bastard).traits)
-    .toContain('Forceful')
+  for (const savedName of ['Callooh Callay (Shortsword)', 'Callooh Callay (Bastard Sword)']) {
+    expect(weaponAttack(c, namedCatalog, owned(savedName)).damage).toBe('4d8+2 slashing')
+  }
   const blessed = { ...c, deity: 'Iomedae', divineIntercessions: { Iomedae: ['major-boon'] } }
   expect(weaponAttack(blessed, namedCatalog, longsword).attack).toBe(weaponAttack(c, namedCatalog, longsword).attack + 2)
   const deity: ContentEntry = { ...winter, id: 'iomedae', name: 'Iomedae', kind: 'deity', data: { favored_weapon: 'Longsword' } }
   expect(isFavoredWeapon(blessed, [...namedCatalog, deity], longsword.name)).toBe(true)
-  expect(isFavoredWeapon(blessed, [...namedCatalog, deity], bastard.name)).toBe(false)
+  expect(isFavoredWeapon(blessed, [...namedCatalog, deity], 'Callooh Callay (Bastard Sword)')).toBe(true)
 })
 
 it('supports both Blade of Fallen Stars forms and saved unsuffixed names with shared +4 Greater Frost enhancements', () => {
@@ -659,6 +687,21 @@ it('supports both Blade of Fallen Stars forms and saved unsuffixed names with sh
       expect(attack.traits).toContain(combinationForm === 'Melee' ? 'Critical Fusion' : 'Kickback')
     }
   }
+})
+
+it('shows one selected Blade of Fallen Stars attack and lets inventory switch its combination form', () => {
+  let saved: Character = { ...c, weapons: [owned('Blade of Fallen Stars (Melee)')] }
+  const save = (patch: Partial<Character>) => { saved = { ...saved, ...patch } }
+  const meleeMarkup = renderToStaticMarkup(<WeaponList c={saved} entries={namedCatalog} save={save} />)
+  expect(meleeMarkup).toContain('Melee: Attack')
+  expect(meleeMarkup).not.toContain('Ranged: Attack')
+  const label = meleeMarkup.match(/aria-label="(Combination form: [^"]+)"/)?.[1]
+  expect(label).toBeTruthy()
+  changeControl(WeaponList({ c: saved, entries: namedCatalog, save }), label!, 'Ranged')
+  expect(saved.weapons?.[0]).toMatchObject({ combinationForm: 'Ranged' })
+  const rangedMarkup = renderToStaticMarkup(<WeaponList c={saved} entries={namedCatalog} save={save} />)
+  expect(rangedMarkup).toContain('Ranged: Attack')
+  expect(rangedMarkup).not.toContain('Melee: Attack')
 })
 
 it.each([false, true])('shows named weapon properties, action costs, reactions and destruction rules in both views (displayOnly=%s)', displayOnly => {

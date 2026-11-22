@@ -14,8 +14,8 @@ const BASES: Record<string, string[]> = {
   'Splithead Bow': ['Composite Longbow'],
   "Hunter's Anthem": ['Composite Longbow'],
   'Mammoth Bow': ['Composite Longbow'],
-  Shadowpiercer: ["Dancer's Spear", 'Spear'],
-  'Callooh Callay': ['Longsword', 'Shortsword', 'Bastard Sword'],
+  Shadowpiercer: ['Spear'],
+  'Callooh Callay': ['Longsword'],
   'Blade of Fallen Stars': ['Gun Sword (Melee)', 'Gun Sword (Ranged)'],
   'Final Stand': ['Rapier'],
   Briar: ['Bastard Sword'],
@@ -30,7 +30,6 @@ const BASES: Record<string, string[]> = {
   "Hunter's Dawn": ['Club', 'Dart', 'Javelin'],
   'Kortos Diamond': ['Longsword'],
   'Lamentation of the Faithless': ['Greatsword'],
-  "Meloth's Lifedrinker": ['Longsword'],
   "Meloth's Lifedrinker (Improved)": ['Longsword'],
   Ovinrbaane: ['Greatsword'],
   'Phoenix Fighting Fan': ['Fighting Fan'],
@@ -42,7 +41,6 @@ const BASES: Record<string, string[]> = {
   'Whisperer of Souls': ['Glaive'],
 }
 const ACTIONS: Record<string, { name: string; actions: string }[]> = {
-  Wintershot: [{ name: 'Auroral Shine', actions: 'Single Action' }, { name: 'Signal Flare', actions: 'Single Action' }],
   'Wintershot (Artifact)': [{ name: 'Auroral Shine', actions: 'Single Action' }, { name: 'Signal Flare', actions: 'Single Action' },
     { name: 'Rimecrust', actions: 'Two Actions' }],
   Shadowpiercer: [{ name: 'Absorb Shadows', actions: 'Two Actions' }, { name: 'Rebuff Gloom', actions: 'Reaction' }],
@@ -120,11 +118,14 @@ function enhancements(item: ContentEntry, family: ContentEntry[], runes: { name:
 
 export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: string }[]) {
   const items = entries.filter(entry => entry.kind === 'item' && !entry.deleted
+    && entry.name !== 'Wintershot' && entry.name !== "Meloth's Lifedrinker"
     && (entry.data.item_subcategory === 'Specific Magic Weapons' || entry.name === 'Wintershot (Artifact)' || !!BASES[entry.name]))
   return items.flatMap(item => {
+    const sourceName = item.name === "Meloth's Lifedrinker (Improved)" ? "Meloth's Lifedrinker" : item.name
     const originalBase = (item.name === 'Serithtial' ? 'Longsword' : undefined)
       ?? weaponBase.exec(item.description)?.[1]?.replace(/Dwarven War Axe/i, 'Dwarven Waraxe')
       ?? (item.name === 'Wintershot (Artifact)' && /\bcomposite shortbow\b/i.test(item.description) ? 'Composite Shortbow' : undefined)
+      ?? (BASES[item.name]?.length === 1 ? BASES[item.name][0] : undefined)
       ?? (item.name === "Ghosthand's Comet" ? item.name : undefined)
     if (!originalBase || !BASES[item.name] && !/\b(?:shortbow|longbow)$/i.test(originalBase)) return []
     const composite = /^composite /i.test(originalBase)
@@ -133,7 +134,8 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
     if (item.name === "Ghosthand's Comet") Object.assign(fixed, {
       named_weapon_potency: 4, named_weapon_striking: 3, named_weapon_runes: 'Bane;Impactful (Greater)', named_weapon_rules_missing: false,
     })
-    const choices = BASES[item.name] ?? ['Shortbow', 'Longbow'].map(type => `${composite ? 'Composite ' : ''}${type}`)
+    const choices = BASES[item.name] ?? (/^(?:Composite )?(?:Shortbow|Longbow)$/i.test(originalBase)
+      ? ['Composite Longbow'] : ['Shortbow', 'Longbow'].map(type => `${composite ? 'Composite ' : ''}${type}`))
     const { common: rawCommon, section: rawSection } = sections(item, family)
     const replaceSpeed = (text: string) => item.name === "Hunter's Dawn"
       ? text.replace(/\[speed\]\(\/Equipment\.aspx\?ID=\d+\)/i, '[Astral](/Equipment.aspx?ID=2832)') : text
@@ -153,7 +155,7 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
       const data: ContentEntry['data'] = { ...base.data, url: item.data.url ?? '', sourceBook: item.data.sourceBook ?? '',
         price: item.data.price ?? '', rarity: item.data.rarity ?? 'common', item_category: 'Weapons',
         artifact_activation_actions: item.data.artifact_activation_actions ?? item.data.item_activation_actions ?? '',
-        item_subcategory: 'Specific Magic Weapons', named_weapon: true, named_weapon_source: item.name, named_weapon_base: base.name,
+        item_subcategory: 'Specific Magic Weapons', named_weapon: true, named_weapon_source: sourceName, named_weapon_base: base.name,
         named_weapon_material: MATERIALS[item.name] ?? '',
         named_weapon_resolver_only: item.name === 'Serithtial' && !native, ...fixed,
         named_weapon_runes: artifactRunes(item, fixed.named_weapon_runes) }
@@ -190,7 +192,7 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
         traits.splice(0, traits.length, ...item.traits, 'Backstabber', 'Concussive', 'Kickback', 'Fatal d12')
       }
       const entry: ContentEntry = { ...item, id: choices.length === 1 ? item.id : `${item.id}:${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, kind: 'weapon',
-        source: custom ? 'homebrew' : item.source, name: choices.length === 1 ? item.name : `${item.name} (${label})`, traits, data,
+        source: custom ? 'homebrew' : item.source, name: choices.length === 1 ? sourceName : `${sourceName} (${label})`, traits, data,
         description: `${custom ? 'Custom weapon version' : 'Base weapon'}: ${base.name}. Named-item abilities are unchanged.\n\n${common}${section}` }
       if (!native || alias || choices.length === 1) return [entry]
       alias = true

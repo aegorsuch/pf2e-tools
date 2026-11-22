@@ -11,9 +11,9 @@ const snapshot = 'public/data/aon-pf2e.json'
 const names = ['Axe of the Dwarven Lords', 'Azlanti Diamond', 'Blackaxe', 'Blade of Fallen Stars',
   'Briar', 'Callooh Callay', 'Cane of the Maelstrom', "Cayden's Tankard", 'Coldstar Pistols',
   'Final Stand', "Freedom's Flame", "Ghosthand's Comet", "Hunter's Dawn", 'Kortos Diamond',
-  'Lamentation of the Faithless', "Meloth's Lifedrinker", "Meloth's Lifedrinker (Improved)",
+  'Lamentation of the Faithless', "Meloth's Lifedrinker (Improved)",
   'Ovinrbaane', 'Phoenix Fighting Fan', 'Ridill', 'Serithtial', 'Shadowpiercer',
-  "Sorshen's Sinuous Guisarme", "Spear of the Destroyer's Flame", 'Whisperer of Souls']
+  'Soulcutter (Artifact)', "Sorshen's Sinuous Guisarme", "Spear of the Destroyer's Flame", 'Whisperer of Souls']
 const c: Character = {
   id: 'test', name: 'Artifact checks', systems: ['pf2e'], className: 'Fighter', level: 1,
   abilities: { str: 14, dex: 18, con: 10, int: 10, wis: 10, cha: 10 },
@@ -56,7 +56,8 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
   })
 
   it.each(names)('adapts %s with usable fundamentals and complete source properties', name => {
-    const choices = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === name)
+    const sourceName = name === "Meloth's Lifedrinker (Improved)" ? "Meloth's Lifedrinker" : name
+    const choices = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === sourceName)
     expect(choices.length, name).toBeGreaterThan(0)
     const attack = weaponAttack(c, entries, own(name))
     expect(attack.entry?.data.named_weapon, name).toBe(true)
@@ -190,12 +191,12 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
     expect(weaponAttack(c, entries, own("Hunter's Dawn (Dart)")).range).toBe(40)
   })
 
-  it('does not grant Improved Meloth powers to the dormant sword or omit shared curse rules', () => {
+  it('uses only improved Meloth Lifedrinker and preserves its shared curse rules', () => {
     const base = weaponAttack(c, entries, own("Meloth's Lifedrinker"))
     const improved = weaponAttack(c, entries, own("Meloth's Lifedrinker (Improved)"))
-    expect(base.damage).toBe('1d8+2 S')
+    expect(base.damage).toBe('2d8+2 S')
     expect(improved.damage).toBe('2d8+2 S')
-    expect(namedWeaponAbilities(base.entry).some(ability => ability.name === 'Lifedrink')).toBe(false)
+    expect(namedWeaponAbilities(base.entry).some(ability => ability.name === 'Lifedrink')).toBe(true)
     const rules = namedWeaponAbilities(improved.entry)
     expect(rules.some(ability => ability.name === 'Lifedrink' && ability.actions === 'Reaction')).toBe(true)
     expect(rules.flatMap(ability => ability.paragraphs).join(' ')).toContain('reducing the character')

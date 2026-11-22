@@ -5527,8 +5527,12 @@ function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) 
   const card = PLAYING_CARD_WEAPONS.find(option => option.name === name)
   const base = card && byName(entries, 'weapon', card.base)
   if (card && base) return { ...base, id: card.id, name: card.name }
+  const namedWeapons = namedWeaponEntries(entries)
+  const legacyNamedName = name === 'Wintershot' || /^Wintershot \((?:Shortbow|Longbow)\)$/.test(name)
+    ? 'Wintershot (Artifact)' : name.replace(/\s+\([^()]+\)$/, '')
   return SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name && (isAutomaticUnarmed(name) || name === HAFT_STRIKER_WEAPON.name))
-    ?? byName(entries, 'weapon', name) ?? namedWeaponEntries(entries).find(entry => entry.name === name)
+    ?? byName(entries, 'weapon', name) ?? namedWeapons.find(entry => entry.name === name)
+    ?? namedWeapons.find(entry => entry.name === legacyNamedName)
     ?? SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name)
     ?? [...ATTACHED_WEAPONS, SHIELD_BASH].find(entry => entry.name === name)
 }

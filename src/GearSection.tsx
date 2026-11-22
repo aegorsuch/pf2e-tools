@@ -1113,6 +1113,11 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const displayName = `${equipmentDisplayName(adoptedAncestryText(c, grantedName))}${attachmentSource ? ` (Attached to ${equipmentDisplayName(attachmentName)})` : ''}`
         displayNames.set(w.id, displayName)
         const forms = combinationForms(entries, w.name)
+        const activeCombinationForm = forms.length
+          ? w.combinationForm === 'Melee' || w.combinationForm === 'Ranged'
+            ? w.combinationForm
+            : / \(Ranged\)$/.test(w.name) ? 'Ranged' : 'Melee'
+          : undefined
         const card = PLAYING_CARD_WEAPONS.some(option => option.id === w.id)
         const strength = hasAnimalStrength(c, entries, w)
         const strengthSources = strength ? animalStrengthRuneSources(c, entries, w) : []
@@ -1190,6 +1195,19 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const firstInventive = inventiveOptions.find(option => option === savedInventive[0]) ?? ''
         const secondOptions = inventiveOffensiveOptions([...baseTraits, ...(firstInventive ? [firstInventive] : [])])
         const secondInventive = secondOptions.find(option => option === savedInventive[1]) ?? ''
+        const combinationWeaponForForm = (form: 'Melee' | 'Ranged') => {
+          const target = forms.find(entry => entry.name.endsWith(`(${form})`))
+          if (!target) return undefined
+          const handsHeld = w.handsHeld && weaponCanUseTwoHands(target, c) ? w.handsHeld : undefined
+          return { ...w, name: target.name, combinationForm: form, handsHeld }
+        }
+        const canUseCombinationForm = (form: 'Melee' | 'Ranged') => {
+          const targetWeapon = combinationWeaponForForm(form)
+          if (!targetWeapon) return false
+          if (!equipped) return true
+          const targetHands = weaponHands(entries, targetWeapon, c)
+          return !unknownHands && handsUsed - (hands ?? 0) + (targetHands ?? handLimit + 1) <= handLimit
+        }
         const legendaryCrafting = inventive && (ranksAt(c, entries).Crafting ?? 0) >= 4
         const compactDamage = (damage: string) => damage.replace(/\b(bludgeoning|piercing|slashing)\b/gi, type => type[0].toUpperCase())
         const untamedPersistent = !a.upgrades.some(upgrade => upgrade.name === 'Merciful')
@@ -1201,7 +1219,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             return { form: `${coldstarForm} pistol`, weapon: effectiveWeapon(c, entries, formWeapon), attack: weaponAttack(c, entries, formWeapon) }
           })
           : forms.length
-          ? (['Melee', 'Ranged'] as const).map(form => {
+          ? [activeCombinationForm ?? 'Melee'].map(form => {
             const formWeapon = { ...w, combinationForm: form }
             return { form, weapon: effectiveWeapon(c, entries, formWeapon), attack: weaponAttack(c, entries, formWeapon) }
           })
@@ -1260,6 +1278,19 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                   if (value === 0 || value === 1 || value === 2) update(w.id, { azlantiBond: value })
                 }}>
                 <option value={0}>Less than 1 year</option><option value={1}>1 year</option><option value={2}>2+ years</option>
+              </select>
+            </label>}
+            {activeCombinationForm && <label title="Changing combination forms uses an Interact action.">
+              Combination form{' '}<ActionIcon actions="Single Action" />
+              <select aria-label={`Combination form: ${displayName}`} value={activeCombinationForm} onChange={event => {
+                const form = event.target.value
+                const nextWeapon = form === 'Melee' || form === 'Ranged' ? combinationWeaponForForm(form) : undefined
+                if ((form !== 'Melee' && form !== 'Ranged') || form === activeCombinationForm
+                  || !nextWeapon || !canUseCombinationForm(form)) return
+                update(w.id, { combinationForm: form, handsHeld: nextWeapon.handsHeld })
+              }}>
+                {(['Melee', 'Ranged'] as const).map(form => <option key={form} value={form}
+                  disabled={form !== activeCombinationForm && !canUseCombinationForm(form)}>{form}</option>)}
               </select>
             </label>}
             {namedBases.length > 1 && (!displayOnly || namedSource !== 'Serithtial') && <label>{namedSource === 'Serithtial' ? 'Blade form' : 'Weapon type'}{' '}
