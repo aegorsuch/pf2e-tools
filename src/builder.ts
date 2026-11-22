@@ -1174,10 +1174,13 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         get canCastSpells() { return !!(value.spellcastingClassFeature || value.focusPool || character.spells?.length) },
         get untamedForm() { return knowsSpell(character, entries, 'Untamed Form') },
         championBlessings: championBlessings(character), deity: character.deity,
-        sanctification: character.className === 'Champion'
+        sanctification: (character.systems.includes('pf2e') ? activeFeatsNamed(character, 'Sanctified Soul')
+          .map(feat => feat.choice === 'Holy' ? 'Holy' as const : feat.choice === 'Unholy' ? 'Unholy' as const : undefined)
+          .find(choice => choice !== undefined) : undefined)
+          ?? (character.className === 'Champion'
           ? byName(entries, 'deity', character.deity)?.data.sanctification
             ? deitySanctification(character, entries).selected ?? 'None' : undefined
-          : character.sanctification ?? 'None',
+          : character.sanctification ?? 'None'),
         deityAlignment: character.deity
           ? String(byName(entries, 'deity', character.deity)?.data.alignment ?? '') || undefined : 'None',
         legacyTenetsOfGood: character.className === 'Champion' && !!character.legacyTenetsOfGood,
@@ -1722,6 +1725,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Planar Resilience' && c.systems.includes('pf2e')) return ['Cold', 'Fire']
   if (name === 'Sublime Mobility' && c.systems.includes('pf2e')) return ['Climb', 'Swim']
   if (name === 'Nephilim Lore' && c.systems.includes('pf2e')) return ['Diplomacy', 'Intimidation']
+  if (name === 'Sanctified Soul' && c.systems.includes('pf2e')) return ['Holy', 'Unholy']
   if (name === 'Kitsune Spell Familiarity' && c.systems.includes('pf2e')) {
     return KITSUNE_SPELL_FAMILIARITY_CANTRIPS.filter(spell =>
       entries.some(entry => entry.kind === 'spell' && !entry.deleted && entry.name === spell

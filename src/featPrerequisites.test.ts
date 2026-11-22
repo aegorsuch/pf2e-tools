@@ -384,6 +384,18 @@ it.each([
   expect(featSelectionPrerequisiteChecker(self, [feat], slot)(feat)).toEqual({ missing: [], manual: [] })
 })
 
+it('uses Sanctified Soul variants for sanctification prerequisites', () => {
+  const holy = entry('feat', 'Holy Only', { prerequisite: 'You are holy.' }, 1)
+  const unholy = entry('feat', 'Unholy Only', { prerequisite: 'You are unholy.' }, 1)
+  const c: Character = { ...base, level: 1, feats: [{ ...selected('Sanctified Soul'), choice: 'Holy' }] }
+  expect(featChoiceOptions('Sanctified Soul', c, [], '')).toEqual(['Holy', 'Unholy'])
+  expect(featPrerequisiteChecker(c, [holy, unholy])(holy).missing).toEqual([])
+  expect(featPrerequisiteChecker(c, [holy, unholy])(unholy).missing).toEqual(['You are unholy.'])
+  const fallen = { ...c, feats: [{ ...c.feats[0], choice: 'Unholy' }] }
+  expect(featPrerequisiteChecker(fallen, [holy, unholy])(unholy).missing).toEqual([])
+  expect(featPrerequisiteChecker(fallen, [holy, unholy])(holy).missing).toEqual(['You are holy.'])
+})
+
 it('checks Soul Thief against selected or feat-granted unholy sanctification', () => {
   const soulThief = entry('feat', 'Soul Thief', { prerequisite: 'You are unholy.' }, 20, ['Necromancer', 'Unholy'])
   const unholy = entry('feat', 'The Unholy Dead', { prerequisite: "You aren't holy." }, 1, ['Necromancer'])
