@@ -2035,7 +2035,7 @@ export const isSpontaneousClass = (c: Character) =>
 function tableSpellSlots(c: Character, table: NonNullable<ReturnType<typeof slotTable>>) {
   const slots: Record<number, number> = {}
   if (c.level < 1) return slots
-  slots[0] = (table.cantrips ?? 5) + Number(!!table.curriculum)
+  slots[0] = (table.cantrips ?? 5) + Number(!!table.curriculum) + (activeFeatsNamed(c, 'Cantrip Expansion').length ? 2 : 0)
   for (let rank = 1; rank <= Math.min(9, Math.ceil(c.level / 2)); rank++)
     slots[rank] = (c.level === rank * 2 - 1 ? table.newest : table.other) + (table.curriculum ? 1 : 0)
   if (table.tenth && c.level >= 19) slots[10] = 1 + (c.level >= 20 && table.tenthFeat && activeFeatsNamed(c, table.tenthFeat).length ? 1 : 0)

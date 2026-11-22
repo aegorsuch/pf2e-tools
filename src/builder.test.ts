@@ -2811,6 +2811,11 @@ describe('Bard spellcasting', () => {
     expect(classSpellSlots({ ...bard, level: 2, feats })?.[0]).toBe(7)
     expect(classSpellSlots({ ...bard, level: 1, feats })?.[0]).toBe(5)
   })
+  it('adds Cantrip Expansion cantrips for table-based casters', () => {
+    const wizard = { ...bard, className: 'Wizard', level: 2 }
+    const base = classSpellSlots(wizard)?.[0]
+    expect(classSpellSlots({ ...wizard, feats: [{ name: 'Cantrip Expansion', level: 2, type: 'Class Feat' }] })?.[0]).toBe(base! + 2)
+  })
   it('grants Soulsight spiritsense', () => {
     expect(senses({ ...bard, level: 8, feats: [{ name: 'Soulsight', level: 8, type: 'Class Feat' }] }, [])
       .map(sense => sense.value)).toContain('Spiritsense (imprecise) 60 feet')
