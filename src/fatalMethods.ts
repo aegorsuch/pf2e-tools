@@ -11,15 +11,22 @@ const fallbackDescriptions: Record<FatalMethod, string> = {
   Reaper: "Reaper's Edge: Trained in martial weapons and medium armor; expert in martial weapons at 11th level and medium armor at 13th.\n\nThrall Teamwork: Once per round after casting create thrall, make a melee Strike against a creature within your melee reach and adjacent to one of your thralls.",
 }
 
+const fatalMethodOptionsCache = new WeakMap<ContentEntry[], ContentEntry[]>()
+
 export function fatalMethodOptions(entries: ContentEntry[]): ContentEntry[] {
-  return METHODS.map(name => entries.find(entry => !entry.deleted && entry.kind === 'subclass'
-    && entry.data.subclass_type === 'fatal-method' && entry.name === name)
-    ?? {
-      id: `fatal-method:${name.toLowerCase()}`, systems: ['pf2e'], kind: 'subclass', source: 'official',
-      name, level: 1, traits: [], description: fallbackDescriptions[name],
-      data: { class: 'Necromancer', subclass_type: 'fatal-method', url: `https://2e.aonprd.com/FatalMethods.aspx?ID=${name === 'Puppeteer' ? 1 : 2}` },
-      effects: [], updatedAt: 1,
-    })
+  let options = fatalMethodOptionsCache.get(entries)
+  if (!options) {
+    options = METHODS.map(name => entries.find(entry => !entry.deleted && entry.kind === 'subclass'
+      && entry.data.subclass_type === 'fatal-method' && entry.name === name)
+      ?? {
+        id: `fatal-method:${name.toLowerCase()}`, systems: ['pf2e'], kind: 'subclass', source: 'official',
+        name, level: 1, traits: [], description: fallbackDescriptions[name],
+        data: { class: 'Necromancer', subclass_type: 'fatal-method', url: `https://2e.aonprd.com/FatalMethods.aspx?ID=${name === 'Puppeteer' ? 1 : 2}` },
+        effects: [], updatedAt: 1,
+      })
+    fatalMethodOptionsCache.set(entries, options)
+  }
+  return options
 }
 
 export function selectedFatalMethod(c: Character): FatalMethod | undefined {
