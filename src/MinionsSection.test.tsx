@@ -1,17 +1,17 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 import { CompanionEquipmentSlots, MinionsContent, MinionsSection } from './MinionsSection'
 import { SearchableSelect } from './SearchableSelect'
 import { CaypinAllyToggle, CompanionSpellOptions, CreatureShapeOptions, SpellsSection } from './SpellsSection'
-import { activeBattleForm, armorClass, eligibleFeats, featPrerequisiteChecker, movementSpeeds, ownedWeapons, spellActiveChange } from './builder'
+import { activeBattleForm, armorClass, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, movementSpeeds, ownedWeapons, spellActiveChange } from './builder'
 import { familiarAbilityEffects, familiarAbilityUnavailableReason } from './familiarAbilities'
 import { EntryDescription } from './EntryDescription'
 import { companionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME } from './companions'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
-import { grantedFeatSpells } from './featSpells'
+import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 
 function findSelect(node: ReactNode, label: string): ((event: { target: { value: string } }) => void) | undefined {
   let found: ((event: { target: { value: string } }) => void) | undefined
@@ -109,6 +109,48 @@ it('toggles the Creature Ally caypin and applies a GM-selected Creature Shape an
   expect(isValidElement<{ onClick: () => void }>(dismiss)).toBe(true)
   if (isValidElement<{ onClick: () => void }>(dismiss)) dismiss.props.onClick()
   expect(activeBattleForm(c, entries)).toBeUndefined()
+})
+
+it('grants Lashunta Creature Shape as occult Animal Form with two custom creature forms', () => {
+  const previous = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: false })
+  onTestFinished(() => updateSettings({ innateAutoHeighten: previous }))
+  const spell: ContentEntry = { id: 'animal-form', name: 'Animal Form', kind: 'spell', systems: ['sf2e'],
+    source: 'official', level: 2, traits: ['Polymorph'], description: 'You transform into a battle form.',
+    data: { tradition: 'Primal', actions: 'Two Actions' }, effects: [], updatedAt: 0 }
+  const entries = [spell]
+  let c: Character = { id: 'lashunta', name: 'Test', systems: ['sf2e'], level: 17, ancestry: 'Lashunta',
+    abilities: { str: 10, dex: 80, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Creature Shape', type: 'Ancestry Feat', level: 17, slot: 'ancestry:17:0' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  expect(featChoiceOptions('Creature Shape', c, entries, 'ancestry:17:0')).toBeUndefined()
+  expect(grantedFeatSpells(c, entries)).toEqual([expect.objectContaining({ entry: spell, source: 'Creature Shape', rank: 8,
+    rule: expect.objectContaining({ tradition: 'occult', frequency: 'once per day', fixedRank: true }) })])
+  expect(grantedFeatSpells({ ...c, level: 16 }, entries)).toEqual([])
+  expect(unresolvedFeatSpells(c, [])).toContainEqual(expect.objectContaining({ name: 'Animal Form' }))
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)
+  expect(markup).toContain('Occult Spell Rank 8')
+  expect(markup).toContain('aria-label="Creature Shape battle form"')
+  expect(markup).toContain('<option>Shotalashu</option>')
+  expect(markup).toContain('<option>Squox</option>')
+  expect(markup).not.toContain('<option>Bear</option>')
+  const shape = () => CreatureShapeOptions({ c, entries, save, rank: 8 })
+  const normalAC = armorClass(c, entries)
+  findSelect(shape(), 'Creature Shape battle form')!({ target: { value: 'Shotalashu' } })
+  expect(activeBattleForm(c, entries)).toMatchObject({ name: 'Shotalashu', source: 'Creature Shape', rank: 8,
+    speed: 40, temporaryHp: 20, attacks: [expect.objectContaining({ name: 'Shotalashu Claw',
+      data: expect.objectContaining({ damage: '2d10 slashing' }), traits: expect.arrayContaining(['Agile']) })] })
+  expect(armorClass(c, entries)).toBe(Math.max(normalAC, 35))
+  expect(ownedWeapons(c, entries).map(weapon => weapon.name)).toEqual(['Shotalashu Claw'])
+  findSelect(shape(), 'Creature Shape battle form')!({ target: { value: 'Squox' } })
+  expect(activeBattleForm(c, entries)).toMatchObject({ name: 'Squox', speed: 25, climbSpeed: 20,
+    attacks: [expect.objectContaining({ name: 'Squox Jaws', data: expect.objectContaining({ damage: '4d4 piercing' }) })] })
+  expect(movementSpeeds(c, entries)).toEqual(expect.arrayContaining([
+    expect.objectContaining({ name: 'Land', feet: 25 }), expect.objectContaining({ name: 'Climb', feet: 20 }),
+  ]))
+  expect(activeBattleForm({ ...c, feats: [] }, entries)).toBeUndefined()
+  expect(spellActiveChange(c, 'Dinosaur Form', true).creatureShape).toBeUndefined()
 })
 
 it('selects one mounted companion for Mounted Parry and shows its AC source', () => {

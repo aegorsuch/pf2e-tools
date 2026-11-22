@@ -594,6 +594,13 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: highest - 1, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue
     }
+    if (feat.name === 'Creature Shape' && c.systems.includes('sf2e') && c.ancestry === 'Lashunta') {
+      const entry = matchingSpells(entries, 'Animal Form').find(spell => spell.systems.includes('sf2e'))
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'occult', frequency: 'once per day', fixedRank: true },
+        rank: 8, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
+      continue
+    }
     if (feat.name === 'Creature Ally' || feat.name === 'Creature Shape') {
       const entry = featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
       const tradition = c.systems.includes('sf2e') && c.ancestry === 'Vesk'
@@ -727,6 +734,10 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
       return psychicSpells.names
         .filter(name => !matchingSpells(entries, name).some(entry => entry.systems.includes('sf2e')))
         .map(name => ({ name, source }))
+    }
+    if (feat.name === 'Creature Shape' && c.systems.includes('sf2e') && c.ancestry === 'Lashunta') {
+      return matchingSpells(entries, 'Animal Form').some(entry => entry.systems.includes('sf2e'))
+        ? [] : [{ name: 'Animal Form', source }]
     }
     const training = hellknightTrainingBenefit(c, feat.name, feat.choice)
     if (training?.name === 'Dedication to the Five' && training.choice && GODCLAW_DOMAINS.includes(training.choice)

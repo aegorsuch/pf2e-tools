@@ -23,7 +23,7 @@ import { specificMagicItemName } from './equipmentGroups'
 import { getSettings } from './settings'
 import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellOptions } from './witchwarper'
 import { spellAccessGranted } from './featAccess'
-import { ANIMAL_FORMS, CAYPIN_FORM, animalBattleForm, crocodileBattleForm, DINOSAUR_FORMS, INSECT_FORMS } from './battleForms'
+import { ANIMAL_FORMS, CAYPIN_FORM, LASHUNTA_CREATURE_FORMS, animalBattleForm, crocodileBattleForm, DINOSAUR_FORMS, INSECT_FORMS } from './battleForms'
 import { familiarSpellBenefits } from './familiarAbilities'
 import { PYRE_ENERGY_TYPES } from './hellknight'
 import { SpellDefenseFilter } from './SpellDefenseFilter'
@@ -377,21 +377,26 @@ export function CrocodileFormToggle({ c, entries, save }: SectionProps) {
 export function CreatureShapeOptions({ c, entries, save, rank }: SectionProps & { rank: number }) {
   const active = isSpellActive(c, entries, 'Animal Form') && !!c.creatureShape
   const form = c.creatureShape && animalBattleForm(c.creatureShape.form, c.creatureShape.rank, c.level)
+  const lashunta = c.ancestry === 'Lashunta'
+  const options = lashunta ? LASHUNTA_CREATURE_FORMS : [...ANIMAL_FORMS, CAYPIN_FORM]
+  const label = lashunta ? 'Creature Shape' : 'Caypin'
   return <fieldset className="col">
-    <legend>Caypin form</legend>
+    <legend>{label} form</legend>
     <label>Battle form{' '}
-      <select aria-label="Caypin battle form" value={active ? c.creatureShape?.form ?? '' : ''}
+      <select aria-label={`${label} battle form`} value={active ? c.creatureShape?.form ?? '' : ''}
         onChange={event => {
-          if (![...ANIMAL_FORMS, CAYPIN_FORM].some(option => option.name === event.target.value)) return
+          if (!options.some(option => option.name === event.target.value)) return
           save({ ...spellActiveChange(c, 'Animal Form', true), creatureShape: { form: event.target.value, rank } })
         }}>
         <option value="">Choose form</option>
-        {[...ANIMAL_FORMS, CAYPIN_FORM].map(option => <option key={option.name}>{option.name}</option>)}
+        {options.map(option => <option key={option.name}>{option.name}</option>)}
       </select>
     </label>
     {active && form && <p>{form.size}; AC {form.ac}; temporary HP {form.temporaryHp}; Speed {form.speed} feet;
       attack {signed(form.attack)}; Athletics {signed(form.athletics)}.</p>}
-    <SourceNote source="Creature Shape" note="Caypin battle form is a custom option requiring GM approval; other forms use the closest battle form chosen by the GM. Use your normal AC if higher." />
+    <SourceNote source="Creature Shape" note={lashunta
+      ? 'Shotalashu and Squox battle forms are custom options requiring GM approval. Use your normal AC if higher.'
+      : 'Caypin battle form is a custom option requiring GM approval; other forms use the closest battle form chosen by the GM. Use your normal AC if higher.'} />
     <button type="button" disabled={!active} onClick={() => save({
       creatureShape: undefined, ...spellActiveChange(c, 'Animal Form', false),
     })}>Dismiss Creature Shape</button>
@@ -1753,7 +1758,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 ? <ActiveSpellActions name={grant.entry.name} entry={grant.entry} rank={grant.rank} actions="Three Actions">
                   <CaypinAllyToggle c={c} save={save} />
                 </ActiveSpellActions>
-                : c.systems.includes('sf2e') && c.ancestry === 'Vesk'
+                : c.systems.includes('sf2e') && ['Vesk', 'Lashunta'].includes(c.ancestry ?? '')
                   && grant.source === 'Creature Shape' && grant.entry.name === 'Animal Form'
                 ? <ActiveSpellActions name={grant.entry.name} entry={grant.entry} rank={grant.rank} actions="Two Actions">
                   <CreatureShapeOptions c={c} entries={entries} save={save} rank={grant.rank} />

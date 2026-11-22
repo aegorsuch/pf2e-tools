@@ -72,11 +72,15 @@ export const CAYPIN_FORM: typeof ANIMAL_FORMS[number] = {
     { name: 'Jaws', damage: '2d8 piercing' },
   ],
 }
-const ALL_ANIMAL_FORMS = [...ANIMAL_FORMS, CAYPIN_FORM]
+export const LASHUNTA_CREATURE_FORMS: typeof ANIMAL_FORMS = [
+  { name: 'Shotalashu', speed: 40, attacks: [{ name: 'Claw', damage: '1d10 slashing', traits: ['Agile'] }] },
+  { name: 'Squox', speed: 25, climbSpeed: 20, attacks: [{ name: 'Jaws', damage: '2d4 piercing', traits: ['Agile'] }] },
+]
+const ALL_ANIMAL_FORMS = [...ANIMAL_FORMS, CAYPIN_FORM, ...LASHUNTA_CREATURE_FORMS]
 
 const ANIMAL_WEAPONS: ContentEntry[] = ALL_ANIMAL_FORMS.flatMap(form => form.attacks.map(attack => ({
   id: `spell:animal-form:${form.name.toLowerCase()}:${attack.name.toLowerCase()}`, name: `${form.name} ${attack.name}`,
-  kind: 'weapon', systems: ['pf2e'], source: form === CAYPIN_FORM ? 'homebrew' : 'official', level: 2, traits: ['Unarmed', ...(attack.traits ?? [])],
+  kind: 'weapon', systems: ['pf2e'], source: ANIMAL_FORMS.includes(form) ? 'official' : 'homebrew', level: 2, traits: ['Unarmed', ...(attack.traits ?? [])],
   description: '', effects: [], updatedAt: 0,
   data: { weapon_category: 'Unarmed', weapon_type: 'Melee', hands: 0, damage: attack.damage,
     reach: attack.reach ?? 5, battle_form: form.name, extra_damage: attack.extra ?? '' },

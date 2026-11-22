@@ -1895,6 +1895,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Widespread Fascination') return [...new Set(widespreadFascinationOptions(
     { ...c, subclass: selectedSubclass(c, entries) }, entries, c.feats[index]?.name === name ? c.feats[index]
       : { name, type: '', level: 1, slot: slotKey }).map(entry => entry.name))]
+  if (name === 'Creature Shape' && c.systems.includes('sf2e') && c.ancestry === 'Lashunta') return undefined
   const spells = featSpellOptions(c, entries, { name, type: '', level: 1 })
   if (spells) return [...new Set(spells.map(spell => spell.name))]
 }
@@ -5577,7 +5578,8 @@ export function activeBattleForm(c: Character, entries: ContentEntry[]) {
       if (form) return form
     } else if (name === 'Animal Form') {
       const creatureShape = grantedFeatSpells(c, entries).find(grant => grant.source === 'Creature Shape' && grant.entry.name === name)
-      if (creatureShape && c.creatureShape && c.systems.includes('sf2e') && c.ancestry === 'Vesk') {
+      if (creatureShape && c.creatureShape && c.systems.includes('sf2e')
+        && (c.ancestry === 'Vesk' || c.ancestry === 'Lashunta' && ['Shotalashu', 'Squox'].includes(c.creatureShape.form))) {
         const form = animalBattleForm(c.creatureShape.form, c.creatureShape.rank, c.level)
         if (form) return { ...form, source: 'Creature Shape' }
       }
