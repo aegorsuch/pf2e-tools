@@ -2877,6 +2877,12 @@ export function classSkills(klass?: ContentEntry) {
   return { fixed, choices, additional: extra ? +extra[1] : 0 }
 }
 
+export function characterClassSkills(c: Character, entries: ContentEntry[]) {
+  if (barbarianInstinct(c, entries) === 'bloodrager')
+    return { fixed: ['Athletics', 'Medicine'], choices: [], additional: 2 }
+  return classSkills(byName(entries, 'class', c.className))
+}
+
 // Some Starfinder class records concatenate proficiency sentences without commas.
 const tokensLoose = (v: unknown) => (typeof v === 'string' ? v.split(/(?:,\s*|\s+)(?=Trained in\b)/i).map((t) => t.trim()) : [])
 
@@ -3071,7 +3077,7 @@ export function availableOrders(c: Character, exceptIndex = -1) {
 // Skills the class grants: fixed, chosen, or tied to an order or Champion deity. They are always trained; the house rule
 // (autoClassSkills) also ranks them up at every skill increase the level cap allows, without using the character's own increases.
 export function autoClassSkills(c: Character, entries: ContentEntry[]) {
-  const { fixed, choices } = classSkills(byName(entries, 'class', c.className))
+  const { fixed, choices } = characterClassSkills(c, entries)
   const explored = c.className === 'Druid' && getSettings().orderExplorerSkills
     ? activeFeatsNamed(c, 'Order Explorer').flatMap(feat => {
       const order = normalizeDruidOrder(feat.choice)
@@ -7264,14 +7270,14 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
 }
 
 export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
-  Math.max(0, classSkills(byName(entries, 'class', c.className)).additional
+  Math.max(0, characterClassSkills(c, entries).additional
     + abilityMod(c.abilities.int) + trainedSkillFeatBonus(c, entries)
     + heritageSkillGrants(c, entries).filter(skill => c.heritage !== 'Akitonian Ysoki'
       && [...autoClassSkills(c, entries), ...backgroundSkills(byName(entries, 'background', c.background))]
         .includes(skill)).length
     + Number(isPioneerHuman(c) && [...autoClassSkills(c, entries), ...backgroundSkills(byName(entries, 'background', c.background))].includes('Survival')))
     + (() => {
-      const klass = classSkills(byName(entries, 'class', c.className))
+      const klass = characterClassSkills(c, entries)
       const classTraining = new Set([...klass.fixed, ...(c.classSkill && klass.choices.includes(c.classSkill) ? [c.classSkill] : [])])
       return backgroundSkills(byName(entries, 'background', c.background), c).filter(skill => classTraining.has(skill)).length
     })()
@@ -7306,7 +7312,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
       return deitySkills.filter(skill => (ranksWithoutDeity[skill] ?? 0) > 0).length
     })()
     + (() => {
-      const klass = classSkills(byName(entries, 'class', c.className))
+      const klass = characterClassSkills(c, entries)
       const prior = new Set([...klass.fixed, ...(c.classSkill && klass.choices.includes(c.classSkill) ? [c.classSkill] : []),
         ...backgroundSkills(byName(entries, 'background', c.background))])
       return subclassSkillGrants(c, entries).reduce((count, skill) => {

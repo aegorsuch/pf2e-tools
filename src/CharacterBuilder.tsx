@@ -9,7 +9,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
-import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, classSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
+import { DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { featSectionGrants, SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
@@ -737,10 +737,10 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
             const entry = subclasses.find(candidate => candidate.name === racket)
             return entry ? <SelectedSubclassRules key={racket} entry={entry} label={`${racket} racket (Versatile Rogue)`} /> : null
           })}
-          {classSkills(klass).choices.length > 0 && (
+          {characterClassSkills(c, entries).choices.length > 0 && (
               <SearchableSelect label="Class skill" aria-label="Class skill" value={c.classSkill ?? ''} onChange={(e) => save({ classSkill: e.target.value || undefined })}>
                 <option value="">Choose skill</option>
-                {[...classSkills(klass).choices].sort((a, b) => a.localeCompare(b)).map((s) => <option key={s}>{s}</option>)}
+                {[...characterClassSkills(c, entries).choices].sort((a, b) => a.localeCompare(b)).map((s) => <option key={s}>{s}</option>)}
               </SearchableSelect>
           )}
           {subclassChoice && <>

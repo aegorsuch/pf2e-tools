@@ -233,6 +233,19 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('uses Bloodrager starting skills and replaces duplicate background training', () => {
+  const barbarian = entry('class', 'Barbarian', {
+    skill_proficiency: 'Trained in Athletics, Trained in a number of additional skills equal to 3 plus your Intelligence modifier',
+  })
+  const healer = entry('background', 'Healer', { skill: 'Medicine' })
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Bloodrager', background: undefined }
+  expect(autoClassSkills(c, [barbarian])).toEqual(expect.arrayContaining(['Athletics', 'Medicine']))
+  expect(additionalSkillCount(c, [barbarian])).toBe(2)
+  expect(additionalSkillCount({ ...c, background: 'Healer' }, [barbarian, healer])).toBe(3)
+  expect(autoClassSkills({ ...c, subclass: 'Fury' }, [barbarian])).not.toContain('Medicine')
+  expect(additionalSkillCount({ ...c, subclass: 'Fury' }, [barbarian])).toBe(3)
+})
+
 it('keeps active feat lookups current across level and selection changes', () => {
   const first = { name: 'Shared Feat', type: 'Class Feat', level: 2, slot: 'class:2:0' }
   const future = { name: 'Shared Feat', type: 'Class Feat', level: 6, slot: 'class:6:0' }
