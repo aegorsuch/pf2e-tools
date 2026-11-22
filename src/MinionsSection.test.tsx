@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
-import { CompanionEquipmentSlots, MinionsContent, MinionsSection } from './MinionsSection'
+import { CompanionEquipmentSlots, MinionsContent, MinionsSection, MinionsSummary } from './MinionsSection'
 import { SearchableSelect } from './SearchableSelect'
 import { CaypinAllyToggle, CompanionSpellOptions, CreatureShapeOptions, LashuntaAllyOptions, SpellsSection } from './SpellsSection'
 import { activeBattleForm, armorClass, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, movementSpeeds, ownedWeapons, spellActiveChange } from './builder'
@@ -83,6 +83,7 @@ it('toggles the Creature Ally caypin and applies a GM-selected Creature Shape an
   expect(renderToStaticMarkup(<MinionsSection c={c} entries={entries} save={save} />)).not.toContain('Summoned Caypin')
   findToggle(ally(), 'Summoned Caypin active')!({ target: { checked: true } })
   expect(renderToStaticMarkup(<MinionsSection c={c} entries={entries} save={save} />)).toContain('Summoned Caypin')
+  expect(renderToStaticMarkup(<MinionsSummary c={c} />)).toContain('Summoned Caypin')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, ancestry: 'Human' }} entries={entries} save={save} />)).not.toContain('Summoned Caypin')
   findToggle(ally(), 'Summoned Caypin active')!({ target: { checked: false } })
   expect(renderToStaticMarkup(<MinionsSection c={c} entries={entries} save={save} />)).not.toContain('Summoned Caypin')
@@ -178,9 +179,11 @@ it('grants Lashunta Creature Ally as occult Summon Animal and shows the selected
   const minions = () => renderToStaticMarkup(<MinionsSection c={c} entries={entries} save={save} />)
   select()({ target: { value: 'Squox' } })
   expect(minions()).toContain('Summoned Squox')
+  expect(renderToStaticMarkup(<MinionsSummary c={c} />)).toContain('Summoned Squox')
   expect(minions()).toContain('Jaws +6, 1d4 piercing')
   select()({ target: { value: 'Shotalashu' } })
   expect(minions()).toContain('Summoned Shotalashu')
+  expect(renderToStaticMarkup(<MinionsSummary c={c} />)).toContain('Summoned Shotalashu')
   expect(minions()).not.toContain('Summoned Squox')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, level: 12 }} entries={entries} save={save} />)).not.toContain('Summoned Shotalashu')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, ancestry: 'Vesk' }} entries={entries} save={save} />)).not.toContain('Summoned Shotalashu')

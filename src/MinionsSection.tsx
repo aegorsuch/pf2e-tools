@@ -203,6 +203,7 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
 
 export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
   const { companions, constructAdvancement, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
+  const lashuntaAlly = activeLashuntaAlly(c)
   return <summary className="character-section-summary">
     <strong>Minions</strong>
     <span>{[...companions.map((comp, index) => {
@@ -213,8 +214,8 @@ export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
     }), ...(c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' ? ['Drone'] : []),
       ...(familiar ? [leshy ? 'Leshy Familiar' : undeadFamiliar ? 'Undead Familiar'
         : crocodileFamiliar ? 'Crocodile Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
-      ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Caypin'] : []),
-      ...(activeLashuntaAlly(c) ? [activeLashuntaAlly(c)] : [])].join(', ') || '0 minions'}</span>
+      ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
+      ...(lashuntaAlly ? [`Summoned ${lashuntaAlly}`] : [])].join(', ') || '0 minions'}</span>
   </summary>
 }
 
