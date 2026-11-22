@@ -315,6 +315,7 @@ const FILTERS: Record<'weapon' | 'armor' | 'shield', Filter[]> = {
   ],
 }
 const TABS = ['Standard', 'Magic', 'Custom', 'All'] as const
+const GEAR_SEARCH_PAGE = 100
 const inTab = (e: ContentEntry, tab: (typeof TABS)[number]) =>
   tab === 'All' || (tab === 'Custom' ? e.source === 'homebrew' : tab === 'Magic' ? isMagicItem(e) : (e.kind === 'weapon' || e.source !== 'homebrew') && !isMagicItem(e))
 
@@ -340,6 +341,7 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<(typeof TABS)[number]>('Standard')
   const [picked, setPicked] = useState<Record<string, string>>({})
+  const [limit, setLimit] = useState(GEAR_SEARCH_PAGE)
   const pickerEntries = useMemo(() => !open || kind !== 'weapon' ? entries
     : entries.filter(entry => entry.kind !== 'weapon' || !isLockedWeapon(c, entry.name, entries)), [c, entries, kind, open])
   const pool = useMemo(() => open ? gearPickerEntries(pickerEntries, kind).map(entry => {
@@ -367,29 +369,31 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
     return [...unique.values()]
   }, [entries, kind, picked, query, tabPool])
   if (!open) return <button type="button" className="gear-add" onClick={() => setOpen(true)}>{label}</button>
-  const close = () => { setOpen(false); setQ(''); setPicked({}) }
+  const close = () => { setOpen(false); setQ(''); setPicked({}); setLimit(GEAR_SEARCH_PAGE) }
   return (
     <div className="col gear-picker">
       <div className="gear-tabs" role="tablist">
         {TABS.filter(t => kind !== 'weapon' || t !== 'Custom').map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>
+          <button key={t} type="button" role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''}
+            onClick={() => { setTab(t); setLimit(GEAR_SEARCH_PAGE) }}>{t}</button>
         ))}
       </div>
       <div className="gear-filters">
         {filters.filter((f) => f.options.length > 0).map((f) => (
           <SearchableSelect key={f.label} aria-label={f.label} value={picked[f.label] ?? ''}
-            onChange={(e) => setPicked({ ...picked, [f.label]: e.target.value })}>
+            onChange={(e) => { setPicked({ ...picked, [f.label]: e.target.value }); setLimit(GEAR_SEARCH_PAGE) }}>
             <option value="">All {f.label}</option>
             {f.options.map((o) => <option key={o}>{o}</option>)}
           </SearchableSelect>
         ))}
       </div>
       <div className="row">
-        <input type="search" aria-label={`Search ${kind}s`} autoFocus placeholder={`Search ${kind}s`} value={q} onChange={(e) => setQ(e.target.value)} />
+        <input type="search" aria-label={`Search ${kind}s`} autoFocus placeholder={`Search ${kind}s`} value={q}
+          onChange={(e) => { setQ(e.target.value); setLimit(GEAR_SEARCH_PAGE) }} />
         <button type="button" onClick={close}>Cancel</button>
       </div>
       <ul className="gear-results">
-        {matches.map((m) => {
+        {matches.slice(0, limit).map((m) => {
           const access = gearAccess(c, entries, m)
           const blocked = !!access && !access.automatic && !access.approved
           return (
@@ -404,6 +408,9 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
           </li>
           )
         })}
+        {matches.length > limit && <li><button type="button" onClick={() => setLimit(value => value + GEAR_SEARCH_PAGE)}>
+          Show more ({matches.length - limit} left)
+        </button></li>}
         {matches.length === 0 && <li><small>No {kind}s match.</small></li>}
       </ul>
     </div>

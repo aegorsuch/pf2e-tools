@@ -134,6 +134,43 @@ function OpenGearSearch({ tab = 'Standard', ...props }: Parameters<typeof Search
   return tree
 }
 
+it('pages gear results and resets the page when searching', () => {
+  const entries = Array.from({ length: 125 }, (_, index): ContentEntry => ({
+    ...weapon, id: `armor-${index}`, kind: 'armor', name: `Test Armor ${String(index).padStart(3, '0')}`,
+    data: { armor_category: 'Light', ac: 1 },
+  }))
+  const props = { c: character([]), entries, save: () => {}, kind: 'armor' as const, label: 'Add Armor', onPick: () => {} }
+  const render = (expand: boolean, search: boolean) => {
+    function InspectSearch() {
+      const tree = Search(props)
+      if (tree.type === 'button') {
+        ;(tree.props.onClick as () => void)()
+        return tree
+      }
+      const input = findElement(tree, element => element.props['aria-label'] === 'Search armors')
+      const more = findElement(tree, element => element.type === 'button'
+        && Array.isArray(element.props.children) && element.props.children[0] === 'Show more (')
+      if (expand && input?.props.value === '' && more) (more.props.onClick as () => void)()
+      else if (search && input?.props.value === '' && !more) {
+        ;(input.props.onChange as (event: unknown) => void)({ target: { value: 'test armor' } })
+      }
+      return tree
+    }
+    return renderToStaticMarkup(<InspectSearch />)
+  }
+  const initial = render(false, false)
+  expect(initial).toContain('Test Armor 099')
+  expect(initial).not.toContain('Test Armor 100')
+  expect(initial).toContain('Show more (25 left)')
+  const expanded = render(true, false)
+  expect(expanded).toContain('Test Armor 124')
+  expect(expanded).not.toContain('Show more')
+  const searched = render(true, true)
+  expect(searched).toContain('Test Armor 099')
+  expect(searched).not.toContain('Test Armor 100')
+  expect(searched).toContain('Show more (25 left)')
+})
+
 it.each([
   { tab: 'Standard', visible: ['Longsword', 'Custom Longsword', 'Enchanted Custom Longsword'] },
   { tab: 'Magic', visible: ['Magic Longsword'] },
