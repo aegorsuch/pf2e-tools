@@ -336,7 +336,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const removeSlot = (slot: PlannedSlot, extra: boolean) => {
     const selection = c.feats.find((feat) => feat.slot === slot.key)
     const remove = () => {
-      if (slot.grantedFeat || slot.redundantFeat || slot.grantedAncestry || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === "Operative's Specialization" || slot.grantedBy === 'Sniper' || slot.grantedBy === 'Social Chameleon' || slot.grantedBy === 'Natural Performer'
+      if (slot.grantedFeat || slot.redundantFeat || slot.grantedAncestry || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === "Operative's Specialization" || slot.grantedBy === 'Sniper' || slot.grantedBy === 'Social Chameleon' || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'In Another Life'
         || allSlots.filter((other) => other.category === slot.category && other.level === slot.level).length === 1) {
         choose(slot.key, slot.category, slot.level, '')
       } else if (extra) {
@@ -523,7 +523,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               : s.grantedFeat === 'Canny Acumen' ? '- empty -' : s.grantedFeat || '- empty -'
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
           const locked = !!homebrewDedication(s.key)
-          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer'
+          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer' || s.grantedBy === 'In Another Life'
           const automaticOrderFeat = s.grantedBy === 'Order Explorer' && !!current
             && (() => {
               const eligible = eligibleFeats(entries, c, s)

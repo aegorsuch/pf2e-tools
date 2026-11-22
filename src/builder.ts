@@ -599,6 +599,7 @@ export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWi
   || key.startsWith('skill:1:mechanic-ingenuity:')
   || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
   || key.startsWith('general:1:social-chameleon:') || key.startsWith('ancestry:1:social-chameleon:')
+  || key === 'ancestry:1:in-another-life'
   || key === 'general:1:direwolf-bonded' || key === 'skill:1:scholar' || key.startsWith('skill:1:background:')
   || key === TORAG_BOON_FEAT_SLOT || key.includes(':redundant:')
 
@@ -740,6 +741,11 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
         grantedBy: 'Social Chameleon', ...(category === 'ancestry' ? { grantedAncestry: adopted?.choice } : {}) })
     }
   }
+  if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'In Another Life').length) {
+    const group = `ancestry:${c.level}`
+    if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+    slots.push({ key: 'ancestry:1:in-another-life', category: 'ancestry', level: c.level, grantedBy: 'In Another Life' })
+  }
   for (const feat of c.feats) {
     if (feat.name !== 'Exceptional Artisan' || !feat.choice || featTakenLevel(feat) > c.level) continue
     const level = featTakenLevel(feat)
@@ -791,7 +797,7 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
   const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key) || !!slot.grantedFeat || !!slot.redundantFeat
     || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
     || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon'
-    || slot.grantedBy === 'Natural Performer' || slot.grantedBy === "Operative's Specialization"
+    || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'In Another Life' || slot.grantedBy === "Operative's Specialization"
     || slot.grantedBy === 'Sniper' || !!slot.grantedAncestry)
   for (const slot of slots) {
     if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
@@ -1340,7 +1346,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   }
   const trait = (slot.category === 'ancestry' ? slot.grantedAncestry ?? wanted.ancestry : wanted[slot.category])?.toLowerCase()
   const ancestryTraits = slot.category === 'ancestry' || slot.category === 'bonus'
-    ? slot.grantedAncestry ? [slot.grantedAncestry.toLowerCase()] : ancestryFeatTraits({ ...c, level: Math.min(c.level, slot.level) }) : []
+    ? slot.grantedAncestry ? [slot.grantedAncestry.toLowerCase()] : ancestryFeatTraits({ ...c, level: Math.min(c.level, slot.level),
+      ...(slot.grantedBy === 'In Another Life' ? { feats: c.feats.filter(feat => feat.name !== 'Adopted Ancestry' && feat.name !== 'Orc Kinship') } : {}) }) : []
   if (slot.category !== 'bonus' && !trait && !ancestryTraits.length) return []
   const taken = new Set([
     ...c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : f.name),
@@ -1414,6 +1421,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (slot.grantedBy !== 'Social Chameleon' || (slot.category === 'general'
         ? e.name === 'Adopted Ancestry'
         : !!slot.grantedAncestry && e.level === 1 && traits.has(slot.grantedAncestry.toLowerCase()) && !featRarity(e)))
+      && (slot.grantedBy !== 'In Another Life' || !taken.has(e.name))
       && (!slot.grantedOrder || new RegExp(`\\b${slot.grantedOrder === 'Wild' ? '(?:wild|untamed)' : slot.grantedOrder} order\\b`, 'i').test(String(e.data.prerequisite ?? '')))
       && (e.name !== 'Ancestral Magic' || ancestralMagicAvailable(c, entries,
         { name: e.name, type: 'Ancestry Feat', level: e.level, slot: slot.key, takenLevel: slot.level, sourceId: e.id }))

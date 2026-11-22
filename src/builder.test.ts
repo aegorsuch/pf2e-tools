@@ -1470,6 +1470,27 @@ describe('official passive feat mechanics', () => {
     expect(plannedSlots({ ...adopted, feats: adopted.feats.slice(1) }).some(slot => slot.grantedBy === 'Social Chameleon')).toBe(false)
   })
 
+  it('grants In Another Life a changeable ancestry feat at the current level', () => {
+    const feat = { name: 'In Another Life', type: 'Class Feat', level: 12, slot: 'class:12:0' }
+    const c: Character = { ...base, systems: ['pf2e', 'sf2e'], className: 'Witchwarper', ancestry: 'Human', level: 15,
+      feats: [feat, { name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Elf' },
+        { name: 'Human Repeatable', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
+    const data = [
+      entry('feat', 'Human Choice', {}, 13, ['Human']),
+      entry('feat', 'Human Too High', {}, 17, ['Human']),
+      entry('feat', 'Human Repeatable', { repeatable: true }, 1, ['Human']),
+      entry('feat', 'Elf Choice', {}, 1, ['Elf']),
+      entry('feat', 'Human Prerequisite', { prerequisite: 'master in Acrobatics' }, 1, ['Human']),
+    ]
+    const slot = plannedSlots(c).find(s => s.grantedBy === 'In Another Life')!
+    expect(slot).toMatchObject({ category: 'ancestry', level: 15 })
+    expect(eligibleFeats(data, c, slot).map(e => e.name)).toEqual(['Human Choice'])
+    expect(plannedSlots({ ...c, level: 11 }).some(s => s.grantedBy === 'In Another Life')).toBe(false)
+    expect(plannedSlots({ ...c, feats: c.feats.slice(1) }).some(s => s.grantedBy === 'In Another Life')).toBe(false)
+    expect(plannedSlots({ ...c, systems: ['pf2e'] }).some(s => s.grantedBy === 'In Another Life')).toBe(false)
+    expect(plannedSlots({ ...c, level: 16 }).find(s => s.grantedBy === 'In Another Life')?.key).toBe(slot.key)
+  })
+
   it('toggles both grouped ancestry restrictions independently without changing saved feats', () => {
     const previous = getSettings()
     onTestFinished(() => updateSettings(previous))

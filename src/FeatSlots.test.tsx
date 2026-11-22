@@ -573,6 +573,7 @@ it('persists Social Chameleon choices in normal feat sections and clears depende
   expect(c.feats.find(feat => feat.name === adopted.name)).toMatchObject({
     type: 'General Feat', choice: 'Elf', takenLevel: 5, slot: 'general:1:social-chameleon:ancestry:5:0',
   })
+
   expect(renderToStaticMarkup(tree(['ancestry']))).not.toContain('Social Chameleon: common level-1 Elf feat.')
   findSelect(tree(['ancestry']), 'L05 Ancestry feat')!({ target: { value: elfFeat.name } })
   expect(c.feats.find(feat => feat.name === elfFeat.name)).toMatchObject({
@@ -593,6 +594,25 @@ it('persists Social Chameleon choices in normal feat sections and clears depende
   expect(c.entryIds).not.toContain(adopted.id)
   expect(c.entryIds).not.toContain(elfFeat.id)
   expect(plannedSlots(c).some(slot => slot.grantedBy === chameleon.name)).toBe(false)
+})
+
+it('selects and replaces In Another Life ancestry feats and removes the grant with its source', () => {
+  const source: ContentEntry = { id: 'another-life', name: 'In Another Life', kind: 'feat', source: 'official',
+    systems: ['sf2e'], level: 12, traits: ['Witchwarper'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const first: ContentEntry = { ...source, id: 'human-first', name: 'Human First', level: 1, traits: ['Human'] }
+  const second: ContentEntry = { ...first, id: 'human-second', name: 'Human Second' }
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], className: 'Witchwarper', ancestry: 'Human', level: 12,
+    feats: [{ name: source.name, type: 'Class Feat', level: 12, slot: 'class:12:0' }] }
+  const tree = (categories: ('ancestry' | 'class')[]) => FeatSlots({ c, entries: [source, first, second], categories,
+    save: patch => { c = { ...c, ...patch } } })
+  findSelect(tree(['ancestry']), 'L12 Ancestry feat')!({ target: { value: first.name } })
+  expect(c.feats.find(feat => feat.name === first.name)).toMatchObject({ slot: 'ancestry:1:in-another-life', takenLevel: 12 })
+  findButton(tree(['ancestry']), 'Clear L12 Ancestry feat selection')!()
+  findSelect(tree(['ancestry']), 'L12 Ancestry feat')!({ target: { value: second.name } })
+  expect(c.feats.some(feat => feat.name === first.name)).toBe(false)
+  expect(c.feats.some(feat => feat.name === second.name)).toBe(true)
+  findButton(tree(['class']), 'Clear L12 Class feat selection')!()
+  expect(c.feats).toEqual([])
 })
 
 it("shows Battle Medicine granted by Officer's Medical Training", () => {
