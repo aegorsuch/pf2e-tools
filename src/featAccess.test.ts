@@ -80,15 +80,16 @@ it('offers Alkenstar, Mana Wastes, and Nixbrix achievements as alternative Black
     ...feat, id: name, name, traits: ['Fighter', 'Uncommon'],
     data: { access: "You're from Alkenstar or the Mana Wastes.", prerequisite: 'expert in Fortitude saves' },
   }))
-  const labels = ['Agree to Nixbrix\'s challenge to defeat Bitey', 'From Alkenstar', 'From Mana Wastes']
+  const labels = ['Agree to Nixbrix\'s challenge to defeat Bitey', 'Traveled through Alkenstar', 'Traveled through the Mana Wastes']
   const options = achievementOptions(entries)
   expect(options.map(option => option.requirement)).toEqual(labels)
   for (const option of options) {
     expect(option.feats).toEqual(['Inured to Alchemy', 'Pain Tolerance', 'Powder Punch Stance'])
     const saved: Character = JSON.parse(JSON.stringify({ ...character, achievements: [option.key] }))
     for (const entry of entries) {
-      expect(featAccess(saved, entry)).toMatchObject({ automatic: true, source: 'achievement' })
-      expect(featAccess(character, entry)?.automatic).toBe(false)
+      expect(featAccess(saved, entry)).toMatchObject({ automatic: true, source: 'achievement',
+        requirement: 'Traveled through Alkenstar or the Mana Wastes' })
+      expect(featAccess(character, entry)).toMatchObject({ automatic: false, requirement: 'Traveled through Alkenstar or the Mana Wastes' })
     }
     const slot = { key: 'class:6:0', category: 'class' as const, level: 6 }
     expect(featSelectionPrerequisiteChecker({ ...saved, className: 'Fighter', level: 6 }, entries, slot)(entries[1]).missing)
@@ -100,7 +101,16 @@ it('offers Alkenstar, Mana Wastes, and Nixbrix achievements as alternative Black
   }
   const fromAlkenstar = { ...character, achievements: ['From Alkenstar'] }
   expect(featAccess(fromAlkenstar, { ...feat, data: { access: 'You are from Dongun Hold or Alkenstar.' } })?.automatic).toBe(true)
-  expect(featAccess({ ...character, achievements: ['From the Mana Wastes'] }, entries[0])?.automatic).toBe(true)
+  for (const saved of ['From Alkenstar', 'From Mana Wastes', 'From the Mana Wastes',
+    "You're from Alkenstar or the Mana Wastes.", ...labels.slice(1)]) {
+    expect(featAccess({ ...character, achievements: [saved] }, entries[0])?.automatic).toBe(true)
+  }
+  const updatedSource = { ...entries[0], data: { access: 'Traveled through Alkenstar or the Mana Wastes' } }
+  expect(achievementOptions([updatedSource]).map(option => option.requirement)).toEqual(labels)
+  expect(featAccess(fromAlkenstar, updatedSource)).toMatchObject({ automatic: true,
+    requirement: 'Traveled through Alkenstar or the Mana Wastes' })
+  expect(featAccess({ ...character, achievements: [labels[1]] },
+    { ...feat, data: { access: 'You are from Dongun Hold or Alkenstar.' } })?.automatic).toBe(true)
   expect(featAccess({ ...character, achievements: ['From Dongun Hold or Alkenstar'] }, entries[0])?.automatic).toBe(false)
   expect(featAccess({ ...character, achievements: [labels[0]] }, { ...entries[0], name: 'Unrelated Feat' })?.automatic).toBe(false)
   expect(featAccess({ ...character, achievements: [labels[0]] }, { ...entries[0], source: 'homebrew' })?.automatic).toBe(false)

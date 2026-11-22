@@ -34,6 +34,9 @@ const ALKENSTAR_OR_DONGUN_TRAVEL = 'Travelled through Alkenstar or Dongun Hold'
 const ALKENSTAR = 'From Alkenstar'
 const MANA_WASTES = 'From Mana Wastes'
 const ALKENSTAR_OR_MANA_WASTES = 'from alkenstar or the mana wastes'
+const ALKENSTAR_TRAVEL = 'Traveled through Alkenstar'
+const MANA_WASTES_TRAVEL = 'Traveled through the Mana Wastes'
+const ALKENSTAR_OR_MANA_WASTES_TRAVEL = 'Traveled through Alkenstar or the Mana Wastes'
 const NIXBRIX_CHALLENGE = "Agree to Nixbrix's challenge to defeat Bitey"
 const BLACK_POWDER_FEATS = new Set(['Inured to Alchemy', 'Pain Tolerance', 'Powder Punch Stance'])
 const achievementLabels = new Map([LASTWALL_MEMBERSHIP, TIAN_ELEMENTALISM, WUKONG_EXTENSION_ACCESS, RIVETHUN_MEMBERSHIP, DWARVEN_DEFENDER,
@@ -65,7 +68,11 @@ export function achievementKey(access: string) {
   if (/^dwarf or have undergone defender training in a dwarven settlement such as highhelm$/.test(key)) return DWARVEN_DEFENDER.toLowerCase()
   if (key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()
     || key === ALKENSTAR_OR_DONGUN_TRAVEL.toLowerCase()) return DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()
-  if (key === 'from the mana wastes') return MANA_WASTES.toLowerCase()
+  if (key === ALKENSTAR_TRAVEL.toLowerCase() || key === 'travelled through alkenstar') return ALKENSTAR.toLowerCase()
+  if (key === 'from the mana wastes' || key === MANA_WASTES_TRAVEL.toLowerCase()
+    || key === 'travelled through the mana wastes') return MANA_WASTES.toLowerCase()
+  if (key === ALKENSTAR_OR_MANA_WASTES_TRAVEL.toLowerCase()
+    || key === 'travelled through alkenstar or the mana wastes') return ALKENSTAR_OR_MANA_WASTES
   if (key === 'from the shackles' || key === SHACKLES_TRAVEL.toLowerCase()) return SHACKLES_TRAVEL.toLowerCase()
   return lastwallAccess.has(key) ? LASTWALL_MEMBERSHIP.toLowerCase() : key
 }
@@ -98,6 +105,7 @@ function isAchievementRequirement(requirement: string) {
 
 function trainingLabel(requirement: string, key: string) {
   if (key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase()) return ALKENSTAR_OR_DONGUN_TRAVEL
+  if (key === ALKENSTAR_OR_MANA_WASTES) return ALKENSTAR_OR_MANA_WASTES_TRAVEL
   const label = achievementLabels.get(key) ?? achievementLabel(requirement)
   if (achievementLabels.has(key) && /^trained (?:with|in) /i.test(label)) return label
   return /^(?:member of|trained by) /i.test(label)
@@ -123,7 +131,7 @@ export function achievementOptions(entries: ContentEntry[]) {
     const requirement = narrativeRequirement(entry, String(entry.data.access ?? '').trim().replace(/\s+/g, ' '))
     const key = achievementKey(requirement)
     if (key === ALKENSTAR_OR_MANA_WASTES) {
-      for (const label of [ALKENSTAR, MANA_WASTES, ...(blackPowderFeat(entry) ? [NIXBRIX_CHALLENGE] : [])]) {
+      for (const label of [ALKENSTAR_TRAVEL, MANA_WASTES_TRAVEL, ...(blackPowderFeat(entry) ? [NIXBRIX_CHALLENGE] : [])]) {
         add(achievementKey(label), label, entry.name)
       }
     } else if (isAchievementRequirement(requirement)) {
