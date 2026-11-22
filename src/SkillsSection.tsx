@@ -12,7 +12,7 @@ import { TotalBreakdown } from './TotalBreakdown'
 import { warmaskSource, warmaskItemBonus } from './warmask'
 import { armorModifications, armorOverdriveActive } from './inventorArmor'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
-import { apexSkillBonus, wornArmor } from './builder'
+import { apexSkillBonus, temporaryHpGrant, wornArmor } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { getSettings } from './settings'
 import { backgroundLoreChoiceOptions, backgroundLoreSlots, backgroundSkillSlots, chosenLoreFeats, normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
@@ -753,6 +753,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const skin = animalSkinBenefits(c, entries)
     const hpBonuses = hitPointBonuses(c, entries)
     const form = activeBattleForm(c, entries)
+    const temporaryHp = temporaryHpGrant(c, entries)
     const oaken = oakenResilience(c, entries)
     const divineWeaknesses = divineIntercessionWeaknesses(c)
     const ac = armorClassBreakdown(c, entries)
@@ -801,6 +802,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               note="Critical hits with lethal unarmed Strikes deal 1d4 persistent bleed damage." />}
             {!!activeFeatsNamed(c, 'Stubborn Persistence').length && <SourceNote source="Stubborn Persistence"
               note="When you would become fatigued, succeed at a DC 17 flat check to avoid it. If the underlying cause remains, repeat at a GM-determined interval." />}</b></span>
+          {temporaryHp && <span><small>Temporary HP granted</small><b>{temporaryHp.value}
+            <SourceNote source="Temporary HP" note={`${temporaryHp.grants.map(grant => `${grant.source}: ${grant.value}`).join('; ')}. Temporary HP normally does not stack. Remaining HP and expiration are not tracked.`} /></b></span>}
         </div>
         {(['Inner Strength', 'Shake It Off', 'Creature Comforts'].some(name => activeFeatsNamed(c, name).length > 0)
           || !!c.conditions && Object.values(c.conditions).some(value => typeof value === 'number' && value > 0)) && <div className="condition-controls" role="group" aria-label="Conditions">
@@ -867,10 +870,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             onChange={event => save({ hardenFleshActive: event.target.checked })} /> Harden Flesh active
         </label>}
         {form && <div className="defense-summary">
-          {form.source !== 'Animal Rage' && form.temporaryHp > 0 && <span><small>Temporary Hit Points</small><b>{form.temporaryHp}
-            <SourceNote source={form.source} note={form.source === 'Dragon Transformation'
-              ? 'Add to temporary HP from entering Rage or another Rage action; not added to maximum Hit Points.'
-              : 'Granted when cast; not added to maximum Hit Points.'} inlineSource={false} /></b></span>}
           <span><small>Size</small><b>{form.size}
             <SourceNote source={form.source} note={form.source === 'Dragon Transformation'
               ? 'Gain the dragon trait. Only dragon unarmed attacks can Strike; equipment is absorbed. You have hands and can use manipulate actions.'

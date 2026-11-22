@@ -105,6 +105,29 @@ export function maxHp(c: Character, entries: ContentEntry[]) {
     - (hasDivineIntercession(c, 'Asmodeus', 'major-curse') ? Math.max(1, c.level) * 4 : 0)
 }
 
+export function temporaryHpGrant(c: Character, entries: ContentEntry[]) {
+  const form = activeBattleForm(c, entries)
+  const rage = c.raging && (c.className === 'Barbarian' || activeFeatsNamed(c, 'Barbarian Dedication').length > 0)
+    ? Math.max(0, c.level + abilityMod(c.abilities.con)) : 0
+  const grants: { source: string; value: number }[] = []
+  if (rage || form?.source === 'Dragon Transformation') {
+    grants.push({ source: form?.source === 'Dragon Transformation' ? 'Rage and Dragon Transformation' : 'Rage',
+      value: rage + (form?.source === 'Dragon Transformation' ? form.temporaryHp : 0) })
+  }
+  if (form && form.source !== 'Dragon Transformation' && form.source !== 'Animal Rage' && form.temporaryHp > 0) {
+    grants.push({ source: form.source, value: form.temporaryHp })
+  }
+  const armor = wornArmor(c, entries)
+  if (armor?.name === 'Immortal Bastion Plate') {
+    if (armor.immortalSurvivalActive) grants.push({ source: 'Immortal Bastion Plate survival', value: 100 })
+    const armorSource = armorEntry(c, entries, armor.name, armor.id)
+    if (armor.entrenchMeleeActive && armorSource && armorProficiencyRank(c, entries, armorSource) > 0)
+      grants.push({ source: 'Immortal Bastion Plate Entrench Melee', value: 10 })
+  }
+  const value = Math.max(0, ...grants.map(grant => grant.value))
+  return value ? { value, grants } : undefined
+}
+
 export function hitPointBonuses(c: Character, entries?: ContentEntry[]) {
   const automaticGrants = entries ? automaticFeatGrants(c, entries) : []
   const owned = (name: string) => c.feats.some(feat => feat.name.toLowerCase() === name.toLowerCase() && featTakenLevel(feat) <= c.level)

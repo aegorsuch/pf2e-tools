@@ -22,6 +22,16 @@ vi.mock('./DeferredDetails', () => ({ DeferredDetails: ({ children }: { children
 const CharacterBuilder = (props: Omit<Parameters<typeof Builder>[0], 'catalog'>) =>
   <Builder {...props} catalog={content.entries} />
 
+it('shows active temporary HP in the collapsed Defense summary', () => {
+  content.entries = []
+  const c: Character = { id: 'temporary-hp', name: 'Test', systems: ['pf2e'], level: 8, className: 'Barbarian',
+    raging: true, abilities: { str: 10, dex: 10, con: 16, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const render = (character: Character) => renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
+  expect(render(c)).toContain('Temporary HP granted 11')
+  expect(render({ ...c, raging: false })).not.toContain('Temporary HP granted')
+})
+
 it.each([
   ['Barbarian', 'Bloodrager', 'Bloodrager'],
   ['Ranger', 'Vindicator', 'Vindication'],

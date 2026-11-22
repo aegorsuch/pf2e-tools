@@ -19,7 +19,7 @@ import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, WeaponProficiency, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsPanel } from './SpellsSection'
 import { StancesContent, StancesSummary } from './StancesSection'
-import { boneShieldActive, canUseGiantStature, effectiveHandwraps, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, twinnedDefenseActive } from './builder'
+import { boneShieldActive, canUseGiantStature, effectiveHandwraps, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, temporaryHpGrant, twinnedDefenseActive } from './builder'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
 import { constructCompanionChange, faithfulSteedChange, isCompanionEquipmentItem } from './companions'
@@ -526,6 +526,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
   const extraBackground = freeHeartBackground(c, entries)
   const flaws = ancestryFlaws(c, entries)
   const defense = defenseSummary(c, entries)
+  const temporaryHp = temporaryHpGrant(c, entries)
   const parry = parryValue(c, entries)
   const parryWeapon = hasParryWeapon(c, entries)
   const stanceParry = twinnedDefenseActive(c, entries)
@@ -760,7 +761,8 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Defense</strong>
-          <span>Armor Class <TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />, Hit Points {defense.hp}</span>
+          <span>Armor Class <TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />, Hit Points {defense.hp}
+            {temporaryHp && `, Temporary HP granted ${temporaryHp.value}`}</span>
           {(shield || shieldCantrip || boneShield || parry > 0) && <span className="combat-summary-toggles" onClick={(event) => event.stopPropagation()}>
             {shield && <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
               <input type="checkbox" aria-label={`${shieldRaiseLabel} (summary)`} checked={shieldRaised(c)} disabled={shieldParagonActive(c)}

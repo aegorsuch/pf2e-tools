@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ComponentProps, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
-import { activeBattleForm, armorClass, armorClassBreakdown, armorEntry, armorSaveBonus, effectiveArmor, gearPickerEntries, movementSpeeds, ownedArmors, ownedWeapons, perceptionItemBonus, resistances, savingThrowBreakdown, shieldAcBonus, shieldEntry, shieldMaterialOptions, shieldStats, speedBonuses, spellActiveChange, weaponAttack, wornArmor } from './builder'
+import { activeBattleForm, armorClass, armorClassBreakdown, armorEntry, armorSaveBonus, effectiveArmor, gearPickerEntries, movementSpeeds, ownedArmors, ownedWeapons, perceptionItemBonus, resistances, savingThrowBreakdown, shieldAcBonus, shieldEntry, shieldMaterialOptions, shieldStats, speedBonuses, spellActiveChange, temporaryHpGrant, weaponAttack, wornArmor } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
 import { ANCESTRAL_AVATAR } from './battleForms'
 import { makeNamedArmorEntries, makeNamedShieldEntry, namedArmorAbilities, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
@@ -170,6 +170,20 @@ it('tracks armor activations independently and restores armor when the wall is d
   expect(c.armors?.[0]).toMatchObject({ immortalSurvivalUsed: true, immortalConditionUsed: true })
 })
 
+it('shows active Immortal Bastion temporary HP beside HP without stacking grants', () => {
+  const data = [...bastionEntries, bastionFighter]
+  const armor = { ...owned('Immortal Bastion Plate'), entrenchMeleeActive: true }
+  const c = { ...character, className: 'Fighter', armors: [armor] }
+  const render = (value: Character) => renderToStaticMarkup(<SkillsSection c={value} entries={data} save={() => {}} part="defense" />)
+  expect(temporaryHpGrant(c, data)?.value).toBe(10)
+  expect(render(c)).toContain('Temporary HP granted</small><b>10')
+  const survival = { ...c, armors: [{ ...armor, immortalSurvivalActive: true }] }
+  expect(temporaryHpGrant(survival, data)?.value).toBe(100)
+  expect(render(survival)).toContain('Temporary HP granted</small><b>100')
+  expect(temporaryHpGrant({ ...survival, armors: [{ ...armor, worn: false, immortalSurvivalActive: true }] }, data)).toBeUndefined()
+  expect(temporaryHpGrant({ ...c, armors: [{ ...armor, entrenchMeleeActive: false }] }, data)).toBeUndefined()
+})
+
 it('gives Ancestral Embrace built-in major weave runes and its worn Sunweave Perception bonus', () => {
   const c = { ...character, armors: [owned(hideEmbraceName)] }
   expect(effectiveArmor(c, entries, c.armors[0]).runes).toEqual(['Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)'])
@@ -219,6 +233,7 @@ it('activates and dismisses the armor avatar with its battle form and specific a
   expect(transformed.activeSpells).toEqual([ANCESTRAL_AVATAR])
   expect(activeBattleForm(transformed, entries)).toMatchObject({ size: 'Huge', ac: 45, temporaryHp: 30, attack: 33, athletics: 35,
     note: 'Air walk; ignore difficult terrain and greater difficult terrain.' })
+  expect(temporaryHpGrant(transformed, entries)?.value).toBe(30)
   expect(armorClass(transformed, entries)).toBe(45)
   expect(movementSpeeds(transformed, entries)[0].feet).toBe(70)
   const attacks = ownedWeapons(transformed, entries)

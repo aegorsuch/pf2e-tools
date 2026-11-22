@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
 import { ArmorProficiency, RageToggle, SensesAndSpeed, SkillsSection, SkillsSummary } from './SkillsSection'
 import { FeatChoice } from './FeatChoice'
-import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, speed, weaponRanks } from './builder'
+import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, speed, temporaryHpGrant, weaponRanks } from './builder'
 import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
@@ -144,9 +144,19 @@ it('shows Rage temporary HP and Second Wind only while raging', () => {
     abilities: { ...base.abilities, con: 16 }, feats: [{ name: 'Second Wind', type: 'Class Feat', level: 2 }] }
   const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[]} save={() => {}} part="defense" />)
   expect(render(c)).toContain('gain 11 temporary HP')
+  expect(render(c)).toContain('Temporary HP granted</small><b>11')
   expect(render(c)).toContain('Second Wind lets you gain them earlier')
   expect(render({ ...c, raging: false })).not.toContain('Second Wind lets you gain them earlier')
+  expect(render({ ...c, raging: false })).not.toContain('Temporary HP granted')
   expect(render({ ...c, feats: [] })).not.toContain('Second Wind lets you gain them earlier')
+})
+
+it('adds Dragon Transformation temporary HP to Rage only', () => {
+  const c: Character = { ...base, level: 16, className: 'Barbarian', raging: true,
+    abilities: { ...base.abilities, con: 16 }, dragonTransformation: 'Horned',
+    feats: [{ name: 'Dragon Transformation', type: 'Class Feat', level: 16 }] }
+  expect(temporaryHpGrant(c, [])).toMatchObject({ value: 29, grants: [{ source: 'Rage and Dragon Transformation', value: 29 }] })
+  expect(temporaryHpGrant({ ...c, dragonTransformation: undefined }, [])?.value).toBe(19)
 })
 
 it('shows Barbarian movement and combat skill action totals with Rage gating', () => {
