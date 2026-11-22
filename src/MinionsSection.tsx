@@ -13,6 +13,7 @@ import { getSettings } from './settings'
 import { SearchableSelect } from './SearchableSelect'
 import { bardingOptions, equippedBarding, isCompanionEquipmentItem } from './companions'
 import { confirmRemoval } from './confirmRemoval'
+import { activeCaypinAlly } from './featSpells'
 import { DroneFeatures } from './DroneFeatures'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
   familiarAbilityEntry, familiarAbilityUnavailableReason, familiarSelection, isFamiliarAbilityRepeatable } from './familiarAbilities'
@@ -212,7 +213,7 @@ export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
     }), ...(c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' ? ['Drone'] : []),
       ...(familiar ? [leshy ? 'Leshy Familiar' : undeadFamiliar ? 'Undead Familiar'
         : crocodileFamiliar ? 'Crocodile Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
-      ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : [])].join(', ') || '0 minions'}</span>
+      ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Caypin'] : [])].join(', ') || '0 minions'}</span>
   </summary>
 }
 
@@ -272,6 +273,13 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
     save({ feats: c.feats.map((feat, i) => i === featIndex ? { ...feat, choice: choice || undefined } : feat) })
   return (
       <div className="character-section-content minions-section-content">
+        {activeCaypinAlly(c) && <details className="character-subsection" open>
+          <summary><h4>Summoned Caypin</h4></summary>
+          <p>Large amphibious beast, level 6. AC 24; HP 100; Fortitude +17, Reflex +14, Will +11.
+            Speed 40 feet, swim 30 feet; darkvision.</p>
+          <p>Claw +16, 2d6+8 slashing (agile); jaws +16, 2d8+8 piercing.</p>
+          <a href="https://2e.aonsrd.com/creatures/183-caypin" target="_blank" rel="noreferrer">Caypin abilities and statistics</a>
+        </details>}
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" open>
           <summary><h4>Drone</h4></summary>
           <DroneFeatures c={c} entries={entries} save={save} />

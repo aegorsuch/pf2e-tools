@@ -54,6 +54,11 @@ const spellAlias = (name: string) => name.toLowerCase() === 'pass without trace'
 const matchesSpell = (spell: ContentEntry, name: string) => spell.name.toLowerCase() === name.toLowerCase()
   || spell.name.toLowerCase() === spellAlias(name)
 
+export function activeCaypinAlly(c: Character) {
+  return !!c.creatureAllyActive && c.systems.includes('sf2e') && c.ancestry === 'Vesk'
+    && c.feats.some(feat => feat.name === 'Creature Ally' && feat.choice === 'Summon Animal' && featTakenLevel(feat) <= c.level)
+}
+
 const hasUntamedForm = (c: Character) =>
   c.feats.some(feat => feat.name === 'Untamed Form' && featTakenLevel(feat) <= c.level)
   || !!c.spells?.some(spell => spell.name === 'Untamed Form')
@@ -544,7 +549,8 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     }
     if (feat.name === 'Creature Ally' || feat.name === 'Creature Shape') {
       const entry = featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
-      const tradition = String(entry?.data.tradition ?? '').split(/,\s*/)[0]
+      const tradition = c.systems.includes('sf2e') && c.ancestry === 'Vesk'
+        ? 'primal' : String(entry?.data.tradition ?? '').split(/,\s*/)[0]
       if (entry) out.push({ entry, source: feat.name,
         rule: { kind: 'innate', spells: [entry.name], tradition: tradition || undefined, frequency: 'once per day',
           condition: feat.name === 'Creature Ally' ? 'The summoned creature must be one of your ancestry\'s creatures'

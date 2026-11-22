@@ -45,6 +45,7 @@ import { shieldEntry } from './builder'
 import { intensifiedElementDamage, inventiveOffensiveOptions, ranksAt } from './builder'
 import { armorUpgradeSlots, jetpackSpeed } from './builder'
 import { weaponGradeFamily } from './builder'
+import { isDuplicateVeskAttack } from './builder'
 export { armorUpgradeSlots } from './builder'
 
 const POTENCY = [0, 1, 2, 3]
@@ -1074,10 +1075,12 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
   const livingSource = weapons.find((weapon) => weapon.livingWeapon && canBeLivingWeapon(c, entries, weapon))
   const saveWeapons = (next: OwnedWeapon[], extra?: Partial<Character>) => save({
     ...(livingSource ? { livingWeaponEnhancements: livingWeaponEnhancements(c, entries, livingSource) } : {}),
-    weapons: [...next.filter(weapon => !weapon.attachedTo
+    weapons: [...next.filter(weapon => !weapon.attachedTo && !additionalWeapons.some(extraWeapon => extraWeapon.id === weapon.id)
       && !entries.some(entry => entry.kind === 'weapon' && entry.id === weapon.id && entry.data.granted_by_heritage)),
       ...(c.weapons ?? []).filter((weapon) =>
-      (isAutomaticUnarmed(weapon.name) || weapon.name === HAFT_STRIKER_WEAPON.name || weapon.id === GAUNTLET.id || weapon.id === OVERSIZED_THROW.id) && !weapons.some((visible) => visible.id === weapon.id))],
+      (isDuplicateVeskAttack(c, entries, weapon) || weapon.id === 'sf2e:soldier:offensive-defense'
+        || isAutomaticUnarmed(weapon.name) || weapon.name === HAFT_STRIKER_WEAPON.name || weapon.id === GAUNTLET.id || weapon.id === OVERSIZED_THROW.id)
+        && !weapons.some((visible) => visible.id === weapon.id))],
     ...extra,
   })
   const update = (id: string, patch: Partial<OwnedWeapon>) => {
@@ -1254,7 +1257,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const combinationWeaponForForm = (form: 'Melee' | 'Ranged') => {
           const target = forms.find(entry => entry.name.endsWith(`(${form})`))
           if (!target) return undefined
-          const handsHeld = w.handsHeld && weaponCanUseTwoHands(target, c) ? w.handsHeld : undefined
+          const handsHeld = w.handsHeld && weaponCanUseTwoHands(target) ? w.handsHeld : undefined
           return { ...w, name: target.name, combinationForm: form, handsHeld }
         }
         const canUseCombinationForm = (form: 'Melee' | 'Ranged') => {
@@ -1402,7 +1405,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                   update(w.id, { stowed: !event.target.checked, ...(event.target.checked ? { cheekStored: false, cheekHolstered: false } : {}) })
                 }} /> Equipped
             </label>}
-            {!linkedSource && !shieldSource && hands !== 0 && a.entry && weaponCanUseTwoHands(a.entry, c) && <label>Hands{' '}
+            {!linkedSource && !shieldSource && hands !== 0 && a.entry && weaponCanUseTwoHands(a.entry) && <label>Hands{' '}
               <select aria-label={`Hands: ${displayName}`} value={hands ?? 1}
                 onChange={event => {
                   const next = Number(event.target.value) as 1 | 2
@@ -1820,7 +1823,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           : armorEntry(c, entries, armor.name, armor.id)?.systems.includes('sf2e')
             ? saved?.runes ?? armor.runes
           : armor.runes
-      return { ...armor, runes, ...(!armor.worn ? { activeJetpack: undefined } : {}),
+      return { ...armor, ...(saved && !isGrantedArmor(armor.id)
+        && armorEntry(c, entries, saved.name, saved.id)?.systems.includes('sf2e') ? { name: saved.name } : {}),
+        runes, ...(!armor.worn ? { activeJetpack: undefined } : {}),
         ...(!canWearWithAttachedArmor(armor, attached) ? { worn: saved?.worn ?? armor.worn } : {}) }
     }),
   ], ...extra })
@@ -1840,15 +1845,6 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const body = !!entry?.data.attached
         const wornLocked = body || !canWearWithAttachedArmor(a, attached)
         const sf2eArmor = !!entry?.systems.includes('sf2e')
-        const gradeCandidates = sf2eArmor && !isGrantedArmor(a.id) && entry?.data.url ? entries.filter(candidate =>
-          candidate.kind === 'armor' && !candidate.deleted && candidate.systems.includes('sf2e')
-          && candidate.data.url === entry.data.url && candidate.data.armor_grade) : []
-        const grades = new Map<string, ContentEntry>()
-        for (const candidate of gradeCandidates) {
-          const grade = String(candidate.data.armor_grade).toLowerCase()
-          if (!grades.has(grade) || candidate.name === a.name) grades.set(grade, candidate)
-        }
-        const gradeOptions = [...grades.values()].sort((left, right) => left.level - right.level || left.name.localeCompare(right.name))
         const displayName = armorDisplayName({ ...a, name: specificMagicItemName(entry, a.name, true) }, entry)
         const labelName = armorDisplayName({ name: a.name }, entry)
         const upgradeSlots = armorUpgradeSlots(entry) + (sf2eArmor && c.heritage === 'Mod Fanatic Android' && entry?.data.upgrades_allowed !== false ? 1 : 0)
@@ -1929,17 +1925,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={labelName} />
             {entry?.description && !entry.data.named_armor && <small>{entry.description}</small>}
             <NamedArmorAbilities entry={entry} inlineSummary />
-            {gradeOptions.length > 1 && <label>Armor grade{' '}
-              <select aria-label={`Armor grade: ${labelName}`} value={gradeOptions.some(grade => grade.name === a.name) ? a.name : gradeOptions[0].name}
-                onChange={event => {
-                  if (gradeOptions.some(grade => grade.name === event.target.value)) update(a.id, { name: event.target.value })
-                }}>
-                {gradeOptions.map(grade => <option key={grade.id} value={grade.name}>
-                  {String(grade.data.armor_grade)} (Level {grade.level})
-                </option>)}
-              </select>
-            </label>}
-            {starfinder && <small>Grade: {String(starfinder.data.armor_grade)}</small>}
+            {sf2eArmor && entry?.data.armor_grade && <small>Grade: {String(entry.data.armor_grade)}</small>}
             {entry?.data.upgrades_allowed === false && <small>Armor upgrades cannot be installed on this armor.</small>}
             {entry && <GearAccess c={c} entries={entries} entry={entry} save={save} />}
             {entry && entry.traits.length > 0 && <GearTraits traits={entry.traits} entries={entries} system={entry.systems[0]} />}

@@ -3,14 +3,15 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { CompanionEquipmentSlots, MinionsContent, MinionsSection } from './MinionsSection'
 import { SearchableSelect } from './SearchableSelect'
-import { CompanionSpellOptions, SpellsSection } from './SpellsSection'
-import { armorClass, eligibleFeats, featPrerequisiteChecker } from './builder'
+import { CaypinAllyToggle, CompanionSpellOptions, CreatureShapeOptions, SpellsSection } from './SpellsSection'
+import { activeBattleForm, armorClass, eligibleFeats, featPrerequisiteChecker, movementSpeeds, ownedWeapons, spellActiveChange } from './builder'
 import { familiarAbilityEffects, familiarAbilityUnavailableReason } from './familiarAbilities'
 import { EntryDescription } from './EntryDescription'
 import { companionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME } from './companions'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
+import { grantedFeatSpells } from './featSpells'
 
 function findSelect(node: ReactNode, label: string): ((event: { target: { value: string } }) => void) | undefined {
   let found: ((event: { target: { value: string } }) => void) | undefined
@@ -57,6 +58,50 @@ function findButton(node: ReactNode, label: string): (() => void) | undefined {
 }
 
 afterEach(() => vi.unstubAllGlobals())
+
+it('toggles the Creature Ally caypin and applies a GM-selected Creature Shape animal form', () => {
+  const spell = (name: string, level: number, trait: string): ContentEntry => ({
+    id: name, name, kind: 'spell', systems: ['sf2e'], source: 'official', level, traits: [trait],
+    description: trait === 'Polymorph' ? 'You transform into a battle form.' : '',
+    data: { tradition: 'Arcane, Primal', actions: trait === 'Summon' ? 'Three Actions' : 'Two Actions' },
+    effects: [], updatedAt: 0,
+  })
+  const entries = [spell('Summon Animal', 1, 'Summon'), spell('Animal Form', 2, 'Polymorph')]
+  let c: Character = { id: 'vesk', name: 'Test', systems: ['sf2e'], level: 17, ancestry: 'Vesk',
+    abilities: { str: 10, dex: 80, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Creature Ally', type: 'Ancestry Feat', level: 13, choice: 'Summon Animal' },
+      { name: 'Creature Shape', type: 'Ancestry Feat', level: 17, choice: 'Animal Form' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)
+  expect(markup).toContain('aria-label="Summon Animal options"')
+  expect(markup).toContain('aria-label="Animal Form options"')
+  const shapeRank = grantedFeatSpells(c, entries).find(grant => grant.source === 'Creature Shape')!.rank
+  expect(markup).toContain(`Primal Spell Rank ${shapeRank}`)
+  expect(markup).toContain('GM approval required')
+  const ally = () => CaypinAllyToggle({ c, save })
+  expect(renderToStaticMarkup(<MinionsSection c={c} entries={entries} save={save} />)).not.toContain('Summoned Caypin')
+  findToggle(ally(), 'Summoned Caypin active')!({ target: { checked: true } })
+  expect(renderToStaticMarkup(<MinionsSection c={c} entries={entries} save={save} />)).toContain('Summoned Caypin')
+  expect(renderToStaticMarkup(<MinionsSection c={{ ...c, ancestry: 'Human' }} entries={entries} save={save} />)).not.toContain('Summoned Caypin')
+  findToggle(ally(), 'Summoned Caypin active')!({ target: { checked: false } })
+  expect(renderToStaticMarkup(<MinionsSection c={c} entries={entries} save={save} />)).not.toContain('Summoned Caypin')
+  const normalAC = armorClass(c, entries)
+  expect(normalAC).toBeGreaterThan(35)
+  const shape = () => CreatureShapeOptions({ c, entries, save, rank: shapeRank })
+  findSelect(shape(), 'Caypin battle form')!({ target: { value: 'Bear' } })
+  expect(activeBattleForm(c, entries)).toMatchObject({ name: 'Bear', rank: shapeRank, source: 'Creature Shape', temporaryHp: 20 })
+  expect(armorClass(c, entries)).toBe(Math.max(normalAC, 35))
+  expect(movementSpeeds(c, entries).find(speed => speed.name === 'Land')?.feet).toBe(30)
+  expect(ownedWeapons(c, entries).map(weapon => weapon.name)).toEqual(['Bear Jaws', 'Bear Claw'])
+  expect(activeBattleForm({ ...c, feats: [] }, entries)).toBeUndefined()
+  expect(spellActiveChange(c, 'Dinosaur Form', true).creatureShape).toBeUndefined()
+  const dismiss = Children.toArray(shape().props.children).find(child =>
+    isValidElement<{ children?: ReactNode }>(child) && child.type === 'button')
+  expect(isValidElement<{ onClick: () => void }>(dismiss)).toBe(true)
+  if (isValidElement<{ onClick: () => void }>(dismiss)) dismiss.props.onClick()
+  expect(activeBattleForm(c, entries)).toBeUndefined()
+})
 
 it('selects one mounted companion for Mounted Parry and shows its AC source', () => {
   const animal: ContentEntry = { ...CONSTRUCT_COMPANION_ENTRY, id: 'bear', name: 'Bear', traits: ['Animal'] }

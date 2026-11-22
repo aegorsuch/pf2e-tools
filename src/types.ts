@@ -392,6 +392,8 @@ export interface Character {
   pyreResistEnergy?: { damage: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic'; value?: number }
   boneShieldRaised?: boolean
   dinosaurForm?: { form: string; rank: number }
+  creatureShape?: { form: string; rank: number }
+  creatureAllyActive?: boolean
   untamedForm?: {
     form?: string
     shape?: string

@@ -15,6 +15,15 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('restricts Vesk Internal Compartment to Enshrined Vesk without restricting Androids', () => {
+  const feats = mapAonHits(hits.filter(hit => hit._source?.name === 'Internal Compartment'), 'sf2e')
+  const slot = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
+  const vesk = { ...base, ancestry: 'Vesk', heritage: 'Enshrined Vesk' }
+  expect(eligibleFeats(feats, vesk, slot).some(feat => feat.traits.includes('Vesk'))).toBe(true)
+  expect(eligibleFeats(feats, { ...vesk, heritage: 'Frilled Vesk' }, slot).some(feat => feat.traits.includes('Vesk'))).toBe(false)
+  expect(eligibleFeats(feats, { ...base, ancestry: 'Android' }, slot).some(feat => feat.traits.includes('Android'))).toBe(true)
+})
+
 it('provides native Ysoki jaws and replaces them for Fierce Ysoki', () => {
   const normal = ownedWeapons(base, entries).find(weapon => weapon.id === 'sf2e:ysoki:jaws')!
   expect(weaponAttack(base, entries, normal)).toMatchObject({ damage: '1d4 piercing', traits: expect.arrayContaining(['Agile', 'Finesse']) })
@@ -67,6 +76,14 @@ it('provides Warblood Vesk two distinct Brutal Anatomy choices and attacks', () 
   expect(weaponAttack(selected, entries, claw)).toMatchObject({ damage: expect.stringMatching(/d6 slashing/), criticalSpecialization: true,
     traits: expect.arrayContaining(['Agile', 'Finesse']) })
   expect(weaponAttack({ ...selected, level: 4 }, entries, claw).criticalSpecialization).toBe(false)
+})
+
+it('does not duplicate Brutal Anatomy attacks from imported feat entries', () => {
+  const c: Character = { ...base, ancestry: 'Vesk', className: 'Soldier', level: 10,
+    feats: ['Claw', 'Jaws', 'Tail'].map(choice => ({ name: 'Brutal Anatomy', choice, type: 'Ancestry Feat', level: 1 })),
+    weapons: ['Claw', 'Jaws', 'Tail'].map(name => ({ id: `old-${name}`, name, potency: 0, striking: 0, runes: [] })) }
+  const attacks = ownedWeapons(c, entries).filter(weapon => /(?:claw|jaws|tail)/i.test(weapon.name))
+  expect(attacks.map(weapon => weapon.name).sort()).toEqual(['Claw', 'Jaws', 'Tail'])
 })
 
 it('applies heritage senses and Vesk movement and tail without stacking duplicate tails', () => {

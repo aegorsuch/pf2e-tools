@@ -1274,7 +1274,7 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
       const other = CYBORG_HEART_FEATS.find(name => name !== entry.name && character.feats.some(feat => feat.name === name))
       if (other) missing.push(`${entry.name} cannot be combined with ${other} (house rule)`)
     }
-    if (entry.name === 'Enhanced Senses') {
+    if (entry.name === 'Enhanced Senses' || entry.name === 'Internal Compartment') {
       const heritage = /\bOption\(s\):\s*([\w '-]+?) heritage only\b/i.exec(entry.description)?.[1]
       if (heritage && ![heritage.toLowerCase(), `${heritage} ${character.ancestry}`.toLowerCase()]
         .includes(character.heritage?.toLowerCase() ?? '')) missing.push(`${heritage} heritage`)
@@ -4802,13 +4802,18 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   if (form) {
     const shield = isSpellActive(c, entries, 'Shield') ? 1 : 0
     const best = Math.max(shield, raisedBoneShield, currentSpell)
-    return { total: form.ac + best + ragePenalty, parts: [{ label: form.source, value: form.ac }, ...ragePenalties,
+    const result = { total: form.ac + best + ragePenalty, parts: [{ label: form.source, value: form.ac }, ...ragePenalties,
       ...(best ? [{ label: [
         ...(raisedBoneShield === best ? ['Raise Bone Shield'] : []),
         ...(shield === best ? ['Shield cantrip'] : []),
         ...(currentSpell === best ? ['Current Spell'] : []),
       ].join(' / ') + ' (circumstance)', value: best }] : [])],
       notes: currentSpell ? [`Current Spell: AC ${form.ac + Math.max(best, 2) + ragePenalty} against ranged attacks; circumstance bonuses do not stack.`] : [] }
+    if (form.source === 'Creature Shape') {
+      const normal = armorClassBreakdown(withoutBattleForm(c), entries)
+      if (normal.total > result.total) return normal
+    }
+    return result
   }
   const mystic = mysticArmor(c, entries)
   const worn = mystic ? undefined : wornArmor(c, entries)
@@ -4877,6 +4882,15 @@ const veskAttacks: ContentEntry[] = [
   { ...FIST, id: 'sf2e:vesk:tail', name: 'Tail', systems: ['sf2e'],
     traits: ['Sweep', 'Trip', 'Unarmed', 'Vesk'], data: { ...FIST.data, damage: '1d6 bludgeoning' } },
 ]
+export function isDuplicateVeskAttack(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  if (!c.systems.includes('sf2e') || c.ancestry !== 'Vesk') return false
+  const name = weapon.name.trim().toLowerCase().replace(/^vesk\s+/, '').replace(/^claws$/, 'claw')
+  const selected = activeFeatsNamed(c, 'Brutal Anatomy').some(feat => feat.choice?.toLowerCase() === name)
+  const canonical = veskAttacks.find(entry => entry.name.toLowerCase() === name)
+  if (!selected || !canonical || weapon.id === canonical.id) return false
+  const entry = weaponEntry(entries, weapon.name, weapon.id)
+  return !entry || entry.data.granted_by_feat === 'Brutal Anatomy'
+}
 const solarianFlare: ContentEntry = {
   ...FIST, id: 'sf2e:solarian:flare', name: 'Solar Flare', systems: ['sf2e'],
   source: 'official', level: 1, traits: ['Attuned', 'Martial', 'Solarian'],
@@ -5057,13 +5071,11 @@ export function haftStrikerSource(c: Character, entries: ContentEntry[]) {
   return weapons.find((weapon) => weapon.id === c.haftStrikerWeaponId) ?? weapons[0]
 }
 
-export function weaponCanUseTwoHands(entry: ContentEntry, c?: Character): boolean {
+export function weaponCanUseTwoHands(entry: ContentEntry): boolean {
   return String(entry.data.hands).trim() === '1+'
     || String(entry.data.hands).trim() === '1 or 2'
     || String(entry.data.hands).trim() === '1'
       && [...entry.traits, ...tokens(entry.data.trait)].some(trait => /^two-hand\b/i.test(trait))
-    || String(entry.data.hands).trim() === '2' && !!c && c.systems.includes('sf2e')
-      && activeFeatsNamed(c, "Damoritosh's Grip").length > 0
 }
 
 export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon, c?: Character): number | undefined {
@@ -5073,8 +5085,10 @@ export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon, c?: Ch
   if (!entry) return undefined
   if (weaponCategory(entry) === 'Unarmed'
     || [...entry.traits, ...tokens(entry.data.trait)].some(trait => /^(?:unarmed|free[- ]hand)$/i.test(trait))) return 0
-  if (weaponCanUseTwoHands(entry, c) && weapon.handsHeld) return weapon.handsHeld
-  if (String(entry.data.hands).trim() === '1 or 2' || (String(entry.data.hands).trim() === '2' && weaponCanUseTwoHands(entry, c))) return 1
+  if (String(entry.data.hands).trim() === '2' && c?.systems.includes('sf2e')
+    && activeFeatsNamed(c, "Damoritosh's Grip").length > 0) return 1
+  if (weaponCanUseTwoHands(entry) && weapon.handsHeld) return weapon.handsHeld
+  if (String(entry.data.hands).trim() === '1 or 2') return 1
   const match = /^([12])(?:\+)?$/.exec(String(entry.data.hands ?? '').trim())
   return match ? Number(match[1]) : undefined
 }
@@ -5253,7 +5267,8 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const heritageAttacks = entries.filter(entry => entry.kind === 'weapon' && !entry.deleted
     && typeof entry.data.granted_by_heritage === 'string')
   const selectedHeritages = new Set(characterHeritages(c, entries).map(heritage => heritage.name))
-  const weapons = [...carriedWeapons(c, entries).filter(weapon => !heritageAttacks.some(entry => entry.id === weapon.id))]
+  const weapons = [...carriedWeapons(c, entries).filter(weapon => weapon.id !== OFFENSIVE_DEFENSE_WEAPON_ID
+    && !isDuplicateVeskAttack(c, entries, weapon) && !heritageAttacks.some(entry => entry.id === weapon.id))]
   for (const entry of heritageAttacks.filter(entry => selectedHeritages.has(String(entry.data.granted_by_heritage))
     && entry.systems.some(system => c.systems.includes(system)))) {
     if (!weapons.some(weapon => weapon.id === entry.id)) {
@@ -5494,6 +5509,11 @@ export function activeBattleForm(c: Character, entries: ContentEntry[]) {
       const form = dinosaurForm(c, entries)
       if (form) return form
     } else if (name === 'Animal Form') {
+      const creatureShape = grantedFeatSpells(c, entries).find(grant => grant.source === 'Creature Shape' && grant.entry.name === name)
+      if (creatureShape && c.creatureShape && c.systems.includes('sf2e') && c.ancestry === 'Vesk') {
+        const form = animalBattleForm(c.creatureShape.form, c.creatureShape.rank, c.level)
+        if (form) return { ...form, source: 'Creature Shape' }
+      }
       const grant = grantedFeatSpells(c, entries).find(grant => grant.source === 'Ancestral Form' && grant.entry.name === name)
       if (grant) return crocodileBattleForm(grant.rank, c.level)
     }
@@ -5559,10 +5579,11 @@ export function companionSpellTarget(c: Character, savedId?: string) {
   return c.companions?.find((companion) => companion.id === savedId)?.id ?? c.companions?.[0]?.id
 }
 
-export function spellActiveChange(c: Character, name: string, active: boolean): Pick<Character, 'activeSpells'> & Partial<Pick<Character, 'activeFeatEffects' | 'giantStature' | 'dragonTransformation' | 'animalRageForm'>> {
+export function spellActiveChange(c: Character, name: string, active: boolean): Pick<Character, 'activeSpells'> & Partial<Pick<Character, 'activeFeatEffects' | 'giantStature' | 'dragonTransformation' | 'animalRageForm' | 'creatureShape'>> {
   return { activeSpells: [...(c.activeSpells ?? []).filter(spell => spell !== name
     && !(active && BATTLE_FORM_SPELLS.has(name) && BATTLE_FORM_SPELLS.has(spell))), ...(active ? [name] : [])],
-  ...(active && BATTLE_FORM_SPELLS.has(name) ? { giantStature: undefined, dragonTransformation: undefined, animalRageForm: false } : {}),
+  ...(active && BATTLE_FORM_SPELLS.has(name) ? { giantStature: undefined, dragonTransformation: undefined, animalRageForm: false,
+    creatureShape: undefined } : {}),
   ...(active && (BATTLE_FORM_SPELLS.has(name) || name === 'Untamed Form')
     && isFeatEffectActive(c, 'Verdant Metamorphosis') ? featEffectChange(c, 'Verdant Metamorphosis', false) : {}) }
 }
@@ -5818,6 +5839,25 @@ export function isWoodArmor(entries: ContentEntry[], armor: OwnedArmor) {
   return tokens(byName(entries, 'armor', armor.name)?.data.armor_group).some((group) => group.toLowerCase() === 'wood')
 }
 
+const armorGradeCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
+function armorGrades(entries: ContentEntry[], family: string) {
+  let groups = armorGradeCache.get(entries)
+  if (!groups) {
+    groups = new Map()
+    for (const entry of entries) {
+      const key = entry.data.url
+      if (entry.kind !== 'armor' || entry.deleted || !entry.systems.includes('sf2e')
+        || !entry.data.armor_grade || typeof key !== 'string' || !key) continue
+      const group = groups.get(key) ?? []
+      group.push(entry)
+      groups.set(key, group)
+    }
+    for (const group of groups.values()) group.sort((a, b) => b.level - a.level)
+    armorGradeCache.set(entries, groups)
+  }
+  return groups.get(family) ?? []
+}
+
 function scaledMaterial(material: OwnedArmor['material'], level: number, equipment: 'Armor'): OwnedArmor['material']
 function scaledMaterial(material: OwnedWeapon['material'], level: number, equipment: 'Weapon'): OwnedWeapon['material']
 function scaledMaterial(material: OwnedWeapon['material'], level: number, equipment: 'Armor' | 'Weapon'): OwnedWeapon['material'] {
@@ -5831,8 +5871,13 @@ function scaledMaterial(material: OwnedWeapon['material'], level: number, equipm
 
 export function effectiveArmor(c: Character, entries: ContentEntry[], armor: OwnedArmor): OwnedArmor {
   const source = armorEntry(c, entries, armor.name, armor.id)
-  if (source?.systems.includes('sf2e'))
-    return { ...armor, potency: 0, resilient: 0, runes: [] }
+  if (source?.systems.includes('sf2e')) {
+    const family = source.data.url
+    const improved = c.systems.includes('sf2e') && !isGrantedArmor(armor.id) && source.data.armor_grade
+      && typeof family === 'string' ? armorGrades(entries, family)
+        .find(candidate => candidate.level > source.level && candidate.level <= c.level) : undefined
+    return { ...armor, name: improved?.name ?? armor.name, potency: 0, resilient: 0, runes: [] }
+  }
   const grant = characterArmorGrants(c, entries).find(entry => entry.id === armor.id)
   if (grant) {
     const automatic = automaticArmorFundamentals(c.level, grant)

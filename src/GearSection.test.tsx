@@ -664,7 +664,7 @@ it('combines a tail with regular hands in the shared pool', () => {
   expect(renderToStaticMarkup(tree())).toContain('Hands used: 3/3')
 })
 
-it("lets Damoritosh's Grip switch a two-handed weapon's grip while enforcing hand capacity", () => {
+it("uses one hand for two-handed weapons with Damoritosh's Grip without a grip selector", () => {
   const rifle = { ...weapon, name: 'Rifle', data: { hands: 2 } }
   const sword = { ...weapon, name: 'Sword', data: { hands: 1 } }
   let c: Character = { ...character([{ name: "Damoritosh's Grip", type: 'Class Feat', level: 18 }]),
@@ -674,19 +674,27 @@ it("lets Damoritosh's Grip switch a two-handed weapon's grip while enforcing han
     ] }
   const entries = [rifle, sword]
   const tree = (displayOnly = true) => WeaponList({ c, entries, save: patch => { c = { ...c, ...patch } }, displayOnly })
-  const grip = () => findElement(tree(), e => e.props['aria-label'] === 'Hands: Rifle')!
-  expect(grip().props.value).toBe(1)
-  ;(grip().props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '2' } })
-  expect(grip().props.value).toBe(2)
-  ;(grip().props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '1' } })
+  expect(findElement(tree(), e => e.props['aria-label'] === 'Hands: Rifle')).toBeUndefined()
   ;(findElement(tree(), e => e.props['aria-label'] === 'Equipped Sword')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: true } })
   expect(equippedWeaponHands(c, entries)).toBe(2)
-  expect(findElement(grip(), e => e.type === 'option' && e.props.value === 2)!.props.disabled).toBe(true)
-  ;(grip().props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '2' } })
-  expect(findElement(tree(false), e => e.props['aria-label'] === 'Hands: Rifle')!.props.value).toBe(1)
-  ;(findElement(tree(), e => e.props['aria-label'] === 'Equipped Sword')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: false } })
-  ;(grip().props.onChange as (e: { target: { value: string } }) => void)({ target: { value: '2' } })
-  expect(equippedWeaponHands(c, entries)).toBe(2)
+  expect(findElement(tree(false), e => e.props['aria-label'] === 'Hands: Rifle')).toBeUndefined()
+})
+
+it('does not duplicate or persist generated Offensive Defense when editing another weapon', () => {
+  const extra: OwnedWeapon = { id: 'sf2e:soldier:offensive-defense', name: 'Offensive Defense', potency: 0, striking: 0, runes: [] }
+  const sword = { ...weapon, data: { ...weapon.data, hands: 1 } }
+  let c: Character = { ...character([]), systems: ['sf2e'], className: 'Soldier', weapons: [
+    { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }, extra,
+  ] }
+  const defenseEntry = { ...sword, id: extra.id, name: extra.name, data: { ...sword.data, hands: 0 } }
+  const tree = (additionalWeapons: OwnedWeapon[]) => WeaponList({
+    c, entries: [sword, defenseEntry], additionalWeapons, displayOnly: true, save: patch => { c = { ...c, ...patch } },
+  })
+  expect(ownedWeapons(c, [sword, defenseEntry]).some(item => item.id === extra.id)).toBe(false)
+  expect(renderToStaticMarkup(tree([extra])).match(/aria-label="Offensive Defense attack/g)).toHaveLength(1)
+  ;(findElement(tree([extra]), e => e.props['aria-label'] === 'Equipped Longsword')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: false } })
+  expect(c.weapons?.some(item => item.id === extra.id)).toBe(false)
+  expect(renderToStaticMarkup(tree([]))).not.toContain('Offensive Defense')
 })
 
 it.each([false, true])('syncs grip changes between views and preserves over-capacity saved weapons (displayOnly=%s)', displayOnly => {
@@ -2401,27 +2409,28 @@ it('places leveled SF2e and homebrew specific armor separately from standard arm
   expect(isSpecificGear({ ...armor, source: 'homebrew', level: 0, traits: [] })).toBe(false)
 })
 
-it('changes SF2e armor grades without discarding installed upgrades', () => {
+it('automatically upgrades SF2e armor without discarding installed upgrades', () => {
   const armor: ContentEntry = { ...weapon, kind: 'armor', systems: ['sf2e'], name: 'Armored Coat', level: 0,
     data: { url: 'coat', armor_category: 'Light', ac: 2, upgrade_slots: 1, armor_grade: 'Commercial' } }
   const tactical = { ...armor, id: 'tactical', name: 'Tactical Armored Coat', level: 5,
     data: { ...armor.data, ac: 3, upgrade_slots: 2, armor_grade: 'Tactical' } }
   const commercial = { ...armor, id: 'commercial', name: 'Commercial Armored Coat' }
-  let c: Character = { ...character([]), systems: ['sf2e'], armors: [
+  let c: Character = { ...character([]), level: 5, systems: ['sf2e'], armors: [
     { id: 'coat', name: armor.name, potency: 0, resilient: 0, runes: [], upgrades: ['upgrade'], worn: true },
   ] }
   const entries = [armor, commercial, tactical]
-  const tree = () => ArmorList({ c, entries, save: patch => { c = { ...c, ...patch } } })
-  const select = findElement(tree(), element => element.props['aria-label'] === 'Armor grade: Armored Coat')!
-  expect(renderToStaticMarkup(select).match(/Commercial \(Level 0\)/g)).toHaveLength(1)
-  ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: tactical.name } })
-  expect(c.armors?.[0]).toMatchObject({ name: tactical.name, upgrades: ['upgrade'], worn: true })
-  const markup = renderToStaticMarkup(tree())
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} />)
   expect(markup).not.toContain('Armor upgrade slots:')
   expect(markup).toContain('class="equipment-name" aria-haspopup="dialog">Armored Coat</button>')
-  expect(markup).toContain('aria-label="Armor grade: Armored Coat"')
-  expect(markup).toContain('value="Tactical Armored Coat" selected="">Tactical (Level 5)</option>')
+  expect(markup).not.toContain('aria-label="Armor grade: Armored Coat"')
+  expect(markup).toContain('Grade: Tactical')
+  expect(markup).toContain('<small>Armor Class</small><b>3</b>')
   expect(markup).not.toContain('aria-label="Worn Tactical Armored Coat"')
+  expect(c.armors?.[0]).toMatchObject({ name: armor.name, upgrades: ['upgrade'], worn: true })
+  const tree = ArmorList({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  ;(findElement(tree, e => e.props['aria-label'] === 'Worn Armored Coat')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: false } })
+  expect(c.armors?.[0]).toMatchObject({ name: armor.name, upgrades: ['upgrade'], worn: false })
+  expect(effectiveArmor({ ...c, level: 1 }, entries, c.armors![0]).name).toBe(armor.name)
 })
 
 it('keeps the base name for paragon armor while retaining its grade and AC', () => {
@@ -2434,8 +2443,8 @@ it('keeps the base name for paragon armor while retaining its grade and AC', () 
   ] }
   const markup = renderToStaticMarkup(<ArmorList c={c} entries={[armor, paragon]} save={() => {}} />)
   expect(markup).toContain('class="equipment-name" aria-haspopup="dialog">Tempweave</button>')
-  expect(markup).toContain('aria-label="Armor grade: Tempweave"')
-  expect(markup).toContain('value="Paragon Tempweave" selected="">Paragon (Level 20)</option>')
+  expect(markup).not.toContain('aria-label="Armor grade: Tempweave"')
+  expect(markup).toContain('Grade: Paragon')
   expect(markup).toContain('<small>Armor Class</small><b>5</b>')
   expect(markup).not.toContain('Armor upgrade slots:')
   expect(c.armors?.[0].name).toBe('Paragon Tempweave')

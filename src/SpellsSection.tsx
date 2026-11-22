@@ -23,7 +23,7 @@ import { specificMagicItemName } from './equipmentGroups'
 import { getSettings } from './settings'
 import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellOptions } from './witchwarper'
 import { spellAccessGranted } from './featAccess'
-import { ANIMAL_FORMS, crocodileBattleForm, DINOSAUR_FORMS, INSECT_FORMS } from './battleForms'
+import { ANIMAL_FORMS, animalBattleForm, crocodileBattleForm, DINOSAUR_FORMS, INSECT_FORMS } from './battleForms'
 import { familiarSpellBenefits } from './familiarAbilities'
 import { PYRE_ENERGY_TYPES } from './hellknight'
 import { SpellDefenseFilter } from './SpellDefenseFilter'
@@ -342,6 +342,37 @@ export function CrocodileFormToggle({ c, entries, save }: SectionProps) {
   const active = isSpellActive(c, entries, 'Animal Form')
   return <label><input type="checkbox" aria-label="Crocodile Form active" checked={active}
     onChange={event => save(spellActiveChange(c, 'Animal Form', event.target.checked))} /> Active</label>
+}
+
+export function CreatureShapeOptions({ c, entries, save, rank }: SectionProps & { rank: number }) {
+  const active = isSpellActive(c, entries, 'Animal Form') && !!c.creatureShape
+  const form = c.creatureShape && animalBattleForm(c.creatureShape.form, c.creatureShape.rank, c.level)
+  return <fieldset className="col">
+    <legend>Caypin form</legend>
+    <label>Battle form{' '}
+      <select aria-label="Caypin battle form" value={active ? c.creatureShape?.form ?? '' : ''}
+        onChange={event => {
+          if (!ANIMAL_FORMS.some(option => option.name === event.target.value)) return
+          save({ ...spellActiveChange(c, 'Animal Form', true), creatureShape: { form: event.target.value, rank } })
+        }}>
+        <option value="">Choose form</option>
+        {ANIMAL_FORMS.map(option => <option key={option.name}>{option.name}</option>)}
+      </select>
+    </label>
+    {active && form && <p>{form.size}; AC {form.ac}; temporary HP {form.temporaryHp}; Speed {form.speed} feet;
+      attack {signed(form.attack)}; Athletics {signed(form.athletics)}.</p>}
+    <SourceNote source="Creature Shape" note="Caypin uses the closest battle form chosen by the GM. Use your normal AC if higher." />
+    <button type="button" disabled={!active} onClick={() => save({
+      creatureShape: undefined, ...spellActiveChange(c, 'Animal Form', false),
+    })}>Dismiss Creature Shape</button>
+  </fieldset>
+}
+
+export function CaypinAllyToggle({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
+  return <label><input type="checkbox" aria-label="Summoned Caypin active" checked={!!c.creatureAllyActive}
+    onChange={event => save({ creatureAllyActive: event.target.checked })} /> Active
+    <SourceNote source="Caypin" note="GM approval required: caypin is a beast, not an animal, and Creature Ally's rank 5 spell normally permits creatures of level 5 or lower." />
+  </label>
 }
 
 function CrocodileFormActions({ c, entries, save, rank }: SectionProps & { rank: number }) {
@@ -1142,9 +1173,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const activeRank = (name: string) => name === 'Oaken Resilience' ? grownOfOakSpell?.rank ?? c.oakenResilienceRank
     : name === 'Mountain Resilience' || name === 'Cairn Form'
       ? featSpells.find(grant => grant.entry.name === name)?.rank ?? Math.ceil(c.level / 2) : undefined
-  const inlineControls = (name: string, rank = Math.ceil(c.level / 2)) => name === 'Animal Feature' || name === 'Untamed Shift' || name === 'Untamed Form' || name === 'Dinosaur Form'
+  const inlineControls = (name: string, rank = Math.ceil(c.level / 2), source?: string) => name === 'Animal Feature' || name === 'Untamed Shift' || name === 'Untamed Form' || name === 'Dinosaur Form'
     ? <SpellEffectActions c={c} entries={entries} save={save} entry={spellEntry(name)} name={name} rank={rank} />
-    : name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length
+    : name === 'Animal Form' && source !== 'Creature Shape' && activeFeatsNamed(c, 'Ancestral Form').length
     ? <CrocodileFormActions c={c} entries={entries} save={save} rank={rank} />
     : name === 'False Vitality'
     ? <FalseVitalityActions c={c} save={save} entry={spellEntry(name)} rank={rank} />
@@ -1636,10 +1667,20 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             const grant = grants[0]
             const details = grantDetails(grant)
             return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc} spellcastingModifier={details.spellcastingModifier}
-              actionControls={grant.entry.name === 'Resist Energy' && ['Order Training', 'Order Cross-Training'].includes(grant.source)
+              actionControls={c.systems.includes('sf2e') && c.ancestry === 'Vesk'
+                && grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal'
+                ? <ActiveSpellActions name={grant.entry.name} entry={grant.entry} rank={grant.rank} actions="Three Actions">
+                  <CaypinAllyToggle c={c} save={save} />
+                </ActiveSpellActions>
+                : c.systems.includes('sf2e') && c.ancestry === 'Vesk'
+                  && grant.source === 'Creature Shape' && grant.entry.name === 'Animal Form'
+                ? <ActiveSpellActions name={grant.entry.name} entry={grant.entry} rank={grant.rank} actions="Two Actions">
+                  <CreatureShapeOptions c={c} entries={entries} save={save} rank={grant.rank} />
+                </ActiveSpellActions>
+                : grant.entry.name === 'Resist Energy' && ['Order Training', 'Order Cross-Training'].includes(grant.source)
                 && grant.rule.condition?.startsWith('Self only. Fire resistance is at least ')
                 ? <PyreResistEnergyActions c={c} save={save} entry={grant.entry} rank={grant.rank} /> : undefined}
-              inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant}
+              inlineControls={<>{inlineControls(grant.entry.name, grant.rank, grant.source)}<InnateSpellUses c={c} save={save} grant={grant}
                 additionalGrants={grants.slice(1)} /></>}
               effectControls={effectControls(grant.entry.name)}
               effectRank={activeRank(grant.entry.name)}

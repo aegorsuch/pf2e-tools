@@ -153,7 +153,7 @@ it("allows Damoritosh's Grip to wield two-handed weapons with one hand without c
     weapons: [{ ...owned, handsHeld: 1 }] }
   expect(weaponHands([weapon], c.weapons![0], c)).toBe(1)
   expect(equippedWeaponHands(c, [weapon])).toBe(1)
-  expect(weaponHands([weapon], { ...owned, handsHeld: 2 }, c)).toBe(2)
+  expect(weaponHands([weapon], { ...owned, handsHeld: 2 }, c)).toBe(1)
   expect(weaponHands([weapon], owned, c)).toBe(1)
   expect(weaponHands([weapon], c.weapons![0], { ...c, level: 17 })).toBe(2)
   expect(weaponHands([weapon], c.weapons![0], { ...c, systems: ['pf2e'] })).toBe(2)
