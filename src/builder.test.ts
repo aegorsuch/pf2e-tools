@@ -692,6 +692,19 @@ it('applies Cyborg frame training, granted feats, and selected resistance', () =
   expect(automaticFeatGrants(pistons, [])).toContainEqual({ name: 'Quick Jump', source: 'Hydraulic Pistons', level: 5 })
 })
 
+it('offers Energized Spark variants and prevents repeated damage types', () => {
+  const spark = entry('feat', 'Energized Spark', {}, 1, ['Exemplar'])
+  const first = { name: spark.name, type: 'Class Feat', level: 1, slot: 'class:1:0', choice: 'Air (Slashing)' }
+  const c: Character = { ...base, className: 'Exemplar', level: 2, feats: [first] }
+  const options = featChoiceOptions(spark.name, c, [spark], 'class:2:0')!
+  expect(options).toContain('Earth (Bludgeoning)')
+  expect(options).toContain('Fire')
+  expect(options).not.toContain('Air (Slashing)')
+  expect(options).not.toContain('Metal (Slashing)')
+  expect(featChoiceOptions(spark.name, c, [spark], first.slot)).toContain('Air (Slashing)')
+  expect(eligibleFeats([spark], c, { key: 'class:2:0', category: 'class', level: 2 })).toContain(spark)
+})
+
 it('offers Sublime Mobility variants and grants the selected speed', () => {
   const feat = { name: 'Sublime Mobility', type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' }
   const c: Character = { ...base, level: 5, feats: [feat] }

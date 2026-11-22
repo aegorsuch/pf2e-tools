@@ -1519,7 +1519,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
         || e.name === 'Expansive Array'
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length === 1
-        || ['Iruxi Armaments', 'Brutal Anatomy', 'Predatory', 'Ancestral Resistance', "Witch's Armaments"].includes(e.name) && !!featChoiceOptions(e.name, c, entries, slot.key)?.length
+        || ['Iruxi Armaments', 'Brutal Anatomy', 'Predatory', 'Ancestral Resistance', "Witch's Armaments", 'Energized Spark'].includes(e.name) && !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || (e.data.repeatable === true || isRepeatableCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key,
             slot.category === 'archetype' && archetypesOf(e).includes('Beastmaster'))))
   const takenLineage = entries.some(entry => entry.kind === 'feat' && !entry.deleted
@@ -1726,6 +1726,14 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Sublime Mobility' && c.systems.includes('pf2e')) return ['Climb', 'Swim']
   if (name === 'Nephilim Lore' && c.systems.includes('pf2e')) return ['Diplomacy', 'Intimidation']
   if (name === 'Sanctified Soul' && c.systems.includes('pf2e')) return ['Holy', 'Unholy']
+  if (name === 'Energized Spark' && c.systems.includes('pf2e')) {
+    const options = ['Air (Slashing)', 'Cold', 'Earth (Bludgeoning)', 'Electricity', 'Fire',
+      'Metal (Slashing)', 'Poison', 'Sonic', 'Vitality', 'Void', 'Water (Bludgeoning)', 'Wood (Piercing)']
+    const damage = (choice: string) => /\(([^)]+)\)$/.exec(choice)?.[1] ?? choice
+    const used = new Set(c.feats.flatMap((feat, featIndex) => featIndex !== index && feat.name === name && feat.choice
+      ? [damage(feat.choice)] : []))
+    return options.filter(choice => !used.has(damage(choice)))
+  }
   if (name === 'Kitsune Spell Familiarity' && c.systems.includes('pf2e')) {
     return KITSUNE_SPELL_FAMILIARITY_CANTRIPS.filter(spell =>
       entries.some(entry => entry.kind === 'spell' && !entry.deleted && entry.name === spell
