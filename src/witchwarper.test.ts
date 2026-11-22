@@ -156,6 +156,12 @@ describe('Witchwarper class setup', () => {
     const memory: Character = { ...base, witchwarper: { anchor: 'Core Memories', coreMemorySkill: 'Computers' } }
     expect(automaticFeatGrants(memory, []))
       .toContainEqual({ name: 'Assurance', choice: 'Computers', source: 'Core Memories', level: 1 })
+    const withoutParadox = { ...memory, subclass: undefined, skillPicks: ['Athletics'],
+      witchwarper: { anchor: 'Core Memories' as const, coreMemorySkill: 'Athletics' } }
+    expect(automaticFeatGrants(withoutParadox, []))
+      .toContainEqual({ name: 'Assurance', choice: 'Athletics', source: 'Core Memories', level: 1 })
+    expect(automaticFeatGrants({ ...withoutParadox, className: 'Mystic' }, []))
+      .not.toContainEqual(expect.objectContaining({ source: 'Core Memories' }))
     expect(automaticFeatGrants({ ...memory, witchwarper: { ...memory.witchwarper, coreMemorySkill: 'Athletics' } }, []))
       .not.toContainEqual(expect.objectContaining({ source: 'Core Memories' }))
   })

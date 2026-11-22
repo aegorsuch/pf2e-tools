@@ -22,7 +22,7 @@ import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 import { eruditeWarrior, isSoldier, soldierStyle } from './soldier'
-import { witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellcasting, witchwarperSpellOptions, witchwarperSpellSlots } from './witchwarper'
+import { isWitchwarper, witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellcasting, witchwarperSpellOptions, witchwarperSpellSlots } from './witchwarper'
 import { familiarSpellBenefits } from './familiarAbilities'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
@@ -3661,7 +3661,7 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   if (soldierStyle(c)?.name === 'Close Quarters') {
     grants.push({ name: 'Whirling Swipe', source: 'Close Quarters', level: 1 })
   }
-  const memorySkill = witchwarperParadox(c) && c.witchwarper?.anchor === 'Core Memories' ? c.witchwarper.coreMemorySkill : undefined
+  const memorySkill = isWitchwarper(c) && c.witchwarper?.anchor === 'Core Memories' ? c.witchwarper.coreMemorySkill : undefined
   if (memorySkill) {
     const rank = ranksAt({ ...c, witchwarper: { ...c.witchwarper, coreMemorySkill: undefined } }, entries)[memorySkill] ?? 0
     if (rank > 0) grants.push({ name: 'Assurance', choice: memorySkill, source: 'Core Memories', level: 1 })

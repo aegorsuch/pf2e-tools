@@ -63,7 +63,7 @@ export const WITCHWARPER_PARADOXES: readonly WitchwarperParadox[] = [
 ]
 
 const paradoxByName = new Map<string, WitchwarperParadox>(WITCHWARPER_PARADOXES.map(paradox => [paradox.name, paradox]))
-const isWitchwarper = (c: Character) => c.systems.includes('sf2e') && c.className === 'Witchwarper' && c.level >= 1
+export const isWitchwarper = (c: Character) => c.systems.includes('sf2e') && c.className === 'Witchwarper' && c.level >= 1
 
 export function witchwarperParadox(c: Character): WitchwarperParadox | undefined {
   if (!isWitchwarper(c)) return undefined

@@ -39,6 +39,7 @@ import { backgroundLoreSlots, backgroundVariants, type BackgroundVariant } from 
 import { backgroundLoreOptions, characterDeityLores, deityLoreBackgroundEntries } from './backgrounds'
 import { getSettings } from './settings'
 import { fatalMethodOptions, selectedFatalMethod, type FatalMethod } from './fatalMethods'
+import { WitchwarperAnchor } from './WitchwarperFeatures'
 
 const NONE: ContentEntry[] = []
 
@@ -717,6 +718,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
               onChange={(v) => save({ subclass: v ?? '' })} />
             {subclass && <SelectedSubclassRules entry={subclass} />}
           </>}
+          <WitchwarperAnchor c={c} save={save} />
           {c.className === 'Necromancer' && <>
             <Pick label="Fatal Method" kind="fatal method" value={fatalMethod} options={fatalMethods}
               onChange={value => save({ fatalMethod: value as FatalMethod | undefined })} />

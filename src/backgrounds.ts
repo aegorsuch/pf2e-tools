@@ -10,10 +10,10 @@ export const isOpenBackgroundLore = (name: string) => /\blore\b/i.test(name) && 
 
 export const PROFESSION_LORES = [
   'Academia', 'Accounting', 'Architecture', 'Art', 'Astronomy', 'Carpentry', 'Circus', 'Driving',
-  'Engineering', 'Farming', 'Fishing', 'Fortune-Telling', 'Games', 'Genealogy', 'Gladiatorial',
+  'Engineering', 'Farming', 'First Ones', 'Fishing', 'Fortune-Telling', 'Games', 'Genealogy', 'Gladiatorial',
   'Guild', 'Heraldry', 'Herbalism', 'Hunting', 'Labor', 'Legal', 'Library', 'Military',
   'Alcohol', 'Baking', 'Butchering', 'Cooking', 'Tea', 'Mercantile', 'Midwifery', 'Milling',
-  'Mining', 'Piloting', 'Sailing', 'Scouting', 'Scribing', 'Stabling', 'Tanning', 'Theater',
+  'Mining', 'Physical Science', 'Piloting', 'Sailing', 'Scouting', 'Scribing', 'Stabling', 'Tanning', 'Theater',
   'Underworld', 'Warfare', 'Brewing', 'Distilling', 'Traps', 'Locks', 'Runes',
   'Mortuary', 'Metallurgy', 'Water Filtration', 'Aquaculture', 'Lumber', 'Ranching', 'Corporate', 'Piracy',
 ].map(topic => `${topic} Lore`).sort((a, b) => a.localeCompare(b))

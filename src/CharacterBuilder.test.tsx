@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
 import { BackgroundLoreChoices, CharacterBuilder as Builder, EquipmentSearch } from './CharacterBuilder'
-import { Children, isValidElement, type ReactNode } from 'react'
+import { Children, isValidElement, type ChangeEvent, type ReactNode } from 'react'
 import { mapAonHit } from './aon'
 import { fetchAonHits } from './aonQuery'
 import { getSettings, updateSettings } from './settings'
@@ -9,6 +9,8 @@ import type { Character, ContentEntry } from './types'
 import { equipmentGroupName, WORN_EQUIPMENT_GROUPS } from './equipmentGroups'
 import * as equipmentGroups from './equipmentGroups'
 import { FeatSlots } from './FeatSlots'
+import { SearchableSelect } from './SearchableSelect'
+import { WitchwarperAnchor } from './WitchwarperFeatures'
 import { armorClass, isSpellActive, spellActiveChange, subclassOptions } from './builder'
 
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
@@ -83,6 +85,32 @@ it('restricts custom Grifter Lore suggestions to professions without changing un
   expect(renderToStaticMarkup(<BackgroundLoreChoices c={c} entries={[background]}
     background={{ ...background, data: { ...background.data, background_choice_required: true } }}
     save={() => {}} options={[]} />)).toBe('')
+})
+
+it('shows Witchwarper anchor selection alongside class choices even without a paradox', () => {
+  content.entries = []
+  const c: Character = { id: 'anchor', systems: ['sf2e'], name: 'Test', level: 1, className: 'Witchwarper',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const render = (character: Character) => renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
+  const markup = render(c)
+  expect(markup).toContain('aria-label="Anchor"')
+  expect(markup).toContain('>Core Memories</option>')
+  expect(markup).toContain('>Focal Point</option>')
+  expect(markup).toContain('>Tangible Object</option>')
+  expect(markup.indexOf('aria-label="Anchor"')).toBeLessThan(markup.indexOf('Class Features ('))
+  expect(render({ ...c, subclass: 'Analyst', witchwarper: { anchor: 'Focal Point' } }))
+    .toContain('<option selected="">Focal Point</option>')
+  expect(render({ ...c, className: 'Mystic' })).not.toContain('aria-label="Anchor"')
+  const save = vi.fn()
+  const tree = WitchwarperAnchor({ c: { ...c, witchwarper: { coreMemorySkill: 'Computers' } }, save })!
+  const select = Children.toArray(tree.props.children).find(child =>
+    isValidElement<Parameters<typeof SearchableSelect>[0]>(child) && child.type === SearchableSelect)
+  if (!isValidElement<Parameters<typeof SearchableSelect>[0]>(select)) throw new Error('Anchor selector missing')
+  select.props.onChange!({ target: { value: 'Core Memories' } } as ChangeEvent<HTMLSelectElement>)
+  expect(save).toHaveBeenCalledWith({ witchwarper: { anchor: 'Core Memories', coreMemorySkill: 'Computers' } })
+  select.props.onChange!({ target: { value: '' } } as ChangeEvent<HTMLSelectElement>)
+  expect(save).toHaveBeenLastCalledWith({ witchwarper: { anchor: undefined, coreMemorySkill: 'Computers' } })
 })
 
 it('shares roster deity Lore with background variants and the Skills picker', () => {

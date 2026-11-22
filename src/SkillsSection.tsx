@@ -20,7 +20,7 @@ import { characterHeritages } from './heritages'
 import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
 import { artifactItemSkillBonus, hunterArrowheadBonus } from './builder'
 import { ERUDITE_LORE_KEY, eruditeWarrior, isSoldier, soldierStyle } from './soldier'
-import { witchwarperParadox } from './witchwarper'
+import { isWitchwarper } from './witchwarper'
 import { hellknightBenefitActive, hellknightSkillNotes, hellknightTrainingBenefits } from './hellknight'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
@@ -474,7 +474,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             && <SourceNote source="Ghost Wrangler" note="Can use Strength-based skill checks against incorporeal creatures until the beginning of your next turn." />}
           {s.kind !== 'save' && hellknightSkillNotes(c, s.name).map(benefit =>
             <SourceNote key={`${benefit.feat.slot ?? benefit.feat.name}:${benefit.name}`} source={benefit.name} note={benefit.description} />)}
-          {witchwarperParadox(c) && c.witchwarper?.anchor === 'Tangible Object' && ['Perception', 'Will'].includes(s.name)
+          {isWitchwarper(c) && c.witchwarper?.anchor === 'Tangible Object' && ['Perception', 'Will'].includes(s.name)
             && <SourceNote source="Tangible Object" note={`${conditionalTotal(1)} against illusions and holograms (+1 circumstance).`} />}
           {isSoldier(c) && c.level >= 3 && ['Athletics', 'Intimidation'].includes(s.name)
             && <SourceNote source="Fearsome Bulwark" note={`${signed(total - armorPenalty + Math.max(0, abilityMod(c.abilities.con) - abil + statusPenalty - conditionPenalty(c, 'con')))} to ${
@@ -624,7 +624,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {s.name === 'Survival' && wasteland && <SourceNote inlineSource={false} source="Wasteland Warrior" note={hazardNote} />}
           {s.name === 'Survival' && terrainExpertise && <SourceNote inlineSource={false} source="Terrain Expertise"
             note={`${conditionalTotal(1)} to Survival in ${terrainExpertise.terrains.join(', ')} terrain.`} />}
-          </b>{editingSkills && s.kind === 'skill' && permanentRank > 0 && witchwarperParadox(c)
+          </b>{editingSkills && s.kind === 'skill' && permanentRank > 0 && isWitchwarper(c)
             && c.witchwarper?.anchor === 'Core Memories' && <button type="button"
               aria-label={`Core Memories ${s.name}`} aria-pressed={c.witchwarper.coreMemorySkill === s.name}
               onClick={() => {

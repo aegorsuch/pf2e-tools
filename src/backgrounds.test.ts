@@ -46,9 +46,12 @@ You gain the ${feat('Charming Liar')} skill feat.`, ['Deception', 'Lore related 
   expect(variants.filter(option => option.lore).map(option => option.lore)).toEqual(PROFESSION_LORES)
   expect(variants.at(-1)).toMatchObject({ value: 'Grifter (Custom Profession Lore)', custom: true })
   expect(variants.some(option => /Abadar|Zon-Shelyn|Forest/.test(option.value))).toBe(false)
-  const selected = variants.find(option => option.lore === 'Accounting Lore')!
-  const c: Character = { ...base, background: selected.background.name, backgroundLores: { Grifter: [selected.lore!] } }
-  expect(ranksAt(c, entries)).toMatchObject({ Deception: 1, 'Accounting Lore': 1 })
+  for (const lore of ['Accounting Lore', 'Physical Science Lore', 'First Ones Lore']) {
+    const selected = variants.find(option => option.lore === lore)
+    expect(selected?.value).toBe(`Grifter (${lore})`)
+    const c: Character = { ...base, background: selected!.background.name, backgroundLores: { Grifter: [lore] } }
+    expect(ranksAt(c, entries)).toMatchObject({ Deception: 1, [lore]: 1 })
+  }
   expect(entries[0].data.feat).toBe('Charming Liar')
 })
 
