@@ -256,7 +256,7 @@ it('increases only held melee weapon reach while Reckless Riding Lunge is active
   const bow = content('weapon', 'Bow', { weapon_type: 'Ranged', weapon_category: 'Martial', range: 60 })
   expect(weaponAttack(c, [sword, bow], { ...main, name: 'Bow' }).reach).toBe(0)
   expect(renderToStaticMarkup(<WeaponList c={c} entries={[sword]} save={() => {}} displayOnly />))
-    .toContain('aria-label="Reckless Riding Lunge active" checked=""')
+    .not.toContain('Reckless Riding Lunge active')
 })
 
 it('shows Galloping Launch range only for thrown weapons and an earned feat', () => {
