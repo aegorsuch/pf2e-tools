@@ -60,6 +60,7 @@ const ACTIONS: Record<string, { name: string; actions: string }[]> = {
 const MATERIALS: Record<string, string> = {
   Briar: 'Cold Iron', Blackaxe: 'Adamantine', Ridill: 'Adamantine', Serithtial: 'Orichalcum',
   'Blade of Fallen Stars': 'Cold Siccatite (High-Grade)',
+  'Debilitating Dart': 'Orichalcum',
   'Phoenix Fighting Fan': 'Silver', "Sorshen's Sinuous Guisarme": 'Dawnsilver (High-Grade)',
 }
 
@@ -214,6 +215,10 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
     return { ...entry, data: { ...entry.data,
       named_weapon_material: `Peachwood (${(level ?? entry.level) >= 18 ? 'High' : 'Standard'}-Grade)` } }
   }
+  if (source === 'Debilitating Dart' && (level ?? entry.level) >= 20) {
+    const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
+    return { ...entry, data: { ...entry.data, named_weapon_runes: [...new Set([...runes, 'Impossible'])].join(';') } }
+  }
   if (source === 'Coldstar Pistols') {
     const merged = weapon.coldstarForm === 'Merged'
     return { ...entry, data: { ...entry.data, hands: !weapon.coldstarForm || weapon.coldstarForm === 'Paired' ? 2 : 1,
@@ -322,4 +327,12 @@ export function namedWeaponAbilities(entry?: ContentEntry) {
   if (senses.length) abilities.unshift({ name: 'Senses', actions: undefined, paragraphs: senses })
   const rank = (name: string) => name === 'Senses' ? 0 : name === 'Summary' ? 1 : name === 'Destruction' ? 3 : 2
   return abilities.sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name))
+}
+
+export function namedWeaponStrikeNote(entry?: ContentEntry) {
+  const source = entry?.data.named_weapon_source ?? entry?.data.special_weapon_source
+  if (source === 'Debilitating Dart') return 'A creature struck and damaged takes a -2 status penalty to its next saving throw against a magical effect within 1 round, then becomes immune to this effect for 24 hours. Track the target\'s penalty and immunity manually.'
+  const paragraphs = namedWeaponAbilities(entry).find(ability => ability.name === 'Summary')?.paragraphs ?? []
+  const effects = paragraphs.filter(paragraph => /\b(?:on (?:a |an |a critical )?(?:hit|critical hit)|(?:a |the )?(?:creature|target) (?:struck|hit)|(?:when|whenever) [^.]*\b(?:hits?|strikes?)\b|(?:strikes?|critical hits?) (?:with [^.]*? )?(?:deal|deals|cause|causes|inflict|inflicts))\b/i.test(paragraph))
+  return effects.length ? effects.join(' ').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[*_`]/g, '') : undefined
 }

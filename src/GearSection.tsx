@@ -22,7 +22,7 @@ import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSor
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { TotalBreakdown } from './TotalBreakdown'
-import { BRIAR_MAX_SHARPNESS, briarSharpnessPoints, namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
+import { BRIAR_MAX_SHARPNESS, briarSharpnessPoints, namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, namedWeaponStrikeNote, withNamedWeaponState } from './namedWeapons'
 import { hunterArrowheadBonus, isFeatEffectActive } from './builder'
 import { ARMIGER_ARMOR_ID, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, IRON_FIST, OVERSIZED_THROW, SPARK_FIST, UNTAMED_CLAWS } from './supplemental'
@@ -1297,7 +1297,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           : [{ form: undefined, weapon: enhanced, attack: a },
             ...(c.raging && activeFeatsNamed(c, 'Raging Thrower').length && a.thrownRange > 0
               ? [{ form: 'Thrown', weapon: enhanced, attack: weaponAttack(c, entries, w, { thrown: true }) }] : [])])
-          .map(summary => ({ ...summary, damageRunes: [
+          .map(summary => ({ ...summary, strikeNote: namedWeaponStrikeNote(summary.attack.entry), damageRunes: [
             ...damageRuneSummary(summary.weapon, summary.attack, entries, !!forms.length || card),
             ...upgradeDamageSummary(summary.attack),
             ...mechanicDamageSummary(c, w, summary.attack),
@@ -1439,13 +1439,11 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           {arrowhead && <small><SourceNote source={arrowhead.source}
             note={`Against your Hunt Prey target: attack ${signed(a.attack + Math.max(0, arrowhead.value - a.item))}. +${arrowhead.value} item bonus replaces, rather than stacks with, weapon potency. Once per day, when a bow attack would miss, use a reaction to gain +2 circumstance to that roll; resolve manually.`} /></small>}
           {a.entry?.data.named_weapon_rules_missing && <small role="status">Named weapon enhancement details unavailable. Configure its runes and consult the item rules.</small>}
-          {namedSource === 'Debilitating Dart' && <SourceNote source="Debilitating Dart"
-            note="A creature struck and damaged takes a -2 status penalty to its next saving throw against a magical effect within 1 round, then becomes immune to this effect for 24 hours. Track the target's penalty and immunity manually." />}
           {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && <SourceNote source="Wintershot"
             note={`Ignores concealment from mist or precipitation; negates strong-wind attack penalties${a.entry?.data.named_weapon_source === 'Wintershot' ? ' up to -2' : ''}. Activations are tracked manually.`} />}
           {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && abilities.every(ability => ability.name === 'Summary' || ability.name === 'Senses')
             && <small role="status">Wintershot activation details unavailable. Sync content or open its item description.</small>}
-          {abilities.map(ability => <details key={ability.name}>
+          {abilities.filter(ability => !displayOnly || ability.name !== 'Summary').map(ability => <details key={ability.name}>
             <summary>{ability.name} <ActionIcon actions={ability.actions} />
               {namedSource === 'Briar' && ability.name === 'Oaken Resilience' && <label onClick={event => event.stopPropagation()}>
                 {' '}<input type="checkbox" aria-label="Briar Oaken Resilience active" checked={!!w.briarOakenResilienceActive}
@@ -1474,7 +1472,9 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             && <small>{legacyPouchWeapon ? 'Retrieve this weapon from your cheek pouch first.' : 'Weapon hands unavailable.'}</small>}
           <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
             {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
-            {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
+            {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.strikeNote && <SourceNote
+              source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
+              note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
               <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
                 && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
           </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}
@@ -1507,7 +1507,9 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           }}>
             <summary><strong><EntryDescription name={displayName} entry={witchAttackEntry(c, entries, w.id, a.entry)} className="equipment-name" /></strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>} <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
               {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
-              {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
+              {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.strikeNote && <SourceNote
+                source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
+                note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
                 <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
                   && <SourceNote source={rune.source} note={rune.note} inlineSource={false} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
             </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}

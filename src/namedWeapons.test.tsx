@@ -66,8 +66,14 @@ it('implements Debilitating Dart as a returning dart with its conditional saving
     const choices = gearPickerEntries(entries, 'weapon').filter(entry => entry.name === item.name)
     expect(choices).toHaveLength(1)
     expect(choices[0]).toMatchObject({ level: 9, data: { price: 65000, named_weapon_base: 'Dart', named_weapon_rules_missing: false } })
-    expect(effectiveWeapon(c, entries, owned(item.name))).toMatchObject({ potency: 1, striking: 1, runes: ['Returning'] })
+    expect(effectiveWeapon(c, entries, owned(item.name))).toMatchObject({ potency: 1, striking: 1, material: 'Orichalcum', runes: ['Returning'] })
     expect(weaponAttack(c, entries, owned(item.name))).toMatchObject({ range: 20, damage: '2d4+2 piercing', item: 1 })
+    const level19 = { ...c, level: 19 }
+    const level20 = { ...c, level: 20 }
+    expect(effectiveWeapon(level19, entries, owned(item.name)).runes).toEqual(['Returning'])
+    expect(effectiveWeapon(level20, entries, owned(item.name))).toMatchObject({ material: 'Orichalcum', runes: ['Returning', 'Impossible'] })
+    expect(weaponAttack(level20, entries, owned(item.name)).range).toBe(40)
+    expect(effectiveWeapon(level20, entries, { ...owned(item.name), runes: ['Impossible'] }).runes).toEqual(['Returning', 'Impossible'])
     for (const displayOnly of [false, true]) {
       const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [owned(item.name)] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)
       expect(html).toContain('>Returning</button>')
@@ -75,9 +81,33 @@ it('implements Debilitating Dart as a returning dart with its conditional saving
       expect(html).toContain('-2 status penalty to its next saving throw against a magical effect within 1 round')
       expect(html).toContain('immune to this effect for 24 hours')
       expect(html).not.toContain('Named weapon enhancement details unavailable')
+      expect(html).toMatch(/Damage 2d4\+2 P<button[^>]*aria-label="Debilitating Dart note"/)
+      expect(html.match(/aria-label="Debilitating Dart note"/g)).toHaveLength(1)
+      if (displayOnly) expect(html).not.toContain('<summary>Summary')
+      const maxLevel = renderToStaticMarkup(<WeaponList c={{ ...level20, weapons: [owned(item.name)] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+      expect(maxLevel).toContain('>Impossible</button>')
+      expect(maxLevel).toContain('>Thrown 40</button>')
+      if (!displayOnly) expect(maxLevel).toContain('>Orichalcum</button>')
     }
   }
   expect(gearPickerEntries([item], 'weapon').some(entry => entry.name === item.name)).toBe(false)
+})
+
+it('places passive strike effects beside damage and hides only the offense summary', () => {
+  const item: ContentEntry = { ...winter, id: 'hunter', name: 'Splithead Bow', description: [
+    'Base Weapon Composite Longbow. A +1 magic composite longbow.',
+    'A creature struck by this bow is dazzled for 1 round.',
+    'Activate\u2014Dazzling Arrow (light) Frequency once per day; Effect Fire an arrow.',
+  ].join('\n\n') }
+  const entries = [item, bow('Composite Longbow', true)]
+  for (const displayOnly of [false, true]) {
+    const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [owned(item.name)] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+    expect(html).toMatch(/Damage 1d8\+1 P<button[^>]*aria-label="Splithead Bow note"/)
+    expect(html).toContain('A creature struck by this bow is dazzled for 1 round.')
+    expect(html).toContain('<summary>Dazzling Arrow ')
+    if (displayOnly) expect(html).not.toContain('<summary>Summary')
+    else expect(html).toContain('<summary>Summary')
+  }
 })
 
 it.each([
@@ -753,7 +783,8 @@ it.each([false, true])('shows named weapon properties, action costs, reactions a
   expect(gun).toContain('6d8 cold')
   expect(gun).toContain('high-grade cold siccatite')
   const last = render('Final Stand')
-  expect(last).toContain('<summary>Summary ')
+  if (displayOnly) expect(last).not.toContain('<summary>Summary ')
+  else expect(last).toContain('<summary>Summary ')
   expect(last).toContain('DC 11 flat check')
   expect(last).toContain('cannot regain HP')
   expect(last).toContain('<summary>Destruction ')
