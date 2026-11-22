@@ -6170,12 +6170,24 @@ function isDeadlySimplicityWeapon(c: Character, entries: ContentEntry[], entry?:
   return category === 'Unarmed' || category === 'Simple' && weaponRanks(c, entries).Simple >= 1
 }
 
+const vindicatorDeadlySimplicityCache = new WeakMap<Character, WeakMap<ContentEntry[], boolean>>()
 function vindicatorDeadlySimplicity(c: Character, entries: ContentEntry[]) {
-  return isVindicator(c, entries) && [...entries, ...SUPPLEMENTAL_WEAPONS].some(entry => {
-    if (entry.kind !== 'weapon' || entry.deleted || !isDeadlySimplicityWeapon(c, entries, entry)) return false
+  if (!isVindicator(c, entries) || !c.deity) return false
+  let cached = vindicatorDeadlySimplicityCache.get(c)
+  if (!cached) {
+    cached = new WeakMap()
+    vindicatorDeadlySimplicityCache.set(c, cached)
+  }
+  const result = cached.get(entries)
+  if (result !== undefined) return result
+  const granted = [...entries, ...SUPPLEMENTAL_WEAPONS].some(entry => {
+    if (entry.kind !== 'weapon' || entry.deleted || !entry.systems.includes('pf2e')
+      || !isDeadlySimplicityWeapon(c, entries, entry)) return false
     const die = /(?:\d+)?d(\d+)/i.exec(String(entry.data.damage ?? ''))
     return !!die && Number(die[1]) < 6
   })
+  cached.set(entries, granted)
+  return granted
 }
 
 export function blessedArmamentTargets(c: Character, entries: ContentEntry[]) {

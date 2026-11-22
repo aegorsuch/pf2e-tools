@@ -280,6 +280,8 @@ it('grants Vindicator favored weapon proficiency and qualifying Deadly Simplicit
   expect(automaticFeatGrants(c, entries)).toContainEqual({ name: 'Deadly Simplicity', source: 'Vindicator', level: 1 })
   expect(automaticFeatGrants(c, [ranger, advanced, { ...favored, data: { favored_weapon: advanced.name } }]))
     .not.toContainEqual(expect.objectContaining({ name: 'Deadly Simplicity' }))
+  expect(automaticFeatGrants(c, [ranger, advanced, { ...staff, systems: ['sf2e'] }, favored]))
+    .not.toContainEqual(expect.objectContaining({ name: 'Deadly Simplicity' }))
   expect(weaponAttack({ ...c, subclass: 'Flurry' }, entries, weapon(advanced.name)).rank).toBe(0)
   expect(weaponAttack({ ...c, subclass: 'Flurry' }, entries, weapon(staff.name)).damage).toMatch(/^1d4/)
 })
