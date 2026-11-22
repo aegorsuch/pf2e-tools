@@ -7341,7 +7341,10 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     pristineWeapon,
     rageDamage,
     areaAttacks,
-    additionalDamage: [...supportDamage, ...(entry?.data.raptorial_edge ? [{ source: 'Raptorial Edge', value: '1d6 acid',
+    additionalDamage: [...supportDamage,
+      ...(w.id !== 'mechanic:turret' && hasDivineIntercession(c, 'Pharasma', 'moderate-boon') ? [{ source: 'Pharasma (Moderate Boon)',
+        value: '1 vitality vs. undead', note: 'Applies to your Strikes against undead.' }] : []),
+      ...(entry?.data.raptorial_edge ? [{ source: 'Raptorial Edge', value: '1d6 acid',
       note: `${upgrades.some(upgrade => upgrade.name === 'Merciful') ? 'Merciful suppresses persistent damage.' : `Critical hit: ${w.raptorialImproved ? '2d10' : '1d10'} persistent acid damage.`}${w.raptorialImproved ? ' Acid damage ignores acid resistance.' : ''}` }] : []),
       ...(dragonDamage ? [{ source: 'Draconic Rage', value: `${rageDamage} ${dragonDamage}`, note: 'Additional damage from Draconic Rage.' }] : []),
       ...(elementalDamage ? [{ source: 'Elemental Rage', value: `${rageDamage} ${elementalDamage}`, note: 'Additional damage from Elemental Rage.' }] : []), ...(formAttack ? [

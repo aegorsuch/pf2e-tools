@@ -6,7 +6,7 @@ import { ANIMAL_FEATURES, PERSISTENT_SPELLS } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { featTakenLevel, grantedWardenSpells, selectedFeatEntry, spellWardenLabel } from './featChoices'
 import { ActionIcon } from './ActionIcon'
-import { DamageRoll, SpellActions, SpellDamageRolls, spellActionRolls } from './SpellDamage'
+import { DamageRoll, SpellActions, SpellDamageRolls, spellActionRolls, spellDamage } from './SpellDamage'
 import { intensifiedElementDamage } from './builder'
 import { companionAdvancementFor, companionStats } from './companions'
 import { dailyInnateUses, gnomeHeritageCantripOptions, gnomeHeritageTradition, grantedFeatSpells, mageAutomatonOptions, originalNephilimLineage, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
@@ -16,7 +16,7 @@ import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
 import { classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, type Ability } from './builder'
-import { divineAttackDamage } from './divineIntercessions'
+import { divineAttackDamage, hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
 import { DeferredDetails } from './DeferredDetails'
@@ -34,6 +34,15 @@ import { matchesGearSystem, type GearSystem } from './gearSystem'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Tailwind']
+
+function PharasmaSpellBonus({ c, entry, name, rank }: { c: Character; entry?: ContentEntry; name: string; rank: number }) {
+  if (!hasDivineIntercession(c, 'Pharasma', 'moderate-boon') || rank < 1) return null
+  const rolls = spellDamage(name, rank)
+  const relevant = name === 'Heal' || rolls.some(roll => /^(?:HP|vitality\b)/i.test(roll.type))
+    || /\bvitality damage\b|\b(?:heals?|restores?|regains?)\b[^.]*\b(?:HP|Hit Points)\b/i.test(entry?.description ?? '')
+  return relevant ? <small>+{rank} status <SourceNote source="Pharasma (Moderate Boon)"
+    note="Applies to vitality damage against undead or Hit Points restored to living creatures; status bonuses do not stack. Not included in rolls." inlineSource /></small> : null
+}
 
 const isCommonSpell = (entry?: ContentEntry) => !!entry && !entry.traits.some(trait => /^(?:uncommon|rare|unique)$/i.test(trait))
   && !/^(?:uncommon|rare|unique)$/i.test(String(entry.data.rarity ?? ''))
@@ -782,7 +791,8 @@ function SpellItem({ c, name, nameControl, entry, note, onRemove, active, onTogg
           </ActiveSpellActions> : actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form', 'Dinosaur Form', 'Pest Form',
             'Shield', 'Bone Shield', 'False Vitality', 'Canopy Crawler', 'Enlarge Companion', 'Apex Companion'].includes(name)
             && !(name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length)
-            && <SpellActions name={name} entry={entry} rank={rank} spellcastingModifier={spellcastingModifier} />)}{inlineControls}</div>
+            && <SpellActions name={name} entry={entry} rank={rank} spellcastingModifier={spellcastingModifier} />)}{inlineControls}
+          <PharasmaSpellBonus c={c} entry={entry} name={name} rank={rank} /></div>
         {note && <small>{note}</small>}
       </div>
       <span><small>Duration</small>{metadata.duration}{metadata.durationNote
@@ -1024,6 +1034,7 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
                 ? <PestFormActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
                 : <SpellActions name={slot.entry.name} entry={slot.entry} rank={rank === 0 ? Math.ceil(c.level / 2) : castRank}
                   spellcastingModifier={castingModifier} />)}
+              {slot.entry && slot.valid && <PharasmaSpellBonus c={c} entry={slot.entry} name={slot.entry.name} rank={rank === 0 ? Math.ceil(c.level / 2) : castRank} />}
             </div>
             <span><small>Duration</small>{metadata.duration}</span>
             <span><small>Range</small>{metadata.range}</span>
@@ -1735,6 +1746,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     ? <SpellEffectActions c={c} entries={entries} save={save} entry={selectedEntry} name={selectedEntry.name} rank={rank} />
                     : <SpellActions name={selectedEntry.name} entry={selectedEntry} rank={cantrip ? Math.ceil(c.level / 2) : rank}
                       spellcastingModifier={castAbility ? abilityMod(c.abilities[castAbility]) : undefined} />)}
+                  {selectedEntry && valid && <PharasmaSpellBonus c={c} entry={selectedEntry} name={selectedEntry.name} rank={cantrip ? Math.ceil(c.level / 2) : rank} />}
                 </div>
                 <span><small>Duration</small>{metadata.duration}{metadata.durationNote
                   && <SourceNote source="Persistent Animal Feature" note={metadata.durationNote} inlineSource={false} />}</span>

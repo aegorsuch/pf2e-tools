@@ -21,6 +21,33 @@ const deity = (name: string): ContentEntry => ({
   traits: [], description: '', data: {}, effects: [], updatedAt: 0,
 })
 
+it('offers Pharasma boons and shows her moderate boon on Strikes and relevant spells', () => {
+  const c: Character = { ...character('Pharasma', { Pharasma: ['moderate-boon'] }), level: 5,
+    spells: [{ name: 'Vitality Lash', rank: 1, cantrip: true }, { name: 'Fireball', rank: 3, cantrip: false }] }
+  const spell: ContentEntry = { ...deity('Vitality Lash'), kind: 'spell', traits: ['Cantrip'], level: 1 }
+  const fire: ContentEntry = { ...deity('Fireball'), kind: 'spell', level: 3 }
+  const sword: ContentEntry = { ...deity('Longsword'), kind: 'weapon',
+    data: { weapon_category: 'Martial', damage: '1d8 slashing' } }
+  const owned = { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }
+  const picker = renderToStaticMarkup(<DivineIntercessions deity={deity('Pharasma')} selected={['moderate-boon']} onChange={() => {}} />)
+  expect(picker).toContain('Minor Boon')
+  expect(picker).toContain('Moderate Boon')
+  expect(picker).toContain('Major Boon')
+  expect(picker).toContain('checked=""')
+  expect(weaponAttack(c, [sword], owned).additionalDamage).toContainEqual(expect.objectContaining({
+    source: 'Pharasma (Moderate Boon)', value: '1 vitality vs. undead',
+  }))
+  expect(weaponAttack(c, [sword], { ...owned, id: 'mechanic:turret' }).additionalDamage).toEqual([])
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[spell, fire]} save={() => {}} />)
+  expect(markup).toContain('+3 status')
+  expect(markup).toContain('vitality damage against undead or Hit Points restored to living creatures')
+  const inactive = { ...c, divineIntercessions: {} }
+  expect(weaponAttack(inactive, [sword], owned).additionalDamage).toEqual([])
+  expect(renderToStaticMarkup(<SpellsSection c={inactive} entries={[spell, fire]} save={() => {}} />))
+    .not.toContain('Pharasma (Moderate Boon)')
+  expect(weaponAttack({ ...c, deity: 'Torag' }, [sword], owned).additionalDamage).toEqual([])
+})
+
 it('retains per-deity selections but applies the automated boon only for the current deity', () => {
   const c = character('Asmodeus', { Asmodeus: ['moderate-boon'], Erastil: ['minor-boon'] })
   expect(hasDivineIntercession(c, 'Asmodeus', 'moderate-boon')).toBe(true)

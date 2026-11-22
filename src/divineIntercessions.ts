@@ -99,6 +99,14 @@ export const DIVINE_INTERCESSIONS: Record<string, DeityIntercessions> = {
       intercession('major-boon', 'Major', 'Boon', 'You and creatures attempting to Aid you can choose to automatically succeed. If you choose to roll, a success becomes a critical success and grants a +4 circumstance bonus, regardless of proficiency.'),
     ],
   },
+  Pharasma: {
+    source: 'https://2e.aonprd.com/Deities.aspx?ID=290',
+    items: [
+      intercession('minor-boon', 'Minor', 'Boon', 'Once, apply a +2 status bonus to a check after learning its result; this can change its degree of success.'),
+      intercession('moderate-boon', 'Moderate', 'Boon', 'Your Strikes deal 1 vitality damage to undead. Your spells gain a +1 status bonus per spell rank to vitality damage against undead and HP restored to living creatures.'),
+      intercession('major-boon', 'Major', 'Boon', 'Until you fulfill a fate secretly chosen by the GM, death is replaced by a grave nonfatal misfortune requiring at least a day of recovery. If this prevented your death, you die peacefully after fulfilling that fate.'),
+    ],
+  },
   Sarenrae: {
     source: 'https://2e.aonprd.com/Deities.aspx?ID=292',
     items: [
