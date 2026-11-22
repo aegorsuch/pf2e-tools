@@ -65,7 +65,7 @@ const deityLabel = (deity: ContentEntry) => {
     : deity.name
 }
 
-function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, backgroundLores }: {
+function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, backgroundLores, disabled }: {
   label: string
   kind: string
   value?: string
@@ -74,6 +74,7 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
   ancestry?: string
   terrainLore?: Character['backgroundTerrainLore']
   backgroundLores?: Character['backgroundLores']
+  disabled?: boolean
 }) {
   const [ready, setReady] = useState(false)
   const variants = useMemo<BackgroundVariant[]>(() => kind === 'background' ? backgroundVariants(options)
@@ -105,7 +106,7 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
   }
   const unavailable = kind === 'heritage' && !!value && !labels.has(value)
   return (
-      <SearchableSelect label={label} aria-label={label} value={selectedValue ?? ''} onPrepare={prepare} optionCount={labels.size}
+      <SearchableSelect label={label} aria-label={label} value={selectedValue ?? ''} disabled={disabled} onPrepare={prepare} optionCount={labels.size}
         searchText={kind === 'background' ? name => String(byName.get(name)?.data.feat ?? '') : undefined}
         renderDetails={name => {
           const entry = byName.get(name)
@@ -698,7 +699,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
           </div>
           {c.className !== 'Druid' && subclasses.length > 0 && <>
             <Pick label={c.className === 'Necromancer' ? 'Grim Fascination' : c.className === 'Witch' ? 'Patron' : c.className === 'Rogue' ? 'Racket' : c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : c.className === 'Mechanic' ? 'Exocortex' : c.className === 'Envoy' ? 'Leadership style' : c.className === 'Mystic' ? 'Connection' : c.className === 'Operative' ? 'Specialization' : c.className === 'Witchwarper' ? 'Paradox' : c.className === 'Soldier' ? 'Fighting style' : 'Subclass'}
-              kind="subclass" value={subclassName} options={subclasses.filter((entry) => c.className !== 'Inventor'
+              kind="subclass" value={subclassName} disabled={!!selectedClassArchetype(c, entries)} options={subclasses.filter((entry) => c.className !== 'Inventor'
                 || !c.feats.some((feat) => ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice === entry.name))}
               onChange={(v) => save({ subclass: v ?? '' })} />
             {subclass && <SelectedSubclassRules entry={subclass} />}

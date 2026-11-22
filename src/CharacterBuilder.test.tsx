@@ -47,6 +47,24 @@ it.each([
   expect(save).toHaveBeenLastCalledWith({ className, subclass: '', fatalMethod: undefined })
 })
 
+it.each([
+  ['Barbarian', 'Bloodrager', 'Instinct'],
+  ['Ranger', 'Vindication', 'Hunter&#x27;s Edge'],
+  ['Rogue', 'Avenger', 'Racket'],
+  ['Wizard', 'School of Thassilonian Rune Magic', 'Subclass'],
+])('locks %s subclass when its class archetype is selected', (className, subclass, label) => {
+  const entry: ContentEntry = { id: subclass, name: subclass, systems: ['pf2e'], kind: 'subclass',
+    source: 'official', level: 1, traits: [], description: '', data: { class: className }, effects: [], updatedAt: 0 }
+  content.entries = [entry]
+  const c: Character = { id: 'class-lock', name: 'Test', systems: ['pf2e'], level: 1, className, subclass,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  expect(markup).toMatch(new RegExp(`<select aria-label="${label}"[^>]*disabled`))
+  const normal = renderToStaticMarkup(<CharacterBuilder character={{ ...c, subclass: '' }} onClose={() => {}} />)
+  expect(normal).not.toMatch(new RegExp(`<select aria-label="${label}"[^>]*disabled`))
+})
+
 it('counts granted feats alongside filled and empty slots in Skill and General headings', () => {
   const skills = ['Ride', 'Quick Jump', 'Battle Medicine', "Crafter's Appraisal", 'Dubious Knowledge', 'Student of the Canon']
   const feat = (name: string, traits = ['General', 'Skill']): ContentEntry => ({
