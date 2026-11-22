@@ -9,6 +9,7 @@ import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
 import { KILLERS_BELT_MAJOR } from './supplemental'
 import { INITIATE_TRAINING } from './featChoices'
+import { SearchableSelect } from './SearchableSelect'
 
 const ranger: ContentEntry = {
   id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger', level: 1,
@@ -1002,7 +1003,7 @@ it('grants Underworld Investigator free trained Lore without Additional Lore pro
   } finally { updateSettings({ autoLores: previous }) }
 })
 
-it.each(['Orc', 'Human'])('adds Experienced Laborer to the regular trained skill array for %s', ancestry => {
+it.each(['Orc', 'Human'])('grants Experienced Laborer a separate Lore choice for %s', ancestry => {
   const previous = getSettings().autoLores
   updateSettings({ autoLores: false })
   const c: Character = { ...base, systems: ['sf2e'], ancestry, level: 7,
@@ -1013,34 +1014,33 @@ it.each(['Orc', 'Human'])('adds Experienced Laborer to the regular trained skill
   const entries = [{ ...ranger, systems: ['sf2e' as const] }]
   try {
     const markup = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} />)
-    expect(markup).not.toContain('Experienced Laborer Lore specialty')
-    expect(markup).not.toContain('One free trained Lore skill.')
-    expect(skillRankBudget(c, entries).trained).toBe(5)
+    expect(markup).toContain('Experienced Laborer Lore')
+    expect(skillRankBudget(c, entries).trained).toBe(4)
     expect(builder.automaticFeatGrants(c, entries).some(grant => grant.source === 'Experienced Laborer')).toBe(false)
     const trained: Character = { ...c, skillPicks: ['Diplomacy'] }
     expect(ranksAt(trained, entries).Diplomacy).toBe(1)
-    expect(skillRankBudget(trained, entries).trained).toBe(4)
+    expect(skillRankBudget(trained, entries).trained).toBe(3)
     expect(skillRankBudget({ ...c, level: 0 }, entries).trained).toBe(4)
     expect(skillRankBudget({ ...c, systems: ['pf2e'] }, entries).trained).toBe(4)
     expect(skillRankBudget({ ...c, level: 8, feats: [{ ...c.feats.at(-1)!, takenLevel: 9 }] }, entries).trained).toBe(4)
   } finally { updateSettings({ autoLores: previous }) }
 })
 
-it('preserves a saved Experienced Laborer Lore as an ordinary trained pick', () => {
+it('preserves saved Experienced Laborer Lore without spending a trained pick', () => {
   const c: Character = { ...base, systems: ['sf2e'], level: 7, lores: [{ name: 'mining Lore', rank: 0 }],
     feats: [{ name: 'Experienced Laborer', type: 'Ancestry Feat', level: 1, choice: '  Mining  Lore ' }],
     skillIncreases: { 3: 'mining Lore' } }
   const entries = [{ ...ranger, systems: ['sf2e' as const] }]
   const normalized = builder.normalizeConditionalSkillChoices(c, entries)
-  expect(normalized.feats[0].choice).toBeUndefined()
-  expect(normalized.skillPicks).toEqual(['mining Lore'])
+  expect(normalized.feats[0].choice).toBe('  Mining  Lore ')
+  expect(normalized.skillPicks).toBeUndefined()
   expect(normalized.lores).toEqual(c.lores)
   expect(normalized.skillIncreases).toEqual(c.skillIncreases)
   expect(ranksAt(c, entries)['mining Lore']).toBe(2)
   expect(skillRankBudget(c, entries).trained).toBe(4)
   expect(builder.normalizeConditionalSkillChoices(normalized, entries)).toBe(normalized)
   expect(c.feats[0].choice).toBe('  Mining  Lore ')
-  expect(skillRankBudget({ ...normalized, skillPicks: [] }, entries).trained).toBe(5)
+  expect(skillRankBudget({ ...normalized, skillPicks: [] }, entries).trained).toBe(4)
 })
 
 function findSelect(node: ReactNode, label: string): Record<string, unknown> | undefined {
@@ -1052,6 +1052,46 @@ function findSelect(node: ReactNode, label: string): Record<string, unknown> | u
   })
   return found
 }
+
+function findLorePicker(node: ReactNode, label: string): Record<string, unknown> | undefined {
+  let found: Record<string, unknown> | undefined
+  Children.forEach(node, child => {
+    if (found || !isValidElement<Record<string, unknown>>(child)) return
+    found = child.type === SearchableSelect && child.props['aria-label'] === label
+      ? child.props : findLorePicker(child.props.children as ReactNode, label)
+  })
+  return found
+}
+
+it('saves restricted background Lore choices and rejects unrelated options', () => {
+  const background: ContentEntry = { ...feyBound, name: 'Scout', data: { skill: 'Survival, Lore related to one terrain' } }
+  const c: Character = { ...base, background: 'Scout', backgroundTerrainLore: { Scout: 'Forest' } }
+  const save = vi.fn()
+  const picker = findLorePicker(SkillsSection({ c, entries: [ranger, background], save }), 'Scout Lore 1')!
+  expect(picker.value).toBe('Forest Lore')
+  const onChange = picker.onChange as (event: { target: { value: string } }) => void
+  onChange({ target: { value: 'Accounting Lore' } })
+  expect(save).not.toHaveBeenCalled()
+  onChange({ target: { value: 'Desert Lore' } })
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({
+    backgroundLores: { Scout: ['Desert Lore'] }, backgroundTerrainLore: {},
+  }))
+})
+
+it('saves feat Lore choices separately from ordinary skill picks', () => {
+  const c: Character = { ...base, systems: ['sf2e'], skillPicks: ['Athletics'],
+    feats: [{ name: 'Experienced Laborer', type: 'Ancestry Feat', level: 1 }] }
+  const save = vi.fn()
+  const picker = findLorePicker(SkillsSection({ c, entries: [], save }), 'Experienced Laborer Lore')!
+  const onChange = picker.onChange as (event: { target: { value: string } }) => void
+  onChange({ target: { value: 'Athletics' } })
+  expect(save).not.toHaveBeenCalled()
+  onChange({ target: { value: 'Mining Lore' } })
+  const patch = save.mock.calls[0][0]
+  expect(patch.feats[0].choice).toBe('Mining Lore')
+  expect(ranksAt({ ...c, ...patch }, [])['Mining Lore']).toBe(1)
+  expect(c.skillPicks).toEqual(['Athletics'])
+})
 
 it('shows radioactive protection and tracks the two separate daily abilities', () => {
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki',

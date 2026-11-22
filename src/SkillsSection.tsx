@@ -15,7 +15,8 @@ import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import { apexSkillBonus, wornArmor } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { getSettings } from './settings'
-import { backgroundSkillSlots, normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
+import { backgroundLoreChoiceOptions, backgroundLoreSlots, backgroundSkillSlots, chosenLoreFeats, normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
+import { SearchableSelect } from './SearchableSelect'
 import { characterHeritages } from './heritages'
 import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
 import { artifactItemSkillBonus, hunterArrowheadBonus } from './builder'
@@ -211,6 +212,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const budget = editingSkills ? skillRankBudget(c, entries) : { trained: 0, expert: 0, master: 0, legendary: 0 }
   const remaining = budget.trained
   const backgroundTraining = editingSkills ? backgroundSkillSlots(c, entries) : []
+  const backgroundLores = editingSkills ? backgroundLoreSlots(c, entries) : []
+  const loreFeats = editingSkills ? chosenLoreFeats(c) : []
   const erudite = editingSkills ? eruditeWarrior(c) : undefined
   const eruditeChoice = (name: string) => !!erudite && / lore$/i.test(name)
     && (!erudite.lore || erudite.lore === name)
@@ -952,6 +955,41 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
 
   return (
     <>
+      {backgroundLores.map(slot => {
+        const options = backgroundLoreChoiceOptions(slot.background, deityLores, c.deity)
+        const used = backgroundLores.filter(other => other.background.name === slot.background.name && other.index !== slot.index)
+          .map(other => other.value.toLowerCase())
+        const available = options.filter(option => !used.includes(option.toLowerCase()))
+        return <SearchableSelect key={`${slot.background.id}:${slot.index}`} label={`${slot.background.name} Lore${backgroundLores.filter(other => other.background.name === slot.background.name).length > 1 ? ` ${slot.index + 1}` : ''}`}
+          aria-label={`${slot.background.name} Lore ${slot.index + 1}`} value={slot.value} onChange={event => {
+            const value = event.target.value
+            if (value && !available.includes(value)) return
+            const selected = [...(c.backgroundLores?.[slot.background.name] ?? [])]
+            selected[slot.index] = value
+            const backgroundTerrainLore = { ...c.backgroundTerrainLore }
+            delete backgroundTerrainLore[slot.background.name]
+            save({ backgroundLores: { ...c.backgroundLores, [slot.background.name]: selected }, backgroundTerrainLore })
+          }}>
+          <option value="">Choose Lore</option>
+          {slot.value && !available.includes(slot.value) && <option value={slot.value} disabled>{slot.value}</option>}
+          {available.map(option => <option key={option} value={option}>{option}</option>)}
+        </SearchableSelect>
+      })}
+      {loreFeats.map(({ feat, index }) => {
+        const value = feat.choice?.trim().replace(/\s+/g, ' ') ?? ''
+        const selected = value && !/\s+lore$/i.test(value) ? `${value} Lore` : value.replace(/\s+lore$/i, ' Lore')
+        const options = commonLoreOptions(deityLores, c.deity)
+        return <SearchableSelect key={feat.slot ?? index} label={`${feat.name} Lore`} aria-label={`${feat.name} Lore`}
+          value={selected} onChange={event => {
+            const choice = event.target.value
+            if (choice && !options.includes(choice)) return
+            save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
+          }}>
+          <option value="">Choose Lore</option>
+          {selected && !options.includes(selected) && <option value={selected} disabled>{selected}</option>}
+          {options.map(option => <option key={option} value={option}>{option}</option>)}
+        </SearchableSelect>
+      })}
       {c.className === 'Rogue' && selectedSubclass(c, entries) === 'Mastermind' && <label>Mastermind skill{' '}
         <select aria-label="Mastermind racket skill" value={c.rogueRacketSkills?.Mastermind ?? ''} onChange={event => {
           const skill = event.target.value
@@ -976,7 +1014,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         {(['trained', 'expert', 'master', 'legendary'] as const).map((rank, index) => (
           <span key={rank} title={`${RANKS[index + 1]} selections remaining`}>
             <b>{RANK_LETTERS[index]}</b>{budget[rank] + temporaryTrainings.filter(training => !training.skill && training.rank === index + 1).length
-              + (rank === 'trained' ? backgroundTraining.filter(slot => !slot.value).length + Number(!!erudite && !erudite.lore) : 0)}
+              + (rank === 'trained' ? backgroundTraining.filter(slot => !slot.value).length + backgroundLores.filter(slot => !slot.value).length
+                + loreFeats.filter(({ feat }) => !feat.choice?.trim()).length + Number(!!erudite && !erudite.lore) : 0)}
           </span>
         ))}
       </div>

@@ -3238,7 +3238,7 @@ export function backgroundSkillSlots(c: Character, entries: ContentEntry[]) {
 export function backgroundLoreSlots(c: Character, entries: ContentEntry[]) {
   if (c.level < 1) return []
   return [byName(entries, 'background', c.background), freeHeartBackground(c, entries)].flatMap(background => {
-    if (!background || backgroundHasTerrainLore(background) && c.backgroundTerrainLore?.[background.name]) return []
+    if (!background) return []
     const legacy = c.backgroundTerrainLore?.[background.name]
     return backgroundLoreChoices(background, c).map((value, index) => ({
       background, index, value: value || (index === 0 && legacy && FAVORED_TERRAINS.includes(legacy) ? `${legacy} Lore` : ''),
@@ -3391,6 +3391,37 @@ export function commonLoreOptions(deityLores: string[] = [], deity?: string) {
     .map(lore => [lore.toLowerCase(), lore])).values()].sort((a, b) => a.localeCompare(b))
 }
 
+export function backgroundLoreChoiceOptions(background: ContentEntry, deityLores: string[] = [], deity?: string) {
+  const field = String(background.data.skill ?? '')
+  const named = backgroundLoreOptions(background)
+  let options: string[]
+  if (/\bterrain\b|wilderness/i.test(field)) {
+    options = [...FAVORED_TERRAINS, 'Cave', 'Cavern', 'Hills', 'Jungle', 'River'].map(name => `${name} Lore`)
+    if (/settlement/i.test(field)) options.push('Absalom Lore', 'Katapesh Lore', 'Magnimar Lore')
+  } else if (/\b(?:city|cities|settlement)\b/i.test(field)) {
+    options = ['Absalom Lore', 'Katapesh Lore', 'Magnimar Lore']
+  } else if (/\b(?:deity|deities|god|religion|cult|philosophy)\b/i.test(field)) {
+    options = [...deityLores, ...(deity?.trim() ? [`${deity.trim()} Lore`] : [])]
+  } else if (/\bplane\b/i.test(field)) {
+    options = ['Astral Plane Lore', 'Heaven Lore', 'Outer Rifts Lore']
+  } else if (/\banimal\b/i.test(field)) {
+    options = ['Avian Lore', 'Canine Lore', 'Equine Lore', 'Feline Lore', 'Pachyderm Lore']
+  } else if (/\b(?:profession|labor|workplace|duties|act|food|drink)\b/i.test(field)) {
+    options = /\b(?:food|drink)\b/i.test(field)
+      ? PROFESSION_LORES.filter(lore => /^(?:Alcohol|Baking|Brewing|Butchering|Cooking|Distilling|Tea) Lore$/.test(lore))
+      : PROFESSION_LORES
+  } else if (/\bplanet\b/i.test(field)) {
+    options = ['Aballon Lore', 'Apostae Lore', 'Bretheda Lore', 'Liavara Lore']
+  } else if (/(?:^|,)\s*Lore\s*(?:,|$)/i.test(field)
+    || /\b(?:your choice|your choosing|former life|own way|field of research|subject of study)\b/i.test(field)) {
+    options = commonLoreOptions()
+  } else {
+    options = []
+  }
+  return [...new Map([...named, ...options].map(lore => [lore.toLowerCase(), lore])).values()]
+    .sort((a, b) => a.localeCompare(b))
+}
+
 export function clanLoreLabel(clan: string) {
   const grant = CLAN_LORE_OPTIONS[clan]
   return grant ? `${grant.hilt}, ${clan}: ${[...grant.skills, `${grant.lore} Lore`].join(', ')}` : clan
@@ -3406,7 +3437,6 @@ function lizardfolkLoreSelection(feat: Character['feats'][number]) {
 }
 
 export function normalizeConditionalSkillChoices(c: Character, entries: ContentEntry[]): Character {
-  c = normalizeLaborerSkills(c)
   const picks = [...(c.skillPicks ?? [])]
   const lores = [...c.lores]
   let changed = false
@@ -3458,22 +3488,6 @@ function ancestralSkillLores(c: Character, entries: ContentEntry[], selections =
   })
 }
 
-function normalizeLaborerSkills(c: Character): Character {
-  if (!c.systems.includes('sf2e')) return c
-  const feat = activeFeatsNamed(c, 'Experienced Laborer')[0]
-  const choice = feat?.choice?.trim().replace(/\s+/g, ' ')
-  if (!choice || /^lore$/i.test(choice)) return c
-  const name = /\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`
-  const existing = c.lores.find(lore => lore.name.toLowerCase() === name.toLowerCase())
-  const skill = existing?.name ?? name
-  return {
-    ...c,
-    feats: c.feats.map(selected => selected === feat ? { ...selected, choice: undefined } : selected),
-    skillPicks: [...new Set([...(c.skillPicks ?? []), skill])],
-    lores: existing ? c.lores : [...c.lores, { name: skill, rank: 0 }],
-  }
-}
-
 export function deityGrantedLores(c: Character) {
   const deity = c.deity?.trim()
   return getSettings().deityLore && deity ? [`${deity} Lore`] : []
@@ -3483,7 +3497,23 @@ export function trainedFeatLores(c: Character) {
   return [
     ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Underworld Investigator').length
       ? [{ name: 'Underworld Lore', source: 'Underworld Investigator' }] : []),
+    ...(c.systems.includes('sf2e') ? activeFeatsNamed(c, 'Experienced Laborer').flatMap(feat => {
+      const choice = feat.choice?.trim().replace(/\s+/g, ' ')
+      if (!choice || /^lore$/i.test(choice)) return []
+      const lore = /\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`
+      return [{ name: c.lores.find(existing => existing.name.toLowerCase() === lore.toLowerCase())?.name ?? lore, source: feat.name }]
+    }) : []),
   ]
+}
+
+export function chosenLoreFeats(c: Character) {
+  return c.feats.flatMap((feat, index) => {
+    if (featTakenLevel(feat) > c.level) return []
+    if (feat.name === 'Additional Lore'
+      || c.systems.includes('sf2e') && ['Experienced Laborer', 'Historian'].includes(feat.name)
+      || c.systems.includes('pf2e') && feat.name === 'Gnome Obsession') return [{ feat, index }]
+    return []
+  })
 }
 
 export const SIMPLE_LORE_REPLACEMENT_FEATS = ['Halfling Lore', 'Pahtra Lore', 'Kasatha Lore']
@@ -4001,7 +4031,7 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
 }
 
 function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: number, withOverrides: boolean) {
-  c = { ...normalizeLaborerSkills(normalizeLongevitySkills({ ...c, level: Math.min(c.level, beforeLevel - 1) })), level: c.level }
+  c = { ...normalizeLongevitySkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }), level: c.level }
   const ranks = baseRanks(c, entries, beforeLevel)
   const autoSkills = autoClassSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)
   const rankUp = getSettings().autoClassSkills
@@ -7379,7 +7409,6 @@ function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
     if (featTakenLevel(selected) > c.level) return total
     if (selected.name === 'Skill Download' || selected.name === 'Consult the Stars') return total
     if (selected.name === 'Natural Skill') return total + 2
-    if (selected.name === 'Experienced Laborer' && c.systems.includes('sf2e')) return total + 1
     if (selected.name === "Officer's Education") return total + (activeFeatsNamed(c, selected.name).slice(0, 2).includes(selected) ? 2 : 0)
     if (selected.name === 'Ancestral Longevity') return total + 1
     const feat = selectedFeatEntry(c, entries, selected.name, selected.sourceId)
@@ -7392,7 +7421,7 @@ function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
 }
 
 function baseSkillRankBudget(c: Character, entries: ContentEntry[]) {
-  c = normalizeLaborerSkills(normalizeLongevitySkills(c))
+  c = normalizeLongevitySkills(c)
   let effectivePicks = [...(c.skillPicks ?? [])]
   let currentRanks = effectivePicks.length ? ranksAt({ ...c, skillPicks: effectivePicks }, entries, 99, false) : {}
   for (const skill of c.skillPicks ?? []) {
@@ -7585,6 +7614,12 @@ export function skillRankAllocations(c: Character, entries: ContentEntry[]) {
   const backgroundTraining = backgroundSkillSlots(c, entries)
   total.trained += backgroundTraining.length
   remaining.trained += backgroundTraining.filter(slot => !slot.value).length
+  const loreSlots = backgroundLoreSlots(c, entries)
+  total.trained += loreSlots.length
+  remaining.trained += loreSlots.filter(slot => !slot.value).length
+  const loreFeats = chosenLoreFeats(c)
+  total.trained += loreFeats.length
+  remaining.trained += loreFeats.filter(({ feat }) => !feat.choice?.trim()).length
   const erudite = eruditeWarrior(c)
   if (erudite) {
     total.trained++

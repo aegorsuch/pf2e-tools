@@ -3,7 +3,7 @@ import { mapAonHits } from './aon'
 import pf2eSnapshot from '../public/data/aon-pf2e.json?raw'
 import sf2eSnapshot from '../public/data/aon-sf2e.json?raw'
 import { backgroundLoreCount, characterDeityLores, deityLoreBackgroundEntries } from './backgrounds'
-import { backgroundLoreIncreaseSlots, backgroundLoreSlots, backgroundSkills, backgroundSkillSlots, backgroundVariants, boostSlots, featChoiceOptions, plannedSlots, ranksAt, skillRankBudget, skillTokenPurchase } from './builder'
+import { backgroundLoreChoiceOptions, backgroundLoreIncreaseSlots, backgroundLoreSlots, backgroundSkills, backgroundSkillSlots, backgroundVariants, boostSlots, featChoiceOptions, plannedSlots, ranksAt, skillRankBudget, skillTokenPurchase } from './builder'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
@@ -288,7 +288,21 @@ it.each(['Scout', 'Nomad'])('uses Scout-style terrain variants for %s and keeps 
   expect(backgroundVariants(entries).map(option => option.value)).toEqual([name])
   const c = { ...base, background: name, backgroundTerrainLore: { [name]: 'Forest' } }
   expect(backgroundSkills(entries[0], JSON.parse(JSON.stringify(c)))).toEqual(['Survival', 'Forest Lore'])
-  expect(backgroundLoreSlots(c, entries)).toEqual([])
+  expect(backgroundLoreSlots(c, entries).map(slot => slot.value)).toEqual(['Forest Lore'])
+})
+
+it('offers relevant Lore options for open background choices', () => {
+  const grifter = compile('Grifter', "You're trained in a Lore skill related to a profession.",
+    ['Deception', 'Lore related to a profession'])[0]
+  const terrain = compile('Scout', "You're trained in a Lore skill related to one terrain.",
+    ['Survival', 'Lore related to one terrain'])[0]
+  const cultist = compile('Cultist', "You're trained in a Lore skill related to your deity or cult.",
+    ['Occultism', 'Lore related to your deity or cult'])[0]
+  expect(backgroundLoreChoiceOptions(grifter)).toContain('Accounting Lore')
+  expect(backgroundLoreChoiceOptions(grifter)).not.toContain('Forest Lore')
+  expect(backgroundLoreChoiceOptions(terrain)).toContain('Forest Lore')
+  expect(backgroundLoreChoiceOptions(terrain)).not.toContain('Accounting Lore')
+  expect(backgroundLoreChoiceOptions(cultist, ['Abadar Lore'], 'Iomedae')).toEqual(['Abadar Lore', 'Iomedae Lore'])
 })
 
 it('preserves saved open Lore without inventing deity or custom variants', () => {
