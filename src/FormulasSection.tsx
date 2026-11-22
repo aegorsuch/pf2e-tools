@@ -4,7 +4,34 @@ import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { contentAccessGranted, featRarity } from './featAccess'
 import { formulaGrants, formulaKey as key, isCauldronConsumable, isGrenade, knownFormulas, munitionsFormulaOptions, STANDARD_SNARE_FORMULAS, updateFormulaChoice } from './formulas'
-import type { ContentEntry } from './types'
+import type { Character, ContentEntry } from './types'
+
+function availableFormulas(c: Character, list: ContentEntry[]) {
+  return [...new Map(list.map(item => [key(item.name), item])).values()]
+    .filter(item => contentAccessGranted(c, item) || c.gearAccessOverrides?.includes(item.id))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export function FormulaSearch({ c, items, knownKeys, allowRestricted, save }: {
+  c: Character; items: ContentEntry[]; knownKeys: Set<string>; allowRestricted: boolean; save: SectionProps['save']
+}) {
+  const [query, setQuery] = useState('')
+  const q = key(query)
+  const restricted = new Set(STANDARD_SNARE_FORMULAS.map(key))
+  const matches = q.length < 2 ? [] : availableFormulas(c, items.filter(item => key(item.name).includes(q) && !knownKeys.has(key(item.name))
+    && (allowRestricted || !restricted.has(key(item.name))))).slice(0, 40)
+  return <>
+    <label>Search formulas <input type="search" value={query} onChange={event => setQuery(event.target.value)} /></label>
+    {q.length >= 2 && <ul>{matches.map(item => <li key={item.id}>
+      <EntryDescription name={item.name} entry={item} /> (Level {item.level}){' '}
+      <button type="button" aria-label={`Add ${item.name} formula`} onClick={() => {
+        if (!knownKeys.has(key(item.name))) save({ formulas: [...(c.formulas ?? []), item.name] })
+        setQuery('')
+      }}>Add</button>
+    </li>)}</ul>}
+    {q.length >= 2 && !matches.length && <small role="status">No matching formulas.</small>}
+  </>
+}
 
 export function FormulasSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
   const grants = formulaGrants(c, entries)
@@ -31,7 +58,6 @@ export function FormulasSection(props: SectionProps) {
 }
 
 export function FormulasContent({ c, entries, save }: SectionProps) {
-  const [query, setQuery] = useState('')
   const grants = formulaGrants(c, entries)
   const { sources, gadgets, munitions, grenades, snares: snareRanks, cauldron } = grants
   const known = knownFormulas(c, entries, grants)
@@ -45,17 +71,16 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
   const gadgetOptions = items.filter(item => item.traits.some(trait => key(trait) === 'gadget')
     && !['Rare', 'Unique'].includes(featRarity(item) ?? ''))
   const munitionsOptions = munitionsFormulaOptions(items, c.systems)
-  const unique = (list: ContentEntry[]) => [...new Map(list.map(item => [key(item.name), item])).values()]
-    .filter(item => contentAccessGranted(c, item) || c.gearAccessOverrides?.includes(item.id))
-    .sort((a, b) => a.name.localeCompare(b.name))
   const options = (field: 'snareFormulaChoices' | 'snareAdvancementFormulaChoices' | 'brastlewarkFormulaChoices'
     | 'gadgetFormulaChoices' | 'munitionsFormulaChoices' | 'grenadeFormulaChoices' | 'cauldronFormulaChoices', count: number, candidates: ContentEntry[], label: string,
     offset = 0, distinct = false) => {
+    if (!count) return []
     const values = c[field] ?? []
+    const available = availableFormulas(c, candidates)
     return Array.from({ length: count }, (_, i) => {
       const index = i + offset
       const current = values[index] ?? ''
-      const choices = unique(candidates).filter(item => (!distinct
+      const choices = available.filter(item => (!distinct
         || !values.slice(0, count).some((name, i) => i !== index && typeof name === 'string' && key(name) === key(item.name)))
         && (key(item.name) === key(current) || !knownKeys.has(key(item.name))))
       return <label key={index}>{label} {i + 1}{' '}
@@ -75,10 +100,7 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
       </label>
     })
   }
-  const q = key(query)
   const restricted = new Set(STANDARD_SNARE_FORMULAS.map(key))
-  const matches = q.length < 2 ? [] : unique(items.filter(item => key(item.name).includes(q) && !knownKeys.has(key(item.name))
-    && (sources.brastlewark || !restricted.has(key(item.name))))).slice(0, 40)
   return <div className="character-section-content">
       {sources.snareCrafting && <div className="col">
         <b>Snare Crafting</b>
@@ -134,14 +156,6 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
               save({ formulas: (c.formulas ?? []).filter(name => key(name) !== key(formula.name)) }))}>Remove</button>}
         </li>
       })}</ul>}
-      <label>Search formulas <input type="search" value={query} onChange={event => setQuery(event.target.value)} /></label>
-      {q.length >= 2 && <ul>{matches.map(item => <li key={item.id}>
-        <EntryDescription name={item.name} entry={item} /> (Level {item.level}){' '}
-        <button type="button" aria-label={`Add ${item.name} formula`} onClick={() => {
-          if (!knownKeys.has(key(item.name))) save({ formulas: [...(c.formulas ?? []), item.name] })
-          setQuery('')
-        }}>Add</button>
-      </li>)}</ul>}
-      {q.length >= 2 && !matches.length && <small role="status">No matching formulas.</small>}
+      <FormulaSearch c={c} items={items} knownKeys={knownKeys} allowRestricted={!!sources.brastlewark} save={save} />
     </div>
 }

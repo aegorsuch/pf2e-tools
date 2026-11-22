@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { isValidElement, type ReactNode } from 'react'
+import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { expect, it, vi } from 'vitest'
-import { FormulasContent, FormulasSection, FormulasSummary } from './FormulasSection'
+import { FormulaSearch, FormulasContent, FormulasSection, FormulasSummary } from './FormulasSection'
 import * as builder from './builder'
 import { GrenadeSpecialist, MunitionsCrafter } from './GearSection'
 import { BLACK_POWDER_FORMULA, gadgetLimits, grenadeLimits, knownFormulas, munitionsLimits, snareAdvancements, updateFormulaChoice } from './formulas'
@@ -22,6 +22,44 @@ const entries = [
 ]
 const dedication = { name: 'Snarecrafter Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }
 const brastlewark = { name: 'Brastlewark Snare Engineering', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' }
+
+it('searches and adds formulas without recalculating other formula grants', () => {
+  const searchItems = [item('Alarm Snare', 1, ['Snare']), item('Spike Snare', 1, ['Snare']),
+    item('Restricted Snare', 1, ['Snare'], { access: 'Kellid ethnicity' })]
+  const save = vi.fn()
+  const ranks = vi.spyOn(builder, 'ranksAt')
+  let typed = false
+  let added = false
+  const find = (node: ReactNode, predicate: (element: ReactElement<Record<string, unknown>>) => boolean): ReactElement<Record<string, unknown>> | undefined => {
+    let result: ReactElement<Record<string, unknown>> | undefined
+    Children.forEach(node, child => {
+      if (result || !isValidElement<Record<string, unknown>>(child)) return
+      result = predicate(child) ? child : find(child.props.children as ReactNode, predicate)
+    })
+    return result
+  }
+  function InspectSearch() {
+    const tree = FormulaSearch({ c, items: searchItems, knownKeys: new Set(['alarm snare']), allowRestricted: false, save })
+    const input = find(tree, element => element.type === 'input')
+    if (!typed) {
+      typed = true
+      ;(input!.props.onChange as (event: unknown) => void)({ target: { value: 'snare' } })
+    } else if (input?.props.value === 'snare' && !added) {
+      const add = find(tree, element => element.props['aria-label'] === 'Add Spike Snare formula')
+      expect(add).toBeDefined()
+      expect(find(tree, element => element.props['aria-label'] === 'Add Alarm Snare formula')).toBeUndefined()
+      expect(find(tree, element => element.props['aria-label'] === 'Add Restricted Snare formula')).toBeUndefined()
+      added = true
+      ;(add!.props.onClick as () => void)()
+    }
+    return tree
+  }
+  try {
+    renderToStaticMarkup(<InspectSearch />)
+    expect(save).toHaveBeenCalledWith({ formulas: ['Spike Snare'] })
+    expect(ranks).not.toHaveBeenCalled()
+  } finally { ranks.mockRestore() }
+})
 
 it('evaluates each proficiency level once per formula summary or editor render', () => {
   const character: Character = { ...c, level: 8, feats: [dedication], skillPicks: ['Survival'],
