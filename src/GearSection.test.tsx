@@ -150,6 +150,14 @@ it.each([
     .toBe(visible.some(name => name === entry.name))
 })
 
+it('keeps granted weapons out of the add-weapon picker', () => {
+  const granted: ContentEntry = { ...weapon, id: 'granted-sword', name: 'Granted Sword',
+    data: { ...weapon.data, granted_by_feat: true } }
+  const markup = renderToStaticMarkup(<OpenGearSearch c={character([])} entries={[granted]} save={() => {}}
+    kind="weapon" label="Add Weapon" onPick={() => {}} />)
+  expect(markup).not.toContain('Granted Sword')
+})
+
 it('shows specific magic item base types in the picker without changing saved names', () => {
   const armor: ContentEntry = { ...weapon, id: 'embrace', kind: 'armor', name: 'Ancestral Embrace', traits: ['Magical'],
     data: { named_armor: true, named_armor_base: 'Leather Armor', armor_category: 'Light' } }

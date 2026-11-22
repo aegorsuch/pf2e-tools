@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeBaseName, runeName, canBeOsteoArmament, osteoArmamentRune, activeBattleForm, withoutBattleForm, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
   activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
@@ -340,18 +340,33 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<(typeof TABS)[number]>('Standard')
   const [picked, setPicked] = useState<Record<string, string>>({})
-  if (!open) return <button type="button" className="gear-add" onClick={() => setOpen(true)}>{label}</button>
-  const pool = gearPickerEntries(entries, kind)
-  const filters = FILTERS[kind].map((f) => ({ ...f, options: f.fixed ?? [...new Set(pool.filter((e) => inTab(e, tab)).flatMap(f.values))].sort((a, b) => a.localeCompare(b)) }))
+  const pickerEntries = useMemo(() => !open || kind !== 'weapon' ? entries
+    : entries.filter(entry => entry.kind !== 'weapon' || !isLockedWeapon(c, entry.name, entries)), [c, entries, kind, open])
+  const pool = useMemo(() => open ? gearPickerEntries(pickerEntries, kind).map(entry => {
+    const displayName = equipmentDisplayName(specificMagicItemName(entry))
+    return {
+      entry,
+      displayName,
+      searchText: `${entry.name.replace(/[\u2018\u2019]/g, "'")} ${displayName}`.toLowerCase(),
+    }
+  }).sort((a, b) => a.displayName.localeCompare(b.displayName)) : [], [kind, open, pickerEntries])
+  const tabPool = useMemo(() => pool.filter(({ entry }) => inTab(entry, tab)), [pool, tab])
+  const filters = useMemo(() => FILTERS[kind].map((filter) => ({
+    ...filter,
+    options: filter.fixed ?? [...new Set(tabPool.flatMap(({ entry }) => filter.values(entry)))].sort((a, b) => a.localeCompare(b)),
+  })), [kind, tabPool])
   const query = q.trim().replace(/[\u2018\u2019]/g, "'").toLowerCase()
-  const matches = [...new Map(
-    pool
-      .filter((e) => inTab(e, tab) && (!query || [e.name.replace(/[\u2018\u2019]/g, "'"), equipmentDisplayName(specificMagicItemName(e))]
-        .some(name => name.toLowerCase().includes(query))))
-      .filter((e) => filters.every((f) => !picked[f.label] || f.values(e).includes(picked[f.label])))
-      .sort((a, b) => equipmentDisplayName(specificMagicItemName(a)).localeCompare(equipmentDisplayName(specificMagicItemName(b))))
-      .map((m) => [kind === 'weapon' ? combinationName(entries, m.name) : m.name, m]),
-  ).values()]
+  const matches = useMemo(() => {
+    const unique = new Map<string, ContentEntry>()
+    for (const { entry, searchText } of tabPool) {
+      if (query && !searchText.includes(query)) continue
+      if (!FILTERS[kind].every(filter => !picked[filter.label] || filter.values(entry).includes(picked[filter.label]))) continue
+      const key = kind === 'weapon' ? combinationName(entries, entry.name) : entry.name
+      if (!unique.has(key)) unique.set(key, entry)
+    }
+    return [...unique.values()]
+  }, [entries, kind, picked, query, tabPool])
+  if (!open) return <button type="button" className="gear-add" onClick={() => setOpen(true)}>{label}</button>
   const close = () => { setOpen(false); setQ(''); setPicked({}) }
   return (
     <div className="col gear-picker">
@@ -1071,7 +1086,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         {unknownHands ? 'Equipped weapon hands unavailable; unequip it or sync weapon content before equipping more.'
           : `Unequip weapons to use at most ${handLimit} hands in total.`}
       </small>}
-      {!displayOnly && <Search c={c} save={save} entries={entries.filter((entry) => entry.kind !== 'weapon' || !isLockedWeapon(c, entry.name, entries))} kind="weapon" label="Add Weapon"
+      {!displayOnly && <Search c={c} save={save} entries={entries} kind="weapon" label="Add Weapon"
         onPick={(e) => saveWeapons([...weapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [], stowed: true }])} />}
       {sorted.map((w) => {
         const a = weaponAttack(c, entries, w)

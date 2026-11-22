@@ -4828,8 +4828,38 @@ function dwarfClanWeaponGrants(c: Character, entries: ContentEntry[]): OwnedWeap
   ]
 }
 
+const dwarfClanWeaponGrantCache = new WeakMap<Character, WeakMap<ContentEntry[], Map<boolean, OwnedWeapon[]>>>()
+function cachedDwarfClanWeaponGrants(c: Character, entries: ContentEntry[]) {
+  let byEntries = dwarfClanWeaponGrantCache.get(c)
+  if (!byEntries) dwarfClanWeaponGrantCache.set(c, byEntries = new WeakMap())
+  let bySetting = byEntries.get(entries)
+  if (!bySetting) byEntries.set(entries, bySetting = new Map())
+  const adoptedDwarf = !!getSettings().adoptedDwarfClanDagger
+  let grants = bySetting.get(adoptedDwarf)
+  if (!grants) bySetting.set(adoptedDwarf, grants = dwarfClanWeaponGrants(c, entries))
+  return grants
+}
+
+const grantedWeaponCache = new WeakMap<ContentEntry[], { names: Set<string>; ids: Set<string> }>()
+function grantedWeaponIndex(entries: ContentEntry[]) {
+  let index = grantedWeaponCache.get(entries)
+  if (!index) {
+    const names = new Set<string>()
+    const ids = new Set<string>()
+    for (const entry of entries) {
+      if (entry.kind === 'weapon' && (entry.data.granted_by_heritage || entry.data.granted_by_feat)) {
+        names.add(entry.name)
+        ids.add(entry.id)
+      }
+    }
+    index = { names, ids }
+    grantedWeaponCache.set(entries, index)
+  }
+  return index
+}
+
 export function isGrantedDwarfClanWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
-  return dwarfClanWeaponGrants(c, entries).some(grant => grant.id === weapon.id)
+  return cachedDwarfClanWeaponGrants(c, entries).some(grant => grant.id === weapon.id)
 }
 
 export function clanDaggerFiligreeBonus(c: Character, entries: ContentEntry[]) {
@@ -5470,11 +5500,8 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || name === HAFT_STRIKER_WEAPON.name && !!haftStrikerSource(c, entries)
   || name === OVERSIZED_THROW.name && canOversizedThrow(c)
   || ARMOR_GAUNTLETS.some((option) => option === name) && name === armorGauntlet(c, entries)?.name
-  || entries.some(entry => entry.kind === 'weapon' && entry.data.granted_by_heritage
-    && (id ? entry.id === id : entry.name === name))
-  || entries.some(entry => entry.kind === 'weapon' && entry.data.granted_by_feat
-    && (id ? entry.id === id : entry.name === name))
-  || dwarfClanWeaponGrants(c, entries).some(weapon => weapon.name === name && (!id || weapon.id === id))
+  || (id ? grantedWeaponIndex(entries).ids.has(id) : grantedWeaponIndex(entries).names.has(name))
+  || cachedDwarfClanWeaponGrants(c, entries).some(weapon => weapon.name === name && (!id || weapon.id === id))
 export function weaponEntry(entries: ContentEntry[], name: string, id?: string) {
   let entry = resolveWeaponEntry(entries, name, id)
   if (entry?.source === 'homebrew' && entry.data.url && (entry.traits.some(trait => /^(?:two-hand|deadly|fatal(?: aim)?)$/i.test(trait.trim()))
