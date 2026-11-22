@@ -7272,7 +7272,15 @@ export function languageGroups(entries: ContentEntry[]): Record<string, [string,
     return (ai < 0 ? order.length : ai) - (bi < 0 ? order.length : bi) || a.localeCompare(b)
   }))
 }
-const allLanguages = (entries: ContentEntry[]) => Object.values(languageGroups(entries)).flat().map(([name]) => name)
+const languageNameCache = new WeakMap<ContentEntry[], Set<string>>()
+function knownLanguages(entries: ContentEntry[]) {
+  let names = languageNameCache.get(entries)
+  if (!names) {
+    names = new Set(Object.values(languageGroups(entries)).flat().map(([name]) => name.toLowerCase()))
+    languageNameCache.set(entries, names)
+  }
+  return names
+}
 // Languages a class always teaches
 const CLASS_LANGUAGES: Record<string, string[]> = { Druid: ['Wildsong'] }
 
@@ -7287,25 +7295,26 @@ export function migrateAncestralLinguistics(c: Character): Partial<Character> | 
 // Fixed languages (Common, ancestry, class) plus how many more the character may pick
 export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const ancestry = byName(entries, 'ancestry', c.ancestry)
-  const known = new Set(allLanguages(entries).map((l) => l.toLowerCase()))
+  const known = knownLanguages(entries)
   const fromAncestry = tokens(ancestry?.data.language).map(titleCase).filter((l) => known.has(l.toLowerCase()))
-  const heritageGrants = characterHeritages(c, entries).flatMap(heritage =>
+  const heritages = characterHeritages(c, entries)
+  const heritageGrants = heritages.flatMap(heritage =>
     tokens(heritage.data.grants_languages).map(lang => ({ lang: titleCase(lang), source: heritage.name })))
     .filter(grant => known.has(grant.lang.toLowerCase()))
   const featGrants = c.feats.flatMap((f) => tokens(selectedFeatEntry(c, entries, f.name, f.sourceId)?.data.grants_languages).map((l) => ({ lang: titleCase(l), source: f.name })))
     .filter((g) => known.has(g.lang.toLowerCase()))
   const fromFeats = featGrants.map((g) => g.lang)
-  const heritageSlots = characterHeritages(c, entries).flatMap(heritage =>
+  const heritageSlots = heritages.flatMap(heritage =>
     typeof heritage.data.grants_language_slots === 'string' ? heritage.data.grants_language_slots.split(';') : [])
     .reduce((total, grant) => {
       const [level, count] = grant.split(':').map(Number)
       return Number.isInteger(level) && level <= c.level && Number.isInteger(count) ? total + count : total
     }, 0)
-  const grantsMultilingual = characterHeritages(c, entries).some(heritage =>
+  const grantsMultilingual = heritages.some(heritage =>
     typeof heritage.data.grants_heritage_feats === 'string'
       && heritage.data.grants_heritage_feats.split(';').includes('Multilingual'))
   const multilingualCount = Math.max(activeFeatsNamed(c, 'Multilingual').length, grantsMultilingual ? 1 : 0)
-  const polyglotBonus = characterHeritages(c, entries).some(heritage => heritage.name === 'Polyglot Android')
+  const polyglotBonus = heritages.some(heritage => heritage.name === 'Polyglot Android')
     && multilingualCount > 0 ? 1 : 0
   const sources: Record<string, string> = Object.fromEntries([
     ...fromAncestry.map((l) => [l.toLowerCase(), `${c.ancestry} Ancestry`]),
