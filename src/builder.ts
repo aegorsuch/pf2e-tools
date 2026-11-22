@@ -365,7 +365,25 @@ export const GRANTED_SLOTS: Record<string, { category: FeatSlotCategory; level: 
   'Multitalented': { category: 'archetype', level: 2 },
 }
 
-export const activeFeatsNamed = (c: Character, name: string) => c.feats.filter((feat) => feat.name === name && featTakenLevel(feat) <= c.level)
+type CharacterFeat = Character['feats'][number]
+const activeFeatNameCache = new WeakMap<CharacterFeat[], Map<number, Map<string, CharacterFeat[]>>>()
+
+export const activeFeatsNamed = (c: Character, name: string) => {
+  let levels = activeFeatNameCache.get(c.feats)
+  if (!levels) activeFeatNameCache.set(c.feats, levels = new Map())
+  let byName = levels.get(c.level)
+  if (!byName) {
+    byName = new Map()
+    for (const feat of c.feats) {
+      if (featTakenLevel(feat) > c.level) continue
+      const matches = byName.get(feat.name)
+      if (matches) matches.push(feat)
+      else byName.set(feat.name, [feat])
+    }
+    levels.set(c.level, byName)
+  }
+  return byName.get(name)?.slice() ?? []
+}
 export const hasCyborgHeritage = (c: Character) => c.level >= 1 && c.systems.includes('sf2e') && c.heritage === 'Cyborg'
 export const cyborgTestSubject = (c: Character) => hasCyborgHeritage(c) && getSettings().cyborgTestSubject
 export const testSubjectAdaptation = (c: Character) =>
