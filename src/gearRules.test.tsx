@@ -1385,6 +1385,23 @@ it('uses only an equipped upgraded weapon for Protection Grid parry', () => {
   expect(hasParryWeapon({ ...c, weapons: [{ ...weapon, stowed: true }] }, [blade, grid])).toBe(false)
 })
 
+it.each(['Battleglove', 'Gauntlet', 'Spiked Gauntlet'])('inherits unarmed traits and tactical grid parry for %s', name => {
+  const grid = { ...content('item', 'Protection Grid (Tactical)', { item_subcategory: 'Weapon Upgrades' }, 17),
+    id: 'grid', systems: ['sf2e' as const] }
+  const glove = { ...content('weapon', name, { weapon_category: 'Simple', weapon_type: 'Melee', hands: 1,
+    damage: '1d4 B', upgrade_slots: 1 }, 0, ['Agile', 'Free-Hand', 'Analog']), systems: ['sf2e' as const] }
+  const weapon: OwnedWeapon = { id: 'glove', name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, systems: ['sf2e'], level: 17, parrying: true, weapons: [weapon],
+    handwraps: { kind: 'hardlight', grade: 'Ultimate', potency: 0, striking: 0, runes: [], upgrades: [grid.id] } }
+  const entries = [glove, grid]
+  expect(weaponAttack(c, entries, weapon).traits).toContain('Parry')
+  expect(hasParryWeapon(c, entries)).toBe(true)
+  expect(parryValue(c, entries)).toBe(2)
+  expect(armorClass(c, entries) - armorClass({ ...c, parrying: false }, entries)).toBe(2)
+  expect(weaponAttack({ ...c, handwraps: undefined }, entries, weapon).traits).not.toContain('Parry')
+  expect(hasParryWeapon({ ...c, handwraps: undefined }, entries)).toBe(false)
+})
+
 it('shows loudener damage and merciful restrictions on hardlight attacks', () => {
   const upgrades = ['Loudener (Tactical)', 'Merciful', 'Flaming Module (Commercial)'].map(name => ({
     ...content('item', name, { item_subcategory: 'Weapon Upgrades' }, 8), systems: ['sf2e' as const],

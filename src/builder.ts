@@ -2656,7 +2656,8 @@ function defensiveArmamentsParry(c: Character, weapon: OwnedWeapon, entry = weap
 function weaponHasParry(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const enhanced = effectiveWeapon(c, entries, weapon)
   const entry = weaponEntry(entries, enhanced.name, enhanced.id)
-  return hasParryTrait(entry) || defensiveGunnerParry(c, entry) || (activeFeatsNamed(c, 'Raise Haft').length > 0
+  return hasParryTrait(entry) || isFistWeapon(entry, weapon) && inheritedGauntletTraits(c, entries).some(trait => /^parry$/i.test(trait))
+    || defensiveGunnerParry(c, entry) || (activeFeatsNamed(c, 'Raise Haft').length > 0
     && weaponHands(entries, enhanced, c) === 2) || defensiveArmamentsParry(c, enhanced, entry)
     || enhanced.runes.some(rune => runeName(rune) === 'Parrying'
       && weaponRuneApplies(entries, enhanced, rune)) && weaponAttack(c, entries, weapon).rank > 0
@@ -2736,7 +2737,10 @@ export function parryValue(c: Character, entries: ContentEntry[]) {
     && ownedWeapons(c, entries).some(weapon => weaponEquipped(c, entries, weapon)
       && weaponHands(entries, weapon, c) === 2 && hasParryTrait(weaponEntry(entries, weapon.name, weapon.id))) ? 2 : 0
   const tacticalGrid = ownedWeapons(c, entries).some(weapon => weaponEquipped(c, entries, weapon)
-    && installedWeaponUpgrades(c, entries, weapon).some(upgrade => /^Protection Grid \(Tactical\)$/i.test(upgrade.name)))
+    && [...installedWeaponUpgrades(c, entries, weapon),
+      ...(isFistWeapon(weaponEntry(entries, weapon.name, weapon.id), weapon)
+        ? installedWeaponUpgrades(c, entries, { id: FIST.id, name: FIST.name, potency: 0, striking: 0, runes: [] }) : []),
+    ].some(upgrade => /^Protection Grid \(Tactical\)$/i.test(upgrade.name)))
   const defensiveGunnerBonus = ownedWeapons(c, entries).some(weapon => {
     const entry = weaponEntry(entries, weapon.name, weapon.id)
     if (!weaponEquipped(c, entries, weapon) || !defensiveGunnerParry(c, entry)) return false
@@ -6474,7 +6478,12 @@ export function armorCategory(entry?: ContentEntry): 'Light' | 'Medium' | 'Heavy
   return (['Light', 'Medium', 'Heavy'] as const).find((cat) => new RegExp(`\\b${cat.toLowerCase()}\\b`).test(text)) ?? (/unarmored/.test(text) || !entry ? 'Unarmored' : 'Light')
 }
 
-function inheritedGauntletTraits(c: Character, entries: ContentEntry[]) {
+function isFistWeapon(entry: ContentEntry | undefined, weapon: OwnedWeapon) {
+  return !!entry && !isRanged(entry) && (weapon.id === GAUNTLET.id || ARMOR_GAUNTLETS.some(name => name === weapon.name)
+    || /\bbattlegloves?$/i.test(entry.name))
+}
+
+function inheritedGauntletTraits(c: Character, entries: ContentEntry[]): string[] {
   const activeCharacter = { ...c, feats: c.feats.filter(feat => featTakenLevel(feat) <= c.level) }
   const unarmed = [
     { id: FIST.id, name: FIST.name, potency: 0, striking: 0, runes: [] },
@@ -6482,8 +6491,7 @@ function inheritedGauntletTraits(c: Character, entries: ContentEntry[]) {
       .filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed'),
   ]
   return [...new Set(unarmed.flatMap(weapon => {
-    const entry = weaponEntry(entries, weapon.name, weapon.id)
-    return entry?.traits ?? (weapon.id === FIST.id ? FIST.traits : [])
+    return weaponAttack(activeCharacter, entries, weapon).traits
   }).filter(trait => !/^(?:unarmed|free[- ]hand)$/i.test(trait.trim())))]
 }
 
@@ -6565,7 +6573,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const mechanicMods = c.className === 'Mechanic' && c.systems.includes('sf2e') && weaponCategory(entry) !== 'Unarmed'
     ? c.mechanicWeaponMods?.[w.id] : undefined
   if (entry && !isRanged(entry)) {
-    const gauntlet = w.id === GAUNTLET.id || ARMOR_GAUNTLETS.some(name => name === w.name)
+    const gauntlet = isFistWeapon(entry, w)
     const shield = getSettings().bucklerMeleeFinesse ? shieldAttachmentSource(c, w) : undefined
     const existingTraits = entry.traits.map(trait => trait.toLowerCase())
     const added = [

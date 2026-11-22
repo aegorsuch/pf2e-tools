@@ -327,7 +327,7 @@ it('derives and locks one gauntlet while eligible armor is worn, preserving inde
   expect(isLockedWeapon(c, gauntlet.name)).toBe(true)
   expect(weaponCategory(GAUNTLET)).toBe('Simple')
   expect(weaponAttack(c, [], gauntlet)).toMatchObject({
-    ability: 'dex', item: 0, damage: '1d4+1 bludgeoning', traits: ['Agile', 'Finesse', 'Free-Hand', 'Nonlethal'],
+    ability: 'dex', item: 0, damage: '1d4+1 bludgeoning', traits: ['Agile', 'Finesse', 'Free-Hand', 'Grapple', 'Nonlethal', 'Shove'],
   })
   const configured = { ...gauntlet, potency: 2, striking: 1, runes: ['Flaming'] }
   const saved = { ...c, weapons: [configured] }
