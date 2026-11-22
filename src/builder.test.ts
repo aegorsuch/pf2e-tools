@@ -2171,6 +2171,46 @@ describe('languageGroups', () => {
     expect(languageGroups(synced).Common.filter(([n]) => n === 'Elven')).toHaveLength(1)
     expect(Object.keys(languageGroups([]))).toContain('Rare')
   })
+
+  it('shows Starfinder speakers and common or uncommon classifications without duplicating synced languages', () => {
+    const synced: ContentEntry[] = [
+      { ...entry('language', 'Akitonian', { rarity: 'Common' }), systems: ['sf2e'], description: '' },
+      { ...entry('language', 'Orcish', { rarity: 'Uncommon' }), systems: ['sf2e'], description: '' },
+    ]
+    const groups = languageGroups(synced, ['sf2e'])
+    expect(groups.Common).toEqual(expect.arrayContaining([
+      ['Common', 'Humans, most citizens of the Pact Worlds'], ['Kasatha', 'Kasathas, inhabitants of Kasath or the Idari'],
+      ['Pahtra', 'Pahtras'], ['Akitonian', 'Akiton (shobhads, ysoki)'],
+      ['Brethedan', 'Bretheda, Liavara, and their moons (barathus, kalos, maraquoi)'],
+      ['Castrovelian', 'Castrovel (lashuntas and formians)'], ['Diasporan', 'Diaspora (sarcesians)'],
+      ['Draconic', 'Triaxus (dragons, dragonkin, ryphorians)'], ['Eoxian', 'Eox (elebrians)'],
+      ['Trinary', 'Aballon (anacites, androids)'], ['Vercite', 'Verces (verthani)'],
+      ['Vesk', 'Pulonis, the Veskarium (pahtras, vesk)'],
+    ]))
+    expect(groups.Uncommon).toEqual(expect.arrayContaining([
+      ['Aklo', 'Evil fey, otherworldly monsters'], ['Chthonian', 'Demons'], ['Diabolic', 'Devils'],
+      ['Empyrean', 'Angels'], ['Muan', 'Wood elemental creatures'], ['Necril', 'Undead'],
+      ['Orcish', 'Orcs, dromaars'], ['Petran', 'Earth elemental creatures'], ['Pyric', 'Fire elemental creatures'],
+      ['Shadowtongue', 'Netherworld creatures'], ['Sussuran', 'Air elemental creatures, flying creatures'],
+      ['Talican', 'Metal elemental creatures'], ['Thalassic', 'Aquatic creatures, water elemental creatures'],
+    ]))
+    expect(groups.Common.filter(([name]) => name === 'Akitonian')).toHaveLength(1)
+    expect(groups.Common.some(([name]) => name === 'Orcish')).toBe(false)
+    const both = languageGroups(synced, ['pf2e', 'sf2e'])
+    expect(both.Common).toContainEqual(['Draconic', 'Dragons, reptilian humanoids; Triaxus (dragons, dragonkin, ryphorians)'])
+    expect(both.Common.filter(([name]) => name === 'Orcish')).toHaveLength(1)
+    expect(both.Uncommon.some(([name]) => name === 'Orcish')).toBe(false)
+    expect(languageGroups([], ['pf2e']).Common.some(([name]) => name === 'Akitonian')).toBe(false)
+  })
+
+  it('recognizes Starfinder ancestry languages with and without synced entries', () => {
+    for (const entries of [[], [entry('language', 'Elven', { rarity: 'Common' })]]) {
+      entries.push({ ...entry('ancestry', 'Kasatha', { language: 'Common, Kasatha' }), systems: ['sf2e'] })
+      const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Kasatha' }
+      expect(languageAllowance(c, entries).locked).toContain('Kasatha')
+      expect(languageAllowance({ ...c, systems: ['pf2e'] }, entries).locked).not.toContain('Kasatha')
+    }
+  })
 })
 
 describe('automatic class skill training', () => {

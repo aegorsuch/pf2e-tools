@@ -3,7 +3,7 @@ import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, companionItemName, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, LANGUAGE_CATEGORIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, magicHideChange, migrateAncestralLinguistics, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
+import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, languageGroups, magicHideChange, migrateAncestralLinguistics, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
 import { CompanionSpellOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
@@ -465,7 +465,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     <Info label={stats.auspiceLanguage}>
                       {(() => {
                         const language = stats.auspiceLanguage!.toLowerCase()
-                        const speakers = Object.values(LANGUAGE_CATEGORIES).flat().find(([name]) => name.toLowerCase() === language)?.[1]
+                        const speakers = Object.values(languageGroups(entries, c.systems)).flat().find(([name]) => name.toLowerCase() === language)?.[1]
                           || entries.find(entry => entry.kind === 'language' && entry.name.toLowerCase() === language)?.description
                         return speakers ? `Speakers: ${speakers.replace(/\.$/, '')}` : 'Speakers unavailable.'
                       })()}

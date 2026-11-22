@@ -1,4 +1,4 @@
-import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
+import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, GameSystem, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
@@ -7399,11 +7399,48 @@ export const LANGUAGE_CATEGORIES: Record<string, [string, string][]> = {
 }
 const RARITY_ORDER = ['Common', 'Uncommon', 'Secret', 'Rare']
 
-export function languageGroups(entries: ContentEntry[]): Record<string, [string, string][]> {
+const STARFINDER_LANGUAGES: Record<string, [string, string][]> = {
+  Common: [
+    ['Common', 'Humans, most citizens of the Pact Worlds'], ['Kasatha', 'Kasathas, inhabitants of Kasath or the Idari'],
+    ['Pahtra', 'Pahtras'], ['Akitonian', 'Akiton (shobhads, ysoki)'],
+    ['Brethedan', 'Bretheda, Liavara, and their moons (barathus, kalos, maraquoi)'],
+    ['Castrovelian', 'Castrovel (lashuntas and formians)'], ['Diasporan', 'Diaspora (sarcesians)'],
+    ['Draconic', 'Triaxus (dragons, dragonkin, ryphorians)'], ['Eoxian', 'Eox (elebrians)'],
+    ['Trinary', 'Aballon (anacites, androids)'], ['Vercite', 'Verces (verthani)'],
+    ['Vesk', 'Pulonis, the Veskarium (pahtras, vesk)'],
+  ],
+  Uncommon: [
+    ['Aklo', 'Evil fey, otherworldly monsters'], ['Chthonian', 'Demons'], ['Diabolic', 'Devils'],
+    ['Empyrean', 'Angels'], ['Muan', 'Wood elemental creatures'], ['Necril', 'Undead'],
+    ['Orcish', 'Orcs, dromaars'], ['Petran', 'Earth elemental creatures'], ['Pyric', 'Fire elemental creatures'],
+    ['Shadowtongue', 'Netherworld creatures'], ['Sussuran', 'Air elemental creatures, flying creatures'],
+    ['Talican', 'Metal elemental creatures'], ['Thalassic', 'Aquatic creatures, water elemental creatures'],
+  ],
+}
+
+export function languageGroups(entries: ContentEntry[], systems: GameSystem[] = ['pf2e']): Record<string, [string, string][]> {
   const synced = entries.filter((e) => e.kind === 'language' && !e.deleted)
   const defaults = synced.length ? CORE_LANGUAGES : LANGUAGE_CATEGORIES
   const groups: Record<string, [string, string][]> = Object.fromEntries(
     Object.entries(defaults).map(([category, languages]) => [category, [...languages]]))
+  if (systems.includes('sf2e')) {
+    for (const [category, languages] of Object.entries(STARFINDER_LANGUAGES)) {
+      for (const [name, speakers] of languages) {
+        const existingCategory = Object.keys(groups).find(group => groups[group].some(([value]) => value.toLowerCase() === name.toLowerCase()))
+        if (!existingCategory) {
+          ;(groups[category] ??= []).push([name, speakers])
+          continue
+        }
+        const index = groups[existingCategory].findIndex(([value]) => value.toLowerCase() === name.toLowerCase())
+        const previous = groups[existingCategory][index][1]
+        const combined = systems.includes('pf2e') && previous !== speakers ? `${previous}; ${speakers}` : speakers
+        if (!systems.includes('pf2e') && existingCategory !== category) {
+          groups[existingCategory].splice(index, 1)
+          ;(groups[category] ??= []).push([name, combined])
+        } else groups[existingCategory][index] = [name, combined]
+      }
+    }
+  }
   const seen = new Set(Object.values(groups).flat().map(([name]) => name.toLowerCase()))
   for (const e of synced) {
     const key = e.name.toLowerCase()
@@ -7422,12 +7459,18 @@ export function languageGroups(entries: ContentEntry[]): Record<string, [string,
     return (ai < 0 ? order.length : ai) - (bi < 0 ? order.length : bi) || a.localeCompare(b)
   }))
 }
-const languageNameCache = new WeakMap<ContentEntry[], Set<string>>()
-function knownLanguages(entries: ContentEntry[]) {
-  let names = languageNameCache.get(entries)
+const languageNameCache = new WeakMap<ContentEntry[], Map<string, Set<string>>>()
+function knownLanguages(entries: ContentEntry[], systems: GameSystem[]) {
+  let bySystem = languageNameCache.get(entries)
+  if (!bySystem) {
+    bySystem = new Map()
+    languageNameCache.set(entries, bySystem)
+  }
+  const key = `${systems.includes('pf2e')}:${systems.includes('sf2e')}`
+  let names = bySystem.get(key)
   if (!names) {
-    names = new Set(Object.values(languageGroups(entries)).flat().map(([name]) => name.toLowerCase()))
-    languageNameCache.set(entries, names)
+    names = new Set(Object.values(languageGroups(entries, systems)).flat().map(([name]) => name.toLowerCase()))
+    bySystem.set(key, names)
   }
   return names
 }
@@ -7445,7 +7488,7 @@ export function migrateAncestralLinguistics(c: Character): Partial<Character> | 
 // Fixed languages (Common, ancestry, class) plus how many more the character may pick
 export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const ancestry = byName(entries, 'ancestry', c.ancestry)
-  const known = knownLanguages(entries)
+  const known = knownLanguages(entries, c.systems)
   const fromAncestry = tokens(ancestry?.data.language).map(titleCase).filter((l) => known.has(l.toLowerCase()))
   const heritages = characterHeritages(c, entries)
   const heritageGrants = heritages.flatMap(heritage =>

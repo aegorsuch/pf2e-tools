@@ -5,7 +5,7 @@ export function LanguagesSection({ c, entries, save }: SectionProps) {
   const [query, setQuery] = useState('')
   const q = query.trim().toLowerCase()
   const { locked, slots, sources, commonOnlySlots } = languageAllowance(c, entries)
-  const groups = languageGroups(entries)
+  const groups = languageGroups(entries, c.systems)
   const common = new Set((groups.Common ?? []).map(([language]) => language.toLowerCase()))
   const lockedKeys = new Set(locked.map((l) => l.toLowerCase()))
   const listed = new Set(Object.values(groups).flat().map(([l]) => l.toLowerCase()))

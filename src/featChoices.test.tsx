@@ -362,6 +362,17 @@ it("restricts Officer's Education language slots to common languages without tra
   expect(FeatChoice({ c, entries: [], save: () => {}, index: 0 })).toBeNull()
 })
 
+it('shows Starfinder speakers and allows common regional languages in common-only slots', () => {
+  const c: Character = { ...base, systems: ['sf2e'], level: 8, languages: ['Aklo'],
+    feats: [{ name: "Officer's Education", type: 'Class Feat', level: 8, slot: 'class:8:0' }] }
+  const markup = renderToStaticMarkup(<LanguagesSection c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('Akiton (shobhads, ysoki)')
+  expect(markup).toContain('Kasathas, inhabitants of Kasath or the Idari')
+  expect(markup).toMatch(/<input type="checkbox"\/> Akitonian/)
+  expect(markup).toMatch(/<input type="checkbox" disabled="".*?\/> Orcish/)
+  expect(markup).toContain('>Undead</td>')
+})
+
 it('persists chained researched traditions, requiring Expert first and one new Trained tradition per selected Master skill', () => {
   let c: Character = { ...base, level: 13, rankOverrides: { Arcana: 2, Nature: 1, Occultism: 1, Religion: 0 },
     feats: [{ name: 'Researched Spell Resistance', type: 'Ancestry Feat', level: 13, slot: 'ancestry:13:0' }] }
