@@ -295,7 +295,7 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
     ...(group === 'Mask' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Warmask').length
       ? [{ kind: 'warmask' as const, name: adoptedAncestryText(c, 'Orc Warmask') }] : []),
   ].sort((a, b) => a.name.localeCompare(b.name))
-  const alwaysAvailable = WORN_EQUIPMENT_GROUPS.some(name => name === group) || group === 'Grafts' || group === 'Tattoos'
+  const alwaysAvailable = WORN_EQUIPMENT_GROUPS.some(name => name === group) || group === 'Grafts' || group === 'Tattoos' || group === 'Toolkits'
   if (!displayed.length && !alwaysAvailable) return null
   const body = displayed.length > 0 && <ul>
     {displayed.map(display => {
@@ -529,7 +529,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
       else if ((entry.kind === 'weapon' || entry.kind === 'armor') && !fallback.has(entry.name)) fallback.set(entry.name, entry)
     }
     const groups: Record<EquipmentGroupName, EquipmentRow[]> = {
-      Arrows: [], Bolts: [], Bullets: [], Grafts: [], 'Other equipment': [], Poisons: [], Tattoos: [],
+      Arrows: [], Bolts: [], Bullets: [], Grafts: [], 'Other equipment': [], Poisons: [], Tattoos: [], Toolkits: [],
       Arms: [], Backpacks: [], Belt: [], Body: [], Boots: [], Bracelets: [], Chest: [], Cloaks: [], Clothing: [],
       Eyes: [], Eyewear: [], Face: [], Feet: [], Gloves: [], Hands: [], Handwraps: [], Head: [], Headband: [], Headwear: [],
       Mask: [], Neck: [], Necklaces: [], Rings: [], Shoulders: [], Throat: [], Torso: [], Wrists: [], 'Other Worn Items': [],
@@ -867,6 +867,7 @@ export function CharacterBuilder({ character: c, catalog, onClose, deityLores = 
           <EquipmentGroup {...section} group="Shoulders" rows={equipmentGroups.Shoulders} />
           <EquipmentGroup {...section} group="Tattoos" rows={equipmentGroups.Tattoos} />
           <EquipmentGroup {...section} group="Throat" rows={equipmentGroups.Throat} />
+          <EquipmentGroup {...section} group="Toolkits" rows={equipmentGroups.Toolkits} />
           <EquipmentGroup {...section} group="Torso" rows={equipmentGroups.Torso} />
           <WeaponProficiency c={c} entries={entries} />
           <h4>Weapons</h4>

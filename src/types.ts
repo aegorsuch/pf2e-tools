@@ -4,7 +4,7 @@ export const WORN_EQUIPMENT_GROUPS = [
   'Face', 'Feet', 'Gloves', 'Hands', 'Handwraps', 'Head', 'Headband', 'Headwear', 'Mask', 'Neck', 'Necklaces', 'Rings', 'Shoulders',
   'Throat', 'Torso', 'Wrists', 'Other Worn Items',
 ] as const
-export const EQUIPMENT_GROUPS = ['Arrows', 'Bolts', 'Bullets', 'Grafts', 'Other equipment', 'Poisons', 'Tattoos', ...WORN_EQUIPMENT_GROUPS] as const
+export const EQUIPMENT_GROUPS = ['Arrows', 'Bolts', 'Bullets', 'Grafts', 'Other equipment', 'Poisons', 'Tattoos', 'Toolkits', ...WORN_EQUIPMENT_GROUPS] as const
 export type EquipmentGroupName = typeof EQUIPMENT_GROUPS[number]
 export type EntryKind =
   | 'feat' | 'weapon' | 'armor' | 'spell' | 'ritual' | 'item' | 'ancestry' | 'class'

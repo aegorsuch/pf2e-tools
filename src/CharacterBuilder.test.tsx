@@ -636,7 +636,7 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
     const headers = [...equipment.matchAll(/<h4>([^<]+)(?:<small\b[^>]*>[^<]*<\/small>)?<\/h4>/g)].map(match => match[1].trim())
     expect(headers).toEqual(['Armor', 'Arms', 'Arrows', 'Augmentations', 'Backpacks', 'Belt', 'Body', 'Bolts', 'Boots', 'Bracelets', 'Bullets',
       'Chest', 'Cloaks', 'Clothing', 'Eyes', 'Eyewear', 'Face', 'Feet', 'Gadgets', 'Gloves', 'Grafts', 'Grenade Specialist', 'Hands', 'Handwraps', 'Head', 'Headband', 'Headwear',
-      'Mask', 'Munitions', 'Neck', 'Necklaces', 'Other equipment', 'Other Worn Items', 'Poisons', 'Rings', 'Shield', 'Shoulders', 'Tattoos', 'Throat', 'Torso', 'Weapons', 'Wrists'])
+      'Mask', 'Munitions', 'Neck', 'Necklaces', 'Other equipment', 'Other Worn Items', 'Poisons', 'Rings', 'Shield', 'Shoulders', 'Tattoos', 'Throat', 'Toolkits', 'Torso', 'Weapons', 'Wrists'])
     expect(equipment.indexOf('<h4>Cheek Pouches')).toBeGreaterThan(equipment.indexOf('<h4>Bullets</h4>'))
     expect(equipment.indexOf('<h4>Cheek Pouches')).toBeLessThan(equipment.indexOf('<h4>Gadgets</h4>'))
     expect(equipment.slice(equipment.indexOf('<h4>Grafts</h4>'), equipment.indexOf('<h4>Handwraps</h4>'))).toContain('Caligni Eyes')
@@ -662,7 +662,7 @@ it('keeps empty Equipment categories available with accessible plus controls and
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-  for (const category of ['Tattoos', 'Grafts', ...WORN_EQUIPMENT_GROUPS]) {
+  for (const category of ['Tattoos', 'Grafts', 'Toolkits', ...WORN_EQUIPMENT_GROUPS]) {
     expect(markup).toContain(`aria-label="Add ${category}" title="Add ${category}" aria-expanded="false"`)
     expect(markup).not.toContain(`aria-label="Search ${category.toLowerCase()}"`)
   }
@@ -671,6 +671,27 @@ it('keeps empty Equipment categories available with accessible plus controls and
   expect(markup).not.toContain('do not impose body-slot limits')
   expect(markup).not.toContain('<h4>Worn Items</h4>')
   expect(c.equipment).toEqual([])
+})
+
+it('groups existing and selectable toolkits separately from other equipment', () => {
+  const item = (name: string): ContentEntry => ({ id: name, name, kind: 'item', systems: ['sf2e'], source: 'official',
+    level: 1, traits: [], description: '', data: { item_category: 'Adventuring Gear' }, effects: [], updatedAt: 0 })
+  const entries = [item('Hacking Toolkit (Tactical)'), item('Medkit'), item('Rope')]
+  const c: Character = { id: 'toolkits', systems: ['sf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [{ name: entries[0].name, qty: 1, group: 'Other equipment' }],
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(equipmentGroupName(entries[0], entries[0].name, 'Other equipment')).toBe('Toolkits')
+  const search = renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} category="Toolkits" />)
+  expect(search).toContain('Add Hacking Toolkit (Tactical)')
+  expect(search).toContain('Add Medkit')
+  expect(search).not.toContain('Add Rope')
+  content.entries = entries
+  try {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    const section = markup.slice(markup.indexOf('<h4>Toolkits</h4>'), markup.indexOf('<h4>Torso</h4>'))
+    expect(section).toContain('Hacking Toolkit (Tactical)')
+  } finally { content.entries = [] }
 })
 
 it('shows existing equipment stacks without quantity controls', () => {
