@@ -3047,6 +3047,14 @@ export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {
   return subclassOptions(c, entries).find((entry) => names.has(entry.name))?.name
 }
 
+export function precisionEdgeDamageDice(c: Character, entries: ContentEntry[] = []) {
+  if (!c.systems.includes('pf2e') || c.className !== 'Ranger' || selectedSubclass(c, entries) !== 'Precision') return 0
+  const savedHits = c.rangerPrecisionHitsThisRound
+  const hits = typeof savedHits === 'number' && Number.isInteger(savedHits) ? Math.max(0, savedHits) : 0
+  if (c.level >= 19) return Math.max(0, 3 - hits)
+  return hits === 0 ? c.level >= 11 ? 2 : 1 : 0
+}
+
 export function classLabel(c: Character, entries: ContentEntry[] = []) {
   if (!c.className) return ''
   const subclass = selectedSubclass(c, entries)

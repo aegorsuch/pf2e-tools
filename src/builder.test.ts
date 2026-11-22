@@ -2,7 +2,7 @@ import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQue
 import { mapAonHit } from './aon'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import { classExtraSlots, classRepertoireRows, classSpellSlots } from './builder'
@@ -28,6 +28,20 @@ it('hides pack-only feats while multiple companions are disabled, including unme
     updateSettings({ singleAnimalCompanion: false })
     for (const feat of pack) expect(eligibleFeats([dedication, ...pack], c, slot)).toContain(feat)
   } finally { updateSettings({ singleAnimalCompanion: previous }) }
+})
+
+it.each([
+  [1, 0, 1], [10, 0, 1], [11, 0, 2], [18, 1, 0],
+  [19, 0, 3], [19, 1, 2], [19, 2, 1], [19, 3, 0],
+])('tracks Precision Edge damage at level %i after %i successful prey hits', (level, hits, expected) => {
+  const c: Character = { ...base, className: 'Ranger', subclass: 'Precision', level, rangerPrecisionHitsThisRound: hits }
+  expect(precisionEdgeDamageDice(c)).toBe(expected)
+})
+
+it('does not grant Precision Edge damage to other edges, classes, or rulesets', () => {
+  expect(precisionEdgeDamageDice({ ...base, className: 'Ranger', subclass: 'Flurry' })).toBe(0)
+  expect(precisionEdgeDamageDice({ ...base, className: 'Fighter', subclass: 'Precision' })).toBe(0)
+  expect(precisionEdgeDamageDice({ ...base, systems: ['sf2e'], className: 'Ranger', subclass: 'Precision' })).toBe(0)
 })
 
 it('merges equivalent cross-system ancestry feats after eligibility filtering but retains different rules and prerequisites', () => {

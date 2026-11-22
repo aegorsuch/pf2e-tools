@@ -184,6 +184,7 @@ export interface Character {
   gearAccessOverrides?: string[]
   className?: string
   subclass?: string
+  rangerPrecisionHitsThisRound?: number
   fatalMethod?: 'Puppeteer' | 'Reaper'
   heritage?: string
   testSubjectAdaptation?: 'Cybernetic Augmentation' | 'Extra Limbs' | 'Psychic Augmentation' | 'Radioactive'

@@ -1,5 +1,5 @@
 import { Info } from './Info'
-import { activeFeatsNamed, barbarianInstinct, canBeGiantWeapon, canBeOsteoArmament, canBeVerdantWeapon, isGiantInstinct, ownedWeapons, weaponEquipped, blessedArmamentRuneOptions, blessedArmamentTarget, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, runeBaseName, runeName, weaponRuneApplies, type SectionProps } from './builder'
+import { activeFeatsNamed, barbarianInstinct, canBeGiantWeapon, canBeOsteoArmament, canBeVerdantWeapon, isGiantInstinct, ownedWeapons, weaponEquipped, blessedArmamentRuneOptions, blessedArmamentTarget, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, precisionEdgeDamageDice, runeBaseName, runeName, selectedSubclass, weaponRuneApplies, type SectionProps } from './builder'
 import type { OwnedWeapon } from './types'
 import { ActionIcon } from './ActionIcon'
 import { HANDWRAPS } from './supplemental'
@@ -20,6 +20,9 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
   if (!c.className) return null
   const features = classFeatures(entries, c)
   const imported = entries.some((e) => e.kind === 'classFeature')
+  const precisionEdge = c.systems.includes('pf2e') && c.className === 'Ranger'
+    && selectedSubclass(c, entries) === 'Precision'
+  const precisionEdgeDice = precisionEdgeDamageDice(c, entries)
   const blessing = championBlessing(c)
   const extraBlessings = c.feats.flatMap((feat) => ['Second Blessing', 'Third Blessing'].includes(feat.name) && feat.choice ? [feat.choice] : [])
   const targets = c.className === 'Champion' && c.level >= 3 ? blessedArmamentTargets(c, entries) : []
@@ -129,6 +132,18 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
             {['Cold', 'Electricity', 'Fire'].map(name => <option key={name}>{name}</option>)}
           </select>
         </label>}
+      </div>}
+      {precisionEdge && <div className="col" aria-label="Precision Edge">
+        <span>Precision Edge{' '}
+          {precisionEdgeDice > 0
+            ? <DamageRoll name="Precision Edge" damage={{ label: 'Precision damage', dice: precisionEdgeDice, sides: 8, type: 'precision' }}
+              onRoll={() => save({ rangerPrecisionHitsThisRound: (c.rangerPrecisionHitsThisRound ?? 0) + 1 })} />
+            : 'Precision Edge damage used this round'}
+        </span>
+        <button type="button" disabled={!c.rangerPrecisionHitsThisRound}
+          onClick={() => save({ rangerPrecisionHitsThisRound: 0 })}>Reset for new round</button>
+        <SourceNote source="Precision Edge"
+          note={`Roll after a hit against hunted prey. First hit each round: ${c.level >= 19 ? '3d8' : c.level >= 11 ? '2d8' : '1d8'} precision damage.${c.level >= 19 ? ' Second hit: 2d8; third hit: 1d8.' : ''} Reset at the start of each new round.`} />
       </div>}
       {instinct === 'animal' && <div className="col" aria-label="Animal Instinct">
         <label>Animal{' '}

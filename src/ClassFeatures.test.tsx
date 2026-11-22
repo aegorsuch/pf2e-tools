@@ -4,6 +4,7 @@ import { expect, it } from 'vitest'
 import { ClassFeatures } from './ClassFeatures'
 import type { Character, ContentEntry } from './types'
 import { effectiveWeapon } from './builder'
+import { DamageRoll } from './SpellDamage'
 
 function findControl(node: ReactNode, label: string): { value?: string; onChange?: (event: { target: { value: string } }) => void } | undefined {
   for (const child of Children.toArray(node)) {
@@ -13,6 +14,47 @@ function findControl(node: ReactNode, label: string): { value?: string; onChange
     if (nested) return nested
   }
 }
+
+function findDamageRoll(node: ReactNode, name: string): { damage?: { dice: number }; onRoll?: () => void } | undefined {
+  for (const child of Children.toArray(node)) {
+    if (!isValidElement<{ name?: string; damage?: { dice: number }; onRoll?: () => void; children?: ReactNode }>(child)) continue
+    if (child.type === DamageRoll && child.props.name === name) return child.props
+    const nested = findDamageRoll(child.props.children, name)
+    if (nested) return nested
+  }
+}
+
+function findButton(node: ReactNode, label: string): { disabled?: boolean; onClick?: () => void } | undefined {
+  for (const child of Children.toArray(node)) {
+    if (!isValidElement<{ children?: ReactNode; disabled?: boolean; onClick?: () => void }>(child)) continue
+    if (child.type === 'button' && child.props.children === label) return child.props
+    const nested = findButton(child.props.children, label)
+    if (nested) return nested
+  }
+}
+
+it('tracks Precision Edge damage dice and resets at a new round', () => {
+  let c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Test', level: 19, className: 'Ranger', subclass: 'Precision',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const tree = () => ClassFeatures({ c, entries: [], save: patch => { c = { ...c, ...patch } } })
+  expect(findDamageRoll(tree(), 'Precision Edge')?.damage?.dice).toBe(3)
+  findDamageRoll(tree(), 'Precision Edge')?.onRoll?.()
+  expect(c.rangerPrecisionHitsThisRound).toBe(1)
+  expect(findDamageRoll(tree(), 'Precision Edge')?.damage?.dice).toBe(2)
+  findDamageRoll(tree(), 'Precision Edge')?.onRoll?.()
+  expect(c.rangerPrecisionHitsThisRound).toBe(2)
+  findDamageRoll(tree(), 'Precision Edge')?.onRoll?.()
+  expect(c.rangerPrecisionHitsThisRound).toBe(3)
+  expect(findDamageRoll(tree(), 'Precision Edge')).toBeUndefined()
+  expect(renderToStaticMarkup(tree())).toContain('Precision Edge damage used this round')
+  expect(findButton(tree(), 'Reset for new round')?.disabled).toBe(false)
+  findButton(tree(), 'Reset for new round')?.onClick?.()
+  expect(c.rangerPrecisionHitsThisRound).toBe(0)
+  expect(findDamageRoll(tree(), 'Precision Edge')?.damage?.dice).toBe(3)
+})
 
 it('labels class features with leading, zero-padded levels', () => {
   const c: Character = {
