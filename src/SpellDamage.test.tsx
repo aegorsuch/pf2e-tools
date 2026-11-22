@@ -86,6 +86,21 @@ it('rolls Divine Decree spirit damage at its cast rank without save outcomes', (
   }
 })
 
+it('rolls Shatter sonic damage at its cast rank', () => {
+  const entry: ContentEntry = { id: 'shatter', name: 'Shatter', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 2, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 1)).toEqual([])
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  for (const rank of [2, 3, 10]) {
+    const [damage] = spellDamage(entry.name, rank)
+    expect(damage).toEqual({ label: 'Damage', dice: rank, sides: 10, type: 'sonic' })
+    expect(rollSpellDamage(damage)).toBe(rank)
+    const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)
+    expect(markup).toContain('aria-label="Roll Shatter: Damage"')
+    expect(markup).toContain(`${rank}d10 sonic`)
+  }
+})
+
 it.each([
   [0, 'Supernova', 'fire', 'electricity', undefined],
   [1, 'Earthquake', 'bludgeoning', undefined, undefined],

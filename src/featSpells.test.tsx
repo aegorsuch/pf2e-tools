@@ -419,6 +419,15 @@ it('uses only the first-level lineage for Fiendish Magic', () => {
   expect(grantedFeatSpells(customFirst, [source, custom, ...spells])).toEqual([])
 })
 
+it('shows Shatter damage for Pitborn Fiendish Magic', () => {
+  const spell = { ...entry('Shatter', 'spell', { actions: 'Two Actions' }), level: 2 }
+  const c: Character = { ...base, level: 9, feats: [taken('Pitborn'), taken('Fiendish Magic', 9)] }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
+  expect(markup).toContain('aria-label="Roll Shatter: Damage"')
+  expect(markup).toContain('2d10 sonic')
+  expect(markup.match(/aria-label="Roll Shatter: Damage"/g)).toHaveLength(1)
+})
+
 it.each([
   ['Angelkin', ['Clear Mind', 'Humanoid Form']],
   ['Lawbringer', ['Everlight', 'Share Life']],
