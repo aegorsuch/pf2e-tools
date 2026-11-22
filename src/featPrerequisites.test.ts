@@ -21,6 +21,21 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it('requires the Tusks feat for Demonblood Frenzy', () => {
+  const prerequisite = 'tusks unarmed attack'
+  const frenzy = entry('feat', 'Demonblood Frenzy', { prerequisite }, 5, ['Orc'])
+  const tusks = entry('feat', 'Tusks', {}, 1, ['Orc'])
+  const entries = [frenzy, tusks]
+  const orc: Character = { ...base, ancestry: 'Orc', level: 5 }
+  const result = (c: Character) => featPrerequisiteChecker(c, entries, 5)(frenzy)
+  expect(result(orc).missing).toEqual([prerequisite])
+  expect(result({ ...orc, feats: [selected('Iron Fists')] }).missing).toEqual([prerequisite])
+  expect(result({ ...orc, feats: [selected('Tusks')] })).toEqual({ missing: [], manual: [] })
+  expect(result({ ...orc, feats: [selected('Tusks (Orc)')] })).toEqual({ missing: [], manual: [] })
+  expect(result({ ...orc, feats: [selected('Tusks', 9)] }).missing).toEqual([prerequisite])
+  expect(featPrerequisiteChecker(orc, [], 5)(frenzy).missing).toEqual([prerequisite])
+})
+
 it('requires a damage-changing instinct for Scouring Rage', () => {
   const prerequisite = 'an instinct that allows you to change your additional damage from Rage to a different damage type'
   for (const subclass of ['Dragon', 'Spirit', 'Elemental'])

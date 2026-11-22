@@ -480,6 +480,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     const reference = name.replace(/ (?:class feature|feat|heritage|ancestry)$/, '')
     const references = reference === 'attack of opportunity' ? [reference, 'reactive strike']
       : reference === 'reactive strike' ? [reference, 'attack of opportunity']
+      : reference === 'tusks unarmed attack' ? ['tusks', 'tusks (orc)']
       : reference === 'ancestral unarmed attack' ? [reference, ...ancestralUnarmedFeatNames(
         facts.ancestryTraits ?? [facts.ancestry ?? '', facts.heritage ?? '']).map(key)] : [reference]
     if (reference === 'spellcasting' && facts.spellcastingClassFeature
@@ -507,6 +508,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       })
       return checks.find(satisfied) ?? checks[0]
     }
+    if (reference === 'tusks unarmed attack') return missing(text)
     if (content.some((entry) => entry.kind === 'feat' || entry.kind === 'classFeature')) return missing(text)
     if (name === 'a sense with a listed range') {
       return resultFor(facts.senses.some(sense => {
