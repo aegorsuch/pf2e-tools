@@ -10,6 +10,7 @@ import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_RUNE, SHOVING_RUNE
 import { getSettings, updateSettings } from './settings'
 import { canEquipShield, equippedHands, equippedShield, hardwoodShield, shieldEquipChange } from './builder'
 import { GearSystemFilter } from './GearSystemFilter'
+import { SearchableSelect } from './SearchableSelect'
 import type { GearSystem } from './gearSystem'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
@@ -446,6 +447,28 @@ it('alphabetizes granted and installed augmentations together without changing s
   expect(names.every(name => list.includes(name))).toBe(true)
   expect(markup.indexOf('Beta Implant (level')).toBeLessThan(markup.indexOf('Zeta Implant (level'))
   expect(c.augmentations?.map(item => item.name)).toEqual(['Zeta Implant', 'Beta Implant'])
+})
+
+it('shows augmentation descriptions in the picker without installing until selected', () => {
+  const augmentation: ContentEntry = { ...weapon, id: 'cognition', name: 'Cognition Accelerator', kind: 'item',
+    systems: ['sf2e'], level: 5, description: 'Improves trained skills.', data: { item_category: 'Augmentations' } }
+  let c: Character = { ...character([]), systems: ['sf2e'], augmentations: [] }
+  let picker: ReactElement<Record<string, unknown>> | undefined
+  function Inspect() {
+    const tree = Augmentations({ c, entries: [augmentation], save: patch => { c = { ...c, ...patch } } })
+    picker = findElement(tree, element => element.type === SearchableSelect)
+    return tree
+  }
+  renderToStaticMarkup(<Inspect />)
+  expect(picker?.props.primaryDetails).toBe(true)
+  const details = (picker!.props.renderDetails as (value: string) => ReactNode)(augmentation.id)
+  const html = renderToStaticMarkup(<>{details}</>)
+  expect(html).toContain('Cognition Accelerator')
+  expect(html).toContain('Improves trained skills.')
+  expect(html).toContain('aria-haspopup="dialog"')
+  expect(c.augmentations).toEqual([])
+  ;(picker!.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: augmentation.id } })
+  expect(c.augmentations).toEqual([expect.objectContaining({ entryId: augmentation.id, name: augmentation.name })])
 })
 
 it('adds the slot-free Test-Subject Datajack to Cyborg only while its house rule is enabled', () => {

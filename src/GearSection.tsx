@@ -262,8 +262,13 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       {apexInstalled.map(item => <option key={item.id} value={item.id}>{item.name} ({ABILITY_LABEL[APEX_AUGMENTATIONS[item.name].ability]})</option>)}
       <option value="none">None</option>
     </select></label>}
-    {installable.length > 0 && <SearchableSelect label="Augmentation" aria-label="Choose augmentation" value="" alwaysSearchable={installable.some(isApex)}
+    {installable.length > 0 && <SearchableSelect label="Augmentation" aria-label="Choose augmentation" value="" primaryDetails
       optionLevel={value => shownOptions.find(entry => entry.id === value)?.level}
+      renderDetails={value => {
+        const entry = shownOptions.find(option => option.id === value)
+        return entry && <span className="picker-spell-name"><EntryDescription name={entry.name} entry={entry} entries={entries}
+          character={c} buttonSuffix={` (level ${entry.level})`} /></span>
+      }}
       filters={installable.some(isApex) && <label><input type="checkbox" checked={apexOnly} onChange={event => setApexOnly(event.target.checked)} /> Apex only</label>} onChange={event => {
       const chosen = installable.find(entry => entry.id === event.target.value)
       if (!chosen) return
