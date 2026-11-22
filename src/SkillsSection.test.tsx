@@ -33,6 +33,18 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('shows professional weapon toolkit bonuses only while held', () => {
+  const tool: ContentEntry = { ...mechanic, id: 'tool', kind: 'weapon', name: 'SLARP Rapid Laser Pistol', level: 4,
+    traits: ['Tech'], data: { weapon_type: 'Ranged', weapon_category: 'Martial', hands: 1, damage: '2d6 F',
+      weapon_tracking: 1, upgrade_slots: 2, professional_skills: 'Geology Lore;Physical Science Lore' } }
+  const weapon = { id: 'weapon', name: tool.name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Witchwarper', level: 4,
+    lores: [{ name: 'Geology Lore', rank: 1 }], weapons: [weapon] }
+  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[tool]} save={() => {}} />)
+  expect(render(c)).toContain('when used as a toolkit (+1 item')
+  expect(render({ ...c, weapons: [{ ...weapon, stowed: true }] })).not.toContain('when used as a toolkit')
+})
+
 it('calculates Barbarian movement actions from current Speed and ignores penalties only for Determined Dash', () => {
   const armor: ContentEntry = { ...ranger, id: 'armor', kind: 'armor', name: 'Heavy Armor',
     data: { armor_category: 'Heavy', speed_penalty: -10, strength: 4 } }

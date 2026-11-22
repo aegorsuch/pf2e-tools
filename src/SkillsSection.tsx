@@ -3,7 +3,7 @@ import { resistances, activeBattleForm,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, offensiveDefenseAttack, ownedWeapons, weaponEquipped, installedWeaponUpgrades, conditionPenalty, conditionValue, type SectionProps,
 } from './builder'
-import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, giantStatureSize, weaponEntry, weaponHeld } from './builder'
+import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, giantStatureSize, effectiveWeapon, weaponEntry, weaponHeld } from './builder'
 import { ArmorList, ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { CONDITIONAL_BONUSES } from './conditionalBonuses'
@@ -362,6 +362,13 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     .flatMap(weapon => installedWeaponUpgrades(c, entries, weapon))
     .filter(upgrade => /^(?:Truesight Sight|Sniper's Scope)(?:\s*\(|$)/i.test(upgrade.name))
     .map(upgrade => [upgrade.id, upgrade])).values()]
+  const professionalTools = c.systems.includes('sf2e') ? ownedWeapons(c, entries)
+    .filter(weapon => weaponHeld(c, entries, weapon))
+    .map(weapon => {
+      const enhanced = effectiveWeapon(c, entries, weapon)
+      const entry = weaponEntry(entries, enhanced.name, enhanced.id)
+      return { name: weapon.name, skills: String(entry?.data.professional_skills ?? '').split(';'), bonus: enhanced.potency }
+    }).filter(tool => tool.bonus > 0) : []
   const shadowpiercer = part === 'defense' && ownedWeapons(c, entries).some(weapon => weaponHeld(c, entries, weapon)
     && weaponEntry(entries, weapon.name)?.data.named_weapon_source === 'Shadowpiercer')
   const artifactSaves: Record<string, string> = {
@@ -486,6 +493,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {ink && <SourceNote inlineSource={false} source={ink.source}
             note={`Stealth ${signed(total + forestIncrease)} in forests`} />}
           {artifact && <SourceNote inlineSource={false} source={artifact.source} note={`+${artifact.value} item bonus while carried; item bonuses do not stack.`} />}
+          {professionalTools.filter(tool => tool.skills.includes(s.name)).map(tool =>
+            <SourceNote key={tool.name} source={tool.name}
+              note={`${itemTotal(tool.bonus)} when used as a toolkit (+${tool.bonus} item; item bonuses do not stack).`} />)}
           {s.name === 'Crafting' && dwarvenAxe && <SourceNote inlineSource={false} source="Axe of the Dwarven Lords"
             note={`${itemTotal(4)} to Craft armor, jewelry, metalwork, stonework, snares, traps, and weapons while carrying the axe (+4 item; item bonuses do not stack).`} />}
           {arrowhead && <SourceNote inlineSource={false} source={arrowhead.source}

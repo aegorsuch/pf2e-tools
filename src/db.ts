@@ -32,6 +32,8 @@ export async function ensureSupplementalContent() {
       }
     }
     const bases = await db.content.where('kind').anyOf('companion', 'weapon', 'feat').toArray()
+    const slarp = await db.content.get('aon:sf2e:treasure--235-slarp')
+    if (slarp) bases.push(slarp)
     const groups = await db.content.where('kind').anyOf('weaponGroup', 'armorGroup').toArray()
     const customGear = await db.content.where('source').equals('homebrew').filter(entry =>
       (entry.kind === 'weapon' || entry.kind === 'armor') && typeof entry.data.group === 'string').toArray()

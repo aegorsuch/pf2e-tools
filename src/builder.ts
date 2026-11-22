@@ -4203,6 +4203,11 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
   const unconventionalCategory = unconventional ? category === 'Advanced' ? 'Martial' : 'Simple' : undefined
   const innovationCategory = weapon.inventorInnovation && category === 'Advanced' && canBeWeaponInnovation(c, entries, weapon) ? 'Martial' : undefined
   const ranks = weaponRanks(c, entries)
+  const professionalSkills = c.systems.includes('sf2e') ? String(entry?.data.professional_skills ?? '').split(';').filter(Boolean) : []
+  const skillRanks = professionalSkills.length ? ranksAt(c, entries) : {}
+  const professionalRank = professionalSkills.length && (category === 'Martial' || category === 'Advanced')
+    ? Math.min(ranks[category === 'Martial' ? 'Simple' : 'Martial'],
+      Math.max(0, ...professionalSkills.map(skill => skillRanks[skill] ?? 0))) : 0
   const operative = c.systems.includes('sf2e') && c.className === 'Operative'
   const gun = operativeGun(entry)
   const strikerWeapon = operative && c.subclass === 'Striker' && !!entry && !isRanged(entry)
@@ -4220,7 +4225,8 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
   const rank = Math.max(category === 'Unarmed' ? 1 : 0, ranks[category], familiarCategory ? ranks[familiarCategory] : 0,
     unconventionalCategory ? ranks[unconventionalCategory] : 0, innovationCategory ? ranks[innovationCategory] : 0,
     familiarity?.trained ? 1 : 0, expertise ? Math.max(...Object.values(baseWeaponRanks(c, entries))) : 0,
-    advancedTraining ? c.level >= 11 ? 2 : 1 : 0, avengerRank, operativeRank, highestRank ? Math.max(...Object.values(ranks)) : 0)
+    advancedTraining ? c.level >= 11 ? 2 : 1 : 0, avengerRank, operativeRank, professionalRank,
+    highestRank ? Math.max(...Object.values(ranks)) : 0)
   const proficiencySources = [
     { name: category, rank: Math.max(category === 'Unarmed' ? 1 : 0, ranks[category]) },
     ...(familiarCategory ? [{ name: `${familiarCategory} via weapon familiarity`, rank: ranks[familiarCategory] }] : []),
@@ -4231,6 +4237,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     ...(advancedTraining ? [{ name: 'Weapon Proficiency feat', rank: c.level >= 11 ? 2 : 1 }] : []),
     ...(avengerRank ? [{ name: 'Avenger favored weapon', rank: avengerRank }] : []),
     ...(operativeRank ? [{ name: strikerWeapon ? 'Striker' : 'Operative', rank: operativeRank }] : []),
+    ...(professionalRank ? [{ name: 'Professional', rank: professionalRank }] : []),
     ...(highestRank ? [{ name: 'Cairn Form: highest weapon proficiency', rank: Math.max(...Object.values(ranks)) }] : []),
     ...(martialExperience ? [{ name: 'Martial Experience', rank: c.level >= 11 ? 1 : 0 }] : []),
   ].filter(source => source.rank === rank).map(source => source.name)

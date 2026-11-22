@@ -457,6 +457,37 @@ it('provides a martial rapid laser pistol with separate automatically improving 
     .toBe('Advanced Laser Pistol')
 })
 
+it('provides a SLARP rapid pistol with its abilities and scaling weapon proficiency', () => {
+  const laser: ContentEntry = { ...FIST, id: 'laser', name: 'Laser Pistol', systems: ['sf2e'], source: 'official',
+    kind: 'weapon', level: 0, traits: ['Tech'], data: {
+      weapon_category: 'Simple', weapon_group: 'Laser', weapon_type: 'Ranged', damage: '1d6 F',
+      hands: 1, range: 40, reload: 1, upgrade_slots: 1, weapon_ammunition: '10 charges', price: 30,
+    } }
+  const advanced = { ...laser, id: 'advanced', name: 'Advanced Laser Pistol', level: 4,
+    data: { ...laser.data, damage: '2d6 F', weapon_tracking: 1, upgrade_slots: 2, price: 1030 } }
+  const superior = { ...advanced, id: 'superior', name: 'Superior Laser Pistol', level: 10,
+    data: { ...advanced.data, weapon_tracking: 2, price: 10030 } }
+  const slarp: ContentEntry = { ...laser, id: 'slarp', kind: 'item', name: 'Slarp', level: 4,
+    data: { price: 1100 } }
+  const homebrew = homebrewWeapons([laser, advanced, superior, slarp])
+  const weapon = { id: 'owned', name: 'SLARP Rapid Laser Pistol', potency: 0, striking: 0, runes: [] }
+  const entry = homebrew.find(item => item.name === weapon.name)!
+  expect(entry).toMatchObject({ level: 4, source: 'homebrew', traits: expect.arrayContaining([
+    'Tech', 'Agile', 'Concealable', 'Professional (Geology Lore or Physical Science Lore)', 'Razing',
+  ]), data: { damage: '2d6 F', weapon_tracking: 1, weapon_ammunition: '6 charges', price: 1100,
+    item_subcategory: 'Specific Weapons' } })
+  expect(entry.description).toContain('Once per day')
+  expect(entry.description).toContain('free action')
+  const c: Character = { ...base, level: 11, systems: ['sf2e'], className: 'Witchwarper',
+    lores: [{ name: 'Geology Lore', rank: 2 }], weapons: [weapon] }
+  const attack = weaponAttack(c, homebrew, weapon)
+  expect(attack).toMatchObject({ rank: 2, item: 2, entry: { name: 'Superior SLARP Rapid Laser Pistol' } })
+  expect(weaponAttack({ ...c, lores: [] }, homebrew, weapon).rank).toBe(0)
+  expect(weaponAttack({ ...c, level: 4 }, homebrew, weapon)).toMatchObject({ rank: 1, item: 1 })
+  expect(gearPickerEntries(homebrew, 'weapon').map(item => item.name))
+    .toContain('SLARP Rapid Laser Pistol')
+})
+
 it('provides a default fist until a different unarmed attack is available', () => {
   expect(ownedWeapons(base, []).map((weapon) => weapon.name)).toEqual(['Fist'])
   const c = { ...base, feats: [{ name: 'Tusks', type: 'Ancestry Feat', level: 1 }] }
