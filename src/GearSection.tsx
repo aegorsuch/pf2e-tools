@@ -1837,10 +1837,15 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const body = !!entry?.data.attached
         const wornLocked = body || !canWearWithAttachedArmor(a, attached)
         const sf2eArmor = !!entry?.systems.includes('sf2e')
-        const gradeOptions = sf2eArmor && !isGrantedArmor(a.id) && entry?.data.url ? entries.filter(candidate =>
+        const gradeCandidates = sf2eArmor && !isGrantedArmor(a.id) && entry?.data.url ? entries.filter(candidate =>
           candidate.kind === 'armor' && !candidate.deleted && candidate.systems.includes('sf2e')
-          && candidate.data.url === entry.data.url && candidate.data.armor_grade)
-          .sort((left, right) => left.level - right.level || left.name.localeCompare(right.name)) : []
+          && candidate.data.url === entry.data.url && candidate.data.armor_grade) : []
+        const grades = new Map<string, ContentEntry>()
+        for (const candidate of gradeCandidates) {
+          const grade = String(candidate.data.armor_grade).toLowerCase()
+          if (!grades.has(grade) || candidate.name === a.name) grades.set(grade, candidate)
+        }
+        const gradeOptions = [...grades.values()].sort((left, right) => left.level - right.level || left.name.localeCompare(right.name))
         const upgradeSlots = armorUpgradeSlots(entry) + (sf2eArmor && c.heritage === 'Mod Fanatic Android' && entry?.data.upgrades_allowed !== false ? 1 : 0)
         const runesAllowed = !sf2eArmor && entry?.data.runes_allowed !== false
         const granted = isGrantedArmor(a.id)

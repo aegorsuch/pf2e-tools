@@ -2338,12 +2338,14 @@ it('changes SF2e armor grades without discarding installed upgrades', () => {
     data: { url: 'coat', armor_category: 'Light', ac: 2, upgrade_slots: 1, armor_grade: 'Commercial' } }
   const tactical = { ...armor, id: 'tactical', name: 'Tactical Armored Coat', level: 5,
     data: { ...armor.data, ac: 3, upgrade_slots: 2, armor_grade: 'Tactical' } }
+  const commercial = { ...armor, id: 'commercial', name: 'Commercial Armored Coat' }
   let c: Character = { ...character([]), systems: ['sf2e'], armors: [
     { id: 'coat', name: armor.name, potency: 0, resilient: 0, runes: [], upgrades: ['upgrade'], worn: true },
   ] }
-  const entries = [armor, tactical]
+  const entries = [armor, commercial, tactical]
   const tree = () => ArmorList({ c, entries, save: patch => { c = { ...c, ...patch } } })
   const select = findElement(tree(), element => element.props['aria-label'] === 'Armor grade: Armored Coat')!
+  expect(renderToStaticMarkup(select).match(/Commercial \(Level 0\)/g)).toHaveLength(1)
   ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: tactical.name } })
   expect(c.armors?.[0]).toMatchObject({ name: tactical.name, upgrades: ['upgrade'], worn: true })
   expect(renderToStaticMarkup(tree())).toContain('Armor upgrade slots: 1/2')
