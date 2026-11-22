@@ -484,6 +484,14 @@ it('provides a SLARP rapid pistol with its abilities and scaling weapon proficie
   expect(attack).toMatchObject({ rank: 2, item: 2, entry: { name: 'Superior SLARP Rapid Laser Pistol' } })
   expect(weaponAttack({ ...c, lores: [] }, homebrew, weapon).rank).toBe(0)
   expect(weaponAttack({ ...c, level: 4 }, homebrew, weapon)).toMatchObject({ rank: 1, item: 1 })
+  const familiar: Character = { ...c, lores: [], feats: [
+    { name: 'Unconventional Weaponry', type: 'Ancestry Feat', level: 1, choice: 'Rapid Laser Pistol' },
+  ] }
+  const options = featChoiceOptions('Unconventional Weaponry', familiar, homebrew, '')!
+  expect(options).toContain('Rapid Laser Pistol')
+  expect(options).not.toContain('SLARP Rapid Laser Pistol')
+  expect(weaponAttack(familiar, homebrew, weapon).rank).toBe(2)
+  expect(weaponAttack({ ...familiar, feats: [{ ...familiar.feats[0], choice: weapon.name }] }, homebrew, weapon).rank).toBe(2)
   expect(gearPickerEntries(homebrew, 'weapon').map(item => item.name))
     .toContain('SLARP Rapid Laser Pistol')
 })

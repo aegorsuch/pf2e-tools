@@ -1788,7 +1788,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       entry.systems.some(system => c.systems.includes(system))
       && (uncommonWeapon(entry) || !featRarity(entry) || /^Shobhad Longrifle(?: \(Pathfinder\))?$/.test(entry.name) && featRarity(entry) === 'Rare')
       && (['Simple', 'Martial'].includes(weaponCategory(entry)) || weaponCategory(entry) === 'Advanced' && weaponRanks(atLevel, entries).Martial >= 1))
-      .map(entry => combinationName(entries, entry.name)))].sort((a, b) => a.localeCompare(b))
+      .map(entry => unconventionalWeaponChoice(entries, entry.name)))].sort((a, b) => a.localeCompare(b))
   }
   if (name === 'Technomagical Scrapper') {
     const variants = scrapperVariants(scrapperRanksBefore(c, entries, slotKey, index))
@@ -4151,10 +4151,16 @@ export function weaponHasAncestryTrait(weapon: ContentEntry, entries: ContentEnt
     && weapon.traits.some(trait => trait.toLowerCase() === entry.name.toLowerCase()))
 }
 
+export function unconventionalWeaponChoice(entries: ContentEntry[], name: string) {
+  const entry = weaponEntry(entries, name)
+  return entry?.data.weapon_grade_family === 'homebrew:slarp-rapid-laser-pistol'
+    ? 'Rapid Laser Pistol' : combinationName(entries, name)
+}
+
 function unconventionalWeapon(c: Character, entries: ContentEntry[], weapon: ContentEntry) {
   const name = combinationName(entries, weapon.name)
   const identity = (value: string) => {
-    const resolved = weaponEntry(entries, value)
+    const resolved = weaponEntry(entries, unconventionalWeaponChoice(entries, value))
     if (/^Shobhad Longrifle(?: \((?:Pathfinder|Starfinder)\))?$/.test(value) && resolved)
       return `Shobhad Longrifle:${resolved.systems.includes('sf2e') ? 'sf2e' : 'pf2e'}`
     const family = weaponGradeFamily(resolved)

@@ -1,5 +1,5 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, weaponEntry } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, orderMagicOptions, statDefs, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
 import { automaticFeatGrants } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, automaticFeatChoiceKey, featSpellOptions } from './featSpells'
@@ -196,7 +196,8 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   if (['Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', "Officer's Education"].includes(feat.name)) return null
   if (feat.name === 'Elemental Wrath') return null
   if (['Unconventional Weaponry', 'Tengu Weapon Familiarity', 'Surki Weapon Familiarity'].includes(feat.name)) {
-    const choice = feat.choice ? combinationName(entries, feat.choice) : ''
+    const choice = feat.choice ? feat.name === 'Unconventional Weaponry'
+      ? unconventionalWeaponChoice(entries, feat.choice) : combinationName(entries, feat.choice) : ''
     const weapon = weaponEntry(entries, choice)
       ?? entries.find(entry => entry.kind === 'weapon' && combinationName(entries, entry.name) === choice && !entry.deleted)
     const options = (featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []).map(option =>
