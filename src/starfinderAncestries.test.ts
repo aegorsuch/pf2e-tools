@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
 import { dailyInnateUses, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
-import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, isGrantedSlot, maxHp, movementSpeeds, ownedShields, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, shieldAcBonus, shieldRaisedChange, speed, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
+import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, eligibleFeats, featChoiceOptions, isGrantedSlot, maxHp, movementSpeeds, ownedShields, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, shieldAcBonus, shieldRaisedChange, speed, tailbladeInheritance, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 import { getSettings, updateSettings } from './settings'
 
@@ -84,6 +84,17 @@ it('does not duplicate Brutal Anatomy attacks from imported feat entries', () =>
     weapons: ['Claw', 'Jaws', 'Tail'].map(name => ({ id: `old-${name}`, name, potency: 0, striking: 0, runes: [] })) }
   const attacks = ownedWeapons(c, entries).filter(weapon => /(?:claw|jaws|tail)/i.test(weapon.name))
   expect(attacks.map(weapon => weapon.name).sort()).toEqual(['Claw', 'Jaws', 'Tail'])
+})
+
+it('inherits the Vesk tail on a newly added graded Tailblade from the real catalog', () => {
+  const blades = mapAonHits(hits.filter(hit => /\btailblade\b/i.test(String(hit._source?.name))), 'sf2e')
+  const blade: OwnedWeapon = { id: 'blade', name: 'Tailblade', potency: 0, striking: 0, runes: [], stowed: true }
+  const c: Character = { ...base, ancestry: 'Vesk', className: 'Soldier', level: 20,
+    feats: [{ name: 'Brutal Anatomy', choice: 'Tail', type: 'Ancestry Feat', level: 1 }], weapons: [blade] }
+  const allEntries = [...entries, ...blades]
+  expect(weaponAttack(c, allEntries, blade).traits).toEqual(expect.arrayContaining(['Sweep', 'Trip', 'Versatile B']))
+  expect(tailbladeInheritance(c, allEntries, blade).replacedTailIds).toContain('sf2e:vesk:tail')
+  expect(weaponAttack(c, allEntries, blade).damage).toContain('4d4')
 })
 
 it('applies heritage senses and Vesk movement and tail without stacking duplicate tails', () => {

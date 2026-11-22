@@ -6596,27 +6596,27 @@ function isTailblade(entry?: ContentEntry) {
   return !!entry && entry.systems.includes('sf2e') && /\btailblade\b/i.test(entry.name)
 }
 
-function damageAverage(damage: string) {
+function damageDie(damage: string) {
   const match = /^(\d+)d(\d+)([+-]\d+)?\s+(\w+)/i.exec(damage)
-  return match ? { average: Number(match[1]) * (Number(match[2]) + 1) / 2 + Number(match[3] ?? 0),
+  return match ? { size: Number(match[2]),
     type: match[4].toLowerCase() } : undefined
 }
 
 export function tailbladeInheritance(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const empty = { traits: [] as string[], replacedTailIds: [] as string[] }
   const blade = weaponEntry(entries, weapon.name, weapon.id)
-  if (!isTailblade(blade) || weapon.stowed || weapon.cheekStored) return empty
+  if (!isTailblade(blade) || !weaponEquipped(c, entries, weapon)) return empty
   const tails = ownedWeapons(c, entries).filter(tail => /\btail\b/i.test(tail.name)
     && weaponCategory(weaponEntry(entries, tail.name, tail.id)) === 'Unarmed')
   if (!tails.length) return empty
-  const bladeDamage = damageAverage(weaponAttack(c, entries, weapon, { skipTailbladeInheritance: true }).damage)
+  const bladeDamage = damageDie(weaponAttack(c, entries, weapon, { skipTailbladeInheritance: true }).damage)
   const traits: string[] = []
   const replacedTailIds: string[] = []
   for (const tail of tails) {
     const attack = weaponAttack(c, entries, tail)
     traits.push(...attack.traits.filter(trait => !/^(?:unarmed|free[- ]hand)$/i.test(trait.trim())))
-    const damage = damageAverage(attack.damage)
-    if (bladeDamage && damage && ['bludgeoning', 'b'].includes(damage.type) && damage.average >= bladeDamage.average) {
+    const damage = damageDie(attack.damage)
+    if (bladeDamage && damage && ['bludgeoning', 'b'].includes(damage.type) && damage.size >= bladeDamage.size) {
       traits.push('Versatile B')
       replacedTailIds.push(tail.id)
     }

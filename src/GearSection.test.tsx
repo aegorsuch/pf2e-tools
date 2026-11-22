@@ -47,7 +47,7 @@ it('inherits Vesk tail traits and replaces its attack when the tailblade matches
   expect(ownedWeapons(c, [blade]).some(item => item.id === 'sf2e:vesk:tail')).toBe(true)
   expect(weaponAttack({ ...c, feats: [] }, [blade], owned).traits).not.toContain('Versatile B')
   expect(renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [{ ...owned, stowed: true }] }} entries={[blade]}
-    save={() => {}} displayOnly />)).toContain('Tail attack')
+    save={() => {}} displayOnly />)).not.toContain('Tail attack')
 })
 
 it('inherits tail parry while retaining weaker or non-bludgeoning tails', () => {
@@ -73,10 +73,10 @@ it('inherits tail parry while retaining weaker or non-bludgeoning tails', () => 
   expect(piercing.attack.traits).not.toContain('Versatile B')
   expect(piercing.markup).toContain('Spiked Tail attack')
   const manyDice = check({ ...tail, data: { ...tail.data, damage: '2d4 bludgeoning' } })
-  expect(manyDice.attack.traits).toContain('Versatile B')
-  expect(manyDice.markup).not.toContain('Spiked Tail attack')
+  expect(manyDice.attack.traits).not.toContain('Versatile B')
+  expect(manyDice.markup).toContain('Spiked Tail attack')
   expect(hasParryWeapon(c, [blade, tail])).toBe(true)
-  expect(weaponAttack({ ...c, weapons: [{ ...owned, stowed: true }] }, [blade, tail], { ...owned, stowed: true }).traits).not.toContain('Parry')
+  expect(weaponAttack({ ...c, weapons: [{ ...owned, stowed: true }] }, [blade, tail], { ...owned, stowed: true }).traits).toContain('Parry')
 })
 
 it('shows target-limited Intensified Element Stance damage on weapon attacks', () => {
