@@ -509,7 +509,7 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, o
         aria-label={`${activeJetpack === id && worn ? 'Dismiss' : 'Activate'} ${installed[index]?.name}`}
         aria-pressed={activeJetpack === id && worn} disabled={!worn || index >= limit}
         title={`${activeJetpack === id && worn ? 'Dismiss' : 'Activate'} jetpack (1 minute; cannot lift while encumbered${jetpackSpeed(installed[index]) === 20 ? '; off-guard while hovering' : ''})`}
-        onClick={() => onToggleJetpack(id)}><ActionIcon actions="Two Actions" /></button>}
+        onClick={() => onToggleJetpack(id)}><ActionIcon actions="Single Action" /></button>}
     </span>)}
     {installed.some(item => !item) && <small role="status">Saved armor upgrade unavailable. Sync official content to restore its effects.</small>}
     {upgrades.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}

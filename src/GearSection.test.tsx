@@ -2346,7 +2346,7 @@ it.each([
   }
   expect(movementSpeeds(c, entries).find(speed => speed.name === 'Fly')).toBeUndefined()
   const activate = findElement(upgradeContent(), element => element.props['aria-label'] === `Activate ${name}`)!
-  expect(renderToStaticMarkup(activate)).toContain('aria-label="Two Actions"')
+  expect(renderToStaticMarkup(activate)).toContain('aria-label="Single Action"')
   ;(activate.props.onClick as () => void)()
   expect(movementSpeeds(c, entries).find(speed => speed.name === 'Fly')).toMatchObject({ feet: flySpeed, source: name })
   expect(movementSpeeds({ ...c, armors: [{ ...c.armors![0], worn: false }] }, entries)
