@@ -876,7 +876,7 @@ it('scales Scalding Gauntlets potency, striking and Flaming with level and hides
   expect(entries.find(entry => entry.name === 'Scalding Gauntlets (Gauntlet)')?.data.named_weapon_base).toBe('Gauntlet')
   const at = (level: number) => withNamedWeaponState(entries[0], owned('Scalding Gauntlets'), level)?.data
   expect(at(11)).toMatchObject({ named_weapon_potency: 2, named_weapon_striking: 1,
-    named_weapon_runes: 'Flaming;Parrying;Grievous', named_weapon_material: 'Orichalcum' })
-  expect(at(13)).toMatchObject({ named_weapon_striking: 2, named_weapon_runes: 'Flaming;Parrying;Grievous' })
-  expect(at(18)).toMatchObject({ named_weapon_potency: 3, named_weapon_runes: 'Flaming (Greater);Parrying;Grievous' })
+    named_weapon_runes: 'Flaming;Parrying;Grappling;Grievous', named_weapon_material: 'Orichalcum' })
+  expect(at(13)).toMatchObject({ named_weapon_striking: 2, named_weapon_runes: 'Flaming;Parrying;Grappling;Grievous' })
+  expect(at(18)).toMatchObject({ named_weapon_potency: 3, named_weapon_runes: 'Flaming (Greater);Parrying;Grappling;Grievous' })
 })

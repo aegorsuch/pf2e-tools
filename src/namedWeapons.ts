@@ -226,7 +226,7 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
     return { ...entry, data: { ...entry.data,
       named_weapon_potency: at >= 18 ? 3 : 2, named_weapon_striking: at >= 13 ? 2 : 1,
       named_weapon_runes: [...new Set([...runes.filter(rune => runeBase(rune) !== 'Flaming'),
-        at >= 18 ? 'Flaming (Greater)' : 'Flaming', 'Parrying', 'Grievous'])].join(';') } }
+        at >= 18 ? 'Flaming (Greater)' : 'Flaming', 'Parrying', 'Grappling', 'Grievous'])].join(';') } }
   }
   if (source === 'Fungicidal Hatchet') {
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
