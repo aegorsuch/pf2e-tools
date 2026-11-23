@@ -14,13 +14,14 @@ const base: Character = {
 it.each([
   ['Champion', 'Divine Warrior', 'Divine', 'cha'],
   ['Ranger', 'Primal Warrior', 'Primal', 'wis'],
-] as const)('adds two selectable %s class cantrips through %s', (className, name, tradition, ability) => {
+] as const)('adds fixed and selectable %s class cantrips through %s', (className, name, tradition, ability) => {
   const feat = homebrewCharacterOptions([]).find(entry => entry.name === name)!
   const spell = (spellName: string, spellTradition: string, traits = ['Cantrip']): ContentEntry => ({
     id: spellName, name: spellName, kind: 'spell', systems: ['pf2e'], source: 'official', level: 1,
     traits, data: { tradition: spellTradition }, description: '', effects: [], updatedAt: 0,
   })
   const entries = [feat, spell('Guidance', 'Divine, Primal'), spell('Test Cantrip', tradition),
+    spell('Protect Companion', 'Divine, Primal'), spell('Divine Lance', 'Divine'),
     spell('Other Tradition', tradition === 'Divine' ? 'Primal' : 'Divine'),
     spell('Focus Cantrip', tradition, ['Cantrip', 'Focus']), spell('Ranked Spell', tradition, [])]
   const c: Character = { ...base, className, level: 5, abilities: { ...base.abilities, wis: 16 },
@@ -30,26 +31,34 @@ it.each([
   expect(classSpellcasting(c, entries)).toMatchObject({ traditions: [tradition], ability })
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(html).toContain('Class Spells')
-  expect(html).toContain('Cantrip slot 1')
-  expect(html).toContain('Cantrip slot 2')
-  expect(html).toContain('Guidance')
-  expect(html).toContain('Test Cantrip')
+  expect(html).toContain('Protect Companion')
+  expect(html).not.toContain('Clear Protect Companion spell slot')
+  if (name === 'Primal Warrior') {
+    expect(html).toContain('Cantrip slot 1')
+    expect(html).toContain('Guidance')
+    expect(html).toContain('Test Cantrip')
+    expect(html).not.toContain('value="Protect Companion"')
+  } else {
+    expect(html).toContain('Divine Lance')
+    expect(html).not.toContain('Clear Divine Lance spell slot')
+    expect(html).not.toContain('Cantrip slot 1')
+    expect(html).not.toContain('Cantrip slot 2')
+  }
   expect(html).not.toContain('Other Tradition')
   expect(html).not.toContain('Focus Cantrip')
   expect(html).not.toContain('Ranked Spell')
   expect(html).toContain(`${tradition} DC ${ability === 'cha' ? 21 : 20}`)
   const selected: Character = { ...c, spellcasting: { ability, tradition, rank: 1, slots: {},
     prepared: { '0:0': 'Guidance', '0:1': 'Test Cantrip' } } }
-  expect(knowsSpell(selected, entries, 'Guidance')).toBe(true)
-  expect(knowsSpell(selected, entries, 'Test Cantrip')).toBe(true)
+  expect(knowsSpell(selected, entries, 'Protect Companion')).toBe(true)
+  expect(knowsSpell(selected, entries, 'Guidance')).toBe(name === 'Primal Warrior')
+  expect(knowsSpell(selected, entries, 'Test Cantrip')).toBe(false)
   expect(knowsSpell({ ...selected, feats: [] }, entries, 'Guidance')).toBe(false)
   const selectedHtml = renderToStaticMarkup(<SpellsSection c={selected} entries={entries} save={() => {}} />)
   expect(selectedHtml).toContain('Cantrips (Heightened Level 3)')
-  expect(selectedHtml).toContain('Clear Guidance spell slot')
-  expect(selectedHtml).toContain('Clear Test Cantrip spell slot')
-  const oneSelected = { ...selected, spellcasting: { ...selected.spellcasting!, prepared: { '0:0': 'Guidance' } } }
-  const oneHtml = renderToStaticMarkup(<SpellsSection c={oneSelected} entries={entries} save={() => {}} />)
-  expect(oneHtml).not.toContain('value="Guidance">')
+  expect(selectedHtml).not.toContain('Clear Protect Companion spell slot')
+  if (name === 'Primal Warrior') expect(selectedHtml).toContain('Clear Guidance spell slot')
+  else expect(selectedHtml).not.toContain('Clear Divine Lance spell slot')
   expect(classSpellSlots({ ...c, feats: [] })).toBeUndefined()
   expect(classSpellSlots({ ...c, level: 0 })).toEqual({})
   if (name === 'Primal Warrior') {

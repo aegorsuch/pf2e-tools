@@ -1682,15 +1682,19 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 return entry && spellAccessGranted(c, entry) ? [{ name: entry.name, entryId: entry.id,
                   baseRank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }] : []
               }) ?? []
+              const fixedOption = extra?.spell && selectedEntry ? { name: selectedEntry.name, entryId: selectedEntry.id,
+                baseRank: selectedEntry.level, cantrip: selectedEntry.traits.some(trait => trait.toLowerCase() === 'cantrip') } : undefined
               const baseSelectedOption = options.find(spell => (spell.entryId ?? spell.name) === selectedValue
                 || selectedSpell && !selectedSpell.entryId && spell.name === selectedSpell.name)
               const baseDisplayedSelection = preparedClass && baseSelectedOption && selectedValue === baseSelectedOption.name
                 ? { ...baseSelectedOption, entryId: undefined } : baseSelectedOption
               let slotOptions: { name: string; entryId?: string; baseRank: number; cantrip: boolean }[] = extra?.allowedSpells ? extraOptions
-                : extra ? options.filter(option => option.name === extra.spell)
+                : extra ? warrior && fixedOption ? [fixedOption] : options.filter(option => option.name === extra.spell)
                   : preparedClass && baseDisplayedSelection
                     ? choices.map(option => option.name === baseDisplayedSelection.name ? baseDisplayedSelection : option) : choices
-              if ((bloodrager || warrior && index < 2) && cantrip) {
+              if (warrior?.name === 'Primal Warrior' && cantrip && !extra)
+                slotOptions = slotOptions.filter(option => option.name !== 'Protect Companion')
+              if (bloodrager && cantrip) {
                 const other = sc.prepared?.[`0:${index === 0 ? 1 : 0}`]
                 const otherEntry = other ? spellIndex.byId.get(other) ?? spellIndex.byName.get(other) : undefined
                 slotOptions = slotOptions.filter(option => {

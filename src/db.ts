@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { Character, ContentEntry } from './types'
-import { DISARMING_RUNE, GRAPPLING_MODULE, GRAPPLING_RUNE, PARRYING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HUNTERS_ARROWHEADS, KILLERS_BELT_MAJOR, homebrewCharacterOptions, homebrewCompanions, homebrewWeapons, migrateCopiedFeats, migrateMobileHunt, removeColdIronTusks } from './supplemental'
+import { DISARMING_RUNE, GRAPPLING_MODULE, GRAPPLING_RUNE, PARRYING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HUNTERS_ARROWHEADS, KILLERS_BELT_MAJOR, homebrewCharacterOptions, homebrewCompanions, homebrewWeapons, migrateCopiedFeats, migrateMobileHunt, migratePrimalWarriorCantrips, removeColdIronTusks } from './supplemental'
 import { sfSpecificWeapons } from './sfSpecificWeapons'
 import { normalizeAcolyte } from './backgrounds'
 
@@ -21,9 +21,17 @@ export async function ensureSupplementalContent() {
     const tusks = await db.content.get('homebrew:cold-iron-tusks')
     if (tusks && !tusks.deleted) await removeEntry(tusks.id)
     const mobileHunter = await db.content.get('homebrew:mobile-hunter')
+    const primalWarrior = await db.content.get('homebrew:primal-warrior')
     for (const character of await db.characters.toArray()) {
       const migrated = migrateCopiedFeats(normalizeAcolyte(removeColdIronTusks(character)))
-      const updated = !mobileHunter || mobileHunter.updatedAt === 1 && !mobileHunter.deleted ? migrateMobileHunt(migrated) : migrated
+      let updated = !mobileHunter || mobileHunter.updatedAt === 1 && !mobileHunter.deleted ? migrateMobileHunt(migrated) : migrated
+      if ((!primalWarrior || primalWarrior.updatedAt === 1 && !primalWarrior.deleted)
+        && updated.className === 'Ranger' && updated.feats.some(feat => feat.name === 'Primal Warrior')) {
+        const prepared = updated.spellcasting?.prepared
+        const savedIds = [prepared?.['0:0'], prepared?.['0:1']].filter((value): value is string => !!value)
+        const savedEntries = (await db.content.bulkGet(savedIds)).filter((entry): entry is ContentEntry => !!entry)
+        updated = migratePrimalWarriorCantrips(updated, savedEntries)
+      }
       if (updated !== character) await db.characters.put({ ...updated, updatedAt: Date.now() })
     }
     if (!await db.content.get(HAFT_STRIKER_WEAPON.id)) await db.content.add(HAFT_STRIKER_WEAPON)
@@ -52,7 +60,7 @@ export async function ensureSupplementalContent() {
       else if ((entry.id.startsWith('supplemental:sf2e:') || ['homebrew:clawed-gauntlet', 'homebrew:seax', DISARMING_RUNE.id, GRAPPLING_RUNE.id, PARRYING_RUNE.id, SHOVING_RUNE.id, KILLERS_BELT_MAJOR.id,
         'homebrew:living-weapon-joust', 'homebrew:favored-weapon-jousting', 'homebrew:favored-weapon-symbol', 'homebrew:direwolf-bonded', 'homebrew:rider',
         'homebrew:sarkorian-direwolf', 'homebrew:snow-leopard', 'homebrew:ranger-twinned-defense-stance',
-        'homebrew:persistent-magic-hide', 'homebrew:mobile-hunter'].includes(entry.id))
+        'homebrew:persistent-magic-hide', 'homebrew:mobile-hunter', 'homebrew:divine-warrior', 'homebrew:primal-warrior'].includes(entry.id))
         && existing.updatedAt === 1 && !existing.deleted) await db.content.put(entry)
     }
   })

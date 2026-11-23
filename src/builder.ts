@@ -2299,6 +2299,11 @@ export function classRepertoireRows(c: Character) {
 export function classExtraSlots(c: Character) {
   const extras: ClassSpellSlotExtra[] = c.className === 'Bard' && c.systems.includes('pf2e')
     ? bardRepertoire(c).extras : necromancerExtraSlots(c)
+  if (c.systems.includes('pf2e') && c.className === 'Champion' && activeFeatsNamed(c, 'Divine Warrior').length)
+    extras.push({ key: 'divine-warrior:divine-lance', rank: 0, spell: 'Divine Lance', source: 'Divine Warrior' },
+      { key: 'divine-warrior:protect-companion', rank: 0, spell: 'Protect Companion', source: 'Divine Warrior' })
+  if (c.systems.includes('pf2e') && c.className === 'Ranger' && activeFeatsNamed(c, 'Primal Warrior').length)
+    extras.push({ key: 'primal-warrior:protect-companion', rank: 0, spell: 'Protect Companion', source: 'Primal Warrior' })
   if (c.className === 'Cleric' && c.systems.includes('pf2e') && c.level >= 1) {
     const rank = Math.min(9, Math.ceil(c.level / 2))
     extras.push(...Array.from({ length: clericDivineFontSlotCount(c) }, (_, index) => ({
@@ -6093,8 +6098,10 @@ function selectedTailwind(c: Character, entries: ContentEntry[]) {
 export function knowsSpell(c: Character, entries: ContentEntry[], name: string) {
   const warrior = c.className === 'Champion' ? activeFeatsNamed(c, 'Divine Warrior')[0]
     : c.className === 'Ranger' ? activeFeatsNamed(c, 'Primal Warrior')[0] : undefined
-  const warriorKnown = warrior && featSpellOptions(c, entries, warrior)?.some(entry => entry.name === name
-    && ['0:0', '0:1'].some(key => [entry.id, entry.name].includes(c.spellcasting?.prepared?.[key] ?? '')))
+  const fixedWarriorSpell = warrior && classExtraSlots(c).some(slot => slot.rank === 0 && slot.spell === name)
+  const warriorKnown = fixedWarriorSpell || warrior?.name === 'Primal Warrior' && name !== 'Protect Companion'
+    && featSpellOptions(c, entries, warrior)?.some(entry => entry.name === name
+      && [entry.id, entry.name].includes(c.spellcasting?.prepared?.['0:0'] ?? ''))
   return !!(c.spells?.some((spell) => spell.name === name)
     || warriorKnown
     || name === 'Shield' && selectedShieldCantrip(c, entries)
