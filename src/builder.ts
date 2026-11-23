@@ -4124,7 +4124,16 @@ export function senses(c: Character, entries: ContentEntry[]) {
 }
 
 const shieldFeaturesCache = new WeakMap<ContentEntry[], ContentEntry[]>()
+const automaticGrantCache = new WeakMap<ContentEntry[], WeakMap<Character, ReturnType<typeof computeAutomaticFeatGrants>>>()
 export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
+  let byCharacter = automaticGrantCache.get(entries)
+  if (!byCharacter) automaticGrantCache.set(entries, byCharacter = new WeakMap())
+  let grants = byCharacter.get(c)
+  if (!grants) byCharacter.set(c, grants = computeAutomaticFeatGrants(c, entries))
+  return grants
+}
+
+function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
   const grants: { name: string; source: string; level: number; choice?: string; choiceKey?: string; choiceIndex?: number }[] = []
   if (vindicatorDeadlySimplicity(c, entries)) grants.push({ name: 'Deadly Simplicity', source: 'Vindicator', level: 1 })
   grants.push(...damayaSelfPerfectionLoreGrants(c))
