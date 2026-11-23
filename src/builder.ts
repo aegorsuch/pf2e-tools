@@ -2754,13 +2754,18 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     const status = bonuses.find(bonus => bonus.source.endsWith('(status)'))?.feet ?? 0
     const formFlyStatus = 'flyStatus' in form && typeof form.flyStatus === 'number' ? form.flyStatus : 0
     const other = bonuses.reduce((total, bonus) => total + bonus.feet, 0) - status
+    const formFly = 'flySpeed' in form && typeof form.flySpeed === 'number' ? form.flySpeed : 0
+    const spellFly = isSpellActive(c, entries, 'Fly') ? Math.max(20, speed(c, entries, options)) : 0
+    const useFormFly = formFly >= spellFly
+    const flyFeet = useFormFly ? formFly + other + Math.max(status, formFlyStatus) : spellFly
+    const flySource = [formFly ? form.source : '', spellFly ? 'Fly' : ''].filter(Boolean).join(', ')
     return [{ name: 'Land', feet: speed(c, entries, options), source: form.source, status },
       ...(form.swimSpeed ? [{ name: 'Swim', feet: Math.max(5, form.swimSpeed + bonuses.reduce((total, bonus) => total + bonus.feet, 0)),
         source: form.source, status }] : []),
       ...(form.climbSpeed ? [{ name: 'Climb', feet: Math.max(5, form.climbSpeed + bonuses.reduce((total, bonus) => total + bonus.feet, 0)),
         source: form.source, status }] : []),
-      ...('flySpeed' in form && typeof form.flySpeed === 'number' && form.flySpeed ? [{ name: 'Fly', feet: Math.max(5, form.flySpeed + other + Math.max(status, formFlyStatus)),
-        source: form.source, status: Math.max(status, formFlyStatus) }] : []),
+      ...(Math.max(formFly, spellFly) ? [{ name: 'Fly', feet: Math.max(5, flyFeet), source: flySource,
+        status: Math.max(status, formFlyStatus) }] : []),
       ...('burrowSpeed' in form && typeof form.burrowSpeed === 'number' && form.burrowSpeed ? [{ name: 'Burrow', feet: Math.max(5, form.burrowSpeed + other + status),
         source: form.source, status }] : [])]
   }
@@ -2788,6 +2793,7 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     ...(features.includes('Fish Tail') ? [atLandSpeed('Swim', 'Animal Feature')] : []),
     ...(features.includes('Wings') ? [atLandSpeed('Fly', 'Animal Feature')] : []),
     ...(isSpellActive(c, entries, 'Stormwind Flight') ? [atLandSpeed('Fly', 'Stormwind Flight')] : []),
+    ...(isSpellActive(c, entries, 'Fly') ? [{ ...atLandSpeed('Fly', 'Fly'), feet: Math.max(20, land) }] : []),
     ...(activeUntamedShiftEffects(c, entries).includes('Wings') ? [fixed('Fly', 30, 'Untamed Shift')] : [])]
   for (const heritage of characterHeritages(c, entries)) {
     for (const [mode, name] of [['climb', 'Climb'], ['swim', 'Swim'], ['fly', 'Fly'], ['burrow', 'Burrow']] as const) {
@@ -3241,7 +3247,11 @@ const INVESTIGATOR_SKILLS: Record<string, string> = {
   'Alchemical Sciences': 'Crafting', 'Forensic Medicine': 'Medicine', Interrogation: 'Diplomacy',
 }
 const INVESTIGATOR_METHOD_FEATS: Record<string, string[]> = {
+  'Alchemical Sciences': ['Alchemical Crafting'],
   Empiricism: ["That's Odd"],
+  Esoterica: ['Quick Identification'],
+  'Forensic Medicine': ['Forensic Acumen', 'Battle Medicine'],
+  Interrogation: ['No Cause for Alarm'],
 }
 const SWASHBUCKLER_SKILLS: Record<string, string> = {
   Battledancer: 'Performance', Braggart: 'Intimidation', Fencer: 'Deception',
@@ -3284,6 +3294,14 @@ function investigatorMethodologySkills(c: Character, methodology: string): strin
     if (statDefs(c).some(stat => stat.kind === 'skill' && stat.ability === 'int' && stat.name === selected)) return [selected]
   }
   return []
+}
+
+export function investigatorMethodologies(c: Character, entries: ContentEntry[]) {
+  if (c.systems.includes('pf2e') === false || c.className !== 'Investigator' || c.level < 1) return []
+  return [...new Set([
+    selectedSubclass(c, entries),
+    ...activeFeatsNamed(c, 'Versatile Investigator').map(feat => feat.choice),
+  ].filter((method): method is string => !!method))]
 }
 
 export function subclassSkillGrants(c: Character, entries: ContentEntry[]): string[] {

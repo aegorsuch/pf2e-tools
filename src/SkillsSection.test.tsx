@@ -34,6 +34,17 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('uses Intelligence for Athletics while Investigator Athletic Strategist is active', () => {
+  const investigator: ContentEntry = { ...ranger, id: 'investigator', name: 'Investigator',
+    data: { ...ranger.data, skill_proficiency: 'Trained in Athletics' } }
+  const strategist: Character = { ...base, className: 'Investigator', level: 5,
+    abilities: { ...base.abilities, str: 12, int: 18 }, skillPicks: ['Athletics'],
+    feats: [{ name: 'Athletic Strategist', type: 'Class Feat', level: 1 }] }
+  const render = (c: Character) => renderToStaticMarkup(<SkillsSection c={c} entries={[investigator]} save={() => {}} part="skills" />)
+  expect(render(strategist)).toContain('class="skill-name">Athletics <b>+8')
+  expect(render({ ...strategist, deviseAStratagemActive: true })).toContain('class="skill-name">Athletics <b>+11')
+})
+
 it('shows Tenacious Stance DC bonuses only while wearing armor in the stance', () => {
   const armor: ContentEntry = { ...ranger, id: 'plate', kind: 'armor', name: 'Plate',
     data: { armor_category: 'Heavy' } }

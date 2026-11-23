@@ -414,7 +414,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const permanentRank = permanentRanks[s.name] ?? 0
     const baseRank = baseRanks[s.name] ?? 0
     const medicalTraining = s.name === 'Medicine' && activeFeatsNamed(c, "Officer's Medical Training").length > 0
-    const ability = medicalTraining && c.abilities.int > c.abilities.wis ? 'int' : s.ability
+    const athleticStrategist = s.name === 'Athletics' && c.systems.includes('pf2e') && c.className === 'Investigator'
+      && !!c.deviseAStratagemActive && !!activeFeatsNamed(c, 'Athletic Strategist').length
+    const ability = athleticStrategist ? 'int'
+      : medicalTraining && c.abilities.int > c.abilities.wis ? 'int' : s.ability
     const abil = abilityMod(c.abilities[ability])
     const form = activeBattleForm(c, entries)
     const armorPenalty = !form && s.kind === 'skill' && (ability === 'str' || ability === 'dex') ? armorCheck : 0
@@ -542,6 +545,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           })}
           {!!filigree && s.name === 'Intimidation' && <SourceNote inlineSource={false} source="Trudd's Strength" note={`${itemTotal(filigree)} to Coerce (+${filigree} item bonus).`} />}
           {medicalTraining && <SourceNote inlineSource={false} source="Officer's Medical Training" note="You can use Intelligence instead of Wisdom for Medicine checks." />}
+          {athleticStrategist && <SourceNote inlineSource={false} source="Athletic Strategist"
+            note="When you substitute your Devise a Stratagem roll for an Athletics check made as part of an attack maneuver, use Intelligence instead of Strength." />}
           {temporaryTrainings.filter(training => training.skill === s.name && training.rank > permanentRank).map(training =>
             <SourceNote key={`${training.feat.name}:${s.name}`} inlineSource={false} source={training.feat.name}
               note={training.feat.name === 'Eclectic Obsession'

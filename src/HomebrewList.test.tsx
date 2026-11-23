@@ -22,9 +22,14 @@ it.each([false, true])('confirms homebrew deletion before invoking its persisten
     if (child.type === 'button' && child.props['aria-label'] === `Delete ${entry.name}`) remove = child.props.onClick as () => void
     visit(child.props.children as ReactNode)
   })
-  visit(HomebrewList({ entries: [entry], onEdit: () => {}, onDelete }))
-  if (!remove) throw new Error('Missing homebrew delete button')
-  remove()
+  function Inspect() {
+    const tree = HomebrewList({ entries: [entry], onEdit: () => {}, onDelete })
+    visit(tree)
+    if (!remove) throw new Error('Missing homebrew delete button')
+    remove()
+    return <>{tree}</>
+  }
+  renderToStaticMarkup(<Inspect />)
   expect(confirm).toHaveBeenCalledWith(`Remove homebrew "${entry.name}"?`)
   expect(onDelete).toHaveBeenCalledTimes(accepted ? 1 : 0)
   if (accepted) expect(onDelete).toHaveBeenCalledWith(entry.id)

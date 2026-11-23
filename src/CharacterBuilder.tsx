@@ -511,6 +511,13 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
   const subclasses = subclassOptions(c, entries).filter(entry => entry.data.subclass_type !== 'fatal-method')
   const subclassName = selectedSubclass(c, entries)
   const subclass = subclasses.find((entry) => entry.name === subclassName)
+  const investigatorMethodNames = [...new Set([...subclasses.map(method => method.name), ...(subclassName ? [subclassName] : [])])]
+  const investigatorMethodVariants = c.className === 'Investigator' ? investigatorMethodNames.flatMap(method => {
+    const choice = subclassSkillChoice({ ...c, subclass: method }, entries)
+    return choice?.options.length
+      ? choice.options.map(skill => ({ value: `${method}|${skill}`, label: `${method} (${skill})` }))
+      : [{ value: method, label: method }]
+  }) : []
   const additionalInvestigatorMethods = c.className === 'Investigator'
     ? activeFeatsNamed(c, 'Versatile Investigator').flatMap(feat => {
       const method = subclasses.find(entry => entry.name === feat.choice)
@@ -521,6 +528,8 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
   const fatalMethodEntry = fatalMethods.find(entry => entry.name === fatalMethod)
   const subclassChoice = subclassSkillChoice(c, entries)
   const choiceValue = subclassChoice ? c.subclassSkillChoices?.[subclassChoice.key] ?? '' : ''
+  const methodPickerValue = subclassName && subclassChoice?.options.length
+    ? choiceValue ? `${subclassName}|${choiceValue}` : subclassName : subclassName ?? ''
   const background = named('background', c.background)
   const backgroundLabel = (name: string) => {
     const lore = c.backgroundLores?.[name]?.filter(Boolean).join(', ')
@@ -728,11 +737,28 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                 if (level !== c.level) void save({ level })
               }} /></label>
           </div>
-          {c.className !== 'Druid' && subclasses.length > 0 && <>
-            <Pick label={c.className === 'Necromancer' ? 'Grim Fascination' : c.className === 'Witch' ? 'Patron' : c.className === 'Rogue' ? 'Racket' : c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : c.className === 'Mechanic' ? 'Exocortex' : c.className === 'Envoy' ? 'Leadership style' : c.className === 'Mystic' ? 'Connection' : c.className === 'Operative' ? 'Specialization' : c.className === 'Witchwarper' ? 'Paradox' : c.className === 'Soldier' ? 'Fighting style' : 'Subclass'}
+          {c.className !== 'Druid' && (subclasses.length > 0 || c.className === 'Investigator' && !!subclassName) && <>
+            {c.className === 'Investigator' ? <SearchableSelect label="Methodology" aria-label="Methodology"
+              value={methodPickerValue} disabled={!!selectedClassArchetype(c, entries)} onChange={event => {
+                const value = event.target.value
+                const separator = value.indexOf('|')
+                const method = separator < 0 ? value : value.slice(0, separator)
+                const skill = separator < 0 ? undefined : value.slice(separator + 1)
+                if (method && !investigatorMethodNames.includes(method)) return
+                const choice = method ? subclassSkillChoice({ ...c, className: 'Investigator', subclass: method }, entries) : undefined
+                if (choice?.options.length && (!skill || !choice.options.includes(skill))) return
+                save({ subclass: method, ...(choice ? {
+                  subclassSkillChoices: { ...c.subclassSkillChoices, [choice.key]: skill ?? '' },
+                } : {}) })
+              }}>
+              <option value="">No methodology</option>
+              {methodPickerValue && !investigatorMethodVariants.some(option => option.value === methodPickerValue)
+                && <option value={methodPickerValue} disabled>{subclassName}{subclassChoice?.options.length ? ' (choose skill)' : ''}</option>}
+              {investigatorMethodVariants.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </SearchableSelect> : <Pick label={c.className === 'Necromancer' ? 'Grim Fascination' : c.className === 'Witch' ? 'Patron' : c.className === 'Rogue' ? 'Racket' : c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : c.className === 'Mechanic' ? 'Exocortex' : c.className === 'Envoy' ? 'Leadership style' : c.className === 'Mystic' ? 'Connection' : c.className === 'Operative' ? 'Specialization' : c.className === 'Witchwarper' ? 'Paradox' : c.className === 'Soldier' ? 'Fighting style' : 'Subclass'}
               kind="subclass" value={subclassName} disabled={!!selectedClassArchetype(c, entries)} options={subclasses.filter((entry) => c.className !== 'Inventor'
                 || !c.feats.some((feat) => ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice === entry.name))}
-              onChange={(v) => save({ subclass: v ?? '' })} />
+              onChange={(v) => save({ subclass: v ?? '' })} />}
             {subclass && <SelectedSubclassRules entry={subclass} />}
           </>}
           <WitchwarperAnchor c={c} save={save} />
@@ -752,7 +778,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
               </SearchableSelect>
           )}
           {subclassChoice && <>
-            {subclassChoice.options.length > 0 && <SearchableSelect label={subclassChoice.label} aria-label={subclassChoice.label}
+            {c.className !== 'Investigator' && subclassChoice.options.length > 0 && <SearchableSelect label={subclassChoice.label} aria-label={subclassChoice.label}
               value={choiceValue} onChange={event => {
                 const value = event.target.value
                 if (value && !subclassChoice.options.includes(value)) return
@@ -778,16 +804,6 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
             const value = choice ? c.subclassSkillChoices?.[choice.key] ?? '' : ''
             return <Fragment key={method.id}>
               <SelectedSubclassRules entry={method} label={`${method.name} methodology (Versatile Investigator)`} />
-              {choice && choice.options.length > 0 && <SearchableSelect label={`${method.name} methodology skill`}
-                aria-label={`${method.name} methodology skill`} value={value} onChange={event => {
-                  const selected = event.target.value
-                  if (selected && !choice.options.includes(selected)) return
-                  save({ subclassSkillChoices: { ...c.subclassSkillChoices, [choice.key]: selected } })
-                }}>
-                <option value="">Choose methodology skill</option>
-                {value && !choice.options.includes(value) && <option disabled>{value}</option>}
-                {choice.options.map(option => <option key={option}>{option}</option>)}
-              </SearchableSelect>}
               {choice && (choice.options.length === 0 || value === 'Lore') && <label>{method.name} Lore specialty{' '}
                 <input aria-label={`${method.name} methodology Lore specialty`}
                   key={`${choice.key}:${value}`}

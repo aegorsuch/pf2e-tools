@@ -45,8 +45,8 @@ it.each(Object.entries(WARMASK_SOURCES))('shows only %s details in the chosen fe
   }
   const preview = renderToStaticMarkup(<FeatSlots c={c} entries={[entry]} save={() => {}} categories={['ancestry']}
     search={{ 'ancestry:1:0:open': '1' }} onSearch={() => {}} />)
-  for (const [name, { skill, tradition }] of Object.entries(WARMASK_SOURCES)) {
-    expect(preview).toContain(`${name}: ${skill}, ${tradition} Tradition`)
+  for (const [name, { skill }] of Object.entries(WARMASK_SOURCES)) {
+    expect(preview).toContain(`${name}, ${skill}`)
   }
   expect(JSON.stringify(entry)).toBe(before)
 })

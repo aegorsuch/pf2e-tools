@@ -296,6 +296,11 @@ export interface Character {
   secondaryPowerSourceIds?: string[]
   secondaryPowerUses?: Record<string, number>
   formulas?: string[]
+  investigatorAlchemicalFormulas?: string[]
+  investigatorVialsSpent?: number
+  investigatorTinctureFormula?: string
+  investigatorQuickTincture?: string
+  investigatorEsotericaSpells?: { Divine?: string; Occult?: string }
   snareFormulaChoices?: string[]
   snareAdvancementFormulaChoices?: string[]
   gadgetFormulaChoices?: string[]

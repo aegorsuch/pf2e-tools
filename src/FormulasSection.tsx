@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { featTakenLevel, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
+import { ActionIcon } from './ActionIcon'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
 import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
 import { contentAccessGranted, featRarity } from './featAccess'
-import { formulaGrants, formulaKey as key, isCauldronConsumable, isGrenade, knownFormulas, munitionsFormulaOptions, STANDARD_SNARE_FORMULAS, updateFormulaChoice } from './formulas'
+import { formulaGrants, formulaKey as key, isCauldronConsumable, isGrenade, isInvestigatorAlchemyFormula, knownFormulas, munitionsFormulaOptions, STANDARD_SNARE_FORMULAS, updateFormulaChoice } from './formulas'
 import type { Character, ContentEntry } from './types'
 
 function availableFormulas(c: Character, list: ContentEntry[]) {
@@ -39,10 +40,11 @@ export function FormulaSearch({ c, items, knownKeys, allowRestricted, save }: {
 
 export function FormulasSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
   const grants = formulaGrants(c, entries)
-  const { sources, gadgets, snares: snareRanks, munitions, grenades, cauldron } = grants
+  const { sources, gadgets, snares: snareRanks, munitions, grenades, cauldron, investigatorAlchemy } = grants
   const known = knownFormulas(c, entries, grants)
   const slots = (sources.snareCrafting ? 4 : 0) + (sources.brastlewark ? 2 : 0) + (gadgets?.formulas ?? 0)
     + (munitions ? munitions.formulaChoices : 0) + (grenades?.formulas ?? 0) + snareRanks.length * 3 + cauldron.length
+    + (investigatorAlchemy?.formulas ?? 0)
   const filled = (sources.snareCrafting ? (c.snareFormulaChoices ?? []).slice(0, 4).filter(Boolean).length : 0)
     + (sources.brastlewark ? c.brastlewarkFormulaMode === 'standard' ? 2
       : c.brastlewarkFormulaMode === 'other' ? (c.brastlewarkFormulaChoices ?? []).slice(0, 2).filter(Boolean).length : 0 : 0)
@@ -50,8 +52,9 @@ export function FormulasSummary({ c, entries }: Pick<SectionProps, 'c' | 'entrie
     + (c.munitionsFormulaChoices ?? []).slice(0, munitions?.formulaChoices ?? 0).filter(Boolean).length
     + (c.grenadeFormulaChoices ?? []).slice(0, grenades?.formulas ?? 0).filter(Boolean).length
     + (c.cauldronFormulaChoices ?? []).slice(0, cauldron.length).filter(Boolean).length
+    + (c.investigatorAlchemicalFormulas ?? []).slice(0, investigatorAlchemy?.formulas ?? 0).filter(Boolean).length
     + snareRanks.reduce((sum, { rank }) => sum + (c.snareAdvancementFormulaChoices ?? []).slice((rank - 2) * 3, (rank - 1) * 3).filter(Boolean).length, 0)
-  return <summary className="character-section-summary"><strong>Formulas</strong><span>{known.length} known{slots > 0 && `; ${filled}/${slots} feat choices`}</span></summary>
+  return <summary className="character-section-summary"><strong>Formulas</strong><span>{known.length} known{slots > 0 && `; ${filled}/${slots} choices`}</span></summary>
 }
 
 export function FormulasSection(props: SectionProps) {
@@ -63,7 +66,7 @@ export function FormulasSection(props: SectionProps) {
 
 export function FormulasContent({ c, entries, save }: SectionProps) {
   const grants = formulaGrants(c, entries)
-  const { sources, gadgets, munitions, grenades, snares: snareRanks, cauldron } = grants
+  const { sources, gadgets, munitions, grenades, snares: snareRanks, cauldron, investigatorAlchemy } = grants
   const known = knownFormulas(c, entries, grants)
   const knownKeys = new Set(known.map(formula => key(formula.name)))
   const items = useMemo(() => entries.filter(entry => ['item', 'weapon', 'armor', 'shield'].includes(entry.kind)
@@ -76,15 +79,16 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
     && !['Rare', 'Unique'].includes(featRarity(item) ?? '')), [items])
   const munitionsOptions = munitions ? munitionsFormulaOptions(items, c.systems) : []
   const options = (field: 'snareFormulaChoices' | 'snareAdvancementFormulaChoices' | 'brastlewarkFormulaChoices'
-    | 'gadgetFormulaChoices' | 'munitionsFormulaChoices' | 'grenadeFormulaChoices' | 'cauldronFormulaChoices', count: number, candidates: ContentEntry[], label: string,
-    offset = 0, distinct = false) => {
+    | 'gadgetFormulaChoices' | 'munitionsFormulaChoices' | 'grenadeFormulaChoices' | 'cauldronFormulaChoices' | 'investigatorAlchemicalFormulas',
+    count: number, candidates: ContentEntry[], label: string, offset = 0, distinct = false,
+    eligible: (item: ContentEntry, index: number) => boolean = () => true) => {
     if (!count) return []
     const values = c[field] ?? []
     const available = availableFormulas(c, candidates)
     return Array.from({ length: count }, (_, i) => {
       const index = i + offset
       const current = values[index] ?? ''
-      const choices = available.filter(item => (!distinct
+      const choices = available.filter(item => eligible(item, index) && (!distinct
         || !values.slice(0, count).some((name, i) => i !== index && typeof name === 'string' && key(name) === key(item.name)))
         && (key(item.name) === key(current) || !knownKeys.has(key(item.name))))
       return <label key={index}>{label} {i + 1}{' '}
@@ -106,7 +110,46 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
     })
   }
   const restricted = new Set(STANDARD_SNARE_FORMULAS.map(key))
+  const investigatorAlchemyOptions = items.filter(item => isInvestigatorAlchemyFormula(item)
+    && item.level <= c.level && !featRarity(item))
+  const knownInvestigatorAlchemy = (c.investigatorAlchemicalFormulas ?? []).slice(0, investigatorAlchemy?.formulas ?? 0)
+  const tinctureOptions = investigatorAlchemy ? knownInvestigatorAlchemy.flatMap(name => {
+    const item = items.find(entry => key(entry.name) === key(name))
+    return item && isInvestigatorAlchemyFormula(item) ? [item] : []
+  }) : []
+  const vials = investigatorAlchemy?.vials ?? 0
+  const vialsSpent = Math.max(0, Math.min(vials, Math.trunc(c.investigatorVialsSpent ?? 0)))
+  const selectedTincture = tinctureOptions.find(item => item.name === c.investigatorTinctureFormula)
   return <div className="character-section-content">
+      {investigatorAlchemy && <div className="col">
+        <b>Alchemical Sciences</b>
+        <p>Versatile Vials: {Math.max(0, vials - vialsSpent)}/{vials}</p>
+        {options('investigatorAlchemicalFormulas', investigatorAlchemy.formulas, investigatorAlchemyOptions,
+          'Alchemical Sciences formula', 0, true, (item, index) => index < 2 ? item.level === 1 : item.level <= c.level)}
+        <label>Quick Tincture formula{' '}
+          <SearchableSelect aria-label="Quick Tincture formula" value={selectedTincture?.name ?? ''} onChange={event => {
+            const value = event.target.value
+            if (value && !tinctureOptions.some(item => item.name === value)) return
+            save({ investigatorTinctureFormula: value || undefined, investigatorQuickTincture: undefined })
+          }}>
+            <option value="">Choose known formula</option>
+            {c.investigatorTinctureFormula && !selectedTincture
+              && <option value={c.investigatorTinctureFormula} disabled>{c.investigatorTinctureFormula} (unavailable)</option>}
+            {tinctureOptions.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}
+          </SearchableSelect>
+        </label>
+        <div className="row">
+          <button type="button" className="spell-action-button" aria-label="Create Quick Tincture (One Action)"
+            disabled={!selectedTincture || vialsSpent >= vials} onClick={() => {
+              if (!selectedTincture || vialsSpent >= vials) return
+              save({ investigatorVialsSpent: vialsSpent + 1, investigatorQuickTincture: selectedTincture.name })
+            }}><ActionIcon actions="Single Action" /></button>
+          {c.investigatorQuickTincture && <small>Created: {c.investigatorQuickTincture}</small>}
+          {vialsSpent > 0 && <button type="button" onClick={() => save({
+            investigatorVialsSpent: 0, investigatorQuickTincture: undefined,
+          })}>Reset daily vials</button>}
+        </div>
+      </div>}
       {sources.snareCrafting && <div className="col">
         <b>Snare Crafting</b>
         {options('snareFormulaChoices', 4, basic, 'Snare Crafting formula')}

@@ -1,5 +1,5 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, orderMagicOptions, statDefs, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, orderMagicOptions, statDefs, subclassSkillChoice, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
 import { automaticFeatGrants } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, automaticFeatChoiceKey, coreAttunementOptions, featSpellOptions } from './featSpells'
@@ -137,6 +137,7 @@ export function AutomaticFeatChoice({ c, entries, save, name, source, choice, ch
 export function FeatChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
+  if (feat.name === "Trickster's Ace" && c.className === 'Investigator' && c.systems.includes('pf2e')) return null
   if (feat.name === 'Bloodrager Dedication' && feat.slot === 'class:2:0') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot, index) ?? []
     return <SearchableSelect label="Tradition" aria-label="Bloodrager Dedication tradition" value={feat.choice ?? ''} onChange={event => {
@@ -315,8 +316,36 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       : feat.name === 'Versatile Investigator' ? 'Investigator' : 'Bard'
     const kind = className === 'Rogue' ? 'racket' : className === 'Investigator' ? 'methodology' : 'muse'
     const subclass = entries.find(entry => entry.kind === 'subclass' && entry.name === feat.choice && entry.data.class === className)
+    const investigatorVariants = className === 'Investigator' ? options.flatMap(method => {
+      const choice = subclassSkillChoice({ ...c, className: 'Investigator', subclass: method }, entries)
+      return choice?.options.length
+        ? choice.options.map(skill => ({ value: `${method}|${skill}`, label: `${method} (${skill})` }))
+        : [{ value: method, label: method }]
+    }) : []
+    const investigatorChoice = feat.choice
+      ? subclassSkillChoice({ ...c, className: 'Investigator', subclass: feat.choice }, entries) : undefined
+    const investigatorSkill = investigatorChoice ? c.subclassSkillChoices?.[investigatorChoice.key] ?? '' : ''
+    const investigatorValue = feat.choice && investigatorChoice?.options.length
+      ? investigatorSkill ? `${feat.choice}|${investigatorSkill}` : feat.choice : feat.choice ?? ''
     return <span className="feat-choice feat-choice-with-note">
-      <SearchableSelect label={`Additional ${kind}`} aria-label={`${feat.name} ${kind}`} value={feat.choice ?? ''} onChange={event => {
+      {className === 'Investigator' ? <SearchableSelect label={`Additional ${kind}`} aria-label={`${feat.name} ${kind}`}
+        value={investigatorValue} onChange={event => {
+          const value = event.target.value
+          const separator = value.indexOf('|')
+          const choice = separator < 0 ? value : value.slice(0, separator)
+          const skill = separator < 0 ? undefined : value.slice(separator + 1)
+          if (choice && !options.includes(choice)) return
+          const skillChoice = choice ? subclassSkillChoice({ ...c, className: 'Investigator', subclass: choice }, entries) : undefined
+          if (skillChoice?.options.length && (!skill || !skillChoice.options.includes(skill))) return
+          save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing),
+            ...(skillChoice ? { subclassSkillChoices: { ...c.subclassSkillChoices, [skillChoice.key]: skill ?? '' } } : {}) })
+        }}>
+        <option value="">Choose methodology</option>
+        {feat.choice && !investigatorVariants.some(option => option.value === investigatorValue)
+          && <option value={investigatorValue} disabled>{feat.choice}{investigatorChoice?.options.length ? ' (choose skill)' : ' (unavailable)'}</option>}
+        {[...investigatorVariants].sort((a, b) => a.label.localeCompare(b.label))
+          .map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </SearchableSelect> : <SearchableSelect label={`Additional ${kind}`} aria-label={`${feat.name} ${kind}`} value={feat.choice ?? ''} onChange={event => {
         const choice = event.target.value
         if (choice && !options.includes(choice)) return
         save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })
@@ -324,7 +353,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         <option value="">{`Choose ${kind}`}</option>
         {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
         {[...options].sort((a, b) => a.localeCompare(b)).map(option => <option key={option}>{option}</option>)}
-      </SearchableSelect>
+      </SearchableSelect>}
       {subclass && <EntryDescription name={subclass.name} entry={subclass} buttonLabel="Subclass details" />}
     </span>
   }

@@ -1,7 +1,7 @@
 import { EntryDescription } from './EntryDescription'
 import { confirmRemoval } from './confirmRemoval'
 import { useId, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeBattleForm, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, untamedShiftChoices, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeBattleForm, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, investigatorMethodologies, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, signed, spellActiveChange, untamedShiftChoices, type SectionProps } from './builder'
 import { ANIMAL_FEATURES, PERSISTENT_SPELLS } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { featTakenLevel, grantedWardenSpells, selectedFeatEntry, spellWardenLabel } from './featChoices'
@@ -9,7 +9,7 @@ import { ActionIcon } from './ActionIcon'
 import { DamageRoll, SpellActions, SpellDamageRolls, spellActionRolls, spellDamage } from './SpellDamage'
 import { intensifiedElementDamage } from './builder'
 import { companionAdvancementFor, companionStats } from './companions'
-import { classInnateTradition, dailyInnateUses, innateTraditionOptions, gnomeHeritageCantripOptions, gnomeHeritageTradition, grantedFeatSpells, mageAutomatonOptions, originalNephilimLineage, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
+import { classInnateTradition, dailyInnateUses, innateTraditionOptions, gnomeHeritageCantripOptions, gnomeHeritageTradition, grantedFeatSpells, investigatorEsotericaCantripOptions, mageAutomatonOptions, originalNephilimLineage, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
 import { fiendOptions, plantOptions, type SummonedFiend } from './summonedFiends'
 import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
@@ -34,7 +34,7 @@ import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
-const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Enduring Might', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Tailwind']
+const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Enduring Might', 'Fly', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Tailwind']
 
 function PharasmaSpellBonus({ c, entry, name, rank }: { c: Character; entry?: ContentEntry; name: string; rank: number }) {
   if (!hasDivineIntercession(c, 'Pharasma', 'moderate-boon') || rank < 1) return null
@@ -936,7 +936,11 @@ function SpellItem({ c, name, nameControl, entry, note, onRemove, active, onTogg
         <div className="spell-title">{nameControl ?? <EntryDescription name={name} entry={entry} />}
           {onRemove && <button type="button" className="spell-remove" aria-label={`Remove ${name}`} title="Remove"
             onClick={() => confirmRemoval(`spell "${name}"`, onRemove)}>×</button>}
-          {onToggle ? <ActiveSpellActions name={name} entry={entry} actions={activeActions} rank={name === 'Oaken Resilience' ? effectRank : effectRank ?? rank}>
+          {onToggle && name === 'Fly' ? <button type="button" className="spell-action-button"
+            aria-label={active ? 'Deactivate Fly' : 'Activate Fly'} aria-pressed={!!active}
+            onClick={() => onToggle(!active)}><ActionIcon actions={activeActions
+              ?? (typeof entry?.data.actions === 'string' ? entry.data.actions : 'Two Actions')} showOther /></button>
+            : onToggle ? <ActiveSpellActions name={name} entry={entry} actions={activeActions} rank={name === 'Oaken Resilience' ? effectRank : effectRank ?? rank}>
             {activeToggle}{effectControls}
           </ActiveSpellActions> : actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form', 'Dinosaur Form', 'Pest Form',
             'Shield', 'Bone Shield', 'False Vitality', 'Canopy Crawler', 'Enlarge Companion', 'Apex Companion', 'Protect Companion', 'Spirit of the Beast'].includes(name)
@@ -1204,6 +1208,12 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
   </div>
 }
 
+function investigatorTricksterAceSlots(c: Character, entries: ContentEntry[]) {
+  if (!c.systems.includes('pf2e') || c.className !== 'Investigator') return []
+  return c.feats.flatMap((feat, index) => feat.name === "Trickster's Ace" && featTakenLevel(feat) <= c.level
+    ? [{ feat, index, options: featSpellOptions(c, entries, feat) ?? [] }] : [])
+}
+
 function spellSummaryData(c: Character, entries: ContentEntry[]) {
   const spells = (c.spells ?? []).map(spell => spell.name.toLowerCase() === 'goodberry'
     ? { ...spell, name: 'Cornucopia', entryId: entries.find(entry => entry.kind === 'spell' && !entry.deleted
@@ -1294,13 +1304,19 @@ export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'en
     }).flat() : []
   const otherSpells = new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size
     + groupedInnateSpells(c, innate).length + special.length + items.length
+  const tricksterAceSlots = investigatorTricksterAceSlots(c, entries)
+  const missingTricksterAceChoices = tricksterAceSlots.filter(slot =>
+    !slot.options.some(option => option.name === slot.feat.choice)).length
+  const esotericaSlots = investigatorMethodologies(c, entries).includes('Esoterica') ? 2 : 0
+  const selectedEsotericaSlots = innate.filter(grant => grant.source === 'Esoterica').length
+  const missingEsotericaSlots = Math.max(0, esotericaSlots - selectedEsotericaSlots)
   const featChoices = c.feats.filter(feat => featTakenLevel(feat) <= c.level
     && (feat.name === 'First World Magic' || ['Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon'].includes(feat.name) && c.systems.includes('sf2e')))
   const missingFeatChoices = featChoices.filter(feat => !innate.some(grant => grant.source === feat.name && grant.entry.name === feat.choice)).length
   const minorSlots = activeFeatsNamed(c, 'Minor Magic').length && c.minorMagic?.tradition ? 2 : 0
   const minorSelected = minorSlots ? minorMagicSpells(c, entries).length : 0
   const selected = (slots || witchwarper ? choices.filter(Boolean).length : manualSpells.length) + otherSpells + minorSelected
-  const total = choices.length + otherSpells + missingFeatChoices + minorSlots
+  const total = choices.length + otherSpells + missingFeatChoices + minorSlots + missingEsotericaSlots + missingTricksterAceChoices
   return <summary className="character-section-summary">
     <strong>Spells</strong>
     <span>{selected < total ? `${selected}/${total}` : selected} spells
@@ -1320,11 +1336,12 @@ export function spellCategoryAvailability(c: Character, entries: ContentEntry[],
   const focusAvailable = focus.length > 0 || granted.length > 0 || focusPoints > 0
     || (c.className === 'Champion' && c.level >= 1) || !!activeFeatsNamed(c, 'Floral Restoration').length
     || !!activeFeatsNamed(c, 'Desperate Warden').length
-  const innateAvailable = innate.length > 0 || c.heritage === 'Mage Automaton' && c.level >= 1
+  const innateAvailable = innate.length > 0 || investigatorMethodologies(c, entries).includes('Esoterica') || c.heritage === 'Mage Automaton' && c.level >= 1
     || c.systems.includes('pf2e') && c.level >= 1 && ['fey-touched gnome', 'wellspring gnome'].includes(heritage)
     || !!activeFeatsNamed(c, 'Minor Magic').length || !!activeFeatsNamed(c, 'First World Magic').length
     || c.systems.includes('sf2e') && ['Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon'].some(name => activeFeatsNamed(c, name).length > 0)
-  return { class: class_, focus: focusAvailable, innate: innateAvailable, feat: special.length > 0, items: items.length > 0,
+  return { class: class_, focus: focusAvailable, innate: innateAvailable,
+    feat: special.length > 0 || investigatorTricksterAceSlots(c, entries).length > 0, items: items.length > 0,
     rituals: characterRituals(c, entries).ritualNames.length > 0 }
 }
 
@@ -1559,6 +1576,18 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       current, options, grant, entry: grant?.entry,
       select: value => save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: value || undefined } : existing) }) })
   })
+  if (investigatorMethodologies(c, entries).includes('Esoterica')) {
+    for (const tradition of ['Divine', 'Occult'] as const) {
+      const current = c.investigatorEsotericaSpells?.[tradition] ?? ''
+      const options = investigatorEsotericaCantripOptions(c, entries, tradition)
+      const grant = innate.find(item => item.source === 'Esoterica' && item.rule.tradition === tradition
+        && item.entry.name === current)
+      choiceSlots.push({ key: `Esoterica:${tradition}`, label: `Esoterica ${tradition} cantrip`, tradition,
+        rank: Math.ceil(c.level / 2), current, options, grant, entry: grant?.entry,
+        select: value => save({ investigatorEsotericaSpells: { ...c.investigatorEsotericaSpells, [tradition]: value || undefined } }) })
+    }
+  }
+  const tricksterAceSlots = investigatorTricksterAceSlots(c, entries)
   const minorTradition = c.minorMagic?.tradition
   if (activeFeatsNamed(c, 'Minor Magic').length && minorTradition) {
     const choices = c.minorMagic?.cantrips?.[minorTradition] ?? []
@@ -1694,6 +1723,26 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             aria-pressed={activeCategory === value} onClick={() => setCategory(value)}>{label}</button>)}
       </div>
       <div hidden={activeCategory !== 'feat'}>
+        {tricksterAceSlots.map(({ feat, index, options }) => {
+          const label = `Trickster's Ace spell${tricksterAceSlots.length > 1 ? ` ${index + 1}` : ''}`
+          return <label key={`trickster-ace:${index}`}>{label}{' '}
+            <SearchableSelect aria-label={label} value={feat.choice ?? ''} alwaysSearchable
+              optionSpell={value => options.find(entry => entry.name === value)}
+              onChange={event => {
+                const value = event.target.value
+                if (value && !options.some(entry => entry.name === value)) return
+                const select = () => save({ feats: c.feats.map((existing, i) => i === index
+                  ? { ...existing, choice: value || undefined } : existing) })
+                if (!value && feat.choice) confirmRemoval(`spell "${feat.choice}"`, select)
+                else select()
+              }}>
+              <option value="">Choose spell</option>
+              {feat.choice && !options.some(entry => entry.name === feat.choice)
+                && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
+              {[...new Set(options.map(entry => entry.name))].map(name => <option key={name}>{name}</option>)}
+            </SearchableSelect>
+          </label>
+        })}
         {[...new Set(special.map(grant => grant.source))].map(source => <section className="innate-spell-group" key={source}>
           <h5>{source} · Spell Rank {special.find(grant => grant.source === source)?.rank}</h5>
           <SpellColumns />

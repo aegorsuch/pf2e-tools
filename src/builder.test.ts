@@ -1066,6 +1066,20 @@ describe('subclass skill grants', () => {
     }))
   })
 
+  it.each([
+    ['Alchemical Sciences', ['Alchemical Crafting']],
+    ['Empiricism', ["That's Odd"]],
+    ['Esoterica', ['Quick Identification']],
+    ['Forensic Medicine', ['Forensic Acumen', 'Battle Medicine']],
+    ['Interrogation', ['No Cause for Alarm']],
+  ])('automatically grants %s methodology feats', (methodology, feats) => {
+    const methods = [entry('subclass', methodology, { class: 'Investigator' })]
+    const c: Character = { ...base, className: 'Investigator', subclass: methodology }
+    expect(automaticFeatGrants(c, methods)).toEqual(expect.arrayContaining(
+      feats.map(name => expect.objectContaining({ name, source: `${methodology} Methodology`, level: 1 })),
+    ))
+  })
+
   it('uses catalog bloodline, patron and mystery skills and handles selected exemplar and Lore', () => {
     const options = [
       entry('subclass', 'Draconic', { class: 'Sorcerer', skill: 'Intimidation' }),

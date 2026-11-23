@@ -107,10 +107,14 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
       const attack = weaponAttack(c, entries, reloaded)
       expect(effective.potency).toBe(coldstarForm === 'Merged' ? 4 : 3)
       expect(attack.damage).toBe(coldstarForm === 'Merged' ? '4d6 P' : '3d6 P')
-      expect(attack.range).toBe(coldstarForm === 'Merged' ? 120 : 60)
+      expect(attack.range).toBe(coldstarForm === 'Merged' ? 240 : 120)
       expect(weaponHands(entries, reloaded)).toBe(coldstarForm === 'Paired' ? 2 : 1)
+      expect(effective.material).toBe('Orichalcum')
+      const coldstar = gearPickerEntries(entries, 'weapon').find(entry => entry.data.named_weapon_source === 'Coldstar Pistols')
+      expect(namedWeaponEnhancements(coldstar)?.runes).toContain('Impossible')
+      expect(effective.runes).toContain('Impossible')
       expect(effective.runes).toEqual([...(coldstarForm === 'Merged' ? ['Flaming (Greater)', 'Frost (Greater)']
-        : [coldstarForm === 'Frost' ? 'Frost (Greater)' : 'Flaming (Greater)']), 'Grievous'])
+        : [coldstarForm === 'Frost' ? 'Frost (Greater)' : 'Flaming (Greater)']), 'Impossible', 'Grievous'])
       expect(attack.traits).toEqual(expect.arrayContaining(['Agile', 'Concealable', 'Concussive', 'Fatal d10']))
       for (const displayOnly of [false, true]) {
         const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [weapon] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)

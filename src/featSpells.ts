@@ -7,7 +7,7 @@ import { getSettings } from './settings'
 import { cantripOptions } from './minorMagic'
 import { GODCLAW_DOMAINS, hellknightTrainingBenefit, hellknightTrainingSpellRules } from './hellknight'
 import { spellAccessGranted } from './featAccess'
-import { classSpellcasting, classSpellSlots } from './builder'
+import { classSpellcasting, classSpellSlots, investigatorMethodologies } from './builder'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 export const KITSUNE_SPELL_FAMILIARITY_CANTRIPS = ['Daze', 'Forbidding Ward', 'Ghost Sound']
@@ -391,6 +391,11 @@ export function gnomeHeritageCantripOptions(c: Character, entries: ContentEntry[
   return tradition ? cantripOptions(c, spellIndex(entries).spells, tradition) : []
 }
 
+export function investigatorEsotericaCantripOptions(c: Character, entries: ContentEntry[], tradition: 'Divine' | 'Occult') {
+  if (!investigatorMethodologies(c, entries).includes('Esoterica')) return []
+  return cantripOptions(c, spellIndex(entries).spells, tradition).filter(entry => entry.systems.includes('pf2e'))
+}
+
 function orderTrainingRules(c: Character, entries: ContentEntry[], feat: Character['feats'][number]): SpellGrant[] {
   const benefit = hellknightTrainingBenefit(c, feat.name, feat.choice)
   if (benefit?.name === 'Dedication to the Five' && benefit.choice && GODCLAW_DOMAINS.includes(benefit.choice)) {
@@ -439,6 +444,15 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
 
 function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consolidate = true) {
   const out: { entry: ContentEntry; source: string; rule: SpellGrant; rank: number; usageKey: string }[] = []
+  if (investigatorMethodologies(c, entries).includes('Esoterica')) {
+    for (const tradition of ['Divine', 'Occult'] as const) {
+      const selected = c.investigatorEsotericaSpells?.[tradition]
+      const entry = selected && investigatorEsotericaCantripOptions(c, entries, tradition).find(spell => spell.name === selected)
+      if (entry) out.push({ entry, source: 'Esoterica',
+        rule: { kind: 'innate', spells: [entry.name], tradition, ability: 'int', frequency: 'at will', heightened: true },
+        rank: Math.ceil(c.level / 2), usageKey: JSON.stringify(['investigator', 'Esoterica', tradition, entry.name.toLowerCase()]) })
+    }
+  }
   const gnomeTradition = gnomeHeritageTradition(c)
   const gnomeCantrip = gnomeTradition && c.gnomeHeritageMagic?.cantrips?.[gnomeTradition]
     ? gnomeHeritageCantripOptions(c, entries).find(entry => entry.name === c.gnomeHeritageMagic?.cantrips?.[gnomeTradition])

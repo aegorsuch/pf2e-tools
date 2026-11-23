@@ -6,8 +6,6 @@ import { characterSummary, hasRemainingFeatSelections } from './builder'
 import { characterDeityLores } from './backgrounds'
 import { CharacterFilters, filterCharacters, type CharacterFilterValues } from './CharacterFilters'
 import { DeleteIcon, EditIcon } from './Icons'
-import { EffectsEditor } from './EffectsEditor'
-import { HomebrewList } from './HomebrewList'
 import { confirmRemoval } from './confirmRemoval'
 import { loadRequiredCatalogs, readCatalog } from './catalogLoading'
 import { onAuthChange, signInWithGitHub, signOut, startAutoSync, supabase } from './sync'
@@ -18,6 +16,10 @@ import './App.css'
 
 const loadCharacterBuilder = () => import('./CharacterBuilder').then(m => ({ default: m.CharacterBuilder }))
 const CharacterBuilder = lazy(loadCharacterBuilder)
+const loadEffectsEditor = () => import('./EffectsEditor').then(m => ({ default: m.EffectsEditor }))
+const EffectsEditor = lazy(loadEffectsEditor)
+const loadHomebrewList = () => import('./HomebrewList').then(m => ({ default: m.HomebrewList }))
+const HomebrewList = lazy(loadHomebrewList)
 const KINDS: EntryKind[] = ['feat', 'weapon', 'armor', 'spell', 'ritual', 'item', 'ancestry', 'class', 'armorGroup', 'weaponGroup', 'background', 'heritage', 'deity', 'companion', 'familiar', 'subclass']
 const SYSTEMS: { id: GameSystem; label: string }[] = [
   { id: 'pf2e', label: 'Pathfinder 2e' },
@@ -78,8 +80,7 @@ export default function App() {
   // Start backups only once signed in; the first run also pulls data from other devices
   useEffect(() => (userId ? startAutoSync(setStatus) : undefined), [userId])
   const characters = useLiveQuery(() => db.characters.filter((c) => !c.deleted).toArray(), [])
-  const deityLoreKey = JSON.stringify(characterDeityLores(characters ?? []))
-  const deityLores = useMemo<string[]>(() => JSON.parse(deityLoreKey), [deityLoreKey])
+  const deityLores = useMemo(() => characterDeityLores(characters ?? []), [characters])
   const editingCharacter = characters?.find((c) => c.id === editingId)
   const neededSystems = editingCharacter?.systems ?? draft?.systems
   const neededKey = neededSystems?.slice().sort().join(',') ?? ''
@@ -103,7 +104,7 @@ export default function App() {
   )
   const entries = catalog?.entries
 
-  const homebrew = entries?.filter((e) => e.source === 'homebrew') ?? []
+  const homebrew = useMemo(() => entries?.filter((e) => e.source === 'homebrew') ?? [], [entries])
   const basicRemaining = useMemo(() => new Set((characters ?? [])
     .filter(character => hasRemainingFeatSelections(character))
     .map(character => character.id)), [characters, settings])
@@ -116,8 +117,9 @@ export default function App() {
     }
     return remaining
   }, [basicRemaining, characters, featCatalog, settings])
-  const sortedCharacters = filterCharacters(characters ?? [], characterFilters)
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+  const sortedCharacters = useMemo(() => filterCharacters(characters ?? [], characterFilters)
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
+  [characters, characterFilters])
 
   const newCharacter = async () => {
     const name = window.prompt('Character name?')?.trim()
@@ -213,7 +215,7 @@ export default function App() {
             <input type="checkbox" checked={draft.data.repeatable === true}
               onChange={(e) => setDraft({ ...draft, data: { ...draft.data, repeatable: e.target.checked } })} /> Repeatable feat
           </label>}
-          <EffectsEditor effects={draft.effects} onChange={(effects) => setDraft({ ...draft, effects })} />
+          <Suspense fallback={null}><EffectsEditor effects={draft.effects} onChange={(effects) => setDraft({ ...draft, effects })} /></Suspense>
           {(draft.kind === 'armor' || draft.kind === 'weapon') && (
             <select value={String(draft.data[draft.kind === 'weapon' ? 'weapon_group' : 'armor_group']
               ?? entries?.find(group => group.id === draft.data.group)?.name ?? '')}
@@ -274,11 +276,11 @@ export default function App() {
       <label className="homebrew-search">Search homebrew
         <input type="search" value={homebrewSearch} onChange={event => setHomebrewSearch(event.target.value)} />
       </label>
-      <HomebrewList entries={entries ?? []} search={homebrewSearch} rulesOpen={rulesOpen} onRulesToggle={setRulesOpen}
+      <Suspense fallback={null}><HomebrewList entries={entries ?? NO_ENTRIES} search={homebrewSearch} rulesOpen={rulesOpen} onRulesToggle={setRulesOpen}
         onEdit={entry => { setCatalogRetry(value => value + 1); setDraft(entry) }} onDelete={(id) => {
         void removeEntry(id).catch((error: unknown) =>
           setStatus(`Could not delete homebrew: ${error instanceof Error ? error.message : String(error)}`))
-      }} />
+      }} /></Suspense>
       </>}
     </main>
   )

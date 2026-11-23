@@ -1,4 +1,4 @@
-import { automaticFeatGrants, featTakenLevel, ranksAt } from './builder'
+import { abilityMod, automaticFeatGrants, featTakenLevel, investigatorMethodologies, ranksAt } from './builder'
 import { featRarity } from './featAccess'
 import type { Character, ContentEntry } from './types'
 
@@ -105,6 +105,12 @@ export function isGrenade(entry: ContentEntry) {
   return !entry.deleted && entry.kind === 'item' && entry.traits.some(trait => formulaKey(trait) === 'grenade')
 }
 
+export function isInvestigatorAlchemyFormula(entry: ContentEntry) {
+  const subcategory = String(entry.data.item_subcategory ?? '')
+  return !entry.deleted && entry.kind === 'item'
+    && /^(?:Alchemical Elixirs|Alchemical Tools)$/i.test(subcategory)
+}
+
 export function formulaSources(c: Character, entries: ContentEntry[]) {
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
   const background = entries.find(entry => entry.kind === 'background' && entry.name === c.background)
@@ -118,13 +124,17 @@ export function formulaSources(c: Character, entries: ContentEntry[]) {
 }
 
 export function formulaGrants(c: Character, entries: ContentEntry[]) {
+  const investigatorAlchemy = investigatorMethodologies(c, entries).includes('Alchemical Sciences')
+    ? { formulas: c.level + 1, vials: Math.max(0, abilityMod(c.abilities.int)) } : undefined
   return { sources: formulaSources(c, entries), snares: snareAdvancements(c, entries),
-    gadgets: gadgetLimits(c, entries), grenades: grenadeLimits(c, entries), munitions: munitionsLimits(c), cauldron: cauldronLevels(c) }
+    gadgets: gadgetLimits(c, entries), grenades: grenadeLimits(c, entries), munitions: munitionsLimits(c),
+    cauldron: cauldronLevels(c), investigatorAlchemy }
 }
 
 export function knownFormulas(c: Character, entries: ContentEntry[], grants = formulaGrants(c, entries)) {
-  const { sources: { snareCrafting, brastlewark, munitionsCrafter }, snares, gadgets, grenades, cauldron } = grants
+  const { sources: { snareCrafting, brastlewark, munitionsCrafter }, snares, gadgets, grenades, cauldron, investigatorAlchemy } = grants
   const groups = [
+    { source: 'Alchemical Sciences', names: (c.investigatorAlchemicalFormulas ?? []).slice(0, investigatorAlchemy?.formulas ?? 0) },
     { source: 'Snare Crafting', names: snareCrafting ? c.snareFormulaChoices ?? [] : [] },
     ...snares.map(({ rank }) => ({
       source: 'Snarecrafter Dedication', names: (c.snareAdvancementFormulaChoices ?? []).slice((rank - 2) * 3, (rank - 1) * 3),

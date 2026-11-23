@@ -7,7 +7,7 @@ import { parseFeatSpellGrants } from './aonQuery'
 import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, hitPointBonuses, knowsSpell, maxHp, movementSpeeds, oakenResilience, ownedWeapons, resistances, savingThrowBreakdown, spellDifficultyClass, temporaryHpGrant, untamedFormOptions, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
-import { automaticFeatChoiceKey, boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, innateTraditionOptions, unresolvedFeatSpells, refocusRecovery } from './featSpells'
+import { automaticFeatChoiceKey, boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, innateTraditionOptions, investigatorEsotericaCantripOptions, unresolvedFeatSpells, refocusRecovery } from './featSpells'
 import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, EnergizedFont, FalseVitalityActions, FloralRestoration, FocusPointTracker, InnateSpellUses, PestFormActions, PyreResistEnergyActions, RapidShapeActions, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
@@ -397,6 +397,44 @@ it("offers Trickster's Ace only single-target spells that meet its preparation r
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
   expect(markup).toContain('Trickster&#x27;s Ace · Spell Rank 2')
   expect(markup).toContain('Choose a trigger during daily preparations')
+  const emptySlot = renderToStaticMarkup(<SpellsSection c={{ ...c, feats: [taken("Trickster's Ace", 18)] }} entries={spells} save={() => {}} />)
+  expect(emptySlot).toContain('aria-label="Trickster&#x27;s Ace spell"')
+})
+
+it('provides Divine and Occult cantrip slots for Esoterica in Spells', () => {
+  const divine = { ...entry('Divine Cantrip', 'spell', { tradition: 'Divine' }, ['Cantrip']), level: 0 }
+  const occult = { ...entry('Occult Cantrip', 'spell', { tradition: 'Occult' }, ['Cantrip']), level: 0 }
+  const wrongTradition = { ...entry('Arcane Cantrip', 'spell', { tradition: 'Arcane' }, ['Cantrip']), level: 0 }
+  const entries = [divine, occult, wrongTradition]
+  const c: Character = { ...base, className: 'Investigator', subclass: 'Esoterica', level: 5 }
+  expect(investigatorEsotericaCantripOptions(c, entries, 'Divine').map(spell => spell.name)).toEqual(['Divine Cantrip'])
+  expect(investigatorEsotericaCantripOptions(c, entries, 'Occult').map(spell => spell.name)).toEqual(['Occult Cantrip'])
+  const emptySlots = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(emptySlots).toContain('aria-label="Esoterica Divine cantrip"')
+  expect(emptySlots).toContain('aria-label="Esoterica Occult cantrip"')
+  const selected: Character = { ...c, investigatorEsotericaSpells: {
+    Divine: 'Divine Cantrip', Occult: 'Occult Cantrip',
+  } }
+  expect(grantedFeatSpells(selected, entries)).toEqual(expect.arrayContaining([
+    expect.objectContaining({ entry: expect.objectContaining({ name: 'Divine Cantrip' }), source: 'Esoterica', rank: 3,
+      rule: expect.objectContaining({ kind: 'innate', tradition: 'Divine', frequency: 'at will' }) }),
+    expect.objectContaining({ entry: expect.objectContaining({ name: 'Occult Cantrip' }), source: 'Esoterica', rank: 3,
+      rule: expect.objectContaining({ kind: 'innate', tradition: 'Occult', frequency: 'at will' }) }),
+  ]))
+})
+
+it('shows a two-action Fly activation control and adds Fly Speed only while active', () => {
+  const fly = { ...entry('Fly', 'spell', { actions: 'Two Actions', duration: '5 minutes' }), level: 4 }
+  const c: Character = { ...base, className: 'Wizard', level: 7,
+    spells: [{ name: 'Fly', rank: 4, cantrip: false }] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[fly]} save={() => {}} />)
+  expect(html).toContain('aria-label="Activate Fly"')
+  expect(html).not.toContain('aria-label="Fly options"')
+  expect(movementSpeeds(c, [fly]).some(speed => speed.name === 'Fly')).toBe(false)
+  const active = { ...c, activeSpells: ['Fly'] }
+  expect(movementSpeeds(active, [fly])).toContainEqual({ name: 'Fly', feet: 25, source: 'Fly' })
+  expect(renderToStaticMarkup(<SpellsSection c={active} entries={[fly]} save={() => {}} />))
+    .toContain('aria-label="Deactivate Fly"')
 })
 
 it('shows Halo Light as a heightened divine innate spell without helper text', () => {

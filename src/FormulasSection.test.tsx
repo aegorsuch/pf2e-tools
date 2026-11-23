@@ -6,7 +6,7 @@ import { PickerSort } from './PickerSort'
 import { EntryDescription } from './EntryDescription'
 import * as builder from './builder'
 import { GrenadeSpecialist, MunitionsCrafter } from './GearSection'
-import { BLACK_POWDER_FORMULA, gadgetLimits, grenadeLimits, knownFormulas, munitionsLimits, snareAdvancements, updateFormulaChoice } from './formulas'
+import { BLACK_POWDER_FORMULA, formulaGrants, gadgetLimits, grenadeLimits, isInvestigatorAlchemyFormula, knownFormulas, munitionsLimits, snareAdvancements, updateFormulaChoice } from './formulas'
 import type { Character, ContentEntry } from './types'
 
 const c: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 4, className: 'Ranger',
@@ -103,13 +103,56 @@ it('evaluates each proficiency level once per formula summary or editor render',
   const ranks = vi.spyOn(builder, 'ranksAt')
   try {
     const summary = renderToStaticMarkup(<FormulasSummary c={character} entries={entries} />)
-    expect(summary).toContain('2 known; 2/10 feat choices')
+    expect(summary).toContain('2 known; 2/10 choices')
     expect(ranks.mock.calls.map(([character]) => character.level)).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
     ranks.mockClear()
     const editor = renderToStaticMarkup(<FormulasContent c={character} entries={entries} save={() => {}} />)
     expect(editor).toContain('Master snare formula 1')
     expect(ranks.mock.calls.map(([character]) => character.level)).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
   } finally { ranks.mockRestore() }
+})
+
+it('tracks Alchemical Sciences formula choices, versatile vials, and Quick Tincture creation', () => {
+  const elixir = item('Elixir One', 1, [], { item_subcategory: 'Alchemical Elixirs' })
+  const tool = item('Tool One', 1, [], { item_subcategory: 'Alchemical Tools' })
+  const advanced = item('Elixir Two', 2, [], { item_subcategory: 'Alchemical Elixirs' })
+  const potion = item('Ordinary Potion', 1, [], { item_subcategory: 'Potions' })
+  const catalog = [elixir, tool, advanced, potion]
+  const character: Character = { ...c, level: 2, className: 'Investigator', subclass: 'Alchemical Sciences',
+    abilities: { ...c.abilities, int: 16 },
+    investigatorAlchemicalFormulas: [elixir.name, tool.name, advanced.name],
+    investigatorTinctureFormula: elixir.name, investigatorVialsSpent: 1 }
+  expect(isInvestigatorAlchemyFormula(elixir)).toBe(true)
+  expect(isInvestigatorAlchemyFormula(tool)).toBe(true)
+  expect(isInvestigatorAlchemyFormula(potion)).toBe(false)
+  expect(formulaGrants(character, catalog).investigatorAlchemy).toEqual({ formulas: 3, vials: 3 })
+  expect(knownFormulas(character, catalog)).toEqual(expect.arrayContaining([
+    { name: elixir.name, source: 'Alchemical Sciences' },
+    { name: tool.name, source: 'Alchemical Sciences' },
+    { name: advanced.name, source: 'Alchemical Sciences' },
+  ]))
+  const save = vi.fn()
+  let clicked = false
+  const find = (node: ReactNode, predicate: (element: ReactElement<Record<string, unknown>>) => boolean): ReactElement<Record<string, unknown>> | undefined => {
+    let result: ReactElement<Record<string, unknown>> | undefined
+    Children.forEach(node, child => {
+      if (result || !isValidElement<Record<string, unknown>>(child)) return
+      result = predicate(child) ? child : find(child.props.children as ReactNode, predicate)
+    })
+    return result
+  }
+  function Inspect() {
+    const tree = FormulasContent({ c: character, entries: catalog, save })
+    const button = find(tree, element => element.props['aria-label'] === 'Create Quick Tincture (One Action)')
+    expect(button?.props.disabled).toBe(false)
+    if (!clicked) {
+      clicked = true
+      ;(button!.props.onClick as () => void)()
+    }
+    return tree
+  }
+  renderToStaticMarkup(<Inspect />)
+  expect(save).toHaveBeenCalledWith({ investigatorVialsSpent: 2, investigatorQuickTincture: elixir.name })
 })
 
 it('does not count proficiency earned before a late dedication as a new formula grant', () => {
@@ -204,7 +247,7 @@ it('tracks gadget formula and daily preparation limits without deleting dormant 
   expect(knownFormulas(character, [gadget])).toContainEqual({ name: gadget.name, source: 'Gadget Specialist' })
   const markup = renderToStaticMarkup(<FormulasSection c={character} entries={[gadget]} save={() => {}} />)
   expect(markup).toContain('Gadget formula 6')
-  expect(markup).toContain('2/6 feat choices')
+  expect(markup).toContain('2/6 choices')
   expect(gadgetLimits({ ...character, rankOverrides: { Crafting: 4 } }, [gadget])).toEqual({ formulas: 9, prepared: 8 })
   expect(knownFormulas({ ...character, rankOverrides: { Crafting: 2 } }, [gadget]).map(formula => formula.name)).not.toContain('Stored')
   expect(character.gadgetFormulaChoices?.[5]).toBe('Stored')
@@ -307,7 +350,7 @@ it('adds Munitions Crafter formulas and prepares bombs or ammunition in daily ba
   ])
   const formulas = renderToStaticMarkup(<FormulasSection c={character} entries={catalog} save={() => {}} />)
   expect(formulas.match(/<select aria-label="Munitions Crafter formula \d"/g)).toHaveLength(4)
-  expect(formulas).toContain('2/4 feat choices')
+  expect(formulas).toContain('2/4 choices')
   expect(formulas).toContain(`${ammunition.name} (Level 1)`)
   expect(formulas).not.toContain('Rare Bomb (Level 1)')
   expect(formulas).not.toContain('Greater Alchemical Ammunition (Level 2)')
@@ -336,5 +379,5 @@ it('Cauldron grants four 1st-level oil or potion formulas plus one every even le
   expect(markup).toContain('Cauldron level 6 formula 1')
   expect(markup).toContain('Cauldron level 1 formula 4')
   expect(markup).not.toContain('Rare Oil')
-  expect(renderToStaticMarkup(<FormulasSummary c={witch} entries={catalog} />)).toContain('2/6 feat choices')
+  expect(renderToStaticMarkup(<FormulasSummary c={witch} entries={catalog} />)).toContain('2/6 choices')
 })

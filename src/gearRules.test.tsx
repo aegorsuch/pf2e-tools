@@ -513,7 +513,7 @@ it.each([
   const ownAttack = weaponAttack(natural, entries, ownedWeapons(natural, entries).find(weapon => weapon.name === 'Fist')!).attack
   expect(jaws.attack).toBe(Math.max(rank >= 7 ? 25 : rank >= 5 ? 18 : 16, ownAttack))
   const defense = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="defense" />)
-  expect(defense).toContain(`<small>Temporary Hit Points</small><b>${hp}`)
+  expect(defense).toContain(`<small>Temporary HP granted</small><b>${hp}`)
   expect(defense).toContain(size)
   expect(JSON.stringify(c.weapons)).toBe(before)
   const inventory = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
@@ -568,7 +568,7 @@ it.each([9, 20])('applies and dismisses crocodile Animal Form without changing e
   expect(renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="skills" />))
     .toMatch(/class="skill-name">Athletics.*?<b>\+20/)
   const defense = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="defense" />)
-  expect(defense).toContain('<small>Temporary Hit Points</small><b>20')
+  expect(defense).toContain('<small>Temporary HP granted</small><b>20')
   expect(defense).toContain('hold your breath')
   const inventory = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
   expect(inventory).toContain('Longsword')
@@ -655,7 +655,7 @@ it('applies and dismisses Pest Form statistics, weaknesses, and Strike restricti
   const defense = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="defense" />)
   expect(defense).toContain('Weakness: Physical 5')
   expect(defense).toContain('Cannot Strike')
-  expect(defense).not.toContain('Temporary Hit Points')
+  expect(defense).not.toContain('Temporary HP granted')
   const flying = { ...c, pestForm: { ...c.pestForm!, rank: 4 } }
   expect(movementSpeeds(flying, entries)).toEqual([
     { name: 'Land', feet: 20, source: 'Pest Form', status: 0 },
@@ -1121,7 +1121,7 @@ it('preserves personal statistics and attacks in Animal Rage, including frog ton
     damage: ownTongue.damage, item: ownTongue.item })
   const defense = renderToStaticMarkup(<SkillsSection c={form} entries={entries} save={() => {}} part="defense" />)
   expect(defense).toContain('retain constant gear abilities')
-  expect(defense).not.toContain('<small>Temporary Hit Points</small>')
+  expect(defense).toContain('<small>Temporary HP granted</small>')
   expect(spellActiveChange(form, 'Untamed Form', true).animalRageForm).toBe(false)
   expect(dragonTransformationChange(form, 'Omen').animalRageForm).toBe(false)
   expect(featEffectChange(form, 'Verdant Metamorphosis', true).animalRageForm).toBe(false)
@@ -1715,7 +1715,7 @@ it('lists only known and craftable gadgets for daily preparations', () => {
   const entries = [content('item', 'Little Gadget', {}, 3, ['Gadget']), content('item', 'Future Gadget', {}, 5, ['Gadget']),
     content('item', 'Unknown Gadget', {}, 1, ['Gadget'])]
   const html = renderToStaticMarkup(<Gadgets c={c} entries={entries} save={() => {}} />)
-  expect(html.match(/aria-label="Prepared gadget \d"/g)).toHaveLength(2)
+  expect(html.match(/aria-label="Prepared gadget \d+"/g)).toHaveLength(4)
   expect(html).toContain('Little Gadget (Level 3)')
   expect(html).not.toContain('Unknown Gadget')
   expect(html).not.toContain('Future Gadget')

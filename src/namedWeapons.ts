@@ -80,7 +80,7 @@ const runeBase = (rune: string) => rune.replace(/ \((?:Lesser|Greater|Major|True
 function artifactRunes(entry: ContentEntry, runes: string) {
   return [...new Set([...runes.split(';').filter(Boolean),
     ...(entry.name === 'Serithtial' ? ['Astral (Greater)'] : []),
-    ...(entry.data.named_weapon_source === 'Coldstar Pistols' ? ['Impossible'] : []),
+    ...(entry.name === 'Coldstar Pistols' || entry.data.named_weapon_source === 'Coldstar Pistols' ? ['Impossible'] : []),
     ...(entry.name === 'Wintershot (Artifact)' ? ['Impossible'] : []),
     ...(entry.traits.some(trait => trait.toLowerCase() === 'artifact') ? ['Grievous'] : [])])].join(';')
 }

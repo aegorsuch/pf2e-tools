@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { DeleteIcon, EditIcon } from './Icons'
 import { confirmRemoval } from './confirmRemoval'
 import { featDisplayName } from './featChoices'
@@ -61,13 +62,16 @@ export function HomebrewList({ entries, search = '', onEdit, onDelete, rulesOpen
   onRulesToggle?: (open: boolean) => void
 }) {
   const query = search.trim().toLowerCase()
-  const groups = groupHomebrew(entries).map(group => ({
-    ...group, entries: query && !group.name.toLowerCase().includes(query)
-      ? group.entries.filter(entry => [entry.name, displayName(entry)].some(name => name.toLowerCase().includes(query))) : group.entries,
-  })).filter(group => group.entries.length)
-  if (matchingHouseRules(search).length) groups.push({ name: 'Rules', entries: [] })
+  const groups = useMemo(() => {
+    const result = groupHomebrew(entries).map(group => ({
+      ...group, entries: query && !group.name.toLowerCase().includes(query)
+        ? group.entries.filter(entry => [entry.name, displayName(entry)].some(name => name.toLowerCase().includes(query))) : group.entries,
+    })).filter(group => group.entries.length)
+    if (matchingHouseRules(search).length) result.push({ name: 'Rules', entries: [] })
+    return result.sort((a, b) => a.name.localeCompare(b.name))
+  }, [entries, query, search])
   if (query && !groups.length) return <p>No homebrew matches your search.</p>
-  return groups.sort((a, b) => a.name.localeCompare(b.name)).map((group) => group.name === 'Rules'
+  return groups.map((group) => group.name === 'Rules'
     ? <HouseRules key="Rules" search={search} open={rulesOpen} onToggle={onRulesToggle} /> : (
     <details key={group.name} className="character-subsection homebrew-group" open={query ? true : undefined}>
       <summary><h3>{group.name} ({group.entries.length})</h3></summary>
