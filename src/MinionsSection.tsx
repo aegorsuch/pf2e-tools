@@ -979,6 +979,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     saveFamiliar({ abilities: (data?.abilities ?? []).filter((_, abilityIndex) => abilityIndex !== index) }))}>×</button>
               </div>
             })}
+            {c.className === 'Witch' && activeFeatsNamed(c, "Patron’s Claim").concat(activeFeatsNamed(c, "Patron's Claim")).length > 0
+              && <div className="rune"><b>Patron’s Claim</b> <DamageRoll name="Patron’s Claim" actions="Two Actions"
+                damage={{ label: 'Damage', dice: 10, sides: 10, type: 'spirit' }} /></div>}
             {c.className === 'Witch' && ([['Stitched Familiar', 'Stitching Strike', 'slashing'], ['Spirit Familiar', 'Shed Spirit', 'spirit']] as const)
               .filter(([feat]) => c.feats.some(taken => taken.name.startsWith(feat) && !/\(Animist\)/.test(taken.name)))
               .map(([, activity, type]) => <div key={activity} className="rune">
