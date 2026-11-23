@@ -303,6 +303,12 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     && entry.name === 'Twinned Defense (Fighter)' && entry.traits.includes('Fighter'))
   const twinParry = entries.find(entry => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
     && entry.name === 'Twin Parry' && entry.traits.includes('Ranger'))
+  const divineSpellVariants = ['Ignition', 'Tailwind'].flatMap(name => {
+    const spell = entries.find(entry => entry.kind === 'spell' && entry.source === 'official' && !entry.deleted
+      && entry.name === name && entry.systems.includes('pf2e'))
+    return spell ? [{ ...spell, id: `homebrew:${name.toLowerCase().replaceAll(' ', '-')}-divine`,
+      source: 'homebrew' as const, data: { ...spell.data, tradition: 'Divine' }, updatedAt: 1 }] : []
+  })
   const copiedClassFeats = [
     { sourceId: 'aon:pf2e:feat-4733', id: 'homebrew:deimatic-display-ranger', name: 'Deimatic Display (Ranger)', classes: ['Ranger'], oldClasses: ['Druid'] },
     { sourceId: 'aon:pf2e:feat-5418', id: 'homebrew:ears-of-the-forest-druid', name: 'Ears of the Forest (Druid)', classes: ['Druid'], oldClasses: ['Bard'] },
@@ -345,6 +351,7 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     ]
   })
   return [
+    ...divineSpellVariants,
     ...rangerCopies,
     ...copiedClassFeats,
     homebrewFeat('bony-plates', 'Bony Plates', 1, ['Lizardfolk'], BONY_PLATES_DESCRIPTION),
@@ -373,9 +380,9 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       data: { ...Object.fromEntries(Object.entries(twinParry.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))),
         class: 'Rogue', archetype: 'Avenger' },
       updatedAt: 1 }] : []),
-    ...(twinnedDefense ? [{ ...twinnedDefense, id: 'homebrew:avenger-twinned-defense-stance', name: 'Twinned Defense Stance (Avenger)',
+    ...(twinnedDefense ? [{ ...twinnedDefense, id: 'homebrew:avenger-twinned-defense-stance', name: 'Twinned Defense Stance',
       source: 'homebrew' as const, traits: [...twinnedDefense.traits.filter(trait => trait !== 'Fighter'), 'Avenger'],
-      description: twinnedDefense.description.replaceAll(twinnedDefense.name, 'Twinned Defense Stance (Avenger)')
+      description: twinnedDefense.description.replaceAll(twinnedDefense.name, 'Twinned Defense Stance')
         .replaceAll('Twin Parry', 'Twin Parry (Avenger)')
         .split('\n\n').filter(paragraph => !/^Archetypes?\b/i.test(paragraph)).join('\n\n'),
       data: { ...Object.fromEntries(Object.entries(twinnedDefense.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))),

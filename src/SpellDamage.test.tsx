@@ -24,6 +24,16 @@ it('calculates Lay on Hands healing at the actual spell rank', () => {
   }
 })
 
+it.each([[4, 2], [6, 3], [8, 4], [10, 5]])('rolls Burning Trail damage at rank %i as %id10 fire', (rank, dice) => {
+  const entry: ContentEntry = { id: 'burning-trail', name: 'Burning Trail', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 4, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellActionRolls(entry.name, rank, entry)).toMatchObject([
+    { actions: 'Two Actions', damage: { label: 'Damage', dice, sides: 10, type: 'fire' } },
+  ])
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+    .toContain(`title="Two Actions; Damage: ${dice}d10 fire"`)
+})
+
 it('provides a heightened Sun Blade roll with sunlight and target options', () => {
   for (const rank of [2, 5, 10]) {
     expect(spellDamage('Sun Blade', rank)).toEqual([{ label: 'Damage', dice: rank - 1, sides: 4, type: 'fire' }])
@@ -923,6 +933,73 @@ it('shows Vampiric Revelry damage without save outcomes', () => {
   expect(spellDamage('Vampiric Revelry', 8)).toEqual([])
 })
 
+it.each([
+  ['Vampiric Exsanguination', 6, 12, 6],
+  ['Vampiric Exsanguination', 7, 14, 6],
+  ['Vampiric Exsanguination', 10, 20, 6],
+  ['Stop Heart', 8, 10, 10],
+  ['Stop Heart', 9, 11, 10],
+  ['Stop Heart', 10, 12, 10],
+] as const)('rolls %s at rank %i as %id%i void without save outcomes', (name, rank, dice, sides) => {
+  const baseRank = name === 'Stop Heart' ? 8 : 6
+  const entry: ContentEntry = { id: name, name, systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: baseRank, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(name, baseRank - 1)).toEqual([])
+  const damage = spellDamage(name, rank)[0]
+  expect(damage).toEqual({ label: 'Damage', dice, sides, type: 'void' })
+  expect(spellActionRolls(name, rank, entry)).toEqual([{ damage, actions: 'Two Actions' }])
+  expect(renderToStaticMarkup(<SpellActions name={name} rank={rank} entry={entry} />))
+    .toContain(`title="Two Actions; Damage: ${dice}d${sides} void"`)
+  const setResult = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, setResult])
+  const button = Children.toArray(DamageRoll({ name, damage, actions: 'Two Actions' }).props.children)
+    .find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw Error('Missing damage roll')
+  vi.spyOn(Math, 'random').mockReturnValue(0.999999)
+  button.props.onClick()
+  expect(setResult).toHaveBeenCalledWith(dice * sides)
+})
+
+it.each([[5, 10, 5], [6, 12, 6], [10, 20, 10]])(
+  'rolls Calcium Rain piercing and persistent bleed damage at rank %i', (rank, dice, persistent) => {
+    const entry: ContentEntry = { id: 'calcium-rain', name: 'Calcium Rain', systems: ['pf2e'], kind: 'spell',
+      source: 'official', level: 5, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+    expect(spellDamage('Calcium Rain', 4)).toEqual([])
+    const damage = spellDamage(entry.name, rank)[0]
+    expect(damage).toEqual({ label: 'Damage', dice, sides: 4, type: 'piercing',
+      additional: { label: 'Persistent bleed', dice: 0, sides: 0, bonus: persistent, type: 'persistent bleed' } })
+    expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+      .toContain(`title="Two Actions; Damage: ${dice}d4 piercing; Persistent bleed: ${persistent} persistent bleed"`)
+    const setResult = vi.fn()
+    vi.mocked(useState).mockReturnValueOnce([undefined, setResult])
+    const button = Children.toArray(DamageRoll({ name: entry.name, damage, actions: 'Two Actions' }).props.children)
+      .find(child => isValidElement(child) && child.type === 'button')
+    if (!isValidElement<{ onClick: () => void }>(button)) throw Error('Missing damage roll')
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    button.props.onClick()
+    expect(setResult).toHaveBeenCalledWith({ primary: dice, additional: persistent })
+  },
+)
+
+it('rolls Incarnate Ancient Specter departure damage', () => {
+  const entry: ContentEntry = { id: 'incarnate-ancient-specter', name: 'Incarnate Ancient Specter',
+    systems: ['pf2e'], kind: 'spell', source: 'official', level: 7, traits: [],
+    description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 6)).toEqual([])
+  const damage = spellDamage(entry.name, 7)[0]
+  expect(damage).toEqual({ label: 'Departure damage', dice: 4, sides: 6, type: 'persistent bleed' })
+  expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={7} entry={entry} />))
+    .toContain('title="Three Actions; Departure damage: 4d6 persistent bleed"')
+  const setResult = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, setResult])
+  const button = Children.toArray(DamageRoll({ name: entry.name, damage, actions: 'Three Actions' }).props.children)
+    .find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw Error('Missing departure damage roll')
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  button.props.onClick()
+  expect(setResult).toHaveBeenCalledWith(4)
+})
+
 it.each([[6, 12], [7, 14], [10, 20]])('rolls Necrotize at rank %i as %id6 void', (rank, dice) => {
   const entry: ContentEntry = { id: 'necrotize', name: 'Necrotize', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 6, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
@@ -1144,6 +1221,21 @@ it('renders rank-scaled rollers beside owned spells and omits unavailable spell 
   expect(renderToStaticMarkup(<SpellsSection c={{ ...c, spells: [] }} entries={[]} save={() => {}} />)).not.toContain('aria-label="Roll ')
   for (const name of ['Warning Stripes', "Ranger's Bramble", 'Gluttonous Growth', 'Pulverizing Wake'])
     expect(spellDamage(name, 2)).toEqual([])
+})
+
+it('toggles Bless directly from its two-action icon', () => {
+  const bless: ContentEntry = { id: 'bless', name: 'Bless', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions', tradition: 'Divine' },
+    effects: [], updatedAt: 1 }
+  const c: Character = { id: 'bless', systems: ['pf2e'], name: 'Test', level: 3, className: 'Cleric',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 18, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    spells: [{ name: 'Bless', rank: 1, cantrip: false }],
+  }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[bless]} save={() => {}} />)
+  expect(markup).toContain('aria-label="Activate Bless"')
+  expect(markup).toContain('aria-pressed="false"')
+  expect(markup).not.toContain('aria-label="Bless options"')
 })
 
 it('scales Entropy Strike void and tech persistent acid damage by rank', () => {

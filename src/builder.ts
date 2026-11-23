@@ -4870,10 +4870,11 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     gun && (category === 'Simple' || category === 'Martial' && c.subclass !== 'Striker') || strikerWeapon
       ? c.level >= 13 ? 4 : c.level >= 5 ? 3 : 2 : 0,
   ) : 0
+  const favoredWeaponRank = c.level >= 19 ? 4 : c.level >= 13 ? 3 : c.level >= 5 ? 2 : 1
   const avengerRank = rogueRackets(c, entries).includes('Avenger') && isFavoredWeapon(c, entries, weapon.name)
-    ? Math.max(1, baseWeaponRanks(c, entries).Simple, baseWeaponRanks(c, entries).Martial) : 0
+    ? Math.max(favoredWeaponRank, baseWeaponRanks(c, entries).Simple, baseWeaponRanks(c, entries).Martial) : 0
   const vindicatorRank = isVindicator(c, entries) && isFavoredWeapon(c, entries, weapon.name)
-    ? Math.max(1, category === 'Advanced' ? ranks.Martial : 0) : 0
+    ? Math.max(favoredWeaponRank, category === 'Advanced' ? ranks.Martial : 0) : 0
   const martialExperience = activeFeatsNamed(c, 'Martial Experience').length > 0
   const expertise = familiarity?.expertise || unconventional && activeFeatsNamed(c, 'Unconventional Expertise').length > 0
   const rank = Math.max(category === 'Unarmed' ? 1 : 0, ranks[category], familiarCategory ? ranks[familiarCategory] : 0,
@@ -5396,10 +5397,15 @@ export function cairnForm(c: Character, entries: ContentEntry[]) {
 }
 
 export function oakenResilience(c: Character, entries: ContentEntry[], target: 'character' | 'familiar' = 'character') {
+  const preparedRanks = selectedClassSpellSlots(c).flatMap(({ rank, value }) =>
+    value === 'Oaken Resilience' || entries.some(entry => entry.kind === 'spell' && !entry.deleted
+      && entry.id === value && entry.name === 'Oaken Resilience' && entry.systems.some(system => c.systems.includes(system)))
+      ? [rank] : [])
   const spellRank = isSpellActive(c, entries, 'Oaken Resilience')
     ? grantedFeatSpells(c, entries).find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')?.rank
       ?? c.oakenResilienceRank
-      ?? c.spells?.find(spell => spell.name === 'Oaken Resilience')?.rank : undefined
+      ?? c.spells?.find(spell => spell.name === 'Oaken Resilience')?.rank
+      ?? Math.max(0, ...preparedRanks) : undefined
   const itemRanks = target === 'character' ? carriedWeapons(c, entries)
     .filter(weapon => weapon.briarOakenResilienceActive)
     .map(weapon => withNamedWeaponState(weaponEntry(entries, weapon.name), weapon, c.level)?.data.named_weapon_oaken_rank) : []
@@ -5966,11 +5972,13 @@ export function offensiveDefenseAttack(c: Character, entries: ContentEntry[]) {
   return { entry, weapon }
 }
 
-export const hasDeityWeaponGrant = (c: Character) => !!c.deity && (['Champion', 'Cleric'].includes(c.className ?? '')
-  || isVindicator(c) || c.className === 'Ranger' && activeFeatsNamed(c, 'Vindicator Dedication').length > 0)
+export const hasDeityWeaponGrant = (c: Character, entries: ContentEntry[] = []) => !!c.deity
+  && (['Champion', 'Cleric'].includes(c.className ?? '') || isVindicator(c, entries)
+    || rogueRackets(c, entries).includes('Avenger')
+    || c.className === 'Ranger' && activeFeatsNamed(c, 'Vindicator Dedication').length > 0)
 
 export function deityWeapon(c: Character, entries: ContentEntry[]) {
-  if (!hasDeityWeaponGrant(c)) return undefined
+  if (!hasDeityWeaponGrant(c, entries)) return undefined
   const carried = carriedWeapons(c, entries)
   const gauntlet = armorGauntlet(c, entries)
   const previous = carried.find((weapon) => weapon.id.startsWith('deity-weapon:') && isFavoredWeapon(c, entries, weapon.name))
@@ -6233,7 +6241,11 @@ export function knowsSpell(c: Character, entries: ContentEntry[], name: string) 
   const warrior = c.className === 'Champion' ? activeFeatsNamed(c, 'Divine Warrior')[0]
     : c.className === 'Ranger' ? activeFeatsNamed(c, 'Primal Warrior')[0] : undefined
   const fixedWarriorSpell = warrior && classExtraSlots(c).some(slot => slot.rank === 0 && slot.spell === name)
+  const classSlotSpell = selectedClassSpellSlots(c).some(({ value }) =>
+    value === name || entries.some(entry => entry.kind === 'spell' && !entry.deleted
+      && entry.id === value && entry.name === name && entry.systems.some(system => c.systems.includes(system))))
   return !!(c.spells?.some((spell) => spell.name === name)
+    || classSlotSpell
     || fixedWarriorSpell
     || name === 'Shield' && selectedShieldCantrip(c, entries)
     || name === 'Tailwind' && selectedTailwind(c, entries)
@@ -6242,6 +6254,20 @@ export function knowsSpell(c: Character, entries: ContentEntry[], name: string) 
     || grantedFeatSpells(c, entries).some(grant => grant.entry.name === name)
     || minorMagicSpells(c, entries).some(spell => spell.name === name)
     || focusSpells(c, entries).spells.some((spell) => spell.name === name))
+}
+
+function selectedClassSpellSlots(c: Character) {
+  if (c.className === 'Champion' && activeFeatsNamed(c, 'Divine Warrior').length
+    || c.className === 'Ranger' && activeFeatsNamed(c, 'Primal Warrior').length) return []
+  const slots = classSpellSlots(c)
+  if (!slots) return []
+  return Object.entries({ ...c.spellcasting?.prepared, ...c.spellcasting?.repertoire }).flatMap(([key, value]) => {
+    const match = /^(\d+):(\d+)$/.exec(key)
+    if (!match) return []
+    const rank = Number(match[1])
+    const index = Number(match[2])
+    return index < (slots[rank] ?? 0) ? [{ rank, value }] : []
+  })
 }
 
 export const isSpellActive = (c: Character, entries: ContentEntry[], name: string) =>
@@ -6385,6 +6411,11 @@ export function boneShieldChange(c: Character, active: boolean): Partial<Charact
     boneShieldRaised: false }
 }
 
+export function spellRemovalChange(c: Character, name: string): Partial<Character> {
+  return name === 'Bone Shield' ? boneShieldChange(c, false)
+    : { activeSpells: c.activeSpells?.filter(spell => spell !== name) }
+}
+
 export function canopyCrawlerTarget(c: Character) {
   return c.level >= 9 && !!c.companions?.length ? 'Both' : 'Self'
 }
@@ -6469,6 +6500,7 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || name === HAFT_STRIKER_WEAPON.name && !!haftStrikerSource(c, entries)
   || name === OVERSIZED_THROW.name && canOversizedThrow(c)
   || ARMOR_GAUNTLETS.some((option) => option === name) && name === armorGauntlet(c, entries)?.name
+  || !!id && iruxiAttackIds.has(id)
   || (id ? grantedWeaponIndex(entries).ids.has(id) : grantedWeaponIndex(entries).names.has(name))
   || cachedDwarfClanWeaponGrants(c, entries).some(weapon => weapon.name === name && (!id || weapon.id === id))
 export function weaponEntry(entries: ContentEntry[], name: string, id?: string) {
@@ -6941,6 +6973,19 @@ export function deitySanctification(c: Character, entries: ContentEntry[]) {
   return { options, required, selected }
 }
 
+function hasFavoredWeaponProgression(c: Character, entries: ContentEntry[]) {
+  return isVindicator(c, entries) || rogueRackets(c, entries).includes('Avenger')
+}
+
+function withFavoredWeaponProgression(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
+  if (!hasFavoredWeaponProgression(c, entries) || !isFavoredWeapon(c, entries, weapon.name)) return weapon
+  const sanctification = deitySanctification(c, entries).selected
+  if (!sanctification || c.level < 11) return weapon
+  const runes = weapon.runes.filter(rune => !['Astral', 'Holy', 'Unholy'].includes(runeBaseName(rune)))
+  return { ...weapon, material: 'Orichalcum',
+    runes: [...runes, sanctification, c.level >= 15 ? 'Astral (Greater)' : 'Astral'] }
+}
+
 export function blessedArmamentRuneOptions(c: Character, entries: ContentEntry[] = []) {
   const options = ['Fearsome', 'Ghost Touch', 'Returning', 'Shifting', 'Vitalizing']
   const radiant = c.level >= 10 && hasFeat(c, 'Radiant Armament')
@@ -7026,11 +7071,12 @@ export function effectiveHandwraps(c: Character, entries: ContentEntry[] = []): 
   }
   const automatic = automaticWeaponFundamentals(c.level)
   const potency = Math.max(handwraps.potency, automatic.potency)
-  const free = ['Grievous', 'Grappling', 'Shoving'].slice(0, maxPropertyRunes(potency))
+  const free = ['Grievous', 'Grappling', 'Shoving'].slice(0, potency)
+  const runeLimit = maxPropertyRunes(potency, 'Orichalcum')
   const runes = free.length
-    ? [...free, ...handwraps.runes.filter(rune => !free.includes(runeName(rune)))].slice(0, maxPropertyRunes(potency))
+    ? [...free, ...handwraps.runes.filter(rune => !free.includes(runeName(rune)))].slice(0, runeLimit)
     : handwraps.runes
-  return { ...handwraps, potency, striking: Math.max(handwraps.striking, automatic.striking), runes }
+  return { ...handwraps, material: 'Orichalcum', potency, striking: Math.max(handwraps.striking, automatic.striking), runes }
 }
 
 export function canBeVerdantWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
@@ -7251,6 +7297,8 @@ function weaponGrades(entries: ContentEntry[], family: string) {
 export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
   if (BATTLE_FORM_WEAPONS.some(entry => entry.id === weapon.id))
     return { ...weapon, potency: 0, striking: 0, runes: [], material: undefined }
+  if (hasFavoredWeaponProgression(c, entries) && isFavoredWeapon(c, entries, weapon.name))
+    weapon = { ...weapon, material: 'Orichalcum' }
   const shield = shieldAttachmentSource(c, weapon)
   if (shield) {
     const generated = shield.id === 'granted-shield:hardwood'
@@ -7353,23 +7401,24 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
         : enhanced.runes }
     }
     if (entry?.data.named_weapon_source === "Hunter's Dawn") enhanced = { ...enhanced, material: builtIn?.material }
-    return withBlessedArmament(c, entries, weapon.id === GAUNTLET.id ? { ...enhanced,
+    return withBlessedArmament(c, entries, withFavoredWeaponProgression(c, entries, weapon.id === GAUNTLET.id ? { ...enhanced,
       runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune))
         .slice(0, maxPropertyRunes(enhanced.potency, enhanced.material,
-          hasWeaponRuneCapacity(c, weapon, weaponEntry(entries, weapon.name)))) } : enhanced)
+          hasWeaponRuneCapacity(c, weapon, weaponEntry(entries, weapon.name)))) } : enhanced))
   }
   const animalSource = animalStrengthSource(c, entries, weapon)
   if (animalSource) {
     return withIruxiSpiritStrike(c, animalStrengthEnhancements(entries, weapon, effectiveWeapon(c, entries, animalSource)))
   }
   const fundamentals = effectiveHandwraps(c, entries)
-  const enhanced: OwnedWeapon = { ...weapon, material: undefined,
+  const enhanced: OwnedWeapon = { ...weapon, material: fundamentals?.material,
     potency: Math.max(favored ? weapon.potency : 0, fundamentals?.potency ?? 0),
     striking: Math.max(favored ? weapon.striking : 0, fundamentals?.striking ?? 0),
     runes: fundamentals?.kind === 'hardlight' ? [] : fundamentals?.runes ?? [] }
   if (fundamentals?.kind === 'hardlight') return withIruxiSpiritStrike(c, enhanced)
   return withIruxiSpiritStrike(c, withBlessedArmament(c, entries,
-    { ...enhanced, runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)) }))
+    withFavoredWeaponProgression(c, entries,
+      { ...enhanced, runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune)) })))
 }
 
 export const maxPropertyRunes = (potency: number, material?: OwnedWeapon['material'], runeCapacity = false) => {
@@ -7797,6 +7846,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       value: `${dice * (horseJousting ? 3 : 2)} (conditional)`,
       note: `Only if the mounted horse moved at least 10 feet on the action before this melee Strike. ${horseJousting ? 'Includes the jousting bonus; ' : ''}Circumstance bonuses do not stack.` }] : []),
   ]
+  const poisonWeaponDice = c.poisonWeaponActive && !formAttack && category !== 'Unarmed'
+    && activeFeatsNamed(c, 'Poison Weapon').length
+    ? activeFeatsNamed(c, 'Deadly Poison Weapon').length ? 4
+      : activeFeatsNamed(c, 'Improved Poison Weapon').length ? 2 : 1
+    : 0
   const desperateWrath = c.raging && isFeatEffectActive(c, 'Desperate Wrath') ? 2 : 0
   const ragingThrower = thrown && activeFeatsNamed(c, 'Raging Thrower').length > 0
   const devastator = classFeatures(entries, c).some(feature => feature.name === 'Devastator')
@@ -7817,6 +7871,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     rageDamage,
     areaAttacks,
     additionalDamage: [...supportDamage,
+      ...(poisonWeaponDice ? [{ source: 'Poison Weapon', value: `${poisonWeaponDice}d4 poison`, note: 'While Poison Weapon is active.' }] : []),
       ...(w.id !== 'mechanic:turret' && isFeatEffectActive(c, "Infused with Belkzen's Might") ? [{
         source: "Infused with Belkzen's Might",
         value: `${1 + Math.floor(c.feats.filter(feat => featTakenLevel(feat) <= c.level

@@ -122,6 +122,7 @@ it('reports no matches even when the selected option remains visible', () => {
 it.each([
   ['name', ['Alpha', 'Beta', 'Unknown']],
   ['level', ['Beta', 'Alpha', 'Unknown']],
+  ['level-desc', ['Alpha', 'Beta', 'Unknown']],
 ] as const)('sorts picker options by %s before pagination', (sort, expected) => {
   const setSort = vi.fn()
   const setLimit = vi.fn()

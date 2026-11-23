@@ -26,3 +26,13 @@ it('skips name lookups when levels determine the order', () => {
   expect(sortPickerOptions(items, 'level', name, item => item.level)).toEqual([items[1], items[0]])
   expect(name).not.toHaveBeenCalled()
 })
+
+it('sorts spell options by highest base level first so unheightened spells lead', () => {
+  const spells = [
+    { name: 'Heightened spell', level: 1 },
+    { name: 'Unheightened spell', level: 3 },
+    { name: 'Other unheightened spell', level: 3 },
+  ]
+  expect(sortPickerOptions(spells, 'level-desc', spell => spell.name, spell => spell.level).map(spell => spell.name))
+    .toEqual(['Other unheightened spell', 'Unheightened spell', 'Heightened spell'])
+})

@@ -660,13 +660,24 @@ function Level({ label, value, options, format, onChange, disabled, minimum = 0 
 
 export function HandwrapsGear({ c, entries, save }: SectionProps) {
   const handwraps = effectiveHandwraps(c, entries)
+  const savedHandwraps = c.handwraps ?? (handwraps ? {
+    potency: handwraps.potency, striking: handwraps.striking, runes: [],
+    ...(handwraps.kind === 'hardlight' ? { kind: 'hardlight' as const, grade: handwraps.grade } : {}),
+  } : undefined)
+  const updateHandwraps = (patch: Partial<NonNullable<Character['handwraps']>>) => {
+    if (!savedHandwraps) return
+    const stored = { ...savedHandwraps }
+    delete stored.material
+    save({ handwraps: { ...stored, ...patch } })
+  }
   const automaticKind = classHandwrapKind(c, entries)
   const granted = automaticKind && (handwraps?.kind === 'hardlight' ? 'hardlight' : 'mighty') === automaticKind
   const automatic = automaticWeaponFundamentals(c.level)
   const minimumGrade = automaticHardlightGrade(c.level)
   const item = handwraps?.kind === 'hardlight' ? HARDLIGHT_HANDWRAPS : HANDWRAPS
   const grades = Object.keys(HARDLIGHT_GRADES) as HardlightGrade[]
-  const limit = handwraps?.kind === 'hardlight' ? HARDLIGHT_GRADES[handwraps.grade ?? 'Commercial'].upgrades : maxPropertyRunes(handwraps?.potency ?? 0)
+  const limit = handwraps?.kind === 'hardlight' ? HARDLIGHT_GRADES[handwraps.grade ?? 'Commercial'].upgrades
+    : maxPropertyRunes(handwraps?.potency ?? 0, handwraps?.material)
   return (
     <div className="col gear-list">
       {handwraps ? <details className="gear-card" aria-label={item.name} open>
@@ -676,22 +687,24 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
           <select aria-label="Hardlight handwraps grade" value={handwraps.grade ?? 'Commercial'} onChange={(e) => {
             const grade = grades.find((name) => name === e.target.value)
             if (grade && grades.indexOf(grade) >= grades.indexOf(minimumGrade)) {
-              const { potency, striking } = HARDLIGHT_GRADES[grade]
-              save({ handwraps: { ...handwraps, grade, potency, striking } })
+            updateHandwraps({ grade })
             }
           }}>
             {grades.map((grade) => <option key={grade} disabled={grades.indexOf(grade) < grades.indexOf(minimumGrade)}>{grade}</option>)}
           </select>
         </label> : null}
+        {handwraps.kind !== 'hardlight' && <div className="gear-runes"><span>Material</span>
+          <Material name="Orichalcum" entries={entries} equipment="Weapon" source="Handwraps of Mighty Blows" />
+        </div>}
         {handwraps.kind !== 'hardlight' && <WeaponFundamentals {...handwraps} entries={entries} />}
         {handwraps.kind === 'hardlight' ? <>
           {!!handwraps.runes.length && <small role="status">Saved runes are inactive on hardlight handwraps.</small>}
           <WeaponUpgrades entries={entries} weapon={{ ...HARDLIGHT_HANDWRAPS, kind: 'weapon',
             data: { ...HARDLIGHT_HANDWRAPS.data, weapon_type: 'Melee', weapon_group: 'Brawling', bulk: 0.1 } }}
             upgrades={handwraps.upgrades ?? []} limit={limit}
-            onChange={upgrades => save({ handwraps: { ...handwraps, upgrades } })} />
+            onChange={upgrades => updateHandwraps({ upgrades })} />
         </> : <Runes runes={handwraps.runes} entries={entries} options={handwrapRuneOptions(c, entries)} limit={limit}
-          onChange={(runes) => save({ handwraps: { ...handwraps, runes } })} />}
+          onChange={(runes) => updateHandwraps({ runes })} />}
         {!granted && <button type="button" className="spell-remove" aria-label={`Remove ${item.name}`}
           onClick={() => confirmRemoval(`"${item.name}"`, () => save({ handwraps: undefined }))}>×</button>}
       </details> : <div className="row">
@@ -710,19 +723,28 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
 export function SimplePoisons({ c, save }: SectionProps) {
   if (!activeFeatsNamed(c, 'Poison Weapon').length) return null
   const spent = Math.max(0, Math.min(c.level, Math.floor(c.simplePoisonsSpent ?? 0)))
-  const improved = activeFeatsNamed(c, 'Improved Poison Weapon').length > 0
-  const deadly = activeFeatsNamed(c, 'Deadly Poison Weapon').length > 0
+  const active = !!c.poisonWeaponActive
   return <div className="col">
-    <strong>Simple injury poisons</strong>
-    <span>{c.level - spent}/{c.level} remaining; {deadly ? '4d4' : improved ? '2d4' : '1d4'} poison damage, no save.</span>
-    {improved && <small>A critically failed attack does not waste this poison.</small>}
-    {deadly && <small>Injury poisons applied to your weapon gain +2 DC, up to your class DC.</small>}
+    <strong>Poison Weapon</strong>
+    <label><input type="checkbox" aria-label="Poison Weapon active" checked={active}
+      disabled={!active && spent >= c.level} onChange={event => {
+        if (event.target.checked) {
+          if (spent < c.level) save({ simplePoisonsSpent: spent + 1, poisonWeaponActive: true })
+        } else save({ poisonWeaponActive: false })
+      }} /> Poison Weapon active</label>
     <div className="row">
-      <button type="button" disabled={spent >= c.level} onClick={() => save({ simplePoisonsSpent: spent + 1 })}>Use poison</button>
-      <button type="button" disabled={spent === 0} onClick={() => save({ simplePoisonsSpent: spent - 1 })}>Undo use</button>
-      <button type="button" disabled={spent === 0} onClick={() => save({ simplePoisonsSpent: 0 })}>Daily preparations</button>
+      {Array.from({ length: c.level }, (_, index) => {
+        const used = index < spent
+        const label = `${used ? 'Restore' : 'Spend'} poison use ${index + 1}`
+        return <button key={index} type="button" className="focus-point" aria-label={label}
+          title={label} aria-pressed={!used} onClick={() => {
+            save({ simplePoisonsSpent: Math.max(0, Math.min(c.level, spent + (used ? -1 : 1))) })
+          }} />
+      })}
+      <button type="button" disabled={spent === 0 && !active} onClick={() => save({
+        simplePoisonsSpent: 0, poisonWeaponActive: false,
+      })}>Daily preparations</button>
     </div>
-    <small>Only you can apply these poisons; unused doses expire at your next daily preparations.</small>
   </div>
 }
 
@@ -1149,7 +1171,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
   const handwrapItem = handwraps?.kind === 'hardlight' ? HARDLIGHT_HANDWRAPS : HANDWRAPS
   return (
     <div className="col gear-list">
-      {displayOnly && <small>Hands used: {handsUsed}/{handLimit}{unknownHands ? ' (some weapon hands unknown)' : ''}</small>}
       {displayOnly && (unknownHands || handsUsed > handLimit) && <small role="status">
         {unknownHands ? 'Equipped weapon hands unavailable; unequip it or sync weapon content before equipping more.'
           : `Unequip weapons to use at most ${handLimit} hands in total.`}
@@ -1179,6 +1200,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const plainName = enhanced.name === SPARK_FIST.name ? FIST.name
           : enhanced.name === 'Iron Fist' ? 'Fists'
           : enhanced.name === UNTAMED_CLAWS.name ? 'Claws'
+            : enhanced.name === 'Untamed Jaws' ? 'Jaws'
             : enhanced.name === CLAN_DAGGER_DEXTERITY.name ? CLAN_DAGGER.name
               : baseGradeName ?? specificMagicItemName(a.entry, combinationName(entries, enhanced.name).replace(/ \(Animal Feature\)$/, ''), true)
         const grantedName = a.entry?.id.startsWith('sf2e:vesk:')
@@ -1511,7 +1533,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
           {attackSummaries.map(summary => summary.attack.range > 0 && !summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim()))
             && <small key={`${summary.form ?? 'weapon'}-range`}>{summary.form ? `${summary.form} range` : 'Range'} {summary.attack.range} feet</small>)}
-          {avengerNote && <SourceNote source="Avenger" note={avengerNote} />}
+          {avengerNote && <small>{avengerNote}</small>}
         </div>
         return (
           <details key={w.id} className="gear-card" aria-label={displayName} open={!c.collapsedWeaponIds?.includes(w.id)} onToggle={event => {
@@ -1551,7 +1573,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               <button type="button" aria-label={`Increase ${displayName} loaded ammunition`} disabled={loaded === capacity}
                 onClick={() => update(w.id, { capacityLoaded: loaded + 1 })}>+</button>
             </div>}
-            {avengerNote && <SourceNote source="Avenger" note={avengerNote} />}
+            {avengerNote && <small>{avengerNote}</small>}
             {gauntlet && w.id === GAUNTLET.id && <label>Armor gauntlet{' '}
               <select aria-label="Armor gauntlet" value={gauntlet.name} disabled={gauntlet.locked} onChange={(e) => {
                 const choice = ARMOR_GAUNTLETS.find((name) => name === e.target.value)

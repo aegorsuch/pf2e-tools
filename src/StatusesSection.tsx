@@ -9,15 +9,12 @@ const canDeviseAStratagem = (c: SectionProps['c']) => c.systems.includes('pf2e')
 
 export function StatusesSummary({ c, entries }: SectionProps) {
   const stance = activeStance(c, entries)
-  const simplePoisons = activeFeatsNamed(c, 'Poison Weapon').length > 0
-    ? `Simple poisons ${Math.max(0, c.level - Math.max(0, Math.min(c.level, Math.floor(c.simplePoisonsSpent ?? 0))))}/${c.level} remaining`
-    : undefined
   const active = [
     ...(canDeviseAStratagem(c) && c.deviseAStratagemActive ? ['Devise a Stratagem'] : []),
     ...(hasHuntPrey(c, entries) && c.huntPreyActive ? ['Hunt Prey'] : []),
     ...(c.raging ? ['Rage'] : []),
     ...(stance ? [stance.name] : []),
-    ...(simplePoisons ? [simplePoisons] : []),
+    ...(c.poisonWeaponActive && activeFeatsNamed(c, 'Poison Weapon').length ? ['Poison Weapon'] : []),
     ...c.activeSpells ?? [],
     ...c.activeFeatEffects ?? [],
     ...(c.zealousConvictionRank !== undefined ? ['Zealous Conviction'] : []),
@@ -53,7 +50,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   const controls = [
     { name: 'Active stance', element: <StancesContent c={c} entries={entries} save={save} /> },
     ...(activeFeatsNamed(c, 'Poison Weapon').length
-      ? [{ name: 'Simple poisons', element: <SimplePoisons c={c} entries={entries} save={save} /> }] : []),
+      ? [{ name: 'Poison Weapon', element: <SimplePoisons c={c} entries={entries} save={save} /> }] : []),
     ...(canDeviseAStratagem(c)
       ? [{ name: 'Devise a Stratagem', element: <DeviseAStratagemToggle c={c} save={save} /> }] : []),
     ...(hasHuntPrey(c, entries)

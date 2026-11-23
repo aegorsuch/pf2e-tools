@@ -12,6 +12,7 @@ import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionS
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
+import { SkillsSection } from './SkillsSection'
 import { EntryDescription } from './EntryDescription'
 import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
@@ -404,7 +405,7 @@ it("offers Trickster's Ace only single-target spells that meet its preparation r
   expect(emptySlot).toContain('aria-pressed="true">Class Spells</button>')
 })
 
-it('adds Loaner Spell as a once-daily Class Spells choice through rank 3', () => {
+it('adds Loaner Spell in its own once-daily category through rank 3 by default', () => {
   const c: Character = { ...base, level: 10, boosts: { class: 'str' }, feats: [taken('Loaner Spell', 1, 'Save spell')] }
   const fighter = entry('Fighter', 'class', { attribute: 'Strength' })
   const spells = [
@@ -426,7 +427,8 @@ it('adds Loaner Spell as a once-daily Class Spells choice through rank 3', () =>
     rule: { kind: 'feat', frequency: 'once per day', fixedRank: true, dc: 'class' } })
   expect(dailyInnateUses(c, grant)?.limit).toBe(1)
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
-  expect(markup).toContain('aria-pressed="true">Class Spells</button>')
+  expect(markup).toContain('aria-pressed="true">Loaner Spell</button>')
+  expect(markup).not.toContain('Class Spells')
   expect(markup).not.toContain('>Feat Spells</button>')
   expect(markup).toContain('aria-label="Loaner Spell"')
   expect(markup).toContain('Loaner Spell · Spell Rank 2')
@@ -438,7 +440,19 @@ it('adds Loaner Spell as a once-daily Class Spells choice through rank 3', () =>
 
   const emptySlot = renderToStaticMarkup(<SpellsSection c={{ ...c, feats: [taken('Loaner Spell')] }} entries={spells} save={() => {}} />)
   expect(emptySlot).toContain('aria-label="Loaner Spell"')
-  expect(emptySlot).toContain('aria-pressed="true">Class Spells</button>')
+  expect(emptySlot).toContain('aria-pressed="true">Loaner Spell</button>')
+})
+
+it('auto-heightens Loaner Spell to half character level, up to rank 10, when enabled', () => {
+  updateSettings({ innateAutoHeighten: true })
+  const c: Character = { ...base, level: 20, feats: [taken('Loaner Spell', 1, 'Save spell')] }
+  const rankTen = { ...entry('Rank ten spell', 'spell', { tradition: 'Divine', target: '1 creature' }), level: 10 }
+  const spells = [
+    { ...entry('Save spell', 'spell', { tradition: 'Occult', target: '1 creature', saving_throw: 'Reflex' }), level: 2 },
+    rankTen,
+  ]
+  expect(featSpellOptions(c, spells, c.feats[0])?.map(spell => spell.name)).toEqual(['Rank ten spell', 'Save spell'])
+  expect(grantedFeatSpells(c, spells)).toMatchObject([{ entry: { name: 'Save spell' }, rank: 10 }])
 })
 
 it('provides Divine and Occult cantrip slots for Esoterica in Spells', () => {
@@ -1621,6 +1635,24 @@ it('grants each First World Adept spell once daily at rank two', () => {
   expect(dailyInnateUses(c, grants[0])?.key).not.toBe(dailyInnateUses(c, grants[1])?.key)
 })
 
+it('grants Pinch Time as daily rank-three self-only Haste and auto-heightens when enabled', () => {
+  const source = feat('Pinch Time', 'You gain haste as a 3rd-level arcane innate spell. You can cast it once per day and target only yourself.', 5)
+  const haste = { ...entry('Haste', 'spell', { tradition: 'Arcane', duration: '1 minute', targets: '1 creature' }), level: 3 }
+  const c = { ...base, level: 5, feats: [taken(source.name, 5)] }
+  const entries = [source, haste]
+  const grant = grantedFeatSpells(c, entries).find(spell => spell.source === 'Pinch Time')
+  expect(grant).toMatchObject({
+    entry: haste, rank: 3, rule: { kind: 'innate', tradition: 'arcane', frequency: 'once per day',
+      fixedRank: true, condition: 'You can target only yourself.' },
+  })
+  expect(dailyInnateUses(c, grant!)?.limit).toBe(1)
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('Haste')
+  expect(markup).toContain('You can target only yourself.')
+  updateSettings({ innateAutoHeighten: true })
+  expect(grantedFeatSpells({ ...c, level: 10 }, entries).find(spell => spell.source === 'Pinch Time')?.rank).toBe(5)
+})
+
 it('heightens Grown of Oak automatically for the character and leshy familiar', () => {
   const grown = feat('Grown of Oak', 'You can cast [oaken resilience](/Spells.aspx?ID=1617) at will as an innate primal spell with a spell rank one lower than the highest rank of spells you can cast.', 6)
   const spell = { ...entry('Oaken Resilience', 'spell', { duration: '10 minutes' }), level: 2 }
@@ -1702,6 +1734,25 @@ it('keeps manual cast rank for Oaken Resilience without Grown of Oak', () => {
     .toEqual({ rank: 2, resistance: 2, fireWeakness: 3 })
   expect(oakenResilience({ ...c, oakenResilienceRank: 11 }, [])).toBeUndefined()
   expect(renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)).toContain('Oaken Resilience cast rank')
+})
+
+it('applies Oaken Resilience from an active prepared class spell', () => {
+  const spell = { ...entry('Oaken Resilience', 'spell', { tradition: 'Primal', duration: '10 minutes' }), level: 2 }
+  const c: Character = { ...base, className: 'Druid', level: 10, activeSpells: ['Oaken Resilience'],
+    spellcasting: { ability: 'wis', tradition: 'Primal', rank: 2, slots: { 2: 1 }, prepared: { '2:0': spell.id } } }
+  expect(knowsSpell(c, [spell], spell.name)).toBe(true)
+  expect(oakenResilience(c, [spell])).toEqual({ rank: 2, resistance: 2, fireWeakness: 3 })
+  expect(resistances(c, [spell])).toEqual([
+    { damage: 'Bludgeoning', value: 2, source: spell.name },
+    { damage: 'Piercing', value: 2, source: spell.name },
+  ])
+  const spells = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
+  expect(spells).toContain('Oaken Resilience active at rank 2')
+  expect(spells).toContain('aria-label="Oaken Resilience active at rank 2" checked=""')
+  const defense = renderToStaticMarkup(<SkillsSection c={c} entries={[spell]} save={() => {}} part="defense" />)
+  expect(defense).toContain('Bludgeoning 2')
+  expect(defense).toContain('Piercing 2')
+  expect(defense).toContain('Weakness: Fire 3')
 })
 
 it('grants only the chosen Touch of the Sea cantrip', () => {

@@ -43,11 +43,11 @@ it('shows Devise a Stratagem toggle in the Investigator class header and Statuse
 
 it('shows requested spell and feat effects in Statuses', () => {
   content.entries = []
-  const names = ['Animal Feature', 'Canopy Crawler', 'Speak with Plants', 'Warning Stripes']
+  const names = ['Animal Feature', 'Bone Shield', 'Canopy Crawler', 'False Vitality', 'Speak with Plants', 'Warning Stripes']
   const c: Character = { id: 'statuses', name: 'Test', systems: ['pf2e'], level: 11, className: 'Ranger',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [{ name: 'Favored Terrain', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Plains' }],
-    spells: names.map(name => ({ name, rank: 1, cantrip: false })), activeFeatEffects: ['Favored Terrain'],
+    spells: names.map(name => ({ name, rank: name === 'False Vitality' ? 4 : 1, cantrip: false })), activeFeatEffects: ['Favored Terrain'],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
   for (const name of names) expect(markup).toContain(`aria-label="${name} status"`)
@@ -701,13 +701,13 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
     expect(equipment.slice(equipment.indexOf('<h4>Tattoos</h4>'), equipment.indexOf('<h4>Weapons</h4>'))).toContain('Spider Lily')
     const poisons = equipment.slice(equipment.indexOf('<h4>Poisons</h4>'), equipment.indexOf('<h4>Shield</h4>'))
     expect(poisons).toContain('Black Adder Venom')
-    expect(poisons).toContain('Simple injury poisons')
-    expect(poisons.indexOf('Black Adder Venom')).toBeLessThan(poisons.indexOf('Simple injury poisons'))
-    expect(poisons).toContain('1d4')
+    expect(poisons).toContain('Poison Weapon')
+    expect(poisons.indexOf('Black Adder Venom')).toBeLessThan(poisons.indexOf('Poison Weapon'))
+    expect(poisons).toContain('aria-label="Spend poison use 1"')
     const withoutFeat = renderToStaticMarkup(<CharacterBuilder character={{ ...c, feats: [] }} onClose={() => {}} />)
     const poisonItems = withoutFeat.slice(withoutFeat.indexOf('<h4>Poisons</h4>'), withoutFeat.indexOf('<h4>Shield</h4>'))
     expect(poisonItems).toContain('Black Adder Venom')
-    expect(poisonItems).not.toContain('Simple injury poisons')
+    expect(poisonItems).not.toContain('Poison Weapon')
     expect(equipment).toContain('Add Armor')
     expect(equipment).toContain('Add Shield')
     expect(equipment).toContain('Add Weapon')

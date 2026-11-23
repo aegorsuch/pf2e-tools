@@ -160,29 +160,36 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
     const choices = BASES[item.name] ?? (/^(?:Composite )?(?:Shortbow|Longbow)$/i.test(originalBase)
       ? ['Composite Longbow'] : ['Shortbow', 'Longbow'].map(type => `${composite ? 'Composite ' : ''}${type}`))
     const { common: rawCommon, section: rawSection } = sections(item, family)
-    const replaceSpeed = (text: string) => item.name === "Hunter's Dawn"
-      ? text.replace(/\[speed\]\(\/Equipment\.aspx\?ID=\d+\)/i, '[Astral](/Equipment.aspx?ID=2832)') : text
-    const common = replaceSpeed(rawCommon)
-    const section = replaceSpeed(rawSection)
     let alias = false
     return choices.flatMap(baseName => {
       const base = item.name === "Ghosthand's Comet" ? item : entries.find(entry => entry.kind === 'weapon' && !entry.deleted
         && entry.name.toLowerCase() === baseName.toLowerCase()
         && entry.systems.some(system => item.systems.includes(system)))
       if (!base) return []
+      const replaceDawnRunes = (text: string) => {
+        if (item.name !== "Hunter's Dawn") return text
+        const astral = text.replace(/\[speed\]\(\/Equipment\.aspx\?ID=\d+\)/i, '[Astral](/Equipment.aspx?ID=2832)')
+        return base.name === 'Club' ? astral : astral.replace(/\[ghost touch\]\([^)]+\)/i, 'Returning')
+      }
+      const common = replaceDawnRunes(rawCommon)
+      const section = replaceDawnRunes(rawSection)
       const native = base.name.replace(/ \((?:Melee|Ranged)\)$/, '').toLowerCase() === originalBase.toLowerCase()
       const custom = !native && !['Serithtial', "Hunter's Dawn"].includes(item.name)
       const label = /\((Melee|Ranged)\)$/.exec(base.name)?.[1] ?? base.name.replace(/^Composite /i, '')
       const traits = [...new Map([...base.traits.filter(trait => !/^(?:common|uncommon|rare|unique)$/i.test(trait)),
         ...(item.name === 'Scalding Gauntlets' ? ['Free-Hand'] : []),
         ...item.traits].map(trait => [trait.toLowerCase(), trait])).values()]
+      const fixedRunes = fixed.named_weapon_runes.split(';').filter(Boolean)
+      const formRunes = item.name === "Hunter's Dawn" && base.name !== 'Club'
+        ? [...new Set([...fixedRunes.filter(rune => runeBase(rune) !== 'Ghost Touch'), 'Returning'])].join(';')
+        : fixed.named_weapon_runes
       const data: ContentEntry['data'] = { ...base.data, url: item.data.url ?? '', sourceBook: item.data.sourceBook ?? '',
         price: item.data.price ?? '', rarity: item.data.rarity ?? 'common', item_category: 'Weapons',
         artifact_activation_actions: item.data.artifact_activation_actions ?? item.data.item_activation_actions ?? '',
         item_subcategory: 'Specific Magic Weapons', named_weapon: true, named_weapon_source: sourceName, named_weapon_base: base.name,
         named_weapon_material: MATERIALS[item.name] ?? '',
         named_weapon_resolver_only: item.name === 'Serithtial' && !native, ...fixed,
-        named_weapon_runes: artifactRunes(item, fixed.named_weapon_runes) }
+        named_weapon_runes: artifactRunes(item, formRunes) }
       if (item.data.bulk !== undefined) data.bulk = item.data.bulk
       if (item.name === 'Mammoth Bow') {
         data.range = 180
@@ -254,8 +261,12 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
       named_weapon_material: `Peachwood (${(level ?? entry.level) >= 18 ? 'High' : 'Standard'}-Grade)` } }
   }
   if (source === "Hunter's Dawn") {
+    const at = level ?? entry.level
+    const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
     return { ...entry, data: { ...entry.data,
-      named_weapon_material: `Peachwood (${(level ?? entry.level) >= 18 ? 'High' : 'Standard'}-Grade)` } }
+      named_weapon_material: `Peachwood (${at >= 18 ? 'High' : 'Standard'}-Grade)`,
+      named_weapon_runes: [...new Set(runes.map(rune => runeBase(rune) === 'Astral'
+        ? at >= 15 ? 'Astral (Greater)' : 'Astral' : rune))].join(';') } }
   }
   if (source === 'Debilitating Dart' && (level ?? entry.level) >= 10) {
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)

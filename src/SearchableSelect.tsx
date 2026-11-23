@@ -16,6 +16,7 @@ type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue
   onClear?: () => void
   optionCount?: number
   alwaysSearchable?: boolean
+  defaultSortOrder?: PickerSortOrder
   filters?: ReactNode
   primaryDetails?: boolean
   renderDetails?: (value: string) => ReactNode
@@ -27,12 +28,12 @@ type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue
 
 const PAGE = 100
 
-export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, filters, primaryDetails = false, renderDetails, searchText, optionLevel, optionSortName, optionSpell, children, onChange, value, ...props }: Props) {
+export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, defaultSortOrder = 'name', filters, primaryDetails = false, renderDetails, searchText, optionLevel, optionSortName, optionSpell, children, onChange, value, ...props }: Props) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [limit, setLimit] = useState(PAGE)
   const [container, setContainer] = useState<HTMLElement>()
-  const [sort, setSort] = useState<PickerSortOrder>('name')
+  const [sort, setSort] = useState<PickerSortOrder>(defaultSortOrder)
   const [defense, setDefense] = useState<SpellDefense>('all')
   const [system, setSystem] = useState<GearSystem>('both')
   const select = useRef<HTMLSelectElement>(null)
@@ -102,7 +103,8 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
     {searchable && open && <PickerDialog label={`${props['aria-label']} picker`} searchLabel={searchLabel}
       container={container}
       query={query} onQuery={next => { setQuery(next); setLimit(PAGE) }} onClose={() => setOpen(false)}>
-      {optionLevel && <PickerSort label={`Sort ${props['aria-label']} by`} value={sort} onChange={next => { setSort(next); setLimit(PAGE) }} />}
+      {optionLevel && <PickerSort label={`Sort ${props['aria-label']} by`} value={sort}
+        includeHighestLevel={defaultSortOrder === 'level-desc'} onChange={next => { setSort(next); setLimit(PAGE) }} />}
       {optionSpell && <SpellDefenseFilter value={defense} onChange={next => { setDefense(next); setLimit(PAGE) }} />}
       {optionSpell && <GearSystemFilter value={system} onChange={next => { setSystem(next); setLimit(PAGE) }} />}
       {filters}

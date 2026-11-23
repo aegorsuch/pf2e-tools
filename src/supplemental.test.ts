@@ -462,6 +462,20 @@ it('provides ranger copies of the druid feats without changing their rules', () 
     .toBe('homebrew:ranger-timeless-nature')
 })
 
+it('provides Divine homebrew copies of Ignition and Tailwind without changing official spells', () => {
+  const originals: ContentEntry[] = ['Ignition', 'Tailwind'].map((name, index) => ({
+    ...HAFT_STRIKER_WEAPON, id: `official:${index}`, kind: 'spell', name, level: index,
+    source: 'official', description: `${name} rules`, data: { tradition: 'Arcane, Occult, Primal' },
+  }))
+  const variants = homebrewCharacterOptions(originals).filter(entry => entry.id.endsWith('-divine'))
+  expect(variants).toHaveLength(2)
+  expect(variants).toMatchObject([
+    { id: 'homebrew:ignition-divine', name: 'Ignition', source: 'homebrew', data: { tradition: 'Divine' } },
+    { id: 'homebrew:tailwind-divine', name: 'Tailwind', source: 'homebrew', data: { tradition: 'Divine' } },
+  ])
+  expect(originals.map(entry => entry.data.tradition)).toEqual(['Arcane, Occult, Primal', 'Arcane, Occult, Primal'])
+})
+
 it('copies Twinned Defense for Ranger and adds Avenger Twin Parry stance options', () => {
   const original: ContentEntry = { ...HAFT_STRIKER_WEAPON, id: 'twinned-defense', kind: 'feat', name: 'Twinned Defense (Fighter)',
     level: 16, traits: ['Fighter', 'Stance'],
@@ -482,7 +496,7 @@ it('copies Twinned Defense for Ranger and adds Avenger Twin Parry stance options
   expect(copy.data.archetype_levels).toBeUndefined()
   expect(avengerTwinParry).toMatchObject({ name: 'Twin Parry (Avenger)', level: 4, source: 'homebrew',
     traits: ['Avenger'], data: { class: 'Rogue', archetype: 'Avenger' } })
-  expect(avengerStance).toMatchObject({ name: 'Twinned Defense Stance (Avenger)', level: 16, source: 'homebrew',
+  expect(avengerStance).toMatchObject({ name: 'Twinned Defense Stance', level: 16, source: 'homebrew',
     traits: ['Stance', 'Avenger'], data: { class: 'Rogue', archetype: 'Avenger', prerequisite: 'Twin Parry (Avenger)' } })
   expect(avengerStance.description).toContain('Twin Parry (Avenger)')
   const avenger = { ...base, className: 'Rogue', subclass: 'Avenger', level: 16,
@@ -892,7 +906,7 @@ it('shares handwrap fundamentals and compatible property runes with current and 
   const c: Character = { ...base, handwraps: { potency: 2, striking: 1, runes: ['Impactful (Greater)', 'Wounding'] } }
   const fist = ownedWeapons(c, [])[0]
   expect(weaponAttack(c, [], fist)).toMatchObject({ attack: 18, item: 2, damage: '2d4+1 bludgeoning' })
-  expect(effectiveWeapon(c, [], fist).runes).toEqual(['Grievous', 'Grappling'])
+  expect(effectiveWeapon(c, [], fist).runes).toEqual(['Grievous', 'Grappling', 'Impactful (Greater)'])
   const buffed: Character = {
     ...c, activeSpells: ['Animal Feature'],
     feats: [...['Iron Fists', 'Tusks'].map((name) => ({ name, type: 'Ancestry Feat', level: 1 })),
@@ -901,7 +915,7 @@ it('shares handwrap fundamentals and compatible property runes with current and 
   for (const weapon of ownedWeapons(buffed, [])) {
     expect(weaponAttack(buffed, [], weapon).item).toBe(2)
     expect(weaponAttack(buffed, [], weapon).damage).toMatch(/^2d[468]\+1 /)
-    expect(effectiveWeapon(buffed, [], weapon).runes).toEqual(['Grievous', 'Grappling'])
+    expect(effectiveWeapon(buffed, [], weapon).runes).toEqual(['Grievous', 'Grappling', 'Impactful (Greater)'])
     expect(weapon).toMatchObject({ potency: 0, striking: 0, runes: [] })
   }
   const haft = { id: 'haft', name: HAFT_STRIKER_WEAPON.name, potency: 1, striking: 0, runes: [] }
@@ -923,7 +937,7 @@ it('ignores directly configured unarmed runes while leaving saved data and manuf
   expect(weaponAttack(base, [], unarmed)).toMatchObject({ item: 2, damage: '2d4+1 bludgeoning' })
   expect(unarmed).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
   const c: Character = { ...base, handwraps: { potency: 1, striking: 1, runes: ['Impactful'] } }
-  expect(effectiveWeapon(c, [], unarmed)).toMatchObject({ potency: 2, striking: 1, runes: ['Grievous', 'Grappling'] })
+  expect(effectiveWeapon(c, [], unarmed)).toMatchObject({ potency: 2, striking: 1, runes: ['Grievous', 'Grappling', 'Impactful'] })
   expect(effectiveWeapon(c, [], { ...unarmed, name: 'Gauntlet' })).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
   expect(effectiveWeapon({ ...c, handwraps: undefined }, [], unarmed)).toMatchObject({ potency: 2, striking: 1, runes: ['Grievous', 'Grappling'] })
 })

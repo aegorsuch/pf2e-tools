@@ -23,6 +23,14 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return rank >= 2 ? [{ label: 'Damage', dice: 2, sides: 6, type: 'piercing' }] : []
     case 'Wall of Fire':
       return rank >= 4 ? [{ label: 'Damage', dice: rank, sides: 6, type: 'fire' }] : []
+    case 'Burning Trail':
+      return rank >= 4 ? [{ label: 'Damage', dice: 2 + Math.floor((rank - 4) / 2), sides: 10, type: 'fire' }] : []
+    case 'Calcium Rain': {
+      if (rank < 5) return []
+      const heightened = rank - 5
+      return [{ label: 'Damage', dice: 10 + 2 * heightened, sides: 4, type: 'piercing',
+        additional: { label: 'Persistent bleed', dice: 0, sides: 0, bonus: 5 + heightened, type: 'persistent bleed' } }]
+    }
     case 'Burstmoji':
       return rank >= 4 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 4), sides: 6, type: 'fire',
         additional: { label: 'Hazardous terrain', dice: 0, sides: 0, bonus: 5 + 2 * (rank - 4), type: 'fire' } }] : []
@@ -138,6 +146,10 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return rank >= 7 ? [{ label: 'Damage', dice: rank, sides: 10, type: 'spirit' }] : []
     case 'Vampiric Feast':
       return rank >= 3 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'void' }] : []
+    case 'Vampiric Exsanguination':
+      return rank >= 6 ? [{ label: 'Damage', dice: 12 + 2 * (rank - 6), sides: 6, type: 'void' }] : []
+    case 'Incarnate Ancient Specter':
+      return rank >= 7 ? [{ label: 'Departure damage', dice: 4, sides: 6, type: 'persistent bleed' }] : []
     case 'Blood Vendetta':
       return rank >= 2 ? [{ label: 'Persistent damage', dice: 2 + 2 * Math.floor((rank - 2) / 2),
         sides: 6, type: 'bleed' }] : []
@@ -226,6 +238,8 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
     case 'Execute':
       return rank >= 7 ? [{ label: 'Damage', dice: 0, sides: 0, bonus: 10 * rank, type: 'vitality or void' }] : []
     case 'Desiccate':
+      return rank >= 8 ? [{ label: 'Damage', dice: 10 + rank - 8, sides: 10, type: 'void' }] : []
+    case 'Stop Heart':
       return rank >= 8 ? [{ label: 'Damage', dice: 10 + rank - 8, sides: 10, type: 'void' }] : []
     case 'Massacre':
       return rank >= 9 ? [{ label: 'Success', dice: rank >= 10 ? 10 : 9, sides: 6, type: 'void' }] : []

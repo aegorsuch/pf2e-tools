@@ -36,6 +36,8 @@ export async function ensureSupplementalContent() {
       }
     }
     const bases = await db.content.where('kind').anyOf('companion', 'weapon', 'feat').toArray()
+    bases.push(...await db.content.where('kind').equals('spell').filter(entry =>
+      ['Ignition', 'Tailwind'].includes(entry.name)).toArray())
     const slarp = await db.content.get('aon:sf2e:treasure--235-slarp')
     if (slarp) bases.push(slarp)
     const groups = await db.content.where('kind').anyOf('weaponGroup', 'armorGroup').toArray()
@@ -57,6 +59,7 @@ export async function ensureSupplementalContent() {
         'homebrew:tethered-favored-weapon', 'homebrew:direwolf-bonded', 'homebrew:rider',
         'homebrew:sarkorian-direwolf', 'homebrew:snow-leopard', 'homebrew:ranger-twinned-defense-stance',
         'homebrew:avenger-twin-parry', 'homebrew:avenger-twinned-defense-stance',
+        'homebrew:ignition-divine', 'homebrew:tailwind-divine',
         'homebrew:persistent-magic-hide', 'homebrew:mobile-hunter', 'homebrew:divine-warrior', 'homebrew:primal-warrior', 'homebrew:instinctive-support'].includes(entry.id))
         && existing.updatedAt === 1 && !existing.deleted) await db.content.put(entry)
     }

@@ -78,6 +78,14 @@ it('displays the gyrojet name without parentheses while preserving saved identit
   expect(weapon.name).toBe('Starday Night Special (Gyrojet Pistol)')
 })
 
+it('displays the rotating pistol name without parentheses while preserving saved identity', () => {
+  const weapon = owned('Starday Night Special (Rotating Pistol)')
+  const html = renderToStaticMarkup(<WeaponList c={{ ...base, weapons: [weapon] }} entries={entries} save={() => {}} />)
+  expect(html).toContain('Starday Night Special Rotating Pistol')
+  expect(html).not.toContain('Starday Night Special (Rotating Pistol)')
+  expect(weapon.name).toBe('Starday Night Special (Rotating Pistol)')
+})
+
 it('preserves Raptorial Edge modes, acid damage and permanently occupied upgrade slot', () => {
   const blade = owned('Raptorial Edge')
   const character = { ...base, weapons: [blade] }

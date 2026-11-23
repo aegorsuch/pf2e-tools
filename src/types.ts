@@ -290,6 +290,7 @@ export interface Character {
   dismissedFeatSlots?: string[]
   equipment: { name: string; qty: number; group?: EquipmentGroupName | 'Belts' | 'Waist'; cheekQty?: number; cheekPreparedQty?: number; mechanicRigQty?: number; mechanicMedicMods?: MedicMod[]; mechanicItemId?: string }[]
   simplePoisonsSpent?: number
+  poisonWeaponActive?: boolean
   apexAugmentationId?: string
   augmentations?: { id: string; entryId: string; name: string; slot: string; speed?: string }[]
   hardpointWeaponId?: string
@@ -376,7 +377,7 @@ export interface Character {
   collapsedWeaponIds?: string[]
   livingWeaponEnhancements?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'>
   playingCardEnhancements?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'>
-  handwraps?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes' | 'upgrades'> & { kind?: 'hardlight'; grade?: HardlightGrade }
+  handwraps?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes' | 'upgrades' | 'material'> & { kind?: 'hardlight'; grade?: HardlightGrade }
   armors?: OwnedArmor[]
   inventorArmorSuit?: 'Power Suit' | 'Subterfuge Suit'
   inventorArmorModifications?: Partial<Record<'initial' | 'breakthrough' | 'revolutionary' | 'manifold' | 'basic', string>> & {

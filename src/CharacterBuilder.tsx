@@ -277,7 +277,7 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
     ...rows.map(row => ({ kind: 'item' as const, name: equipmentDisplayName(row.item.name), row })),
     ...(integratedComm !== undefined ? [{ kind: 'comm' as const, name: 'Comm Unit' }] : []),
     ...bracelets.map(id => ({ kind: 'bracelet' as const, name: 'Bracelet of Empathy', id })),
-    ...(simplePoisons ? [{ kind: 'simple-poisons' as const, name: 'Simple injury poisons' }] : []),
+    ...(simplePoisons ? [{ kind: 'simple-poisons' as const, name: 'Poison Weapon' }] : []),
     ...(group === 'Mask' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Warmask').length
       ? [{ kind: 'warmask' as const, name: adoptedAncestryText(c, 'Orc Warmask') }] : []),
     ...(group === 'Tattoos' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Tattooed Historian Dedication').length

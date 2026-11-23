@@ -123,7 +123,7 @@ it.each([
     ...bow(name, false), data: { damage: '1d6 piercing', weapon_type: name === 'Club' ? 'Melee' : 'Ranged',
       weapon_category: 'Simple', hands: 1, range: name === 'Club' ? 0 : 20 },
   }))
-  const entries = [item, ...bases]
+  const entries = [item, ...bases, rune('Astral'), rune('Astral (Greater)'), rune('Ghost Touch'), rune('Returning')]
   const options = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === item.name)
   expect(options.map(entry => entry.data.named_weapon_base)).toEqual(['Club'])
   expect(namedWeaponBases(options[0])).toEqual(['Club', 'Dart', 'Javelin'])
@@ -131,15 +131,30 @@ it.each([
     .filter(entry => entry.data.named_weapon_source === item.name && !entry.data.named_weapon_resolver_only)
   expect(forms).toHaveLength(3)
   expect(forms.find(entry => entry.data.named_weapon_base === 'Dart')?.data.range).toBe(40)
+  expect(forms.find(entry => entry.data.named_weapon_base === 'Club')?.description.toLowerCase()).toContain('ghost touch')
+  for (const form of forms.filter(entry => entry.data.named_weapon_base !== 'Club')) {
+    expect(form.description).toContain('Returning')
+    expect(form.description.toLowerCase()).not.toContain('ghost touch')
+    expect(form.data.named_weapon_runes).toContain('Returning')
+    expect(form.data.named_weapon_runes).not.toContain('Ghost Touch')
+  }
   for (const entry of forms) {
     const weapon: OwnedWeapon = { ...owned(entry.name), material: 'Orichalcum', runes: ['Flaming'] }
     const character = { ...c, level, weapons: [weapon] }
     const before = JSON.stringify(character)
-    expect(effectiveWeapon(character, entries, weapon)).toMatchObject({
+    const effective = effectiveWeapon(character, entries, weapon)
+    expect(effective).toMatchObject({
       material: `Peachwood (${grade}-Grade)`, potency: Math.max(potency, 3), striking: Math.max(striking, 2),
       runes: expect.arrayContaining(['Flaming']),
     })
-    expect(effectiveWeapon(character, entries, weapon)?.runes).toContain('Astral')
+    expect(effective.runes).toContain(level >= 15 ? 'Astral (Greater)' : 'Astral')
+    if (entry.data.named_weapon_base === 'Club') {
+      expect(effective.runes).toContain('Ghost Touch')
+      expect(effective.runes).not.toContain('Returning')
+    } else {
+      expect(effective.runes).toContain('Returning')
+      expect(effective.runes).not.toContain('Ghost Touch')
+    }
     expect(effectiveWeapon(character, entries, weapon)?.runes).not.toContain('Quickstrike')
     const markup = renderToStaticMarkup(<WeaponList c={character} entries={entries} save={() => {}} />)
     expect(markup).toContain(`>Peachwood (${grade}-Grade)</button>`)

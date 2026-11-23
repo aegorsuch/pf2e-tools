@@ -408,7 +408,7 @@ it('calculates turret grade, weapon proficiency, specialization and active mods 
   expect(turret.attack.range).toBe(90)
   expect(turret.entry.data.upgrade_slots).toBe(4)
   const html = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly />)
-  expect(html).toContain('Hands used: 0/2')
+  expect(html).not.toContain('Hands used:')
   expect(html).toContain('Mechanic Turret')
   expect(html).toContain('3d8+10 cold')
   expect(turretWeapon({ ...c, subclass: 'Mine' }, entries)).toBeUndefined()

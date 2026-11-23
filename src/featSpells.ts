@@ -234,10 +234,11 @@ export function witchLessonOptions(c: Character, entries: ContentEntry[], feat: 
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   if (['Fiendish Magic', 'Celestial Magic', 'Summon Nephilim Kin'].includes(feat.name)) return undefined
   if (feat.name === 'Loaner Spell' && c.systems.includes('pf2e')) {
+    const maxRank = getSettings().innateAutoHeighten ? Math.max(3, Math.min(10, Math.ceil(c.level / 2))) : 3
     return spellIndex(entries).spells.filter(spell => {
       const hasTargetOrArea = [spell.data.target, spell.data.targets, spell.data.area]
         .some(value => typeof value === 'string' && !!value.trim() && !/^(?:—|-|none)$/i.test(value.trim()))
-      return spell.systems.includes('pf2e') && spell.level >= 1 && spell.level <= 3
+      return spell.systems.includes('pf2e') && spell.level >= 1 && spell.level <= maxRank
         && !spell.traits.some(trait => /^(?:cantrip|focus)$/i.test(trait))
         && ['arcane', 'divine', 'occult', 'primal'].some(tradition =>
           String(spell.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(tradition))
@@ -558,6 +559,14 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
       const entry = matchingSpells(entries, 'Haste').find(spell => spell.systems.includes('pf2e'))
       if (entry) out.push({ entry, source: feat.name,
         rule: { kind: 'innate', spells: [entry.name], tradition: 'arcane', frequency: 'once per day', fixedRank: true },
+        rank: 3, usageKey: JSON.stringify([selection, feat.name, 'haste']) })
+      continue
+    }
+    if (feat.name === 'Pinch Time' && c.systems.includes('pf2e')) {
+      const entry = matchingSpells(entries, 'Haste').find(spell => spell.systems.includes('pf2e'))
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'arcane', frequency: 'once per day', fixedRank: true,
+          condition: 'You can target only yourself.' },
         rank: 3, usageKey: JSON.stringify([selection, feat.name, 'haste']) })
       continue
     }
@@ -989,8 +998,10 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
     }
   }
   return getSettings().innateAutoHeighten
-    ? out.map(grant => grant.rule.kind === 'innate' || grant.source === 'Heroic Presence'
-      ? { ...grant, rank: Math.max(grant.rank, grant.source === 'Heroic Presence' ? Math.min(10, Math.ceil(c.level / 2)) : Math.ceil(c.level / 2)) } : grant)
+    ? out.map(grant => grant.rule.kind === 'innate' || grant.source === 'Heroic Presence' || grant.source === 'Loaner Spell'
+      ? { ...grant, rank: Math.max(grant.rank,
+        grant.source === 'Heroic Presence' || grant.source === 'Loaner Spell'
+          ? Math.min(10, Math.ceil(c.level / 2)) : Math.ceil(c.level / 2)) } : grant)
     : out
 }
 

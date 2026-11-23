@@ -11,7 +11,7 @@ import { ClassFeatures } from './ClassFeatures'
 import { SensesAndSpeed, SkillsSection } from './SkillsSection'
 import { MinionsSection } from './MinionsSection'
 import { SpellsSection } from './SpellsSection'
-import { homebrewCharacterOptions, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, GAUNTLET, HAFT_STRIKER_WEAPON, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
+import { homebrewCharacterOptions, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, GAUNTLET, HAFT_STRIKER_WEAPON, ORC_TUSKS, OVERSIZED_THROW, UNTAMED_JAWS } from './supplemental'
 import { getSettings, updateSettings } from './settings'
 import { fetchAonHits } from './aonQuery'
 import { mapAonHit, mapAonHits } from './aon'
@@ -345,6 +345,33 @@ it('grants Vindicator favored weapon proficiency and qualifying Deadly Simplicit
     .not.toContainEqual(expect.objectContaining({ name: 'Deadly Simplicity' }))
   expect(weaponAttack({ ...c, subclass: 'Flurry' }, entries, weapon(advanced.name)).rank).toBe(0)
   expect(weaponAttack({ ...c, subclass: 'Flurry' }, entries, weapon(staff.name)).damage).toMatch(/^1d4/)
+})
+
+it.each([
+  ['Ranger', 'Vindication', 'Holy', 'holy'],
+  ['Ranger', 'Vindication', 'Unholy', 'unholy'],
+  ['Rogue', 'Avenger', 'Holy', 'holy'],
+  ['Rogue', 'Avenger', 'Unholy', 'unholy'],
+] as const)('scales %s %s deity-favored weapons with %s and Astral', (className, subclass, sanctification, deitySanctification) => {
+  const klass = content('class', className, { attack_proficiency: 'Trained in simple weapons, trained in martial weapons' })
+  const favoredDeity = content('deity', 'Patron', { favored_weapon: 'longsword', sanctification: deitySanctification, sanctification_required: true })
+  const holy = content('item', 'Holy', { item_subcategory: 'Weapon Property Runes' }, 11)
+  const unholy = content('item', 'Unholy', { item_subcategory: 'Weapon Property Runes' }, 11)
+  const astral = content('item', 'Astral', { item_subcategory: 'Weapon Property Runes' }, 9)
+  const greaterAstral = content('item', 'Astral (Greater)', { item_subcategory: 'Weapon Property Runes' }, 15)
+  const entries = [klass, sword, favoredDeity, holy, unholy, astral, greaterAstral]
+  const weapon = { ...main, potency: 0, striking: 0 }
+  const c: Character = { ...base, className, subclass, deity: 'Patron', level: 15, sanctification, weapons: [weapon] }
+
+  expect(weaponAttack({ ...c, level: 5 }, entries, weapon).rank).toBe(2)
+  expect(weaponAttack({ ...c, level: 19 }, entries, weapon).rank).toBe(4)
+  expect(effectiveWeapon({ ...c, level: 10 }, entries, weapon)).toMatchObject({ material: 'Orichalcum' })
+  expect(effectiveWeapon({ ...c, level: 10 }, entries, weapon).runes).not.toContain(sanctification)
+  expect(effectiveWeapon(c, entries, weapon)).toMatchObject({
+    material: 'Orichalcum', runes: expect.arrayContaining([sanctification, 'Astral (Greater)']),
+  })
+  expect(effectiveWeapon({ ...c, level: 14 }, entries, weapon).runes).toContain('Astral')
+  expect(effectiveWeapon({ ...c, level: 14 }, entries, weapon).runes).not.toContain('Astral (Greater)')
 })
 
 it.each([
@@ -1698,18 +1725,44 @@ it('grants Soaring Armor flight only while the innovation is worn and the feat i
   ] }, []).some(speed => speed.name === 'Fly')).toBe(false)
 })
 
-it('tracks Poison Weapon doses and Improved Poison Weapon damage', () => {
+it('tracks Poison Weapon doses and adds its damage while active', () => {
   const c: Character = { ...base, level: 8, feats: [feat('Poison Weapon', 4), feat('Improved Poison Weapon', 8)], simplePoisonsSpent: 3 }
   const html = renderToStaticMarkup(<SimplePoisons c={c} entries={[]} save={() => {}} />)
-  expect(html).toContain('5/8 remaining; 2d4')
-  expect(html).toContain('critically failed attack does not waste')
+  expect(html).toContain('Poison Weapon')
+  expect(html).toContain('aria-label="Restore poison use 1"')
+  expect(html).toContain('aria-label="Spend poison use 4"')
+  expect(html).not.toContain('critically failed attack does not waste')
+  const sword = content('weapon', 'Longsword', { weapon_category: 'Martial', weapon_type: 'Melee', damage: '1d8 slashing' })
+  expect(weaponAttack(c, [sword], { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }).additionalDamage)
+    .toEqual([])
+  const active = { ...c, poisonWeaponActive: true }
+  expect(weaponAttack(active, [sword], { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }).additionalDamage)
+    .toContainEqual({ source: 'Poison Weapon', value: '2d4 poison', note: 'While Poison Weapon is active.' })
   const deadly = { ...c, level: 12, feats: [...c.feats, feat('Deadly Poison Weapon', 12)] }
   const deadlyHtml = renderToStaticMarkup(<SimplePoisons c={deadly} entries={[]} save={() => {}} />)
-  expect(deadlyHtml).toContain('9/12 remaining; 4d4')
-  expect(deadlyHtml).toContain('up to your class DC')
-  expect(renderToStaticMarkup(<SimplePoisons c={{ ...deadly, level: 11 }} entries={[]} save={() => {}} />)).toContain('8/11 remaining; 2d4')
-  expect(renderToStaticMarkup(<SimplePoisons c={{ ...c, level: 7 }} entries={[]} save={() => {}} />)).toContain('4/7 remaining; 1d4')
+  expect(deadlyHtml).toContain('aria-label="Restore poison use 1"')
+  expect(deadlyHtml).toContain('aria-label="Spend poison use 4"')
+  expect(weaponAttack({ ...deadly, poisonWeaponActive: true }, [sword],
+    { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }).additionalDamage)
+    .toContainEqual({ source: 'Poison Weapon', value: '4d4 poison', note: 'While Poison Weapon is active.' })
+  expect(deadlyHtml).not.toContain('up to your class DC')
+  expect(renderToStaticMarkup(<SimplePoisons c={{ ...deadly, level: 11 }} entries={[]} save={() => {}} />))
+    .toContain('aria-label="Spend poison use 11"')
+  expect(renderToStaticMarkup(<SimplePoisons c={{ ...c, level: 7 }} entries={[]} save={() => {}} />))
+    .toContain('aria-label="Spend poison use 7"')
   expect(renderToStaticMarkup(<SimplePoisons c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).toBe('')
+})
+
+it('shows Untamed Shift jaws as Jaws in the weapon list', () => {
+  const untamedShift = content('spell', 'Untamed Shift')
+  const c: Character = { ...base, className: 'Druid', level: 5, feats: [feat('Insect Shape', 4)],
+    spells: [{ name: 'Untamed Shift', rank: 1, cantrip: false }], activeSpells: ['Untamed Shift'],
+    untamedShiftEffects: ['Jaws'] }
+  const weapons = ownedWeapons(c, [untamedShift, UNTAMED_JAWS])
+  expect(weapons.some(weapon => weapon.id === UNTAMED_JAWS.id)).toBe(true)
+  const html = renderToStaticMarkup(<WeaponList c={c} entries={[untamedShift, UNTAMED_JAWS]} save={() => {}} />)
+  expect(html).toContain('>Jaws<')
+  expect(html).not.toContain('Untamed Jaws')
 })
 
 it('lists only known and craftable gadgets for daily preparations', () => {
@@ -2041,7 +2094,10 @@ it.each<[number, number, number, HardlightGrade]>([
     const c: Character = { ...base, level, handwraps: { ...(kind ? { kind, grade: 'Commercial' } : {}), potency: 0, striking: 0, runes: ['Impactful'] } }
     const before = JSON.stringify(c)
     const effective = effectiveHandwraps(c)
-    expect(effective).toMatchObject({ potency, striking, runes: kind || !potency ? ['Impactful'] : free.slice(0, potency), ...(kind ? { grade } : {}) })
+    expect(effective).toMatchObject({
+      potency, striking, runes: kind || !potency ? ['Impactful'] : [...free.slice(0, potency), 'Impactful'],
+      ...(kind ? { grade } : {}),
+    })
     const fist = ownedWeapons(c, []).find(weapon => weapon.name === 'Fist')!
     expect(effectiveWeapon(c, [], fist)).toMatchObject({ potency, striking })
     expect(JSON.stringify(c)).toBe(before)
@@ -2055,7 +2111,12 @@ it.each<[number, number, number, HardlightGrade]>([
 
 it('gives Handwraps of Mighty Blows automatic property runes by potency', () => {
   for (const [level, runes] of [[2, ['Grievous']], [10, ['Grievous', 'Grappling']], [16, ['Grievous', 'Grappling', 'Shoving']]] as const) {
-    expect(effectiveHandwraps({ ...base, level, handwraps: undefined })?.runes).toEqual(runes)
+    const c = { ...base, level, handwraps: undefined }
+    const wraps = effectiveHandwraps(c)!
+    expect(wraps).toMatchObject({ material: 'Orichalcum', runes })
+    expect(maxPropertyRunes(wraps.potency, wraps.material)).toBe(Math.min(4, wraps.potency + 1))
+    const fist = ownedWeapons(c, []).find(weapon => weapon.name === 'Fist')!
+    expect(effectiveWeapon(c, [], fist)).toMatchObject({ material: 'Orichalcum' })
   }
 })
 
@@ -2080,7 +2141,9 @@ it('chooses automatic handwraps from class metadata with both systems enabled, i
 
 it('preserves stronger saved upgrades without stacking PF values onto hardlight grades', () => {
   const handwraps = { potency: 3, striking: 3, runes: ['Impactful'] }
-  expect(effectiveHandwraps({ ...base, level: 2, handwraps })).toEqual({ ...handwraps, runes: ['Grievous', 'Grappling', 'Shoving'] })
+  expect(effectiveHandwraps({ ...base, level: 2, handwraps })).toEqual({
+    ...handwraps, material: 'Orichalcum', runes: ['Grievous', 'Grappling', 'Shoving', 'Impactful'],
+  })
   expect(effectiveHandwraps({ ...base, level: 2, handwraps: { ...handwraps, kind: 'hardlight', grade: 'Elite' } }))
     .toMatchObject({ grade: 'Elite', potency: 2, striking: 2, runes: ['Impactful'] })
   expect(effectiveHandwraps({ ...base, handwraps: undefined })).toMatchObject({ potency: 2, striking: 1, runes: ['Grievous', 'Grappling'] })
@@ -2240,7 +2303,8 @@ it('preserves a favored Fist alongside armor gauntlets and reuses an already-gra
   const fist = ownedWeapons(c, [fistDeity]).find(w => w.name === 'Fist')!
   expect(fist).toBeDefined()
   expect(effectiveWeapon(c, [fistDeity], fist)).toMatchObject({ potency: 3, striking: 3 })
-  expect(effectiveWeapon({ ...c, handwraps: { potency: 3, striking: 3, runes: ['Flaming'] } }, [fistDeity], fist).runes).toEqual(['Grievous', 'Grappling', 'Shoving'])
+  expect(effectiveWeapon({ ...c, handwraps: { potency: 3, striking: 3, runes: ['Flaming'] } }, [fistDeity], fist).runes)
+    .toEqual(['Grievous', 'Grappling', 'Shoving', 'Flaming'])
   const gauntletDeity = { ...deity, data: { favored_weapon: 'gauntlet' } }
   const gauntlets = ownedWeapons(c, [gauntletDeity]).filter(w => w.name === 'Gauntlet')
   expect(gauntlets).toHaveLength(1)
@@ -2671,7 +2735,7 @@ it('ignores retired Cold Iron Tusks while ordinary Tusks still inherit class han
   expect(ownedWeapons(c, []).some(weapon => weapon.name === ORC_TUSKS.name)).toBe(false)
   const ordinary = { ...c, feats: [...c.feats, feat('Tusks')] }
   const tusks = ownedWeapons(ordinary, []).find(weapon => weapon.name === ORC_TUSKS.name)!
-  expect(effectiveWeapon(ordinary, [], tusks)).toMatchObject({ material: undefined, potency: 3, striking: 3 })
+  expect(effectiveWeapon(ordinary, [], tusks)).toMatchObject({ material: 'Orichalcum', potency: 3, striking: 3 })
 })
 
 it('applies Animal Feature senses, movement, and level gates without changing land Speed', () => {
@@ -3188,7 +3252,7 @@ it.each([false, true])('uses free-hand weapons and available fists for Twin Parr
 it.each([
   ['Twinned Defense (Fighter)', 'Twin Parry', 'Fighter'],
   ['Twinned Defense Stance', 'Twin Parry', 'Ranger'],
-  ['Twinned Defense Stance (Avenger)', 'Twin Parry (Avenger)', 'Avenger'],
+  ['Twinned Defense Stance', 'Twin Parry (Avenger)', 'Avenger'],
 ])('grants continuous Twin Parry only from active, learned %s', (name, twinParry, classTrait) => {
   const previous = getSettings()
   updateSettings({ unarmedCountsAsWeapons: true })

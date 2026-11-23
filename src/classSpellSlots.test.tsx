@@ -10,6 +10,10 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 18 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+const baseEntry = (name: string): ContentEntry => ({
+  id: name, name, kind: 'class', systems: ['pf2e'], source: 'official', level: 1, traits: [],
+  data: {}, description: '', effects: [], updatedAt: 0,
+})
 
 it.each([
   ['Champion', 'Divine Warrior', 'Divine', 'cha'],
@@ -112,6 +116,15 @@ it('derives Mystic connection tradition and caster ability from selected class',
     .toMatchObject({ traditions: ['Arcane'], ability: 'int' })
 })
 
+it('lets Avenger characters switch existing Occult spell slots to Divine', () => {
+  const avenger: ContentEntry = { ...baseEntry('Avenger'), kind: 'subclass', data: { class: 'Rogue' } }
+  const c: Character = { ...base, className: 'Rogue', subclass: 'Avenger',
+    spellcasting: { ability: 'cha', tradition: 'Occult', rank: 1, slots: { 1: 1 } } }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[avenger]} save={() => {}} />)
+  expect(html).toContain('<option selected="">Occult</option>')
+  expect(html).toContain('<option>Divine</option>')
+})
+
 it('scales Bloodrager spell attack and DC proficiency with active spellcasting feats', () => {
   const c: Character = { ...base, className: 'Barbarian', subclass: 'Bloodrager', level: 20,
     feats: [
@@ -146,22 +159,26 @@ it('derives Bloodrager cantrips, spellcasting slots and repertoire from active f
 })
 
 it('offers Bloodrager repertoire spells from the chosen tradition without manual spell setup', () => {
-  const c: Character = { ...base, className: 'Barbarian', subclass: 'Bloodrager', level: 4,
+  const c: Character = { ...base, className: 'Barbarian', subclass: 'Bloodrager', level: 8,
     feats: [
       { name: 'Bloodrager Dedication', type: 'Class Feat', level: 2, choice: 'Divine' },
       { name: 'Rising Blood Magic', type: 'Class Feat', level: 4 },
     ] }
-  const spell = (name: string, tradition: string, cantrip = false): ContentEntry => ({
+  const spell = (name: string, tradition: string, cantrip = false, traits: string[] = []): ContentEntry => ({
     id: name, name, kind: 'spell', systems: ['pf2e'], source: 'official', level: 1,
-    traits: cantrip ? ['Cantrip', 'Attack'] : [], data: { tradition }, description: '', effects: [], updatedAt: 0,
+    traits: [...(cantrip ? ['Cantrip', 'Attack'] : []), ...traits], data: { tradition }, description: '', effects: [], updatedAt: 0,
   })
-  const entries = [spell('Divine Cantrip', 'Divine', true), spell('Divine Spell', 'Divine'), spell('Arcane Spell', 'Arcane')]
+  const entries = [spell('Divine Cantrip', 'Divine', true), spell('Divine Spell', 'Divine'),
+    spell('Flense', 'Arcane, Divine', false, ['Uncommon']),
+    spell('Bone Flense', 'Arcane, Divine, Primal', false, ['Rare']), spell('Arcane Spell', 'Arcane')]
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(html).toContain('Cantrip slot 1')
   expect(html).toContain('Cantrip slot 2')
   expect(html).toContain('Spell Rank 1 slot 1')
   expect(html).toContain('Divine Cantrip')
   expect(html).toContain('Divine Spell')
+  expect(html).toContain('Flense')
+  expect(html).toContain('Bone Flense')
   expect(html).not.toContain('Arcane Spell')
   expect(html).not.toContain('Spell slots:')
 })

@@ -6,7 +6,7 @@ import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
-import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
+import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, OVERSIZED_THROW } from './supplemental'
 import { getSettings, updateSettings } from './settings'
 import { canEquipShield, equippedHands, equippedShield, hardwoodShield, ownedShields, shieldAcBonus, shieldEquipChange, shieldRaisedChange } from './builder'
 import { GearSystemFilter } from './GearSystemFilter'
@@ -541,7 +541,7 @@ it('uses a shared pool for weapons saved in different hand pairs', () => {
   expect(weaponEquipped(c, [sword], c.weapons![0])).toBe(true)
   expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(true)
   const tree = () => WeaponList({ c, entries: [sword], save: patch => { c = { ...c, ...patch } }, displayOnly: true })
-  expect(renderToStaticMarkup(tree())).toContain('Hands used: 4/4')
+  expect(renderToStaticMarkup(tree())).not.toContain('Hands used:')
   expect(renderToStaticMarkup(tree())).not.toContain('aria-label="Active hands"')
   expect(renderToStaticMarkup(tree())).not.toContain('Hand pair:')
   expect(c.weapons![0].handPair).toBe(1)
@@ -642,7 +642,7 @@ it('caps saved Additional Arms selections without removing them and restores rep
     ], activeHandPair: 3 }
     expect(weaponEquipped(equipped, [sword], equipped.weapons[1])).toBe(true)
     expect(renderToStaticMarkup(<WeaponList c={equipped} entries={[sword]} save={() => {}} displayOnly />))
-      .toContain('Hands used: 2/6')
+      .not.toContain('Hands used:')
   } finally { updateSettings({ singleAdditionalArms: previous }) }
 })
 
@@ -810,7 +810,7 @@ it('keeps weapon pair assignments usable with shared hands', () => {
   expect(weaponEquipped(c, [sword], c.weapons![0])).toBe(true)
   expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(true)
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[sword]} save={() => {}} displayOnly />)
-  expect(markup).toContain('Hands used: 2/4')
+  expect(markup).not.toContain('Hands used:')
   expect(markup).not.toContain('Pair 3')
   expect(weaponEquipped({ ...c, activeHandPair: 1 }, [sword], c.weapons![0])).toBe(true)
 })
@@ -824,7 +824,7 @@ it('keeps legacy pair assignments usable after arms are removed', () => {
   expect(weaponEquipped(c, [sword], c.weapons![0])).toBe(true)
   expect(weaponEquipped(c, [sword], c.weapons![1])).toBe(true)
   const tree = () => WeaponList({ c, entries: [sword], save: patch => { c = { ...c, ...patch } }, displayOnly: true })
-  expect(renderToStaticMarkup(tree())).toContain('Hands used: 2/2')
+  expect(renderToStaticMarkup(tree())).not.toContain('Hands used:')
   expect(renderToStaticMarkup(tree())).not.toContain('Pair 3 (unavailable)')
   expect(equippedWeaponHands(c, [sword])).toBe(2)
 })
@@ -844,7 +844,7 @@ it('combines a tail with regular hands in the shared pool', () => {
   expect(weaponEquipped(extraArms, [sword, rifle], extraArms.weapons![0])).toBe(true)
   ;(findElement(tree(), e => e.props['aria-label'] === 'Equipped Rifle')!.props.onChange as (e: { target: { checked: boolean } }) => void)({ target: { checked: true } })
   expect(equippedWeaponHands(c, [sword, rifle])).toBe(3)
-  expect(renderToStaticMarkup(tree())).toContain('Hands used: 3/3')
+  expect(renderToStaticMarkup(tree())).not.toContain('Hands used:')
 })
 
 it("uses one hand for two-handed weapons with Damoritosh's Grip without a grip selector", () => {
@@ -900,6 +900,19 @@ it('confirms Offense weapon removal and syncs it to Equipment without removing g
   expect(c.weapons?.some(item => item.id === 'w')).toBe(false)
   expect(findElement(tree(true), e => e.props['aria-label'] === 'Remove Longsword')).toBeUndefined()
   expect(findElement(tree(false), e => e.props['aria-label'] === 'Remove Longsword')).toBeUndefined()
+})
+
+it('hides removal for Iruxi Armaments claws, fangs, and tail', () => {
+  const attacks = [
+    { choice: 'Claws', entry: IRUXI_CLAWS },
+    { choice: 'Fangs', entry: IRUXI_FANGS },
+    { choice: 'Tail', entry: IRUXI_TAIL },
+  ]
+  for (const { choice, entry } of attacks) {
+    const c = character([{ name: 'Iruxi Armaments', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice }])
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={[entry]} save={() => {}} />)
+    expect(markup).not.toContain(`aria-label="Remove ${entry.name}"`)
+  }
 })
 
 it.each([false, true])('syncs grip changes between views and preserves over-capacity saved weapons (displayOnly=%s)', displayOnly => {
@@ -2314,7 +2327,7 @@ it('shows only compatible inherited runes on buff attacks and no removal control
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain('Claws attack +14: show breakdown')
   expect(markup).toContain('Damage 2d6 S')
-  expect(markup).not.toContain('persistent bleed')
+  expect(markup).toContain('persistent bleed')
   expect(markup).not.toContain('aria-haspopup="dialog">Jaws</button>')
   const jawsMarkup = renderToStaticMarkup(<WeaponList c={{ ...c, animalFeature: 'Jaws' }} entries={[]} save={() => {}} />)
   expect(jawsMarkup).toContain('Jaws attack +14: show breakdown')
@@ -2345,11 +2358,15 @@ it('copies a chosen carried weapon onto Animal Feature attacks instead of handwr
   expect(markup).toContain('Critical hit: 1d6 persistent bleed (Animal Strength).')
   expect(markup).toContain('title="Animal Strength: Longsword"')
   const withoutFeat = { ...c, feats: c.feats.filter(feat => feat.name !== 'Animal Strength') }
-  expect(effectiveWeapon(withoutFeat, [weapon], claws)).toMatchObject({ potency: 3, striking: 3, runes: ['Grievous', 'Grappling', 'Shoving'] })
+  expect(effectiveWeapon(withoutFeat, [weapon], claws)).toMatchObject({
+    potency: 3, striking: 3, runes: ['Grievous', 'Grappling', 'Shoving', 'Flaming'],
+  })
   expect(renderToStaticMarkup(<WeaponList c={withoutFeat} entries={[weapon]} save={() => {}} />))
     .not.toContain('Critical hit: 1d6 persistent bleed')
   c = { ...c, weapons: [] }
-  expect(effectiveWeapon(c, [weapon], claws)).toMatchObject({ potency: 3, striking: 3, runes: ['Grievous', 'Grappling', 'Shoving'] })
+  expect(effectiveWeapon(c, [weapon], claws)).toMatchObject({
+    potency: 3, striking: 3, runes: ['Grievous', 'Grappling', 'Shoving', 'Flaming'],
+  })
   expect(renderToStaticMarkup(tree())).toContain('Saved Animal Strength weapon unavailable')
 })
 
@@ -2449,7 +2466,7 @@ it.each([false, true])('shows active unarmed property runes but hides fundamenta
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly={displayOnly} />)
   expect(markup).toContain('>Ghost Touch</button>')
   expect(markup).toContain('>Grievous</button>')
-  expect(markup).not.toContain('>Decaying</button>')
+  expect(markup).toContain('>Decaying</button>')
   expect(markup).not.toContain('aria-label="Fundamental runes"')
   expect(markup).not.toContain('aria-label="Remove Grievous rune"')
   expect(markup).not.toContain('aria-label="Remove Ghost Touch rune"')

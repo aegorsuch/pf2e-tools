@@ -2,7 +2,7 @@ import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQue
 import { mapAonHit } from './aon'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, investigatorSkillfulLessonSkills, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, investigatorSkillfulLessonSkills, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
@@ -10,6 +10,14 @@ import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellS
 import { hasRemainingFeatSelections } from './builder'
 import { maxEtchedRunes, runicRepertoireSize } from './runesmithRunes'
 import type { Character, ContentEntry } from './types'
+
+it('clears Bone Shield activation and raised state when removed', () => {
+  const c: Character = { id: 'bone-shield', name: 'Test', systems: ['pf2e'], level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    activeSpells: ['Bone Shield', 'Shield'], boneShieldRaised: true }
+  expect(spellRemovalChange(c, 'Bone Shield')).toEqual({ activeSpells: ['Shield'], boneShieldRaised: false })
+})
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
   id: `${kind}:${name}`, systems: ['pf2e'], kind, source: 'official', name, level, traits, description: '', data, effects: [], updatedAt: 1,
@@ -1822,6 +1830,18 @@ describe('official passive feat mechanics', () => {
     expect(eligibleFeats(data, { ...c, feats: [] }, slot).map((feat) => feat.name)).toEqual(['Elven Lore'])
     expect(featChoiceOptions('Adopted Ancestry', c, data, 'general:3:0')).toEqual(['Dwarf', 'Human'])
     expect(c.feats[0].choice).toBe('Human')
+  })
+
+  it('offers both Human and Elf ancestry feats to Aiuvarin', () => {
+    const data = [
+      entry('ancestry', 'Human'), entry('ancestry', 'Elf'),
+      entry('feat', 'Human Feat', {}, 1, ['Human']),
+      entry('feat', 'Elf Feat', {}, 1, ['Elf']),
+      entry('feat', 'Dwarf Feat', {}, 1, ['Dwarf']),
+    ]
+    const c = { ...base, ancestry: 'Human', heritage: 'Aiuvarin', level: 1 }
+    expect(eligibleFeats(data, c, { key: 'ancestry:1:0', category: 'ancestry', level: 1 }).map(feat => feat.name).sort())
+      .toEqual(['Elf Feat', 'Human Feat'])
   })
 
   it('grants Social Chameleon only Adopted Ancestry and a common level-1 feat from that ancestry', () => {

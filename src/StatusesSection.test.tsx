@@ -4,7 +4,7 @@ import { expect, it } from 'vitest'
 import { savingThrowBreakdown } from './builder'
 import { DeviseAStratagemToggle, StatusesContent, StatusesSummary } from './StatusesSection'
 import { ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
-import type { Character } from './types'
+import type { Character, ContentEntry } from './types'
 
 it('synchronizes condition and Zealous Conviction state with character statistics', () => {
   let c: Character = { id: 'statuses', name: 'Test', systems: ['pf2e'], level: 20,
@@ -58,6 +58,36 @@ it('synchronizes Protect Companion target and active state', () => {
   expect(c.activeSpells).not.toContain('Protect Companion')
 })
 
+it('tracks Bless in Statuses and summary', () => {
+  const entry: ContentEntry = { id: 'bless', name: 'Bless', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions', tradition: 'Divine' },
+    effects: [], updatedAt: 1 }
+  let c: Character = { id: 'bless', name: 'Test', systems: ['pf2e'], level: 3,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 18, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    spells: [{ name: 'Bless', rank: 1, cantrip: false }],
+  }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const findBlessChange = (node: ReactNode): ((event: { target: { checked: boolean } }) => void) | undefined => {
+    let result: ((event: { target: { checked: boolean } }) => void) | undefined
+    Children.forEach(node, child => {
+      if (!isValidElement<Record<string, unknown>>(child)) return
+      if (child.type === 'input' && child.props['aria-label'] === 'Bless status')
+        result = child.props.onChange as typeof result
+      else result ??= findBlessChange(child.props.children as ReactNode)
+    })
+    return result
+  }
+  const change = findBlessChange(StatusesContent({ c, entries: [entry], save }))
+  if (!change) throw Error('Missing Bless status toggle')
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[entry]} save={save} />)).not.toContain('Bless')
+  change({ target: { checked: true } })
+  expect(c.activeSpells).toContain('Bless')
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[entry]} save={save} />)).toContain('Bless')
+  change({ target: { checked: false } })
+  expect(c.activeSpells).not.toContain('Bless')
+})
+
 it('toggles Devise a Stratagem from the class summary and Statuses', () => {
   let c: Character = { id: 'investigator', name: 'Test', systems: ['pf2e'], level: 1, className: 'Investigator',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
@@ -98,10 +128,15 @@ it.each([
       { name: 'Poison Weapon', type: 'Class Feat', level: 4 },
     ], simplePoisonsSpent: 3, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const content = renderToStaticMarkup(<StatusesContent c={c} entries={[]} save={() => {}} />)
-  expect(content).toContain('Simple injury poisons')
-  expect(content).toContain('5/8 remaining; 1d4 poison damage')
+  expect(content).toContain('Poison Weapon')
+  expect(content).toContain('aria-label="Restore poison use 1"')
+  expect(content).not.toContain('poison damage')
+  expect(content).not.toContain('remaining')
   const summary = renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={() => {}} />)
-  expect(summary).toContain('Simple poisons 5/8 remaining')
+  expect(summary).not.toContain('Simple poisons')
+  expect(summary).not.toContain('Poison Weapon')
+  expect(renderToStaticMarkup(<StatusesSummary c={{ ...c, poisonWeaponActive: true }} entries={[]} save={() => {}} />))
+    .toContain('Poison Weapon')
 })
 
 it('renders each available status in its own alphabetical row', () => {
