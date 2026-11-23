@@ -1200,6 +1200,10 @@ it('shows defense summary context toggles only for equipped shields or parry wea
     const buckler = renderToStaticMarkup(<CharacterBuilder character={{ ...baseCharacter, shield: { id: 'b', name: 'Buckler', hardness: 3, hp: 6, damage: 0, raised: false } }} onClose={() => {}} />)
     expect(buckler).toContain('aria-label="Raise Buckler (summary)"')
     expect(buckler).toContain('Raise Buckler (+1 AC)')
+    const chitin = renderToStaticMarkup(<CharacterBuilder character={{ ...baseCharacter, systems: ['sf2e'], ancestry: 'Shirren',
+      feats: [{ name: 'Chitinous Shield', type: 'Ancestry Feat', level: 1 }] }} onClose={() => {}} />)
+    expect(chitin).toContain('aria-label="Raise Chitinous Shield (summary)"')
+    expect(chitin).toContain('Raise Chitinous Shield (+2 AC)')
     const locked = renderToStaticMarkup(<CharacterBuilder character={{ ...baseCharacter, level: 20,
       feats: [{ name: 'Shield Paragon', type: 'Class Feat', level: 20 }],
       shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false } }} onClose={() => {}} />)

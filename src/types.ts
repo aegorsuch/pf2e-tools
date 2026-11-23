@@ -217,6 +217,7 @@ export interface Character {
     weaponGroup?: string
   }
   solarianShield?: { equipped?: boolean; raised?: boolean; damage?: number }
+  chitinousShield?: { equipped?: boolean; raised?: boolean; damage?: number; grade?: HardlightGrade }
   // Druidic order, which grants a skill
   order?: string
   // The skill picked when the class grants a choice (e.g. Acrobatics or Athletics)

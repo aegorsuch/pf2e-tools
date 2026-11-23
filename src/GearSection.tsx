@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import {
-  propertyRunes, eligibleWeaponRunes, runeBaseName, runeName, canBeOsteoArmament, osteoArmamentRune, activeBattleForm, withoutBattleForm, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
+  CHITINOUS_SHIELD_GRADES, propertyRunes, eligibleWeaponRunes, runeBaseName, runeName, canBeOsteoArmament, osteoArmamentRune, activeBattleForm, withoutBattleForm, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
   activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { newId } from './db'
@@ -2141,14 +2141,24 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           <label><input type="checkbox" checked={equipped?.id === grantedShield.id && shieldRaised(c)}
             disabled={equipped?.id !== grantedShield.id || shieldParagonActive(c)}
             onChange={event => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} />
-            {isBucklerShield(grantedShield.name) ? 'Raise Buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
+            {grantedShield.id === 'granted-shield:chitinous' ? 'Raise Chitinous Shield'
+              : isBucklerShield(grantedShield.name) ? 'Raise Buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
         </header>
-        <ShieldAttachment c={c} entries={entries} save={save} shield={grantedShield} />
+        {grantedShield.id === 'granted-shield:chitinous' ? <label>Grade{' '}
+          <select aria-label="Chitinous Shield grade" value={c.chitinousShield?.grade ?? 'Commercial'} onChange={event => {
+            const grade = (Object.keys(CHITINOUS_SHIELD_GRADES) as HardlightGrade[]).find(value => value === event.target.value)
+            if (grade && CHITINOUS_SHIELD_GRADES[grade].level <= c.level)
+              save({ chitinousShield: { ...c.chitinousShield, grade } })
+          }}>
+            {(Object.keys(CHITINOUS_SHIELD_GRADES) as HardlightGrade[]).map(grade =>
+              <option key={grade} disabled={CHITINOUS_SHIELD_GRADES[grade].level > c.level}>{grade}</option>)}
+          </select>
+        </label> : <ShieldAttachment c={c} entries={entries} save={save} shield={grantedShield} />}
         <ShieldDurability c={c} entries={entries} shield={grantedShield} />
-        <ShieldRune rune={grantedShield.reinforcingRune} entries={entries}
+        {grantedShield.id !== 'granted-shield:chitinous' && <ShieldRune rune={grantedShield.reinforcingRune} entries={entries}
           granted={blessedShieldBenefit(c, grantedShield, entries)?.rune}
           locked={grantedShield.id === 'granted-shield:inventor' || championBlessings(c).includes('Blessed Shield')}
-          onChange={reinforcingRune => save(shieldChange(c, grantedShield, { reinforcingRune }))} />
+          onChange={reinforcingRune => save(shieldChange(c, grantedShield, { reinforcingRune }))} />}
         <label>Damage <input type="number" min={0} value={grantedShield.damage}
           onChange={event => save(shieldChange(c, grantedShield, { damage: Math.max(0, +event.target.value || 0) }))} /></label>
       </article>)}</>}

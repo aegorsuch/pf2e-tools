@@ -460,6 +460,23 @@ export function solarianShield(c: Character): OwnedShield | undefined {
     equipped: c.solarianAttunement !== 'Unattuned' && (c.solarianShield?.equipped ?? true),
   }
 }
+export const CHITINOUS_SHIELD_GRADES: Record<HardlightGrade, { level: number; hardness: number; hp: number }> = {
+  Commercial: { level: 0, hardness: 0, hp: 0 },
+  Tactical: { level: 5, hardness: 3, hp: 46 },
+  Advanced: { level: 8, hardness: 3, hp: 56 },
+  Superior: { level: 11, hardness: 3, hp: 68 },
+  Elite: { level: 14, hardness: 5, hp: 80 },
+  Ultimate: { level: 18, hardness: 6, hp: 100 },
+  Paragon: { level: 20, hardness: 7, hp: 120 },
+}
+export function chitinousShield(c: Character): OwnedShield | undefined {
+  if (!c.systems.includes('sf2e') || !activeFeatsNamed(c, 'Chitinous Shield').length) return undefined
+  const saved = c.chitinousShield
+  const grade = CHITINOUS_SHIELD_GRADES[saved?.grade ?? 'Commercial']
+  const bonus = grade && grade.level <= c.level ? grade : CHITINOUS_SHIELD_GRADES.Commercial
+  return { id: 'granted-shield:chitinous', name: 'Chitinous Shield', hardness: 4 + bonus.hardness,
+    hp: 12 + bonus.hp, damage: saved?.damage ?? 0, raised: !!saved?.raised, equipped: saved?.equipped }
+}
 export function hardwoodShield(c: Character): OwnedShield | undefined {
   if (!hardwoodHasShield(c)) return undefined
   const increments = Math.floor((c.level - 1) / 3)
@@ -489,13 +506,14 @@ export function inventorBuckler(c: Character): OwnedShield | undefined {
     attachedWeapon: c.inventorBuckler?.attachedWeapon }
 }
 export function ownedShields(c: Character): OwnedShield[] {
-  return [c.shield, hardwoodShield(c), inventorBuckler(c), solarianShield(c)].filter((shield): shield is OwnedShield => !!shield)
+  return [c.shield, hardwoodShield(c), inventorBuckler(c), solarianShield(c), chitinousShield(c)].filter((shield): shield is OwnedShield => !!shield)
 }
 export function shieldChange(c: Character, shield: OwnedShield,
   patch: Partial<Pick<OwnedShield, 'equipped' | 'raised' | 'takingCover' | 'damage' | 'reinforcingRune' | 'attachedWeapon'>>): Partial<Character> {
   if (shield.id === 'granted-shield:hardwood') return { hardwoodShield: { ...c.hardwoodShield, ...patch } }
   if (shield.id === 'granted-shield:inventor') return { inventorBuckler: { ...c.inventorBuckler, ...patch } }
   if (shield.id === 'granted-shield:solarian') return { solarianShield: { ...c.solarianShield, ...patch } }
+  if (shield.id === 'granted-shield:chitinous') return { chitinousShield: { ...c.chitinousShield, ...patch } }
   return { shield: { ...shield, ...patch } }
 }
 type ShieldStatsInput = Pick<OwnedShield, 'hardness' | 'hp' | 'material' | 'reinforcingRune'> & Partial<Pick<OwnedShield, 'id' | 'name'>>
@@ -5577,9 +5595,10 @@ export function equippedWeaponHands(c: Character, entries: ContentEntry[]): numb
 }
 export function equippedHands(c: Character, entries: ContentEntry[]): number {
   const shield = equippedShield(c)
-  return equippedWeaponHands(c, entries) + Number(!!shield && !isBucklerShield(shield.name))
+  return equippedWeaponHands(c, entries) + Number(!!shield && shield.id !== 'granted-shield:chitinous' && !isBucklerShield(shield.name))
 }
 export function canEquipShield(c: Character, entries: ContentEntry[], shield: OwnedShield): boolean {
+  if (shield.id === 'granted-shield:chitinous') return true
   return equippedWeaponHands(c, entries) + Number(!isBucklerShield(shield.name)) <= totalHandCapacity(c)
     && !ownedWeapons(c, entries).some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
       && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon, c) === undefined)

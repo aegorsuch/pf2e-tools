@@ -8,7 +8,7 @@ import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
 import { getSettings, updateSettings } from './settings'
-import { canEquipShield, equippedHands, equippedShield, hardwoodShield, shieldEquipChange } from './builder'
+import { canEquipShield, equippedHands, equippedShield, hardwoodShield, ownedShields, shieldAcBonus, shieldEquipChange, shieldRaisedChange } from './builder'
 import { GearSystemFilter } from './GearSystemFilter'
 import { SearchableSelect } from './SearchableSelect'
 import type { GearSystem } from './gearSystem'
@@ -716,6 +716,30 @@ it('reserves a free hand for shields, but not bucklers, and switches generated s
   c = { ...c, shield: { ...shield, equipped: undefined }, hardwoodShield: { equipped: true, raised: true } }
   c = { ...c, ...shieldEquipChange(c, generated, false) }
   expect(equippedShield(c)).toBeUndefined()
+})
+
+it('grants Chitinous Shield without occupying a hand and preserves its selected grade', () => {
+  const sword = { ...weapon, data: { ...weapon.data, hands: 2 } }
+  let c: Character = { ...character([]), systems: ['sf2e'], level: 8, ancestry: 'Shirren',
+    weapons: [{ id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }],
+    feats: [{ name: 'Chitinous Shield', type: 'Ancestry Feat', level: 1 }] }
+  const shield = ownedShields(c).find(item => item.name === 'Chitinous Shield')!
+  expect(shield).toMatchObject({ hardness: 4, hp: 12 })
+  expect(canEquipShield(c, [sword], shield)).toBe(true)
+  expect(equippedHands(c, [sword])).toBe(2)
+  c = { ...c, ...shieldRaisedChange(c, true) }
+  expect(equippedShield(c)).toMatchObject({ id: shield.id, raised: true })
+  expect(shieldAcBonus(c, [sword])).toBe(2)
+  c = { ...c, chitinousShield: { ...c.chitinousShield, grade: 'Advanced', damage: 4 } }
+  expect(ownedShields(c).find(item => item.id === shield.id)).toMatchObject({ hardness: 7, hp: 68, damage: 4, raised: true })
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={[sword]} save={() => {}} part="shield" />)
+  expect(markup).toContain('Raise Chitinous Shield')
+  expect(markup).toContain('Hardness 7; Hit Points 68; Broken Threshold 34')
+  expect(markup).toContain('aria-label="Chitinous Shield grade"')
+  expect(markup).not.toContain('Attached weapon: Chitinous Shield')
+  expect(ownedShields({ ...c, level: 7 }).find(item => item.id === shield.id)).toMatchObject({ hardness: 4, hp: 12 })
+  expect(ownedShields({ ...c, feats: [] }).some(item => item.id === shield.id)).toBe(false)
+  expect(c.chitinousShield?.grade).toBe('Advanced')
 })
 
 it('keeps weapon pair assignments usable with shared hands', () => {

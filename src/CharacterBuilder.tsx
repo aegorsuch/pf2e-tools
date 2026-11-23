@@ -551,7 +551,8 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
   const shield = equippedShield(c)
   const shieldCantrip = knowsSpell(c, entries, 'Shield')
   const boneShield = boneShieldActive(c)
-  const shieldRaiseLabel = shield && isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raise Shield'
+  const shieldRaiseLabel = shield?.id === 'granted-shield:chitinous' ? 'Raise Chitinous Shield'
+    : shield && isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raise Shield'
   const weaponCount = ownedWeapons(c, entries).length
   const handsUsed = equippedHands(c, entries)
   const handLimit = totalHandCapacity(c)
