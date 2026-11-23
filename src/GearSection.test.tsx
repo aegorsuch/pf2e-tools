@@ -224,6 +224,21 @@ function OpenGearSearch({ tab = 'Standard', ...props }: Parameters<typeof Search
   return tree
 }
 
+it('displays Orc Necksplitter Axe while keeping the canonical saved weapon name', () => {
+  const axe: ContentEntry = { ...weapon, id: 'necksplitter', name: 'Orc Necksplitter', traits: ['Orc'],
+    data: { weapon_category: 'Martial', damage: '1d8 slashing', weapon_group: 'Axe' } }
+  const c = { ...character([]), weapons: [{ id: 'axe', name: axe.name, potency: 0, striking: 0, runes: [] }] }
+  const picker = renderToStaticMarkup(<OpenGearSearch c={c} entries={[axe]} save={() => {}} kind="weapon"
+    label="Add Weapon" onPick={() => {}} />)
+  expect(picker).toContain('>Orc Necksplitter Axe</button>')
+  for (const displayOnly of [false, true]) {
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={[axe]} save={() => {}} displayOnly={displayOnly} />)
+    expect(markup).toContain('>Orc Necksplitter Axe</button>')
+    expect(markup).toMatch(/Damage \d+d8 S/)
+  }
+  expect(c.weapons[0].name).toBe('Orc Necksplitter')
+})
+
 it.each(['weapon', 'armor', 'shield'] as const)('filters %s by system while respecting enabled systems', kind => {
   const entries: ContentEntry[] = [
     { ...weapon, kind, id: 'pf', name: 'Pathfinder Gear', systems: ['pf2e'] },

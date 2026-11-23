@@ -1839,6 +1839,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           : armor.runes
       return { ...armor, ...(saved && !isGrantedArmor(armor.id)
         && armorEntry(c, entries, saved.name, saved.id)?.systems.includes('sf2e') ? { name: saved.name } : {}),
+        ...(saved && armorEntry(c, entries, saved.name, saved.id)?.data.named_armor
+          && armorEntry(c, entries, saved.name, saved.id)?.data.automatic_fundamentals === true
+          ? { potency: saved.potency, resilient: saved.resilient, material: saved.material } : {}),
         runes, ...(!armor.worn ? { activeJetpack: undefined, entrenchMeleeActive: false, inheritorCloakRed: false, immortalSurvivalActive: false } : {}),
         ...(!canWearWithAttachedArmor(armor, attached) ? { worn: saved?.worn ?? armor.worn } : {}) }
     }),
@@ -1866,6 +1869,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const runesAllowed = !sf2eArmor && entry?.data.runes_allowed !== false
         const granted = isGrantedArmor(a.id)
         const automaticFundamentals = granted && entry?.data.automatic_fundamentals !== false
+          || !!entry?.data.named_armor && entry.data.automatic_fundamentals === true
         const modifications = a.id === INVENTOR_ARMOR_ID ? armorModifications(c) : []
         const capacity = modifications.some(mod => mod.name === 'Rune Capacity') ? 1 : 0
         const namedRuneLimit = namedArmorRuneLimit(entry)
@@ -1876,6 +1880,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const starfinder = granted && sf2eArmor ? entry : undefined
         const named = namedArmorEnhancements(entry)
         const runePotency = starfinder ? Number(starfinder.data.grade_ac_bonus)
+          : automaticFundamentals ? a.potency
           : namedRuneLimit !== undefined ? Math.max(a.potency, named?.potency ?? 0) : a.potency
         const automaticRunes = automaticArmorPropertyRunes(entry)
         const fixedRunes = [...(named?.runes ?? []), ...automaticRunes]
@@ -2026,6 +2031,10 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                   onToggleJetpack={id => update(a.id, { activeJetpack: a.activeJetpack === id ? undefined : id })}
                   onChange={upgrades => update(a.id, { upgrades,
                     ...(!upgrades.includes(a.activeJetpack ?? '') ? { activeJetpack: undefined } : {}) })} />}
+              {entry?.data.named_armor && automaticFundamentals && <div className="gear-runes">
+                {a.potency > 0 && <span>+{a.potency} Potency</span>}
+                {a.resilient > 0 && <span>{['', 'Resilient', 'Greater Resilient', 'Major Resilient'][a.resilient]}</span>}
+              </div>}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, runeLimit(potency, a.material)) })} />}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}

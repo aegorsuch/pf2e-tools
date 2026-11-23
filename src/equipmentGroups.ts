@@ -2,6 +2,7 @@ import type { ContentEntry, EquipmentGroupName, WORN_EQUIPMENT_GROUPS } from './
 export { WORN_EQUIPMENT_GROUPS, EQUIPMENT_GROUPS, type EquipmentGroupName } from './types'
 
 export const equipmentDisplayName = (name: string) => name.replace(/[\u2018\u2019]/g, "'")
+  .replace(/^Orc Necksplitter$/, 'Orc Necksplitter Axe')
   .replace(/^(Minor|Lesser|Moderate|Greater|Major|Supreme|True)\s+(.+)$/, '$2 ($1)')
 
 export function specificMagicItemName(entry: ContentEntry | undefined, name = entry?.name ?? '', owned = false) {

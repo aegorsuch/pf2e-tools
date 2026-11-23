@@ -612,6 +612,7 @@ export const HOMEBREW_DEDICATIONS = [
   { setting: 'bardCavalier', className: 'Bard', name: 'Cavalier Dedication', slot: 'archetype:2:g88', replacesFreeArchetype: true },
   { setting: 'orcTattooedHistorian', ancestry: 'Orc', name: 'Tattooed Historian Dedication', slot: 'archetype:2:g87', replacesFreeArchetype: false },
   { setting: 'dwarfStalwartDefender', ancestry: 'Dwarf', name: 'Stalwart Defender Dedication', slot: 'archetype:2:g86', replacesFreeArchetype: false },
+  { setting: 'commanderCaptain', className: 'Commander', name: 'Captain Dedication', slot: 'archetype:2:g85', replacesFreeArchetype: false },
 ] as const
 export const homebrewDedication = (slot: string) => HOMEBREW_DEDICATIONS.find((d) => d.slot === slot)
 export const activeHomebrewDedications = (c: Character) =>
@@ -6281,6 +6282,10 @@ export function effectiveArmor(c: Character, entries: ContentEntry[], armor: Own
   if (named) {
     const runes = [...new Set([...named.runes, ...armor.runes])]
     const runeLimit = namedArmorRuneLimit(namedEntry)
+    if (namedEntry?.data.automatic_fundamentals === true) {
+      return { ...armor, material: 'Orichalcum', ...automaticArmorFundamentals(c.level, namedEntry),
+        runes: runeLimit === undefined ? runes : runes.slice(0, runeLimit) }
+    }
     return { ...armor, material, potency: Math.max(armor.potency, named.potency),
       resilient: Math.max(armor.resilient, named.resilient), runes: runeLimit === undefined ? runes : runes.slice(0, runeLimit) }
   }

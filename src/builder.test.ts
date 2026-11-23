@@ -2717,7 +2717,7 @@ describe('archetype rules', () => {
     const previous = getSettings()
     onTestFinished(() => updateSettings(previous))
     const commander = { ...base, className: 'Commander', level: 2 }
-    updateSettings({ commanderBeastmaster: true, commanderCavalier: true, freeArchetype: true })
+    updateSettings({ commanderBeastmaster: true, commanderCavalier: true, commanderCaptain: false, freeArchetype: true })
     expect(activeHomebrewDedications(commander).map(rule => rule.name)).toEqual(['Beastmaster Dedication', 'Cavalier Dedication'])
     expect(plannedSlots(commander).map(slot => slot.key)).toEqual(expect.arrayContaining(['archetype:2:g93', 'archetype:2:g91']))
     expect(plannedSlots(commander).map(slot => slot.key)).not.toContain('archetype:2:0')
@@ -2889,6 +2889,25 @@ describe('armor specialization from feats', () => {
 })
 
 describe('homebrew feat rules', () => {
+  it('grants Commanders a separate Captain Dedication slot even with a companion', ({ onTestFinished }) => {
+    const previous = getSettings()
+    onTestFinished(() => updateSettings(previous))
+    updateSettings({ commanderCaptain: true, commanderBeastmaster: false, commanderCavalier: false, freeArchetype: true })
+    const c: Character = { ...base, className: 'Commander', level: 2,
+      feats: [{ name: "Commander's Companion", type: 'Class Feat', level: 2 }],
+      companions: [{ id: 'bear', type: 'Bear', name: '' }] }
+    expect(activeHomebrewDedications(c)).toContainEqual(expect.objectContaining({
+      name: 'Captain Dedication', slot: 'archetype:2:g85', replacesFreeArchetype: false,
+    }))
+    expect(plannedSlots(c).map(slot => slot.key)).toEqual(expect.arrayContaining(['archetype:2:g85', 'archetype:2:0']))
+    expect(plannedSlots({ ...c, level: 1 }).map(slot => slot.key)).not.toContain('archetype:2:g85')
+    expect(plannedSlots({ ...c, className: 'Fighter' }).map(slot => slot.key)).not.toContain('archetype:2:g85')
+    updateSettings({ commanderCaptain: false })
+    expect(plannedSlots(c).map(slot => slot.key)).not.toContain('archetype:2:g85')
+    updateSettings({ commanderCaptain: true, freeArchetype: false })
+    expect(plannedSlots(c).map(slot => slot.key)).toContain('archetype:2:g85')
+  })
+
   it('grants ancestry dedications at level 2 without replacing Free Archetype', ({ onTestFinished }) => {
     const previous = getSettings()
     onTestFinished(() => updateSettings(previous))

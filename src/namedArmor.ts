@@ -80,7 +80,8 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
             ? Number(item.data.bulk) : Number(item.data.bulk ?? base.data.bulk) + Number(thickening?.[1] ?? 1),
             strength: Number(base.data.strength) + Number(thickening?.[2] ?? 1) } : {}),
           ...(elven ? { named_armor_elven: true, named_armor_material: /\bhigh-grade elven chain\b/i.test(item.description) ? 'High-grade dawnsilver elven chain' : 'Dawnsilver elven chain' } : {}),
-          ...(WEAVE_ARMORS.has(item.name) ? { named_armor_material: 'Orichalcum' } : {}),
+          ...(WEAVE_ARMORS.has(item.name) || item.name === 'Immortal Bastion' ? { named_armor_material: 'Orichalcum' } : {}),
+          ...(item.name === 'Immortal Bastion' ? { automatic_fundamentals: true } : {}),
         },
         description: `${item.description}${elven ? `\n\nElven chain construction: ${elven.description.split(BODY)[1]?.trim() ?? elven.description}` : ''}`,
       }]

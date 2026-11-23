@@ -110,6 +110,35 @@ const plateGroup: ContentEntry = { ...hide, id: 'plate-group', kind: 'armorGroup
 const armorExpertise: ContentEntry = { ...hide, id: 'armor-expertise', kind: 'classFeature', name: 'Armor Expertise',
   level: 1, data: { class: 'Fighter' }, description: 'Gain armor specialization.' }
 
+it('scales Immortal Bastion fundamentals and grants Orichalcum without changing saved armor', () => {
+  const armor = { ...owned('Immortal Bastion Plate'), potency: 3, resilient: 2, material: 'Duskwood' as const }
+  const original = JSON.stringify(armor)
+  for (const [level, potency, resilient] of [[1, 0, 0], [4, 0, 0], [5, 1, 0], [7, 1, 0], [8, 1, 1],
+    [10, 1, 1], [11, 2, 1], [13, 2, 1], [14, 2, 2], [17, 2, 2], [18, 3, 2], [19, 3, 2], [20, 3, 3]]) {
+    const c = { ...character, className: 'Fighter', level, armors: [armor] }
+    const effective = effectiveArmor(c, bastionEntries, armor)
+    expect(effective).toMatchObject({ potency, resilient, material: 'Orichalcum', runes: ['Fortification (Greater)'] })
+    expect(armorSaveBonus(c, bastionEntries)).toBe(resilient)
+    const html = renderToStaticMarkup(<ArmorList c={c} entries={bastionEntries} save={() => {}} part="armor" />)
+    expect(html).toContain('Material: Orichalcum')
+    if (potency) expect(html).toContain(`+${potency} Potency`)
+    if (resilient) expect(html).toContain(['', 'Resilient', 'Greater Resilient', 'Major Resilient'][resilient])
+    expect(html).not.toContain('aria-label="Potency"')
+    expect(html).not.toContain('aria-label="Resilient"')
+  }
+  expect(JSON.stringify(armor)).toBe(original)
+  expect(effectiveArmor({ ...character, level: 1 }, bastionEntries, owned('Highhelm Stronghold Bastion Plate')))
+    .toMatchObject({ potency: 2, resilient: 1 })
+})
+
+it('uses Orichalcum to allow one additional Immortal Bastion property rune', () => {
+  const armor = { ...owned('Immortal Bastion Plate'), runes: ['Shadow', 'Slick'] }
+  const render = (runes: string[]) => renderToStaticMarkup(<ArmorList c={{ ...character, level: 18, armors: [{ ...armor, runes }] }}
+    entries={bastionEntries} save={() => {}} part="armor" />)
+  expect(render(armor.runes)).toContain('aria-label="Add property rune"')
+  expect(render([...armor.runes, 'Glamered'])).not.toContain('aria-label="Add property rune"')
+})
+
 it('applies Highhelm piercing specialization only while armor benefits apply', () => {
   const data = [...bastionEntries, bastionFighter, plateGroup, armorExpertise]
   const armor = owned('Highhelm Stronghold Bastion Plate')

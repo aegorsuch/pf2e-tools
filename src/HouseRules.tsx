@@ -25,6 +25,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'championCavalier', label: 'Champion Cavalier Dedication' },
   { key: 'exclusiveCyborgHearts', label: 'Cyborg Machine Heart or Mortal Heart Exclusive' },
   { key: 'commanderBeastmaster', label: 'Commander Beastmaster Dedication' },
+  { key: 'commanderCaptain', label: 'Commander Captain Dedication' },
   { key: 'commanderCavalier', label: 'Commander Cavalier Dedication' },
   { key: 'cyborgTestSubject', label: 'Cyborg Heritage adds Test-Subject Ysoki Heritage' },
   { key: 'deityLore', label: 'Deity Grants Lore' },
