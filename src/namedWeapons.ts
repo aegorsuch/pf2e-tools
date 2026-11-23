@@ -224,6 +224,12 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
       ...runes, 'Cunning', ...((level ?? entry.level) >= 20 ? ['Impossible'] : []),
     ])].join(';') } }
   }
+  if (source === "Clear Cutter's Hatchet") {
+    const at = level ?? entry.level
+    const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
+    return { ...entry, data: { ...entry.data, named_weapon_runes: [...new Set([...runes,
+      ...(at >= 8 ? [at >= 19 ? 'Flaming (Major)' : at >= 15 ? 'Flaming (Greater)' : 'Flaming'] : [])])].join(';') } }
+  }
   if (source === 'Coldstar Pistols') {
     const merged = weapon.coldstarForm === 'Merged'
     return { ...entry, data: { ...entry.data, hands: !weapon.coldstarForm || weapon.coldstarForm === 'Paired' ? 2 : 1,

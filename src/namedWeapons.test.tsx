@@ -4,7 +4,7 @@ import { expect, it, onTestFinished, vi } from 'vitest'
 import { combinationForms, combinationName, effectiveWeapon, gearPickerEntries, isFavoredWeapon, isMagicItem, oakenResilience, resistances, savingThrowBreakdown, weaponAttack, weaponEntry, weaponHands } from './builder'
 import { WeaponList } from './GearSection'
 import { mapAonHit } from './aon'
-import { makeNamedWeaponEntries, namedWeaponAbilities, namedWeaponBases } from './namedWeapons'
+import { makeNamedWeaponEntries, namedWeaponAbilities, namedWeaponBases, withNamedWeaponState } from './namedWeapons'
 import { specificMagicItemName } from './equipmentGroups'
 import { getSettings, updateSettings } from './settings'
 import { SkillsSection } from './SkillsSection'
@@ -844,4 +844,6 @@ it("implements Clear Cutter's Axe as a +1 striking returning hatchet", () => {
   const weapon = effectiveWeapon(character, [hatchet, item, ...makeNamedWeaponEntries([hatchet, item], [{ name: 'Returning' }])],
     owned("Clear Cutter's Hatchet"))
   expect(weapon).toMatchObject({ potency: 2, striking: 2 })
+  const runes = (level: number) => withNamedWeaponState(entry, owned("Clear Cutter's Hatchet"), level)?.data.named_weapon_runes
+  expect([7, 8, 15, 19].map(runes)).toEqual(['Returning', 'Returning;Flaming', 'Returning;Flaming (Greater)', 'Returning;Flaming (Major)'])
 })
