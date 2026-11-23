@@ -94,10 +94,10 @@ const SUMMONED_CREATURES = {
   specials: { name: string; actions?: string; description: string }[]; url: string
 }>
 
-function SummonedCreature({ name }: { name: keyof typeof SUMMONED_CREATURES }) {
+function SummonedCreature({ name, displayName = name }: { name: keyof typeof SUMMONED_CREATURES; displayName?: string }) {
   const creature: (typeof SUMMONED_CREATURES)[keyof typeof SUMMONED_CREATURES] & { languages?: string; resistances?: string } = SUMMONED_CREATURES[name]
   return <details className="character-subsection" open>
-    <summary><h4>Summoned {name}</h4></summary>
+    <summary><h4>Summoned {displayName}</h4></summary>
     <div className="gear-traits"><span>Level {creature.level}</span>{creature.traits.map(trait => <span key={trait}>{trait}</span>)}</div>
     <div className="gear-stats">{ABILITIES.map((ability, index) =>
       <span key={ability}><small>{ABILITY_LABEL[ability]}</small>{signed(creature.abilities[index])}</span>)}</div>
@@ -328,7 +328,7 @@ export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
         : crocodileFamiliar ? 'Crocodile Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
       ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
       ...(lashuntaAlly ? [`Summoned ${lashuntaAlly}`] : []),
-      ...(activeShirrenAlly(c) ? ['Summoned Emganat'] : []),
+      ...(activeShirrenAlly(c) ? ['Summoned Kucharn'] : []),
       ...(activeSummonedFiend(c) ? [`Summoned ${activeSummonedFiend(c)!.name}`] : [])].join(', ') || '0 minions'}</span>
   </summary>
 }
@@ -392,7 +392,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
       <div className="character-section-content minions-section-content">
         {activeCaypinAlly(c) && <SummonedCreature name="Caypin" />}
         {lashuntaAlly && <SummonedCreature name={lashuntaAlly} />}
-        {activeShirrenAlly(c) && <SummonedCreature name="Emganat" />}
+        {activeShirrenAlly(c) && <SummonedCreature name="Emganat" displayName="Kucharn" />}
         {activeSummonedFiend(c) && <SummonedFiendCard fiend={activeSummonedFiend(c)!} save={save} />}
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" open>
           <summary><h4>Drone</h4></summary>

@@ -448,7 +448,7 @@ export function CaypinAllyToggle({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
 }
 
 export function ShirrenAllyToggle({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
-  return <label><input type="checkbox" aria-label="Summoned Emganat active" checked={!!c.shirrenCreatureAllyActive}
+  return <label><input type="checkbox" aria-label="Summoned Kucharn active" checked={!!c.shirrenCreatureAllyActive}
     onChange={event => save({ shirrenCreatureAllyActive: event.target.checked })} /> Active
     <SourceNote source="Emganat" note="GM approval required: kucharns do not have the animal trait required by Summon Animal." />
   </label>
