@@ -366,6 +366,25 @@ it('labels Rogue subclass as Racket without duplicating an additional Mastermind
   } finally { content.entries = [] }
 })
 
+it('shows Versatile Investigator methodology benefits and skill choices in Class', () => {
+  const methods: ContentEntry[] = ['Forensic Medicine', 'Empiricism'].map(name => ({
+    id: name, systems: ['pf2e'], kind: 'subclass', source: 'official', name, level: 1,
+    traits: [], description: `${name} methodology benefits.`, data: { class: 'Investigator' }, effects: [], updatedAt: 0,
+  }))
+  content.entries = methods
+  const c: Character = { id: 'versatile-investigator', systems: ['pf2e'], name: 'Test', level: 10,
+    className: 'Investigator', subclass: 'Forensic Medicine',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [{ name: 'Versatile Investigator', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Empiricism' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  try {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    expect(markup).toContain('Empiricism methodology (Versatile Investigator)')
+    expect(markup).toContain('aria-label="Empiricism methodology skill"')
+    expect(markup).toContain('Choose methodology skill')
+  } finally { content.entries = [] }
+})
+
 it('shows armor and weapon proficiency badges in Equipment directly above their headings', () => {
   content.entries = []
   const c: Character = {

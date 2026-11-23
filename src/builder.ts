@@ -653,7 +653,8 @@ export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWi
   || key === 'class:1:fury-instinct'
   || key.startsWith('skill:1:operative-specialization:') || key === 'class:1:operative-sniper'
   || key.startsWith('ancestry:1:warblood-vesk:')
-  || key.startsWith('skill:1:versatile-rogue:') || key.startsWith('skill:1:exceptional-artisan:')
+  || key.startsWith('skill:1:versatile-rogue:') || key.startsWith('skill:1:versatile-investigator:')
+  || key.startsWith('skill:1:exceptional-artisan:')
   || key.startsWith('skill:1:natural-performer:') || key.startsWith('skill:1:pitborn:') || key.startsWith('skill:1:captain:')
   || key.startsWith('skill:1:mechanic-ingenuity:')
   || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
@@ -869,6 +870,19 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
       slots.push({ key: `archetype:1:eldritch-trickster:${identity}`, category: 'archetype', level,
         maxFeatLevel: 2, grantedBy: 'Eldritch Trickster' })
     }
+  }
+  let unslottedInvestigator = 0
+  const takenMethodologies = new Set([selectedSubclass(c)])
+  for (const feat of [...c.feats].sort((a, b) => featTakenLevel(a) - featTakenLevel(b))) {
+    if (feat.name !== 'Versatile Investigator') continue
+    const identity = feat.slot ?? `unslotted-${unslottedInvestigator++}`
+    const level = featTakenLevel(feat)
+    if (c.className !== 'Investigator' || level > c.level || !feat.choice || takenMethodologies.has(feat.choice)
+      || !subclassOptions({ ...c, className: 'Investigator' }, entries).some(method => method.name === feat.choice)) continue
+    takenMethodologies.add(feat.choice)
+    const group = `skill:${level}`
+    if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+    slots.push({ key: `skill:1:versatile-investigator:${identity}`, category: 'skill', level, grantedBy: 'Versatile Investigator' })
   }
   if (c.className === 'Rogue' && c.level >= 1 && selectedSubclass(c) === 'Eldritch Trickster') {
     if (!groupOrder.has('archetype:1')) groupOrder.set('archetype:1', groupOrder.size)
@@ -2060,6 +2074,13 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     return ROGUE_RACKETS.filter(racket => !used.has(racket)
       && (racket !== 'Eldritch Trickster' || eldritchTricksterDedications(entries).size > 0))
   }
+  if (name === 'Versatile Investigator') {
+    const used = new Set([selectedSubclass(c, entries), ...c.feats.flatMap((feat, featIndex) =>
+      featIndex !== index && feat.name === name && featTakenLevel(feat) <= c.level && feat.choice ? [feat.choice] : [])])
+    return subclassOptions({ ...c, className: 'Investigator' }, entries)
+      .filter(method => method.data.subclass_type !== 'fatal-method' && !used.has(method.name))
+      .map(method => method.name)
+  }
   if (name === 'Hold Mark') return ['Burning Sun', "Death's Head", 'Defiled Corpse', 'Empty Hand']
   if (name === 'Orc Warmask') return Object.keys(WARMASK_SOURCES)
   if (name === 'Alloyed Attacks') return ['Cold Iron', 'Silver', ...(c.level >= 13 ? ['Adamantine'] : [])]
@@ -3219,6 +3240,9 @@ function normalizeDruidOrder(order?: string) {
 const INVESTIGATOR_SKILLS: Record<string, string> = {
   'Alchemical Sciences': 'Crafting', 'Forensic Medicine': 'Medicine', Interrogation: 'Diplomacy',
 }
+const INVESTIGATOR_METHOD_FEATS: Record<string, string[]> = {
+  Empiricism: ["That's Odd"],
+}
 const SWASHBUCKLER_SKILLS: Record<string, string> = {
   Battledancer: 'Performance', Braggart: 'Intimidation', Fencer: 'Deception',
   Gymnast: 'Athletics', Rascal: 'Thievery', Wit: 'Diplomacy',
@@ -3247,6 +3271,21 @@ export function subclassSkillChoice(c: Character, entries: ContentEntry[]) {
   }
 }
 
+function investigatorMethodologySkills(c: Character, methodology: string): string[] {
+  const selected = c.subclassSkillChoices?.[`Investigator:${methodology}`]
+  const fixed = INVESTIGATOR_SKILLS[methodology]
+  if (fixed) return [fixed]
+  if (methodology === 'Esoterica' && selected && ['Occultism', 'Religion'].includes(selected)) return [selected]
+  if (methodology === 'Empiricism' && selected) {
+    if (selected === 'Lore') {
+      const lore = c.subclassSkillChoices?.[`Investigator:${methodology}:lore`]?.trim()
+      return lore && / lore$/i.test(lore) ? [lore] : []
+    }
+    if (statDefs(c).some(stat => stat.kind === 'skill' && stat.ability === 'int' && stat.name === selected)) return [selected]
+  }
+  return []
+}
+
 export function subclassSkillGrants(c: Character, entries: ContentEntry[]): string[] {
   if (c.level < 1 || !c.className) return []
   const erudite = eruditeWarrior(c)
@@ -3260,17 +3299,9 @@ export function subclassSkillGrants(c: Character, entries: ContentEntry[]): stri
     return selected && ['Deception', 'Intimidation'].includes(selected) ? [selected] : []
   }
   if (c.className === 'Investigator') {
-    const skill = INVESTIGATOR_SKILLS[subclass]
-    if (skill) return [skill]
-    if (subclass === 'Esoterica' && selected && ['Occultism', 'Religion'].includes(selected)) return [selected]
-    if (subclass === 'Empiricism' && selected) {
-      if (selected === 'Lore') {
-        const lore = c.subclassSkillChoices?.[`${c.className}:${subclass}:lore`]?.trim()
-        return lore && / lore$/i.test(lore) ? [lore] : []
-      }
-      if (statDefs(c).some(stat => stat.kind === 'skill' && stat.ability === 'int' && stat.name === selected)) return [selected]
-    }
-    return []
+    const methods = [subclass, ...activeFeatsNamed(c, 'Versatile Investigator').flatMap(feat =>
+      feat.choice && subclassOptions({ ...c, className: 'Investigator' }, entries).some(method => method.name === feat.choice) ? [feat.choice] : [])]
+    return [...new Set(methods.flatMap(method => investigatorMethodologySkills(c, method)))]
   }
   if (c.className === 'Swashbuckler') return SWASHBUCKLER_SKILLS[subclass] ? [SWASHBUCKLER_SKILLS[subclass]] : []
   if (['Gunslinger', 'Witch', 'Oracle', 'Sorcerer', 'Envoy', 'Mystic', 'Operative', 'Witchwarper'].includes(c.className)) {
@@ -3435,7 +3466,7 @@ export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {
   const specials = build && typeof build === 'object' && 'class' in build && build.class === c.className
     && 'specials' in build && Array.isArray(build.specials) ? build.specials : []
   const names = new Set([...c.feats.flatMap((feat) => [feat.name,
-    ...(['Second Innovation', 'Third Innovation', 'Versatile Rogue', 'Multifarious Muse', 'Widespread Fascination'].includes(feat.name) ? [] : [feat.choice])]), ...specials]
+    ...(['Second Innovation', 'Third Innovation', 'Versatile Rogue', 'Versatile Investigator', 'Multifarious Muse', 'Widespread Fascination'].includes(feat.name) ? [] : [feat.choice])]), ...specials]
     .filter((name): name is string => typeof name === 'string').map((name) => name.replace(/ (?:Instinct|Order)$/, '')))
   if (c.className === 'Druid') {
     const explored = new Set(c.feats.flatMap((feat) => feat.name === 'Order Explorer' && feat.choice ? [normalizeDruidOrder(feat.choice)] : []))
@@ -4191,6 +4222,21 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
       if (typeof feat === 'string' && feat) grants.push({ name: feat, source: `${muse.name} Muse`, level: muse.level })
     }
   }
+  if (c.systems.includes('pf2e') && c.className === 'Investigator' && c.level >= 1) {
+    const methodologies = new Map<string, { level: number; source: string }>()
+    const primary = selectedSubclass(c, entries)
+    if (primary) methodologies.set(primary, { level: 1, source: `${primary} Methodology` })
+    for (const feat of activeFeatsNamed(c, 'Versatile Investigator')) {
+      if (feat.choice && !methodologies.has(feat.choice)) {
+        methodologies.set(feat.choice, { level: featTakenLevel(feat), source: `Versatile Investigator (${feat.choice})` })
+      }
+    }
+    for (const [methodology, grant] of methodologies) {
+      for (const name of INVESTIGATOR_METHOD_FEATS[methodology] ?? []) {
+        grants.push({ name, source: grant.source, level: grant.level })
+      }
+    }
+  }
   for (const benefit of hellknightTrainingBenefits(c)) {
     if (benefit.name === 'Dedication to the Five' && benefit.choice && GODCLAW_DOMAINS.includes(benefit.choice)) {
       grants.push({ name: 'Domain Initiate', source: benefit.feat.name, level: featTakenLevel(benefit.feat), choice: benefit.choice })
@@ -4689,6 +4735,7 @@ export function weaponHasAncestryTrait(weapon: ContentEntry, entries: ContentEnt
 
 export function unconventionalWeaponChoice(entries: ContentEntry[], name: string) {
   const entry = weaponEntry(entries, name)
+  if (entry?.data.named_weapon_source === 'Coldstar Pistols') return String(entry.data.named_weapon_base ?? 'Dueling Pistol')
   if (typeof entry?.data.proficiency_base === 'string') return entry.data.proficiency_base
   return entry?.data.weapon_grade_family === 'homebrew:slarp-rapid-laser-pistol'
     ? 'Rapid Laser Pistol' : combinationName(entries, name)
@@ -4704,7 +4751,9 @@ function unconventionalWeapon(c: Character, entries: ContentEntry[], weapon: Con
     const family = weaponGradeFamily(resolved)
     if (resolved?.systems.includes('sf2e') && usesWeaponUpgrades(resolved) && family)
       return `sf2e:${family}`
-    return combinationName(entries, value)
+    const normalized = weaponEntry(entries, value)?.data.named_weapon_source === 'Coldstar Pistols'
+      ? unconventionalWeaponChoice(entries, value) : value
+    return combinationName(entries, normalized)
   }
   return activeFeatsNamed(c, 'Unconventional Weaponry').find(feat => !!feat.choice && identity(feat.choice) === identity(name)
     && (uncommonWeapon(proficiencyWeapon) || !featRarity(proficiencyWeapon)

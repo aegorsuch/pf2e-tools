@@ -233,6 +233,27 @@ export function witchLessonOptions(c: Character, entries: ContentEntry[], feat: 
 
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   if (['Fiendish Magic', 'Celestial Magic', 'Summon Nephilim Kin'].includes(feat.name)) return undefined
+  if (feat.name === "Trickster's Ace" && c.className === 'Investigator' && c.systems.includes('pf2e')) {
+    return spellIndex(entries).spells.filter(spell => {
+      const target = String(spell.data.target ?? spell.data.targets ?? '').trim()
+      const actions = String(spell.data.actions ?? '')
+      const cost = String(spell.data.cost ?? '').trim()
+      const minutes = Number(/\b(\d+)\s*minutes?\b/i.exec(actions)?.[1] ?? 0)
+      const hasCost = !!cost && !/^(?:none|no cost|[-—])$/i.test(cost)
+      const singleCreatureTarget = target.toLowerCase() === 'you'
+        || /^1\b.*\bcreature\b/i.test(target) && !/\b(?:and|each|all|up to)\b/i.test(target)
+      const castingTimeValid = /(?:action|reaction|\b\d+\s*minutes?\b)/i.test(actions)
+        && !/\b(?:hours?|days?)\b/i.test(actions) && minutes <= 10
+      return spell.systems.includes('pf2e')
+        && spell.level >= 1 && spell.level <= 4
+        && !spell.traits.some(trait => /^(?:cantrip|focus)$/i.test(trait))
+        && ['arcane', 'divine', 'occult', 'primal'].some(tradition =>
+          String(spell.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(tradition))
+        && singleCreatureTarget
+        && !hasCost && castingTimeValid && spellAccessGranted(c, spell)
+    })
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
   if (['Divine Warrior', 'Primal Warrior'].includes(feat.name) && c.systems.includes('pf2e')) {
     const tradition = feat.name === 'Divine Warrior' ? 'divine' : 'primal'
     return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e')
@@ -474,6 +495,14 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (feat.name === "Trickster's Ace" && c.className === 'Investigator' && c.systems.includes('pf2e')) {
+      const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'feat', spells: [entry.name], frequency: 'once per day', fixedRank: true,
+          condition: 'Choose a trigger during daily preparations; the spell targets only you.' },
+        rank: entry.level, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
+      continue
+    }
     if (feat.name === 'Build the First Walls' && c.systems.includes('pf2e')) {
       const spell = matchingSpells(entries, 'Wall of Stone').find(entry => entry.systems.includes('pf2e'))
       if (spell) out.push({

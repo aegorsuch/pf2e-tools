@@ -61,7 +61,7 @@ const ACTIONS: Record<string, { name: string; actions: string }[]> = {
 }
 
 const MATERIALS: Record<string, string> = {
-  'Scalding Gauntlets': 'Orichalcum',
+  'Scalding Gauntlets': 'Orichalcum', 'Coldstar Pistols': 'Orichalcum',
   Briar: 'Cold Iron', Blackaxe: 'Adamantine', Ridill: 'Adamantine', Serithtial: 'Orichalcum',
   'Axe of the Dwarven Lords': 'Orichalcum', 'Wintershot (Artifact)': 'Orichalcum', "Clear Cutter's Axe": 'Orichalcum',
   'Blade of Fallen Stars': 'Cold Siccatite (High-Grade)',
@@ -80,6 +80,7 @@ const runeBase = (rune: string) => rune.replace(/ \((?:Lesser|Greater|Major|True
 function artifactRunes(entry: ContentEntry, runes: string) {
   return [...new Set([...runes.split(';').filter(Boolean),
     ...(entry.name === 'Serithtial' ? ['Astral (Greater)'] : []),
+    ...(entry.data.named_weapon_source === 'Coldstar Pistols' ? ['Impossible'] : []),
     ...(entry.name === 'Wintershot (Artifact)' ? ['Impossible'] : []),
     ...(entry.traits.some(trait => trait.toLowerCase() === 'artifact') ? ['Grievous'] : [])])].join(';')
 }

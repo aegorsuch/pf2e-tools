@@ -248,7 +248,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       .replace(/^(occult|primal)\|/, (_, tradition: string) => `${tradition[0].toUpperCase()}${tradition.slice(1)}: `)
     : name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : featSkillChoiceLabel(name, choice)
   const subclassDescription = (name: string, choice?: string) => {
-    const classes: Record<string, string> = { 'Versatile Rogue': 'Rogue', 'Multifarious Muse': 'Bard',
+    const classes: Record<string, string> = { 'Versatile Rogue': 'Rogue', 'Versatile Investigator': 'Investigator', 'Multifarious Muse': 'Bard',
       'Second Innovation': 'Inventor', 'Third Innovation': 'Inventor', 'Order Explorer': 'Druid' }
     const className = classes[name]
     if (!choice || !className) return undefined
@@ -574,7 +574,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
           const classDedication = s.key === 'class:2:0' && !!s.grantedFeat
           const locked = !!homebrewDedication(s.key) || classDedication
-          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer' || s.grantedBy === 'Pitborn' || s.grantedBy === 'Captain Dedication' || s.grantedBy === 'Scion of Many Planes' || s.grantedBy === 'In Another Life'
+          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Versatile Investigator' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer' || s.grantedBy === 'Pitborn' || s.grantedBy === 'Captain Dedication' || s.grantedBy === 'Scion of Many Planes' || s.grantedBy === 'In Another Life'
           const automaticOrderFeat = s.grantedBy === 'Order Explorer' && !!current
             && (() => {
               const eligible = eligibleFeats(entries, c, s)

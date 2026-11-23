@@ -524,6 +524,9 @@ it.each([undefined, 'Paired', 'Merged', 'Flame', 'Frost'] as const)(
     const coldstar = specific('Coldstar Pistols', 'Dueling Pistol', '+3 greater striking', [])
     const bayonet = { ...melee('Bayonet', '1d4 piercing'), traits: ['Attached to Crossbow or Firearm'] }
     const weapon: OwnedWeapon = { ...owned(coldstar.name), coldstarForm, attachedWeapon: 'Bayonet' }
+    expect(effectiveWeapon(c, [pistol, coldstar], weapon)).toMatchObject({
+      material: 'Orichalcum', runes: expect.arrayContaining(['Impossible']),
+    })
     for (const displayOnly of [false, true]) {
       const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [weapon] }}
         entries={[pistol, coldstar, bayonet]} save={() => {}} displayOnly={displayOnly} />)

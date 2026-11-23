@@ -375,6 +375,30 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
 
+it("offers Trickster's Ace only single-target spells that meet its preparation restrictions", () => {
+  const c: Character = { ...base, className: 'Investigator', level: 18,
+    feats: [taken("Trickster's Ace", 18, 'Fast spell')] }
+  const spells = [
+    { ...entry('Fast spell', 'spell', { tradition: 'Divine', target: '1 willing creature', actions: 'Two Actions' }), level: 2 },
+    { ...entry('Creature-or-object spell', 'spell', { tradition: 'Arcane', target: '1 creature or 1 object', actions: 'Two Actions' }), level: 1 },
+    { ...entry('Self-target spell', 'spell', { tradition: 'Occult', target: 'you', actions: 'Reaction' }), level: 1 },
+    { ...entry('Ten-minute spell', 'spell', { tradition: 'Arcane', target: '1 creature', actions: '10 minutes' }), level: 4 },
+    { ...entry('Costly spell', 'spell', { tradition: 'Occult', target: '1 creature', actions: 'Two Actions', cost: '1 gp' }), level: 1 },
+    { ...entry('Long spell', 'spell', { tradition: 'Primal', target: '1 creature', actions: '11 minutes' }), level: 1 },
+    { ...entry('Many-target spell', 'spell', { tradition: 'Arcane', target: '1 creature and 1 other creature', actions: 'Two Actions' }), level: 1 },
+    { ...entry('High-rank spell', 'spell', { tradition: 'Arcane', target: '1 creature', actions: 'Two Actions' }), level: 5 },
+  ]
+  expect(featSpellOptions(c, spells, c.feats[0])?.map(spell => spell.name))
+    .toEqual(['Creature-or-object spell', 'Fast spell', 'Self-target spell', 'Ten-minute spell'])
+  const grant = grantedFeatSpells(c, spells)[0]
+  expect(grant).toMatchObject({ entry: { name: 'Fast spell' }, source: "Trickster's Ace", rank: 2,
+    rule: { kind: 'feat', frequency: 'once per day', fixedRank: true } })
+  expect(dailyInnateUses(c, grant)?.limit).toBe(1)
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
+  expect(markup).toContain('Trickster&#x27;s Ace · Spell Rank 2')
+  expect(markup).toContain('Choose a trigger during daily preparations')
+})
+
 it('shows Halo Light as a heightened divine innate spell without helper text', () => {
   const light = { ...entry('Light', 'spell', {}, ['Cantrip']), level: 1 }
   const c: Character = { ...base, level: 9, feats: [taken('Halo')] }

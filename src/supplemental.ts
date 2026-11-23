@@ -481,6 +481,9 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     homebrewFeat('versatile-rogue', 'Versatile Rogue', 10, ['Rogue'],
       "Your street-smart adaptability lets you master more than one style of underhanded work. Choose a rogue's racket you don't already have. You gain the trained skill, skill feat, and special benefits of that racket.\n\nSpecial: You do not gain an additional key attribute boost from this racket. You can select this feat multiple times, choosing a different rogue's racket each time.",
       { class: 'Rogue', repeatable: true }),
+    homebrewFeat('versatile-investigator', 'Versatile Investigator', 10, ['Investigator'],
+      "Your investigative practice draws on more than one methodology. Choose an investigator methodology you don't already have. You gain its trained skill, skill feat, and special benefits.\n\nSpecial: You can select this feat multiple times, choosing a different methodology each time.",
+      { class: 'Investigator', repeatable: true }),
     {
       ...homebrewFeat('summertouched-human', 'Summertouched Human', 1, ['Human'],
         'The power of summer flows through you. You gain fire resistance equal to half your level (minimum 1), and you treat environmental heat effects as if they were one step less extreme (incredible heat becomes extreme, extreme heat becomes severe, and so on).',

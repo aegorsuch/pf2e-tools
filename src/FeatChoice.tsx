@@ -309,11 +309,12 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </select>
     </label>
   }
-  if (feat.name === 'Versatile Rogue' || feat.name === 'Multifarious Muse') {
+  if (feat.name === 'Versatile Rogue' || feat.name === 'Versatile Investigator' || feat.name === 'Multifarious Muse') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
-    const rogue = feat.name === 'Versatile Rogue'
-    const kind = rogue ? 'racket' : 'muse'
-    const subclass = entries.find(entry => entry.kind === 'subclass' && entry.name === feat.choice && entry.data.class === (rogue ? 'Rogue' : 'Bard'))
+    const className = feat.name === 'Versatile Rogue' ? 'Rogue'
+      : feat.name === 'Versatile Investigator' ? 'Investigator' : 'Bard'
+    const kind = className === 'Rogue' ? 'racket' : className === 'Investigator' ? 'methodology' : 'muse'
+    const subclass = entries.find(entry => entry.kind === 'subclass' && entry.name === feat.choice && entry.data.class === className)
     return <span className="feat-choice feat-choice-with-note">
       <SearchableSelect label={`Additional ${kind}`} aria-label={`${feat.name} ${kind}`} value={feat.choice ?? ''} onChange={event => {
         const choice = event.target.value

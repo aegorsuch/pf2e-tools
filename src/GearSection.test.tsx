@@ -95,6 +95,11 @@ it('uses Intelligence for eligible Investigator attacks while Devise a Stratagem
   expect(attack(longsword)).toMatchObject({ ability: 'str', mod: 0 })
   expect(attack(javelin, true)).toMatchObject({ ability: 'dex', mod: 3 })
   expect(attack(rapier).breakdown.parts[0]).toMatchObject({ label: 'Intelligence', note: 'Devise a Stratagem' })
+  const ownedRapier: OwnedWeapon = { id: rapier.id, name: rapier.name, potency: 0, striking: 0, runes: [] }
+  const markup = renderToStaticMarkup(<WeaponList c={{ ...investigator, weapons: [ownedRapier] }} entries={[rapier]}
+    save={() => {}} />)
+  expect(markup).toContain('<small>Intelligence</small>+4')
+  expect(markup).not.toContain('<small>Strength</small>+4')
   expect(weaponAttack({ ...investigator, deviseAStratagemActive: false }, [rapier],
     { id: rapier.id, name: rapier.name, potency: 0, striking: 0, runes: [] })).toMatchObject({ ability: 'dex', mod: 3 })
 })

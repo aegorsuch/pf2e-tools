@@ -39,6 +39,18 @@ it('checks Divine Strike against its prerequisite feat and deity favored weapon 
   expect(result(c, [strike, staff, cleric]).manual).toContain("expert with your deity's favored weapon")
 })
 
+it('does not qualify an Investigator for Blind-Fight until Perception becomes master at level 9', () => {
+  const blindFight = entry('feat', 'Blind-Fight', { prerequisite: 'master in Perception' }, 8, ['Investigator'])
+  const investigator = entry('class', 'Investigator', { perception_proficiency: 'Expert' })
+  const expertise = { ...entry('classFeature', 'Investigator Expertise', { class: 'Investigator' }, 9),
+    description: 'Your proficiency rank for Perception increases to master.' }
+  const c: Character = { ...base, className: 'Investigator', level: 8 }
+  expect(featPrerequisiteChecker(c, [blindFight, investigator, expertise], 8)(blindFight).missing)
+    .toContain('master in Perception')
+  expect(featPrerequisiteChecker({ ...c, level: 10 }, [blindFight, investigator, expertise], 10)(blindFight))
+    .toEqual({ missing: [], manual: [] })
+})
+
 it('checks Guiding Heal against known deity font options without guessing a mixed font choice', () => {
   const feat = homebrewCharacterOptions([]).find(item => item.name === 'Guiding Heal')!
   const deity = entry('deity', 'Patron', { divine_font: 'Heal' })

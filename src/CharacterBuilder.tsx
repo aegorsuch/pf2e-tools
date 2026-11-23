@@ -1,6 +1,6 @@
 import { Info } from './Info'
 import { confirmRemoval, REMOVAL_EVENT } from './confirmRemoval'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { AbilitiesContent, AbilityBoostChoices } from './AbilitiesSection'
 import { Achievements } from './Achievements'
@@ -511,6 +511,11 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
   const subclasses = subclassOptions(c, entries).filter(entry => entry.data.subclass_type !== 'fatal-method')
   const subclassName = selectedSubclass(c, entries)
   const subclass = subclasses.find((entry) => entry.name === subclassName)
+  const additionalInvestigatorMethods = c.className === 'Investigator'
+    ? activeFeatsNamed(c, 'Versatile Investigator').flatMap(feat => {
+      const method = subclasses.find(entry => entry.name === feat.choice)
+      return method ? [method] : []
+    }) : []
   const fatalMethods = fatalMethodOptions(entries)
   const fatalMethod = selectedFatalMethod(c)
   const fatalMethodEntry = fatalMethods.find(entry => entry.name === fatalMethod)
@@ -768,6 +773,33 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                 }} />
             </label>}
           </>}
+          {additionalInvestigatorMethods.map(method => {
+            const choice = subclassSkillChoice({ ...c, subclass: method.name }, entries)
+            const value = choice ? c.subclassSkillChoices?.[choice.key] ?? '' : ''
+            return <Fragment key={method.id}>
+              <SelectedSubclassRules entry={method} label={`${method.name} methodology (Versatile Investigator)`} />
+              {choice && choice.options.length > 0 && <SearchableSelect label={`${method.name} methodology skill`}
+                aria-label={`${method.name} methodology skill`} value={value} onChange={event => {
+                  const selected = event.target.value
+                  if (selected && !choice.options.includes(selected)) return
+                  save({ subclassSkillChoices: { ...c.subclassSkillChoices, [choice.key]: selected } })
+                }}>
+                <option value="">Choose methodology skill</option>
+                {value && !choice.options.includes(value) && <option disabled>{value}</option>}
+                {choice.options.map(option => <option key={option}>{option}</option>)}
+              </SearchableSelect>}
+              {choice && (choice.options.length === 0 || value === 'Lore') && <label>{method.name} Lore specialty{' '}
+                <input aria-label={`${method.name} methodology Lore specialty`}
+                  key={`${choice.key}:${value}`}
+                  defaultValue={c.subclassSkillChoices?.[choice.options.length ? `${choice.key}:lore` : choice.key]?.replace(/ Lore$/i, '') ?? ''}
+                  onBlur={event => {
+                    const name = event.target.value.trim().replace(/\s+Lore$/i, '')
+                    const key = choice.options.length ? `${choice.key}:lore` : choice.key
+                    save({ subclassSkillChoices: { ...c.subclassSkillChoices, [key]: name ? `${name} Lore` : '' } })
+                  }} />
+              </label>}
+            </Fragment>
+          })}
           {c.className === 'Druid' && (
               <SearchableSelect label="Druidic Order" aria-label="Druidic Order" value={subclassName ?? ''} onChange={(e) => save({ order: e.target.value })}>
                 <option value="">No order</option>

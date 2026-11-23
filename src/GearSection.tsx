@@ -1573,7 +1573,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 {summary.attack.areaAttacks.map(area => <span key={area.name}><small>{area.name}</small>
                   DC {area.dc} Reflex, {area.shape}
                   <SourceNote source={summary.attack.entry?.name === 'Offensive Defense' ? 'Offensive Defense' : 'Suppressing Fire / Primary Target'} note={area.note} /></span>)}
-                <span><small>{summary.attack.ability === 'dex' ? 'Dexterity' : 'Strength'}</small>{signed(summary.attack.mod)}</span>
+                <span><small>{ABILITY_LABEL[summary.attack.ability]}</small>{signed(summary.attack.mod)}</span>
                 <span><small>Proficiency</small>{signed(summary.attack.prof)}</span>
                 <span><small>Item</small>{signed(summary.attack.item)}</span>
               </div>

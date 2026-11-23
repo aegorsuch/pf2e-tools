@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { featChoiceOptions, gearPickerEntries, weaponAccessSources, weaponAttack } from './builder'
+import { featChoiceOptions, gearPickerEntries, unconventionalWeaponChoice, weaponAccessSources, weaponAttack } from './builder'
 import { gearAccess } from './gearAccess'
 import { getSettings, updateSettings } from './settings'
 import { weaponFamiliarity } from './weaponFamiliarity'
@@ -241,6 +241,22 @@ it('applies Unconventional Weaponry only to its valid selected weapon and checks
   expect(attack({ ...c, feats: [selected('Unconventional Weaponry', advanced.name)] }, advanced, noMartial).rank).toBe(0)
   expect(attack({ ...c, feats: [selected('Unconventional Weaponry', advanced.name)] }, advanced, entries).rank).toBe(1)
   expect(weaponAccessSources({ ...c, feats: [selected('Unconventional Weaponry', martial.name, 9)] }, entries, martial)).toEqual([])
+})
+
+it('grants Coldstar Dueling Pistol access from Unconventional Weaponry: Dueling Pistol choice', () => {
+  const pistol = { ...weapon('Dueling Pistol', 'Martial', ['Uncommon'], 'uncommon'),
+    data: { weapon_category: 'Martial', weapon_type: 'Ranged', weapon_group: 'Firearm', range: 60, hands: 1, damage: '1d6 P' } }
+  const coldstar = content('Coldstar Pistols', 'item', {
+    item_subcategory: 'Specific Magic Weapons', rarity: 'uncommon', url: '/items/coldstar-pistols',
+  }, ['Uncommon'])
+  coldstar.description = 'Base Weapon Dueling Pistol. A +3 greater striking Dueling Pistol.'
+  const entries = [wizard, pistol, coldstar]
+  const coldstarWeapon = gearPickerEntries(entries, 'weapon').find(entry => entry.data.named_weapon_source === 'Coldstar Pistols')!
+  const c = { ...character, feats: [selected('Unconventional Weaponry', 'Dueling Pistol')] }
+  expect(unconventionalWeaponChoice(entries, coldstarWeapon.name)).toBe('Dueling Pistol')
+  expect(featChoiceOptions('Unconventional Weaponry', c, entries, 'ancestry:1:0')).toContain('Dueling Pistol')
+  expect(weaponAccessSources(c, entries, coldstarWeapon)).toContain('Unconventional Weaponry')
+  expect(gearAccess(c, entries, coldstarWeapon)).toMatchObject({ automatic: true, sources: ['Unconventional Weaponry'] })
 })
 
 it('applies Unconventional Weaponry across grades of the selected SF2e weapon', () => {
