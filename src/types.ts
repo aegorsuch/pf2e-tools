@@ -268,6 +268,7 @@ export interface Character {
   currentSpell?: 'air' | 'water' | 'air and water'
   hardenFleshActive?: boolean
   focusPointsSpentSinceRefocus?: number
+  desperateWardenFocusPoint?: number
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
   // Imported/picked feats by name; entryIds links to ContentEntry once matched
   // slot is set when the feat fills a slot from the slot planner (e.g. 'class:2:0')

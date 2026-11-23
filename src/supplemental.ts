@@ -248,6 +248,10 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       'Prerequisite: Shield Block. Requirements: You are adjacent to an opponent.\n\nRaise your Shield and make an attack roll against the opponent using a shield bash or a melee weapon attached to your shield. On a success, the opponent is off-guard to your next melee Strike. On a critical success, the opponent is off-guard to all your melee attacks until the end of your next turn.',
       { class: guardbreakClasses.join(', '), actions: 'Single Action', prerequisite: 'Shield Block',
         requirements: 'You are adjacent to an opponent.' }),
+    homebrewFeat('desperate-warden', 'Desperate Warden', 1, ['Druid', 'Ranger'],
+      "Frequency: once per day. Trigger: You begin your turn and have no Focus Points.\n\nYou call out to primal spirits in a plea for their aid. You gain 1 Focus Point, which you can spend only to cast a warden spell. If you don't spend this Focus Point by the end of this turn, it is lost.",
+      { class: 'Druid, Ranger', actions: 'Free Action', frequency: 'once per day',
+        trigger: 'You begin your turn and have no Focus Points.' }),
     ...(twinnedDefense ? [{ ...twinnedDefense, id: 'homebrew:ranger-twinned-defense-stance', name: 'Twinned Defense Stance',
       source: 'homebrew' as const, traits: [...twinnedDefense.traits.filter(trait => trait !== 'Fighter'), 'Ranger'],
       description: twinnedDefense.description.replaceAll(twinnedDefense.name, 'Twinned Defense Stance')

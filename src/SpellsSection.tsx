@@ -147,22 +147,28 @@ export function UntamedFormOptions({ c, entries, save }: SectionProps) {
 }
 
 export function FocusPointTracker({ c, save, points }: Pick<SectionProps, 'c' | 'save'> & { points: number }) {
-  const capacity = Math.min(3, Math.max(0, points))
-  if (!capacity) return null
-  const spent = new Set((c.spentFocusPoints ?? []).filter(index => Number.isInteger(index) && index >= 0 && index < capacity))
+  const normalCapacity = Math.min(3, Math.max(0, points))
+  const desperateWarden = !!activeFeatsNamed(c, 'Desperate Warden').length
+  const temporary = desperateWarden ? c.desperateWardenFocusPoint : undefined
+  const capacity = normalCapacity || (temporary === -1 ? 1 : 0)
+  if (!capacity && !desperateWarden) return null
+  const spent = new Set((c.spentFocusPoints ?? []).filter(index => Number.isInteger(index) && index >= 0 && index < normalCapacity))
   const damoritoshsClaw = c.systems.includes('sf2e') && c.ancestry === 'Vesk'
     && !!activeFeatsNamed(c, "Damoritosh's Claw").length
   const clawUsed = !!c.dailyFeatUses?.["Damoritosh's Claw"]
+  const wardenUsed = !!c.dailyFeatUses?.['Desperate Warden']
   return <span className="focus-tracker" role="group" aria-label={`${capacity - spent.size} of ${capacity} focus points available`}>
     {Array.from({ length: capacity }, (_, index) => {
-      const label = `${spent.has(index) ? 'Restore' : 'Spend'} focus point ${index + 1}`
+      const isTemporary = temporary === index || temporary === -1 && index === 0
+      const label = `${spent.has(index) ? 'Restore' : 'Spend'} focus point ${index + 1}${isTemporary ? ' (warden spell only; expires at end of turn)' : ''}`
       return <button key={index} type="button" className="focus-point" aria-label={label}
         title={label} aria-pressed={!spent.has(index)} onClick={() => {
           const next = new Set(spent)
           if (next.has(index)) next.delete(index)
-          else next.add(index)
+          else if (index < normalCapacity) next.add(index)
           void save({ spentFocusPoints: [...next],
-            focusPointsSpentSinceRefocus: Math.max(0, (c.focusPointsSpentSinceRefocus ?? spent.size) + (spent.has(index) ? -1 : 1)) })
+            focusPointsSpentSinceRefocus: Math.max(0, (c.focusPointsSpentSinceRefocus ?? spent.size) + (spent.has(index) ? -1 : 1)),
+            ...(isTemporary && !spent.has(index) ? { desperateWardenFocusPoint: undefined } : {}) })
         }} />
     })}
     {damoritoshsClaw && <button type="button" aria-label="Use Damoritosh's Claw" disabled={clawUsed || !spent.size}
@@ -171,6 +177,21 @@ export function FocusPointTracker({ c, save, points }: Pick<SectionProps, 'c' | 
         if (clawUsed || !spent.size) return
         save({ spentFocusPoints: [...spent].slice(1), dailyFeatUses: { ...c.dailyFeatUses, "Damoritosh's Claw": true } })
       }}>Damoritosh's Claw <ActionIcon actions="Single Action" /></button>}
+    {desperateWarden && <>
+      <button type="button" aria-label="Use Desperate Warden"
+        disabled={wardenUsed || temporary !== undefined || spent.size < normalCapacity} onClick={() => {
+          if (wardenUsed || temporary !== undefined || spent.size < normalCapacity) return
+          const index = normalCapacity ? [...spent][0] : -1
+          save({ spentFocusPoints: [...spent].filter(value => value !== index), desperateWardenFocusPoint: index,
+            dailyFeatUses: { ...c.dailyFeatUses, 'Desperate Warden': true } })
+        }}>Desperate Warden <ActionIcon actions="Free Action" /></button>
+      <label><input type="checkbox" aria-label="Desperate Warden used" checked={wardenUsed}
+        onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, 'Desperate Warden': event.target.checked },
+          ...(!event.target.checked && temporary !== undefined ? {
+            spentFocusPoints: temporary >= 0 && temporary < normalCapacity ? [...new Set([...spent, temporary])] : [...spent],
+            desperateWardenFocusPoint: undefined,
+          } : {}) })} /> Used</label>
+    </>}
   </span>
 }
 
@@ -1148,6 +1169,7 @@ export function spellCategoryAvailability(c: Character, entries: ContentEntry[],
       || Object.values(c.spellcasting?.slots ?? {}).some(count => count > 0))
   const focusAvailable = focus.length > 0 || granted.length > 0 || focusPoints > 0
     || (c.className === 'Champion' && c.level >= 1) || !!activeFeatsNamed(c, 'Floral Restoration').length
+    || !!activeFeatsNamed(c, 'Desperate Warden').length
   const innateAvailable = innate.length > 0 || c.heritage === 'Mage Automaton' && c.level >= 1
     || c.systems.includes('pf2e') && c.level >= 1 && ['fey-touched gnome', 'wellspring gnome'].includes(heritage)
     || !!activeFeatsNamed(c, 'Minor Magic').length || !!activeFeatsNamed(c, 'First World Magic').length
@@ -1900,7 +1922,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       <div hidden={activeCategory !== 'focus'}>
       {spellcastingSummary}
       <DevotionSpellChoice c={c} entries={entries} save={save} />
-      {(focusPoints > 0 || allFocus.length > 0 || !!activeFeatsNamed(c, 'Floral Restoration').length) && (
+      {(focusPoints > 0 || allFocus.length > 0 || !!activeFeatsNamed(c, 'Floral Restoration').length
+        || !!activeFeatsNamed(c, 'Desperate Warden').length) && (
         <div>
           <div className="focus-spells-heading"><b>Focus Spells</b><FocusPointTracker c={c} save={save} points={focusPoints} />
             <EnergizedFont c={c} save={save} points={focusPoints} /><FloralRestoration c={c} save={save} points={focusPoints} /></div>

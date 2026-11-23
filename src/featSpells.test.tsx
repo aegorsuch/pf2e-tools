@@ -1168,6 +1168,31 @@ it('uses Energized Font once daily to restore one focus point without resetting 
   expect(EnergizedFont({ c, save, points: 0 })).toBeNull()
 })
 
+it('uses the normal focus tracker for a temporary warden-only point', () => {
+  let c: Character = { ...base, level: 1, feats: [taken('Desperate Warden', 1)], spentFocusPoints: [0] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => FocusPointTracker({ c, save, points: 2 })
+  expect(findUseButton(tree(), 'Use Desperate Warden')?.disabled).toBe(true)
+  c = { ...c, spentFocusPoints: [0, 1] }
+  expect(findUseButton(tree(), 'Use Desperate Warden')?.disabled).toBe(false)
+  findUseButton(tree(), 'Use Desperate Warden')!.onClick()
+  expect(c.spentFocusPoints).toEqual([1])
+  expect(c.dailyFeatUses?.['Desperate Warden']).toBe(true)
+  expect(c.desperateWardenFocusPoint).toBe(0)
+  expect(findUseButton(tree(), 'Use Desperate Warden')?.disabled).toBe(true)
+  findUseButton(tree(), 'Spend focus point 1 (warden spell only; expires at end of turn)')!.onClick()
+  expect(c.desperateWardenFocusPoint).toBeUndefined()
+  expect(c.spentFocusPoints).toEqual([1, 0])
+  expect(findUseButton(tree(), 'Use Desperate Warden')?.disabled).toBe(true)
+  c = { ...c, dailyFeatUses: {}, spentFocusPoints: [] }
+  const noPool = () => FocusPointTracker({ c, save, points: 0 })
+  findUseButton(noPool(), 'Use Desperate Warden')!.onClick()
+  expect(renderToStaticMarkup(noPool())).toContain('1 of 1 focus points available')
+  findUseButton(noPool(), 'Spend focus point 1 (warden spell only; expires at end of turn)')!.onClick()
+  expect(c.spentFocusPoints).toEqual([])
+  expect(c.desperateWardenFocusPoint).toBeUndefined()
+})
+
 it("uses Damoritosh's Claw once daily to restore a spent focus point", () => {
   let c: Character = { ...base, systems: ['sf2e'], ancestry: 'Vesk', level: 13,
     feats: [taken("Damoritosh's Claw", 13)], spentFocusPoints: [1], focusPointsSpentSinceRefocus: 2 }

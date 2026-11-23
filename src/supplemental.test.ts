@@ -60,6 +60,20 @@ it('offers Guardbreak at level 4 to Shield Block classes only when its prerequis
   expect(feat.traits).toEqual(['Champion', 'Cleric', 'Commander', 'Druid', 'Exemplar', 'Fighter', 'Guardian', 'Inventor', 'Runesmith'])
 })
 
+it('offers Desperate Warden as a level 1 Druid and Ranger free action', () => {
+  const feat = homebrewCharacterOptions([]).find(option => option.name === 'Desperate Warden')!
+  const slot = { category: 'class' as const, level: 1, key: 'class:1:0' }
+  expect(feat).toMatchObject({ level: 1, traits: ['Druid', 'Ranger'],
+    data: { class: 'Druid, Ranger', actions: 'Free Action', frequency: 'once per day',
+      trigger: 'You begin your turn and have no Focus Points.' } })
+  expect(feat.description).toContain('only to cast a warden spell')
+  expect(feat.description).toContain('by the end of this turn')
+  for (const className of ['Druid', 'Ranger']) {
+    expect(eligibleFeats([feat], { ...base, level: 1, className }, slot)).toContain(feat)
+  }
+  expect(eligibleFeats([feat], { ...base, level: 1, className: 'Fighter' }, slot)).not.toContain(feat)
+})
+
 it('offers level-20 Tethered weapon feats for each weapon feature', () => {
   const entries = homebrewCharacterOptions([])
   expect(entries.find(entry => entry.name === 'Tethered Living Weapon')).toMatchObject({
