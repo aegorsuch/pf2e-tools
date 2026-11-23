@@ -37,6 +37,29 @@ it('marks homebrew Watch Initiate feats rare', () => {
   }
 })
 
+it('offers Guardbreak at level 4 to Shield Block classes only when its prerequisite is met', () => {
+  const feat = homebrewCharacterOptions([]).find(option => option.name === 'Guardbreak')!
+  const shieldBlock: ContentEntry = { ...feat, id: 'class:shield-block', kind: 'classFeature',
+    name: 'Shield Block', level: 1, traits: [], data: { class: 'Fighter' } }
+  const entries = [feat, shieldBlock]
+  const fighter = { ...base, level: 4, className: 'Fighter' }
+  const slot = { category: 'class' as const, level: 4, key: 'class:4:0' }
+  expect(feat).toMatchObject({ level: 4, data: { actions: 'Single Action', prerequisite: 'Shield Block',
+    requirements: 'You are adjacent to an opponent.' } })
+  expect(eligibleFeats(entries, fighter, slot)).toContain(feat)
+  expect(eligibleFeats([feat], fighter, slot)).not.toContain(feat)
+  expect(eligibleFeats([feat], { ...fighter, feats: [
+    { name: 'Shield Block', type: 'General Feat', level: 1 },
+  ] }, slot)).toContain(feat)
+  expect(eligibleFeats([feat], { ...fighter, className: 'Cleric', subclass: 'Warpriest' }, slot)).toContain(feat)
+  expect(eligibleFeats([feat], { ...fighter, className: 'Cleric', subclass: 'Cloistered Cleric' }, slot)).not.toContain(feat)
+  expect(eligibleFeats(entries, { ...fighter, className: 'Wizard', feats: [
+    { name: 'Shield Block', type: 'General Feat', level: 1 },
+  ] }, slot)).not.toContain(feat)
+  expect(eligibleFeats(entries, fighter, { ...slot, level: 2 })).not.toContain(feat)
+  expect(feat.traits).toEqual(['Champion', 'Cleric', 'Commander', 'Druid', 'Exemplar', 'Fighter', 'Guardian', 'Inventor', 'Runesmith'])
+})
+
 it('offers level-20 Tethered weapon feats for each weapon feature', () => {
   const entries = homebrewCharacterOptions([])
   expect(entries.find(entry => entry.name === 'Tethered Living Weapon')).toMatchObject({

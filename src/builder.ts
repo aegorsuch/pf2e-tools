@@ -1315,6 +1315,10 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     const missing = [...result.missing.filter(requirement => !planned || !unplanned
       || planned.missing.includes(requirement) || !unplanned.missing.includes(requirement)), ...archetype(entry),
       ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
+    if (entry.id === 'homebrew:guardbreak' && !c.feats.some(feat => feat.slot !== slot.key && feat.name === 'Shield Block')
+      && !automaticFeatGrants(character, entries).some(feat => feat.name === 'Shield Block')
+      && !tokens(byName(entries, 'background', character.background)?.data.feat).includes('Shield Block')
+      && !missing.includes('Shield Block')) missing.push('Shield Block')
     for (const group of PREREQUISITE_EXCLUSIVE_FEAT_GROUPS) {
       if (!group.includes(entry.name)) continue
       const other = character.feats.find(feat => feat.name !== entry.name && group.includes(feat.name))
@@ -1370,6 +1374,7 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     if (multitalented && entry.name === `${character.className} Dedication`) missing.push("a multiclass dedication outside your current class")
     let manual = result.manual.filter((requirement) => !(requirements[entry.name] ?? [])
       .some((name) => name.toLowerCase() === requirement.toLowerCase()))
+    if (entry.id === 'homebrew:guardbreak') manual = manual.filter(requirement => requirement.toLowerCase() !== 'shield block')
     if (BEASTMASTER_FEATS[entry.name]) manual = manual.filter(requirement => !/^animal companion\b/i.test(requirement))
     if (['Chiardmar Steed', 'Nidarrmar Steed'].includes(entry.name)) {
       if (!character.companions?.some((companion) => companion.type === 'Horse')) missing.push('horse animal companion')

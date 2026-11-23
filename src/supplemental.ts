@@ -217,6 +217,7 @@ export const PERSISTENT_SPELLS = [
 
 export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[] {
   const nimbleClasses = ['Champion', 'Fighter', 'Gunslinger', 'Monk', 'Operative', 'Ranger', 'Rogue', 'Swashbuckler']
+  const guardbreakClasses = ['Champion', 'Cleric', 'Commander', 'Druid', 'Exemplar', 'Fighter', 'Guardian', 'Inventor', 'Runesmith']
   const poison = entries.find((entry) => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
     && entry.name === 'Poison Resistance' && entry.level === 2 && entry.traits.includes('Druid'))
   const simplicity = entries.find((entry) => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
@@ -243,6 +244,10 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     { ...homebrewFeat('nimble-athlete', 'Nimble Athlete', 4, nimbleClasses,
       'Homebrew class feat. You use the higher of your Strength or Dexterity modifiers for Athletics checks and Athletics DCs. This includes combat maneuvers such as Grapple, Trip, Shove, Disarm, and Reposition, as well as climbing, swimming, and jumping.\n\nThis does not change your damage, carrying capacity, or Strength prerequisites.',
       { class: nimbleClasses.join(', '), prerequisite: 'expert in Athletics' }), systems: ['pf2e', 'sf2e'] },
+    homebrewFeat('guardbreak', 'Guardbreak', 4, guardbreakClasses,
+      'Prerequisite: Shield Block. Requirements: You are adjacent to an opponent.\n\nRaise your Shield and make an attack roll against the opponent using a shield bash or a melee weapon attached to your shield. On a success, the opponent is off-guard to your next melee Strike. On a critical success, the opponent is off-guard to all your melee attacks until the end of your next turn.',
+      { class: guardbreakClasses.join(', '), actions: 'Single Action', prerequisite: 'Shield Block',
+        requirements: 'You are adjacent to an opponent.' }),
     ...(twinnedDefense ? [{ ...twinnedDefense, id: 'homebrew:ranger-twinned-defense-stance', name: 'Twinned Defense Stance',
       source: 'homebrew' as const, traits: [...twinnedDefense.traits.filter(trait => trait !== 'Fighter'), 'Ranger'],
       description: twinnedDefense.description.replaceAll(twinnedDefense.name, 'Twinned Defense Stance')
