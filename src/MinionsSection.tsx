@@ -932,7 +932,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           {isWasp && <div className="gear-runes">{['Burrower', 'Flier'].map(name => {
             const entry = familiarAbilityEntry(name, familiarAbilityCatalog, c)
             return entry ? <EntryDescription key={name} name={name} entry={entry} entries={entries} character={c}
-              buttonLabel={`Granted ${name}`} /> : <small key={name}>{name}</small>
+              buttonLabel={name} /> : <small key={name}>{name}</small>
           })}</div>}
           {isUndead && <>
             <div className="gear-traits"><EntryDescription name="Undead" entry={UNDEAD_FAMILIAR_TRAIT}

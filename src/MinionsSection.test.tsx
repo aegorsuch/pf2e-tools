@@ -1030,8 +1030,8 @@ it('keeps one familiar while preserving dormant Calistria wasp choices', () => {
   c = { ...c, feats: [] }
   html = markup()
   expect(html).toContain('</h4> (0/2)')
-  expect(html).toContain('aria-label="Granted Burrower: Burrower"')
-  expect(html).toContain('aria-label="Granted Flier: Flier"')
+  expect(html).toContain('aria-label="Burrower: Burrower"')
+  expect(html).toContain('aria-label="Flier: Flier"')
   expect(html).toContain('<small>Hit Points</small><b>40</b>')
   expect(findInput(tree(), 'Wasp familiar name')).toBeUndefined()
   findSelect(tree(), 'Wasp familiar ability')?.({ target: { value: 'familiar:Flier' } })
