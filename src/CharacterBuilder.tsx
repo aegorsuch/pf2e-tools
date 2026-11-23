@@ -15,6 +15,7 @@ import { featSectionGrants, SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
 import { adoptedAncestryText } from './featChoices'
 import { ActionIcon } from './ActionIcon'
+import { DamageRoll } from './SpellDamage'
 import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, WeaponProficiency, RageToggle, SensesAndSpeed, SensesAndSpeedSummary, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsPanel } from './SpellsSection'
@@ -300,6 +301,7 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
         && activeFeatsNamed(c, 'Tattooed Historian Dedication').length > 0
       return <li key={`${item.name}-${index}`}>
       <EntryDescription name={item.name} entry={entry} className="equipment-name" /> <ActionIcon entry={entry} />{item.qty > 1 && <span> x{item.qty}</span>}{' '}
+      <KillersBeltRoll name={item.name} entry={entry} />
       {!locked && <button onClick={() => confirmRemoval(`gear "${item.name}"`, () => {
         const nextMods = { ...c.mechanicGrenadeMods }
         delete nextMods[`equipment:${item.name}`]
@@ -922,4 +924,10 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       </DeferredDetails>
     </section>
   )
+}
+
+function KillersBeltRoll({ name, entry }: { name: string; entry?: ContentEntry }) {
+  const match = /^Killer's Belt\b/.test(name) ? /(\d+)d(\d+) persistent bleed/.exec(entry?.description ?? '') : null
+  return match ? <DamageRoll name="Bleeding Rubies" actions="Single Action"
+    damage={{ label: 'Persistent bleed', dice: Number(match[1]), sides: Number(match[2]), type: 'persistent bleed' }} /> : null
 }
