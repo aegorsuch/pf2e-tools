@@ -150,6 +150,18 @@ it('offers Mobile Hunter to rangers as a traversal action', () => {
   expect(eligibleFeats(entries, { ...base, className: 'Druid', level: 1 }, slot)).not.toContain(feat)
 })
 
+it('offers Shift Ace to rangers with its shifting rune requirement', () => {
+  const entries = homebrewCharacterOptions([])
+  const feat = entries.find(entry => entry.id === 'homebrew:shift-ace')!
+  const slot = { key: 'class:1:0', category: 'class' as const, level: 1 }
+  expect(feat).toMatchObject({ name: 'Shift Ace', level: 1, source: 'homebrew', traits: ['Ranger'],
+    data: { class: 'Ranger', actions: 'Single Action', requirements: 'You are carrying a weapon with a shifting rune.' } })
+  expect(feat.description).toContain('Either Create a Diversion or Take Cover, then Interact to shift a weapon.')
+  expect(groupHomebrew(entries).find(group => group.name === 'Ranger Feats')?.entries).toContain(feat)
+  expect(eligibleFeats(entries, { ...base, className: 'Ranger', level: 1 }, slot)).toContain(feat)
+  expect(eligibleFeats(entries, { ...base, className: 'Druid', level: 1 }, slot)).not.toContain(feat)
+})
+
 it('offers Prayer for Aid to clerics starting at level 2', () => {
   const entries = homebrewCharacterOptions([])
   const feat = entries.find(entry => entry.id === 'homebrew:prayer-for-aid')!
@@ -207,6 +219,41 @@ it('offers Running Shift to rangers starting at level 4', () => {
   expect(eligibleFeats(entries, ranger, slot)).toContain(feat)
   expect(eligibleFeats(entries, ranger, { ...slot, level: 2 })).not.toContain(feat)
   expect(eligibleFeats(entries, { ...ranger, className: 'Rogue' }, slot)).not.toContain(feat)
+})
+
+it('offers Switch Prey to rangers starting at level 4', () => {
+  const entries = homebrewCharacterOptions([])
+  const feat = entries.find(entry => entry.id === 'homebrew:switch-prey')!
+  const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
+  const ranger = { ...base, className: 'Ranger', level: 4 }
+  expect(feat).toMatchObject({ name: 'Switch Prey', level: 4, source: 'homebrew', traits: ['Ranger'],
+    data: { class: 'Ranger', actions: 'Free Action',
+      trigger: "The creature you're currently hunting gains the dying or unconscious condition." } })
+  expect(feat.description).toContain('You Hunt Prey for a different creature.')
+  expect(groupHomebrew(entries).find(group => group.name === 'Ranger Feats')?.entries).toContain(feat)
+  expect(eligibleFeats(entries, ranger, slot)).toContain(feat)
+  expect(eligibleFeats(entries, ranger, { ...slot, level: 2 })).not.toContain(feat)
+  expect(eligibleFeats(entries, { ...ranger, className: 'Rogue' }, slot)).not.toContain(feat)
+})
+
+it("offers Warden's Draw and Warden's Shift to level 16 rangers", () => {
+  const entries = homebrewCharacterOptions([])
+  const slot = { key: 'class:16:0', category: 'class' as const, level: 16 }
+  const ranger = { ...base, className: 'Ranger', level: 16 }
+  for (const [id, name, action] of [
+    ['homebrew:wardens-draw', "Warden's Draw", 'draw'],
+    ['homebrew:wardens-shift', "Warden's Shift", 'shift'],
+  ]) {
+    const feat = entries.find(entry => entry.id === id)!
+    expect(feat).toMatchObject({ name, level: 16, source: 'homebrew', traits: ['Ranger'],
+      data: { class: 'Ranger', actions: 'Free Action', frequency: 'once per round',
+        requirements: 'Your last action or activity this turn was to cast a warden spell.' } })
+    expect(feat.description).toContain(`Interact to ${action} a weapon that is currently sheathed.`)
+    expect(groupHomebrew(entries).find(group => group.name === 'Ranger Feats')?.entries).toContain(feat)
+    expect(eligibleFeats(entries, ranger, slot)).toContain(feat)
+    expect(eligibleFeats(entries, ranger, { ...slot, level: 14 })).not.toContain(feat)
+    expect(eligibleFeats(entries, { ...ranger, className: 'Druid' }, slot)).not.toContain(feat)
+  }
 })
 
 it('offers level-20 Tethered weapon feats for each weapon feature', () => {
