@@ -9,6 +9,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { removeColdIronTusks } from './supplemental'
 import { mapAonHits } from './aon'
+import { groupHomebrew } from './HomebrewList'
 
 it('retires Cold Iron Tusks without touching other feats, weapons or character choices', () => {
   const c: Character = { ...base, entryIds: ['homebrew:cold-iron-tusks', 'other'],
@@ -72,6 +73,25 @@ it('offers Desperate Warden as a level 1 Druid and Ranger free action', () => {
     expect(eligibleFeats([feat], { ...base, level: 1, className }, slot)).toContain(feat)
   }
   expect(eligibleFeats([feat], { ...base, level: 1, className: 'Fighter' }, slot)).not.toContain(feat)
+})
+
+it('offers favored weapon symbol and jousting to clerics as well as champions', () => {
+  const entries = homebrewCharacterOptions([])
+  const symbol = entries.find(entry => entry.id === 'homebrew:favored-weapon-symbol')!
+  const jousting = entries.find(entry => entry.id === 'homebrew:favored-weapon-jousting')!
+  const firstSlot = { category: 'class' as const, level: 1, key: 'class:1:0' }
+  const fourthSlot = { category: 'class' as const, level: 4, key: 'class:4:0' }
+  for (const className of ['Champion', 'Cleric']) {
+    const c: Character = { ...base, className, level: 4 }
+    expect(eligibleFeats(entries, c, firstSlot)).toContain(symbol)
+    expect(eligibleFeats(entries, c, fourthSlot)).not.toContain(jousting)
+    expect(eligibleFeats(entries, { ...c, feats: [
+      { name: symbol.name, type: 'Class Feat', level: 1, slot: firstSlot.key },
+    ] }, fourthSlot)).toContain(jousting)
+    const group = groupHomebrew(entries).find(group => group.name === `${className} Feats`)
+    expect(group?.entries).toEqual(expect.arrayContaining([symbol, jousting]))
+  }
+  expect(eligibleFeats(entries, { ...base, className: 'Fighter' }, firstSlot)).not.toContain(symbol)
 })
 
 it('offers level-20 Tethered weapon feats for each weapon feature', () => {
