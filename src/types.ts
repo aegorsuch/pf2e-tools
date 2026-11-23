@@ -109,7 +109,7 @@ export interface OwnedArmor {
   immortalSurvivalActive?: boolean
   immortalConditionUsed?: boolean
   worn: boolean
-  material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Grisantian Hide' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
+  material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Keep Stone' | 'Grisantian Hide' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
   gauntlet?: 'Gauntlet' | 'Spiked Gauntlet' | 'Bladed Gauntlet' | 'Clawed Gauntlet'
 }
 
@@ -263,8 +263,6 @@ export interface Character {
   giantRagingResistance?: 'Cold' | 'Electricity' | 'Fire'
   parrying?: boolean
   activeStance?: string
-  tenaciousStanceHpImmune?: boolean
-  tenaciousStanceHpGranted?: boolean
   intensifiedElement?: { element: 'Earth' | 'Fire' | 'Metal' | 'Water' | 'Wood'; legendary?: boolean; used?: boolean }
   activeFeatEffects?: string[]
   conditions?: { frightened?: number; sickened?: number; enfeebled?: number }

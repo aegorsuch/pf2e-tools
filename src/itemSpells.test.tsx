@@ -88,6 +88,18 @@ it('does not turn triggers, casting bonuses, crafting requirements, or spell-eff
   expect(itemSpells(c, [references, make('Heal', 'spell'), make('Force Barrage', 'spell')])).toEqual([])
 })
 
+it('lists the Highhelm wall effect without a separate spell use', () => {
+  const entries = [official('Highhelm Stronghold Plate'), official('Bastion Plate'), official('Wall of Stone')]
+  const armor = { id: 'stronghold', name: 'Highhelm Stronghold Bastion Plate', worn: true, potency: 0, resilient: 0, runes: [] }
+  const c: Character = { ...base, armors: [armor] }
+  const spell = itemSpells(c, entries)[0]
+  expect(spell).toMatchObject({ name: 'Wall of Stone', actions: 'Three Actions', source: { name: armor.name } })
+  expect(itemSpellUses(c, spell)).toBeUndefined()
+  expect(itemSpells({ ...c, armors: [{ ...armor, worn: false }] }, entries)).toEqual([])
+  expect(itemSpells({ ...c, armors: [{ ...armor, worn: false, strongholdWallActive: true }] }, entries))
+    .toMatchObject([{ name: 'Wall of Stone' }])
+})
+
 it('auto-heightens item spells without lowering higher ranks, changing uses, or granting additional spells', () => {
   const charm = make('Spell Charm', 'item', 'Activate Reaction; Frequency twice per day; Effect You cast a 2nd-rank fear spell (DC 25).')
   const higher: ContentEntry = { ...make('Healing Charm', 'item'),

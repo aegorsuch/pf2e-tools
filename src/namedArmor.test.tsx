@@ -127,8 +127,38 @@ it('scales Immortal Bastion fundamentals and grants Orichalcum without changing 
     expect(html).not.toContain('aria-label="Resilient"')
   }
   expect(JSON.stringify(armor)).toBe(original)
-  expect(effectiveArmor({ ...character, level: 1 }, bastionEntries, owned('Highhelm Stronghold Bastion Plate')))
-    .toMatchObject({ potency: 2, resilient: 1 })
+})
+
+it('scales Highhelm fundamentals and property runes with fixed Keep Stone', () => {
+  const armor = { ...owned('Highhelm Stronghold Bastion Plate'), potency: 3, resilient: 3,
+    material: 'Duskwood' as const, runes: ['Moonweave (Major)', 'Fortification (Greater)', 'Shadow'] }
+  const original = JSON.stringify(armor)
+  const cases: [number, number, number, string[]][] = [
+    [1, 0, 0, []], [5, 1, 0, ['Moonweave']], [7, 1, 0, ['Moonweave', 'Sunweave']],
+    [8, 1, 1, ['Moonweave', 'Sunweave']], [11, 2, 1, ['Moonweave', 'Sunweave (Greater)']],
+    [12, 2, 1, ['Moonweave', 'Sunweave (Greater)', 'Fortification']],
+    [13, 2, 1, ['Moonweave (Greater)', 'Sunweave (Greater)', 'Fortification']],
+    [14, 2, 2, ['Moonweave (Greater)', 'Sunweave (Greater)', 'Fortification']],
+    [17, 2, 2, ['Moonweave (Major)', 'Sunweave (Greater)', 'Fortification']],
+    [18, 3, 2, ['Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)']],
+    [20, 3, 3, ['Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)']],
+  ]
+  for (const [level, potency, resilient, runes] of cases) {
+    const c = { ...character, level, armors: [armor] }
+    expect(effectiveArmor(c, bastionEntries, armor)).toMatchObject({
+      potency, resilient, material: 'Keep Stone', runes: [...(potency > runes.length ? ['Shadow'] : []), ...runes],
+    })
+    expect(armorEntry(c, bastionEntries, armor.name)?.data.strength).toBe(level >= 12 ? 5 : 4)
+    const html = renderToStaticMarkup(<ArmorList c={c} entries={bastionEntries} save={() => {}} part="armor" />)
+    expect(html).toContain('Material: Keep Stone')
+    expect(html).not.toContain('aria-label="Potency"')
+    expect(html).not.toContain('aria-label="Resilient"')
+    for (const rune of runes) {
+      expect(html).toContain(rune)
+      expect(html).not.toContain(`aria-label="Remove ${rune} rune"`)
+    }
+  }
+  expect(JSON.stringify(armor)).toBe(original)
 })
 
 it('uses Orichalcum to allow one additional Immortal Bastion property rune', () => {
@@ -205,8 +235,8 @@ it('applies Highhelm piercing specialization only while armor benefits apply', (
   const armor = owned('Highhelm Stronghold Bastion Plate')
   const c = { ...character, className: 'Fighter', armors: [armor] }
   expect(resistances(c, data)).toEqual(expect.arrayContaining([
-    expect.objectContaining({ damage: 'Slashing', value: 4 }),
-    expect.objectContaining({ damage: 'Piercing', value: 4, source: armor.name }),
+    expect.objectContaining({ damage: 'Slashing', value: 5 }),
+    expect.objectContaining({ damage: 'Piercing', value: 5, source: armor.name }),
   ]))
   const wall = { ...c, armors: [{ ...armor, strongholdWallActive: true }] }
   expect(wornArmor(wall, data)).toBeUndefined()

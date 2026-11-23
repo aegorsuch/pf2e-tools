@@ -14,6 +14,9 @@ export const isBastionNamedArmor = (name?: string) =>
   !!name && (Object.hasOwn(BASTION_NAMES, name) || Object.values(BASTION_NAMES).includes(name))
 export const INHERITOR_RUNE_FAMILIES = ['Advancing', 'Fortification', 'Moonweave', 'Sunweave'] as const
 export const isInheritorPlate = (name?: string) => name === 'Bastion Plate of the Inheritor' || name === 'Bastion of the Inheritor'
+export const isHighhelmPlate = (name?: string) => name === 'Highhelm Stronghold Bastion Plate' || name === 'Highhelm Stronghold Plate'
+export const scalingBastionRuneFamilies = (name?: string): readonly string[] =>
+  isInheritorPlate(name) ? INHERITOR_RUNE_FAMILIES : isHighhelmPlate(name) ? ['Fortification', 'Moonweave', 'Sunweave'] : []
 const BODY = /\n\n-{3,}\s*\n\n/
 export const SCALE_OF_IGROON_FORTRESS = 'Scale of Igroon (Fortress Shield)'
 export const isScaleOfIgroonShield = (name?: string) =>
@@ -84,7 +87,8 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
             strength: Number(base.data.strength) + Number(thickening?.[2] ?? 1) } : {}),
           ...(elven ? { named_armor_elven: true, named_armor_material: /\bhigh-grade elven chain\b/i.test(item.description) ? 'High-grade dawnsilver elven chain' : 'Dawnsilver elven chain' } : {}),
           ...(WEAVE_ARMORS.has(item.name) || item.name === 'Immortal Bastion' || isInheritorPlate(item.name) ? { named_armor_material: 'Orichalcum' } : {}),
-          ...(item.name === 'Immortal Bastion' || isInheritorPlate(item.name) ? { automatic_fundamentals: true } : {}),
+          ...(isHighhelmPlate(item.name) ? { named_armor_material: 'Keep Stone' } : {}),
+          ...(item.name === 'Immortal Bastion' || isInheritorPlate(item.name) || isHighhelmPlate(item.name) ? { automatic_fundamentals: true } : {}),
         },
         description: `${item.description}${elven ? `\n\nElven chain construction: ${elven.description.split(BODY)[1]?.trim() ?? elven.description}` : ''}`,
       }]
@@ -110,10 +114,13 @@ export function scaleAncestralEmbrace(entry: ContentEntry | undefined, level: nu
 }
 
 export function scaleInheritorPlate(entry: ContentEntry | undefined, level: number) {
-  if (!entry?.data.named_armor || !isInheritorPlate(entry.name)) return entry
+  if (!entry?.data.named_armor || !scalingBastionRuneFamilies(entry.name).length) return entry
   const fortification = level >= 12
-  return { ...entry, data: { ...entry.data, automatic_property_runes: automaticArmigerRunes(level).join(';'),
-    ...(fortification ? { bulk: Number(entry.data.bulk) + 1, strength: Number(entry.data.strength) + 1 } : {}),
+  const highhelm = isHighhelmPlate(entry.name)
+  return { ...entry, data: { ...entry.data,
+    ...(highhelm ? { named_armor_runes: '', strength: Number(entry.data.strength) - (fortification ? 0 : 1) } : {}),
+    automatic_property_runes: automaticArmigerRunes(level).filter(rune => !highhelm || !rune.startsWith('Advancing')).join(';'),
+    ...(!highhelm && fortification ? { bulk: Number(entry.data.bulk) + 1, strength: Number(entry.data.strength) + 1 } : {}),
   } }
 }
 

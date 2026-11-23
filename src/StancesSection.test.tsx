@@ -94,7 +94,7 @@ it('grants Tenacious Stance at the dedication level, including the dwarf house r
   } finally { updateSettings({ dwarfStalwartDefender: previous }) }
 })
 
-it('requires armor and tracks Tenacious Stance temporary HP immunity across reentry', () => {
+it('requires armor and shows Tenacious Stance temporary HP on reentry', () => {
   const dedication = stance('Stalwart Defender Dedication', 2, ['Dedication'])
   const armor: ContentEntry = { ...stance('Test Plate'), kind: 'armor',
     data: { armor_category: 'Heavy', strength: 18, check_penalty: -3, speed_penalty: -10 } }
@@ -141,13 +141,6 @@ it('requires armor and tracks Tenacious Stance temporary HP immunity across reen
   }
   none()
   expect(temporaryHpGrant(c, entries)).toBeUndefined()
-  expect(c.tenaciousStanceHpImmune).toBe(true)
-  find('Use Tenacious Stance').onChange!(event)
-  expect(temporaryHpGrant(c, entries)).toBeUndefined()
-  find('Tenacious Stance temporary HP immunity').onChange!(event)
-  expect(temporaryHpGrant(c, entries)).toBeUndefined()
-  none()
-  find('Tenacious Stance temporary HP immunity').onChange!(event)
   find('Use Tenacious Stance').onChange!(event)
   expect(temporaryHpGrant(c, entries)?.value).toBe(2)
   expect(temporaryHpGrant({ ...c, armors: [] }, entries)).toBeUndefined()

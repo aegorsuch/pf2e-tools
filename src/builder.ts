@@ -17,7 +17,7 @@ import { createFeatPrerequisiteChecker, featPrerequisiteSources, type Prerequisi
 import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
-import { INHERITOR_RUNE_FAMILIES, isAncestralEmbrace, isInheritorPlate, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { isAncestralEmbrace, isHighhelmPlate, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
@@ -110,7 +110,7 @@ export function temporaryHpGrant(c: Character, entries: ContentEntry[]) {
   const rage = c.raging && (c.className === 'Barbarian' || activeFeatsNamed(c, 'Barbarian Dedication').length > 0)
     ? Math.max(0, c.level + abilityMod(c.abilities.con)) : 0
   const grants: { source: string; value: number }[] = []
-  if (tenaciousStanceActive(c, entries) && c.tenaciousStanceHpGranted)
+  if (tenaciousStanceActive(c, entries))
     grants.push({ source: 'Tenacious Stance', value: Math.max(1, Math.floor(c.level / 2)) })
   if (rage || form?.source === 'Dragon Transformation') {
     grants.push({ source: form?.source === 'Dragon Transformation' ? 'Rage and Dragon Transformation' : 'Rage',
@@ -6420,12 +6420,14 @@ export function effectiveArmor(c: Character, entries: ContentEntry[], armor: Own
   const namedEntry = armorEntry(c, entries, armor.name, armor.id)
   const named = namedArmorEnhancements(namedEntry)
   if (named) {
-    if (isInheritorPlate(armor.name)) {
+    const families = scalingBastionRuneFamilies(armor.name)
+    if (families.length) {
       const automatic = automaticArmorFundamentals(c.level, namedEntry)
       const fixed = automaticArmorPropertyRunes(namedEntry)
-      const remaining = Math.max(0, maxPropertyRunes(automatic.potency, 'Orichalcum') - fixed.length)
-      return { ...armor, material: 'Orichalcum', ...automatic,
-        runes: [...armor.runes.filter(rune => !INHERITOR_RUNE_FAMILIES.some(family => family === runeBaseName(rune))).slice(0, remaining), ...fixed] }
+      const material = isHighhelmPlate(armor.name) ? 'Keep Stone' : 'Orichalcum'
+      const remaining = Math.max(0, maxPropertyRunes(automatic.potency, material) - fixed.length)
+      return { ...armor, material, ...automatic,
+        runes: [...armor.runes.filter(rune => !families.some(family => family === runeBaseName(rune))).slice(0, remaining), ...fixed] }
     }
     const runes = [...new Set([...named.runes, ...armor.runes])]
     const runeLimit = namedArmorRuneLimit(namedEntry)

@@ -819,7 +819,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             {!!activeFeatsNamed(c, 'Stubborn Persistence').length && <SourceNote source="Stubborn Persistence"
               note="When you would become fatigued, succeed at a DC 17 flat check to avoid it. If the underlying cause remains, repeat at a GM-determined interval." />}</b></span>
           {temporaryHp && <span><small>Temporary HP granted</small><b>{temporaryHp.value}
-            <SourceNote source="Temporary HP" note={`${temporaryHp.grants.map(grant => `${grant.source}: ${grant.value}`).join('; ')}. Temporary HP normally does not stack. Remaining HP and expiration are not tracked.`} /></b></span>}
+            <SourceNote source="Temporary HP" note={`${temporaryHp.grants.map(grant => `${grant.source}: ${grant.value}`).join('; ')}. Temporary HP normally does not stack. Remaining HP and expiration are not tracked.${temporaryHp.grants.some(grant => grant.source === 'Tenacious Stance') ? ' After gaining temporary HP from Tenacious Stance, you are immune to its temporary HP for 1 minute; immunity is not tracked.' : ''}`} /></b></span>}
         </div>
         {(['Inner Strength', 'Shake It Off', 'Creature Comforts'].some(name => activeFeatsNamed(c, name).length > 0)
           || !!c.conditions && Object.values(c.conditions).some(value => typeof value === 'number' && value > 0)) && <div className="condition-controls" role="group" aria-label="Conditions">

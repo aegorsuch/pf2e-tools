@@ -3,6 +3,7 @@ import { armorEntry, ownedArmors, ownedShields, runeName, shieldEntry, weaponEnt
 import { withNamedWeaponState } from './namedWeapons'
 import { limitedSpellUses } from './featSpells'
 import { getSettings } from './settings'
+import { isHighhelmPlate } from './namedArmor'
 
 export interface ItemSpell {
   source: ContentEntry
@@ -80,7 +81,7 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
     add(withNamedWeaponState(weaponEntry(entries, weapon.name), weapon, c.level))
     addRunes(weapon.runes)
   }
-  for (const armor of ownedArmors(c, entries)) if (armor.worn) {
+  for (const armor of ownedArmors(c, entries)) if (armor.worn || isHighhelmPlate(armor.name) && armor.strongholdWallActive) {
     add(armorEntry(c, entries, armor.name, armor.id))
     addRunes(armor.runes)
   }
@@ -112,6 +113,7 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
         ...(atWill ? { frequency: 'At will' } : {}),
         ...(costOverride ? { actions: ['', 'Single Action', 'Two Actions', 'Three Actions'][Number(costOverride)] } : {}) })
     }
+    if (isHighhelmPlate(source.name)) addSpell('Wall of Stone', undefined, { actions: 'Three Actions' })
     for (const rule of source.spellGrants ?? []) for (const name of rule.spells) addSpell(name,
       rule.heightened ? Math.ceil(c.level / 2) : rule.rank, { frequency: rule.frequency, condition: rule.condition,
         usageKey: JSON.stringify([source.id, 'grant', rule.spells.map(normalized).sort(), rule.shared || rule.choice ? 'shared' : normalized(name)]) })
