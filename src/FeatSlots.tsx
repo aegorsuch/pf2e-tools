@@ -6,7 +6,7 @@ import { RUNESMITH_RUNES } from './runesmithRunes'
 import { DamageRoll } from './SpellDamage'
 import { PickerDialog } from './PickerDialog'
 import { sortPickerOptions } from './PickerSort'
-import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, isFeatEffectActive, isGrantedSlot, matchesSkill, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, isFeatEffectActive, isGrantedSlot, matchesSkill, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -48,7 +48,7 @@ const LABEL: Record<FeatSlotCategory, string> = {
   class: 'Class', ancestry: 'Ancestry', skill: 'Skill', general: 'General', archetype: 'Dedication', bonus: 'Bonus',
 }
 
-type FeatOption = { entry: ContentEntry; choice?: string; mastermindSkill?: string; value: string; label: string; disabled?: boolean }
+type FeatOption = { entry: ContentEntry; choice?: string; mastermindSkill?: string; methodologySkill?: string; value: string; label: string; disabled?: boolean }
 
 function FeatVariantGroup({ summary, autoOpen, count, renderOptions }: {
   summary: ReactNode; autoOpen: boolean; count: number; renderOptions: (limit: number) => ReactNode
@@ -199,7 +199,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const allSlots = plannedSlots(c, entries)
   const featsByName = featByName(entries)
   const { background, backgroundFeats, grants, automaticFeats, memories, grantedType } = featSectionGrants(c, entries, categories, allSlots)
-  const slots = allSlots.filter((slot) => !categories || categories.includes(slot.category))
+  const slots = allSlots.filter((slot) => !categories || categories.includes(slot.displayCategory ?? slot.category))
     .sort((a, b) => {
       if (a.level !== b.level) return a.level - b.level
       const aFeat = c.feats.find((feat) => feat.slot === a.key)
@@ -224,7 +224,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const aboveLevel = c.feats.filter((f) => {
     if (!f.slot) return false
     const category = f.slot.split(':')[0] as FeatSlotCategory
-    return (!categories || categories.includes(category)) && !allSlots.some((slot) => slot.key === f.slot)
+    return (!categories || categories.includes(allSlots.find(slot => slot.key === f.slot)?.displayCategory ?? category))
+      && !allSlots.some((slot) => slot.key === f.slot)
   })
   const classNames = new Set([c.className, ...entries.filter((entry) => entry.kind === 'class').map((entry) => entry.name)])
   const displayName = (name: string) => adoptedAncestryText(c, featDisplayName(featsByName.get(name), name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : name))
@@ -294,6 +295,13 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           entry, choice, mastermindSkill, disabled, value: JSON.stringify([entry.name, choice, mastermindSkill]),
           label: `${label} (Mastermind - ${mastermindSkill})`,
         }))
+        if (entry.name === 'Versatile Investigator') {
+          const skillChoice = subclassSkillChoice({ ...c, className: 'Investigator', subclass: choice }, entries)
+          if (skillChoice?.options.length) return skillChoice.options.map(methodologySkill => ({
+            entry, choice, methodologySkill, disabled, value: JSON.stringify([entry.name, choice, methodologySkill]),
+            label: `${label} (${choice} - ${methodologySkill})`,
+          }))
+        }
         return [{ entry, choice, disabled, value: JSON.stringify([entry.name, choice]), label: `${label} (${choiceLabel(entry.name, choice)}${noImprovement ? ' - no improvement' : ''})` }]
       })
       : [{ entry, value: entry.name, label, disabled: unmet || !!accessMissing }]
@@ -345,7 +353,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const skippedFeatSlots = (c.skippedFeatSlots ?? []).filter((slot) => slot !== key)
     if ((category === 'archetype' || category === 'ancestry') && name === 'N/A') skippedFeatSlots.push(key)
     saveFeatChanges({ feats, entryIds, skippedFeatSlots,
-      ...(option?.mastermindSkill ? { rogueRacketSkills: { ...c.rogueRacketSkills, Mastermind: option.mastermindSkill } } : {}) })
+      ...(option?.mastermindSkill ? { rogueRacketSkills: { ...c.rogueRacketSkills, Mastermind: option.mastermindSkill } } : {}),
+      ...(option?.methodologySkill && option.choice ? {
+        subclassSkillChoices: { ...c.subclassSkillChoices, [`Investigator:${option.choice}`]: option.methodologySkill },
+      } : {}) })
   }
   const removeExtra = (category: FeatSlotCategory, level: number, key: string) => {
     const index = c.extraSlots.findIndex((slot) => slot.category === category && slot.level === level && slot.count > 0)
@@ -459,7 +470,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             || isFixedAncestralWeaponFamiliarity(c, entries, selection)) ? undefined
             : selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
           const selectedLabel = selection?.name === 'Versatile Rogue' && selectedChoice === 'Mastermind' && c.rogueRacketSkills?.Mastermind
-            ? `Mastermind - ${c.rogueRacketSkills.Mastermind}` : selectedChoice && choiceLabel(selection?.name ?? '', selectedChoice)
+            ? `Mastermind - ${c.rogueRacketSkills.Mastermind}`
+            : selection?.name === 'Versatile Investigator' && selectedChoice && c.subclassSkillChoices?.[`Investigator:${selectedChoice}`]
+              ? `${selectedChoice} - ${c.subclassSkillChoices[`Investigator:${selectedChoice}`]}`
+              : selectedChoice && choiceLabel(selection?.name ?? '', selectedChoice)
           const fixedOrSelectedLabel = selection && (fixedLabel(selection.name, selection.sourceId) ?? selectedLabel)
           const selectedName = selection
             ? `${displayName(selection.name)}${fixedOrSelectedLabel ? ` (${fixedOrSelectedLabel})` : ''}` : current
@@ -566,7 +580,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const training = selection && featTakenLevel(selection) <= c.level
             ? hellknightTrainingBenefit(c, selection.name, selection.choice) : undefined
           const extra = !standardKeys.has(s.key) && !granted
-          const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.category]}`
+          const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.displayCategory ?? s.category]}`
           const grantSource = s.key === TORAG_BOON_FEAT_SLOT ? 'Torag boon' : undefined
           const emptyLabel = grantSource ? `Empty (${grantSource})`
             : s.redundantFeat || s.grantedAncestry && s.grantedBy !== 'Social Chameleon' ? `Empty (${s.grantedBy})`

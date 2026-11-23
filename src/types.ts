@@ -154,7 +154,7 @@ export interface SpellGrant {
   condition?: string
   shared?: boolean
   ability?: keyof Character['abilities']
-  dc?: 'higher-class-or-spell'
+  dc?: 'higher-class-or-spell' | 'class'
 }
 
 export interface ContentEntry {
@@ -194,6 +194,7 @@ export interface Character {
   className?: string
   subclass?: string
   rangerPrecisionHitsThisRound?: number
+  huntPreyActive?: boolean
   fatalMethod?: 'Puppeteer' | 'Reaper'
   heritage?: string
   testSubjectAdaptation?: 'Cybernetic Augmentation' | 'Extra Limbs' | 'Psychic Augmentation' | 'Radioactive'

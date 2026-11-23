@@ -19,7 +19,7 @@ import { DamageRoll } from './SpellDamage'
 import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, WeaponProficiency, RageToggle, SensesAndSpeed, SensesAndSpeedSummary, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsPanel } from './SpellsSection'
-import { DeviseAStratagemToggle, StatusesContent, StatusesSummary } from './StatusesSection'
+import { DeviseAStratagemToggle, HuntPreyToggle, StatusesContent, StatusesSummary } from './StatusesSection'
 import { boneShieldActive, canUseGiantStature, effectiveHandwraps, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, temporaryHpGrant, twinnedDefenseActive } from './builder'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
@@ -66,7 +66,7 @@ const deityLabel = (deity: ContentEntry) => {
     : deity.name
 }
 
-function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, backgroundLores, disabled }: {
+function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, backgroundLores, deityLores, disabled }: {
   label: string
   kind: string
   value?: string
@@ -75,11 +75,12 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
   ancestry?: string
   terrainLore?: Character['backgroundTerrainLore']
   backgroundLores?: Character['backgroundLores']
+  deityLores?: string[]
   disabled?: boolean
 }) {
   const [ready, setReady] = useState(false)
-  const variants = useMemo<BackgroundVariant[]>(() => kind === 'background' ? backgroundVariants(options)
-    : options.map(background => ({ value: background.name, background })), [options, kind])
+  const variants = useMemo<BackgroundVariant[]>(() => kind === 'background' ? backgroundVariants(options, deityLores)
+    : options.map(background => ({ value: background.name, background })), [options, kind, deityLores])
   const selectedLore = backgroundLores?.[value ?? '']?.[0]
     ?? (terrainLore?.[value ?? ''] ? `${terrainLore[value ?? '']} Lore` : undefined)
   const selectedValue = variants.find(option => option.background.name === value
@@ -585,12 +586,12 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
   const ancestrySlots = featSlots.filter(slot => slot.category === 'ancestry')
   const ancestryGranted = ancestryGrants.backgroundFeats.length + ancestryGrants.automaticFeats.length + ancestryGrants.memories.length
   const ancestryFilled = ancestrySlots.filter(slot => c.feats.some(feat => feat.slot === slot.key)).length + ancestryGranted
-  const classSlots = featSlots.filter(slot => slot.category === 'class')
+  const classSlots = featSlots.filter(slot => (slot.displayCategory ?? slot.category) === 'class')
   const classFilled = classSlots.filter(slot => c.feats.some(feat => feat.slot === slot.key)).length
 
   const featSection = (category: 'general' | 'skill' | 'archetype') => {
     const title = { general: 'General Feats', skill: 'Skill Feats', archetype: 'Dedications' }[category]
-    const slots = featSlots.filter((slot) => slot.category === category)
+    const slots = featSlots.filter((slot) => (slot.displayCategory ?? slot.category) === category)
     const filled = slots.filter((slot) => c.feats.some((f) => f.slot === slot.key) || c.skippedFeatSlots?.includes(slot.key)).length
     const granted = category === 'archetype' ? 0
       : [...featGrants.backgroundFeats, ...featGrants.automaticFeats]
@@ -704,14 +705,14 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
         </summary>
         <div className="character-section-content">
           <Pick label="Background" kind="background" value={c.background} options={of('background')} terrainLore={c.backgroundTerrainLore}
-            backgroundLores={c.backgroundLores}
+            backgroundLores={c.backgroundLores} deityLores={availableDeityLores}
             onChange={(background, terrain, lore, custom) => save({ background, ...(background && terrain
               ? { backgroundTerrainLore: { ...c.backgroundTerrainLore, [background]: terrain } } : {}),
             ...(background && (lore || custom) ? { backgroundLores: { ...c.backgroundLores, [background]: [lore ?? ''] } } : {}) })} />
           {background && <BackgroundDetails entry={background} label={backgroundLabel(background.name)} />}
           {freeHeart && <Pick label="Free Heart background" kind="background" value={freeHeart.choice}
             options={of('background').filter(entry => freeHeartOptions?.has(entry.name))}
-            terrainLore={c.backgroundTerrainLore} backgroundLores={c.backgroundLores}
+            terrainLore={c.backgroundTerrainLore} backgroundLores={c.backgroundLores} deityLores={availableDeityLores}
             onChange={(choice, terrain, lore, custom) => save({ feats: c.feats.map(feat => feat === freeHeart ? { ...feat, choice } : feat),
               ...(choice && terrain ? { backgroundTerrainLore: { ...c.backgroundTerrainLore, [choice]: terrain } } : {}),
               ...(choice && (lore || custom) ? { backgroundLores: { ...c.backgroundLores, [choice]: [lore ?? ''] } } : {}) })} />}
@@ -725,6 +726,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <strong>Class</strong>
           <span>{classLabel(c, entries) || 'Choose class'}{classSlots.length > 0 && `, ${classFilled}/${classSlots.length}`}</span>
           <RageToggle {...section} summary />
+          <HuntPreyToggle {...section} summary />
           <DeviseAStratagemToggle {...section} summary />
         </summary>
         <div className="character-section-content">

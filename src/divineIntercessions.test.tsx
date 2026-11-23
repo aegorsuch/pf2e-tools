@@ -271,14 +271,14 @@ it('adds Sarenrae fire damage alongside existing runes in both attack views, inc
   }
 })
 
-it('adds Sarenrae extra fire only to spell attacks, not healing or ordinary save spells', () => {
+it('does not show Sarenrae weapon damage as a spell bonus', () => {
   const grant: ContentEntry = { ...deity('Granted Spells'), kind: 'feat',
     spellGrants: [{ kind: 'innate', spells: ['Test Spell'], tradition: 'divine' }] }
   const c = { ...character('Sarenrae', { Sarenrae: ['moderate-boon'] }),
     feats: [{ name: grant.name, type: 'Ancestry Feat', level: 1 }] }
   const spell: ContentEntry = { ...deity('Test Spell'), kind: 'spell', level: 1 }
   const render = (entry: ContentEntry) => renderToStaticMarkup(<SpellsSection c={c} entries={[grant, entry]} save={() => {}} />)
-  expect(render({ ...spell, traits: ['Attack'] })).toContain('This additional fire damage ignores fire resistance.')
+  expect(render({ ...spell, traits: ['Attack'] })).not.toContain('This additional fire damage ignores fire resistance.')
   expect(render({ ...spell, data: { saving_throw: 'Will' } })).not.toContain('This additional fire damage ignores fire resistance.')
   expect(render(spell)).not.toContain('This additional fire damage ignores fire resistance.')
 })

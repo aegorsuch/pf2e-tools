@@ -71,6 +71,7 @@ it('toggles Devise a Stratagem from the class summary and Statuses', () => {
         result = child.props.onChange as typeof result
       else result ??= findToggle(child.props.children as ReactNode)
     })
+
     return result
   }
   const summaryToggle = DeviseAStratagemToggle({ c, save, summary: true })
@@ -86,6 +87,21 @@ it('toggles Devise a Stratagem from the class summary and Statuses', () => {
   statusChange({ target: { checked: false } })
   expect(c.deviseAStratagemActive).toBe(false)
   expect(DeviseAStratagemToggle({ c: { ...c, className: 'Ranger' }, save })).toBeNull()
+})
+
+it.each([
+  { className: 'Rogue', subclass: 'Thief' },
+  { className: 'Rogue', subclass: 'Avenger' },
+])('shows Poison Weapon doses in Statuses for $subclass', ({ className, subclass }) => {
+  const c: Character = { id: 'poison-status', name: 'Test', systems: ['pf2e'], level: 8, className, subclass,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [
+      { name: 'Poison Weapon', type: 'Class Feat', level: 4 },
+    ], simplePoisonsSpent: 3, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const content = renderToStaticMarkup(<StatusesContent c={c} entries={[]} save={() => {}} />)
+  expect(content).toContain('Simple injury poisons')
+  expect(content).toContain('5/8 remaining; 1d4 poison damage')
+  const summary = renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={() => {}} />)
+  expect(summary).toContain('Simple poisons 5/8 remaining')
 })
 
 it('renders each available status in its own alphabetical row', () => {

@@ -404,6 +404,43 @@ it("offers Trickster's Ace only single-target spells that meet its preparation r
   expect(emptySlot).toContain('aria-pressed="true">Class Spells</button>')
 })
 
+it('adds Loaner Spell as a once-daily Class Spells choice through rank 3', () => {
+  const c: Character = { ...base, level: 10, boosts: { class: 'str' }, feats: [taken('Loaner Spell', 1, 'Save spell')] }
+  const fighter = entry('Fighter', 'class', { attribute: 'Strength' })
+  const spells = [
+    { ...entry('Target spell', 'spell', { tradition: 'Arcane', target: '1 creature' }), level: 1 },
+    { ...entry('Area spell', 'spell', { tradition: 'Divine', area: '10-foot burst' }), level: 3 },
+    { ...entry('Save spell', 'spell', { tradition: 'Occult', target: '1 creature', saving_throw: 'Reflex' }), level: 2 },
+    { ...entry('Attack spell', 'spell', { tradition: 'Arcane', target: '1 creature' }, ['Attack']), level: 1 },
+    { ...entry('No-target spell', 'spell', { tradition: 'Occult' }), level: 2 },
+    { ...entry('Cantrip', 'spell', { tradition: 'Primal', target: '1 creature' }, ['Cantrip']), level: 0 },
+    { ...entry('Focus spell', 'spell', { tradition: 'Primal', target: '1 creature' }, ['Focus']), level: 1 },
+    { ...entry('Rank four spell', 'spell', { tradition: 'Arcane', target: '1 creature' }), level: 4 },
+    { ...entry('Starfinder spell', 'spell', { tradition: 'Arcane', target: '1 creature' }), level: 2, systems: ['sf2e' as const] },
+    fighter,
+  ]
+  expect(featSpellOptions(c, spells, c.feats[0])?.map(spell => spell.name))
+    .toEqual(['Area spell', 'Attack spell', 'Save spell', 'Target spell'])
+  const grant = grantedFeatSpells(c, spells)[0]
+  expect(grant).toMatchObject({ entry: { name: 'Save spell' }, source: 'Loaner Spell', rank: 2,
+    rule: { kind: 'feat', frequency: 'once per day', fixedRank: true, dc: 'class' } })
+  expect(dailyInnateUses(c, grant)?.limit).toBe(1)
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
+  expect(markup).toContain('aria-pressed="true">Class Spells</button>')
+  expect(markup).not.toContain('>Feat Spells</button>')
+  expect(markup).toContain('aria-label="Loaner Spell"')
+  expect(markup).toContain('Loaner Spell · Spell Rank 2')
+  expect(markup).toContain('aria-label="1 of 1 uses remaining"')
+  expect(markup).toContain(`<small>Save</small>Reflex DC ${classDifficultyClass(c, spells)}`)
+  const attackMarkup = renderToStaticMarkup(<SpellsSection
+    c={{ ...c, feats: [taken('Loaner Spell', 1, 'Attack spell')] }} entries={spells} save={() => {}} />)
+  expect(attackMarkup).toContain(`<small>Save</small>AC, +${classDifficultyClass(c, spells)! - 10}`)
+
+  const emptySlot = renderToStaticMarkup(<SpellsSection c={{ ...c, feats: [taken('Loaner Spell')] }} entries={spells} save={() => {}} />)
+  expect(emptySlot).toContain('aria-label="Loaner Spell"')
+  expect(emptySlot).toContain('aria-pressed="true">Class Spells</button>')
+})
+
 it('provides Divine and Occult cantrip slots for Esoterica in Spells', () => {
   const divine = { ...entry('Divine Cantrip', 'spell', { tradition: 'Divine' }, ['Cantrip']), level: 0 }
   const occult = { ...entry('Occult Cantrip', 'spell', { tradition: 'Occult' }, ['Cantrip']), level: 0 }

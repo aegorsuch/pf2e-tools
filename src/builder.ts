@@ -261,6 +261,7 @@ export function boostSlots(c: Character, entries: ContentEntry[]): BoostSlot[] {
   const klass = byName(entries, 'class', c.className)
   if (klass) {
     const opts = parseAbilities(klass.data.attribute)
+    if (c.className === 'Rogue' && rogueRackets(c, entries).includes('Avenger') && !opts.includes('str')) opts.push('str')
     slots.push({
       key: 'class', label: 'Class key attribute', fixed: opts.length === 1 ? opts[0] : undefined,
       options: opts.length > 1 ? opts : undefined, group: 'class',
@@ -370,7 +371,7 @@ export function duplicateBoosts(c: Character, entries: ContentEntry[]) {
 
 // ---------- Feat slots ----------
 
-export interface PlannedSlot { key: string; category: FeatSlotCategory; level: number; maxFeatLevel?: number; grantedBy?: string; grantedOrder?: string; grantedSkill?: string; grantedAncestry?: string; grantedFeat?: string; redundantFeat?: string }
+export interface PlannedSlot { key: string; category: FeatSlotCategory; displayCategory?: FeatSlotCategory; level: number; maxFeatLevel?: number; grantedBy?: string; grantedOrder?: string; grantedSkill?: string; grantedAncestry?: string; grantedFeat?: string; redundantFeat?: string }
 
 const range = (from: number, to: number, step = 1) => {
   const out: number[] = []
@@ -710,6 +711,7 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
       counters.set(id, n + 1)
       const archetype = s.category === 'class' && s.level === 2 && n === 0 ? selectedClassArchetype(c, entries) : undefined
       slots.push({ key: `${id}:${n}`, category: s.category, level: s.level,
+        ...(archetype?.name === 'Avenger' ? { displayCategory: 'archetype' as const } : {}),
         ...(archetype ? { grantedBy: archetype.name, grantedFeat: `${archetype.name} Dedication` } : {}) })
     }
     if (barbarianInstinct(c, entries) === 'fury') {
@@ -1784,6 +1786,10 @@ export function rogueRackets(c: Character, entries: ContentEntry[]) {
   const taken = [primary, ...activeFeatsNamed(c, 'Versatile Rogue').map(feat => feat.choice)]
   return [...new Set(taken.filter((name): name is string => !!name && ROGUE_RACKETS.some(racket => racket === name)))]
 }
+
+export function hasHuntPrey(c: Character, entries: ContentEntry[]) {
+  return c.systems.includes('pf2e') && (c.className === 'Ranger' || rogueRackets(c, entries).includes('Avenger'))
+}
 const ANCESTRY_SKILL_GRANTS: Record<string, { skill: string; feat?: string }> = {
   Pitborn: { skill: 'Athletics' },
   "Caretaker's Intuition": { skill: 'Nature' },
@@ -2549,6 +2555,8 @@ export function cannyAcumenOptions(c: Character, entries: ContentEntry[]) {
 }
 
 const hasFeat = (c: Character, name: string) => c.feats.some((f) => f.name === name)
+const hasActiveFeatVariant = (c: Character, name: string) => c.feats.some(feat => featTakenLevel(feat) <= c.level
+  && (feat.name === name || feat.name.startsWith(`${name} (`)))
 
 export const FAVORED_TERRAINS = ['Aquatic', 'Arctic', 'Desert', 'Forest', 'Mountain', 'Plains', 'Sky', 'Swamp', 'Underground']
 
@@ -3047,7 +3055,7 @@ export function intensifiedElementDamage(c: Character, entries: ContentEntry[]) 
 }
 
 function twinParryValue(c: Character, entries: ContentEntry[]) {
-  if (!activeFeatsNamed(c, 'Twin Parry').length) return 0
+  if (!activeFeatsNamed(c, 'Twin Parry').length && !activeFeatsNamed(c, 'Twin Parry (Avenger)').length) return 0
   const meleeWeapons = ownedWeapons(c, entries).filter(weapon => {
     const entry = weaponEntry(entries, weapon.name, weapon.id)
     const melee = /melee/i.test(String(entry?.data.weapon_type ?? '')) || !isRanged(entry)
@@ -3079,7 +3087,8 @@ function parryFeatEntries(c: Character, entries: ContentEntry[]) {
 }
 
 export function parryValue(c: Character, entries: ContentEntry[]) {
-  const featEntries = parryFeatEntries(c, entries).filter(entry => !['Twin Parry', 'Defensive Gunner'].includes(entry.name))
+  const featEntries = parryFeatEntries(c, entries).filter(entry =>
+    !['Twin Parry', 'Twin Parry (Avenger)', 'Defensive Gunner'].includes(entry.name))
   const hasWeapon = hasParryWeapon(c, entries)
   if (!hasWeapon) return 0
   const featBonus = featEntries.reduce((best, entry) => Math.max(best, parryBonusFromText(entry.description)), 0)
@@ -3478,6 +3487,7 @@ export function autoClassSkills(c: Character, entries: ContentEntry[]) {
     ...(rackets.includes('Ruffian') ? ['Intimidation'] : []),
     ...(rackets.includes('Scoundrel') ? ['Deception', 'Diplomacy'] : []),
     ...(rackets.includes('Mastermind') ? ['Society', ...(extra && SCRAPPER_SKILLS.includes(extra) ? [extra] : [])] : []),
+    ...(rackets.includes('Avenger') ? ['Intimidation', 'Religion', 'Stealth'] : []),
   ]
   return [...new Set([...fixed, ...(picked ? [picked] : []), ...subclassSkillGrants(c, entries), ...explored, ...divine, ...racketSkills])]
 }
@@ -3615,10 +3625,14 @@ export const backgroundHasTerrainLore = (bg?: ContentEntry) =>
 
 export type BackgroundVariant = { value: string; background: ContentEntry; terrain?: string; lore?: string; custom?: boolean }
 
-export function backgroundVariants(options: ContentEntry[], _lores: string[] = []) {
+export function backgroundVariants(options: ContentEntry[], deityLores: string[] = []) {
   return options.filter(background => !background.data.background_choice_required)
     .flatMap<BackgroundVariant>(background => {
-      const available = backgroundLoreOptions(background)
+      const deityRelated = /\b(?:deity|deities|god|religion|cult|philosophy)\b/i.test(String(background.data.skill ?? ''))
+      const available = [...new Set([
+        ...backgroundLoreOptions(background),
+        ...(deityRelated ? deityLores.filter(lore => /^.+ Lore$/i.test(lore)) : []),
+      ])]
       return backgroundLoreCount(background) === 1 && available.length
         ? available.map(lore => ({ value: `${background.name} (${lore})`, background, lore }))
         : [{ value: background.name, background }]
@@ -4761,6 +4775,7 @@ export function unconventionalWeaponChoice(entries: ContentEntry[], name: string
   const entry = weaponEntry(entries, name)
   if (entry?.data.named_weapon_source === 'Coldstar Pistols') return String(entry.data.named_weapon_base ?? 'Dueling Pistol')
   if (typeof entry?.data.proficiency_base === 'string') return entry.data.proficiency_base
+  if (typeof entry?.data.named_weapon_base === 'string') return entry.data.named_weapon_base
   return entry?.data.weapon_grade_family === 'homebrew:slarp-rapid-laser-pistol'
     ? 'Rapid Laser Pistol' : combinationName(entries, name)
 }
@@ -4775,9 +4790,7 @@ function unconventionalWeapon(c: Character, entries: ContentEntry[], weapon: Con
     const family = weaponGradeFamily(resolved)
     if (resolved?.systems.includes('sf2e') && usesWeaponUpgrades(resolved) && family)
       return `sf2e:${family}`
-    const normalized = weaponEntry(entries, value)?.data.named_weapon_source === 'Coldstar Pistols'
-      ? unconventionalWeaponChoice(entries, value) : value
-    return combinationName(entries, normalized)
+    return combinationName(entries, unconventionalWeaponChoice(entries, value))
   }
   return activeFeatsNamed(c, 'Unconventional Weaponry').find(feat => !!feat.choice && identity(feat.choice) === identity(name)
     && (uncommonWeapon(proficiencyWeapon) || !featRarity(proficiencyWeapon)
@@ -7621,7 +7634,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     !!w.livingWeapon && activeFeatsNamed(c, 'Tethered Living Weapon').length > 0 && canBeLivingWeapon(c, entries, w)
     || !!w.verdantWeapon && activeFeatsNamed(c, 'Tethered Verdant Weapon').length > 0 && canBeVerdantWeapon(c, entries, w)
     || !!w.osteoArmament && activeFeatsNamed(c, 'Tethered Osteo Weapon').length > 0 && canBeOsteoArmament(c, entries, w)
-    || activeFeatsNamed(c, 'Tethered Favored Weapon').length > 0 && isFavoredWeapon(c, entries, w.name))
+    || hasActiveFeatVariant(c, 'Tethered Favored Weapon') && isFavoredWeapon(c, entries, w.name))
   if (tethered && entry && !entry.traits.some(trait => /^tethered$/i.test(trait.trim()))) {
     entry = { ...entry, traits: [...entry.traits, 'Tethered'] }
   }
@@ -7715,7 +7728,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   ) - damagePenalty
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
-    c.level >= 4 && hasFeat(c, 'Favored Weapon Jousting') && isFavoredWeapon(c, entries, livingSource?.name ?? w.name)
+    c.level >= 4 && hasActiveFeatVariant(c, 'Favored Weapon Jousting') && isFavoredWeapon(c, entries, livingSource?.name ?? w.name)
     || c.level >= 4 && hasFeat(c, 'Verdant Weapon Jousting') && !!livingSource?.verdantWeapon && canBeVerdantWeapon(c, entries, livingSource)
     || c.level >= 4 && activeFeatsNamed(c, 'Weapon Innovation Jousting').length > 0
       && !!livingSource?.inventorInnovation && canBeWeaponInnovation(c, entries, livingSource)

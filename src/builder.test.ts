@@ -2,7 +2,7 @@ import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQue
 import { mapAonHit } from './aon'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
@@ -13,6 +13,21 @@ import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
   id: `${kind}:${name}`, systems: ['pf2e'], kind, source: 'official', name, level, traits, description: '', data, effects: [], updatedAt: 1,
+})
+
+it('matches named Clawed Gauntlet variants to their Unconventional Weaponry base', () => {
+  const claw = entry('weapon', 'Clawed Gauntlet', { weapon_type: 'Melee', weapon_category: 'Martial', damage: '1d4 slashing' }, 1, ['Uncommon'])
+  const variant = (prefix: string) => entry('weapon', `${prefix} Clawed Gauntlet`, {
+    ...claw.data, named_weapon: true, named_weapon_source: `${prefix} Gauntlet`, named_weapon_base: claw.name,
+  }, 11, ['Uncommon'])
+  const variants = ['Scalding', 'Corroding', 'Freezing', 'Shocking'].map(variant)
+  const entries = [claw, ...variants]
+  const feat = { name: 'Unconventional Weaponry', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0',
+    choice: claw.name, culturalWeapon: true }
+  const c: Character = { ...base, className: 'Wizard', ancestry: 'Human', level: 2, feats: [feat] }
+  for (const weapon of variants) expect(unconventionalWeaponChoice(entries, weapon.name)).toBe(claw.name)
+  expect(featChoiceOptions(feat.name, c, entries, feat.slot, 0)).toEqual([claw.name])
+  expect(weaponAccessSources(c, entries, variants[2])).toContain('Unconventional Weaponry')
 })
 
 it('grants Tattooed Historian a trained skill token and preserves legacy choices', () => {
@@ -1950,6 +1965,19 @@ describe('ancestryLabel', () => {
 })
 
 describe('computeAbilities', () => {
+  it('lets the Avenger racket choose Strength as a Rogue key attribute', () => {
+    const rogue = entry('class', 'Rogue', { attribute: 'Dexterity' })
+    const c: Character = { ...base, className: 'Rogue', subclass: 'Avenger', boosts: { class: 'str' } }
+    const classBoost = boostSlots(c, [rogue]).find(slot => slot.key === 'class')!
+    expect(classBoost.options).toEqual(['dex', 'str'])
+    expect(computeAbilities(c, [rogue]).str).toBe(12)
+    const versatileAvenger = { ...c, level: 10, subclass: 'Thief', feats: [
+      { name: 'Versatile Rogue', type: 'Class Feat', level: 10, choice: 'Avenger' },
+    ] }
+    expect(boostSlots(versatileAvenger, [rogue]).find(slot => slot.key === 'class')?.options).toEqual(['dex', 'str'])
+    expect(boostSlots({ ...c, subclass: 'Thief' }, [rogue]).find(slot => slot.key === 'class')?.options).toBeUndefined()
+  })
+
   it('reaches 21 Intelligence with the Lizardfolk flaw or 22 with alternate ancestry boosts at level 20', () => {
     const lizard = entry('ancestry', 'Lizardfolk', { attribute: 'Strength, Wisdom, Free', attribute_flaw: 'Intelligence' })
     const necromancer = entry('class', 'Necromancer', { attribute: 'Intelligence' })

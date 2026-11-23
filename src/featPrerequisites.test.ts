@@ -8,6 +8,7 @@ import * as featSpells from './featSpells'
 import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
 import { normalizeConditionalSkillChoices, skillRankBudget } from './builder'
+import { featSectionGrants } from './FeatSlots'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry =>
   ({ id: `${kind}:${name}`, systems: ['pf2e'], kind, source: 'official', name, data, level, traits, description: '', effects: [], updatedAt: 1 })
@@ -270,6 +271,7 @@ it.each([
   const synced = { ...c, ...syncClassArchetypeDedication(c, [dedication]) }
   const slot = plannedSlots(synced, [dedication]).find(item => item.key === 'class:2:0')!
   expect(slot.grantedFeat).toBe(dedication.name)
+  expect(slot.displayCategory).toBe(name === 'Avenger' ? 'archetype' : undefined)
   expect(synced.feats).toEqual([{ name: dedication.name, type: 'Class Feat', level: 2, slot: slot.key, sourceId: dedication.id }])
   expect(featSelectionPrerequisiteChecker(synced, [dedication], slot)(dedication)).toEqual({ missing: [], manual: [] })
   expect(featPrerequisiteChecker({ ...synced, subclass: '' }, [dedication])(dedication).missing).toEqual([name])
@@ -1266,6 +1268,18 @@ it('grants both prescient feats at the level Predictive Purchase is taken', () =
     { name: 'Prescient Consumable', source: 'Predictive Purchase', level: 10 },
   ]))
   expect(automaticFeatGrants({ ...c, level: 9 }, [])).toEqual([])
+})
+
+it('shows Predictive Purchase grants in General Feats, matching their official traits', () => {
+  const c: Character = { ...base, className: 'Investigator', level: 10, feats: [selected('Predictive Purchase', 6)] }
+  const entries = [
+    entry('feat', 'Predictive Purchase', { class: 'Investigator' }, 6, ['Investigator']),
+    entry('feat', 'Prescient Planner', {}, 3, ['General']),
+    entry('feat', 'Prescient Consumable', {}, 7, ['General']),
+  ]
+  expect(featSectionGrants(c, entries, ['general']).automaticFeats.map(feat => feat.name))
+    .toEqual(['Prescient Planner', 'Prescient Consumable'])
+  expect(featSectionGrants(c, entries, ['skill']).automaticFeats).toEqual([])
 })
 
 it('enforces the Rogue sneak attack dice prerequisite at the selection level', () => {

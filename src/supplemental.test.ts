@@ -94,6 +94,28 @@ it('offers favored weapon symbol and jousting to clerics as well as champions', 
   expect(eligibleFeats(entries, { ...base, className: 'Fighter' }, firstSlot)).not.toContain(symbol)
 })
 
+it.each([
+  ['Vindicator', 'Ranger', 'Vindication'],
+  ['Avenger', 'Rogue', 'Avenger'],
+])('offers favored-weapon feat variants to %s only after its dedication', (archetype, className, subclass) => {
+  const entries = homebrewCharacterOptions([])
+  const symbol = entries.find(entry => entry.name === `Favored Weapon Symbol (${archetype})`)!
+  const jousting = entries.find(entry => entry.name === `Favored Weapon Jousting (${archetype})`)!
+  const tethered = entries.find(entry => entry.name === `Tethered Favored Weapon (${archetype})`)!
+  const slot = { category: 'class' as const, level: 4, key: 'class:4:0' }
+  const c: Character = { ...base, className, subclass, level: 4,
+    feats: [{ name: `${archetype} Dedication`, type: 'Class Feat', level: 2, slot: 'class:2:0' },
+      { name: symbol.name, type: 'Class Feat', level: 1, slot: 'class:1:0' }] }
+  const generated = [symbol, jousting, tethered]
+  expect(symbol).toMatchObject({ level: 1, traits: [archetype], data: { class: className, archetype } })
+  expect(jousting).toMatchObject({ level: 4, data: { class: className, archetype, prerequisite: symbol.name } })
+  expect(tethered).toMatchObject({ level: 20, data: { class: className, archetype } })
+  expect(eligibleFeats(generated, c, slot)).toContain(jousting)
+  expect(eligibleFeats(generated, { ...c, feats: [] }, slot)).not.toContain(jousting)
+  expect(eligibleFeats(generated, { ...c, className: className === 'Ranger' ? 'Fighter' : 'Investigator' }, slot))
+    .not.toContain(jousting)
+})
+
 it('offers Divine Certitude to clerics at level 12 with Divine Insight', () => {
   const options = homebrewCharacterOptions([])
   const feat = options.find(entry => entry.id === 'homebrew:divine-certitude')!
@@ -440,24 +462,38 @@ it('provides ranger copies of the druid feats without changing their rules', () 
     .toBe('homebrew:ranger-timeless-nature')
 })
 
-it('copies Twinned Defense for Ranger without changing Fighter rules or archetype access', () => {
+it('copies Twinned Defense for Ranger and adds Avenger Twin Parry stance options', () => {
   const original: ContentEntry = { ...HAFT_STRIKER_WEAPON, id: 'twinned-defense', kind: 'feat', name: 'Twinned Defense (Fighter)',
     level: 16, traits: ['Fighter', 'Stance'],
     description: 'Twinned Defense (Fighter)\n\nArchetypes Dual-Weapon Warrior (Level 18)\n\nGain the benefits of Twin Parry while in this stance.',
     data: { class: 'Fighter', actions: 'Single Action', prerequisite: 'Twin Parry', requirements: 'Wielding two melee weapons',
       archetype: 'Dual-Weapon Warrior', archetype_levels: 'Dual-Weapon Warrior=18' } }
+  const twinParry: ContentEntry = { ...original, id: 'twin-parry', name: 'Twin Parry', level: 4, traits: ['Fighter', 'Ranger'],
+    description: 'You gain a +1 circumstance bonus to AC.', data: { class: 'Ranger' } }
   const before = JSON.stringify(original)
-  const copy = homebrewCharacterOptions([original]).find(entry => entry.name === 'Twinned Defense Stance')!
+  const options = homebrewCharacterOptions([original, twinParry])
+  const copy = options.find(entry => entry.name === 'Twinned Defense Stance')!
+  const avengerTwinParry = options.find(entry => entry.id === 'homebrew:avenger-twin-parry')!
+  const avengerStance = options.find(entry => entry.id === 'homebrew:avenger-twinned-defense-stance')!
   expect(copy).toMatchObject({ level: 16, source: 'homebrew', traits: ['Stance', 'Ranger'],
     description: 'Twinned Defense Stance\n\nGain the benefits of Twin Parry while in this stance.',
     data: { class: 'Ranger', prerequisite: 'Twin Parry', actions: 'Single Action', requirements: original.data.requirements } })
   expect(copy.data.archetype).toBeUndefined()
   expect(copy.data.archetype_levels).toBeUndefined()
+  expect(avengerTwinParry).toMatchObject({ name: 'Twin Parry (Avenger)', level: 4, source: 'homebrew',
+    traits: ['Avenger'], data: { class: 'Rogue', archetype: 'Avenger' } })
+  expect(avengerStance).toMatchObject({ name: 'Twinned Defense Stance (Avenger)', level: 16, source: 'homebrew',
+    traits: ['Stance', 'Avenger'], data: { class: 'Rogue', archetype: 'Avenger', prerequisite: 'Twin Parry (Avenger)' } })
+  expect(avengerStance.description).toContain('Twin Parry (Avenger)')
+  const avenger = { ...base, className: 'Rogue', subclass: 'Avenger', level: 16,
+    feats: [{ name: 'Avenger Dedication', type: 'Class Feat', level: 2 },
+      { name: 'Twin Parry (Avenger)', type: 'Class Feat', level: 4 }] }
+  const avengerEntries = [avengerTwinParry, avengerStance]
+  expect(eligibleFeats(avengerEntries, avenger, { key: 'class:16:0', category: 'class', level: 16 })).toContain(avengerStance)
   const c: Character = { ...base, level: 16, feats: [{ name: 'Twin Parry', type: 'Class Feat', level: 4 }] }
-  const twin: ContentEntry = { ...original, id: 'twin-parry', name: 'Twin Parry', level: 4, traits: ['Fighter', 'Ranger'], data: {} }
   const slot = { key: 'class:16:0', category: 'class' as const, level: 16 }
-  expect(eligibleFeats([original, copy], c, slot)).toContain(copy)
-  expect(eligibleFeats([copy, twin], { ...c, feats: [] }, slot)).not.toContain(copy)
+  expect(eligibleFeats([original, copy, twinParry], c, slot)).toContain(copy)
+  expect(eligibleFeats([copy, twinParry], { ...c, feats: [] }, slot)).not.toContain(copy)
   expect(eligibleFeats([copy], { ...c, className: 'Fighter' }, slot)).not.toContain(copy)
   expect(JSON.stringify(original)).toBe(before)
 })

@@ -997,6 +997,26 @@ it('offers Mastermind skill variants and saves the chosen skill with its racket'
   } finally { updateSettings(settings) }
 })
 
+it('offers Versatile Investigator methodology skill variants in its feat picker', () => {
+  const feat: ContentEntry = { id: 'versatile-investigator', name: 'Versatile Investigator', kind: 'feat',
+    source: 'homebrew', systems: ['pf2e'], level: 10, traits: ['Investigator'], description: '',
+    data: { repeatable: true }, effects: [], updatedAt: 0 }
+  const methods: ContentEntry[] = ['Forensic Medicine', 'Empiricism'].map(name => ({
+    id: name, systems: ['pf2e'], kind: 'subclass', source: 'official', name, level: 1,
+    traits: [], description: `${name} methodology benefits.`, data: { class: 'Investigator' }, effects: [], updatedAt: 0,
+  }))
+  let c: Character = { ...emptyRanger(), className: 'Investigator', subclass: 'Forensic Medicine', level: 10 }
+  const entries = [feat, ...methods]
+  const tree = () => FeatSlots({ c, entries, categories: ['class'], save: patch => { c = { ...c, ...patch } },
+    search: { 'class:10:0:open': '1', 'class:10:0:query': '' }, onSearch: () => {} })
+  const label = 'L10 Class: Versatile Investigator (Empiricism - Arcana)'
+  expect(renderToStaticMarkup(tree())).toContain(label)
+  findButton(tree(), label)!()
+  expect(c.feats).toContainEqual(expect.objectContaining({ name: feat.name, choice: 'Empiricism' }))
+  expect(c.subclassSkillChoices?.['Investigator:Empiricism']).toBe('Arcana')
+  expect(renderToStaticMarkup(tree())).toContain('Versatile Investigator (Empiricism - Arcana)')
+})
+
 it.each([
   ['Aringeld', 'Steelhilt', 'Diplomacy, Society, Mercantile Lore'],
   ['Breakiron', 'Steelhilt', 'Crafting, Survival, Alchemy Lore'],

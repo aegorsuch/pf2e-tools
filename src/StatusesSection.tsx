@@ -1,17 +1,23 @@
-import { activeFeatsNamed, activeStance, conditionValue, knowsSpell, type SectionProps } from './builder'
+import { activeFeatsNamed, activeStance, conditionValue, hasHuntPrey, knowsSpell, type SectionProps } from './builder'
 import { grantedFeatSpells } from './featSpells'
 import { RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
 import { automatedSpellStatusControls, ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
+import { SimplePoisons } from './GearSection'
 
 const canDeviseAStratagem = (c: SectionProps['c']) => c.systems.includes('pf2e') && c.className === 'Investigator'
 
 export function StatusesSummary({ c, entries }: SectionProps) {
   const stance = activeStance(c, entries)
+  const simplePoisons = activeFeatsNamed(c, 'Poison Weapon').length > 0
+    ? `Simple poisons ${Math.max(0, c.level - Math.max(0, Math.min(c.level, Math.floor(c.simplePoisonsSpent ?? 0))))}/${c.level} remaining`
+    : undefined
   const active = [
     ...(canDeviseAStratagem(c) && c.deviseAStratagemActive ? ['Devise a Stratagem'] : []),
+    ...(hasHuntPrey(c, entries) && c.huntPreyActive ? ['Hunt Prey'] : []),
     ...(c.raging ? ['Rage'] : []),
     ...(stance ? [stance.name] : []),
+    ...(simplePoisons ? [simplePoisons] : []),
     ...c.activeSpells ?? [],
     ...c.activeFeatEffects ?? [],
     ...(c.zealousConvictionRank !== undefined ? ['Zealous Conviction'] : []),
@@ -32,12 +38,25 @@ export function DeviseAStratagemToggle({ c, save, summary = false }: Pick<Sectio
     : toggle
 }
 
+export function HuntPreyToggle({ c, entries, save, summary = false }: SectionProps & { summary?: boolean }) {
+  if (!hasHuntPrey(c, entries)) return null
+  const toggle = <label><input type="checkbox" aria-label="Hunt Prey active" checked={!!c.huntPreyActive}
+    onChange={event => save({ huntPreyActive: event.target.checked })} /> Hunt Prey</label>
+  return summary
+    ? <span className="combat-summary-toggles" onClick={event => event.stopPropagation()}>{toggle}</span>
+    : toggle
+}
+
 export function StatusesContent({ c, entries, save }: SectionProps) {
   const grant = grantedFeatSpells(c, entries).find(spell => spell.source === 'Heroic Presence')
   const controls = [
     { name: 'Active stance', element: <StancesContent c={c} entries={entries} save={save} /> },
+    ...(activeFeatsNamed(c, 'Poison Weapon').length
+      ? [{ name: 'Simple poisons', element: <SimplePoisons c={c} entries={entries} save={save} /> }] : []),
     ...(canDeviseAStratagem(c)
       ? [{ name: 'Devise a Stratagem', element: <DeviseAStratagemToggle c={c} save={save} /> }] : []),
+    ...(hasHuntPrey(c, entries)
+      ? [{ name: 'Hunt Prey', element: <HuntPreyToggle c={c} entries={entries} save={save} /> }] : []),
     ...(['enfeebled', 'frightened', 'sickened'] as const).map(name => ({
       name, element: <label>
         {name[0].toUpperCase() + name.slice(1)}{' '}

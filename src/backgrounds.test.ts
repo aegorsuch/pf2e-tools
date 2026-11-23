@@ -305,11 +305,12 @@ it('offers relevant Lore options for open background choices', () => {
   expect(backgroundLoreChoiceOptions(cultist, ['Abadar Lore'], 'Iomedae')).toEqual(['Abadar Lore', 'Iomedae Lore'])
 })
 
-it('preserves saved open Lore without inventing deity or custom variants', () => {
+it('offers Cultist variants for identified deity Lores while preserving saved open Lore', () => {
   const entries = compile('Cultist', `You're trained in ${skill('Occultism')} and a ${skill('Lore')} skill related to your deity or cult.`,
     ['Occultism', 'Lore related to your deity or cult.'])
+  expect(backgroundVariants(entries).map(option => option.value)).toEqual(['Cultist'])
   const variants = backgroundVariants(entries, ['Abadar Lore', 'Iomedae Lore'])
-  expect(variants.map(option => option.value)).toEqual(['Cultist'])
+  expect(variants.map(option => option.value)).toEqual(['Cultist (Abadar Lore)', 'Cultist (Iomedae Lore)'])
   const c = { ...base, background: 'Cultist', backgroundLores: { Cultist: ['Iomedae Lore'] } }
   expect(backgroundSkills(entries[0], JSON.parse(JSON.stringify(c)))).toEqual(['Occultism', 'Iomedae Lore'])
   expect(skillRankBudget(c, entries).trained).toBe(skillRankBudget({ ...c, backgroundLores: undefined }, entries).trained)

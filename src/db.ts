@@ -50,8 +50,13 @@ export async function ensureSupplementalContent() {
       const existing = await db.content.get(entry.id)
       if (!existing) await db.content.add(entry)
       else if ((entry.id.startsWith('supplemental:sf2e:') || ['homebrew:clawed-gauntlet', 'homebrew:seax', DISARMING_RUNE.id, GRAPPLING_RUNE.id, PARRYING_RUNE.id, SHOVING_RUNE.id, KILLERS_BELT_MAJOR.id,
-        'homebrew:living-weapon-joust', 'homebrew:favored-weapon-jousting', 'homebrew:favored-weapon-symbol', 'homebrew:direwolf-bonded', 'homebrew:rider',
+        'homebrew:living-weapon-joust', 'homebrew:favored-weapon-jousting', 'homebrew:favored-weapon-symbol',
+        'homebrew:favored-weapon-symbol-vindicator', 'homebrew:favored-weapon-symbol-avenger',
+        'homebrew:favored-weapon-jousting-vindicator', 'homebrew:favored-weapon-jousting-avenger',
+        'homebrew:tethered-favored-weapon-vindicator', 'homebrew:tethered-favored-weapon-avenger',
+        'homebrew:tethered-favored-weapon', 'homebrew:direwolf-bonded', 'homebrew:rider',
         'homebrew:sarkorian-direwolf', 'homebrew:snow-leopard', 'homebrew:ranger-twinned-defense-stance',
+        'homebrew:avenger-twin-parry', 'homebrew:avenger-twinned-defense-stance',
         'homebrew:persistent-magic-hide', 'homebrew:mobile-hunter', 'homebrew:divine-warrior', 'homebrew:primal-warrior', 'homebrew:instinctive-support'].includes(entry.id))
         && existing.updatedAt === 1 && !existing.deleted) await db.content.put(entry)
     }

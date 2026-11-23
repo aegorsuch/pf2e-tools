@@ -233,6 +233,17 @@ export function witchLessonOptions(c: Character, entries: ContentEntry[], feat: 
 
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   if (['Fiendish Magic', 'Celestial Magic', 'Summon Nephilim Kin'].includes(feat.name)) return undefined
+  if (feat.name === 'Loaner Spell' && c.systems.includes('pf2e')) {
+    return spellIndex(entries).spells.filter(spell => {
+      const hasTargetOrArea = [spell.data.target, spell.data.targets, spell.data.area]
+        .some(value => typeof value === 'string' && !!value.trim() && !/^(?:—|-|none)$/i.test(value.trim()))
+      return spell.systems.includes('pf2e') && spell.level >= 1 && spell.level <= 3
+        && !spell.traits.some(trait => /^(?:cantrip|focus)$/i.test(trait))
+        && ['arcane', 'divine', 'occult', 'primal'].some(tradition =>
+          String(spell.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(tradition))
+        && hasTargetOrArea
+    }).sort((a, b) => a.name.localeCompare(b.name))
+  }
   if (feat.name === "Trickster's Ace" && c.className === 'Investigator' && c.systems.includes('pf2e')) {
     return spellIndex(entries).spells.filter(spell => {
       const target = String(spell.data.target ?? spell.data.targets ?? '').trim()
@@ -514,6 +525,14 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
       if (entry) out.push({ entry, source: feat.name,
         rule: { kind: 'feat', spells: [entry.name], frequency: 'once per day', fixedRank: true,
           condition: 'Choose a trigger during daily preparations; the spell targets only you.' },
+        rank: entry.level, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
+      continue
+    }
+    if (feat.name === 'Loaner Spell' && c.systems.includes('pf2e')) {
+      const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'feat', spells: [entry.name], frequency: 'once per day', fixedRank: true, dc: 'class',
+          condition: "Your allied prepared spellcaster expends a spell slot of the spell's rank." },
         rank: entry.level, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue
     }

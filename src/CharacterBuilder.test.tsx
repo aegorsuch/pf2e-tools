@@ -42,6 +42,19 @@ it('shows Devise a Stratagem toggle in the Investigator class header and Statuse
 })
 
 it.each([
+  { className: 'Ranger', subclass: undefined },
+  { className: 'Rogue', subclass: 'Avenger' },
+])('shows Hunt Prey toggle in class header and Statuses for $className $subclass', ({ className, subclass }) => {
+  content.entries = []
+  const c: Character = { id: 'hunt-prey', name: 'Test', systems: ['pf2e'], level: 1, className, subclass,
+    huntPreyActive: true, abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  expect(markup.match(/aria-label="Hunt Prey active"[^>]*checked=""/g)).toHaveLength(2)
+  expect(markup).toContain('Hunt Prey')
+})
+
+it.each([
   ['Barbarian', 'Bloodrager', 'Bloodrager'],
   ['Ranger', 'Vindicator', 'Vindication'],
   ['Rogue', 'Avenger', 'Avenger'],
@@ -82,6 +95,25 @@ it.each([
   expect(markup).toMatch(new RegExp(`<select aria-label="${label}"[^>]*disabled`))
   const normal = renderToStaticMarkup(<CharacterBuilder character={{ ...c, subclass: '' }} onClose={() => {}} />)
   expect(normal).not.toMatch(new RegExp(`<select aria-label="${label}"[^>]*disabled`))
+})
+
+it('shows the locked Avenger Dedication under Dedications instead of Class Feats', () => {
+  const rogue: ContentEntry = { id: 'rogue', name: 'Rogue', systems: ['pf2e'], kind: 'class',
+    source: 'official', level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 0 }
+  const avenger: ContentEntry = { id: 'avenger', name: 'Avenger', systems: ['pf2e'], kind: 'subclass',
+    source: 'official', level: 1, traits: [], description: '', data: { class: 'Rogue' }, effects: [], updatedAt: 0 }
+  const dedication: ContentEntry = { id: 'avenger-dedication', name: 'Avenger Dedication', systems: ['pf2e'], kind: 'feat',
+    source: 'official', level: 2, traits: ['Archetype', 'Dedication'], description: '', data: { prerequisite: 'Avenger' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'avenger', name: 'Test', systems: ['pf2e'], level: 2, className: 'Rogue', subclass: 'Avenger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: dedication.name, type: 'Class Feat', level: 2, slot: 'class:2:0', sourceId: dedication.id }],
+    equipment: [], lores: [], languages: [], entryIds: [rogue.id, avenger.id, dedication.id], extraSlots: [], updatedAt: 0 }
+  const entries = [rogue, avenger, dedication]
+  const render = (category: 'class' | 'archetype') => renderToStaticMarkup(<FeatSlots c={c} entries={entries} save={() => {}}
+    categories={[category]} title={category === 'class' ? 'Class Feats' : 'Dedications'} />)
+  expect(render('class')).not.toContain('Avenger Dedication')
+  expect(render('archetype')).toContain('Avenger Dedication')
+  expect(render('archetype')).toContain('L02 Dedication')
 })
 
 it('counts granted feats alongside filled and empty slots in Skill and General headings', () => {
@@ -352,7 +384,7 @@ it('shows Free Heart background selection in Background only while the feat is a
   } finally { content.entries = [] }
 })
 
-it('labels Rogue subclass as Racket without duplicating an additional Mastermind skill selector', () => {
+it('labels Rogue subclass as Racket without duplicating the Versatile Rogue Mastermind choice', () => {
   const racket: ContentEntry = { id: 'thief', systems: ['pf2e'], kind: 'subclass', source: 'official', name: 'Thief',
     level: 1, traits: [], description: '', data: { class: 'Rogue' }, effects: [], updatedAt: 0 }
   content.entries = [racket]

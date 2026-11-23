@@ -301,6 +301,8 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     && entry.name === 'Strong Arm' && entry.traits.includes('Rogue'))
   const twinnedDefense = entries.find(entry => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
     && entry.name === 'Twinned Defense (Fighter)' && entry.traits.includes('Fighter'))
+  const twinParry = entries.find(entry => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
+    && entry.name === 'Twin Parry' && entry.traits.includes('Ranger'))
   const copiedClassFeats = [
     { sourceId: 'aon:pf2e:feat-4733', id: 'homebrew:deimatic-display-ranger', name: 'Deimatic Display (Ranger)', classes: ['Ranger'], oldClasses: ['Druid'] },
     { sourceId: 'aon:pf2e:feat-5418', id: 'homebrew:ears-of-the-forest-druid', name: 'Ears of the Forest (Druid)', classes: ['Druid'], oldClasses: ['Bard'] },
@@ -316,6 +318,31 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       traits: [...new Set([...original.traits.filter(trait => !oldClasses.includes(trait)), ...classes])],
       data: { ...Object.fromEntries(Object.entries(original.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))),
         class: classes.join(', '), ...(id === 'homebrew:instinctive-support' ? { prerequisite: 'Animal Companion or Faithful Steed' } : {}) }, updatedAt: 1 }]
+  })
+  const favoredWeaponSymbol = homebrewFeat('favored-weapon-symbol', 'Favored Weapon Symbol', 1, ['Champion', 'Cleric'],
+    "You cultivate a divine conduit within your deity's symbol that can manifest into your deity's favored weapon. You spend 10 minutes focusing divine energy into your deity's symbol, imprinting it with the potential of your deity's favored weapon.\n\nWhen holding or wearing the imprinted holy symbol, you can use an Interact action to cause the divine energy to surge outward, immediately growing the weapon directly from the symbol into your hand. A second Interact action causes the divine matter to swiftly retract back into the holy symbol.\n\nThe favored weapon from your icon can be etched with weapon runes or affixed with talismans as normal, which are safely suppressed when the weapon is retracted inside the symbol.", { class: 'Champion, Cleric' })
+  const favoredWeaponJousting = homebrewFeat('favored-weapon-jousting', 'Favored Weapon Jousting', 4, ['Champion', 'Cleric'],
+    "You know how to use the favored weapon of your deity while riding your animal companion. If one handed and melee, your deity's favored weapon gains the jousting trait.", { class: 'Champion, Cleric', prerequisite: 'Favored Weapon Symbol' })
+  const tetheredFavoredWeapon = homebrewFeat('tethered-favored-weapon', 'Tethered Favored Weapon', 20, ['Champion', 'Cleric'],
+    "Your deity's favored weapon gains the Tethered trait if it already has the thrown trait.",
+    { class: 'Champion, Cleric' })
+  const favoredWeaponVariants = (['Vindicator', 'Avenger'] as const).flatMap(archetype => {
+    const className = archetype === 'Vindicator' ? 'Ranger' : 'Rogue'
+    const copy = (entry: ContentEntry, prerequisite?: string): ContentEntry => ({
+      ...entry,
+      id: `${entry.id}-${archetype.toLowerCase()}`,
+      name: `${entry.name} (${archetype})`,
+      source: 'homebrew',
+      traits: [...new Set([...entry.traits.filter(trait => !['Champion', 'Cleric'].includes(trait)), archetype])],
+      data: { ...entry.data, class: className, archetype, ...(prerequisite ? { prerequisite } : {}) },
+      updatedAt: 1,
+    })
+    const symbol = copy(favoredWeaponSymbol)
+    return [
+      symbol,
+      copy(favoredWeaponJousting, `Favored Weapon Symbol (${archetype})`),
+      copy(tetheredFavoredWeapon),
+    ]
   })
   return [
     ...rangerCopies,
@@ -340,6 +367,19 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       description: twinnedDefense.description.replaceAll(twinnedDefense.name, 'Twinned Defense Stance')
         .split('\n\n').filter(paragraph => !/^Archetypes?\b/i.test(paragraph)).join('\n\n'),
       data: { ...Object.fromEntries(Object.entries(twinnedDefense.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))), class: 'Ranger' },
+      updatedAt: 1 }] : []),
+    ...(twinParry ? [{ ...twinParry, id: 'homebrew:avenger-twin-parry', name: 'Twin Parry (Avenger)',
+      source: 'homebrew' as const, traits: [...twinParry.traits.filter(trait => !['Fighter', 'Ranger'].includes(trait)), 'Avenger'],
+      data: { ...Object.fromEntries(Object.entries(twinParry.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))),
+        class: 'Rogue', archetype: 'Avenger' },
+      updatedAt: 1 }] : []),
+    ...(twinnedDefense ? [{ ...twinnedDefense, id: 'homebrew:avenger-twinned-defense-stance', name: 'Twinned Defense Stance (Avenger)',
+      source: 'homebrew' as const, traits: [...twinnedDefense.traits.filter(trait => trait !== 'Fighter'), 'Avenger'],
+      description: twinnedDefense.description.replaceAll(twinnedDefense.name, 'Twinned Defense Stance (Avenger)')
+        .replaceAll('Twin Parry', 'Twin Parry (Avenger)')
+        .split('\n\n').filter(paragraph => !/^Archetypes?\b/i.test(paragraph)).join('\n\n'),
+      data: { ...Object.fromEntries(Object.entries(twinnedDefense.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))),
+        class: 'Rogue', archetype: 'Avenger', prerequisite: 'Twin Parry (Avenger)' },
       updatedAt: 1 }] : []),
     homebrewFeat('rider', 'Rider', 1, ['Champion', 'Commander', 'Druid', 'Ranger'],
       "You are especially good at riding animal companions. You gain the Ride general feat. You gain a +1 circumstance bonus to Nature checks to Command an Animal when commanding your own animal companion, if a check is required.\n\nIf you gain an animal companion, it gains the mount special ability while it is at least one size larger than you. This is the full mount special ability: while carrying a rider, it can move and Support you on the same turn and can use its other Speeds, not just its land Speed. This feat does not grant any new Speeds or increase the companion's size.\n\nThis feat does not grant an animal companion and does not apply to construct companions, eidolons, or familiars.",
@@ -366,11 +406,8 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       traits: [...strongArm.traits.filter(trait => trait !== 'Rogue'), 'Ranger', 'Barbarian'],
       data: { ...Object.fromEntries(Object.entries(strongArm.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))), class: 'Ranger, Barbarian' },
       updatedAt: 1 }] : []),
-    homebrewFeat('favored-weapon-jousting', 'Favored Weapon Jousting', 4, ['Champion', 'Cleric'],
-      "You know how to use the favored weapon of your deity while riding your animal companion. If one handed and melee, your deity's favored weapon gains the jousting trait.", { class: 'Champion, Cleric', prerequisite: 'Favored Weapon Symbol' }),
-    homebrewFeat('tethered-favored-weapon', 'Tethered Favored Weapon', 20, ['Champion', 'Cleric'],
-      "Your deity's favored weapon gains the Tethered trait if it already has the thrown trait.",
-      { class: 'Champion, Cleric' }),
+    favoredWeaponJousting,
+    tetheredFavoredWeapon,
     homebrewFeat('primal-nimbleness', 'Primal Nimbleness', 1, ['Druid', 'Ranger'],
       'Your muscles are tightly honed. Your Speed increases by 5 feet.', { class: 'Druid, Ranger' }),
     homebrewFeat('divine-insight', 'Divine Insight', 1, ['Cleric', 'Concentrate', 'Fortune'],
@@ -449,8 +486,8 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     homebrewFeat('impaled-takedown', 'Impaled Takedown', 4, ['Flourish', 'Ranger', '3rd Party'],
       'Requirements: You are adjacent to your Hunted Prey. The prey must have a weapon embedded in them (such as from Impaling Throw), and you must either have a free hand or have just completed a successful melee Strike against them this turn with a piercing weapon.\n\nYou can handle impaled creatures with ease. Taking a hold of the required weapon if necessary, you attempt to Shove or Trip the adjacent hunted prey. For the purposes of this attack you may add any item bonus granted to the weapon via proficiency runes to the check. On a success the creature is also considered off-guard to your next strike and they are clumsy 2 until the weapon is removed.',
       { class: 'Ranger', actions: 'Single Action', requirements: 'Adjacent Hunted Prey with an embedded weapon; free hand or a successful melee piercing Strike against them this turn.' }),
-    homebrewFeat('favored-weapon-symbol', 'Favored Weapon Symbol', 1, ['Champion', 'Cleric'],
-      "You cultivate a divine conduit within your deity's symbol that can manifest into your deity's favored weapon. You spend 10 minutes focusing divine energy into your deity's symbol, imprinting it with the potential of your deity's favored weapon.\n\nWhen holding or wearing the imprinted holy symbol, you can use an Interact action to cause the divine energy to surge outward, immediately growing the weapon directly from the symbol into your hand. A second Interact action causes the divine matter to swiftly retract back into the holy symbol.\n\nThe favored weapon from your icon can be etched with weapon runes or affixed with talismans as normal, which are safely suppressed when the weapon is retracted inside the symbol.", { class: 'Champion, Cleric' }),
+    favoredWeaponSymbol,
+    ...favoredWeaponVariants,
     homebrewFeat('verdant-weapon-jousting', 'Verdant Weapon Jousting', 4, ['Druid'],
       'You know how to use your verdant weapon while riding your animal companion. If one handed and melee, your verdant weapon gains the jousting trait.', { class: 'Druid' }),
     homebrewFeat('tethered-verdant-weapon', 'Tethered Verdant Weapon', 20, ['Druid'],

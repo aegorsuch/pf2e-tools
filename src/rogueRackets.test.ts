@@ -18,6 +18,17 @@ const dagger: ContentEntry = { id: 'dagger', name: 'Dagger', kind: 'weapon', sou
 it('grants primary racket skills and thief damage without adding Dexterity to thrown strikes', () => {
   expect(ranksAt(base, [rogue]).Thievery).toBe(1)
   expect(weaponAttack(base, [dagger], { id: 'd', name: 'Dagger', potency: 0, striking: 0, runes: [] }).damage).toBe('2d4+4 piercing')
+  const versatileThief = { ...base, subclass: 'Scoundrel',
+    feats: [{ name: 'Versatile Rogue', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Thief' }] }
+  expect(weaponAttack(versatileThief, [dagger], { id: 'd', name: 'Dagger', potency: 0, striking: 0, runes: [] }).damage)
+    .toBe('2d4+4 piercing')
+  const versatileAvenger = { ...base, subclass: 'Scoundrel',
+    feats: [{ name: 'Versatile Rogue', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Avenger' }] }
+  expect(weaponAttack(versatileAvenger, [dagger], { id: 'd', name: 'Dagger', potency: 0, striking: 0, runes: [] }).damage)
+    .toBe('2d4+1 piercing')
+  const agileOnly = { ...dagger, traits: ['Agile'] }
+  expect(weaponAttack(base, [agileOnly], { id: 'd', name: 'Dagger', potency: 0, striking: 0, runes: [] }).damage)
+    .toBe('2d4+1 piercing')
   const thrown = { ...dagger, traits: ['Finesse', 'Thrown'], data: { ...dagger.data, weapon_type: 'Ranged' } }
   expect(weaponAttack(base, [thrown], { id: 'd', name: 'Dagger', potency: 0, striking: 0, runes: [] }).damage).toBe('2d4+1 piercing')
 })
@@ -106,22 +117,27 @@ it('grants Avenger divine skill, medium armor and deity-favored weapon proficien
   expect(markup).toContain('sneak attack applies to your prey')
 })
 
+it('trains Intimidation, Religion, and Stealth from the Avenger racket', () => {
+  const avenger = { ...base, level: 1, subclass: 'Avenger', deity: undefined }
+  expect(ranksAt(avenger, [rogue])).toMatchObject({ Intimidation: 1, Religion: 1, Stealth: 1 })
+})
+
 it('auto-scales the Avenger deity skill for primary and additional rackets', () => {
-  const deity: ContentEntry = { ...rogue, id: 'deity', kind: 'deity', name: 'Deity', data: { skill: 'Religion' } }
+  const deity: ContentEntry = { ...rogue, id: 'deity', kind: 'deity', name: 'Deity', data: { skill: 'Arcana' } }
   const settings = getSettings()
   try {
     updateSettings({ autoClassSkills: true })
     for (const [level, rank] of [[1, 1], [3, 2], [7, 3], [15, 4]]) {
-      expect(ranksAt({ ...base, level, subclass: 'Avenger', deity: deity.name }, [rogue, deity]).Religion).toBe(rank)
+      expect(ranksAt({ ...base, level, subclass: 'Avenger', deity: deity.name }, [rogue, deity]).Arcana).toBe(rank)
     }
     const c: Character = { ...base, level: 15, deity: deity.name, feats: [{ name: 'Versatile Rogue',
       type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Avenger' }] }
-    expect(ranksAt(c, [rogue, deity], 10).Religion).toBeUndefined()
-    expect(ranksAt(c, [rogue, deity], 11).Religion).toBe(3)
-    expect(ranksAt(c, [rogue, deity]).Religion).toBe(4)
-    expect(ranksAt({ ...c, deity: undefined }, [rogue, deity]).Religion).toBeUndefined()
+    expect(ranksAt(c, [rogue, deity], 10).Arcana).toBeUndefined()
+    expect(ranksAt(c, [rogue, deity], 11).Arcana).toBe(3)
+    expect(ranksAt(c, [rogue, deity]).Arcana).toBe(4)
+    expect(ranksAt({ ...c, deity: undefined }, [rogue, deity]).Arcana).toBeUndefined()
     updateSettings({ autoClassSkills: false })
-    expect(ranksAt(c, [rogue, deity]).Religion).toBe(1)
+    expect(ranksAt(c, [rogue, deity]).Arcana).toBe(1)
   } finally { updateSettings(settings) }
 })
 

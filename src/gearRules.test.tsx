@@ -352,6 +352,8 @@ it.each([
   ['Tethered Verdant Weapon', 'Verdant Weapon', 'Druid', 'verdantWeapon'],
   ['Tethered Osteo Weapon', 'Osteo Armaments', 'Necromancer', 'osteoArmament'],
   ['Tethered Favored Weapon', undefined, 'Cleric', undefined],
+  ['Tethered Favored Weapon (Avenger)', undefined, 'Rogue', undefined],
+  ['Tethered Favored Weapon (Vindicator)', undefined, 'Ranger', undefined],
 ] as const)('adds Tethered to eligible thrown weapons for %s', (featName, sourceFeat, className, tag) => {
   const thrown = content('weapon', 'Javelin',
     { damage: '1d6 piercing', weapon_category: 'Simple', weapon_type: 'Melee', thrown_range: 30 }, 0, ['Thrown 30 feet'])
@@ -2597,6 +2599,8 @@ it('excludes separately owned blessing grants as well as the primary blessing', 
 it('applies Jousting only to qualifying selected verdant, living, or favored one-handed melee weapons', () => {
   const c = { ...base, level: 14, feats: ['Favored Weapon Jousting', 'Verdant Weapon Jousting', 'Living Weapon Joust', 'Living Weapon'].map((name) => feat(name)) }
   expect(weaponAttack(c, [sword, deity], main).traits).toContain('Jousting')
+  expect(weaponAttack({ ...c, feats: [feat('Favored Weapon Jousting (Vindicator)', 4)] }, [sword, deity], main).traits)
+    .toContain('Jousting')
   expect(renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [main] }} entries={[sword, deity]} save={() => {}} />))
     .not.toContain('Jousting while riding')
   const other = { ...main, name: 'Other' }
@@ -3181,15 +3185,19 @@ it.each([false, true])('uses free-hand weapons and available fists for Twin Parr
   }
 })
 
-it.each(['Twinned Defense (Fighter)', 'Twinned Defense Stance'])('grants continuous Twin Parry only from active, learned %s', name => {
+it.each([
+  ['Twinned Defense (Fighter)', 'Twin Parry', 'Fighter'],
+  ['Twinned Defense Stance', 'Twin Parry', 'Ranger'],
+  ['Twinned Defense Stance (Avenger)', 'Twin Parry (Avenger)', 'Avenger'],
+])('grants continuous Twin Parry only from active, learned %s', (name, twinParry, classTrait) => {
   const previous = getSettings()
   updateSettings({ unarmedCountsAsWeapons: true })
   try {
-    const stance = content('feat', name, {}, 16, [name.includes('Fighter') ? 'Fighter' : 'Ranger', 'Stance'])
+    const stance = content('feat', name, {}, 16, [classTrait, 'Stance'])
     const claw = content('weapon', 'Clawed Gauntlet', { weapon_category: 'Martial', hands: 1, weapon_type: 'Melee' }, 1, ['Parry', 'Free-Hand'])
     const entries = [stance, claw]
     const c: Character = { ...base, level: 16, parrying: false, activeStance: name,
-      feats: [feat('Twin Parry', 4), feat(name, 16)],
+      feats: [feat(twinParry, 4), feat(name, 16)],
       weapons: [{ id: 'claw', name: claw.name, potency: 0, striking: 0, runes: [] }] }
     const without = { ...c, activeStance: undefined }
     expect(twinnedDefenseActive(c, entries)).toBe(true)
