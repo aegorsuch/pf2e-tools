@@ -873,12 +873,18 @@ it('scales Scalding Gauntlets potency, striking and Flaming with level and hides
   const plain: ContentEntry = { ...gauntlet, id: 'gauntlet', name: 'Gauntlet', data: { ...gauntlet.data, damage: '1d4 bludgeoning' } }
   const bladed: ContentEntry = { ...gauntlet, id: 'bladed', name: 'Bladed Gauntlet', data: { ...gauntlet.data, damage: '1d4 slashing' } }
   const entries = makeNamedWeaponEntries([gauntlet, plain, bladed, { ...gauntlet, id: 'clawed', name: 'Clawed Gauntlet' }, item, greater], [{ name: 'Flaming' }])
-  expect(entries.map(entry => entry.name).sort()).toEqual(['Scalding Bladed Gauntlet', 'Scalding Clawed Gauntlet',
-    'Scalding Gauntlet', 'Scalding Gauntlets', 'Scalding Spiked Gauntlet'])
-  expect(entries.find(entry => entry.name === 'Scalding Gauntlet')?.data.named_weapon_base).toBe('Gauntlet')
+  expect(entries.map(entry => entry.name).sort()).toEqual(['Scalding Gauntlet (Bladed Gauntlet)', 'Scalding Gauntlet (Clawed Gauntlet)',
+    'Scalding Gauntlet (Gauntlet)', 'Scalding Gauntlet (Spiked Gauntlet)', 'Scalding Gauntlets'])
+  expect(entries.find(entry => entry.name === 'Scalding Gauntlet (Gauntlet)')?.data.named_weapon_base).toBe('Gauntlet')
   const at = (level: number) => withNamedWeaponState(entries[1], owned('Scalding Gauntlet'), level)?.data
   expect(at(11)).toMatchObject({ named_weapon_potency: 2, named_weapon_striking: 1,
     named_weapon_runes: 'Flaming;Hooked;Grappling;Grievous', named_weapon_material: 'Orichalcum' })
   expect(at(13)).toMatchObject({ named_weapon_striking: 2, named_weapon_runes: 'Flaming;Hooked;Grappling;Grievous' })
   expect(at(18)).toMatchObject({ named_weapon_potency: 3, named_weapon_runes: 'Flaming (Greater);Hooked;Grappling;Grievous' })
+})
+
+it('labels Scalding Gauntlet variants without repeating the base', () => {
+  const entry = { data: { named_weapon_source: 'Scalding Gauntlet', named_weapon_base: 'Clawed Gauntlet' } } as unknown as ContentEntry
+  expect(specificMagicItemName(entry)).toBe('Scalding Clawed Gauntlet')
+  expect(specificMagicItemName({ data: { ...entry.data, named_weapon_base: 'Gauntlet' } } as unknown as ContentEntry)).toBe('Scalding Gauntlet')
 })
