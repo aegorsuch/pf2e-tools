@@ -111,6 +111,9 @@ export function temporaryHpGrant(c: Character, entries: ContentEntry[]) {
   const rage = c.raging && (c.className === 'Barbarian' || activeFeatsNamed(c, 'Barbarian Dedication').length > 0)
     ? Math.max(0, c.level + abilityMod(c.abilities.con)) : 0
   const grants: { source: string; value: number }[] = []
+  if (c.zealousConvictionRank !== undefined && Number.isInteger(c.zealousConvictionRank)
+    && c.zealousConvictionRank >= 6 && c.zealousConvictionRank <= 10)
+    grants.push({ source: 'Zealous Conviction', value: c.zealousConvictionRank >= 9 ? 18 : 12 })
   if (tenaciousStanceActive(c, entries))
     grants.push({ source: 'Tenacious Stance', value: Math.max(1, Math.floor(c.level / 2)) })
   if (rage || form?.source === 'Dragon Transformation') {
@@ -1537,13 +1540,14 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     ...c, feats: c.feats.filter(feat => featTakenLevel(feat) <= Math.min(c.level, slot.level)),
   }, entries, slot.key, true) : undefined
   const candidates = featIndex(entries)
-    .filter(({ entry: e, traits }) => (!options.name || e.name === options.name) && (e.name === 'Magical Trickster' && slot.category === 'class'
-      && rogueRackets({ ...c, level: Math.min(c.level, slot.level) }, entries).includes('Eldritch Trickster') ? 2
-      : featSelectionLevel(e, c, entries, slot.category, slot)) <= (slot.grantedBy === 'Eldritch Trickster'
-      ? slot.maxFeatLevel ?? 2 : Math.min(slot.level, slot.maxFeatLevel ?? slot.level))
+    .filter(({ entry: e, traits }) => (!options.name || e.name === options.name)
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0
         || !!classArchetypeDedication && !!classArchetype && archetypesOf(e).includes(classArchetype))
+      && (e.name === 'Magical Trickster' && slot.category === 'class'
+      && rogueRackets({ ...c, level: Math.min(c.level, slot.level) }, entries).includes('Eldritch Trickster') ? 2
+      : featSelectionLevel(e, c, entries, slot.category, slot)) <= (slot.grantedBy === 'Eldritch Trickster'
+      ? slot.maxFeatLevel ?? 2 : Math.min(slot.level, slot.maxFeatLevel ?? slot.level))
       && !(generalOnly && traits.has('skill'))
       && !(getSettings().disableAdoptedAncestry && ['Adopted Ancestry', 'Cultural Adaptability', 'Orc Kinship', 'Social Chameleon'].includes(e.name))
       && !(getSettings().disableAncientElfMultitalented && ['Ancient Elf', 'Multitalented'].includes(e.name))
@@ -2303,7 +2307,8 @@ export function classExtraSlots(c: Character) {
     extras.push({ key: 'divine-warrior:divine-lance', rank: 0, spell: 'Divine Lance', source: 'Divine Warrior' },
       { key: 'divine-warrior:protect-companion', rank: 0, spell: 'Protect Companion', source: 'Divine Warrior' })
   if (c.systems.includes('pf2e') && c.className === 'Ranger' && activeFeatsNamed(c, 'Primal Warrior').length)
-    extras.push({ key: 'primal-warrior:protect-companion', rank: 0, spell: 'Protect Companion', source: 'Primal Warrior' })
+    extras.push({ key: 'primal-warrior:bramble-bush', rank: 0, spell: 'Bramble Bush', source: 'Primal Warrior' },
+      { key: 'primal-warrior:protect-companion', rank: 0, spell: 'Protect Companion', source: 'Primal Warrior' })
   if (c.className === 'Cleric' && c.systems.includes('pf2e') && c.level >= 1) {
     const rank = Math.min(9, Math.ceil(c.level / 2))
     extras.push(...Array.from({ length: clericDivineFontSlotCount(c) }, (_, index) => ({
@@ -4913,6 +4918,9 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
       + (armorEntry(c, entries, armor.name, armor.id)?.traits.some(trait => trait.toLowerCase() === 'bulwark') ? 1 : 0)
     : undefined
   const notes = [
+    ...(name === 'Will' && c.zealousConvictionRank !== undefined && Number.isInteger(c.zealousConvictionRank)
+      && c.zealousConvictionRank >= 6 && c.zealousConvictionRank <= 10
+      ? [`Zealous Conviction: +${c.zealousConvictionRank >= 9 ? 3 : 2} status against mental effects; status bonuses do not stack.`] : []),
     ...hellknightSkillNotes(c, name).map(benefit => `${benefit.name}: ${benefit.description}`),
     ...(activeFeatsNamed(c, 'Inured to Alchemy').length
       ? ['Inured to Alchemy: against alchemical poisons, drugs, or addiction, a successful save reduces the stage by 2 and a critical success by 3; reduce each improvement by 1 for virulent afflictions.'] : []),
@@ -6099,11 +6107,8 @@ export function knowsSpell(c: Character, entries: ContentEntry[], name: string) 
   const warrior = c.className === 'Champion' ? activeFeatsNamed(c, 'Divine Warrior')[0]
     : c.className === 'Ranger' ? activeFeatsNamed(c, 'Primal Warrior')[0] : undefined
   const fixedWarriorSpell = warrior && classExtraSlots(c).some(slot => slot.rank === 0 && slot.spell === name)
-  const warriorKnown = fixedWarriorSpell || warrior?.name === 'Primal Warrior' && name !== 'Protect Companion'
-    && featSpellOptions(c, entries, warrior)?.some(entry => entry.name === name
-      && [entry.id, entry.name].includes(c.spellcasting?.prepared?.['0:0'] ?? ''))
   return !!(c.spells?.some((spell) => spell.name === name)
-    || warriorKnown
+    || fixedWarriorSpell
     || name === 'Shield' && selectedShieldCantrip(c, entries)
     || name === 'Tailwind' && selectedTailwind(c, entries)
     || necromancerGrantedDirgeSpells(c).includes(name)

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { fiendLevelLimit, fiendOptions, normalizeFiends } from './summonedFiends'
+import { fiendLevelLimit, fiendOptions, normalizeFiends, normalizePlants, plantLevelLimit, plantOptions } from './summonedFiends'
 import type { Hit } from './aonQuery'
 
 const creature = (id: string, name: string, traits: string[], level: number, extra: Record<string, unknown> = {}): Hit => ({
@@ -31,4 +31,21 @@ it('enforces spell rank limits and refuses unknown lineages', () => {
   expect(fiendOptions(fiends, 5, 'Grimspawn').map(fiend => fiend.name)).toEqual(['Weak'])
   expect(fiendOptions(fiends, 6, 'Grimspawn')).toHaveLength(2)
   expect(fiendOptions(fiends, 6, 'Unknown')).toEqual([])
+})
+
+it('filters plant and fungus summons by rarity, remaster and spell rank', () => {
+  const plant = (id: string, name: string, traits: string[], level: number, extra: Record<string, unknown> = {}): Hit => ({
+    _id: id, _source: { name, trait: traits, level, rarity: 'Common', url: `/Monsters.aspx?ID=${id}`, ...extra },
+  })
+  const creatures = normalizePlants([
+    plant('1', 'Sapling', ['Plant'], -1),
+    plant('2', 'Mushroom', ['Fungus'], 5),
+    plant('3', 'Rare plant', ['Plant'], 1, { rarity: 'Rare' }),
+    plant('4', 'Legacy plant', ['Plant'], 1, { remaster_id: ['5'] }),
+    plant('5', 'Remaster plant', ['Plant'], 1),
+    plant('6', 'Animal', ['Animal'], 1),
+  ])
+  expect([1, 2, 3, 4, 5, 6, 9, 10, 11].map(plantLevelLimit)).toEqual([-1, 1, 2, 3, 5, 7, 13, 15, undefined])
+  expect(plantOptions(creatures, 1).map(creature => creature.name)).toEqual(['Sapling'])
+  expect(plantOptions(creatures, 5).map(creature => creature.name)).toEqual(['Mushroom', 'Remaster plant', 'Sapling'])
 })

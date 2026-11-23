@@ -39,6 +39,25 @@ export function activeSummonedFiend(c: Character) {
 }
 
 export function normalizeFiends(hits: Hit[]): SummonedFiend[] {
+  return normalizeCreatures(hits, ['fiend'], /^(demon|devil|daemon|asura)$/i)
+}
+
+export function plantLevelLimit(rank: number) {
+  return Number.isInteger(rank) && rank >= 1 && rank <= 10
+    ? rank === 1 ? -1 : rank === 2 ? 1 : rank <= 4 ? rank - 1 : 2 * rank - 5 : undefined
+}
+
+export function plantOptions(creatures: SummonedFiend[], rank: number) {
+  const maxLevel = plantLevelLimit(rank)
+  return maxLevel === undefined ? [] : creatures.filter(creature => creature.level <= maxLevel
+    && creature.traits.some(trait => /^(plant|fungus)$/i.test(trait)))
+}
+
+export function normalizePlants(hits: Hit[]): SummonedFiend[] {
+  return normalizeCreatures(hits, ['plant', 'fungus'], /^(plant|fungus)$/i)
+}
+
+function normalizeCreatures(hits: Hit[], requiredTraits: string[], categories: RegExp): SummonedFiend[] {
   const byId = new Map(hits.map(hit => [hit._id, hit._source]))
   const numeric = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : undefined
   const numericArray = (keys: string[], source: Record<string, unknown>) => keys.map(key => numeric(source[key]) ?? null)
@@ -47,13 +66,12 @@ export function normalizeFiends(hits: Hit[]): SummonedFiend[] {
   return hits.flatMap(hit => {
     const source = hit._source
     if (!source) return []
-    const categories = /^(demon|devil|daemon|asura)$/i
     const remasters = strings(source.remaster_id).map(id => byId.get(id)).filter(Boolean)
     if (!hit._id || (remasters.length > 0 && remasters.every(remaster =>
       strings(source.trait).filter(trait => categories.test(trait)).every(trait =>
         strings(remaster?.trait).some(value => value.toLowerCase() === trait.toLowerCase()))))
       || text(source.rarity).toLowerCase() !== 'common'
-      || !strings(source.trait).some(trait => trait.toLowerCase() === 'fiend')
+      || !strings(source.trait).some(trait => requiredTraits.includes(trait.toLowerCase()))
       || typeof source.level !== 'number' || !Number.isFinite(source.level) || source.level > 15
       || !text(source.name) || !/^\/Monsters\.aspx\?ID=\d+$/.test(text(source.url))) return []
     const traits = strings(source.trait)

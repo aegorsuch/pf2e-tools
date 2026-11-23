@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { expect, it, onTestFinished, vi } from 'vitest'
-import { combinationForms, combinationName, effectiveWeapon, gearPickerEntries, isFavoredWeapon, isMagicItem, oakenResilience, resistances, savingThrowBreakdown, weaponAttack, weaponEntry, weaponHands } from './builder'
+import { combinationForms, combinationName, effectiveWeapon, equippedHands, gearPickerEntries, isFavoredWeapon, isMagicItem, oakenResilience, resistances, savingThrowBreakdown, weaponAttack, weaponEntry, weaponEquipped, weaponHands } from './builder'
 import { WeaponList } from './GearSection'
 import { mapAonHit } from './aon'
 import { makeNamedWeaponEntries, namedWeaponAbilities, namedWeaponBases, namedWeaponDamage, withNamedWeaponState } from './namedWeapons'
@@ -683,10 +683,8 @@ it('creates stronger arrowheads with conditional nonstacking bonuses and unchang
   expect(weaponAttack(char, entries, bow).attack).toBe(weaponAttack(c, entries, bow).attack)
   for (const displayOnly of [false, true]) {
     const markup = renderToStaticMarkup(<WeaponList c={char} entries={entries} save={() => {}} displayOnly={displayOnly} />)
-    expect(markup).toContain('Against your Hunt Prey target')
-    expect(markup).toContain('replaces, rather than stacks with, weapon potency')
-    expect(markup).toContain('+2 circumstance')
-    expect(markup).toContain('Once per day')
+    expect(markup).not.toContain('Against your Hunt Prey target')
+    expect(markup).not.toContain("Hunter&#x27;s Arrowhead (Major) note")
   }
   expect(HUNTERS_ARROWHEADS.map(entry => entry.level)).toEqual([9, 17])
   expect(HUNTERS_ARROWHEADS.every(entry => entry.source === 'homebrew')).toBe(true)
@@ -892,4 +890,21 @@ it('labels Scalding Gauntlet variants without repeating the base', () => {
   const entry = { data: { named_weapon_source: 'Scalding Gauntlet', named_weapon_base: 'Clawed Gauntlet' } } as unknown as ContentEntry
   expect(specificMagicItemName(entry)).toBe('Scalding Clawed Gauntlet')
   expect(specificMagicItemName({ data: { ...entry.data, named_weapon_base: 'Gauntlet' } } as unknown as ContentEntry)).toBe('Scalding Gauntlet')
+})
+
+it('keeps Scalding Clawed Gauntlet equipped without occupying a hand', () => {
+  const claw: ContentEntry = { ...bow('Clawed Gauntlet', false, false), traits: ['Agile', 'Parry'],
+    data: { weapon_type: 'Melee', weapon_category: 'Martial', hands: 1, damage: '1d4 slashing' } }
+  const spiked: ContentEntry = { ...claw, name: 'Spiked Gauntlet', id: 'spiked' }
+  const item: ContentEntry = { ...winter, id: 'scalding', name: 'Scalding Gauntlets',
+    description: 'Base Weapon Spiked Gauntlet. These are +2 striking spiked gauntlets.',
+    data: { item_subcategory: 'Specific Magic Weapons' } }
+  const entries = [claw, spiked, item]
+  const gauntlet = { ...owned('Scalding Gauntlet (Clawed Gauntlet)'), stowed: true }
+  const char = { ...c, weapons: [gauntlet] }
+  expect(weaponHands(entries, gauntlet, char)).toBe(0)
+  expect(weaponEquipped(char, entries, gauntlet)).toBe(true)
+  expect(equippedHands(char, entries)).toBe(0)
+  expect(renderToStaticMarkup(<WeaponList c={char} entries={entries} save={() => {}} />))
+    .not.toContain('aria-label="Equipped Scalding Clawed Gauntlet"')
 })

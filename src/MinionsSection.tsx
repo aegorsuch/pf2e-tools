@@ -5,7 +5,7 @@ import { ADVANCED_TYPES, companionItemName, beastmasterSpecializationKey, compan
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
 import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, languageGroups, magicHideChange, migrateAncestralLinguistics, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
-import { CompanionSpellOptions } from './SpellsSection'
+import { CompanionSpellOptions, ProtectCompanionOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
 import { DamageRoll } from './SpellDamage'
 import { newId } from './db'
@@ -134,7 +134,7 @@ function SummonedCreature({ name, displayName = name }: { name: keyof typeof SUM
   </details>
 }
 
-export function SummonedFiendCard({ fiend, save }: { fiend: SummonedFiend; save: SectionProps['save'] }) {
+export function SummonedFiendCard({ fiend, save, plant = false }: { fiend: SummonedFiend; save: SectionProps['save']; plant?: boolean }) {
   const bonus = (value: number | null | undefined) => value == null ? '—' : signed(value)
   return <details className="character-subsection" open>
     <summary><h4>Summoned {fiend.name}</h4></summary>
@@ -152,7 +152,7 @@ export function SummonedFiendCard({ fiend, save }: { fiend: SummonedFiend; save:
     <section className="companion-actions"><h5>Skills</h5><div>{fiend.skills}</div></section>
     <section className="companion-actions"><h5>Speed</h5><div>{fiend.speed}</div></section>
     <a href={fiend.url} target="_blank" rel="noreferrer">{fiend.name} abilities and statistics</a>
-    <button type="button" aria-label={`Dismiss summoned ${fiend.name}`} onClick={() => confirmRemoval(`summoned ${fiend.name}`, () => save({ summonedFiend: undefined }))}>Dismiss</button>
+    <button type="button" aria-label={`Dismiss summoned ${fiend.name}`} onClick={() => confirmRemoval(`summoned ${fiend.name}`, () => save(plant ? { summonedPlant: undefined } : { summonedFiend: undefined }))}>Dismiss</button>
   </details>
 }
 
@@ -358,6 +358,7 @@ export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
       }),
       ...(lashuntaAlly ? [`Summoned ${lashuntaAlly}`] : []),
       ...(activeShirrenAlly(c) ? ['Summoned Kucharn'] : []),
+      ...(c.summonedPlant ? [`Summoned ${c.summonedPlant.name}`] : []),
       ...(activeSummonedFiend(c) ? [`Summoned ${activeSummonedFiend(c)!.name}`] : [])]
       .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })).join(', ') || '0 minions'}</span>
   </summary>
@@ -527,6 +528,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
         {activeCaypinAlly(c) && <SummonedCreature name="Caypin" />}
         {lashuntaAlly && <SummonedCreature name={lashuntaAlly} />}
         {activeShirrenAlly(c) && <SummonedCreature name="Emganat" displayName="Kucharn" />}
+        {c.summonedPlant && <SummonedFiendCard fiend={c.summonedPlant} plant save={save} />}
         {activeSummonedFiend(c) && <SummonedFiendCard fiend={activeSummonedFiend(c)!} save={save} />}
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" data-minion-name="Drone" open>
           <summary><h4>Drone</h4></summary>
@@ -561,10 +563,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               const clumsyNote = stats?.clumsy ? '-1 Status (clumsy 1)' : undefined
               const acNote = [stats?.barding ? `+${stats.barding.data.ac} Item (${stats.barding.name}); Dexterity cap +${stats.barding.data.dex_cap}` : undefined,
                 stats?.magicHide ? '+1 Status (Magic Hide)' : undefined,
+                stats?.protectCompanion ? '+1 Circumstance (Protect Companion)' : undefined,
                 stats?.mountedParry && stats.mountedParry >= stats.mountedShield ? `+${stats.mountedParry} Circumstance (Mounted Parry)` : undefined,
                 stats?.mountedShield && stats.mountedShield >= stats.mountedParry ? `+${stats.mountedShield} Circumstance (Mounted Shield)` : undefined,
                 stats?.clumsy ? '-1 Status (clumsy 1; Enlarge Companion)' : undefined].filter(Boolean).join('; ') || undefined
               const acSource = [stats?.barding?.name, stats?.magicHide ? 'Magic Hide' : undefined,
+                stats?.protectCompanion ? 'Protect Companion' : undefined,
                 stats?.mountedParry && stats.mountedParry >= stats.mountedShield ? 'Mounted Parry' : undefined,
                 stats?.mountedShield && stats.mountedShield >= stats.mountedParry ? 'Mounted Shield' : undefined,
                 stats?.clumsy ? 'Enlarge Companion' : undefined].filter(Boolean).join(', ')
@@ -601,6 +605,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 ...(magicHideKnown ? [{ name: 'Magic Hide', element: <label><input type="checkbox"
                   aria-label={`Magic Hide on ${comp.name || comp.type}`} checked={isMagicHideActive(c, entries, comp.id)}
                   onChange={event => save(magicHideChange(c, event.target.checked, comp.id))} /> Magic Hide</label> }] : []),
+                ...(knowsSpell(c, entries, 'Protect Companion') ? [{ name: 'Protect Companion',
+                  element: <ProtectCompanionOptions c={c} save={save} companionId={comp.id} /> }] : []),
                 ...(['Apex Companion', 'Canopy Crawler', 'Enlarge Companion'] as const).filter(name => knowsSpell(c, entries, name))
                   .map(name => ({ name, element: <CompanionSpellOptions key={name} c={c} entries={entries}
                     save={save} name={name} companionId={comp.id} toggleOnly /> })),

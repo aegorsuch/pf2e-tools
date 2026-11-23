@@ -20,6 +20,7 @@ import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, WeaponProficiency, RageToggle, SensesAndSpeed, SensesAndSpeedSummary, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsPanel } from './SpellsSection'
 import { StancesContent, StancesSummary } from './StancesSection'
+import { StatusesContent, StatusesSummary } from './StatusesSection'
 import { boneShieldActive, canUseGiantStature, effectiveHandwraps, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, temporaryHpGrant, twinnedDefenseActive } from './builder'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
@@ -918,6 +919,10 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
         </div>
       </DeferredDetails>
       <SpellsPanel {...section} />
+      <DeferredDetails>
+        <StatusesSummary {...section} />
+        <StatusesContent {...section} />
+      </DeferredDetails>
       <DeferredDetails>
         <StancesSummary {...section} />
         <StancesContent {...section} />

@@ -23,7 +23,7 @@ import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { TotalBreakdown } from './TotalBreakdown'
 import { BRIAR_MAX_SHARPNESS, briarSharpnessPoints, namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, namedWeaponStrikeNote, withNamedWeaponState } from './namedWeapons'
-import { hunterArrowheadBonus, isFeatEffectActive } from './builder'
+import { isFeatEffectActive } from './builder'
 import { ARMIGER_ARMOR_ID, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, IRON_FIST, OVERSIZED_THROW, SPARK_FIST, UNTAMED_CLAWS } from './supplemental'
 import { supportsMeleeWeaponUpgrade } from './builder'
@@ -1081,18 +1081,12 @@ export function MechanicWeaponMods({ c, weapon, attack, save, allowUnarmed = fal
   </div>
 }
 
-function GallopingLaunchNote({ c, range }: { c: Character; range: number }) {
-  return !!activeFeatsNamed(c, 'Galloping Launch').length && <SourceNote source="Galloping Launch"
-    note={`For this Strike, range increment ${range + 15} feet, or ${range + 20} feet if your mount's Speed is at least 40 feet. You must be mounted and your mount must have moved closer to your prey this round.`} />
-}
-
-function WeaponTraits({ c, attack, entries }: { c: Character; attack: ReturnType<typeof weaponAttack>; entries: ContentEntry[] }) {
+function WeaponTraits({ attack, entries }: { attack: ReturnType<typeof weaponAttack>; entries: ContentEntry[] }) {
   const thrown = attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim()))
   const range = thrown ? attack.thrownRange || attack.range : 0
   const traits = range ? attack.traits.map(trait => /^thrown(?:\s|$)/i.test(trait.trim()) ? `Thrown ${range}` : trait) : attack.traits
   return <>
     <GearTraits traits={traits} entries={entries} system={attack.entry?.systems[0]} />
-    {range > 0 && <GallopingLaunchNote c={c} range={range} />}
     {thrown && !range && attack.thrownRangeBonus > 0 && <SourceNote source="Strong Arm" note={`Thrown range increases by ${attack.thrownRangeBonus} feet.`} />}
   </>
 }
@@ -1153,7 +1147,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
   const handLimit = totalHandCapacity(c)
   const handwraps = effectiveHandwraps(c, entries)
   const handwrapItem = handwraps?.kind === 'hardlight' ? HARDLIGHT_HANDWRAPS : HANDWRAPS
-  const arrowhead = hunterArrowheadBonus(c, entries)
   return (
     <div className="col gear-list">
       {displayOnly && <small>Hands used: {handsUsed}/{handLimit}{unknownHands ? ' (some weapon hands unknown)' : ''}</small>}
@@ -1462,8 +1455,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const abilities = namedWeaponAbilities(a.entry)
         const namedWeaponNotes = <>
           {namedSource === 'Serithtial' && w.stowed && <small>Stowed form: Bastard Sword. Selected blade form resumes when wielded.</small>}
-          {arrowhead && <small><SourceNote source={arrowhead.source}
-            note={`Against your Hunt Prey target: attack ${signed(a.attack + Math.max(0, arrowhead.value - a.item))}. +${arrowhead.value} item bonus replaces, rather than stacks with, weapon potency. Once per day, when a bow attack would miss, use a reaction to gain +2 circumstance to that roll; resolve manually.`} /></small>}
           {a.entry?.data.named_weapon_rules_missing && <small role="status">Named weapon enhancement details unavailable. Configure its runes and consult the item rules.</small>}
           {String(a.entry?.data.named_weapon_source ?? '').startsWith('Wintershot') && <SourceNote source="Wintershot"
             note={`Ignores concealment from mist or precipitation; negates strong-wind attack penalties${a.entry?.data.named_weapon_source === 'Wintershot' ? ' up to -2' : ''}. Activations are tracked manually.`} />}
@@ -1501,7 +1492,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.strikeNote && <SourceNote
               source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
               note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
-              <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{!rune.note && rune.source === 'Gravity Weapon' && ' (Gravity Weapon)'}{rune.note
+              <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
                 && <SourceNote source={rune.source} note={rune.note} inlineSource={rune.source === 'Gravity Weapon' || rune.source === 'Pharasma (Moderate Boon)'} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
           </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}
           {typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect && <SourceNote source="Untamed Form" note={a.entry.data.form_effect} inlineSource={false} />}</small>
@@ -1510,7 +1501,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
           {attackSummaries.map(summary => summary.attack.traits.length > 0 && <div key={summary.form ?? 'weapon'}>
             {summary.form && <small>{summary.form}:</small>}
-            <WeaponTraits c={c} attack={summary.attack} entries={entries} />
+            <WeaponTraits attack={summary.attack} entries={entries} />
           </div>)}
           {!upgradeWeapon && !fixed && <Runes
             runes={activeRunes.filter(rune => !activeFreeRunes.some(free => runeName(free.name) === runeName(rune)))}
@@ -1536,7 +1527,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.strikeNote && <SourceNote
                 source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
                 note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
-                <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{!rune.note && rune.source === 'Gravity Weapon' && ' (Gravity Weapon)'}{rune.note
+                <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
                   && <SourceNote source={rune.source} note={rune.note} inlineSource={rune.source === 'Gravity Weapon' || rune.source === 'Pharasma (Moderate Boon)'} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
             </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}
             {typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect && <SourceNote source="Untamed Form" note={a.entry.data.form_effect} inlineSource={false} />}</small>{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
@@ -1586,7 +1577,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 <span><small>Proficiency</small>{signed(summary.attack.prof)}</span>
                 <span><small>Item</small>{signed(summary.attack.item)}</span>
               </div>
-              {summary.attack.traits.length > 0 && <WeaponTraits c={c} attack={summary.attack} entries={entries} />}
+              {summary.attack.traits.length > 0 && <WeaponTraits attack={summary.attack} entries={entries} />}
             </div>)}
             {!(upgradeWeapon && a.entry && !linkedSource) && <AttackUpgrades attack={a} />}
             {namedWeaponNotes}

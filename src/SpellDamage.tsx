@@ -245,6 +245,12 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return rank >= 1 ? [{ label: 'Damage', dice: rank, sides: 4, type: 'mental' }] : []
     case 'Harm':
       return rank >= 1 ? [{ label: 'Damage', dice: rank, sides: 8, type: 'void' }] : []
+    case 'Heal':
+      return rank >= 1 ? [
+        { label: '1-action healing', dice: rank, sides: 8, type: 'HP' },
+        { label: '2-action healing', dice: rank, sides: 8, bonus: 8 * rank, type: 'HP' },
+        { label: '3-action healing', dice: rank, sides: 8, type: 'HP' },
+      ] : []
     case 'Heal Animal':
     case 'Heal Companion':
       return rank >= 1 ? [
@@ -359,8 +365,8 @@ export function spellActionRolls(name: string, rank: number, entry?: ContentEntr
   if (name === 'Harm') return rolls.flatMap(damage =>
     ['One Action', 'Two Actions', 'Three Actions'].map((actions, index) =>
       ({ damage: { ...damage, label: `${index + 1}-action damage` }, actions })))
-  if (name === 'Heal Animal' || name === 'Heal Companion') return rolls.map((damage, index) => ({
-    damage, actions: index === 0 ? 'One Action' : 'Two Actions',
+  if (name === 'Heal' || name === 'Heal Animal' || name === 'Heal Companion') return rolls.map((damage, index) => ({
+    damage, actions: ['One Action', 'Two Actions', 'Three Actions'][index],
   }))
   const actions = entry?.data.actions
   return typeof actions === 'string' && /^(?:(?:single|one|two|three|free) actions?|reaction)$/i.test(actions)
@@ -439,9 +445,12 @@ export function MultipleDamageRoll({ name, damages, actions }: { name: string; d
   </span>
 }
 
-export function SpellActions({ name, rank, entry, spellcastingModifier }: { name: string; rank: number; entry?: ContentEntry; spellcastingModifier?: number }) {
+export function SpellActions({ name, rank, entry, spellcastingModifier, actionOverride }: { name: string; rank: number; entry?: ContentEntry; spellcastingModifier?: number; actionOverride?: string }) {
   if (name === 'Warp World' && rank >= 4) return <WarpWorldRoll rank={rank} />
-  const rolls = spellActionRolls(name, rank, entry, spellcastingModifier)
+  const allRolls = spellActionRolls(name, rank, entry, spellcastingModifier)
+  const action = actionOverride?.replace(/^Single Action$/i, 'One Action')
+  const rolls = name === 'Heal' && action && /^(?:One|Two|Three) Actions?$/i.test(action)
+    ? allRolls.filter(roll => roll.actions.toLowerCase() === action.toLowerCase()) : allRolls
   const groups = new Map<string, Damage[]>()
   for (const { damage, actions } of rolls) groups.set(actions, [...groups.get(actions) ?? [], damage])
   return rolls.length ? <>{[...groups].map(([actions, damages]) => damages.length > 1

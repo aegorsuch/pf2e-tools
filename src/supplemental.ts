@@ -1,6 +1,5 @@
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor } from './types'
 import { BONY_PLATES_DESCRIPTION } from './grantedArmor'
-import { featTakenLevel } from './featChoices'
 
 export function removeColdIronTusks(c: Character): Character {
   const feats = c.feats.filter(feat => feat.name !== 'Cold Iron Tusks')
@@ -282,27 +281,6 @@ export function migrateMobileHunt(c: Character): Character {
   return feats.some((feat, index) => feat !== c.feats[index]) ? { ...c, feats } : c
 }
 
-export function migratePrimalWarriorCantrips(c: Character, entries: ContentEntry[]): Character {
-  const prepared = c.spellcasting?.prepared
-  if (c.className !== 'Ranger' || !c.feats.some(feat => feat.name === 'Primal Warrior'
-    && featTakenLevel(feat) <= c.level) || !prepared || !('0:0' in prepared || '0:1' in prepared)) return c
-  const first = prepared['0:0']
-  const second = prepared['0:1']
-  const name = (value: string | undefined) => value && (entries.find(entry => entry.id === value)?.name
-    ?? (value.includes(':') ? undefined : value))
-  const firstName = name(first)
-  const secondName = name(second)
-  if (first && !firstName || second && !secondName) return c
-  const next = { ...prepared }
-  if (!first || firstName === 'Protect Companion') {
-    if (second && secondName !== 'Protect Companion') next['0:0'] = second
-    else delete next['0:0']
-  }
-  delete next['0:1']
-  if (next['0:0'] === first && !('0:1' in prepared)) return c
-  return { ...c, spellcasting: { ...c.spellcasting!, prepared: next } }
-}
-
 export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[] {
   const nimbleClasses = ['Champion', 'Fighter', 'Gunslinger', 'Monk', 'Operative', 'Ranger', 'Rogue', 'Swashbuckler']
   const guardbreakClasses = ['Champion', 'Cleric', 'Commander', 'Druid', 'Exemplar', 'Fighter', 'Guardian', 'Inventor', 'Runesmith']
@@ -425,7 +403,7 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       'You learn the divine lance and protect companion cantrips. They count as paladin spells for you, and Charisma is your spellcasting ability for them.',
       { class: 'Champion' }),
     homebrewFeat('primal-warrior', 'Primal Warrior', 1, ['Ranger'],
-      'You learn the protect companion cantrip and one cantrip of your choice from the primal spell list. They count as ranger spells for you, and Wisdom is your spellcasting ability for them. Whenever you gain a level in this class, you can replace your chosen cantrip with another cantrip from the primal spell list.\n\nYou learn the Wildsong language, and you are bound by the druid’s anathema.',
+      'You learn the bramble bush and protect companion cantrips. They count as ranger spells for you, and Wisdom is your spellcasting ability for them.\n\nYou learn the Wildsong language, and you are bound by the druid’s anathema.',
       { class: 'Ranger', grants_languages: 'Wildsong' }),
     homebrewFeat('quick-shift', 'Quick Shift', 2, ['Gunslinger', 'Ranger', 'Rogue'],
       'You shift your weapon and attack with the same motion. You Interact to shift a weapon, then Strike with that weapon.',

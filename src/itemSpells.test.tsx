@@ -245,18 +245,33 @@ it('saves and restores item uses separately from innate uses, sharing alternativ
   expect(itemSpellUses(c, reloaded)).toMatchObject({ remaining: 1, spent: [1] })
 })
 
-it.each(['At will', 'Staff charges', 'once per hour'])('retains %s notes and falls back to spell action icons', frequency => {
+it.each(['At will', 'Staff charges', 'once per hour'])('renders %s spells and falls back to spell action icons', frequency => {
   const source: ContentEntry = { ...make('Spell Charm', 'item'),
     spellGrants: [{ kind: 'innate', spells: ['Fear'], frequency }] }
   const spell = { ...make('Fear', 'spell'), data: { actions: 'Two Actions' } }
   const c = { ...base, equipment: [{ name: source.name, qty: 1 }] }
   const grant = itemSpells(c, [source, spell])[0]
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={[source, spell]} save={() => {}} />)
-  expect(html).toContain(frequency)
+  if (frequency === 'once per hour') expect(html).not.toContain(frequency)
+  else expect(html).toContain(frequency)
   expect(html).toContain('class="action-cost" aria-label="Two Actions"')
   expect(html).not.toContain('>Spell Charm</button>')
   expect(!!itemSpellUses(c, grant)).toBe(frequency === 'once per hour')
   if (frequency !== 'once per hour') expect(html).not.toContain('class="focus-point"')
+})
+
+it('provides actionable healing and Ancestral Embrace Avatar in item spells', () => {
+  const embrace = official('Ancestral Embrace')
+  const avatar = official('Avatar')
+  const heal = official('Heal')
+  const hide = official('Hide Armor')
+  const charm = make('Healing Charm', 'item', 'Activate Two Actions; Frequency once per day; Effect You cast a 3rd-rank heal spell.')
+  const c: Character = { ...base, equipment: [{ name: charm.name, qty: 1 }],
+    armors: [{ id: 'armor', name: embrace.name, worn: true, potency: 0, resilient: 0, runes: [] }] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[embrace, hide, avatar, charm, heal]} save={() => {}} />)
+  expect(html).toContain('aria-label="Avatar options"')
+  expect(html).toContain('aria-label="Avatar active"')
+  expect(html).toContain('aria-label="Roll Heal: 2-action healing"')
 })
 
 it('includes spells from worn armor runes and removes them when armor is taken off', () => {

@@ -69,7 +69,8 @@ it('shows Gravity Weapon only for the first weapon Strike and scales with weapon
   expect(bonus({ ...active, ...spellActiveChange(active, 'Gravity Weapon', false) }, sword)).toBeUndefined()
   expect(bonus(active, { id: IRUXI_CLAWS.id, name: IRUXI_CLAWS.name, potency: 0, striking: 0, runes: [] })).toBeUndefined()
   const html = renderToStaticMarkup(<WeaponList c={active} entries={[weapon]} save={() => {}} displayOnly />)
-  expect(html).toContain('Gravity Weapon')
+  expect(html).not.toContain('(Gravity Weapon)')
+  expect(html).toContain('+ 4')
   expect(html).not.toContain('first weapon Strike each round')
 })
 

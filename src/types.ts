@@ -417,6 +417,9 @@ export interface Character {
   shirrenCreatureAllyActive?: boolean
   lashuntaCreatureAlly?: 'Shotalashu' | 'Squox'
   summonedFiend?: import('./summonedFiends.ts').SummonedFiend
+  summonedPlant?: import('./summonedFiends.ts').SummonedFiend
+  zealousConvictionRank?: number
+  protectCompanionId?: string
   untamedForm?: {
     form?: string
     shape?: string

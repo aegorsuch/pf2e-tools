@@ -178,6 +178,23 @@ it('displays and dismisses a saved summoned fiend', () => {
   expect(c.summonedFiend).toBeUndefined()
 })
 
+it('displays and dismisses a summoned plant independently from a fiend', () => {
+  const [creature] = normalizeFiends([{ _id: 'creature-1', _source: {
+    name: 'Test Plant', url: '/Monsters.aspx?ID=1', level: 4, rarity: 'common', trait: ['Fiend', 'Plant'], hp: 40,
+  } }])
+  let c: Character = { id: 'plant', name: 'Test', systems: ['pf2e'], level: 13,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    summonedPlant: creature, summonedFiend: creature }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  expect(renderToStaticMarkup(<MinionsSummary c={c} />)).toContain('Summoned Test Plant')
+  expect(renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={save} />)).toContain('Hit Points</small><b>40</b>')
+  vi.stubGlobal('window', { confirm: () => true })
+  findButton(SummonedFiendCard({ fiend: creature, save, plant: true }), 'Dismiss summoned Test Plant')!()
+  expect(c.summonedPlant).toBeUndefined()
+  expect(c.summonedFiend).toBeDefined()
+})
+
 it('toggles the Creature Ally caypin and applies a GM-selected Creature Shape animal form', () => {
   const spell = (name: string, level: number, trait: string): ContentEntry => ({
     id: name, name, kind: 'spell', systems: ['sf2e'], source: 'official', level, traits: [trait],

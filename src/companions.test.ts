@@ -22,6 +22,20 @@ const base: Character = {
 const feat = (name: string, choice?: string, slot?: string) => ({ name, type: 'Class Feat', level: 4, choice, slot })
 
 describe('animal companions', () => {
+  it('applies Protect Companion to its target without stacking circumstance bonuses', () => {
+    const c: Character = { ...base, className: 'Ranger', level: 8,
+      feats: [{ ...feat('Primal Warrior'), level: 1 }, { ...feat('Mounted Shield'), level: 6 }],
+      companions: [{ id: 'bear', type: 'Bear', name: '' }, { id: 'other', type: 'Bear', name: '' }],
+      protectCompanionId: 'other', activeSpells: ['Protect Companion'], mountedCompanionId: 'other',
+      shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true } }
+    const stats = (character: Character, id: string) => companionStats(character, [bear], 'Bear', undefined, id)!
+    const baseline = { ...c, activeSpells: [], shield: undefined }
+    expect(stats(c, 'bear').ac).toBe(stats(baseline, 'bear').ac)
+    expect(stats({ ...c, shield: undefined }, 'other').ac).toBe(stats(baseline, 'other').ac + 1)
+    expect(stats(c, 'other').ac).toBe(stats(baseline, 'other').ac + 2)
+    expect(stats({ ...c, feats: [] }, 'other').protectCompanion).toBe(0)
+  })
+
   it('limits shared Beastmaster advancement to earned feats and per-companion choices', () => {
     const c: Character = { ...base, level: 16, feats: [
       { ...feat('Mature Beastmaster Companion'), level: 4 },

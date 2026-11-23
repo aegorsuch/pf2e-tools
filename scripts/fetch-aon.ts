@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { AON_ENDPOINTS, fetchAonHits, type Hit } from '../src/aonQuery.ts'
-import { normalizeFiends } from '../src/summonedFiends.ts'
+import { normalizeFiends, normalizePlants } from '../src/summonedFiends.ts'
 
 // Snapshots AoN at build time: the browser can't query AoN's Elasticsearch directly from our origin (CORS).
 await mkdir('public/data', { recursive: true })
@@ -21,3 +21,15 @@ if (!result.hits?.hits) throw new Error('AoN fiends: missing creature data')
 const fiends = normalizeFiends(result.hits.hits)
 await writeFile('public/data/aon-fiends.json', JSON.stringify(fiends))
 console.log(`aon-fiends.json: ${fiends.length} entries`)
+const plantResponse = await fetch(AON_ENDPOINTS.pf2e, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ size: 10000, query: { bool: { filter: [
+    { term: { category: 'creature' } }, { terms: { trait: ['Plant', 'Fungus'] } }, { range: { level: { lte: 15 } } },
+  ] } } }),
+})
+if (!plantResponse.ok) throw new Error(`AoN plants: HTTP ${plantResponse.status}`)
+const plantResult = await plantResponse.json() as { hits?: { hits?: Hit[] } }
+if (!plantResult.hits?.hits) throw new Error('AoN plants: missing creature data')
+const plants = normalizePlants(plantResult.hits.hits)
+await writeFile('public/data/aon-plants.json', JSON.stringify(plants))
+console.log(`aon-plants.json: ${plants.length} entries`)

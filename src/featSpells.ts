@@ -903,7 +903,8 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[]) {
     }
   }
   return getSettings().innateAutoHeighten
-    ? out.map(grant => grant.rule.kind === 'innate' ? { ...grant, rank: Math.max(grant.rank, Math.ceil(c.level / 2)) } : grant)
+    ? out.map(grant => grant.rule.kind === 'innate' || grant.source === 'Heroic Presence'
+      ? { ...grant, rank: Math.max(grant.rank, grant.source === 'Heroic Presence' ? Math.min(10, Math.ceil(c.level / 2)) : Math.ceil(c.level / 2)) } : grant)
     : out
 }
 

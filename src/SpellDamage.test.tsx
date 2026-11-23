@@ -429,6 +429,18 @@ it.each([['Heal Companion', 10], ['Heal Animal', 8]] as const)('maps %s action i
   expect(markup.match(/<button /g)).toHaveLength(2)
 })
 
+it('rolls Heal at the selected action and spell rank', () => {
+  const rolls = spellActionRolls('Heal', 5)
+  expect(rolls.map(roll => [roll.actions, roll.damage.dice, roll.damage.bonus ?? 0]))
+    .toEqual([['One Action', 5, 0], ['Two Actions', 5, 40], ['Three Actions', 5, 0]])
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rolls.map(roll => rollSpellDamage(roll.damage))).toEqual([5, 45, 5])
+  const markup = renderToStaticMarkup(<SpellActions name="Heal" rank={5} actionOverride="Two Actions" />)
+  expect(markup).toContain('aria-label="Roll Heal: 2-action healing"')
+  expect(markup).not.toContain('1-action healing')
+  expect(markup).not.toContain('3-action healing')
+})
+
 it('uses a spell action icon for a supported damage roll and keeps non-rolling spell actions passive', () => {
   const entry: ContentEntry = { id: 'slime', name: 'Slime Spit', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

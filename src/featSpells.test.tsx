@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, onTestFinished } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHit } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
-import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, hitPointBonuses, knowsSpell, maxHp, movementSpeeds, oakenResilience, ownedWeapons, resistances, spellDifficultyClass, untamedFormOptions, weaponAttack } from './builder'
+import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, hitPointBonuses, knowsSpell, maxHp, movementSpeeds, oakenResilience, ownedWeapons, resistances, savingThrowBreakdown, spellDifficultyClass, temporaryHpGrant, untamedFormOptions, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
 import { automaticFeatChoiceKey, boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
@@ -723,7 +723,10 @@ it('tracks Homeward Bound twice weekly with its planar restriction and heritage 
     condition: 'Only between the First World and the Universe; no planar key required' } })
   expect(dailyInnateUses(c, grant)?.limit).toBe(2)
   expect(dailyInnateUses({ ...c, innateSpellUses: { [grant.usageKey]: [0] } }, grant)?.remaining).toBe(1)
-  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[teleport]} save={() => {}} />)).toContain('twice per week')
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[teleport]} save={() => {}} />)
+  expect(markup).not.toContain('twice per week')
+  expect(markup).toContain('2 of 2 uses remaining')
+  expect(markup).toContain('Only between the First World and the Universe')
   expect(grantedFeatSpells({ ...c, level: 16 }, [teleport])).toEqual([])
 })
 
@@ -1073,22 +1076,36 @@ it("grants Heroism from Heroes' Call as a third-rank daily innate occult spell",
   }])
 })
 
-it('provides Heroic Presence as a once-daily rank 6 Zealous Conviction effect', () => {
+it('heightens Heroic Presence under the innate spell house rule', () => {
   const spell = { ...entry('Zealous Conviction', 'spell', { actions: 'Two Actions' }), level: 6 }
   const c: Character = { ...base, systems: ['pf2e'], level: 17, feats: [taken('Heroic Presence', 17)] }
   updateSettings({ innateAutoHeighten: true })
   const [grant] = grantedFeatSpells(c, [spell])
-  expect(grant).toMatchObject({ entry: spell, source: 'Heroic Presence', rank: 6,
+  expect(grant).toMatchObject({ entry: spell, source: 'Heroic Presence', rank: 9,
     rule: { kind: 'feat', frequency: 'once per day' } })
   expect(dailyInnateUses(c, grant)?.limit).toBe(1)
+  for (const level of [19, 20]) {
+    const [heightened] = grantedFeatSpells({ ...c, level }, [spell])
+    expect(heightened.rank).toBe(10)
+    expect(heightened.usageKey).toBe(grant.usageKey)
+  }
   expect(unresolvedFeatSpells(c, [])).toMatchObject([{ name: 'Zealous Conviction' }])
   expect(grantedFeatSpells({ ...c, level: 16 }, [spell])).toEqual([])
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
   expect(markup).toContain('aria-pressed="true">Innate Spells</button>')
   expect(markup).not.toContain('>Feat Spells</button>')
-  expect(markup).toContain('Innate Spell Rank 6')
+  expect(markup).toContain('Innate Spell Rank 9')
   expect(markup).toContain('aria-label="Single Action"')
+  expect(markup).toContain('Zealous Conviction active on self')
   expect(markup).toContain('A repugnant command immediately ends the effect on that target.')
+  updateSettings({ innateAutoHeighten: false })
+  expect(grantedFeatSpells({ ...c, level: 20 }, [spell])[0].rank).toBe(6)
+  for (const [rank, hp, bonus] of [[6, 12, 2], [9, 18, 3], [10, 18, 3]]) {
+    const active = { ...c, zealousConvictionRank: rank }
+    expect(temporaryHpGrant(active, [])?.value).toBe(hp)
+    expect(savingThrowBreakdown(active, [], 'Will').notes).toContain(`Zealous Conviction: +${bonus} status against mental effects; status bonuses do not stack.`)
+    expect(savingThrowBreakdown(active, [], 'Will').total).toBe(savingThrowBreakdown(c, [], 'Will').total)
+  }
 })
 
 it.each([
@@ -1845,6 +1862,8 @@ it('grants Kijimuna Whistle as a rank 5 primal innate spell once per day', () =>
   expect(grant).toMatchObject({ entry: spell, rank: 5, rule: { tradition: 'primal', frequency: 'once per day',
     fixedRank: true, condition: 'This casting loses the manipulate trait; cast by whistling' } })
   expect(dailyInnateUses(c, grant)?.remaining).toBe(1)
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[source, spell]} save={() => {}} />))
+    .toContain('aria-label="Summon Plant or Fungus options"')
   expect(unresolvedFeatSpells(c, [source])).toMatchObject([{ name: spell.name }])
   expect(grantedFeatSpells({ ...c, level: 12 }, [source, spell])).toEqual([])
 })
@@ -2371,14 +2390,14 @@ it('shows Pummeling Rubble as a 15-foot cone when the source area is only numeri
   expect(markup).toContain('<small>Area/Targets</small>15-foot cone')
 })
 
-it.each(['once per day', 'twice per day', 'at will', 'once per hour'])('omits redundant %s labels while retaining other limits', frequency => {
+it.each(['once per day', 'twice per day', 'at will', 'once per hour', 'twice per week'])('omits redundant %s labels while retaining other limits', frequency => {
   const grant: ContentEntry = { ...entry('Test Magic', 'feat'),
     spellGrants: [{ kind: 'innate', spells: ['Test Spell'], frequency }] }
   const c: Character = { ...base, feats: [taken(grant.name)] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, entry('Test Spell', 'spell')]} save={() => {}} />)
-  expect(markup.includes(frequency)).toBe(frequency === 'once per hour')
+  expect(markup).not.toContain(frequency)
   if (frequency === 'at will') expect(markup).not.toContain('uses remaining')
-  if (frequency.endsWith('per day')) {
+  if (frequency !== 'at will') {
     const limit = frequency.startsWith('twice') ? 2 : 1
     expect(markup).toContain(`aria-label="${limit} of ${limit} uses remaining"`)
   }

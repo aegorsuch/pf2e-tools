@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import type { Character, ContentEntry } from './types'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, homebrewCharacterOptions, homebrewWeapons, IRON_FIST, migrateMobileHunt, migratePrimalWarriorCantrips, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, homebrewCharacterOptions, homebrewWeapons, IRON_FIST, migrateMobileHunt, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
 import { automaticFeatGrants, backgroundSkills, boostSlots, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featChoiceOptions, gearPickerEntries, handwrapRuneOptions, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { FeatSlots } from './FeatSlots'
@@ -153,19 +153,6 @@ it('offers Mobile Hunt to rangers as a traversal action and migrates saved selec
   expect(migrated.feats[0]).toMatchObject({ name: 'Mobile Hunt', sourceId: feat.id, slot: slot.key })
   expect(migrateMobileHunt(migrated)).toBe(migrated)
   expect(migrateMobileHunt({ ...c, feats: [{ ...c.feats[0], sourceId: 'custom:mobile-hunter' }] }).feats[0].name).toBe('Mobile Hunter')
-})
-
-it('preserves the selectable Primal Warrior cantrip when Protect Companion becomes fixed', () => {
-  const c: Character = { ...base, feats: [{ name: 'Primal Warrior', type: 'Class Feat', level: 1 }],
-    spellcasting: { ability: 'wis', tradition: 'Primal', rank: 1, slots: {},
-      prepared: { '0:0': 'Protect Companion', '0:1': 'Guidance' } } }
-  const updated = migratePrimalWarriorCantrips(c, [])
-  expect(updated.spellcasting?.prepared).toEqual({ '0:0': 'Guidance' })
-  expect(migratePrimalWarriorCantrips(updated, [])).toBe(updated)
-  const firstChosen = { ...c, spellcasting: { ...c.spellcasting!, prepared: { '0:0': 'Light', '0:1': 'Guidance' } } }
-  expect(migratePrimalWarriorCantrips(firstChosen, []).spellcasting?.prepared).toEqual({ '0:0': 'Light' })
-  const unavailable = { ...c, spellcasting: { ...c.spellcasting!, prepared: { '0:0': 'aon:missing', '0:1': 'Guidance' } } }
-  expect(migratePrimalWarriorCantrips(unavailable, [])).toBe(unavailable)
 })
 
 it('offers Shift Ace to rangers with its shifting rune requirement', () => {

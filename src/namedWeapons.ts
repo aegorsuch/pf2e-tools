@@ -173,6 +173,7 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
       const custom = !native && !['Serithtial', "Hunter's Dawn"].includes(item.name)
       const label = /\((Melee|Ranged)\)$/.exec(base.name)?.[1] ?? base.name.replace(/^Composite /i, '')
       const traits = [...new Map([...base.traits.filter(trait => !/^(?:common|uncommon|rare|unique)$/i.test(trait)),
+        ...(item.name === 'Scalding Gauntlets' ? ['Free-Hand'] : []),
         ...item.traits].map(trait => [trait.toLowerCase(), trait])).values()]
       const data: ContentEntry['data'] = { ...base.data, url: item.data.url ?? '', sourceBook: item.data.sourceBook ?? '',
         price: item.data.price ?? '', rarity: item.data.rarity ?? 'common', item_category: 'Weapons',
