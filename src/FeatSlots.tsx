@@ -50,15 +50,21 @@ const LABEL: Record<FeatSlotCategory, string> = {
 
 type FeatOption = { entry: ContentEntry; choice?: string; mastermindSkill?: string; value: string; label: string; disabled?: boolean }
 
-function FeatVariantGroup({ summary, autoOpen, renderOptions }: {
-  summary: ReactNode; autoOpen: boolean; renderOptions: () => ReactNode
+function FeatVariantGroup({ summary, autoOpen, count, renderOptions }: {
+  summary: ReactNode; autoOpen: boolean; count: number; renderOptions: (limit: number) => ReactNode
 }) {
   const [expanded, setExpanded] = useState(autoOpen)
+  const [limit, setLimit] = useState(PAGE)
   return <details className="feat-variant-group" open={autoOpen} onToggle={event => {
     if (event.target === event.currentTarget) setExpanded(event.currentTarget.open)
   }}>
     <summary>{summary}</summary>
-    {(expanded || autoOpen) && <ul className="feat-variant-list">{renderOptions()}</ul>}
+    {(expanded || autoOpen) && <ul className="feat-variant-list">
+      {renderOptions(limit)}
+      {count > limit && <li><button type="button" onClick={() => setLimit(previous => previous + PAGE)}>
+        Show more ({count - limit} left, or use search)
+      </button></li>}
+    </ul>}
   </details>
 }
 
@@ -602,8 +608,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 && ['Unconventional Weaponry', 'Adopted Ancestry'].includes(entry.name)
               return collapse ? [<li key={id}>
                 <FeatVariantGroup autoOpen={!!slotQuery && !matchesEntry(entry)}
+                  count={variants.length}
                   summary={<>{displayName(entry.name)} ({variants.length} choices)</>}
-                  renderOptions={() => variants.map(popupOption)} />
+                  renderOptions={limit => variants.slice(0, limit).map(popupOption)} />
               </li>] : variants.map(popupOption)
             })
           }

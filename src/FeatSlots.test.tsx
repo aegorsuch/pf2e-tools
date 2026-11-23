@@ -926,6 +926,7 @@ it('shows and searches distinct Versatile Rogue racket options', () => {
 it.each([
   { name: 'Unconventional Weaponry', count: 2 },
   { name: 'Unconventional Weaponry', count: 12 },
+  { name: 'Unconventional Weaponry', count: 125 },
   { name: 'Adopted Ancestry', count: 2 },
   { name: 'Adopted Ancestry', count: 12 },
 ])('collapses $name ($count choices) while keeping variants searchable and selectable', ({ name, count }) => {
@@ -957,6 +958,8 @@ it.each([
   expect(filtered).toContain(`aria-label="${label}: ${name} (Choice 02)"`)
   expect(filtered).not.toContain(`aria-label="${label}: ${name} (Choice 01)"`)
   expect(filtered).not.toContain('feat-variant-group')
+  if (count === 125) expect(renderToStaticMarkup(tree('choice 125')))
+    .toContain(`aria-label="${label}: ${name} (Choice 125)"`)
   findButton(tree('choice 02'), `${label}: ${name} (Choice 02)`)!()
   expect(c.feats).toContainEqual(expect.objectContaining({ name, choice: 'Choice 02', slot: key }))
 })

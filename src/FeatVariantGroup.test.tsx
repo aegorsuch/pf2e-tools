@@ -5,11 +5,11 @@ import { expect, it, vi } from 'vitest'
 import { SearchableFeatSlots } from './FeatSlots'
 import type { Character, ContentEntry } from './types'
 
-it('renders collapsed feat variants only when expanded and selects a choice', async () => {
+it('pages expanded feat variants and selects a later choice', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   const feat: ContentEntry = { id: 'choices', name: 'Unconventional Weaponry', kind: 'feat',
     source: 'official', systems: ['pf2e'], level: 1, traits: ['Human'], description: '', data: {}, effects: [], updatedAt: 0 }
-  const entries = [feat, ...Array.from({ length: 12 }, (_, i): ContentEntry => ({
+  const entries = [feat, ...Array.from({ length: 125 }, (_, i): ContentEntry => ({
     ...feat, id: `choice-${i}`, name: `Choice ${String(i + 1).padStart(2, '0')}`,
     kind: 'weapon', traits: [], data: { weapon_category: 'Martial' },
   }))]
@@ -40,11 +40,16 @@ it('renders collapsed feat variants only when expanded and selects a choice', as
       group.open = true
       group.dispatchEvent(new Event('toggle'))
     })
-    const choice = group.querySelector<HTMLButtonElement>('[aria-label="L01 Ancestry: Unconventional Weaponry (Choice 02)"]')
+    expect(group.querySelectorAll('.picker-option-row')).toHaveLength(100)
+    const showMore = [...group.querySelectorAll('button')].find(button => button.textContent?.includes('Show more'))!
+    expect(showMore.textContent).toContain('25 left')
+    await act(async () => showMore.click())
+    expect(group.querySelectorAll('.picker-option-row')).toHaveLength(125)
+    const choice = group.querySelector<HTMLButtonElement>('[aria-label="L01 Ancestry: Unconventional Weaponry (Choice 125)"]')
     expect(choice).not.toBeNull()
     await act(async () => choice!.click())
     expect(save).toHaveBeenCalledWith(expect.objectContaining({
-      feats: [expect.objectContaining({ name: feat.name, choice: 'Choice 02', slot: 'ancestry:1:0' })],
+      feats: [expect.objectContaining({ name: feat.name, choice: 'Choice 125', slot: 'ancestry:1:0' })],
     }))
   } finally {
     await act(async () => root.unmount())
