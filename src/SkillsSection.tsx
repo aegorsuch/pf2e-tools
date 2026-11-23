@@ -3,7 +3,7 @@ import { resistances, activeBattleForm,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, offensiveDefenseAttack, ownedWeapons, weaponEquipped, installedWeaponUpgrades, conditionPenalty, conditionValue, type SectionProps,
 } from './builder'
-import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, giantStatureSize, effectiveWeapon, weaponEntry, weaponHeld } from './builder'
+import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, giantStatureSize, giantClumsySource, enlargedChassisSize, effectiveWeapon, weaponEntry, weaponHeld } from './builder'
 import { ArmorList, ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { CONDITIONAL_BONUSES } from './conditionalBonuses'
@@ -480,8 +480,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             note={athleticRush ? '+2 status bonus to Athletics checks.' : ferocious ? '+1 status bonus to Athletics checks.' : '+4 status bonus when using Impersonate as an animal.'} />}
           {circumstance?.source === 'Hellknight Preferment' && <SourceNote source={circumstance.source}
             note={`+${circumstance.value} circumstance bonus to Intimidation while wearing Hellknight armor.`} />}
-          {!!clumsyPenalty && <SourceNote source={giantStatureSize(c, entries) ? "Giant's Stature: clumsy 1" : 'Giant Instinct: clumsy 1'}
-            note={giantStatureSize(c, entries) ? '-1 status penalty to Dexterity-based checks and DCs until Rage ends; status penalties do not stack.'
+          {!!clumsyPenalty && <SourceNote source={`${giantClumsySource(c, entries)}: clumsy 1`}
+            note={giantClumsySource(c, entries) === 'Enlarged Chassis' ? '-1 status penalty to Dexterity-based checks and DCs from the constant enlarge effect; status penalties do not stack.' : giantStatureSize(c, entries) ? '-1 status penalty to Dexterity-based checks and DCs until Rage ends; status penalties do not stack.'
               : '-1 status penalty to Dexterity-based checks and DCs while wielding the oversized weapon, even outside Rage; status penalties do not stack.'} />}
           {s.kind !== 'save' && !!conditionPenalty(c, ability) && <SourceNote source="Conditions"
             note={`-${statusPenalty} status penalty to this check; status penalties do not stack.`} />}
@@ -899,8 +899,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {!!activeFeatsNamed(c, 'Towering Transformation').length && <SourceNote source="Towering Transformation"
             note={`When a polymorph increases your size, enemies smaller than your new size within 30 feet attempt Will saves against ${classDifficultyClass(c, entries) ?? 'your class DC'} or your spell DC, whichever is higher. Failure causes frightened 1; critical failure causes frightened 2 and allows you to push the target up to 10 feet.`} />}
         </div>}
-        {giantStatureSize(c, entries) && <div className="defense-summary">
-          <span><small>Size</small><b>{giantStatureSize(c, entries)}</b></span>
+        {(giantStatureSize(c, entries) ?? enlargedChassisSize(c, entries)) && <div className="defense-summary">
+          <span><small>Size</small><b>{giantStatureSize(c, entries) ?? enlargedChassisSize(c, entries)}</b></span>
         </div>}
         <ArmorProficiency c={c} entries={entries} />
         <h4>Armor</h4>

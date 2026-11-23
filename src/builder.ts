@@ -4538,7 +4538,7 @@ export function untrainedSkillProficiency(c: Character) {
 
 export function bulkLimits(c: Character, entries: ContentEntry[]) {
   const strength = abilityMod(c.abilities.str)
-  const size = activeBattleForm(c, entries)?.size ?? giantStatureSize(c, entries) ?? (activeFeatsNamed(c, "Jotun's Heart").length
+  const size = activeBattleForm(c, entries)?.size ?? giantStatureSize(c, entries) ?? enlargedChassisSize(c, entries) ?? (activeFeatsNamed(c, "Jotun's Heart").length
     ? 'Huge' : characterSize(c, entries)
   )
   const sizeMultipliers: Record<string, number> = { tiny: 0.5, large: 2, huge: 4, gargantuan: 8 }
@@ -4847,7 +4847,7 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   const condition = conditionPenalty(c, ability[name])
   const penalty = Math.max(condition, clumsy, drained)
   if (penalty) parts.push({ label: drained === penalty ? 'Asmodeus Major Curse: drained 4 (condition) (status)'
-    : clumsy === penalty ? `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`
+    : clumsy === penalty ? `${giantClumsySource(c, entries)}: clumsy (status)`
       : 'Conditions (status)', value: -penalty })
   if (name === 'Reflex' && c.systems.includes('pf2e') && c.mountedCompanionId
     && c.companions?.some(companion => companion.id === c.mountedCompanionId)) {
@@ -5297,7 +5297,7 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   const statusPenalty = Math.max(condition, clumsy)
   const ragePenalties: TotalPart[] = [
     ...(statusPenalty ? [{ label: clumsy >= condition
-      ? `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`
+      ? `${giantClumsySource(c, entries)}: clumsy (status)`
       : 'Conditions (status)', value: -statusPenalty }] : []),
     ...(c.raging && c.systems.includes('pf2e') && c.className !== 'Barbarian' && activeFeatsNamed(c, 'Barbarian Dedication').length
       ? [{ label: 'Barbarian Dedication: Rage', value: -1 }] : []),
@@ -6901,8 +6901,18 @@ const countsAsGiantWeapon = (c: Character, entries: ContentEntry[], weapon: Owne
   isGiantWeapon(c, entries, weapon) || isGiantInstinct(c, entries)
     && weaponEntry(entries, weapon.name)?.data.named_weapon_source === 'Ridill'
 
+export function enlargedChassisSize(c: Character, entries: ContentEntry[]) {
+  if (!c.systems.includes('pf2e') || !activeFeatsNamed(c, 'Enlarged Chassis').length) return undefined
+  return ['tiny', 'small', 'medium'].includes(String(characterSize(c, entries)).toLowerCase()) ? 'Large' : undefined
+}
+
+export function giantClumsySource(c: Character, entries: ContentEntry[]) {
+  if (giantStatureSize(c, entries)) return "Giant's Stature"
+  return enlargedChassisSize(c, entries) && !isGiantInstinct(c, entries) ? 'Enlarged Chassis' : 'Giant Instinct'
+}
+
 export function giantWeaponClumsy(c: Character, entries: ContentEntry[]) {
-  return giantStatureSize(c, entries) || isGiantInstinct(c, entries) && ownedWeapons(c, entries).some(weapon =>
+  return giantStatureSize(c, entries) || enlargedChassisSize(c, entries) || isGiantInstinct(c, entries) && ownedWeapons(c, entries).some(weapon =>
     countsAsGiantWeapon(c, entries, weapon) && weaponEquipped(c, entries, weapon)) ? 1 : 0
 }
 
@@ -7496,7 +7506,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     : battleStance && weaponHands(entries, w, c) === 2 && !hasReachTrait ? 10
     : c.raging && isFeatEffectActive(c, "Giant's Lunge") ? Math.max(10, baseReach) : baseReach
   const stature = giantStatureSize(c, entries)
-  const reach = normalReach + (normalReach > 0 && !formAttack ? stature === 'Huge' ? 10 : stature === 'Large' ? 5 : 0 : 0)
+  const reach = normalReach + (normalReach > 0 && !formAttack ? stature === 'Huge' ? 10 : stature === 'Large' || !stature && enlargedChassisSize(c, entries) ? 5 : 0 : 0)
     + (normalReach > 0 && !formAttack && category !== 'Unarmed'
     && isFeatEffectActive(c, 'Reckless Riding Lunge') && c.mountedCompanionId
     && c.companions?.some(companion => companion.id === c.mountedCompanionId) && weaponHeld(c, entries, w) ? 5 : 0)
@@ -7696,7 +7706,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         ...(divineAttackBonus ? [{ label: 'Iomedae (Major Boon) (status)', value: divineAttackBonus }] : []),
         ...(desperateWrath ? [{ label: 'Desperate Wrath (circumstance)', value: desperateWrath }] : []),
         ...(attackPenalty ? [{ label: clumsy >= conditionPenalty(c, ability)
-          ? `${giantStatureSize(c, entries) ? "Giant's Stature" : 'Giant Instinct'}: clumsy (status)`
+          ? `${giantClumsySource(c, entries)}: clumsy (status)`
           : 'Conditions (status)', value: -attackPenalty }] : []),
       ],
       notes: [
