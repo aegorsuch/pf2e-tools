@@ -2669,6 +2669,36 @@ const emptyRanger = (): Character => ({
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 })
 
+it('lists each Gunslinger way once in Versatile Gunslinger choices', () => {
+  const feat: ContentEntry = { id: 'versatile-gunslinger', name: 'Versatile Gunslinger', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 14, traits: ['Gunslinger'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }
+  const sniper: ContentEntry = { ...feat, id: 'sniper-remastered', kind: 'subclass', name: 'Way of the Sniper',
+    data: { class: 'Gunslinger', skill: 'Stealth' } }
+  const legacySniper = { ...sniper, id: 'sniper-legacy' }
+  const c: Character = { ...emptyRanger(), className: 'Gunslinger', subclass: '', level: 14 }
+  expect(featChoiceOptions(feat.name, c, [feat, sniper, legacySniper], 'class:14:0'))
+    .toEqual(['Way of the Sniper'])
+})
+
+it('keeps Wizard-shared Spellshot archetype feats out of Gunslinger class feats', () => {
+  const dedication: ContentEntry = { id: 'spellshot-dedication', name: 'Spellshot Dedication', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 2, traits: ['Archetype', 'Dedication'], description: '',
+    data: { archetype: 'Spellshot' }, effects: [], updatedAt: 0 }
+  const way: ContentEntry = { ...dedication, id: 'spellshot-way', kind: 'subclass', name: 'Way of the Spellshot',
+    data: { class: 'Gunslinger' } }
+  const wizardFeat: ContentEntry = { ...dedication, id: 'basic-arcana', name: 'Basic Arcana', level: 4,
+    traits: ['Archetype'], data: { archetype: 'Wizard, Spellshot' } }
+  const spellshotFeat: ContentEntry = { ...wizardFeat, id: 'spellshot-feat', name: 'Spell-Woven Shot',
+    data: { archetype: 'Spellshot' } }
+  const entries = [dedication, way, wizardFeat, spellshotFeat]
+  const c: Character = { ...emptyRanger(), className: 'Gunslinger', subclass: way.name, level: 4,
+    feats: [{ name: dedication.name, type: 'Class Feat', level: 2, slot: 'class:2:0' }] }
+  const slot = plannedSlots(c, entries).find(candidate => candidate.key === 'class:4:0')!
+  const available = eligibleFeats(entries, c, slot)
+  expect(available).not.toContain(wizardFeat)
+  expect(available).toContain(spellshotFeat)
+})
+
 it.each([
   ["Giant's Lunge", 14],
   ['Desperate Wrath', 16],

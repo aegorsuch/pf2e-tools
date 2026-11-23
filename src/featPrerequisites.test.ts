@@ -2030,13 +2030,27 @@ describe('shared prerequisite enforcement', () => {
     const ways = ['Way of the Sniper', 'Way of the Pistolero']
       .map(name => entry('subclass', name, { class: 'Gunslinger' }))
     const feat = entry('feat', 'Pistolero Feat', { prerequisite: 'Way of the Pistolero' }, 16, ['Gunslinger'])
+    const challenge = entry('feat', 'Come at Me!', { prerequisite: "Pistolero's Challenge" }, 14, ['Gunslinger'])
     const versatile = { name: 'Versatile Gunslinger', type: 'Class Feat', level: 14,
       slot: 'class:14:0', takenLevel: 14, choice: 'Way of the Pistolero' }
     const gunslinger: Character = { ...base, className: 'Gunslinger', subclass: 'Way of the Sniper',
       level: 16, feats: [versatile] }
     expect(featPrerequisiteChecker(gunslinger, [...ways, feat])(feat)).toEqual({ missing: [], manual: [] })
+    expect(featPrerequisiteChecker(gunslinger, [...ways, challenge])(challenge)).toEqual({ missing: [], manual: [] })
     expect(featPrerequisiteChecker({ ...gunslinger, feats: [] }, [...ways, feat])(feat).missing)
       .toEqual(['Way of the Pistolero'])
+    expect(featPrerequisiteChecker({ ...gunslinger, feats: [] }, [...ways, challenge])(challenge).missing)
+      .toEqual(["Pistolero's Challenge"])
+  })
+
+  it('lets Spellshot Dedication satisfy Wizard Dedication prerequisites', () => {
+    const spellshot = entry('feat', 'Spellshot Dedication', { archetype: 'Spellshot' }, 2, ['Archetype', 'Dedication'])
+    const wizardFeat = entry('feat', 'Arcane School Spell', { archetype: 'Wizard', prerequisite: 'Wizard Dedication' }, 4, ['Archetype'])
+    const c: Character = { ...base, className: 'Gunslinger', level: 4,
+      feats: [{ name: spellshot.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }] }
+    const entries = [spellshot, wizardFeat]
+    expect(featPrerequisiteChecker(c, entries)(wizardFeat)).toEqual({ missing: [], manual: [] })
+    expect(eligibleFeats(entries, c, { key: 'archetype:4:0', category: 'archetype', level: 4 })).toContain(wizardFeat)
   })
 
   it('checks Witch patron tradition prerequisites such as arcane or primal patron', () => {

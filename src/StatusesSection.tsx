@@ -5,6 +5,7 @@ import { StancesContent } from './StancesSection'
 import { automatedSpellStatusControls, ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
 import { SimplePoisons } from './GearSection'
 import { isBastionNamedArmor } from './namedArmor'
+import { FULMINATING_SHOT_ELEMENTS, fulminatingShotBonus } from './fulminatingShot'
 
 const canDeviseAStratagem = (c: SectionProps['c']) => c.systems.includes('pf2e') && c.className === 'Investigator'
 
@@ -25,6 +26,7 @@ export function StatusesSummary({ c, entries }: SectionProps) {
     ...(stance ? [stance.name] : []),
     ...(c.poisonWeaponActive && activeFeatsNamed(c, 'Poison Weapon').length ? ['Poison Weapon'] : []),
     ...(entrenchMeleeActive(c, entries) ? ['Entrench Melee'] : []),
+    ...(fulminatingShotBonus(c) ? [`Fulminating Shot (${fulminatingShotBonus(c)})`] : []),
     ...c.activeSpells ?? [],
     ...c.activeFeatEffects ?? [],
     ...(c.zealousConvictionRank !== undefined ? ['Zealous Conviction'] : []),
@@ -75,6 +77,39 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
           ? { ...current, entrenchMeleeActive: event.target.checked } : current) })} />
         {' '}Entrench Melee: {armor.name}</label>
     })}</div> }] : []),
+    ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Fulminating Shot').length ? [{
+      name: 'Fulminating Shot',
+      element: <div>
+        <label><input type="checkbox" aria-label="Fulminating Shot status" checked={!!c.fulminatingShotActive}
+          disabled={!FULMINATING_SHOT_ELEMENTS.includes(c.fulminatingShotElement as typeof FULMINATING_SHOT_ELEMENTS[number])}
+          onChange={event => save({ fulminatingShotActive: event.target.checked })} />
+          {' '}Fulminating Shot ({c.level >= 18 ? '3d6' : c.level >= 12 ? '2d6' : '1d6'})</label>{' '}
+        <label>Element{' '}
+          <select aria-label="Fulminating Shot element" value={c.fulminatingShotElement ?? ''}
+            onChange={event => {
+              const element = FULMINATING_SHOT_ELEMENTS.find(option => option === event.target.value)
+              save({ fulminatingShotElement: element, ...(!element ? { fulminatingShotActive: false } : {}) })
+            }}>
+            <option value="">Choose</option>
+            {FULMINATING_SHOT_ELEMENTS.map(element => <option key={element}>{element}</option>)}
+          </select>
+        </label>
+      </div>,
+    }] : []),
+    ...(activeFeatsNamed(c, 'Sky Master Mask').length ? [{
+      name: 'Sky Master Mask',
+      element: <label><input type="checkbox" aria-label="Sky Master Mask doubled flight"
+        checked={isFeatEffectActive(c, 'Sky Master Mask')}
+        onChange={event => save(featEffectChange(c, 'Sky Master Mask', event.target.checked))} />
+        {' '}Sky Master Mask doubled flight</label>,
+    }] : []),
+    ...(activeFeatsNamed(c, 'Thick Hide Mask').length ? [{
+      name: 'Thick Hide Mask',
+      element: <label><input type="checkbox" aria-label="Thick Hide Mask resistance active"
+        checked={isFeatEffectActive(c, 'Thick Hide Mask')}
+        onChange={event => save(featEffectChange(c, 'Thick Hide Mask', event.target.checked))} />
+        {' '}Thick Hide Mask resistance</label>,
+    }] : []),
     ...(['enfeebled', 'frightened', 'sickened'] as const).map(name => ({
       name, element: <label>
         {name[0].toUpperCase() + name.slice(1)}{' '}

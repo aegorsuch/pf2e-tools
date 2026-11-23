@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, onTestFinished } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHit } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
-import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, hitPointBonuses, knowsSpell, maxHp, movementSpeeds, oakenResilience, ownedWeapons, resistances, savingThrowBreakdown, spellDifficultyClass, temporaryHpGrant, untamedFormOptions, weaponAttack } from './builder'
+import { activeFeatsNamed, canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, hitPointBonuses, knowsSpell, maxHp, movementSpeeds, oakenResilience, ownedWeapons, resistances, savingThrowBreakdown, senses, spellDifficultyClass, temporaryHpGrant, untamedFormOptions, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
 import { automaticFeatChoiceKey, boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, innateTraditionOptions, investigatorEsotericaCantripOptions, unresolvedFeatSpells, refocusRecovery } from './featSpells'
@@ -985,6 +985,56 @@ it('toggles False Vitality HP at its cast rank and preserves the effect across s
   expect(c.falseVitalityRank).toBeUndefined()
 })
 
+it('applies Magic Warrior Mask passive Hit Points, senses, flight, and Conceal Spell grant', () => {
+  const c: Character = { id: 'magic-warrior-effects', systems: ['pf2e'], name: 'Test', level: 20,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [
+      { name: 'Thick Hide Mask', type: 'Archetype Feat', level: 20 },
+      { name: 'Sky Master Mask', type: 'Archetype Feat', level: 20 },
+      { name: 'Stalking Feline Mask', type: 'Archetype Feat', level: 20 },
+      { name: 'Vigilant Mask', type: 'Archetype Feat', level: 20 },
+      { name: 'Cunning Trickster Mask', type: 'Archetype Feat', level: 20 },
+    ], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(hitPointBonuses(c)).toContainEqual({ source: 'Thick Hide Mask', value: 20 })
+  expect(maxHp(c, [])).toBe(maxHp({ ...c, feats: c.feats.filter(feat => feat.name !== 'Thick Hide Mask') }, []) + 20)
+  expect(movementSpeeds(c, []).some(movement => movement.name === 'Fly' && movement.feet === 25)).toBe(true)
+  const activeDefenses = { ...c, activeFeatEffects: ['Sky Master Mask', 'Thick Hide Mask'] }
+  expect(movementSpeeds(activeDefenses, []).some(movement => movement.name === 'Fly' && movement.feet === 50)).toBe(true)
+  expect(resistances(activeDefenses, [])).toContainEqual({ damage: 'Physical', value: 10, source: 'Thick Hide Mask' })
+  expect(senses(c, []).map(sense => sense.value)).toEqual(expect.arrayContaining([
+    'Greater Darkvision', 'Scent (precise) 60 feet',
+  ]))
+  const scentedAncestry = entry('Scented', 'ancestry', { vision: 'Scent (precise) 30 feet' })
+  expect(senses({ ...c, ancestry: 'Scented' }, [scentedAncestry])).toContainEqual({
+    value: 'Scent (precise) 90 feet', source: 'Scented, Vigilant Mask',
+  })
+  expect(activeFeatsNamed(c, 'Conceal Spell')).toHaveLength(1)
+})
+
+it('grants Storyteller Mask Foresight in a qualifying dedication tradition', () => {
+  const foresight = { ...entry('Foresight', 'spell'), level: 9 }
+  const wizard: Character = { ...base, level: 20, feats: [
+    taken("Storyteller's Mask", 20), taken('Wizard Dedication', 2),
+  ] }
+  const druid: Character = { ...base, level: 20, feats: [
+    taken("Storyteller's Mask", 20), taken('Druid Dedication', 2),
+  ] }
+  const both: Character = { ...base, level: 20, feats: [
+    taken("Storyteller's Mask", 20), taken('Wizard Dedication', 2), taken('Druid Dedication', 2),
+  ] }
+  expect(featChoiceOptions("Storyteller's Mask", wizard, [foresight], 'archetype:20:0', 0)).toEqual(['Arcane'])
+  expect(featChoiceOptions("Storyteller's Mask", druid, [foresight], 'archetype:20:0', 0)).toEqual(['Primal'])
+  expect(featChoiceOptions("Storyteller's Mask", both, [foresight], 'archetype:20:0', 0)).toEqual(['Arcane', 'Primal'])
+  expect(grantedFeatSpells(wizard, [foresight])).toMatchObject([{
+    entry: { name: 'Foresight', data: { duration: 600 } }, rank: 9,
+    rule: { kind: 'innate', tradition: 'arcane', frequency: 'once per day' },
+  }])
+  expect(grantedFeatSpells(druid, [foresight])).toMatchObject([{
+    entry: { name: 'Foresight', data: { duration: 600 } }, rank: 9,
+    rule: { kind: 'innate', tradition: 'primal', frequency: 'once per day' },
+  }])
+})
+
 it('offers False Vitality activation at the granted innate rank', () => {
   const vitality = { ...entry('False Vitality', 'spell', { actions: 'Two Actions' }), level: 2 }
   const grant: ContentEntry = { ...entry('Vitality Magic', 'feat'), spellGrants: [
@@ -1649,7 +1699,7 @@ it('grants each First World Adept spell once daily at rank two', () => {
   expect(dailyInnateUses(c, grants[0])?.key).not.toBe(dailyInnateUses(c, grants[1])?.key)
 })
 
-it('grants Pinch Time as daily rank-three self-only Haste and auto-heightens when enabled', () => {
+it('grants Pinch Time as daily rank-three Haste and auto-heightens when enabled', () => {
   const source = feat('Pinch Time', 'You gain haste as a 3rd-level arcane innate spell. You can cast it once per day and target only yourself.', 5)
   const haste = { ...entry('Haste', 'spell', { tradition: 'Arcane', duration: '1 minute', targets: '1 creature' }), level: 3 }
   const c = { ...base, level: 5, feats: [taken(source.name, 5)] }
@@ -1657,12 +1707,12 @@ it('grants Pinch Time as daily rank-three self-only Haste and auto-heightens whe
   const grant = grantedFeatSpells(c, entries).find(spell => spell.source === 'Pinch Time')
   expect(grant).toMatchObject({
     entry: haste, rank: 3, rule: { kind: 'innate', tradition: 'arcane', frequency: 'once per day',
-      fixedRank: true, condition: 'You can target only yourself.' },
+      fixedRank: true },
   })
   expect(dailyInnateUses(c, grant!)?.limit).toBe(1)
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(markup).toContain('Haste')
-  expect(markup).toContain('You can target only yourself.')
+  expect(markup).not.toContain('You can target only yourself.')
   updateSettings({ innateAutoHeighten: true })
   expect(grantedFeatSpells({ ...c, level: 10 }, entries).find(spell => spell.source === 'Pinch Time')?.rank).toBe(5)
 })

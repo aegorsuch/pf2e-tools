@@ -436,6 +436,10 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     } else if (category === 'mystery') {
       const spell = /\*\*Initial Revelation Spell\*\*\s*\[([^\]]+)\]/i.exec(markdown)?.[1]
       if (spell) data.grants_focus_spells = plain(spell)
+    } else if (category === 'arcane-school') {
+      const spell = /\*\*School Spells\*\*[\s\S]*?^\s*-\s*Initial:\s*\[([^\]]+)\]/im.exec(markdown)?.[1]
+        ?? /\byou (?:learn|gain) the \[([^\]]+)\]\([^)]*\)\s+school spell\b/i.exec(markdown)?.[1]
+      if (spell) data.grants_focus_spells = plain(spell)
     }
   }
   if (kind === 'familiar') {

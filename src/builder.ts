@@ -142,6 +142,7 @@ export function hitPointBonuses(c: Character, entries?: ContentEntry[]) {
     && archetypesOf(selectedFeatEntry(c, entries, feat.name, feat.sourceId)).includes('Guardian')).length : 0
   const falseVitalityRank = c.falseVitalityRank
   return [
+    ...(activeFeatsNamed(c, 'Thick Hide Mask').length ? [{ source: 'Thick Hide Mask', value: 20 }] : []),
     ...LEVEL_HP_FEATS.flatMap(name => {
       if (c.feats.some(feat => feat.name.toLowerCase() === name.toLowerCase() && featTakenLevel(feat) <= c.level)) {
         return [{ source: name, value: c.level }]
@@ -407,9 +408,17 @@ export const activeFeatsNamed = (c: Character, name: string) => {
     byName = new Map()
     for (const feat of c.feats) {
       if (featTakenLevel(feat) > c.level) continue
-      const matches = byName.get(feat.name)
-      if (matches) matches.push(feat)
-      else byName.set(feat.name, [feat])
+      for (const selected of [feat, ...(['Basic Arcana', 'Advanced Arcana'].includes(feat.name) && feat.choice
+        ? [{ ...feat, name: feat.choice, sourceId: undefined }] : [])]) {
+        const matches = byName.get(selected.name)
+        if (matches) matches.push(selected)
+        else byName.set(selected.name, [selected])
+      }
+    }
+    if (byName.has('Cunning Trickster Mask') && !byName.has('Conceal Spell')) {
+      byName.set('Conceal Spell', byName.get('Cunning Trickster Mask')!.map(feat => ({
+        ...feat, name: 'Conceal Spell', sourceId: undefined,
+      })))
     }
     levels.set(c.level, byName)
   }
@@ -999,7 +1008,8 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
     if (!archetypes.length || !asArchetype && !e.traits.some((t) => t.toLowerCase() === 'archetype')) return []
     const shares = (entry: ContentEntry, names = archetypes) => archetypesOf(entry).some((name) => names.includes(name))
     if (!isDedication(e)) {
-      if (dedications.some(({ entry }) => shares(entry))) return []
+      if (dedications.some(({ entry }) => shares(entry)
+        || entry.name === 'Spellshot Dedication' && archetypes.includes('Wizard'))) return []
       availableDedications ??= entries.filter((entry) => entry.kind === 'feat' && !entry.deleted && isDedication(entry))
       dedicationsByArchetype ??= availableDedications.reduce((map, dedication) => {
         for (const name of archetypesOf(dedication)) map.set(name, [...(map.get(name) ?? []), dedication])
@@ -1212,13 +1222,16 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           character.order ?? subclass ?? '',
           ...character.feats.flatMap((feat) => feat.name === 'Order Explorer' && feat.choice ? [feat.choice] : []),
         ] : [],
-        feats: character.feats.map((feat) => ({
+        feats: [...character.feats.map((feat) => ({
           name: feat.name, level: featTakenLevel(feat),
           category: feat.slot?.split(':')[0] ?? feat.type.replace(/ Feat$/, '').toLowerCase(),
           sourceId: feat.sourceId,
           waivedPrerequisites: feat.name === 'Captain Dedication' && feat.slot === 'archetype:2:g85'
             && activeHomebrewDedications(character).some(rule => rule.slot === feat.slot),
-        })),
+        })), ...character.feats.filter(feat => ['Basic Arcana', 'Advanced Arcana'].includes(feat.name)
+          && feat.choice && featTakenLevel(feat) <= Math.min(level, atLevel)).map(feat => ({
+            name: feat.choice!, level: featTakenLevel(feat), category: 'class' as const,
+          }))],
         get stalwartDefenderGranted() { return activeHomebrewDedications(character).some(rule => rule.name === 'Stalwart Defender Dedication') },
         get cavalierGranted() { return activeHomebrewDedications(character).some(rule => rule.name === 'Cavalier Dedication') },
         get features() { return featureNames ??= [...features.map((feature) => feature.name), ...museFeats,
@@ -1532,6 +1545,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   if (slot.category !== 'bonus' && !trait && !ancestryTraits.length) return []
   const taken = new Set([
     ...c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : f.name),
+    ...c.feats.filter(feat => feat.slot !== slot.key
+      && ['Basic Arcana', 'Advanced Arcana'].includes(feat.name) && feat.choice).map(feat => feat.choice!),
     ...(c.feats.some(feat => feat.name === 'Greywatch Initiate') ? INITIATE_TRAINING['Greywatch Initiate'].feats.slice(0, 1) : []),
     ...tokens(entries.find(entry => entry.kind === 'background' && !entry.deleted && entry.name === c.background
       && entry.systems.some(system => c.systems.includes(system)))?.data.feat).filter(name => name !== slot.grantedFeat),
@@ -1582,7 +1597,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     .filter(({ entry: e, traits }) => (!options.name || e.name === options.name)
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0
-        || !!classArchetypeDedication && !!classArchetype && archetypesOf(e).includes(classArchetype))
+        || !!classArchetypeDedication && !!classArchetype && archetypesOf(e).includes(classArchetype)
+          && !(classArchetype === 'Spellshot' && archetypesOf(e).includes('Wizard')))
       && (e.name === 'Magical Trickster' && slot.category === 'class'
       && rogueRackets({ ...c, level: Math.min(c.level, slot.level) }, entries).includes('Eldritch Trickster') ? 2
       : featSelectionLevel(e, c, entries, slot.category, slot)) <= (slot.grantedBy === 'Eldritch Trickster'
@@ -1879,6 +1895,13 @@ const NEPHILIM_RESISTANCE_TYPES = ['Acid', 'Cold', 'Electricity', 'Fire', 'Sonic
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number,
   category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === "Storyteller's Mask" && c.systems.includes('pf2e')) {
+    const traditions = [
+      ...(activeFeatsNamed(c, 'Wizard Dedication').length || activeFeatsNamed(c, 'Spellshot Dedication').length ? ['Arcane'] : []),
+      ...(activeFeatsNamed(c, 'Druid Dedication').length ? ['Primal'] : []),
+    ]
+    return traditions
+  }
   const background = slotKey === 'skill:1:scholar' || slotKey.startsWith('skill:1:background:')
     ? byName(entries, 'background', c.background) : undefined
   const fixedBackgroundChoice = background?.data[`background_choice_${name}`]
@@ -1899,6 +1922,24 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     const traditions = new Set((classSpellcasting(c, entries)?.traditions ?? []).map(tradition => tradition.toLowerCase()))
     return [...new Set(entries.filter(entry => entry.kind === 'spell' && entry.systems.includes('pf2e') && /^Summon\b/i.test(entry.name)
       && tokens(entry.data.tradition).some(tradition => traditions.has(tradition.toLowerCase()))).map(entry => entry.name))].sort()
+  }
+  if (name === 'Arcane School Spell' && c.systems.includes('pf2e')) {
+    return [...new Set(entries.filter(entry => entry.kind === 'subclass' && !entry.deleted
+      && entry.data.class === 'Wizard' && typeof entry.data.grants_focus_spells === 'string'
+      && entry.systems.includes('pf2e')).map(entry => entry.name))].sort()
+  }
+  if (['Basic Arcana', 'Advanced Arcana'].includes(name) && c.systems.includes('pf2e')) {
+    const choiceLevel = index >= 0 ? featTakenLevel(c.feats[index])
+      : Number(/^[^:]+:(\d+)/.exec(slotKey)?.[1]) || c.level
+    const level = name === 'Basic Arcana' ? 2 : Math.floor(choiceLevel / 2)
+    if (level < 1) return []
+    const used = new Set(c.feats.filter((feat, featIndex) => featIndex !== index
+      && ['Basic Arcana', 'Advanced Arcana'].includes(feat.name) && feat.choice).map(feat => feat.choice!))
+    const check = featPrerequisiteChecker(c, entries, level, index)
+    return [...new Set(entries.filter(entry => entry.kind === 'feat' && !entry.deleted
+      && entry.systems.includes('pf2e') && entry.level >= 1 && entry.level <= level
+      && entry.traits.some(trait => trait.toLowerCase() === 'wizard')
+      && !used.has(entry.name) && !check(entry).missing.length).map(entry => entry.name))].sort()
   }
   if (name === 'Bestial Manifestation' && c.systems.includes('pf2e')) return ['Claw', 'Hoof', 'Jaws', 'Tail']
   if (name === 'Sublime Mobility' && c.systems.includes('pf2e')) return ['Climb', 'Swim']
@@ -2110,9 +2151,9 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Versatile Gunslinger') {
     const used = new Set([selectedSubclass(c, entries), ...c.feats.flatMap((feat, featIndex) =>
       featIndex !== index && feat.name === name && featTakenLevel(feat) <= c.level && feat.choice ? [feat.choice] : [])])
-    return subclassOptions({ ...c, className: 'Gunslinger' }, entries)
+    return [...new Set(subclassOptions({ ...c, className: 'Gunslinger' }, entries)
       .filter(way => !used.has(way.name))
-      .map(way => way.name)
+      .map(way => way.name))]
   }
   if (name === 'Hold Mark') return ['Burning Sun', "Death's Head", 'Defiled Corpse', 'Empty Hand']
   if (name === 'Orc Warmask') return Object.keys(WARMASK_SOURCES)
@@ -2217,6 +2258,33 @@ export function classDifficultyClass(c: Character, entries: ContentEntry[]) {
     - Math.max(conditionPenalty(c, ability), ability === 'dex' ? giantWeaponClumsy(c, entries) : 0)
 }
 
+export function wizardArchetypeSpellSlots(c: Character): Record<number, number> | undefined {
+  const wizardDedication = c.feats.some(feat => ['Wizard Dedication', 'Spellshot Dedication'].includes(feat.name)
+    && featTakenLevel(feat) <= c.level)
+  if (!c.systems.includes('pf2e') || !wizardDedication || !activeFeatsNamed(c, 'Basic Wizard Spellcasting').length) return undefined
+  const slots: Record<number, number> = { 0: 2 }
+  const basicRank = Math.min(3, Math.floor((c.level - 2) / 2))
+  for (let rank = 1; rank <= basicRank; rank++) slots[rank] = 1
+  const expert = activeFeatsNamed(c, 'Expert Wizard Spellcasting').length > 0
+  const expertRank = expert ? Math.min(6, Math.floor((c.level - 4) / 2)) : 0
+  for (let rank = 4; rank <= expertRank; rank++) slots[rank] = 1
+  const master = expert && activeFeatsNamed(c, 'Master Wizard Spellcasting').length > 0
+  const masterRank = master ? Math.min(8, Math.floor((c.level - 4) / 2)) : 0
+  for (let rank = 7; rank <= masterRank; rank++) slots[rank] = 1
+  if (activeFeatsNamed(c, 'Arcane Breadth').length) {
+    const ranks = Object.keys(slots).map(Number).filter(rank => rank > 0)
+    for (const rank of ranks.slice(0, -2)) slots[rank]++
+  }
+  return slots
+}
+
+export function wizardArchetypeSpellbookChoices(c: Character) {
+  const slots = wizardArchetypeSpellSlots(c)
+  return slots ? Object.keys(slots).map(Number).flatMap(rank => Array.from({ length: 2 }, (_, index) => ({
+    key: `wizard:${rank}:${index}`, rank, cantrip: rank === 0, index,
+  }))) : []
+}
+
 export function classSpellcasting(c: Character, entries: ContentEntry[]) {
   if (c.className === 'Witchwarper') return witchwarperSpellcasting(c)
   const klass = byName(entries, 'class', c.className)
@@ -2236,6 +2304,11 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
     const rank = activeFeatsNamed(c, 'Exultant Blood Magic').length ? 3
       : activeFeatsNamed(c, 'Surging Blood Magic').length ? 2 : 1
     return { traditions: [bloodrager], rank, ability: 'cha' as Ability | undefined }
+  }
+  const wizardSlots = wizardArchetypeSpellSlots(c)
+  if (!traditions.length && wizardSlots) return {
+    traditions: ['Arcane'], rank: activeFeatsNamed(c, 'Master Wizard Spellcasting').length ? 3
+      : activeFeatsNamed(c, 'Expert Wizard Spellcasting').length ? 2 : 1, ability: 'int' as Ability,
   }
   if (!traditions.length && !focusOnlyCaster) return undefined
 
@@ -2404,6 +2477,8 @@ export function classSpellSlots(c: Character): Record<number, number> | undefine
     }
     return slots
   }
+  const wizardSlots = wizardArchetypeSpellSlots(c)
+  if (wizardSlots) return wizardSlots
   if (!['Druid', 'Necromancer'].includes(c.className ?? '')) return undefined
   const necromancer = c.className === 'Necromancer'
   const slots: Record<number, number> = {}
@@ -2830,6 +2905,10 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     ...(isSpellActive(c, entries, 'Stormwind Flight') ? [atLandSpeed('Fly', 'Stormwind Flight')] : []),
     ...(isSpellActive(c, entries, 'Fly') ? [{ ...atLandSpeed('Fly', 'Fly'), feet: Math.max(20, land) }] : []),
     ...(activeUntamedShiftEffects(c, entries).includes('Wings') ? [fixed('Fly', 30, 'Untamed Shift')] : [])]
+  if (activeFeatsNamed(c, 'Sky Master Mask').length) {
+    const fly = atLandSpeed('Fly', 'Sky Master Mask')
+    movement.push({ ...fly, feet: isFeatEffectActive(c, 'Sky Master Mask') ? fly.feet * 2 : fly.feet })
+  }
   for (const heritage of characterHeritages(c, entries)) {
     for (const [mode, name] of [['climb', 'Climb'], ['swim', 'Swim'], ['fly', 'Fly'], ['burrow', 'Burrow']] as const) {
       const value = heritage.data[`speed_${mode}`]
@@ -3429,6 +3508,12 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
     if (!out.has(name.toLowerCase())) out.set(name.toLowerCase(), { name, source })
   }
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
+  for (const feat of active) if (feat.name === 'Arcane School Spell' && feat.choice) {
+    const school = entries.find(entry => entry.kind === 'subclass' && !entry.deleted
+      && entry.data.class === 'Wizard' && entry.name === feat.choice && entry.systems.includes('pf2e'))
+    if (typeof school?.data.grants_focus_spells === 'string')
+      add(school.data.grants_focus_spells, `${school.name} school`)
+  }
   if (isVindicator(c, entries)) add("Vindicator's Mark", 'Vindication')
   if (c.level >= 1 && c.systems.includes('pf2e') && ['Bard', 'Oracle', 'Witch'].includes(c.className ?? '')) {
     const subclass = selectedSubclass(c, entries)
@@ -4163,6 +4248,11 @@ export function senses(c: Character, entries: ContentEntry[]) {
   }
   if (activeFeatsNamed(c, 'Arcane Eye').length) addVision('Darkvision', 'Arcane Eye')
   if (activeFeatsNamed(c, 'Nightvision Adaptation').length) addVision('Darkvision', 'Nightvision Adaptation')
+  if (activeFeatsNamed(c, 'Stalking Feline Mask').length) {
+    const darkvision = out.findIndex(sense => sense.value.toLowerCase() === 'darkvision')
+    if (darkvision >= 0) out.splice(darkvision, 1)
+    addVision('Greater Darkvision', 'Stalking Feline Mask')
+  }
   if (activeFeatsNamed(c, 'Necromantic Lifesense').length) addVision('Lifesense (imprecise) 30 feet', 'Necromantic Lifesense')
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Electromagnetic Whiskers').length) {
     addVision('Electromagnetic sense (imprecise) 15 feet', 'Electromagnetic Whiskers')
@@ -4242,11 +4332,20 @@ export function senses(c: Character, entries: ContentEntry[]) {
     if (!hasVision('darkvision')) addVision(hasVision('low-light vision') ? 'Darkvision' : 'Low-Light Vision', 'Adaptive Visual Receptors')
   }
   const addScent = (feet: number, source: string) => {
+    if (out.some(sense => /^Scent \(precise\) \d+ feet$/i.test(sense.value))) return
     const existing = out.find((sense) => /^Scent \(imprecise\) \d+ feet$/i.test(sense.value))
     if (existing && Number(/\d+/.exec(existing.value)?.[0]) >= feet) return
     const grant = { value: `Scent (imprecise) ${feet} feet`, source }
     if (existing) Object.assign(existing, grant)
     else out.push(grant)
+  }
+  if (activeFeatsNamed(c, 'Vigilant Mask').length) {
+    const preciseScent = out.find(sense => /^Scent \(precise\) \d+ feet$/i.test(sense.value))
+    if (preciseScent) {
+      const feet = Number(/\d+/.exec(preciseScent.value)?.[0] ?? 0)
+      Object.assign(preciseScent, { value: `Scent (precise) ${feet + 60} feet`,
+        source: `${preciseScent.source}, Vigilant Mask` })
+    } else addVision('Scent (precise) 60 feet', 'Vigilant Mask')
   }
   if (isSpellActive(c, entries, 'Keen Smell')) addScent(c.level >= 5 ? 60 : 30, 'Keen Smell')
   if (activeFeatsNamed(c, 'Enhanced Olfactory System').length) addScent(30, 'Enhanced Olfactory System')
@@ -5258,6 +5357,9 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   if (activeFeatsNamed(c, 'Become as Spirit').length) {
     out.push({ damage: 'all damage except force, ghost touch, spirit, and vitality (for 1 round after destroying a thrall)',
       value: half, source: 'Become as Spirit' })
+  }
+  if (isFeatEffectActive(c, 'Thick Hide Mask')) {
+    out.push({ damage: 'physical', value: 10, source: 'Thick Hide Mask' })
   }
   if (soldierStyle(c)?.name === 'Armor Storm') {
     out.push({ damage: 'all damage from attacks by suppressed creatures', value: half, source: 'Armor Storm' })

@@ -112,6 +112,10 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
     <small>Senses: {characterSenses.length ? characterSenses.map((sense, index) => <span key={`${sense.value}:${sense.source}`}>
       {index > 0 && ', '}{sense.value}{sense.source && <SourceNote source={sense.source} note={`Grants ${sense.value}.`} />}
     </span>) : 'No special senses'}
+      {!!activeFeatsNamed(c, 'Vigilant Mask').length && <SourceNote source="Vigilant Mask"
+        note="After you Cast a non-cantrip Spell, you can smell ethereal, extradimensional, incorporeal, or otherwise insubstantial creatures and objects as an imprecise sense." />}
+      {!!activeFeatsNamed(c, 'Stalking Feline Mask').length && <SourceNote source="Stalking Feline Mask"
+        note="Immediately after you Cast a non-cantrip Spell with the shadow or darkness trait, Hide or Sneak as a free action if you meet its normal requirements." />}
       {!!activeFeatsNamed(c, 'Sense Allies').length && <SourceNote source="Sense Allies"
         note="Willing allies you are aware of within 60 feet are hidden instead of undetected; DC 5 flat check to target a hidden willing ally within 60 feet." />}
       {!!activeFeatsNamed(c, 'Fire Lung').length && <SourceNote source="Fire Lung"
@@ -160,6 +164,10 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
         note={`Ignore Speed penalties and difficult or greater difficult terrain while Striding up to ${speed(c, entries, { ignorePenalties: true }) * 2} feet with two actions or ${speed(c, entries, { ignorePenalties: true }) * 3} feet with three actions. Balance can use Athletics.`} />}
       {uplifting && <SourceNote source="Uplifting Winds"
         note={`When flying and casting an air or electricity spell, Fly Speed ${uplifting.feet} feet (+10 status, nonstacking); immediately Fly up to half that Speed.`} />}
+      {!!activeFeatsNamed(c, 'Sky Master Mask').length && <SourceNote source="Sky Master Mask"
+        note={`Immediately after you Cast a non-cantrip Spell that targets only you, your Fly Speed doubles to ${2 * speed(c, entries)} feet until your next turn.`} />}
+      {!!activeFeatsNamed(c, "Tireless Guide's Mask").length && <SourceNote source="Tireless Guide's Mask"
+        note="Immediately after you Cast a non-cantrip Spell that targets only one ally, that ally can Stride as a free action." />}
       {c.systems.includes('sf2e') && !!activeFeatsNamed(c, 'Frilled Vesk Glide').length
         && <SourceNote source="Frilled Vesk Glide"
           note="One action: glide up to 25 feet forward while descending 5 feet. If you spend at least one action gliding each round and have not reached the ground, remain airborne at the end of your turn." />}
@@ -563,6 +571,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             && <SourceNote source="Divine Insight" note={`${/ lore$/i.test(s.name) && !certitudeSkills.has(s.name.toLowerCase()) ? 'Only for Lore about your deity. ' : ''}Once per hour on Recall Knowledge: before rolling, roll twice and use the higher result; after a failure or critical failure, reroll and use the new result. On success, gain an optional +1 circumstance bonus within 1 minute on the next related check (not Recall Knowledge), or to AC, DCs, and saves against the next attack and hostile effect. Circumstance bonuses do not stack.`} />}
           {s.kind === 'skill' && certitudeSkills.has(s.name.toLowerCase()) && !!activeFeatsNamed(c, 'Divine Certitude').length
             && <SourceNote source="Divine Certitude" note="On a Recall Knowledge check, a failure becomes a success." />}
+          {s.kind === 'skill' && rank > 0 && !!activeFeatsNamed(c, "Tireless Guide's Mask").length
+            && <SourceNote source="Tireless Guide's Mask" note="Allies can Follow the Expert using this trained skill; their circumstance bonus is +1." />}
           {s.name === 'Nature' && !!activeFeatsNamed(c, 'Rider').length && <SourceNote inlineSource={false}
             source="Rider" note={`${conditionalTotal(1)} to Command an Animal checks for your own animal companion, if a check is required.`} />}
           {CONDITIONAL_BONUSES.filter(b => b.stats.includes(s.name) && activeFeatsNamed(c, b.feat).length > 0).map(b => <SourceNote key={b.feat} inlineSource={false}
@@ -573,6 +583,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Sarenrae (Major Boon)" note="Request: a success becomes a critical success. Creatures other than fiends, undead, and mindless creatures allow one chance to speak and request before combat. Exploiting this for a combat advantage revokes the boon." />}
           {s.name === 'Deception' && !!activeFeatsNamed(c, 'Round Ears').length && <SourceNote inlineSource={false}
             source="Round Ears" note={`${conditionalTotal(4)} to Impersonate someone who is not aiuvarin (+4 circumstance). No observer circumstance bonus or personal circumstance penalty for impersonating a full-blooded human.`} />}
+          {s.name === 'Deception' && !!activeFeatsNamed(c, 'Cunning Trickster Mask').length && <SourceNote source="Cunning Trickster Mask"
+            note="Feint a target within 30 feet; on success or critical success, it takes a -2 circumstance penalty to saves against your spells until your next turn. Conceal Spell is granted if absent; otherwise, use it once per round as a free action." />}
           {s.name === 'Performance' && !!activeFeatsNamed(c, 'Earned Glory').length && <SourceNote inlineSource={false}
             source="Earned Glory" note="Make an Impression on an elf: a critical failure becomes a failure (Impressive Performance)." />}
           {['Arcana', 'Nature', 'Occultism', 'Religion'].includes(s.name) && heritages.has('Seer Elf') && <SourceNote inlineSource={false}
@@ -811,7 +823,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             {!!activeFeatsNamed(c, 'Farabellus Flip').length && <SourceNote source="Farabellus Flip"
               note={`Reaction against a melee Strike: AC ${ac.total + Math.max(0, 2 - acCircumstance)} (+2 circumstance, does not stack). If hit, Step to an open space within the attacker's reach.`} />}
             {hazardFinder && <SourceNote inlineSource={false} source="Hazard Finder"
-              note="+1 circumstance bonus to AC against hazard attacks; circumstance bonuses do not stack." />}</b></span>
+              note="+1 circumstance bonus to AC against hazard attacks; circumstance bonuses do not stack." />}
+            {!!activeFeatsNamed(c, 'Protective Spirit Mask').length && <SourceNote source="Protective Spirit Mask"
+              note="Immediately after you Cast a non-cantrip Spell targeting only one ally, you can grant it +1 circumstance AC until your next turn. Reaction: when an adjacent ally is hit by an attack, interpose and take the hit instead." />}
+          </b></span>
           <span><small>Hit Points</small><b>{maxHp(c, entries)}{temporaryHp && `+${temporaryHp.value}`}
             {c.raging && (c.className === 'Barbarian' || !!activeFeatsNamed(c, 'Barbarian Dedication').length)
               && <SourceNote source="Rage" note={`When you Rage, gain ${Math.max(0, c.level + abilityMod(c.abilities.con))} temporary HP, lost when Rage ends. You cannot gain temporary HP from Rage again for ${classFeatures(entries, c).some(feature => feature.name === 'Revitalizing Rage') ? 'one full turn outside Rage' : '1 minute'}.${activeFeatsNamed(c, 'Second Wind').length ? ' Second Wind lets you gain them earlier, but leaves you fatigued until you rest for 10 minutes when that Rage ends.' : ''}`} />}
@@ -823,6 +838,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               note="When reduced to 0 HP, end Rage as a reaction to stay at 1 HP and become wounded 2, or increase wounded by 2." />}
             {hpBonuses.length > 0
             && <SourceNote source="Hit Points" note={hpBonuses.map(bonus => `${signed(bonus.value)} ${bonus.source}`).join(', ')} />}
+            {!!activeFeatsNamed(c, "Grand Medic's Mask").length && <SourceNote source="Grand Medic's Mask"
+              note="Fast healing 5; a lost body part regrows within 1 day. Immediately after you Cast a non-cantrip Spell that targets only one creature, you can grant it temporary Hit Points equal to the spell's rank until your next turn." />}
+            {!!activeFeatsNamed(c, 'Thick Hide Mask').length && <SourceNote source="Thick Hide Mask"
+              note="Immediately after you Cast a non-cantrip Spell that targets only you, gain resistance 10 to all physical damage until your next turn." />}
             {!!activeFeatsNamed(c, 'Life-Giving Magic').length && <SourceNote source="Life-Giving Magic"
               note={`After casting an innate spell from a gnome heritage or ancestry feat, gain ${Math.max(1, Math.floor(c.level / 2))} temporary Hit Points until the end of your next turn; once per minute.`} />}
             {!!activeFeatsNamed(c, 'Vivacious Conduit').length && <SourceNote source="Vivacious Conduit"
@@ -1124,6 +1143,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         onChange={event => save({ hourlyFeatUses: { ...c.hourlyFeatUses, 'Divine Insight': event.target.checked } })} />
         Divine Insight used <SourceNote source="Divine Insight" note="Once per hour. Clear after an hour has passed." />
       </label>}
+      {!!activeFeatsNamed(c, "Emancipator's Mask").length && <SourceNote source="Emancipator's Mask"
+        note="Roll twice and use the higher result when checking to free another creature from immobilized, paralyzed, or controlled. Immediately after a single-target non-cantrip spell, its target can attempt to Escape." />}
+      {!!activeFeatsNamed(c, "Storyteller's Mask").length && <SourceNote source="Storyteller's Mask"
+        note="Immediately after a non-cantrip spell targeting one foe, Recall Knowledge about that foe." />}
       <div className="skill-grid" role="table" aria-label="Skills">
         {renderRows(skills)}
       </div>

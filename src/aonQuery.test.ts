@@ -91,6 +91,19 @@ it('maps Bard muse feat/spell grants and Oracle initial revelation spells', () =
   })
 })
 
+it('maps legacy and remastered Arcane School initial focus spells', () => {
+  const legacy = mapAonHit({ _id: 'arcane-school-1', _source: {
+    category: 'arcane-school', name: 'Abjuration',
+    markdown: 'You learn the [protective ward](/Spells.aspx?ID=534) school spell.',
+  } }, 'pf2e')
+  const remastered = mapAonHit({ _id: 'arcane-school-16', _source: {
+    category: 'arcane-school', name: 'School of Ars Grammatica',
+    markdown: '**School Spells**\n- Initial: [Protective Wards](/Spells.aspx?ID=1894)\n- Advanced: [Rune of Observation](/Spells.aspx?ID=1895)',
+  } }, 'pf2e')
+  expect(legacy).toMatchObject({ kind: 'subclass', data: { class: 'Wizard', grants_focus_spells: 'protective ward' } })
+  expect(remastered).toMatchObject({ kind: 'subclass', data: { class: 'Wizard', grants_focus_spells: 'Protective Wards' } })
+})
+
 it.each(['Song of the Soul', 'Deathly Scream', 'Muscle Barrier', 'Necrotic Bomb'])('parses %s as a granted grave focus spell', name => {
   const markdown = `<title>Feat</title>\n\n---\n\nYou learn the [_${name.toLowerCase()}_](/Spells.aspx?ID=1) grave spell.`
   expect(parseFeatSpellGrants(markdown)).toEqual([{ kind: 'focus', spells: [name.toLowerCase()], heightened: true }])

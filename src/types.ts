@@ -275,6 +275,8 @@ export interface Character {
   activeStance?: string
   intensifiedElement?: { element: 'Earth' | 'Fire' | 'Metal' | 'Water' | 'Wood'; legendary?: boolean; used?: boolean }
   activeFeatEffects?: string[]
+  fulminatingShotActive?: boolean
+  fulminatingShotElement?: import('./fulminatingShot.js').FulminatingShotElement
   conditions?: { frightened?: number; sickened?: number; enfeebled?: number }
   currentSpell?: 'air' | 'water' | 'air and water'
   hardenFleshActive?: boolean
@@ -413,7 +415,7 @@ export interface Character {
   minorMagic?: { tradition?: 'Arcane' | 'Divine' | 'Occult' | 'Primal'; cantrips?: Partial<Record<'Arcane' | 'Divine' | 'Occult' | 'Primal', string[]>> }
   mageAutomatonCantrip?: string
   gnomeHeritageMagic?: { tradition?: 'Arcane' | 'Divine' | 'Occult'; cantrips?: Partial<Record<'Arcane' | 'Divine' | 'Occult' | 'Primal', string>> }
-  spells?: { name: string; rank: number; cantrip: boolean; entryId?: string }[]
+  spells?: { name: string; rank: number; cantrip: boolean; entryId?: string; bookSlot?: string }[]
   rituals?: string[]
   activeSpells?: string[]
   pyreResistEnergy?: { damage: 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic'; value?: number }

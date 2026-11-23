@@ -41,6 +41,7 @@ import { clearItemGlitching, enduringGrenadeMods, enduringWeaponMods, setEndurin
 import { ItemTroubleshoot } from './ItemTroubleshoot'
 import { namedArmorEnhancements, namedArmorRuneLimit } from './namedArmor'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
+import { fulminatingShotDamage } from './fulminatingShot'
 import { ANCESTRAL_AVATAR } from './battleForms'
 import { spellActiveChange } from './builder'
 import { shieldEntry } from './builder'
@@ -1336,7 +1337,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           : [{ form: undefined, weapon: enhanced, attack: a },
             ...(c.raging && activeFeatsNamed(c, 'Raging Thrower').length && a.thrownRange > 0
               ? [{ form: 'Thrown', weapon: enhanced, attack: weaponAttack(c, entries, w, { thrown: true }) }] : [])])
-          .map(summary => ({ ...summary, strikeNote: namedWeaponStrikeNote(summary.attack.entry), damageRunes: [
+          .map(summary => ({ ...summary, fulminatingShot: fulminatingShotDamage(c, summary.attack.entry),
+            strikeNote: namedWeaponStrikeNote(summary.attack.entry), damageRunes: [
             ...damageRuneSummary(summary.weapon, summary.attack, entries, !!forms.length || card),
             ...upgradeDamageSummary(summary.attack),
             ...mechanicDamageSummary(c, w, summary.attack),
@@ -1513,7 +1515,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
               note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
               <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
-                && <SourceNote source={rune.source} note={rune.note} inlineSource={rune.source === 'Gravity Weapon' || rune.source === 'Pharasma (Moderate Boon)'} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
+              && <SourceNote source={rune.source} note={rune.note} inlineSource={rune.source === 'Gravity Weapon' || rune.source === 'Pharasma (Moderate Boon)'} />}</Fragment>)}
+            {summary.fulminatingShot && ` + ${summary.fulminatingShot}`}{untamedPersistent && ` + ${untamedPersistent}`}</>}
           </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}
           {typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect && <SourceNote source="Untamed Form" note={a.entry.data.form_effect} inlineSource={false} />}</small>
           {a.areaAttacks.map(area => <small key={area.name}>{area.name}: DC {area.dc} Reflex, {area.shape}
@@ -1548,7 +1551,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
                 note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
                 <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
-                  && <SourceNote source={rune.source} note={rune.note} inlineSource={rune.source === 'Gravity Weapon' || rune.source === 'Pharasma (Moderate Boon)'} />}</Fragment>)}{untamedPersistent && ` + ${untamedPersistent}`}</>}
+                  && <SourceNote source={rune.source} note={rune.note} inlineSource={rune.source === 'Gravity Weapon' || rune.source === 'Pharasma (Moderate Boon)'} />}</Fragment>)}
+                {summary.fulminatingShot && ` + ${summary.fulminatingShot}`}{untamedPersistent && ` + ${untamedPersistent}`}</>}
             </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}
             {typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect && <SourceNote source="Untamed Form" note={a.entry.data.form_effect} inlineSource={false} />}</small>{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
             <div className="row">{equipControls}</div>

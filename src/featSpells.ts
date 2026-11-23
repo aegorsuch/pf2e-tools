@@ -7,7 +7,7 @@ import { getSettings } from './settings'
 import { cantripOptions } from './minorMagic'
 import { GODCLAW_DOMAINS, hellknightTrainingBenefit, hellknightTrainingSpellRules } from './hellknight'
 import { spellAccessGranted } from './featAccess'
-import { classSpellcasting, classSpellSlots, investigatorMethodologies } from './builder'
+import { classSpellcasting, classSpellSlots, featChoiceOptions, investigatorMethodologies } from './builder'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 export const KITSUNE_SPELL_FAMILIARITY_CANTRIPS = ['Daze', 'Forbidding Ward', 'Ghost Sound']
@@ -521,6 +521,17 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (feat.name === "Storyteller's Mask" && c.systems.includes('pf2e')) {
+      const choices = featChoiceOptions(feat.name, c, entries, selection, index) ?? []
+      const tradition = (feat.choice ?? (choices.length === 1 ? choices[0] : undefined))?.toLowerCase()
+      if (tradition === 'arcane' || tradition === 'primal') {
+        const spell = matchingSpells(entries, 'Foresight').find(entry => entry.systems.includes('pf2e'))
+        if (spell) out.push({ entry: { ...spell, data: { ...spell.data, duration: 600 } }, source: feat.name,
+          rule: { kind: 'innate', spells: [spell.name], tradition, frequency: 'once per day', fixedRank: true },
+          rank: spell.level, usageKey: JSON.stringify([selection, feat.name, 'foresight']) })
+      }
+      continue
+    }
     if (feat.name === "Trickster's Ace" && c.className === 'Investigator' && c.systems.includes('pf2e')) {
       const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
       if (entry) out.push({ entry, source: feat.name,
@@ -565,8 +576,7 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
     if (feat.name === 'Pinch Time' && c.systems.includes('pf2e')) {
       const entry = matchingSpells(entries, 'Haste').find(spell => spell.systems.includes('pf2e'))
       if (entry) out.push({ entry, source: feat.name,
-        rule: { kind: 'innate', spells: [entry.name], tradition: 'arcane', frequency: 'once per day', fixedRank: true,
-          condition: 'You can target only yourself.' },
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'arcane', frequency: 'once per day', fixedRank: true },
         rank: 3, usageKey: JSON.stringify([selection, feat.name, 'haste']) })
       continue
     }

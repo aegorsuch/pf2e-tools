@@ -1040,6 +1040,26 @@ it('places the personalized Warmask only in Mask, with its bonus inside its deta
   } finally { content.entries = [] }
 })
 
+it('grants and locks Shadowed Scale for an active Magic Warrior Mask feat', () => {
+  const mask: ContentEntry = { id: 'shadowed-scale', name: 'Shadowed Scale, the Jungle Secret', kind: 'item',
+    systems: ['pf2e'], source: 'official', level: 22, traits: ['Artifact'], description: '---\n\nAlways concealed in a jungle.',
+    data: { usage: 'worn mask' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'magic-warrior-mask', systems: ['pf2e'], name: 'Test', level: 20,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Cunning Trickster Mask', type: 'Archetype Feat', level: 20 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  content.entries = [mask]
+  try {
+    const render = (character: Character) => renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
+      .split('<h4>Mask</h4>')[1].split('<h4>Neck</h4>')[0]
+    const unlocked = render(c)
+    expect(unlocked).toContain('Shadowed Scale, the Jungle Secret')
+    expect(unlocked).toContain('Always concealed in a jungle.')
+    expect(unlocked).not.toContain('Remove')
+    expect(render({ ...c, level: 19 })).not.toContain('Shadowed Scale')
+  } finally { content.entries = [] }
+})
+
 it('keeps existing equipment categories while retaining an explicitly chosen new slot', () => {
   const boots: ContentEntry = { id: 'boots', name: 'Azure Boots', kind: 'item', systems: ['pf2e'], source: 'official',
     level: 1, traits: [], description: 'Boot rules.', data: { usage: 'worn boots' }, effects: [], updatedAt: 0 }

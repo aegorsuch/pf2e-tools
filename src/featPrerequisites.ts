@@ -284,6 +284,10 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (name === 'healing font' && trail.has('guiding heal')) {
       return facts.healingFont === undefined ? manual(text) : resultFor(facts.healingFont, text)
     }
+    if (name === "pistolero's challenge" && facts.className === 'Gunslinger') {
+      return resultFor([facts.subclass ?? '', ...facts.additionalSubclasses]
+        .some(subclass => key(subclass) === 'way of the pistolero'), text)
+    }
     if (name === 'sentinel dedication' && ['steel skin', 'armored rebuff', 'mighty bulwark'].some(feat => trail.has(feat))
       && facts.stalwartDefenderGranted) return met()
     if (trail.has('stalwart standard') && ["cavalier's banner", 'knight vigilant'].includes(name)
@@ -552,6 +556,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (reference === 'spellcasting' && facts.spellcastingClassFeature
       || reference === 'focus pool' && facts.focusPool
       || reference === 'ability to cast spells' && facts.canCastSpells) return met()
+    if (reference === 'wizard dedication'
+      && facts.feats.some(feat => key(feat.name) === 'spellshot dedication')) return met()
     if (facts.features.some((feature) => references.includes(key(feature)))) return met()
     const content = references.flatMap(knownEntries)
     if (content.some((entry) => entry.kind === 'heritage')) return resultFor(key(facts.heritage ?? '') === reference

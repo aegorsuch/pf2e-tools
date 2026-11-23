@@ -15,7 +15,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, type Ability } from './builder'
+import { classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, wizardArchetypeSpellbookChoices, type Ability } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
@@ -1421,8 +1421,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const witchwarper = witchwarperParadox(c)
   const druid = c.className === 'Druid' && automaticSlots !== undefined
   const necromancer = c.className === 'Necromancer'
+  const wizardSpellbookSlots = wizardArchetypeSpellbookChoices(c)
   const preparedClass = ['Animist', 'Cleric', 'Druid', 'Magus', 'Necromancer', 'Technomancer', 'Witch', 'Wizard']
-    .includes(c.className ?? '')
+    .includes(c.className ?? '') || wizardSpellbookSlots.length > 0
   const bard = automaticSlots !== undefined && isSpontaneousClass(c)
   const bloodrager = c.className === 'Barbarian' && c.systems.includes('pf2e')
     && activeFeatsNamed(c, 'Bloodrager Dedication').some(feat => feat.choice === 'Arcane' || feat.choice === 'Divine')
@@ -1450,6 +1451,18 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     return { spells, byId, byName }
   }, [entries, c.systems])
   const spellEntry = (name: string, id?: string) => id ? spellIndex.byId.get(id) : spellIndex.byName.get(name)
+  const wizardSpellOptions = (rank: number, slot: string) => {
+    const alreadySelected = new Set((c.spells ?? []).filter(spell => spell.bookSlot && spell.bookSlot !== slot)
+      .map(spell => spell.name.toLowerCase()))
+    const options = spellIndex.spells.filter(entry => entry.systems.includes('pf2e')
+      && (rank === 0 ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
+        : entry.level === rank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
+      && String(entry.data.tradition ?? '').split(/,\s*/).some(tradition => tradition.toLowerCase() === 'arcane')
+      && !entry.traits.some(trait => /^(uncommon|rare|unique)$/i.test(trait))
+      && !/^(uncommon|rare|unique)$/i.test(String(entry.data.rarity))
+      && spellAccessGranted(c, entry) && !alreadySelected.has(entry.name.toLowerCase()))
+    return [...new Map(options.map(entry => [entry.name, entry])).values()].sort((a, b) => a.name.localeCompare(b.name))
+  }
   const druidList = useMemo(() => druid ? druidSpellList(c, spellIndex.spells)
     : c.className === 'Witch' ? witchSpellList(c, spellIndex.spells) : undefined,
     [druid, c.className, c.subclass, c.level, c.feats, c.systems, spellIndex])
@@ -1952,6 +1965,49 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         Flexible Spellcaster preparation is not automated; your manual spell-slot settings are retained.
       </small>}
       {witchwarper && <WitchwarperRepertoire c={c} entries={entries} save={save} />}
+      {wizardSpellbookSlots.length > 0 && <section className="class-spell-slots">
+        <h5>Wizard Spellbook</h5>
+        <SpellColumns />
+        <ul>{wizardSpellbookSlots.map(slot => {
+          const current = (c.spells ?? []).find(spell => spell.bookSlot === slot.key)
+          const currentEntry = current && spellEntry(current.name, current.entryId)
+          const value = currentEntry?.id ?? current?.entryId ?? ''
+          const options = wizardSpellOptions(slot.rank, slot.key)
+          const label = slot.rank === 0 ? `Wizard cantrip ${slot.index + 1}`
+            : `Wizard rank ${slot.rank} spell ${slot.index + 1}`
+          const saveChoice = (nextValue: string) => {
+            const entry = nextValue ? spellIndex.byId.get(nextValue) : undefined
+            if (nextValue && (!entry || !options.some(option => option.id === entry.id))) return
+            const spells = (c.spells ?? []).filter(spell => spell.bookSlot !== slot.key)
+            if (entry) spells.push({ name: entry.name, entryId: entry.id, rank: slot.rank,
+              cantrip: slot.cantrip, bookSlot: slot.key })
+            const oldName = current?.name
+            const prepared = oldName && c.spellcasting?.prepared
+              ? Object.fromEntries(Object.entries(c.spellcasting.prepared)
+                .filter(([, preparedSpell]) => preparedSpell !== current?.entryId && preparedSpell !== oldName))
+              : undefined
+            const patch = { spells, ...(prepared ? { spellcasting: { ...c.spellcasting!, prepared } } : {}) }
+            const update = () => save(patch)
+            if (current && nextValue !== value) confirmRemoval(`Wizard spellbook spell "${current.name}"`, update)
+            else update()
+          }
+          return <li key={slot.key}>
+            <SearchableSelect aria-label={label} value={value} alwaysSearchable primaryDetails
+              optionSpell={id => spellIndex.byId.get(id)}
+              renderDetails={id => {
+                const entry = spellIndex.byId.get(id)
+                return entry && <span className="picker-spell-name"><EntryDescription name={entry.name} entry={entry} deferDetails />
+                  {' '}<small>{entry.systems.map(system => system.toUpperCase()).join(' / ')}</small></span>
+              }}
+              onChange={event => saveChoice(event.target.value)}>
+              <option value="">Not Selected</option>
+              {current && !options.some(option => option.id === value)
+                && <option value={value} disabled>{current.name} (unavailable)</option>}
+              {options.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            </SearchableSelect>
+          </li>
+        })}</ul>
+      </section>}
       {!witchwarper && sc && traditions.length > 0 && classSlotRanks.length > 0 && <div className="class-spell-slots">
         {(sc.spentSlots?.length ?? 0) > 0 && <div className="row">
           <button type="button" aria-label="Reset class spell slots"

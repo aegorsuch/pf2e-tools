@@ -4,6 +4,7 @@ import { expect, it } from 'vitest'
 import { savingThrowBreakdown } from './builder'
 import { DeviseAStratagemToggle, StatusesContent, StatusesSummary } from './StatusesSection'
 import { ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
+import { fulminatingShotBonus } from './fulminatingShot'
 import type { Character, ContentEntry } from './types'
 
 it('synchronizes condition and Zealous Conviction state with character statistics', () => {
@@ -86,6 +87,63 @@ it('tracks Bless in Statuses and summary', () => {
   expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[entry]} save={save} />)).toContain('Bless')
   change({ target: { checked: false } })
   expect(c.activeSpells).not.toContain('Bless')
+})
+
+it('tracks Fulminating Shot element and level-scaled damage in Statuses', () => {
+  let c: Character = { id: 'fulminating', name: 'Test', systems: ['pf2e'], level: 12,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [
+      { name: 'Fulminating Shot', type: 'Archetype Feat', level: 6 },
+    ], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const findControl = (node: ReactNode, tag: string, label: string): {
+    onChange: (event: { target: { value?: string; checked?: boolean } }) => void
+  } | undefined => {
+    let result: { onChange: (event: { target: { value?: string; checked?: boolean } }) => void } | undefined
+    Children.forEach(node, child => {
+      if (!isValidElement<Record<string, unknown>>(child)) return
+      if (child.type === tag && child.props['aria-label'] === label)
+        result = { onChange: child.props.onChange as (event: { target: { value?: string; checked?: boolean } }) => void }
+      else result ??= findControl(child.props.children as ReactNode, tag, label)
+    })
+    return result
+  }
+  const select = findControl(StatusesContent({ c, entries: [], save }), 'select', 'Fulminating Shot element')
+  if (!select) throw Error('Missing Fulminating Shot element selector')
+  select.onChange({ target: { value: 'Fire' } })
+  const toggle = findControl(StatusesContent({ c, entries: [], save }), 'input', 'Fulminating Shot status')
+  if (!toggle) throw Error('Missing Fulminating Shot status toggle')
+  toggle.onChange({ target: { checked: true } })
+  expect(fulminatingShotBonus(c)).toBe('2d6 fire')
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />))
+    .toContain('Fulminating Shot (2d6 fire)')
+})
+
+it('tracks temporary Magic Warrior Mask flight and resistance effects', () => {
+  let c: Character = { id: 'magic-warrior-status', name: 'Test', systems: ['pf2e'], level: 20,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [
+      { name: 'Sky Master Mask', type: 'Archetype Feat', level: 20 },
+      { name: 'Thick Hide Mask', type: 'Archetype Feat', level: 20 },
+    ], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const findInput = (node: ReactNode, label: string): {
+    onChange: (event: { target: { checked: boolean } }) => void
+  } | undefined => {
+    let result: { onChange: (event: { target: { checked: boolean } }) => void } | undefined
+    Children.forEach(node, child => {
+      if (!isValidElement<Record<string, unknown>>(child)) return
+      if (child.type === 'input' && child.props['aria-label'] === label)
+        result = { onChange: child.props.onChange as (event: { target: { checked: boolean } }) => void }
+      else result ??= findInput(child.props.children as ReactNode, label)
+    })
+    return result
+  }
+  const flight = findInput(StatusesContent({ c, entries: [], save }), 'Sky Master Mask doubled flight')
+  if (!flight) throw Error('Missing Sky Master Mask status control')
+  flight.onChange({ target: { checked: true } })
+  const resistance = findInput(StatusesContent({ c, entries: [], save }), 'Thick Hide Mask resistance active')
+  if (!resistance) throw Error('Missing Thick Hide Mask status control')
+  resistance.onChange({ target: { checked: true } })
+  expect(c.activeFeatEffects).toEqual(['Sky Master Mask', 'Thick Hide Mask'])
 })
 
 it('toggles Entrench Melee from Statuses and summarizes it while active', () => {

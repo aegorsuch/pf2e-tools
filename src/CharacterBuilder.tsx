@@ -40,6 +40,7 @@ import { DivineIntercessions } from './intercessionPicker'
 import { syncDivineBoonFeats } from './divineIntercessions'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
 import { backgroundVariants, type BackgroundVariant } from './builder'
+import { hasMagicWarriorMask, SHADOWED_SCALE_MASK } from './magicWarriorMasks'
 import { characterDeityLores, normalizeAcolyte } from './backgrounds'
 import { getSettings } from './settings'
 import { fatalMethodOptions, selectedFatalMethod, type FatalMethod } from './fatalMethods'
@@ -280,6 +281,9 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
     ...(simplePoisons ? [{ kind: 'simple-poisons' as const, name: 'Poison Weapon' }] : []),
     ...(group === 'Mask' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Warmask').length
       ? [{ kind: 'warmask' as const, name: adoptedAncestryText(c, 'Orc Warmask') }] : []),
+    ...(group === 'Mask' && hasMagicWarriorMask(c)
+      && !rows.some(row => row.item.name === SHADOWED_SCALE_MASK && row.item.qty > 0)
+      ? [{ kind: 'magic-warrior-mask' as const, name: SHADOWED_SCALE_MASK }] : []),
     ...(group === 'Tattoos' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Tattooed Historian Dedication').length
       && !c.equipment.some(item => item.name === 'Storied Skin' && item.qty > 0)
       ? [{ kind: 'storied-skin' as const, name: 'Storied Skin' }] : []),
@@ -292,6 +296,12 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
       if (display.kind === 'storied-skin') return <li key="storied-skin"><EntryDescription name="Storied Skin"
         entry={entries.find(entry => entry.kind === 'item' && entry.name === 'Storied Skin' && !entry.deleted && entry.systems.includes('pf2e'))}
         className="equipment-name" /></li>
+      if (display.kind === 'magic-warrior-mask') {
+        const entry = entries.find(entry => entry.kind === 'item' && entry.name === SHADOWED_SCALE_MASK
+          && !entry.deleted && entry.systems.includes('pf2e'))
+        return <li key="magic-warrior-mask"><EntryDescription name={SHADOWED_SCALE_MASK} entry={entry} className="equipment-name" />
+          <ActionIcon entry={entry} /><NamedArmorAbilities entry={entry} /></li>
+      }
       if (display.kind === 'comm') return <li key="integrated-comm"><EntryDescription name="Comm Unit" entry={integratedComm ?? undefined}
         descriptionNote="Integrated comm unit operated by thought, including calls and photos without speaking or moving. Does not count as an augmentation." /></li>
       if (display.kind === 'bracelet') return <li key={`bracelet-${display.id}`}><EntryDescription name="Bracelet of Empathy"
@@ -300,6 +310,7 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
       const { item, index, entry } = display.row
       const locked = item.name === 'Storied Skin' && c.systems.includes('pf2e')
         && activeFeatsNamed(c, 'Tattooed Historian Dedication').length > 0
+        || item.name === SHADOWED_SCALE_MASK && hasMagicWarriorMask(c)
       return <li key={`${item.name}-${index}`}>
       <EntryDescription name={item.name} entry={entry} className="equipment-name" /> <ActionIcon entry={entry} />{item.qty > 1 && <span> x{item.qty}</span>}{' '}
       <KillersBeltRoll name={item.name} entry={entry} />

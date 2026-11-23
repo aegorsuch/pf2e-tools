@@ -54,6 +54,24 @@ it("toggles Infused with Belkzen's Might on weapons and unarmed attacks and scal
   expect(bonus({ ...active, ...featEffectChange(active, name, false) }, c.weapons![0])).toBeUndefined()
 })
 
+it('adds active Fulminating Shot damage only to firearms and crossbows', () => {
+  const firearm: ContentEntry = { ...weapon, id: 'firearm', name: 'Pistol',
+    data: { weapon_category: 'Martial', weapon_type: 'Ranged', weapon_group: 'Firearm', damage: '1d6 piercing', range: 60 } }
+  const crossbow: ContentEntry = { ...firearm, id: 'crossbow', name: 'Hand Crossbow', data: { ...firearm.data, weapon_group: 'Crossbow' } }
+  const characterWithShot: Character = { ...character([{ name: 'Fulminating Shot', type: 'Archetype Feat', level: 6 }]),
+    level: 12, fulminatingShotActive: true, fulminatingShotElement: 'Fire',
+    weapons: [
+      { id: 'pistol', name: 'Pistol', potency: 0, striking: 0, runes: [] },
+      { id: 'crossbow', name: 'Hand Crossbow', potency: 0, striking: 0, runes: [] },
+      { id: 'sword', name: 'Longsword', potency: 0, striking: 0, runes: [] },
+    ] }
+  const html = renderToStaticMarkup(<WeaponList c={characterWithShot} entries={[firearm, crossbow, weapon]} save={() => {}} displayOnly />)
+  expect(html.match(/2d6 fire/g)).toHaveLength(2)
+  const longswordCard = html.split('<div class="gear-card">').find(card => card.includes('>Longsword<'))
+  expect(longswordCard).toContain('Damage 3d8 S')
+  expect(longswordCard).not.toContain('fire')
+})
+
 it('shows Gravity Weapon only for the first weapon Strike and scales with weapon damage dice', () => {
   const c: Character = { ...character([{ name: 'Initiate Warden', type: 'Class Feat', level: 1, choice: 'Gravity Weapon' }]),
     className: 'Ranger', level: 1 }

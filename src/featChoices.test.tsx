@@ -10,7 +10,7 @@ import { FeatSlots } from './FeatSlots'
 import { LanguagesSection } from './LanguagesSection'
 import { SpellsSection } from './SpellsSection'
 import { canSelectWardenFeat, compareFeatSelections, featDisplayName, grantedWardenSpells, selectedFeatEntry, spellWardenLabel, wardenSpellOptions } from './featChoices'
-import { eligibleFeats, languageAllowance, migrateAncestralLinguistics } from './builder'
+import { activeFeatsNamed, classSpellSlots, eligibleFeats, focusSpells, languageAllowance, migrateAncestralLinguistics, wizardArchetypeSpellbookChoices } from './builder'
 import { classSpellcasting, featChoiceOptions, movementSpeeds, ranksAt, researchedSpellResistanceChoices, resistances, senses, weaponAttack } from './builder'
 import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 import type { Character, ContentEntry } from './types'
@@ -789,6 +789,59 @@ it('derives caster status, traditions and spell proficiency from class features'
   expect(classSpellcasting({ ...base, className: 'Wizard', level: 15 }, classes)).toEqual({ traditions: ['Arcane'], rank: 3, ability: 'int' })
   expect(classSpellcasting({ ...base, className: 'Witch' }, classes)?.traditions).toEqual(['Arcane', 'Divine', 'Occult', 'Primal'])
   expect(classSpellcasting({ ...base, className: 'Witch', subclass: 'Winter' }, classes)?.traditions).toEqual(['Primal'])
+})
+
+it('gives Spellshot Wizard spellcasting its slots, book choices, and arcana feat selections', () => {
+  const dedication = { name: 'Spellshot Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }
+  const basic = { name: 'Basic Wizard Spellcasting', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' }
+  const breadth = { name: 'Arcane Breadth', type: 'Archetype Feat', level: 8, slot: 'archetype:8:0' }
+  const c: Character = { ...base, className: 'Gunslinger', level: 8, feats: [dedication, basic, breadth] }
+  expect(classSpellcasting(c, [])).toEqual({ traditions: ['Arcane'], rank: 1, ability: 'int' })
+  expect(classSpellSlots(c)).toEqual({ 0: 2, 1: 2, 2: 1, 3: 1 })
+  expect(wizardArchetypeSpellbookChoices(c)).toHaveLength(8)
+
+  const wizardFeat = (name: string, level: number): ContentEntry => ({
+    id: name, systems: ['pf2e'], kind: 'feat', source: 'official', name, level, traits: ['Wizard'],
+    description: '', data: {}, effects: [], updatedAt: 1,
+  })
+  const catalog = [wizardFeat('Reach Spell', 1), wizardFeat('Counterspell', 2),
+    wizardFeat('Advanced Counterspell', 4), wizardFeat('Impossible Counterspell', 8)]
+  expect(featChoiceOptions('Basic Arcana', c, catalog, 'archetype:4:1')).toEqual(['Counterspell', 'Reach Spell'])
+  const withArcana: Character = { ...c, level: 16, feats: [...c.feats,
+    { name: 'Basic Arcana', type: 'Archetype Feat', level: 4, slot: 'archetype:4:1', choice: 'Reach Spell' }] }
+  expect(featChoiceOptions('Advanced Arcana', withArcana, catalog, 'archetype:16:0'))
+    .toEqual(['Advanced Counterspell', 'Counterspell', 'Impossible Counterspell'])
+  expect(activeFeatsNamed(withArcana, 'Reach Spell')).toHaveLength(1)
+  const expert = { ...withArcana, feats: [...withArcana.feats,
+    { name: 'Expert Wizard Spellcasting', type: 'Archetype Feat', level: 12, slot: 'archetype:12:0' }] }
+  expect(classSpellcasting(expert, [])).toEqual({ traditions: ['Arcane'], rank: 2, ability: 'int' })
+  expect(classSpellSlots(expert)).toEqual({ 0: 2, 1: 2, 2: 2, 3: 2, 4: 2, 5: 1, 6: 1 })
+  expect(wizardArchetypeSpellbookChoices(expert)).toHaveLength(14)
+})
+
+it('grants Arcane School Spell focus spell selected by its school variant', () => {
+  const school = mapAonHit({ _id: 'school', _source: {
+    category: 'arcane-school', name: 'Abjuration',
+    markdown: 'You learn the [protective ward](/Spells.aspx?ID=534) school spell.',
+  } }, 'pf2e')!
+  const c: Character = { ...base, className: 'Gunslinger', level: 4,
+    feats: [{ name: 'Arcane School Spell', type: 'Archetype Feat', level: 4, choice: school.name }] }
+  expect(featChoiceOptions('Arcane School Spell', c, [school], 'archetype:4:0')).toEqual(['Abjuration'])
+  expect(focusSpells(c, [school]).spells).toEqual([{ name: 'Protective Ward', source: 'Abjuration school' }])
+})
+
+it('adds Spellshot Wizard spellbook selections to Class Spells', () => {
+  const spell: ContentEntry = { id: 'mystic-armor', systems: ['pf2e'], kind: 'spell', source: 'official',
+    name: 'Mystic Armor', level: 1, traits: [], description: '', data: { tradition: 'Arcane' }, effects: [], updatedAt: 1 }
+  const c: Character = { ...base, className: 'Gunslinger', level: 4, feats: [
+    { name: 'Spellshot Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+    { name: 'Basic Wizard Spellcasting', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' },
+  ], spells: [{ name: spell.name, rank: 1, cantrip: false, entryId: spell.id, bookSlot: 'wizard:1:0' }] }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
+  expect(markup).toContain('Wizard Spellbook')
+  expect(markup).toContain('Wizard rank 1 spell 1')
+  expect(markup).toContain('Mystic Armor')
+  expect(markup).toContain('Spell Rank 1')
 })
 
 it('shows spell DC proficiency but no spell slots for focus-only casters', () => {
