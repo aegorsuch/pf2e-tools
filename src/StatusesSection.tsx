@@ -1,11 +1,20 @@
-import { activeFeatsNamed, activeStance, conditionValue, featEffectChange, hasHuntPrey, isFeatEffectActive, knowsSpell, type SectionProps } from './builder'
+import { activeFeatsNamed, activeStance, armorEntry, armorProficiencyRank, conditionValue, featEffectChange, hasHuntPrey, isFeatEffectActive, knowsSpell, ownedArmors, type SectionProps } from './builder'
 import { grantedFeatSpells } from './featSpells'
 import { RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
 import { automatedSpellStatusControls, ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
 import { SimplePoisons } from './GearSection'
+import { isBastionNamedArmor } from './namedArmor'
 
 const canDeviseAStratagem = (c: SectionProps['c']) => c.systems.includes('pf2e') && c.className === 'Investigator'
+
+function entrenchMeleeActive(c: SectionProps['c'], entries: SectionProps['entries']) {
+  return ownedArmors(c, entries).some(armor => {
+    if (!isBastionNamedArmor(armor.name) || !armor.entrenchMeleeActive || !armor.worn || armor.inheritorCloakRed) return false
+    const entry = armorEntry(c, entries, armor.name, armor.id)
+    return !!entry && armorProficiencyRank(c, entries, entry) > 0
+  })
+}
 
 export function StatusesSummary({ c, entries }: SectionProps) {
   const stance = activeStance(c, entries)
@@ -15,6 +24,7 @@ export function StatusesSummary({ c, entries }: SectionProps) {
     ...(c.raging ? ['Rage'] : []),
     ...(stance ? [stance.name] : []),
     ...(c.poisonWeaponActive && activeFeatsNamed(c, 'Poison Weapon').length ? ['Poison Weapon'] : []),
+    ...(entrenchMeleeActive(c, entries) ? ['Entrench Melee'] : []),
     ...c.activeSpells ?? [],
     ...c.activeFeatEffects ?? [],
     ...(c.zealousConvictionRank !== undefined ? ['Zealous Conviction'] : []),
@@ -47,6 +57,7 @@ export function HuntPreyToggle({ c, entries, save, summary = false }: SectionPro
 
 export function StatusesContent({ c, entries, save }: SectionProps) {
   const grant = grantedFeatSpells(c, entries).find(spell => spell.source === 'Heroic Presence')
+  const entrenchArmors = ownedArmors(c, entries).filter(armor => isBastionNamedArmor(armor.name))
   const controls = [
     { name: 'Active stance', element: <StancesContent c={c} entries={entries} save={save} /> },
     ...(activeFeatsNamed(c, 'Poison Weapon').length
@@ -55,6 +66,15 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       ? [{ name: 'Devise a Stratagem', element: <DeviseAStratagemToggle c={c} save={save} /> }] : []),
     ...(hasHuntPrey(c, entries)
       ? [{ name: 'Hunt Prey', element: <HuntPreyToggle c={c} entries={entries} save={save} /> }] : []),
+    ...(entrenchArmors.length ? [{ name: 'Entrench Melee', element: <div>{entrenchArmors.map(armor => {
+      const entry = armorEntry(c, entries, armor.name, armor.id)
+      const disabled = !armor.worn || !entry || !armorProficiencyRank(c, entries, entry) || !!armor.inheritorCloakRed
+      return <label key={armor.id}><input type="checkbox" aria-label={`Entrench Melee: ${armor.name} status`}
+        checked={!!armor.entrenchMeleeActive} disabled={disabled}
+        onChange={event => save({ armors: ownedArmors(c, entries).map(current => current.id === armor.id
+          ? { ...current, entrenchMeleeActive: event.target.checked } : current) })} />
+        {' '}Entrench Melee: {armor.name}</label>
+    })}</div> }] : []),
     ...(['enfeebled', 'frightened', 'sickened'] as const).map(name => ({
       name, element: <label>
         {name[0].toUpperCase() + name.slice(1)}{' '}

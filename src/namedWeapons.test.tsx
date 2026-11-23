@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { expect, it, onTestFinished, vi } from 'vitest'
-import { combinationForms, combinationName, effectiveWeapon, equippedHands, gearPickerEntries, isFavoredWeapon, isMagicItem, oakenResilience, resistances, savingThrowBreakdown, weaponAttack, weaponEntry, weaponEquipped, weaponHands } from './builder'
+import { combinationForms, combinationName, effectiveWeapon, equippedHands, gearPickerEntries, isFavoredWeapon, isMagicItem, oakenResilience, resistances, savingThrowBreakdown, unconventionalWeaponChoice, weaponAttack, weaponEntry, weaponEquipped, weaponHands } from './builder'
 import { WeaponList } from './GearSection'
 import { mapAonHit } from './aon'
 import { makeNamedWeaponEntries, namedWeaponAbilities, namedWeaponBases, namedWeaponDamage, withNamedWeaponState } from './namedWeapons'
@@ -9,7 +9,7 @@ import { specificMagicItemName } from './equipmentGroups'
 import { getSettings, updateSettings } from './settings'
 import { SkillsSection } from './SkillsSection'
 import { gearAccess } from './gearAccess'
-import { HUNTERS_ARROWHEADS } from './supplemental'
+import { CLAN_PISTOL, HUNTERS_ARROWHEADS } from './supplemental'
 import { hunterArrowheadBonus } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 
@@ -553,6 +553,27 @@ it.each([undefined, 'Paired', 'Merged', 'Flame', 'Frost'] as const)(
     expect(weapon.coldstarForm).toBe(coldstarForm)
   },
 )
+
+it('offers Coldstar Pistols with Clan Pistol base traits and Impossible rune', () => {
+  const dueling = { ...melee('Dueling Pistol', '1d6 piercing'),
+    data: { ...melee('', '').data, damage: '1d6 piercing', hands: 1, weapon_type: 'Ranged',
+      weapon_group: 'Firearm', range: 60, reload: 1 } }
+  const coldstar = specific('Coldstar Pistols', 'Dueling Pistol', '+3 greater striking', [])
+  const entries = [dueling, CLAN_PISTOL, coldstar]
+  const variant = gearPickerEntries(entries, 'weapon').find(entry =>
+    entry.data.named_weapon_source === 'Coldstar Pistols' && entry.data.named_weapon_base === 'Clan Pistol')
+  if (!variant) throw Error('Missing Coldstar Clan Pistol variant')
+  expect(variant.name).toBe('Coldstar Pistols (Clan Pistol)')
+  expect(variant.traits).toEqual(expect.arrayContaining(['Agile', 'Concussive', 'Dwarf', 'Fatal d10']))
+  expect(namedWeaponBases(variant)).toEqual(['Dueling Pistol', 'Clan Pistol'])
+  expect(specificMagicItemName(variant)).toBe('Coldstar Clan Pistols')
+  expect(unconventionalWeaponChoice(entries, variant.name)).toBe('Clan Pistol')
+  expect(effectiveWeapon(c, entries, owned(variant.name))).toMatchObject({
+    material: 'Orichalcum', runes: expect.arrayContaining(['Impossible']),
+  })
+  expect(weaponAttack(c, entries, owned(variant.name))).toMatchObject({ range: 160 })
+  expect(weaponAttack(c, entries, { ...owned(variant.name), coldstarForm: 'Merged' })).toMatchObject({ range: 320 })
+})
 
 function findControl(node: ReactNode, label: string): ReactElement<Record<string, unknown>> | undefined {
   let found: ReactElement<Record<string, unknown>> | undefined

@@ -9,7 +9,8 @@ export const equipmentDisplayName = (name: string) => name.replace(/[\u2018\u201
 
 export function specificMagicItemName(entry: ContentEntry | undefined, name = entry?.name ?? '', owned = false) {
   const sourceName = String(entry?.data.named_weapon_source ?? name)
-  if (sourceName === 'Coldstar Pistols') return `Coldstar Dueling Pistol${Number(entry?.data.hands) === 1 ? '' : 's'}`
+  if (sourceName === 'Coldstar Pistols')
+    return `Coldstar ${entry?.data.named_weapon_base ?? 'Dueling Pistol'}${Number(entry?.data.hands) === 1 ? '' : 's'}`
   if (sourceName === 'Axe of the Dwarven Lords') return sourceName
   if (/^(?:Scalding|Corroding|Freezing|Shocking) Gauntlet$/.test(sourceName)) return `${sourceName.split(' ')[0]} ${entry?.data.named_weapon_base ?? 'Gauntlet'}`
   const rawBase = String(entry?.data.named_armor_base ?? entry?.data.named_weapon_base

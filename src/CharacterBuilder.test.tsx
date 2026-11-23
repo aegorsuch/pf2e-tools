@@ -130,6 +130,26 @@ it('shows the locked Avenger Dedication under Dedications instead of Class Feats
   expect(render('archetype')).toContain('L02 Dedication')
 })
 
+it('shows the locked Spellshot Dedication under Dedications instead of Class Feats', () => {
+  const gunslinger: ContentEntry = { id: 'gunslinger', name: 'Gunslinger', systems: ['pf2e'], kind: 'class',
+    source: 'official', level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 0 }
+  const spellshotWay: ContentEntry = { id: 'spellshot-way', name: 'Way of the Spellshot', systems: ['pf2e'], kind: 'subclass',
+    source: 'official', level: 1, traits: [], description: '', data: { class: 'Gunslinger' }, effects: [], updatedAt: 0 }
+  const dedication: ContentEntry = { id: 'spellshot-dedication', name: 'Spellshot Dedication', systems: ['pf2e'], kind: 'feat',
+    source: 'official', level: 2, traits: ['Archetype', 'Dedication'], description: '', data: { prerequisite: 'Way of the Spellshot' },
+    effects: [], updatedAt: 0 }
+  const c: Character = { id: 'spellshot', name: 'Test', systems: ['pf2e'], level: 2, className: 'Gunslinger',
+    subclass: 'Way of the Spellshot', abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: dedication.name, type: 'Class Feat', level: 2, slot: 'class:2:0', sourceId: dedication.id }],
+    equipment: [], lores: [], languages: [], entryIds: [gunslinger.id, spellshotWay.id, dedication.id], extraSlots: [], updatedAt: 0 }
+  const entries = [gunslinger, spellshotWay, dedication]
+  const render = (category: 'class' | 'archetype') => renderToStaticMarkup(<FeatSlots c={c} entries={entries} save={() => {}}
+    categories={[category]} title={category === 'class' ? 'Class Feats' : 'Dedications'} />)
+  expect(render('class')).not.toContain('Spellshot Dedication')
+  expect(render('archetype')).toContain('Spellshot Dedication')
+  expect(render('archetype')).toContain('L02 Dedication')
+})
+
 it('counts granted feats alongside filled and empty slots in Skill and General headings', () => {
   const skills = ['Ride', 'Quick Jump', 'Battle Medicine', "Crafter's Appraisal", 'Dubious Knowledge', 'Student of the Canon']
   const feat = (name: string, traits = ['General', 'Skill']): ContentEntry => ({

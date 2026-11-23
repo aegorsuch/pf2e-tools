@@ -713,7 +713,7 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
       counters.set(id, n + 1)
       const archetype = s.category === 'class' && s.level === 2 && n === 0 ? selectedClassArchetype(c, entries) : undefined
       slots.push({ key: `${id}:${n}`, category: s.category, level: s.level,
-        ...(archetype?.name === 'Avenger' ? { displayCategory: 'archetype' as const } : {}),
+        ...(archetype && ['Avenger', 'Spellshot'].includes(archetype.name) ? { displayCategory: 'archetype' as const } : {}),
         ...(archetype ? { grantedBy: archetype.name, grantedFeat: `${archetype.name} Dedication` } : {}) })
     }
     if (barbarianInstinct(c, entries) === 'fury') {

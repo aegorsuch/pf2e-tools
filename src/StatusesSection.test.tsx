@@ -88,6 +88,40 @@ it('tracks Bless in Statuses and summary', () => {
   expect(c.activeSpells).not.toContain('Bless')
 })
 
+it('toggles Entrench Melee from Statuses and summarizes it while active', () => {
+  const armor: ContentEntry = { id: 'bastion', name: 'Immortal Bastion Plate', systems: ['pf2e'], kind: 'armor',
+    source: 'official', level: 10, traits: [], description: '', data: { ac: 6, armor_category: 'Heavy' },
+    effects: [], updatedAt: 1 }
+  const fighter: ContentEntry = { id: 'fighter', name: 'Fighter', systems: ['pf2e'], kind: 'class',
+    source: 'official', level: 0, traits: [], description: '', data: { heavy_armor_proficiency: 'Trained' },
+    effects: [], updatedAt: 1 }
+  let c: Character = { id: 'bastion-status', name: 'Test', systems: ['pf2e'], level: 10, className: 'Fighter',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], armors: [{ id: 'bastion', name: armor.name, potency: 0, resilient: 0, runes: [], worn: true }],
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const entries = [armor, fighter]
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const markup = renderToStaticMarkup(<StatusesContent c={c} entries={entries} save={save} />)
+  expect(markup).toContain('Entrench Melee: Immortal Bastion Plate')
+  const findChange = (node: ReactNode): ((event: { target: { checked: boolean } }) => void) | undefined => {
+    let result: ((event: { target: { checked: boolean } }) => void) | undefined
+    Children.forEach(node, child => {
+      if (!isValidElement<Record<string, unknown>>(child)) return
+      if (child.type === 'input' && child.props['aria-label'] === 'Entrench Melee: Immortal Bastion Plate status')
+        result = child.props.onChange as typeof result
+      else result ??= findChange(child.props.children as ReactNode)
+    })
+    return result
+  }
+  const change = findChange(StatusesContent({ c, entries, save }))
+  if (!change) throw Error('Missing Entrench Melee status toggle')
+  change({ target: { checked: true } })
+  expect(c.armors?.[0].entrenchMeleeActive).toBe(true)
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={entries} save={save} />)).toContain('Entrench Melee')
+  change({ target: { checked: false } })
+  expect(c.armors?.[0].entrenchMeleeActive).toBe(false)
+})
+
 it('toggles Devise a Stratagem from the class summary and Statuses', () => {
   let c: Character = { id: 'investigator', name: 'Test', systems: ['pf2e'], level: 1, className: 'Investigator',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],

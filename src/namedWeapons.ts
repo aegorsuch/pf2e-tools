@@ -27,7 +27,7 @@ const BASES: Record<string, string[]> = {
   'Fungicidal Hatchet': ['Hatchet'],
   'Scalding Gauntlets': ['Spiked Gauntlet', 'Gauntlet', 'Bladed Gauntlet', 'Clawed Gauntlet'],
   "Cayden's Tankard": ['Light Hammer'],
-  'Coldstar Pistols': ['Dueling Pistol'],
+  'Coldstar Pistols': ['Dueling Pistol', 'Clan Pistol'],
   'Debilitating Dart': ['Dart'],
   "Freedom's Flame": ['Morningstar'],
   "Ghosthand's Comet": ["Ghosthand's Comet"],
@@ -283,8 +283,9 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
   }
   if (source === 'Coldstar Pistols') {
     const merged = weapon.coldstarForm === 'Merged'
+    const baseRange = Number(entry.data.range) || 60
     return { ...entry, data: { ...entry.data, hands: !weapon.coldstarForm || weapon.coldstarForm === 'Paired' ? 2 : 1,
-      range: merged ? 120 : 60, named_weapon_potency: merged ? 4 : 3, named_weapon_striking: merged ? 3 : 2,
+      range: merged ? baseRange * 2 : baseRange, named_weapon_potency: merged ? 4 : 3, named_weapon_striking: merged ? 3 : 2,
       named_weapon_runes: artifactRunes(entry, merged ? 'Flaming (Greater);Frost (Greater)'
         : weapon.coldstarForm === 'Frost' ? 'Frost (Greater)' : 'Flaming (Greater)'), named_weapon_rules_missing: false } }
   }
