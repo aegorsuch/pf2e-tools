@@ -3915,6 +3915,11 @@ export function senses(c: Character, entries: ContentEntry[]) {
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Blood Sense').length) {
     addVision('Blood sense (imprecise) 30 feet', 'Blood Sense')
   }
+  if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Seismic Sensitivity').length) {
+    const improved = activeFeatsNamed(c, 'Improved Seismic Sensitivity').length > 0
+    addVision(`Tremorsense (imprecise) ${improved ? 120 : 30} feet`,
+      improved ? 'Seismic Sensitivity, Improved Seismic Sensitivity' : 'Seismic Sensitivity')
+  }
   if (isFeatEffectActive(c, 'Briny Beverage')) addVision('Wavesense (imprecise) 20 feet', 'Briny Beverage')
   if (hasDivineIntercession(c, 'Asmodeus', 'moderate-boon')) addVision('Darkvision', 'Asmodeus (Moderate Boon)')
   if (activeFeatsNamed(c, "Jotun's Eyes").length) addVision('Darkvision', "Jotun's Eyes")
@@ -3938,7 +3943,8 @@ export function senses(c: Character, entries: ContentEntry[]) {
     }
   }
   const hasVision = (value: string) => out.some((sense) => sense.value.toLowerCase().includes(value))
-  const explicitVision = ['Acute Vision', 'Nocturnal Senses', 'Superior Sight', 'Adaptive Visual Receptors', 'Sensitive Antennae']
+  const explicitVision = ['Acute Vision', 'Nocturnal Senses', 'Superior Sight', 'Adaptive Visual Receptors', 'Sensitive Antennae',
+    'Seismic Sensitivity', 'Improved Seismic Sensitivity']
   const passive = { ...c, feats: c.feats.filter((feat) => featTakenLevel(feat) <= c.level && !explicitVision.includes(feat.name)) }
   for (const grant of featData(passive, entries, 'grants_vision')) addVision(grant.value, grant.source)
   const telepathy = limitedTelepathy(c, entries)

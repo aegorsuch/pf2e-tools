@@ -54,6 +54,18 @@ it('grants Shirren jaws only with its ancestral unarmed feat', () => {
     .some(weapon => weapon.id === jaws.id)).toBe(false)
 })
 
+it('grants and improves Seismic Sensitivity tremorsense', () => {
+  const featEntries = mapAonHits(hits.filter(hit => /^(?:Improved )?Seismic Sensitivity$/.test(String(hit._source?.name))), 'sf2e')
+  const c: Character = { ...base, ancestry: 'Shirren', level: 5,
+    feats: [{ name: 'Seismic Sensitivity', type: 'Ancestry Feat', level: 5 }] }
+  expect(senses(c, featEntries)).toContainEqual({ value: 'Tremorsense (imprecise) 30 feet', source: 'Seismic Sensitivity' })
+  expect(senses({ ...c, level: 4 }, featEntries).some(sense => /Tremorsense/i.test(sense.value))).toBe(false)
+  const improved = { ...c, level: 13, feats: [...c.feats, { name: 'Improved Seismic Sensitivity', type: 'Ancestry Feat', level: 13 }] }
+  expect(senses(improved, featEntries).filter(sense => /Tremorsense/i.test(sense.value))).toEqual([
+    { value: 'Tremorsense (imprecise) 120 feet', source: 'Seismic Sensitivity, Improved Seismic Sensitivity' },
+  ])
+})
+
 it('upgrades Shirren jaws and critical poison with Bug Bite', () => {
   const featEntries = mapAonHits(hits.filter(hit => hit._source?.name === 'Ancestral Unarmed Attack'), 'sf2e')
   const source = featEntries.find(entry => entry.kind === 'feat' && entry.traits.includes('Shirren'))!
