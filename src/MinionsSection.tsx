@@ -1013,6 +1013,15 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             </select>
           </label>}
           </section>
+          {c.className === 'Witch' && activeFeatsNamed(c, 'Rites of Transfiguration').length > 0 && (() => {
+            const spell = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name.toLowerCase() === 'cursed metamorphosis'
+              && entry.systems.some(system => c.systems.includes(system)))
+              ?? entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name.toLowerCase() === 'baleful polymorph'
+                && entry.systems.some(system => c.systems.includes(system)))
+            return spell && <section className="companion-actions"><h5>Familiar Spells</h5>
+              <EntryDescription name={spell.name} entry={spell} entries={entries} character={c} buttonLabel={spell.name} className="picker-details" />
+            </section>
+          })()}
           {Array.from({ length: resistanceCount }, (_, index) => <label key={`resistance-${index}`}>Resistance type {index + 1}{' '}
             <select aria-label={`${familiarType} resistance type ${index + 1}`}
               value={data?.abilityOptions?.resistance?.[index] ?? ''} onChange={event => {

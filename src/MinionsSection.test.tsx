@@ -801,6 +801,11 @@ it('selects, details, removes, and applies familiar abilities without exposing s
   expect(html).toContain('aria-label="Roll Stitching Strike: Damage"')
   expect(html).toContain('aria-label="Roll Shed Spirit: Damage"')
   expect(html).toContain('10d6')
+  c = { ...c, level: 14, feats: [{ name: 'Rites of Transfiguration', type: 'Class Feat', level: 14 }] }
+  const spell = { id: 'cm', systems: ['pf2e'], kind: 'spell', source: 'official', name: 'Cursed Metamorphosis', level: 6, traits: [], description: 'Polymorph.', data: {}, effects: [], updatedAt: 0 } as unknown as ContentEntry
+  html = renderToStaticMarkup(MinionsContent({ c, entries: [...familiarEntries, spell], save: () => {} }))
+  expect(html).toContain('Familiar Spells')
+  expect(html).toContain('Cursed Metamorphosis')
   c = saved
   html = renderToStaticMarkup(tree())
   expect(html).toContain('<small>Hit Points</small><b>56</b>')
