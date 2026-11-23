@@ -551,6 +551,20 @@ function CrocodileFormActions({ c, entries, save, rank }: SectionProps & { rank:
   </>
 }
 
+export function RapidShapeActions({ c, save }: SectionProps) {
+  if (!activeFeatsNamed(c, 'Rapid Shape').length) return null
+  const used = !!c.dailyAbilityUses?.['Rapid Shape']
+  return <div className="row">
+    <button type="button" aria-label="Cast Untamed Form with Rapid Shape" disabled={used}
+      onClick={() => {
+        if (used) return
+        save({ ...spellActiveChange(c, 'Untamed Form', true), dailyAbilityUses: { ...c.dailyAbilityUses, 'Rapid Shape': true } })
+      }}><ActionIcon actions="Single Action" /> Rapid Shape</button>
+    <button type="button" aria-label="Reset Rapid Shape" disabled={!used}
+      onClick={() => save({ dailyAbilityUses: { ...c.dailyAbilityUses, 'Rapid Shape': false } })}>Daily preparations</button>
+  </div>
+}
+
 function SpellEffectActions({ c, entries, save, entry, name, rank = Math.ceil(c.level / 2) }: SectionProps & {
   entry?: ContentEntry
   name: 'Animal Feature' | 'Untamed Shift' | 'Untamed Form' | 'Dinosaur Form'
@@ -577,6 +591,7 @@ function SpellEffectActions({ c, entries, save, entry, name, rank = Math.ceil(c.
       <h4 id={titleId} tabIndex={-1}>{form ? `${name} options` : `${name} effects`} (Rank {name === 'Untamed Form' ? c.untamedForm?.rank ?? rank : rank})</h4>
       {name === 'Untamed Form' && <label><input type="checkbox" aria-label="Untamed Form active"
         checked={isSpellActive(c, entries, name)} onChange={event => save(spellActiveChange(c, name, event.target.checked))} /> Active</label>}
+      {name === 'Untamed Form' && <RapidShapeActions c={c} entries={entries} save={save} />}
       {name === 'Dinosaur Form' ? <DinosaurFormOptions c={c} save={save} rank={rank} />
         : form ? <UntamedFormOptions c={c} entries={entries} save={save} />
         : name === 'Animal Feature' ? <AnimalFeatureOptions c={c} entries={entries} save={save} />

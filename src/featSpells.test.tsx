@@ -8,7 +8,7 @@ import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligible
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
 import { automaticFeatChoiceKey, boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
-import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, EnergizedFont, FalseVitalityActions, FloralRestoration, FocusPointTracker, InnateSpellUses, PestFormActions, PyreResistEnergyActions, SpellsSection, UntamedFormOptions } from './SpellsSection'
+import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, EnergizedFont, FalseVitalityActions, FloralRestoration, FocusPointTracker, InnateSpellUses, PestFormActions, PyreResistEnergyActions, RapidShapeActions, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
@@ -905,6 +905,43 @@ it('offers As Mutable as Nature only after acquiring the ability to cast Untamed
     { ...c.feats[0], slot: 'class:14:0' },
   ] }, [mutable], slot)(mutable)).toEqual({ missing: [], manual: [] })
   expect(mutable.data).toMatchObject({ actions: 'Single Action', class: 'Druid' })
+})
+
+it('offers Rapid Shape at level 8 only to druids who can cast Untamed Form', () => {
+  const rapid = homebrewCharacterOptions([]).find(entry => entry.name === 'Rapid Shape')!
+  const c: Character = { ...base, className: 'Druid', order: 'Untamed', level: 8,
+    feats: [{ ...taken('Untamed Form'), type: 'Class Feat', slot: 'class:1:0' }] }
+  const slot = { category: 'class' as const, level: 8, key: 'class:8:0' }
+  expect(rapid).toMatchObject({ source: 'homebrew', level: 8, traits: ['Druid'],
+    data: { prerequisite: 'You can cast untamed form', frequency: 'once per day' } })
+  expect(eligibleFeats([rapid], c, slot)).toContain(rapid)
+  expect(eligibleFeats([rapid], { ...c, feats: [] }, slot)).not.toContain(rapid)
+  expect(eligibleFeats([rapid], c, { ...slot, level: 6 })).not.toContain(rapid)
+  expect(eligibleFeats([rapid], { ...c, className: 'Ranger' }, slot)).not.toContain(rapid)
+})
+
+it('tracks Rapid Shape once per day without changing ordinary Untamed Form casting', () => {
+  let c: Character = { ...base, className: 'Druid', level: 8, feats: [taken('Untamed Form'), taken('Rapid Shape', 8)],
+    dailyAbilityUses: { Other: true }, spentFocusPoints: [0] }
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  const controls = () => RapidShapeActions({ c, entries: [], save })
+  const cast = () => findUseButton(controls(), 'Cast Untamed Form with Rapid Shape')!
+  const reset = () => findUseButton(controls(), 'Reset Rapid Shape')!
+  expect(cast().disabled).toBe(false)
+  expect(reset().disabled).toBe(true)
+  cast().onClick()
+  expect(c.activeSpells).toContain('Untamed Form')
+  expect(c.dailyAbilityUses).toEqual({ Other: true, 'Rapid Shape': true })
+  expect(c.spentFocusPoints).toEqual([0])
+  expect(cast().disabled).toBe(true)
+  c = { ...c, activeSpells: [] }
+  expect(cast().disabled).toBe(true)
+  reset().onClick()
+  expect(c.dailyAbilityUses).toEqual({ Other: true, 'Rapid Shape': false })
+  expect(cast().disabled).toBe(false)
+  c = { ...c, activeSpells: ['Untamed Form'] }
+  expect(cast().disabled).toBe(false)
+  expect(RapidShapeActions({ c: { ...c, feats: [taken('Untamed Form')] }, entries: [], save })).toBeNull()
 })
 
 it('limits Untamed Form lists by cast rank, shape feats and acquisition level', () => {

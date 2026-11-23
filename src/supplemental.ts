@@ -367,6 +367,9 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       "Prerequisite: You can cast untamed form.\nRequirements: You are currently under the effects of untamed form which has an original duration of 1 minute.\n\nYour shape is as mutable as nature itself, able to shift and change at a moment's notice. You change your form to another that you have access to.",
       { class: 'Druid', actions: 'Single Action', prerequisite: 'You can cast untamed form',
         requirements: 'You are currently under the effects of untamed form which has an original duration of 1 minute.' }),
+    homebrewFeat('rapid-shape', 'Rapid Shape', 8, ['Druid'],
+      'Prerequisite: You can cast untamed form.\n\nYou take the form of a beast with phenomenal speed. Once per day when you cast untamed form you may do so as a single action instead of the normal two actions.',
+      { class: 'Druid', prerequisite: 'You can cast untamed form', frequency: 'once per day' }),
     ...PERSISTENT_SPELLS.map(({ name, level }) => homebrewFeat(`persistent-${name.toLowerCase().replaceAll(' ', '-')}`,
       `Persistent ${name}`, level, ['Ranger'],
       `When you cast ${name}, you can extend its duration to last until the next time you make your daily preparations instead of its normal duration.${name === 'Animal Feature'
