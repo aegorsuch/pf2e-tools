@@ -139,7 +139,7 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
     && (entry.data.item_subcategory === 'Specific Magic Weapons' || entry.name === 'Wintershot (Artifact)' || !!BASES[entry.name]))
   return items.flatMap(item => {
     const sourceName = item.name === "Meloth's Lifedrinker (Improved)" ? "Meloth's Lifedrinker"
-      : item.name === "Clear Cutter's Axe" ? "Clear Cutter's Hatchet" : item.name
+      : item.name === "Clear Cutter's Axe" ? "Clear Cutter's Hatchet" : item.name === 'Scalding Gauntlets' ? 'Scalding Gauntlet' : item.name
     const originalBase = (item.name === 'Serithtial' ? 'Longsword' : undefined)
       ?? weaponBase.exec(item.description)?.[1]?.replace(/Dwarven War Axe/i, 'Dwarven Waraxe')
       ?? (item.name === 'Wintershot (Artifact)' && /\bcomposite shortbow\b/i.test(item.description) ? 'Composite Shortbow' : undefined)
@@ -231,7 +231,7 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
 export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: OwnedWeapon, level?: number) {
   if (!entry?.data.named_weapon) return entry
   const source = entry.data.named_weapon_source
-  if (source === 'Scalding Gauntlets') {
+  if (source === 'Scalding Gauntlet') {
     const at = level ?? entry.level
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
     return { ...entry, data: { ...entry.data,

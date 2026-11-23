@@ -872,15 +872,15 @@ it('scales Scalding Gauntlets potency, striking and Flaming with level and hides
   const item: ContentEntry = { ...winter, id: 'scalding', name: 'Scalding Gauntlets', level: 11, traits: ['Fire', 'Invested', 'Magical'],
     description: 'Base Weapon Spiked Gauntlet\n\nThese are a pair of +2 striking spiked gauntlets.',
     data: { item_subcategory: 'Specific Magic Weapons', url: 'https://2e.aonprd.com/Equipment.aspx?ID=2608' } }
-  const greater: ContentEntry = { ...item, id: 'scalding-greater', name: 'Scalding Gauntlets (Greater)', level: 13,
+  const greater: ContentEntry = { ...item, id: 'scalding-greater', name: 'Scalding Gauntlet (Greater)', level: 13,
     description: 'Base Weapon Spiked Gauntlet\n\nThe gauntlets are a +2 greater striking flaming spiked gauntlet.' }
   const plain: ContentEntry = { ...gauntlet, id: 'gauntlet', name: 'Gauntlet', data: { ...gauntlet.data, damage: '1d4 bludgeoning' } }
   const bladed: ContentEntry = { ...gauntlet, id: 'bladed', name: 'Bladed Gauntlet', data: { ...gauntlet.data, damage: '1d4 slashing' } }
   const entries = makeNamedWeaponEntries([gauntlet, plain, bladed, { ...gauntlet, id: 'clawed', name: 'Clawed Gauntlet' }, item, greater], [{ name: 'Flaming' }])
-  expect(entries.map(entry => entry.name).sort()).toEqual(['Scalding Gauntlets', 'Scalding Gauntlets (Bladed Gauntlet)', 'Scalding Gauntlets (Clawed Gauntlet)',
-    'Scalding Gauntlets (Gauntlet)', 'Scalding Gauntlets (Spiked Gauntlet)'])
-  expect(entries.find(entry => entry.name === 'Scalding Gauntlets (Gauntlet)')?.data.named_weapon_base).toBe('Gauntlet')
-  const at = (level: number) => withNamedWeaponState(entries[0], owned('Scalding Gauntlets'), level)?.data
+  expect(entries.map(entry => entry.name).sort()).toEqual(['Scalding Gauntlet (Bladed Gauntlet)', 'Scalding Gauntlet (Clawed Gauntlet)',
+    'Scalding Gauntlet (Gauntlet)', 'Scalding Gauntlet (Spiked Gauntlet)', 'Scalding Gauntlets'])
+  expect(entries.find(entry => entry.name === 'Scalding Gauntlet (Gauntlet)')?.data.named_weapon_base).toBe('Gauntlet')
+  const at = (level: number) => withNamedWeaponState(entries[1], owned('Scalding Gauntlet'), level)?.data
   expect(at(11)).toMatchObject({ named_weapon_potency: 2, named_weapon_striking: 1,
     named_weapon_runes: 'Flaming;Hooked;Grappling;Grievous', named_weapon_material: 'Orichalcum' })
   expect(at(13)).toMatchObject({ named_weapon_striking: 2, named_weapon_runes: 'Flaming;Hooked;Grappling;Grievous' })
