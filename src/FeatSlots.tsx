@@ -1,4 +1,4 @@
-import { Fragment, useId, useMemo, useRef, useState } from 'react'
+import { Fragment, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { ActionIcon } from './ActionIcon'
@@ -49,6 +49,18 @@ const LABEL: Record<FeatSlotCategory, string> = {
 }
 
 type FeatOption = { entry: ContentEntry; choice?: string; mastermindSkill?: string; value: string; label: string; disabled?: boolean }
+
+function FeatVariantGroup({ summary, autoOpen, renderOptions }: {
+  summary: ReactNode; autoOpen: boolean; renderOptions: () => ReactNode
+}) {
+  const [expanded, setExpanded] = useState(autoOpen)
+  return <details className="feat-variant-group" open={autoOpen} onToggle={event => {
+    if (event.target === event.currentTarget) setExpanded(event.currentTarget.open)
+  }}>
+    <summary>{summary}</summary>
+    {(expanded || autoOpen) && <ul className="feat-variant-list">{renderOptions()}</ul>}
+  </details>
+}
 
 const FEAT_ACTION_CONTROLS = new Set(["Giant's Lunge", 'Desperate Wrath', 'Come and Get Me', "Giant's Stature", "Infused with Belkzen's Might"])
 const FEAT_ACTION_TITLES: Record<string, string> = {
@@ -347,8 +359,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     saveFeatChanges({ extraSlots, feats, skippedFeatSlots })
   }
   const addSlot = (category: FeatSlotCategory, level: number) => {
-    const dismissed = plannedSlots({ ...c, dismissedFeatSlots: [] }, entries).find((slot) =>
-      slot.category === category && slot.level === level && c.dismissedFeatSlots?.includes(slot.key) && !allSlots.some((visible) => visible.key === slot.key))
+    const dismissed = c.dismissedFeatSlots?.length ? plannedSlots({ ...c, dismissedFeatSlots: [] }, entries).find((slot) =>
+      slot.category === category && slot.level === level && c.dismissedFeatSlots?.includes(slot.key) && !allSlots.some((visible) => visible.key === slot.key)) : undefined
     if (dismissed) save({ dismissedFeatSlots: c.dismissedFeatSlots?.filter((key) => key !== dismissed.key) })
     else save({ extraSlots: [...c.extraSlots, { category, level, count: 1 }] })
   }
@@ -589,10 +601,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               const collapse = variants.length > 10 || variants.length > 1
                 && ['Unconventional Weaponry', 'Adopted Ancestry'].includes(entry.name)
               return collapse ? [<li key={id}>
-                <details className="feat-variant-group" open={!!slotQuery && !matchesEntry(entry)}>
-                  <summary>{displayName(entry.name)} ({variants.length} choices)</summary>
-                  <ul className="feat-variant-list">{variants.map(popupOption)}</ul>
-                </details>
+                <FeatVariantGroup autoOpen={!!slotQuery && !matchesEntry(entry)}
+                  summary={<>{displayName(entry.name)} ({variants.length} choices)</>}
+                  renderOptions={() => variants.map(popupOption)} />
               </li>] : variants.map(popupOption)
             })
           }

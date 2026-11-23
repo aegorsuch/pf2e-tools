@@ -314,7 +314,7 @@ it('selects Gnome Obsession Lore in the feat picker and shows both granted feats
     systems: ['pf2e'], level: 1, traits: ['Gnome'], description: '', data: {}, effects: [], updatedAt: 0 }
   let c: Character = { ...emptyRanger(), ancestry: 'Gnome', level: 1 }
   const tree = () => FeatSlots({ c, entries: [feat], categories: ['ancestry'], save: patch => { c = { ...c, ...patch } },
-    search: { 'ancestry:1:0:open': '1' }, onSearch: () => {} })
+    search: { 'ancestry:1:0:open': '1', 'ancestry:1:0:query': 'Circus Lore' }, onSearch: () => {} })
   expect(renderToStaticMarkup(tree())).toContain('Gnome Obsession (Circus Lore)')
   findButton(tree(), 'L01 Ancestry: Gnome Obsession (Circus Lore)')!()
   expect(c.feats[0].choice).toBe('Circus Lore')
@@ -948,7 +948,9 @@ it.each([
   let c: Character = { ...emptyRanger(), ancestry: 'Human', level }
   const tree = (query = '') => FeatSlots({ c, entries, categories: [category], save: patch => { c = { ...c, ...patch } },
     search: { [`${key}:open`]: '1', [`${key}:query`]: query }, onSearch: () => {} })
-  expect(renderToStaticMarkup(tree())).toContain(`<details class="feat-variant-group"><summary>${name} (${count} choices)</summary>`)
+  const collapsed = renderToStaticMarkup(tree())
+  expect(collapsed).toContain(`<details class="feat-variant-group"><summary>${name} (${count} choices)</summary>`)
+  expect(collapsed).not.toContain(`aria-label="${label}: ${name} (Choice 01)"`)
   expect(renderToStaticMarkup(tree(name))).toContain(`<details class="feat-variant-group"><summary>${name} (${count} choices)</summary>`)
   expect(renderToStaticMarkup(tree('choice'))).toContain('<details class="feat-variant-group" open="">')
   const filtered = renderToStaticMarkup(tree('choice 02'))
@@ -1014,7 +1016,7 @@ it.each([
     systems: ['pf2e'], level: 1, traits: ['Dwarf'], description: '', data: {}, effects: [], updatedAt: 0 }
   let c: Character = { ...emptyRanger(), ancestry: 'Dwarf', level: 1 }
   const tree = () => FeatSlots({ c, entries: [feat], categories: ['ancestry'], save: patch => { c = { ...c, ...patch } },
-    search: { 'ancestry:1:0:open': '1' }, onSearch: () => {} })
+    search: { 'ancestry:1:0:open': '1', 'ancestry:1:0:query': clan }, onSearch: () => {} })
   const label = `Clan Lore (${hilt}, ${clan}: ${training})`
   expect(renderToStaticMarkup(tree())).toContain(label)
   findButton(tree(), `L01 Ancestry: ${label}`)!()
@@ -2467,6 +2469,20 @@ it('allows correcting a duplicate Mercy choice without offering already-selected
   expect(html).toContain('aria-label="Mercy choice"')
   expect(html).toContain('Mercy of the Body (unavailable)')
   expect(featChoiceOptions('Mercy', c, [mercy], 'class:6:0')).toEqual(['Mercy of Grace', 'Mercy of the Mind'])
+})
+
+it('adds an extra slot without replanning when no slots are dismissed', () => {
+  const c = { ...emptyRanger(), ancestry: 'Human' }
+  const save = vi.fn()
+  const planned = vi.spyOn(builder, 'plannedSlots')
+  try {
+    const add = findButton(FeatSlots({ c, entries: [], save, categories: ['ancestry'], onSearch: () => {} }),
+      'Add L01 Ancestry feat slot')!
+    planned.mockClear()
+    add()
+    expect(planned).not.toHaveBeenCalled()
+    expect(save).toHaveBeenCalledWith({ extraSlots: [{ category: 'ancestry', level: 1, count: 1 }] })
+  } finally { planned.mockRestore() }
 })
 
 it('adds slots beside a selected feat and removes only the chosen extra slot', () => {
