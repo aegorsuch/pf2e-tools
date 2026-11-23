@@ -568,6 +568,14 @@ it.each(['Diplomacy', 'Intimidation'])('grants Nephilim Lore %s and chosen plana
   expect(featLores({ ...c, feats: [] }, [])).not.toContain('Heaven Lore')
 })
 
+it('offers Hardened Chassis damage variants and grants the selected resistance 3', () => {
+  const feat = { name: 'Hardened Chassis', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Slashing' }
+  const c: Character = { ...base, level: 5, feats: [feat] }
+  expect(featChoiceOptions(feat.name, c, [], feat.slot)).toEqual(['Bludgeoning', 'Piercing', 'Slashing'])
+  expect(resistances(c, []).filter(item => item.source === feat.name))
+    .toEqual([{ damage: 'slashing (except adamantine)', value: 3, source: feat.name }])
+})
+
 it('offers all five Nephilim Resistance variants and grants only the selected resistance', () => {
   const choiceFeat = { name: 'Nephilim Resistance', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' }
   const c: Character = { ...base, level: 5, feats: [
