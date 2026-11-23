@@ -6206,6 +6206,10 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || cachedDwarfClanWeaponGrants(c, entries).some(weapon => weapon.name === name && (!id || weapon.id === id))
 export function weaponEntry(entries: ContentEntry[], name: string, id?: string) {
   let entry = resolveWeaponEntry(entries, name, id)
+  if (entry?.name === CLAN_PISTOL.name && (entry.source === 'official' || id === DWARF_CLAN_PISTOL_ID)
+    && !entry.traits.some(trait => /^dwarf$/i.test(trait.trim()))) {
+    entry = { ...entry, traits: [...entry.traits, 'Dwarf'] }
+  }
   if (entry?.source === 'homebrew' && entry.data.url && (entry.traits.some(trait => /^(?:two-hand|deadly|fatal(?: aim)?)$/i.test(trait.trim()))
     || !entry.weaponModes && entry.traits.some(trait => /^modular\b/i.test(trait)))) {
     const source = entries.find(candidate => candidate.kind === 'weapon' && candidate.source === 'official'

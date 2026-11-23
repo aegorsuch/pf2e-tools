@@ -3000,6 +3000,16 @@ it('grants a locked Dwarf clan dagger and adds a pistol only with the Clan Pisto
   }
 })
 
+it('retains the Dwarf trait on Clan Pistols from older catalogs', () => {
+  const stale = { ...CLAN_PISTOL, traits: CLAN_PISTOL.traits.filter(trait => trait !== 'Dwarf') }
+  const c: Character = { ...base, feats: [feat('Clan Pistol', 1)] }
+  const pistol = ownedWeapons(c, [stale]).find(weapon => weapon.name === CLAN_PISTOL.name)!
+  expect(weaponEntry([stale], pistol.name, pistol.id)?.traits).toContain('Dwarf')
+  expect(weaponAttack(c, [stale], pistol).traits).toContain('Dwarf')
+  expect(weaponEntry([], pistol.name)?.traits).toContain('Dwarf')
+  expect(stale.traits).not.toContain('Dwarf')
+})
+
 it.each([
   [7, []],
   [8, ['Flaming']],
