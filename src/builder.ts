@@ -4701,6 +4701,17 @@ export function armorRanks(c: Character, entries: ContentEntry[]) {
       ? groupRanks(c, entries, ARMOR_GROUPS, 'defense_proficiency', text => /armor|unarmored defense/i.test(text)).Medium : 0
     ranks.Heavy = Math.max(ranks.Heavy, 1, barbarianMedium >= 2 ? barbarianMedium : 0)
   }
+  const mountainSkin = activeFeatsNamed(c, 'Mountain Skin')[0]
+  if (mountainSkin && c.systems.includes('pf2e')) {
+    const level = featTakenLevel(mountainSkin)
+    const prior = armorRanks({ ...c, level,
+      feats: c.feats.filter(feat => feat.name !== 'Mountain Skin' && featTakenLevel(feat) <= level) }, entries)
+    const classRanks = baseArmorRanks(c, entries)
+    const classArmorRank = Math.max(classRanks.Light, classRanks.Medium, classRanks.Heavy)
+    for (const group of ['Medium', 'Heavy'] as const) {
+      if (!prior[group]) ranks[group] = Math.max(ranks[group], 1, classArmorRank >= 2 ? classArmorRank : 0)
+    }
+  }
   const guardianDedications = proficiencyFeats(c, 'Guardian Dedication')
   const guardianArmorGroups = new Set<typeof ARMOR_GROUPS[number]>()
   for (const { feat } of guardianDedications) {

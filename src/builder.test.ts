@@ -2934,6 +2934,27 @@ describe('armor specialization from feats', () => {
   })
 })
 
+it('grants Mountain Skin armor training and scales only armor categories it grants', () => {
+  const fighter = entry('class', 'Fighter', { defense_proficiency: 'Trained in light armor, trained in medium armor' })
+  const expert = { ...entry('classFeature', 'Armor Expertise', { class: 'Fighter' }, 11),
+    description: 'Your proficiency rank for light armor increases to expert.' }
+  const master = { ...entry('classFeature', 'Armor Mastery', { class: 'Fighter' }, 19),
+    description: 'Your proficiency rank for light armor increases to master.' }
+  const c: Character = { ...base, systems: ['pf2e'], className: 'Fighter', level: 4,
+    feats: [{ name: 'Mountain Skin', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' }] }
+  const data = [fighter, expert, master]
+  expect(armorRanks({ ...c, level: 3 }, data)).toMatchObject({ Medium: 1, Heavy: 0 })
+  expect(armorRanks(c, data)).toMatchObject({ Medium: 1, Heavy: 1 })
+  expect(armorRanks({ ...c, level: 11 }, data)).toMatchObject({ Light: 2, Medium: 1, Heavy: 2 })
+  expect(armorRanks({ ...c, level: 19 }, data)).toMatchObject({ Light: 3, Medium: 1, Heavy: 3 })
+  expect(armorRanks({ ...c, level: 19, feats: [] }, data).Heavy).toBe(0)
+  const monk = entry('class', 'Monk', { defense_proficiency: 'Trained in unarmored defense' })
+  const unarmored = { ...entry('classFeature', 'Unarmored Expertise', { class: 'Monk' }, 11),
+    description: 'Your proficiency rank for unarmored defense increases to expert.' }
+  expect(armorRanks({ ...c, className: 'Monk', level: 11 }, [monk, unarmored]))
+    .toMatchObject({ Unarmored: 2, Medium: 1, Heavy: 1 })
+})
+
 describe('homebrew feat rules', () => {
   it('grants Commanders a separate Captain Dedication slot even with a companion', ({ onTestFinished }) => {
     const previous = getSettings()
