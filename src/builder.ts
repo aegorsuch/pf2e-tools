@@ -5250,6 +5250,17 @@ const ysokiJaws: ContentEntry[] = [
   { ...FIST, id: 'sf2e:ysoki:fierce-jaws', name: 'Jaws', systems: ['sf2e'],
     traits: ['Grapple', 'Unarmed'], data: { ...FIST.data, damage: '1d8 piercing' } },
 ]
+const shirrenJaws: ContentEntry = { ...FIST, id: 'sf2e:shirren:jaws', name: 'Jaws', systems: ['sf2e'],
+  traits: ['Finesse', 'Unarmed'], description: 'Ancestral Unarmed Attack grants this jaws unarmed attack.',
+  data: { ...FIST.data, damage: '1d6 piercing', url: 'https://2e.aonsrd.com/feats/2188-ancestral-unarmed-attack' } }
+function hasShirrenJaws(c: Character, entries: ContentEntry[]) {
+  return c.systems.includes('sf2e') && activeFeatsNamed(c, 'Ancestral Unarmed Attack').some(feat => {
+    const source = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
+    return (!feat.choice || /^jaws?$/i.test(feat.choice))
+      && (source?.traits.some(trait => trait.toLowerCase() === 'shirren')
+        || (!source || source.traits.some(trait => trait.toLowerCase() === 'ancestry')) && ancestryFeatTraits(c).includes('shirren'))
+  })
+}
 const veskAttacks: ContentEntry[] = [
   { ...FIST, id: 'sf2e:vesk:claw', name: 'Claw', systems: ['sf2e'],
     traits: ['Agile', 'Finesse', 'Unarmed', 'Vesk'], data: { ...FIST.data, damage: '1d6 slashing' } },
@@ -5732,6 +5743,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     nephilimAttacks.filter(entry => entry.name === feat.choice)) : []
   const nativeJaws = c.systems.includes('sf2e') && c.ancestry === 'Ysoki'
     ? [ysokiJaws[c.heritage === 'Fierce Ysoki' ? 1 : 0]] : []
+  const shirrenAttacks = hasShirrenJaws(c, entries) ? [shirrenJaws] : []
   const tenguBite = c.systems.includes('pf2e') && c.ancestry === 'Tengu'
     ? [activeFeatsNamed(c, 'Dogfang Bite').length ? TENGU_DOGFANG_BITE : TENGU_BITE] : []
   const brutalAttacks = activeFeatsNamed(c, 'Brutal Anatomy').flatMap(feat =>
@@ -5751,6 +5763,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (weapon.name !== SPARK_FIST.name || sparkAttacks.length > 0)
     && (!bestialWeapon(weapon.id) || bestialAttacks.some(attack => attack.id === weapon.id))
     && (!ysokiJaws.some(entry => entry.id === weapon.id) || nativeJaws.some(entry => entry.id === weapon.id))
+    && (weapon.id !== shirrenJaws.id || shirrenAttacks.length > 0)
     && (!veskAttacks.some(entry => entry.id === weapon.id) || brutalAttacks.some(entry => entry.id === weapon.id))
     && (!pahtraAttacks.some(entry => entry.id === weapon.id) || predatoryAttacks.some(entry => entry.id === weapon.id))
     && (!witchAttackIds.has(weapon.id) || witchSelected.some(entry => entry.id === weapon.id))
@@ -5763,7 +5776,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (![...animalAttacks, UNTAMED_CLAWS, UNTAMED_JAWS].some((entry) => entry.name === weapon.name)
       || [...selectedAttacks, ...untamedAttacks].some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...nephilimSelected, ...tenguBite, ...nativeJaws, ...brutalAttacks, ...predatoryAttacks, ...witchSelected, ...venomousJaws,
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...nephilimSelected, ...tenguBite, ...nativeJaws, ...shirrenAttacks, ...brutalAttacks, ...predatoryAttacks, ...witchSelected, ...venomousJaws,
     ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []),
     ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...bestialAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
     if (!available.some((weapon) => iruxiAttackIds.has(entry.id) || witchAttackIds.has(entry.id) || nephilimAttacks.some(attack => attack.id === entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {
@@ -6059,7 +6072,7 @@ export function activeUntamedShiftEffects(c: Character, entries: ContentEntry[])
 }
 
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, CAIRN_FIST.name, SPARK_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name, UNTAMED_CLAWS.name, UNTAMED_JAWS.name].includes(name)
-  || bestialWeapons.some(entry => entry.name === name) || [...ysokiJaws, ...veskAttacks, ...pahtraAttacks, ...witchAttacks, ...nephilimAttacks, venomousVeskJaws].some(entry => entry.name === name)
+  || bestialWeapons.some(entry => entry.name === name) || [...ysokiJaws, shirrenJaws, ...veskAttacks, ...pahtraAttacks, ...witchAttacks, ...nephilimAttacks, venomousVeskJaws].some(entry => entry.name === name)
 export const PLAYING_CARD_WEAPONS = [
   { id: 'playing-card:dagger', name: 'Dagger (Playing Card)', base: 'Dagger' },
   { id: 'playing-card:dart', name: 'Dart (Playing Card)', base: 'Dart' },
@@ -6123,7 +6136,7 @@ function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) 
   if (id === solarianFlare.id || name === solarianFlare.name) return solarianFlare
   if (id === 'sf2e:solarian:solar-weapon' || name === 'Solar Weapon') return solarianWeaponEntry(false)
   if (id === 'sf2e:solarian:twin-weapon' || name === 'Twin Solar Weapon') return solarianWeaponEntry(true)
-  const jaws = [...ysokiJaws, ...veskAttacks, ...pahtraAttacks, ...witchAttacks, ...nephilimAttacks, venomousVeskJaws].find(entry => id ? entry.id === id : entry.name === name)
+  const jaws = [...ysokiJaws, shirrenJaws, ...veskAttacks, ...pahtraAttacks, ...witchAttacks, ...nephilimAttacks, venomousVeskJaws].find(entry => id ? entry.id === id : entry.name === name)
   if (jaws) return jaws
   const bestial = id ? bestialWeapon(id) : bestialWeapons.find(entry => entry.name === name)
   if (bestial) return bestial
@@ -7466,6 +7479,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       || c.level >= 5 && iruxiAttackIds.has(w.id) && activeFeatsNamed(c, 'Iruxi Armaments').length > 0
       || c.level >= 5 && veskAttacks.some(attack => attack.id === w.id) && activeFeatsNamed(c, 'Brutal Anatomy').length > 0
       || c.level >= 5 && pahtraAttacks.some(attack => attack.id === w.id) && activeFeatsNamed(c, 'Predatory').length > 0
+      || c.level >= 5 && w.id === shirrenJaws.id && hasShirrenJaws(c, entries)
       || c.level >= 7 && (w.id === 'sf2e:solarian:solar-weapon' || w.id === 'sf2e:solarian:twin-weapon' || w.id === solarianFlare.id)
       || c.systems.includes('sf2e') && c.className === 'Operative' && c.level >= 5 && rank >= 2
       || c.systems.includes('sf2e') && c.className === 'Mechanic' && c.level >= 5 && rank >= 2

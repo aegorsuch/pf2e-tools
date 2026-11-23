@@ -36,6 +36,24 @@ it('provides native Ysoki jaws and replaces them for Fierce Ysoki', () => {
   expect(ancestryFlaws(fierce, entries)).toEqual(['dex'])
 })
 
+it('grants Shirren jaws only with its ancestral unarmed feat', () => {
+  const featEntries = mapAonHits(hits.filter(hit => hit._source?.name === 'Ancestral Unarmed Attack'), 'sf2e')
+  const shirrenFeat = featEntries.find(entry => entry.kind === 'feat' && entry.traits.includes('Shirren'))!
+  const data = [...entries, ...featEntries]
+  const shirren = { ...base, ancestry: 'Shirren' }
+  expect(ownedWeapons(shirren, data).some(weapon => weapon.id === 'sf2e:shirren:jaws')).toBe(false)
+  const selected: Character = { ...shirren, feats: [{ name: shirrenFeat.name, type: 'Ancestry Feat', level: 1, sourceId: shirrenFeat.id }] }
+  const jaws = ownedWeapons(selected, data).find(weapon => weapon.id === 'sf2e:shirren:jaws')!
+  expect(weaponAttack(selected, data, jaws)).toMatchObject({ damage: '1d6 piercing',
+    traits: expect.arrayContaining(['Finesse', 'Unarmed']), criticalSpecialization: false })
+  expect(weaponAttack({ ...selected, level: 5 }, data, jaws).criticalSpecialization).toBe(true)
+  expect(ownedWeapons({ ...selected, systems: ['pf2e'] }, data).some(weapon => weapon.id === jaws.id)).toBe(false)
+  expect(ownedWeapons({ ...selected, feats: [], weapons: [jaws] }, data).some(weapon => weapon.id === jaws.id)).toBe(false)
+  const veskFeat = featEntries.find(entry => entry.kind === 'feat' && entry.traits.includes('Vesk'))!
+  expect(ownedWeapons({ ...selected, ancestry: 'Vesk', feats: [{ ...selected.feats[0], sourceId: veskFeat.id }] }, data)
+    .some(weapon => weapon.id === jaws.id)).toBe(false)
+})
+
 it('grants heritage training, duplicate replacement slots and fixed skill feats', () => {
   const shipborn: Character = { ...base, heritage: 'Shipborn Ysoki' }
   expect(ranksAt(shipborn, entries).Piloting).toBe(1)
