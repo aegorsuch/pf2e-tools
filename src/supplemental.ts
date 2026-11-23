@@ -169,6 +169,20 @@ export const IRUXI_TAIL: ContentEntry = {
   data: { ...FIST.data, weapon_group: 'Brawling', damage: '1d6 bludgeoning' },
 }
 
+export const AUTOMATON_CLAW: ContentEntry = {
+  ...FIST, id: 'supplemental:automaton-claw', name: 'Claw', systems: ['pf2e'],
+  traits: ['Agile', 'Finesse', 'Unarmed'],
+  description: 'Automaton Armament grants a claw unarmed attack dealing 1d4 slashing damage.',
+  data: { ...FIST.data, weapon_group: 'Brawling', damage: '1d4 slashing' },
+}
+
+export const AUTOMATON_PINCER: ContentEntry = {
+  ...FIST, id: 'supplemental:automaton-pincer', name: 'Pincer', systems: ['pf2e'],
+  traits: ['Grapple', 'Unarmed'],
+  description: 'Automaton Armament grants a pincer unarmed attack dealing 1d6 piercing damage.',
+  data: { ...FIST.data, weapon_group: 'Brawling', damage: '1d6 piercing' },
+}
+
 export const CLAN_PISTOL: ContentEntry = {
   ...HAFT_STRIKER_WEAPON, id: 'supplemental:clan-pistol', name: 'Clan Pistol',
   traits: ['Concussive', 'Dwarf', 'Fatal d10', 'Uncommon'],
@@ -477,7 +491,7 @@ export const HARDLIGHT_GRADES: Record<HardlightGrade, { potency: number; strikin
 }
 
 export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, CAIRN_FIST, SPARK_FIST, ORC_TUSKS, TENGU_BITE, TENGU_DOGFANG_BITE,
-  IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL,
+  IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, AUTOMATON_CLAW, AUTOMATON_PINCER,
   CLAN_PISTOL, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, UNTAMED_CLAWS, UNTAMED_JAWS, GAUNTLET]
 
 export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {

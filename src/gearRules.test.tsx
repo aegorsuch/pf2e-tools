@@ -3494,6 +3494,14 @@ it('gives tengu an innate Beak that gains versatile S from Dogfang Bite', () => 
   expect(ownedWeapons({ ...c, ancestry: 'Human' }, []).some(weapon => weapon.name === 'Beak')).toBe(false)
 })
 
+it('adds the selected Automaton Armament claw or pincer attack', () => {
+  for (const [choice, damage] of [['Claw', 'slashing'], ['Pincer', 'piercing']]) {
+    const c: Character = { ...base, systems: ['pf2e'], feats: [feat('Automaton Armament', 1, choice)] }
+    const weapon = ownedWeapons(c, []).find(item => item.name === choice)!
+    expect(weaponAttack(c, [], weapon).damage).toContain(damage)
+  }
+})
+
 it('adds the selected Iruxi Armaments attack and its ancestry-feat benefits', () => {
   const c: Character = { ...base, ancestry: 'Lizardfolk', level: 13,
     feats: [feat('Iruxi Armaments', 1, 'Fangs'), feat('Iruxi Spirit Strike', 13), feat('Iruxi Unarmed Cunning', 5)] }

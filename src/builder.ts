@@ -14,7 +14,7 @@ import { companionAdvancement, companionAdvancementFor } from './companions'
 import { contentAccessGranted, featRarity, spellAccessGranted } from './featAccess'
 import { spellResolution } from './spellDefense'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
-import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
+import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, AUTOMATON_CLAW, AUTOMATON_PINCER, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
 import { isAncestralEmbrace, isHighhelmPlate, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
@@ -1869,6 +1869,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       .filter(skill => (ranks[skill] ?? 0) < 3)
       .sort((a, b) => a.localeCompare(b))
   }
+  if (name === 'Automaton Armament' && c.systems.includes('pf2e')) return ['Claw', 'Pincer']
   if (name === 'Iruxi Armaments') {
     const used = new Set(c.feats.flatMap((feat, featIndex) =>
       featIndex !== index && feat.name === name && feat.choice ? [feat.choice] : []))
@@ -5371,7 +5372,7 @@ export const armorClass = (c: Character, entries: ContentEntry[]) => armorClassB
 const DWARF_CLAN_PISTOL_ID = 'granted-weapon:dwarf:clan-pistol'
 const DWARF_CLAN_DAGGER_ID = 'granted-weapon:dwarf:clan-dagger'
 
-const iruxiAttackIds = new Set([IRUXI_CLAWS.id, IRUXI_FANGS.id, IRUXI_TAIL.id, TENGU_BITE.id, TENGU_DOGFANG_BITE.id])
+const iruxiAttackIds = new Set([IRUXI_CLAWS.id, IRUXI_FANGS.id, IRUXI_TAIL.id, AUTOMATON_CLAW.id, AUTOMATON_PINCER.id, TENGU_BITE.id, TENGU_DOGFANG_BITE.id])
 const nephilimAttackBase: ContentEntry = { ...FIST, systems: ['pf2e'],
   description: 'Bestial Manifestation grants this unarmed attack.',
   data: { ...FIST.data, url: 'https://2e.aonprd.com/Feats.aspx?ID=4548' } }
@@ -5881,6 +5882,8 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const iruxiAttacks = activeFeatsNamed(c, 'Iruxi Armaments').flatMap(feat =>
     feat.choice === 'Claws' ? [IRUXI_CLAWS] : feat.choice === 'Fangs' ? [IRUXI_FANGS]
       : feat.choice === 'Tail' ? [IRUXI_TAIL] : [])
+  const automatonAttacks = c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Automaton Armament').flatMap(feat =>
+    feat.choice === 'Claw' ? [AUTOMATON_CLAW] : feat.choice === 'Pincer' ? [AUTOMATON_PINCER] : []) : []
   const nephilimSelected = c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Bestial Manifestation').flatMap(feat =>
     nephilimAttacks.filter(entry => entry.name === feat.choice)) : []
   const nativeJaws = c.systems.includes('sf2e') && c.ancestry === 'Ysoki'
@@ -5918,7 +5921,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (![...animalAttacks, UNTAMED_CLAWS, UNTAMED_JAWS].some((entry) => entry.name === weapon.name)
       || [...selectedAttacks, ...untamedAttacks].some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...nephilimSelected, ...tenguBite, ...nativeJaws, ...shirrenAttacks, ...brutalAttacks, ...predatoryAttacks, ...witchSelected, ...venomousJaws,
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...automatonAttacks, ...nephilimSelected, ...tenguBite, ...nativeJaws, ...shirrenAttacks, ...brutalAttacks, ...predatoryAttacks, ...witchSelected, ...venomousJaws,
     ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []),
     ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...bestialAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
     if (!available.some((weapon) => iruxiAttackIds.has(entry.id) || witchAttackIds.has(entry.id) || nephilimAttacks.some(attack => attack.id === entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {
