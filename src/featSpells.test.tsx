@@ -1468,6 +1468,20 @@ it('reads innate frequency from a feat header and resolves legacy Pass Without T
   expect(unresolvedFeatSpells(c, [source, spell])).toEqual([])
 })
 
+it('grants Vanishing Tracks from Unseen Passage when feat spell metadata is missing', () => {
+  const source = entry('Unseen Passage', 'feat')
+  const spell = entry('Vanishing Tracks', 'spell')
+  const c = { ...base, level: 9, feats: [taken(source.name)] }
+  const [grant] = grantedFeatSpells(c, [source, spell])
+  expect(grant).toMatchObject({
+    entry: spell, source: source.name, rank: 5,
+    rule: { kind: 'innate', spells: ['Pass Without Trace'], tradition: 'primal', frequency: 'once per day', heightened: true },
+  })
+  expect(unresolvedFeatSpells(c, [source]).map(missing => missing.name)).toEqual(['Pass Without Trace'])
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[source, spell]} save={() => {}} />))
+    .toContain('Vanishing Tracks')
+})
+
 it('alphabetizes innate spell names independently of feat selection order', () => {
   const sources = ['Zebra', 'Alpha'].map(name => feat(`${name} Magic`, `You can cast [${name}](/Spells.aspx?ID=1) as an innate primal spell once per day.`))
   const c = { ...base, feats: sources.map(source => taken(source.name)) }

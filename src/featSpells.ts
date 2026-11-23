@@ -925,7 +925,12 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
         rank: rule.rank, usageKey: JSON.stringify([selection, feat.name, spell.name.toLowerCase()]) })
       continue
     }
-    const rules = [...source?.spellGrants ?? [], ...orderTrainingRules(c, entries, feat)]
+    const unseenPassageGrant: SpellGrant[] = feat.name === 'Unseen Passage' && c.systems.includes('pf2e')
+      && !source?.spellGrants?.some(rule => rule.spells.some(name =>
+        ['pass without trace', 'vanishing tracks'].includes(name.toLowerCase())))
+      ? [{ kind: 'innate', spells: ['Pass Without Trace'], tradition: 'primal', frequency: 'once per day', heightened: true }]
+      : []
+    const rules = [...source?.spellGrants ?? [], ...unseenPassageGrant, ...orderTrainingRules(c, entries, feat)]
       .filter(rule => !(c.heritage?.toLowerCase() === 'wellspring gnome' && !gnomeTradition
         && source?.traits.some(trait => trait.toLowerCase() === 'gnome')
         && rule.kind === 'innate' && rule.tradition?.toLowerCase() === 'primal'))
@@ -1042,6 +1047,10 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
     if (feat.name === 'Build the First Walls' && c.systems.includes('pf2e')) {
       return matchingSpells(entries, 'Wall of Stone').some(entry => entry.systems.includes('pf2e'))
         ? [] : [{ name: 'Wall of Stone', source }]
+    }
+    if (feat.name === 'Unseen Passage' && c.systems.includes('pf2e')) {
+      return matchingSpells(entries, 'Pass Without Trace').some(entry => entry.systems.includes('pf2e'))
+        ? [] : [{ name: 'Pass Without Trace', source }]
     }
     if (c.systems.includes('pf2e') && ['Arcane Eye', 'Astral Blink', 'Axial Recall', 'Messenger', 'Overburn', 'Core Attunement',
       'Backup Runic Enhancement'].includes(feat.name)
