@@ -67,7 +67,7 @@ it('allows Armored Rebuff through Stalwart Defender at level 10 or Sentinel at l
   expect(eligibleFeats(entries, { ...c, feats: [{ ...c.feats[0], name: sentinel.name }] }, slot(8))).toContain(rebuff)
 })
 
-it('offers Stalwart Standard to Cavaliers who also meet its explicit Knight Vigilant prerequisite', () => {
+it('allows all Cavaliers to meet Stalwart Standard prerequisites', () => {
   const cavalier = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
   const knight = entry('feat', 'Knight Vigilant', { archetype: 'Knight Vigilant' }, 6, ['Archetype', 'Dedication'])
   const banner = entry('feat', "Cavalier's Banner", { archetype: 'Cavalier', prerequisite: cavalier.name }, 4, ['Archetype'])
@@ -83,10 +83,12 @@ it('offers Stalwart Standard to Cavaliers who also meet its explicit Knight Vigi
   ] }
   const slot = { key: 'archetype:10:0', category: 'archetype' as const, level: 10 }
   expect(eligibleFeats(entries, c, slot)).toContain(standard)
-  expect(featSelectionPrerequisiteChecker({ ...c, feats: c.feats.slice(0, 2) }, entries, slot)(standard).missing)
-    .toContain('Knight Vigilant')
-  expect(featSelectionPrerequisiteChecker({ ...c, feats: [c.feats[0], c.feats[2]] }, entries, slot)(standard).missing)
+  expect(eligibleFeats(entries, { ...c, feats: [c.feats[0]] }, slot)).toContain(standard)
+  expect(featSelectionPrerequisiteChecker({ ...c, feats: [c.feats[2]] }, entries, slot)(standard).missing)
     .toContain("Cavalier's Banner")
+  expect(eligibleFeats(entries, { ...c, feats: [] }, slot)).not.toContain(standard)
+  const future = { ...c, feats: [{ ...c.feats[0], slot: 'archetype:12:0' }] }
+  expect(featPrerequisiteChecker(future, entries, 10)(standard).missing).toContain('Knight Vigilant')
 })
 
 it('waives prerequisites only for the active house-rule dedication', () => {

@@ -26,6 +26,7 @@ export interface PrerequisiteFacts {
   feats: { name: string; level: number; category?: string; sourceId?: string }[]
   features: string[]
   stalwartDefenderGranted?: boolean
+  cavalierGranted?: boolean
   ranks: Record<string, number>
   buildSkillRanks?: Record<string, number>
   armor: Record<string, number>
@@ -277,6 +278,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     const name = key(text).replace(/\.$/, '')
     if (name === 'sentinel dedication' && (trail.has('steel skin') || trail.has('armored rebuff'))
       && facts.stalwartDefenderGranted) return met()
+    if (trail.has('stalwart standard') && ["cavalier's banner", 'knight vigilant'].includes(name)
+      && (facts.cavalierGranted || facts.feats.some(feat => key(feat.name) === 'cavalier dedication'))) return met()
     if (['bloodrager', 'vindicator', 'avenger', 'runelord'].includes(name)
       && trail.has(`${name} dedication`)) return resultFor(key(facts.classArchetype ?? '') === name, text)
     const bloodragerSkill = /^(master|legendary) in arcana or religion, depending on your chosen tradition$/.exec(name)

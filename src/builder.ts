@@ -1183,6 +1183,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           sourceId: feat.sourceId,
         })),
         get stalwartDefenderGranted() { return activeHomebrewDedications(character).some(rule => rule.name === 'Stalwart Defender Dedication') },
+        get cavalierGranted() { return activeHomebrewDedications(character).some(rule => rule.name === 'Cavalier Dedication') },
         get features() { return featureNames ??= [...features.map((feature) => feature.name), ...museFeats,
           ...fatalMethodGrants(character).features,
           ...automaticFeatGrants(character, entries).map((feat) => feat.name),
