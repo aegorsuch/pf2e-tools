@@ -32,6 +32,15 @@ it('shows active temporary HP in the collapsed Defense summary', () => {
   expect(render({ ...c, raging: false })).not.toContain('Temporary HP granted')
 })
 
+it('shows Devise a Stratagem toggle in the Investigator class header and Statuses', () => {
+  content.entries = []
+  const c: Character = { id: 'investigator-status', name: 'Test', systems: ['pf2e'], level: 1, className: 'Investigator',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  expect(markup.match(/aria-label="Devise a Stratagem active"/g)).toHaveLength(2)
+})
+
 it.each([
   ['Barbarian', 'Bloodrager', 'Bloodrager'],
   ['Ranger', 'Vindicator', 'Vindication'],

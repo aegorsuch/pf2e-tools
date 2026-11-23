@@ -19,7 +19,7 @@ import { DamageRoll } from './SpellDamage'
 import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, WeaponProficiency, RageToggle, SensesAndSpeed, SensesAndSpeedSummary, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsPanel } from './SpellsSection'
-import { StatusesContent, StatusesSummary } from './StatusesSection'
+import { DeviseAStratagemToggle, StatusesContent, StatusesSummary } from './StatusesSection'
 import { boneShieldActive, canUseGiantStature, effectiveHandwraps, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, temporaryHpGrant, twinnedDefenseActive } from './builder'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
@@ -415,6 +415,9 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       Object.assign(next, faithfulSteedChange(next, entries))
       Object.assign(next, constructCompanionChange(next))
       Object.assign(next, inventiveOffensiveChange(next, entries))
+      if ((!next.systems.includes('pf2e') || next.className !== 'Investigator') && next.deviseAStratagemActive) {
+        next.deviseAStratagemActive = undefined
+      }
       if (next.hardenFleshActive && !activeFeatsNamed(next, 'Harden Flesh').length) next.hardenFleshActive = false
       if (next.activeFeatEffects?.includes('Reckless Riding Lunge')
         && (next.mountedCompanionId !== current.mountedCompanionId
@@ -708,6 +711,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <strong>Class</strong>
           <span>{classLabel(c, entries) || 'Choose class'}{classSlots.length > 0 && `, ${classFilled}/${classSlots.length}`}</span>
           <RageToggle {...section} summary />
+          <DeviseAStratagemToggle {...section} summary />
         </summary>
         <div className="character-section-content">
           <div className="row">

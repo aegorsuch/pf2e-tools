@@ -2,7 +2,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { savingThrowBreakdown } from './builder'
-import { StatusesContent, StatusesSummary } from './StatusesSection'
+import { DeviseAStratagemToggle, StatusesContent, StatusesSummary } from './StatusesSection'
 import { ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
 import type { Character } from './types'
 
@@ -56,6 +56,36 @@ it('synchronizes Protect Companion target and active state', () => {
   expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).toContain('Protect Companion')
   input.props.onChange({ target: { checked: false } })
   expect(c.activeSpells).not.toContain('Protect Companion')
+})
+
+it('toggles Devise a Stratagem from the class summary and Statuses', () => {
+  let c: Character = { id: 'investigator', name: 'Test', systems: ['pf2e'], level: 1, className: 'Investigator',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  function findToggle(node: ReactNode): ((event: { target: { checked: boolean } }) => void) | undefined {
+    let result: ((event: { target: { checked: boolean } }) => void) | undefined
+    Children.forEach(node, child => {
+      if (!isValidElement<Record<string, unknown>>(child)) return
+      if (child.type === 'input' && child.props['aria-label'] === 'Devise a Stratagem active')
+        result = child.props.onChange as typeof result
+      else result ??= findToggle(child.props.children as ReactNode)
+    })
+    return result
+  }
+  const summaryToggle = DeviseAStratagemToggle({ c, save, summary: true })
+  expect(summaryToggle).not.toBeNull()
+  const summaryChange = findToggle(summaryToggle)
+  if (!summaryChange) throw Error('Missing class toggle')
+  summaryChange({ target: { checked: true } })
+  expect(c.deviseAStratagemActive).toBe(true)
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).toContain('Devise a Stratagem')
+  expect(renderToStaticMarkup(<StatusesContent c={c} entries={[]} save={save} />)).toContain('Devise a Stratagem')
+  const statusChange = findToggle(DeviseAStratagemToggle({ c, save }))
+  if (!statusChange) throw Error('Missing status toggle')
+  statusChange({ target: { checked: false } })
+  expect(c.deviseAStratagemActive).toBe(false)
+  expect(DeviseAStratagemToggle({ c: { ...c, className: 'Ranger' }, save })).toBeNull()
 })
 
 it('renders each available status in its own alphabetical row', () => {

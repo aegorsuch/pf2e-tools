@@ -4,9 +4,12 @@ import { RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
 import { automatedSpellStatusControls, ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
 
+const canDeviseAStratagem = (c: SectionProps['c']) => c.systems.includes('pf2e') && c.className === 'Investigator'
+
 export function StatusesSummary({ c, entries }: SectionProps) {
   const stance = activeStance(c, entries)
   const active = [
+    ...(canDeviseAStratagem(c) && c.deviseAStratagemActive ? ['Devise a Stratagem'] : []),
     ...(c.raging ? ['Rage'] : []),
     ...(stance ? [stance.name] : []),
     ...c.activeSpells ?? [],
@@ -20,10 +23,21 @@ export function StatusesSummary({ c, entries }: SectionProps) {
   </summary>
 }
 
+export function DeviseAStratagemToggle({ c, save, summary = false }: Pick<SectionProps, 'c' | 'save'> & { summary?: boolean }) {
+  if (!canDeviseAStratagem(c)) return null
+  const toggle = <label><input type="checkbox" aria-label="Devise a Stratagem active" checked={!!c.deviseAStratagemActive}
+    onChange={event => save({ deviseAStratagemActive: event.target.checked })} /> Devise a Stratagem</label>
+  return summary
+    ? <span className="combat-summary-toggles" onClick={event => event.stopPropagation()}>{toggle}</span>
+    : toggle
+}
+
 export function StatusesContent({ c, entries, save }: SectionProps) {
   const grant = grantedFeatSpells(c, entries).find(spell => spell.source === 'Heroic Presence')
   const controls = [
     { name: 'Active stance', element: <StancesContent c={c} entries={entries} save={save} /> },
+    ...(canDeviseAStratagem(c)
+      ? [{ name: 'Devise a Stratagem', element: <DeviseAStratagemToggle c={c} save={save} /> }] : []),
     ...(['enfeebled', 'frightened', 'sickened'] as const).map(name => ({
       name, element: <label>
         {name[0].toUpperCase() + name.slice(1)}{' '}

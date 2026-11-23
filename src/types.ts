@@ -243,6 +243,7 @@ export interface Character {
   blessedArmament?: { weaponId: string; rune: string }
   inventiveOffensive?: { weaponId: string; traits: string[] }
   haftStrikerWeaponId?: string
+  deviseAStratagemActive?: boolean
   raging?: boolean
   barbarianDragon?: import('./barbarian.js').DragonInstinct
   dragonTransformation?: string
