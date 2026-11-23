@@ -1145,7 +1145,7 @@ export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'en
   const otherSpells = new Set([...granted.map(spell => spell.name), ...focus.map(spell => spell.name)]).size
     + groupedInnateSpells(c, innate).length + special.length + items.length
   const featChoices = c.feats.filter(feat => featTakenLevel(feat) <= c.level
-    && (feat.name === 'First World Magic' || ['Psychic Talent', 'Psychic Mastery', 'Psychic Paragon'].includes(feat.name) && c.systems.includes('sf2e')))
+    && (feat.name === 'First World Magic' || ['Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon'].includes(feat.name) && c.systems.includes('sf2e')))
   const missingFeatChoices = featChoices.filter(feat => !innate.some(grant => grant.source === feat.name && grant.entry.name === feat.choice)).length
   const minorSlots = activeFeatsNamed(c, 'Minor Magic').length && c.minorMagic?.tradition ? 2 : 0
   const minorSelected = minorSlots ? minorMagicSpells(c, entries).length : 0
@@ -1173,7 +1173,7 @@ export function spellCategoryAvailability(c: Character, entries: ContentEntry[],
   const innateAvailable = innate.length > 0 || c.heritage === 'Mage Automaton' && c.level >= 1
     || c.systems.includes('pf2e') && c.level >= 1 && ['fey-touched gnome', 'wellspring gnome'].includes(heritage)
     || !!activeFeatsNamed(c, 'Minor Magic').length || !!activeFeatsNamed(c, 'First World Magic').length
-    || c.systems.includes('sf2e') && ['Psychic Talent', 'Psychic Mastery', 'Psychic Paragon'].some(name => activeFeatsNamed(c, name).length > 0)
+    || c.systems.includes('sf2e') && ['Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon'].some(name => activeFeatsNamed(c, name).length > 0)
   return { class: class_, focus: focusAvailable, innate: innateAvailable, feat: special.length > 0, items: items.length > 0,
     rituals: characterRituals(c, entries).ritualNames.length > 0 }
 }
@@ -1389,7 +1389,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     select: (value: string) => void; grant?: typeof innate[number]; entry?: ContentEntry
   }[] = []
   c.feats.forEach((feat, index) => {
-    if (!(feat.name === 'First World Magic' || ['Psychic Talent', 'Psychic Mastery', 'Psychic Paragon'].includes(feat.name) && c.systems.includes('sf2e'))
+    if (!(feat.name === 'First World Magic' || ['Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon'].includes(feat.name) && c.systems.includes('sf2e'))
       || featTakenLevel(feat) > c.level) return
     const options = featSpellOptions(c, entries, feat) ?? []
     const current = feat.choice ?? ''
@@ -1397,7 +1397,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     const tradition = grant?.rule.tradition ?? (feat.name !== 'First World Magic' ? 'Occult'
       : c.heritage?.toLowerCase() === 'wellspring gnome' ? gnomeHeritageTradition(c) ?? 'Innate' : 'Primal')
     choiceSlots.push({ key: `${feat.name}:${index}`, label: `${feat.name} spell`, tradition,
-      rank: grant?.rank ?? (!getSettings().innateAutoHeighten && feat.name === 'Psychic Mastery' ? 2
+      rank: grant?.rank ?? (!getSettings().innateAutoHeighten && ['Psychic Master', 'Psychic Mastery'].includes(feat.name) ? 2
         : !getSettings().innateAutoHeighten && feat.name === 'Psychic Paragon' ? 6 : Math.ceil(c.level / 2)),
       current, options, grant, entry: grant?.entry,
       select: value => save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: value || undefined } : existing) }) })

@@ -236,8 +236,8 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
       && spellAccessGranted(c, spell))
       .sort((a, b) => a.name.localeCompare(b.name))
   }
-  if (['Psychic Mastery', 'Psychic Paragon'].includes(feat.name) && c.systems.includes('sf2e')) {
-    const rank = feat.name === 'Psychic Mastery' ? 2 : 6
+  if (['Psychic Master', 'Psychic Mastery', 'Psychic Paragon'].includes(feat.name) && c.systems.includes('sf2e')) {
+    const rank = feat.name === 'Psychic Paragon' ? 6 : 2
     return spellIndex(entries).spells.filter(spell => spell.systems.includes('sf2e') && spell.level === rank
       && !spell.traits.some(trait => /^(?:cantrip|focus|uncommon|rare|unique)$/i.test(trait))
       && !/^(?:uncommon|rare|unique)$/i.test(String(spell.data.rarity ?? ''))
@@ -439,11 +439,11 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue
     }
-    if (['Psychic Mastery', 'Psychic Paragon'].includes(feat.name) && c.systems.includes('sf2e')) {
+    if (['Psychic Master', 'Psychic Mastery', 'Psychic Paragon'].includes(feat.name) && c.systems.includes('sf2e')) {
       const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
       if (entry) out.push({ entry, source: feat.name,
         rule: { kind: 'innate', spells: [entry.name], tradition: 'occult', frequency: 'once per day' },
-        rank: feat.name === 'Psychic Mastery' ? 2 : 6, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
+        rank: feat.name === 'Psychic Paragon' ? 6 : 2, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
       continue
     }
     const psychicSpells = c.systems.includes('sf2e') ? PSYCHIC_FEAT_SPELLS[feat.name] : undefined

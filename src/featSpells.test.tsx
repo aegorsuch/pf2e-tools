@@ -506,7 +506,8 @@ it('offers Psychic Talent occult cantrips in Innate Spells and heightens the sel
   expect(grantedFeatSpells({ ...selected, level: 0 }, entries)).toEqual([])
 })
 
-it('provides Psychic Mastery a common rank 2 occult spell slot and daily use', () => {
+it.each([['Psychic Mastery', 'Lashunta'], ['Psychic Master', 'Shirren']])(
+  'provides %s a common rank 2 occult spell slot and daily use', (name, ancestry) => {
   const previous = getSettings().innateAutoHeighten
   const occult = { ...entry('Mind Spell', 'spell', { tradition: 'Occult' }), systems: ['sf2e' as const], level: 2 }
   const spells = [occult, { ...occult, name: 'Rare Mind', id: 'rare', traits: ['Rare'] },
@@ -514,20 +515,21 @@ it('provides Psychic Mastery a common rank 2 occult spell slot and daily use', (
     { ...occult, name: 'Other Rank', id: 'other-rank', level: 3 },
     { ...occult, name: 'Other Tradition', id: 'other-tradition', data: { tradition: 'Arcane' } },
     { ...occult, name: 'Focus', id: 'focus', traits: ['Focus'] }]
-  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Lashunta', level: 9,
-    feats: [taken('Psychic Mastery', 9)] }
+  const c: Character = { ...base, systems: ['sf2e'], ancestry, level: 9,
+   feats: [taken(name, 9)] }
   try {
     updateSettings({ innateAutoHeighten: false })
     expect(featSpellOptions(c, spells, c.feats[0])?.map(spell => spell.name)).toEqual(['Mind Spell'])
     const empty = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
     expect(empty).toContain('Occult Spell Rank 2')
-    expect(empty).toContain('aria-label="Psychic Mastery spell"')
+    expect(empty).toContain(`aria-label="${name} spell"`)
     expect(empty).toContain('0/1 spells')
-    const selected = { ...c, feats: [taken('Psychic Mastery', 9, 'Mind Spell')] }
+    const selected = { ...c, feats: [taken(name, 9, 'Mind Spell')] }
     const [grant] = grantedFeatSpells(selected, spells)
-    expect(grant).toMatchObject({ source: 'Psychic Mastery', rank: 2,
+    expect(grant).toMatchObject({ source: name, rank: 2,
       rule: { kind: 'innate', tradition: 'occult', frequency: 'once per day' } })
     expect(dailyInnateUses(selected, grant)?.remaining).toBe(1)
+    expect(grantedFeatSpells({ ...selected, level: 8 }, spells)).toEqual([])
     const html = renderToStaticMarkup(<SpellsSection c={selected} entries={spells} save={() => {}} />)
     expect(html).toContain('Clear Mind Spell spell slot')
     expect(html).toContain('1 of 1 uses remaining')
