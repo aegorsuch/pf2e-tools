@@ -25,7 +25,7 @@ const BASES: Record<string, string[]> = {
   'Cane of the Maelstrom': ['Club'],
   "Clear Cutter's Axe": ['Hatchet'],
   'Fungicidal Hatchet': ['Hatchet'],
-  'Scalding Gauntlets': ['Spiked Gauntlet', 'Gauntlet', 'Bladed Gauntlet'],
+  'Scalding Gauntlets': ['Spiked Gauntlet', 'Gauntlet', 'Bladed Gauntlet', 'Clawed Gauntlet'],
   "Cayden's Tankard": ['Light Hammer'],
   'Coldstar Pistols': ['Dueling Pistol'],
   'Debilitating Dart': ['Dart'],
@@ -237,7 +237,7 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
     return { ...entry, data: { ...entry.data,
       named_weapon_potency: at >= 18 ? 3 : 2, named_weapon_striking: at >= 13 ? 2 : 1,
       named_weapon_runes: [...new Set([...runes.filter(rune => runeBase(rune) !== 'Flaming'),
-        at >= 18 ? 'Flaming (Greater)' : 'Flaming', 'Parrying', 'Grappling', 'Grievous'])].join(';') } }
+        at >= 18 ? 'Flaming (Greater)' : 'Flaming', 'Hooked', 'Grappling', 'Grievous'])].join(';') } }
   }
   if (source === 'Fungicidal Hatchet') {
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
