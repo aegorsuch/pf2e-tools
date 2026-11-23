@@ -573,7 +573,7 @@ it('offers Hardened Chassis damage variants and grants the selected resistance 3
   const c: Character = { ...base, level: 5, feats: [feat] }
   expect(featChoiceOptions(feat.name, c, [], feat.slot)).toEqual(['Bludgeoning', 'Piercing', 'Slashing'])
   expect(resistances(c, []).filter(item => item.source === feat.name))
-    .toEqual([{ damage: 'slashing (except adamantine)', value: 3, source: feat.name }])
+    .toEqual([{ damage: 'Slashing (except adamantine)', value: 3, source: feat.name }])
 })
 
 it('offers all five Nephilim Resistance variants and grants only the selected resistance', () => {
