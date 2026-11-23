@@ -48,7 +48,9 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
   const matching: typeof options = []
   if (open) for (const option of options) {
     const match = !activeQuery || `${option.label} ${option.value} ${searchText?.(option.value) ?? ''}`.toLowerCase().includes(activeQuery)
-    const spell = optionSpell?.(option.value)
+    const needsSpell = optionSpell && (defense !== 'all' || system !== 'both')
+      && !!option.value && (match || option.value === value)
+    const spell = needsSpell ? optionSpell(option.value) : undefined
     const defenseMatch = !optionSpell || defense === 'all' || matchesSpellDefense(spell, defense)
     const systemMatch = !optionSpell || system === 'both' || !!spell && matchesGearSystem(spell, system, spell.systems)
     if (option.value && match && defenseMatch && systemMatch) matches++

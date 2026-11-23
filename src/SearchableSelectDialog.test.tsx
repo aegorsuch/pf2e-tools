@@ -184,6 +184,44 @@ it('does not resolve option levels while the picker is closed', () => {
   expect(optionLevel).not.toHaveBeenCalled()
 })
 
+it('does not resolve spells when defense and system filters are inactive', () => {
+  vi.mocked(useState).mockReturnValueOnce(['flame', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
+    .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
+    .mockReturnValueOnce(['all', vi.fn()]).mockReturnValueOnce(['both', vi.fn()])
+  vi.mocked(useRef).mockReturnValue({ current: null })
+  vi.mocked(useId).mockReturnValue('picker')
+  vi.mocked(useMemo).mockImplementation(fn => fn())
+  const optionSpell = vi.fn(() => undefined)
+  SearchableSelect({ 'aria-label': 'Spell', value: 'shield', alwaysSearchable: true, optionSpell,
+    children: <><option value="">None</option><option value="flame">Flame</option>
+      <option value="shield">Shield</option><option value="ice">Ice</option></> })
+  expect(optionSpell).not.toHaveBeenCalled()
+})
+
+it('resolves filters for search matches and the retained selection only', () => {
+  vi.mocked(useState).mockReturnValueOnce(['flame', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
+    .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
+    .mockReturnValueOnce(['reflex', vi.fn()]).mockReturnValueOnce(['both', vi.fn()])
+  vi.mocked(useRef).mockReturnValue({ current: null })
+  vi.mocked(useId).mockReturnValue('picker')
+  vi.mocked(useMemo).mockImplementation(fn => fn())
+  const optionSpell = vi.fn((value: string): ContentEntry => ({ id: value, name: value, kind: 'spell',
+    systems: ['pf2e'], source: 'official', level: 1, traits: [], description: '',
+    data: { saving_throw: 'Reflex' }, effects: [], updatedAt: 0 }))
+  const found: Array<{ type: unknown; props: Record<string, unknown> }> = []
+  const visit = (node: ReactNode) => Children.forEach(node, child => {
+    if (!isValidElement<Record<string, unknown>>(child)) return
+    found.push({ type: child.type, props: child.props })
+    visit(child.props.children as ReactNode)
+  })
+  visit(SearchableSelect({ 'aria-label': 'Spell', value: 'shield', alwaysSearchable: true, optionSpell,
+    children: <><option value="">None</option><option value="flame">Flame</option>
+      <option value="shield">Shield</option><option value="ice">Ice</option></> }))
+  expect(optionSpell.mock.calls.map(([value]) => value)).toEqual(['flame', 'shield'])
+  expect(found.filter(item => item.type === 'button' && String(item.props['aria-label']).startsWith('Spell: '))
+    .map(item => item.props['aria-label'])).toEqual(['Spell: None', 'Spell: Flame', 'Spell: Shield'])
+})
+
 it('filters spell choices by defense together with search and resets pagination', () => {
   const setDefense = vi.fn()
   const setLimit = vi.fn()
