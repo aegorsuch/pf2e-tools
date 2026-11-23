@@ -125,6 +125,35 @@ it('lists copied class feats as homebrew without changing official feats', () =>
     { key: 'class:6:0', category: 'class', level: 6 })).not.toContain(steady)
 })
 
+it('copies Instinctive Support to Ranger, Champion, and Bard without changing the Druid original', () => {
+  const [original, companion] = mapAonHits([{
+    _id: 'feat-4731', _source: { name: 'Instinctive Support', category: 'feat', level: 6, trait: ['Druid'],
+      prerequisite: 'Animal Companion', actions: 'Free Action',
+      markdown: 'Trigger: Cast a non-cantrip spell targeting only your animal companion. The companion gains its actions; one must be Support.' },
+  }, {
+    _id: 'companion-feat', _source: { name: 'Animal Companion', category: 'feat', level: 1,
+      trait: ['Druid', 'Ranger', 'Champion', 'Bard'], markdown: 'You gain an animal companion.' },
+  }], 'pf2e')
+  const copy = homebrewCharacterOptions([original, companion]).find(entry => entry.id === 'homebrew:instinctive-support')!
+  expect(copy).toMatchObject({ name: original.name, level: 6, source: 'homebrew', description: original.description,
+    traits: ['Ranger', 'Champion', 'Bard'], data: { class: 'Ranger, Champion, Bard', prerequisite: 'Animal Companion' } })
+  expect(copy.data.actions).toBe(original.data.actions)
+  expect(original.traits).toEqual(['Druid'])
+  const groups = groupHomebrew([original, companion, copy])
+  const slot = { key: 'class:6:0', category: 'class' as const, level: 6 }
+  const base: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 6,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Animal Companion', type: 'Class Feat', level: 1, slot: 'class:1:0' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  for (const className of ['Ranger', 'Champion', 'Bard']) {
+    expect(groups.find(group => group.name === `${className} Feats`)?.entries).toContain(copy)
+    expect(eligibleFeats([original, companion, copy], { ...base, className }, slot)).toContain(copy)
+    expect(eligibleFeats([original, companion, copy], { ...base, className, feats: [] }, slot)).not.toContain(copy)
+  }
+  expect(eligibleFeats([original, companion, copy], { ...base, className: 'Druid' }, slot)).toContain(original)
+  expect(eligibleFeats([original, companion, copy], { ...base, className: 'Fighter' }, slot)).not.toContain(copy)
+})
+
 it('preserves existing copied feat selections when moving them to homebrew', () => {
   const c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Test', level: 8, className: 'Ranger',

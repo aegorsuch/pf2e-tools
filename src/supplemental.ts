@@ -299,6 +299,8 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     { sourceId: 'aon:pf2e:feat-5418', id: 'homebrew:ears-of-the-forest-ranger', name: 'Ears of the Forest (Ranger)', classes: ['Ranger'], oldClasses: ['Bard'] },
     { sourceId: 'aon:pf2e:feat-4602', id: 'homebrew:steady-spellcasting-ranger-champion', name: 'Steady Spellcasting', classes: ['Ranger', 'Champion'],
       oldClasses: ['Bard', 'Cleric', 'Druid', 'Necromancer', 'Oracle', 'Psychic', 'Sorcerer', 'Witch', 'Wizard'] },
+    { sourceId: 'aon:pf2e:feat-4731', id: 'homebrew:instinctive-support', name: 'Instinctive Support',
+      classes: ['Ranger', 'Champion', 'Bard'], oldClasses: ['Druid'] },
   ].flatMap(({ sourceId, id, name, classes, oldClasses }) => {
     const original = entries.find(entry => entry.id === sourceId && entry.kind === 'feat' && entry.source === 'official' && !entry.deleted)
     if (!original) return []
