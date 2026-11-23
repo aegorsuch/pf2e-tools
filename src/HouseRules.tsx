@@ -8,6 +8,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'autoLores', label: 'Auto-Advance Lores' },
   { key: 'sf2eDeitySkills', label: 'SF2e Deities Grant Skills',
     description: "Non-Champions and non-Avengers gain training in their deity's divine skill. If already trained, gain another trained skill choice." },
+  { key: 'consolidateInnateTraditions', label: 'Consolidate Innate Spell Traditions' },
   { key: 'innateAutoHeighten', label: 'Auto-Heighten Innate and Item Spells' },
   { key: 'barbarianWarJavelinAccess', label: 'Barbarian Access: War Javelin',
     description: 'Barbarians gain Access to the War Javelin. Weapon proficiency is unchanged.' },

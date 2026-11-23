@@ -263,6 +263,7 @@ export interface Character {
   runicRepertoire?: string[]
   etchedRunes?: string[]
   runeTraditions?: Record<string, string>
+  innateTradition?: string
   coreCannonUsed?: boolean
   scouringRageDamage?: string
   giantStature?: 'Large' | 'Huge'

@@ -372,6 +372,11 @@ function orderTrainingRules(c: Character, entries: ContentEntry[], feat: Charact
   return hellknightTrainingSpellRules(c, feat.name, feat.choice)
 }
 
+export function innateTraditionOptions(c: Character, entries: ContentEntry[]) {
+  return [...new Set(grantedFeatSpells({ ...c, innateTradition: undefined }, entries)
+    .flatMap(grant => grant.rule.kind === 'innate' && grant.rule.tradition ? [grant.rule.tradition.toLowerCase()] : []))].sort()
+}
+
 export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
   const out: { entry: ContentEntry; source: string; rule: SpellGrant; rank: number; usageKey: string }[] = []
   const gnomeTradition = gnomeHeritageTradition(c)
@@ -862,6 +867,12 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
           usageKey: JSON.stringify([selection, feat.name, baseRule.spells.map(spell => spell.toLowerCase()).sort(),
             rule.tradition?.toLowerCase() ?? '', rule.shared || rule.choice ? 'shared' : entry.name.toLowerCase()]) })
       }
+    }
+  }
+  if (c.innateTradition && getSettings().consolidateInnateTraditions) {
+    for (let i = 0; i < out.length; i++) {
+      const rule = out[i].rule
+      if (rule.kind === 'innate' && rule.tradition) out[i] = { ...out[i], rule: { ...rule, tradition: c.innateTradition } }
     }
   }
   return getSettings().innateAutoHeighten

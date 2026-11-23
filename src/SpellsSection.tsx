@@ -9,7 +9,7 @@ import { ActionIcon } from './ActionIcon'
 import { DamageRoll, SpellActions, SpellDamageRolls, spellActionRolls, spellDamage } from './SpellDamage'
 import { intensifiedElementDamage } from './builder'
 import { companionAdvancementFor, companionStats } from './companions'
-import { dailyInnateUses, gnomeHeritageCantripOptions, gnomeHeritageTradition, grantedFeatSpells, mageAutomatonOptions, originalNephilimLineage, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
+import { dailyInnateUses, innateTraditionOptions, gnomeHeritageCantripOptions, gnomeHeritageTradition, grantedFeatSpells, mageAutomatonOptions, originalNephilimLineage, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
 import { fiendOptions, type SummonedFiend } from './summonedFiends'
 import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
@@ -1859,6 +1859,13 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </div>}
       {innateGroups.length > 0 && <div>
         <div className="row"><b>Innate Spells</b>
+          {getSettings().consolidateInnateTraditions && innateTraditionOptions(c, entries).length > 1
+            && <select aria-label="Innate spell tradition" value={c.innateTradition ?? ''}
+              onChange={event => save({ innateTradition: event.target.value || undefined })}>
+              <option value="">Each spell's own tradition</option>
+              {innateTraditionOptions(c, entries).map(tradition => <option key={tradition} value={tradition}>
+                {tradition[0].toUpperCase() + tradition.slice(1)}</option>)}
+            </select>}
         </div>
         {innateGroups.map(group => <section className="innate-spell-group" key={group.key}>
           <h5>{group.tradition} Spell Rank {group.rank}</h5>
