@@ -82,7 +82,9 @@ it('sorts matching formulas by name or level before applying the result limit', 
       phase++
       ;(elements.find(element => element.type === 'input')!.props.onChange as (event: unknown) => void)({ target: { value: 'snare' } })
     } else {
-      orders.push(elements.filter(element => element.type === EntryDescription).map(element => String(element.props.name)))
+      const descriptions = elements.filter(element => element.type === EntryDescription)
+      expect(descriptions.every(element => element.props.deferDetails === true)).toBe(true)
+      orders.push(descriptions.map(element => String(element.props.name)))
       if (phase === 1) {
         phase++
         ;(elements.find(element => element.type === PickerSort)!.props.onChange as (value: string) => void)('level')

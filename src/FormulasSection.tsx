@@ -27,7 +27,7 @@ export function FormulaSearch({ c, items, knownKeys, allowRestricted, save }: {
     <label>Search formulas <input type="search" value={query} onChange={event => setQuery(event.target.value)} /></label>
     <PickerSort label="Sort formulas by" value={sort} onChange={setSort} />
     {q.length >= 2 && <ul>{matches.map(item => <li key={item.id}>
-      <EntryDescription name={item.name} entry={item} /> (Level {item.level}){' '}
+      <EntryDescription name={item.name} entry={item} deferDetails /> (Level {item.level}){' '}
       <button type="button" aria-label={`Add ${item.name} formula`} onClick={() => {
         if (!knownKeys.has(key(item.name))) save({ formulas: [...(c.formulas ?? []), item.name] })
         setQuery('')
