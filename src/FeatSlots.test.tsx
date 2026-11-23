@@ -69,6 +69,19 @@ it("makes historian actions clickable for Belkzen's Might and Wrath of the Hold"
   expect(level8).toContain('Damage: 4d6 spirit')
 })
 
+it('rolls Acidic Spit damage at the appropriate level', () => {
+  const feat = mapAonHit({ _id: 'acidic-spit', _source: { category: 'feat', name: 'Acidic Spit', level: 13,
+    trait: ['Shirren', 'Acid'], markdown: '<actions string="Two Actions" />\n\n---\n\nSpit acid.' } }, 'sf2e')!
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Shirren', level: 13,
+    feats: [{ name: feat.name, type: 'Ancestry Feat', level: 13, slot: 'ancestry:13:0' }] }
+  const render = (character: Character) => renderToStaticMarkup(
+    <FeatSlots c={character} entries={[feat]} categories={['ancestry']} save={() => {}} />)
+  expect(render(c)).toContain('aria-label="Roll Acidic Spit: Damage"')
+  expect(render(c)).toContain('Damage: 8d6 acid')
+  expect(render({ ...c, level: 16 })).toContain('Damage: 11d6 acid')
+  expect(render({ ...c, level: 12 })).not.toContain('aria-label="Roll Acidic Spit: Damage"')
+})
+
 it.each([
   ["Pilgrim's Token", 'Trained in Religion; follower of a specific religion'],
   ['Sanctify Water', 'Expert in Religion; you follow a deity with “holy” or “unholy” sanctification'],
