@@ -3988,6 +3988,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
     else if (heritage.name === 'Cavern Elf') addVision('Darkvision', heritage.name)
     for (const sense of tokens(heritage.data.grants_senses)) addVision(sense, heritage.name)
   }
+  if (activeFeatsNamed(c, 'Arcane Eye').length) addVision('Darkvision', 'Arcane Eye')
   if (activeFeatsNamed(c, 'Nightvision Adaptation').length) addVision('Darkvision', 'Nightvision Adaptation')
   if (activeFeatsNamed(c, 'Necromantic Lifesense').length) addVision('Lifesense (imprecise) 30 feet', 'Necromantic Lifesense')
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Electromagnetic Whiskers').length) {
