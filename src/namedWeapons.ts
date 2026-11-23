@@ -24,6 +24,7 @@ const BASES: Record<string, string[]> = {
   Blackaxe: ['Greataxe'],
   'Cane of the Maelstrom': ['Club'],
   "Clear Cutter's Axe": ['Hatchet'],
+  'Fungicidal Hatchet': ['Hatchet'],
   "Cayden's Tankard": ['Light Hammer'],
   'Coldstar Pistols': ['Dueling Pistol'],
   'Debilitating Dart': ['Dart'],
@@ -214,6 +215,11 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
 export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: OwnedWeapon, level?: number) {
   if (!entry?.data.named_weapon) return entry
   const source = entry.data.named_weapon_source
+  if (source === 'Fungicidal Hatchet') {
+    const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
+    return { ...entry, data: { ...entry.data, named_weapon_runes: [...new Set([...runes, 'Returning', 'Grievous'])].join(';'),
+      named_weapon_material: `Peachwood (${(level ?? entry.level) >= 18 ? 'High' : 'Standard'}-Grade)` } }
+  }
   if (source === "Hunter's Dawn") {
     return { ...entry, data: { ...entry.data,
       named_weapon_material: `Peachwood (${(level ?? entry.level) >= 18 ? 'High' : 'Standard'}-Grade)` } }
@@ -300,6 +306,8 @@ export function namedWeaponDamage(entry?: ContentEntry) {
     source, value: '2d6 persistent bleed vs. Tane or linnorms',
     note: 'Applies only when Striking a Tane or linnorm, not other targets.',
   }]
+  if (source === 'Fungicidal Hatchet') return [{ source, value: '1 poison (1d6 vs. fungus)',
+    note: 'Additional poison damage on a successful Strike; 1d6 if the target has the fungus trait.' }]
   const conditional = source === 'Axe of the Dwarven Lords' ? '1d6 vs. orcs'
     : source === 'Blackaxe' ? '2d6 vs. plants'
       : source === 'Serithtial' ? '2d6 vs. worshippers of Zon-Kuthon'

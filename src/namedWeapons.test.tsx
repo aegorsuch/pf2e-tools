@@ -4,7 +4,7 @@ import { expect, it, onTestFinished, vi } from 'vitest'
 import { combinationForms, combinationName, effectiveWeapon, gearPickerEntries, isFavoredWeapon, isMagicItem, oakenResilience, resistances, savingThrowBreakdown, weaponAttack, weaponEntry, weaponHands } from './builder'
 import { WeaponList } from './GearSection'
 import { mapAonHit } from './aon'
-import { makeNamedWeaponEntries, namedWeaponAbilities, namedWeaponBases, withNamedWeaponState } from './namedWeapons'
+import { makeNamedWeaponEntries, namedWeaponAbilities, namedWeaponBases, namedWeaponDamage, withNamedWeaponState } from './namedWeapons'
 import { specificMagicItemName } from './equipmentGroups'
 import { getSettings, updateSettings } from './settings'
 import { SkillsSection } from './SkillsSection'
@@ -846,4 +846,18 @@ it("implements Clear Cutter's Axe as a +1 striking returning hatchet", () => {
   expect(weapon).toMatchObject({ potency: 2, striking: 2 })
   const runes = (level: number) => withNamedWeaponState(entry, owned("Clear Cutter's Hatchet"), level)?.data.named_weapon_runes
   expect([7, 8, 15, 19, 20].map(runes)).toEqual(['Returning;Grievous', 'Returning;Grievous;Flaming', 'Returning;Grievous;Flaming (Greater)', 'Returning;Grievous;Flaming (Major)', 'Returning;Grievous;Flaming (Major);Impossible'])
+})
+
+it('implements Fungicidal Hatchet with scaling Peachwood, Returning, Grievous and poison damage', () => {
+  const hatchet: ContentEntry = { ...bow('Hatchet', false, false), traits: ['Agile', 'Sweep', 'Thrown 10 ft.'],
+    data: { damage: '1d6 slashing', range: 0, thrown_range: 10, weapon_type: 'Melee', weapon_category: 'Martial', weapon_group: 'Axe', hands: 1, bulk: 'L' } }
+  const item: ContentEntry = { ...winter, id: 'fungicidal', name: 'Fungicidal Hatchet', level: 5, traits: ['Magical', 'Uncommon'],
+    description: 'Base Weapon Hatchet\n\nThis +1 striking hatchet deals an additional 1 poison damage.',
+    data: { item_subcategory: 'Specific Magic Weapons', rarity: 'uncommon', url: 'https://2e.aonprd.com/Equipment.aspx?ID=5294' } }
+  const [entry] = makeNamedWeaponEntries([hatchet, item], [])
+  expect(entry.name).toBe('Fungicidal Hatchet')
+  const at = (level: number) => withNamedWeaponState(entry, owned('Fungicidal Hatchet'), level)?.data
+  expect(at(5)).toMatchObject({ named_weapon_runes: 'Returning;Grievous', named_weapon_material: 'Peachwood (Standard-Grade)' })
+  expect(at(18)?.named_weapon_material).toBe('Peachwood (High-Grade)')
+  expect(namedWeaponDamage(entry)[0].value).toContain('poison')
 })
