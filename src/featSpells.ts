@@ -381,6 +381,15 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
   if (gnomeCantrip && gnomeTradition && c.heritage) out.push({ entry: gnomeCantrip, source: c.heritage,
     rule: { kind: 'innate', spells: [gnomeCantrip.name], tradition: gnomeTradition, frequency: 'at will', heightened: true },
     rank: Math.ceil(c.level / 2), usageKey: JSON.stringify(['heritage', c.heritage, gnomeTradition, gnomeCantrip.name]) })
+  if (c.heritage === 'Fadrim' && c.systems.includes('pf2e')) {
+    const swaps: Record<string, string> = { 'Auf Fadrim': 'Telekinetic Hand', 'Trickster Fadrim': 'Figment', 'Warrior Fadrim': 'Shield' }
+    const lineage = c.feats.find(feat => swaps[feat.name] && featTakenLevel(feat) <= c.level)
+    const name = lineage ? swaps[lineage.name] : 'Light'
+    const entry = matchingSpells(entries, name).find(spell => spell.systems.includes('pf2e'))
+    if (entry) out.push({ entry, source: lineage?.name ?? 'Fadrim',
+      rule: { kind: 'innate', spells: [entry.name], tradition: 'primal', frequency: 'at will', heightened: true },
+      rank: Math.ceil(c.level / 2), usageKey: JSON.stringify(['heritage', 'Fadrim', name.toLowerCase()]) })
+  }
   const mageCantrip = c.mageAutomatonCantrip
     ? mageAutomatonOptions(c, entries).find(entry => entry.name === c.mageAutomatonCantrip) : undefined
   if (mageCantrip) out.push({ entry: mageCantrip, source: 'Mage Automaton',
@@ -477,6 +486,13 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       if (entry) out.push({ entry, source: feat.name,
         rule: { kind: 'innate', spells: [entry.name], tradition: 'arcane', frequency: 'once per hour', fixedRank: true },
         rank: entry.level, usageKey: JSON.stringify([selection, feat.name, 'see the unseen']) })
+      continue
+    }
+    if (feat.name === "Answer the First World's Call" && c.systems.includes('pf2e')) {
+      const entry = matchingSpells(entries, 'Interplanar Teleport').find(spell => spell.systems.includes('pf2e'))
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'primal', frequency: 'twice per week', fixedRank: true },
+        rank: 7, usageKey: JSON.stringify([selection, feat.name, 'interplanar teleport']) })
       continue
     }
     if (feat.name === 'Halo' && c.systems.includes('pf2e')) {

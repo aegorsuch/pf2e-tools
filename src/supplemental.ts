@@ -176,6 +176,18 @@ export const AUTOMATON_CLAW: ContentEntry = {
   data: { ...FIST.data, weapon_group: 'Brawling', damage: '1d4 slashing' },
 }
 
+const fadrimAttack = (name: string, damage: string, traits: string[]): ContentEntry => ({
+  ...FIST, id: `supplemental:first-world-${name.toLowerCase()}`, name, systems: ['pf2e'], traits,
+  description: `First World Armaments grants a ${name.toLowerCase()} unarmed attack dealing ${damage} damage.`,
+  data: { ...FIST.data, weapon_group: 'Brawling', damage },
+})
+export const FIRST_WORLD_ARMAMENTS: ContentEntry[] = [
+  fadrimAttack('Claw', '1d4 slashing', ['Agile', 'Finesse', 'Unarmed']),
+  fadrimAttack('Hoof', '1d6 bludgeoning', ['Finesse', 'Unarmed']),
+  fadrimAttack('Horn', '1d6 piercing', ['Finesse', 'Unarmed']),
+  fadrimAttack('Jaws', '1d6 piercing', ['Finesse', 'Unarmed']),
+]
+
 export const ENERGY_BLAST: ContentEntry = {
   ...FIST, id: 'supplemental:energy-blast', name: 'Energy Blast', systems: ['pf2e'],
   traits: ['Unarmed'],
@@ -498,7 +510,7 @@ export const HARDLIGHT_GRADES: Record<HardlightGrade, { potency: number; strikin
 }
 
 export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, CAIRN_FIST, SPARK_FIST, ORC_TUSKS, TENGU_BITE, TENGU_DOGFANG_BITE,
-  IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, AUTOMATON_CLAW, AUTOMATON_PINCER, ENERGY_BLAST,
+  IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, AUTOMATON_CLAW, AUTOMATON_PINCER, ...FIRST_WORLD_ARMAMENTS, ENERGY_BLAST,
   CLAN_PISTOL, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, UNTAMED_CLAWS, UNTAMED_JAWS, GAUNTLET]
 
 export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {

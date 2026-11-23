@@ -3502,6 +3502,14 @@ it('adds the selected Automaton Armament claw or pincer attack', () => {
   }
 })
 
+it('adds the selected First World Armaments attack', () => {
+  for (const [choice, damage] of [['Claw', 'slashing'], ['Hoof', 'bludgeoning'], ['Horn', 'piercing'], ['Jaws', 'piercing']]) {
+    const c: Character = { ...base, systems: ['pf2e'], feats: [feat('First World Armaments', 1, choice)] }
+    const weapon = ownedWeapons(c, []).find(item => item.name === choice)!
+    expect(weaponAttack(c, [], weapon).damage).toContain(damage)
+  }
+})
+
 it('adds a Core Cannon energy blast only while in cannon form', () => {
   const c: Character = { ...base, systems: ['pf2e'], level: 17, feats: [feat('Core Cannon', 17)] }
   expect(ownedWeapons(c, []).some(weapon => weapon.name === 'Energy Blast')).toBe(false)

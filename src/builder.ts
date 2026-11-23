@@ -15,7 +15,7 @@ import { contentAccessGranted, featRarity, spellAccessGranted } from './featAcce
 import { spellResolution } from './spellDefense'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
 import { RUNESMITH_RUNES } from './runesmithRunes'
-import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, AUTOMATON_CLAW, AUTOMATON_PINCER, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ENERGY_BLAST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
+import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, FIRST_WORLD_ARMAMENTS, AUTOMATON_CLAW, AUTOMATON_PINCER, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ENERGY_BLAST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
 import { isAncestralEmbrace, isHighhelmPlate, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
@@ -1881,6 +1881,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       .sort((a, b) => a.localeCompare(b))
   }
   if (name === 'Automaton Armament' && c.systems.includes('pf2e')) return ['Claw', 'Pincer']
+  if (name === 'First World Armaments' && c.systems.includes('pf2e')) return ['Claw', 'Hoof', 'Horn', 'Jaws']
   if (name === 'Iruxi Armaments') {
     const used = new Set(c.feats.flatMap((feat, featIndex) =>
       featIndex !== index && feat.name === name && feat.choice ? [feat.choice] : []))
@@ -1955,6 +1956,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (familiarityOptions) return familiarityOptions
   if (name === 'Clan Lore') return Object.keys(CLAN_LORE_OPTIONS).sort((a, b) => clanLoreLabel(a).localeCompare(clanLoreLabel(b)))
   if (name === 'Dongun Education') return Object.keys(DONGUN_EDUCATION_LORES)
+  if (name === 'Knowledge of the Realm Before' && c.systems.includes('pf2e')) return ['Fey Lore', 'First World Lore']
   if ((name === 'Eye for Treasure' || name === 'Expressive Face') && index >= 0) {
     const ranks = ancestrySkillBefore(c, entries, index)
     if ((ranks[name === 'Expressive Face' ? 'Diplomacy' : 'Crafting'] ?? 0) < 1) return undefined
@@ -3688,6 +3690,8 @@ export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set(
       ? CLAN_LORE_OPTIONS[feat.choice]?.lore : undefined
     return lore ? [`${lore} Lore`] : []
   }),
+  ...c.feats.flatMap(feat => feat.name === 'Knowledge of the Realm Before' && feat.choice && featTakenLevel(feat) <= c.level
+    ? [feat.choice] : []),
   ...c.feats.flatMap(feat => feat.name === 'Lizardfolk Lore' && featTakenLevel(feat) <= c.level
     ? [lizardfolkLoreSelection(feat).lore].filter((lore): lore is string => !!lore) : []),
   ...[...activeFeatsNamed(c, 'Additional Lore'),
@@ -3873,6 +3877,7 @@ const ANCESTRY_SKILL_ONLY_GRANTS: Record<string, string[]> = {
   'X-hat Firewalker Frame': ['Computers'],
   'Subtle Cyborg': ['Deception'],
   'Pick On Someone My Size': ['Intimidation'],
+  'Knowledge of the Realm Before': ['Nature', 'Stealth'],
 }
 function ancestryLoreGrant(c: Character, entries: ContentEntry[], name: string) {
   if (ANCESTRY_LORE_GRANTS[name]) return ANCESTRY_LORE_GRANTS[name]
@@ -4221,6 +4226,9 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
     if (lore && featTakenLevel(feat) <= c.level) grants.push({
       name: 'Additional Lore', choice: lore.replace(/ Lore$/, ''), source: feat.name, level: featTakenLevel(feat),
     })
+  }
+  for (const feat of activeFeatsNamed(c, 'Knowledge of the Realm Before')) {
+    if (feat.choice) grants.push({ name: 'Additional Lore', choice: feat.choice.replace(/ Lore$/, ''), source: feat.name, level: featTakenLevel(feat) })
   }
   if (c.systems.includes('pf2e')) for (const feat of activeFeatsNamed(c, 'Gnome Obsession')) {
     const choice = feat.choice?.trim()
@@ -5396,7 +5404,7 @@ export const armorClass = (c: Character, entries: ContentEntry[]) => armorClassB
 const DWARF_CLAN_PISTOL_ID = 'granted-weapon:dwarf:clan-pistol'
 const DWARF_CLAN_DAGGER_ID = 'granted-weapon:dwarf:clan-dagger'
 
-const iruxiAttackIds = new Set([IRUXI_CLAWS.id, IRUXI_FANGS.id, IRUXI_TAIL.id, AUTOMATON_CLAW.id, AUTOMATON_PINCER.id, ENERGY_BLAST.id, TENGU_BITE.id, TENGU_DOGFANG_BITE.id])
+const iruxiAttackIds = new Set([IRUXI_CLAWS.id, IRUXI_FANGS.id, IRUXI_TAIL.id, AUTOMATON_CLAW.id, AUTOMATON_PINCER.id, ...FIRST_WORLD_ARMAMENTS.map(entry => entry.id), ENERGY_BLAST.id, TENGU_BITE.id, TENGU_DOGFANG_BITE.id])
 const nephilimAttackBase: ContentEntry = { ...FIST, systems: ['pf2e'],
   description: 'Bestial Manifestation grants this unarmed attack.',
   data: { ...FIST.data, url: 'https://2e.aonprd.com/Feats.aspx?ID=4548' } }
@@ -5920,6 +5928,8 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
       : feat.choice === 'Tail' ? [IRUXI_TAIL] : [])
   const automatonAttacks = c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Automaton Armament').flatMap(feat =>
     feat.choice === 'Claw' ? [AUTOMATON_CLAW] : feat.choice === 'Pincer' ? [AUTOMATON_PINCER] : []) : []
+  const fadrimAttacks = c.systems.includes('pf2e') ? activeFeatsNamed(c, 'First World Armaments').flatMap(feat =>
+    FIRST_WORLD_ARMAMENTS.filter(entry => entry.name === feat.choice)) : []
   const energyBlasts = c.systems.includes('pf2e') && c.coreCannonActive && activeFeatsNamed(c, 'Core Cannon').length ? [ENERGY_BLAST] : []
   const nephilimSelected = c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Bestial Manifestation').flatMap(feat =>
     nephilimAttacks.filter(entry => entry.name === feat.choice)) : []
@@ -5959,7 +5969,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (![...animalAttacks, UNTAMED_CLAWS, UNTAMED_JAWS].some((entry) => entry.name === weapon.name)
       || [...selectedAttacks, ...untamedAttacks].some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...automatonAttacks, ...energyBlasts, ...nephilimSelected, ...tenguBite, ...nativeJaws, ...shirrenAttacks, ...brutalAttacks, ...predatoryAttacks, ...witchSelected, ...venomousJaws,
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...automatonAttacks, ...fadrimAttacks, ...energyBlasts, ...nephilimSelected, ...tenguBite, ...nativeJaws, ...shirrenAttacks, ...brutalAttacks, ...predatoryAttacks, ...witchSelected, ...venomousJaws,
     ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []),
     ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...bestialAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
     if (!available.some((weapon) => iruxiAttackIds.has(entry.id) || witchAttackIds.has(entry.id) || nephilimAttacks.some(attack => attack.id === entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {

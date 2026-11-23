@@ -14,6 +14,7 @@ interface FamiliarityRule {
 const RULES: Record<string, FamiliarityRule> = {
   'Dwarven Weapon Familiarity': { trait: 'Dwarf', weapons: ['Battle Axe', 'Pick', 'Warhammer'] },
   'Elven Weapon Familiarity': { trait: 'Elf', weapons: ['Longbow', 'Composite Longbow', 'Rapier', 'Shortbow', 'Composite Shortbow'] },
+  'Warrior Fadrim': { weapons: ['Longbow', 'Composite Longbow', 'Rapier', 'Shortbow', 'Composite Shortbow', 'Shortsword'] },
   'Gnome Weapon Familiarity': { trait: 'Gnome', weapons: ['Glaive', 'Kukri'], access: ['Kukri'] },
   'Goblin Weapon Familiarity': { trait: 'Goblin' },
   'Halfling Weapon Familiarity': { trait: 'Halfling', weapons: ['Sling', 'Shortsword'] },
