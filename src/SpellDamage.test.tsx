@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, useState } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { DamageRoll, MultipleDamageRoll, rollSpellDamage, rollWarpWorld, spellActionRolls, spellDamage, SpellActions, SpellDamageRolls, WarpWorldRoll } from './SpellDamage'
+import { DamageRoll, MultipleDamageRoll, rollSpellDamage, rollWarpWorld, spellActionRolls, spellDamage, SpellActions, SpellDamageRolls, sunBladeDamage, WarpWorldRoll } from './SpellDamage'
 import { SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
@@ -11,6 +11,31 @@ vi.mock('react', async importOriginal => {
 })
 
 afterEach(() => vi.restoreAllMocks())
+
+it('calculates Lay on Hands healing at the actual spell rank', () => {
+  const entry: ContentEntry = { id: 'lay-on-hands', name: 'Lay on Hands', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: [], description: '', data: { actions: 'Single Action' }, effects: [], updatedAt: 1 }
+  for (const rank of [1, 5, 10]) {
+    const [healing] = spellDamage(entry.name, rank)
+    expect(rollSpellDamage(healing)).toBe(rank * 6)
+    const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)
+    expect(markup).toContain('aria-label="Roll Lay on Hands: Healing"')
+    expect(markup).toContain(`Healing: ${rank * 6} HP`)
+  }
+})
+
+it('provides a heightened Sun Blade roll with sunlight and target options', () => {
+  for (const rank of [2, 5, 10]) {
+    expect(spellDamage('Sun Blade', rank)).toEqual([{ label: 'Damage', dice: rank - 1, sides: 4, type: 'fire' }])
+    const markup = renderToStaticMarkup(<SpellActions name="Sun Blade" rank={rank} />)
+    expect(markup).toContain('aria-label="Roll Sun Blade: Damage"')
+    expect(markup).toContain(`${rank - 1}d4 fire`)
+    for (const label of ['Bright sunlight', 'Evil', 'Undead']) expect(markup).toContain(label)
+    expect(sunBladeDamage(rank, true, true, true)).toEqual({ label: 'Damage', dice: rank - 1, sides: 6, type: 'fire',
+      components: [{ dice: rank - 1, sides: 6, type: 'good' }, { dice: rank - 1, sides: 6, type: 'positive' }] })
+    expect(sunBladeDamage(rank, false, false, true).components).toEqual([{ dice: rank - 1, sides: 4, type: 'positive' }])
+  }
+})
 
 it.each([[1, 2, 1], [5, 10, 5], [10, 20, 10]])(
   'rolls initial and persistent Phantom Pain damage at rank %i', (rank, initial, persistent) => {

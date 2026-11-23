@@ -5,8 +5,9 @@ import { ADVANCED_TYPES, companionItemName, beastmasterSpecializationKey, compan
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
 import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, languageGroups, magicHideChange, migrateAncestralLinguistics, oakenResilience, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
-import { CompanionSpellOptions, ProtectCompanionOptions } from './SpellsSection'
+import { CompanionSpellOptions, ProtectCompanionOptions, SpiritOfTheBeastOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
+import { formatTraitLabel } from './GearTraits'
 import { DamageRoll } from './SpellDamage'
 import { newId } from './db'
 import { getSettings } from './settings'
@@ -114,7 +115,7 @@ function SummonedCreature({ name, displayName = name }: { name: keyof typeof SUM
     <section className="companion-actions"><h5>Attacks</h5>
       {creature.attacks.map(attack => <div key={attack.name} className="companion-action">
         <div className="companion-action-title"><ActionIcon actions="Single Action" /><b>{attack.name}</b>
-          {attack.traits && <small>({attack.traits})</small>}<span>{signed(attack.bonus)}</span><span>— {attack.damage}</span></div>
+          {attack.traits && <small>({formatTraitLabel(attack.traits)})</small>}<span>{signed(attack.bonus)}</span><span>— {attack.damage}</span></div>
       </div>)}
     </section>
     <section className="companion-actions"><h5>Defenses</h5><div className="gear-stats">
@@ -453,7 +454,7 @@ export function FollowerCards({ c, entries, save }: SectionProps) {
         <div className="gear-stats">{ABILITIES.map(ability => <span key={ability}><small>{ABILITY_LABEL[ability]}</small>{signed(stats.attributes[ability])}</span>)}</div>
         <section className="companion-actions"><h5>Attacks</h5>{stats.attacks.map(attack =>
           <div className="companion-action" key={attack.name}><div className="companion-action-title"><ActionIcon actions="Single Action" />
-            <b>{attack.name}</b> {attack.traits && <small>({attack.traits})</small>} <span>{signed(attack.bonus)}</span><span>— {attack.damage.replace('chosen energy',
+            <b>{attack.name}</b> {attack.traits && <small>({formatTraitLabel(attack.traits)})</small>} <span>{signed(attack.bonus)}</span><span>— {attack.damage.replace('chosen energy',
               follower?.energyTypes?.slice(0, stage >= 2 ? 3 : 2).filter(Boolean).join(' / ').toLowerCase() || 'chosen energy')}</span>
           </div>{stage >= 2 && <small>Magical for overcoming resistances</small>}</div>)}</section>
         <section className="companion-actions"><h5>Defenses</h5><div className="gear-stats">
@@ -482,7 +483,6 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const needsConstructEntry = hasConstructInnovation(c) || companions.some(comp => comp.type === CONSTRUCT_COMPANION_NAME)
   const companionEntries = companionEntriesFor(entries, needsConstructEntry)
   const faithfulSteed = activeFeatsNamed(c, 'Faithful Steed').length > 0
-  const hasAlpha = activeFeatsNamed(c, 'Spirit of the Alpha').length > 0
   const animalCompanionGrant = c.className === 'Druid' && (c.order ?? c.subclass) === 'Animal'
     || activeFeatsNamed(c, 'Animal Companion').length > 0
     || activeFeatsNamed(c, 'Animal Trainer Dedication').length > 0
@@ -599,7 +599,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               ].sort((a, b) => a.name.localeCompare(b.name))
               const statusControls = [
                 ...(['Cavalier Dedication', 'Mounted Parry', 'Mounted Shield', 'Born In The Saddle', 'Legendary Rider', 'Reckless Riding Lunge']
-                  .some(name => activeFeatsNamed(c, name).length) ? [{ name: 'Mounted', element: <label><input type="checkbox"
+                  .some(name => activeFeatsNamed(c, name).length) || stats?.mount ? [{ name: 'Mounted', element: <label><input type="checkbox"
                   aria-label={`Mounted on ${comp.name || comp.type}`} checked={c.mountedCompanionId === comp.id}
                   onChange={event => save({ mountedCompanionId: event.target.checked ? comp.id : undefined })} /> Mounted</label> }] : []),
                 ...(magicHideKnown ? [{ name: 'Magic Hide', element: <label><input type="checkbox"
@@ -611,13 +611,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   .map(name => ({ name, element: <CompanionSpellOptions key={name} c={c} entries={entries}
                     save={save} name={name} companionId={comp.id} toggleOnly /> })),
                 ...(knowsSpell(c, entries, 'Spirit of the Beast') ? [{ name: 'Spirit of the Beast', element:
-                  <SearchableSelect aria-label={`Spirit of the Beast aspect on ${comp.name || comp.type}`} value={comp.spiritAspect ?? ''} onChange={event => {
-                    const choice = (['Might', 'Swiftness', 'Insight', 'Alpha'] as const).find(aspect => aspect === event.target.value)
-                    update(comp.id, { spiritAspect: choice })
-                  }}>
-                    <option value="">Spirit of the Beast…</option>
-                    {['Insight', 'Might', 'Swiftness', ...(hasAlpha ? ['the Alpha'] : [])].map(aspect => <option key={aspect} value={aspect === 'the Alpha' ? 'Alpha' : aspect}>Aspect of {aspect}</option>)}
-                  </SearchableSelect> }] : []),
+                  <SpiritOfTheBeastOptions c={c} save={save} companionId={comp.id} /> }] : []),
                 ...(stats?.peerlessMascot ? [{ name: 'Banner affixed', element: <label><input type="checkbox"
                   aria-label={`Banner affixed to ${comp.name || comp.type}`} checked={!!comp.mascotBannerAffixed}
                   onChange={event => update(comp.id, { mascotBannerAffixed: event.target.checked })} /> Banner affixed</label> }] : []),
@@ -710,13 +704,14 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                         {['Celestial', 'Fiend', 'Monitor'].map((type) => <option key={type}>{type}</option>)}
                       </select>
                     </label>}
-                    {(stats.servitor === 'Celestial' || stats.servitor === 'Fiend') && <label>Servitor type{' '}
-                      <select aria-label="Auspice servitor type" value={stats.subtype ?? ''} onChange={(e) => {
-                        const subtype = (['Angel', 'Devil'] as const).find(type => type === e.target.value)
+                    {stats.servitor && <label>Servitor type{' '}
+                      <select aria-label="Auspice servitor type" value={comp.auspiceSubtype === 'Other' ? 'Other' : stats.subtype ?? ''} onChange={(e) => {
+                        const subtype = (['Angel', 'Devil', 'Psychopomp', 'Other'] as const).find(type => type === e.target.value)
                         update(comp.id, { auspiceSubtype: subtype })
                       }}>
-                        <option value="">Other</option>
-                        <option>{stats.servitor === 'Celestial' ? 'Angel' : 'Devil'}</option>
+                        <option value="">Automatic</option>
+                        <option>Other</option>
+                        <option>{stats.servitor === 'Celestial' ? 'Angel' : stats.servitor === 'Fiend' ? 'Devil' : 'Psychopomp'}</option>
                       </select>
                     </label>}
                     {!stats.subtype && <label>Servitor language{' '}
@@ -767,7 +762,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                       {[...stats.attacks].sort((a, b) => a.name.localeCompare(b.name)).map(a => <div key={a.name} className="companion-action">
                         <div className="companion-action-title">
                           <ActionIcon actions="Single Action" />
-                          <b>{a.name.replace(/\b\w/g, char => char.toUpperCase())}</b>{a.traits && <small>({a.traits})</small>}
+                          <b>{a.name.replace(/\b\w/g, char => char.toUpperCase())}</b>{a.traits && <small>({formatTraitLabel(a.traits)})</small>}
                           <span>{signed(a.attack)}{a.dexterityBased && clumsyNote
                             && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}</span>
                           <span>— {a.damage}{!a.ranged && enlargeModifierNote
@@ -852,8 +847,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   {stats.support && <section className="companion-actions">
                     <div className="companion-action">
                       <div className="companion-action-title">
-                        <ActionIcon actions="Single Action" /><b>Support Benefit</b>
-                        <label><input type="checkbox" aria-label={`Support Benefit on ${comp.name || comp.type}`}
+                        <ActionIcon actions="Single Action" />
+                        <label><b>Support Benefit</b> <input type="checkbox" aria-label={`Support Benefit on ${comp.name || comp.type}`}
                           checked={!!comp.supportActive} onChange={event => update(comp.id, { supportActive: event.target.checked })} /> Active</label>
                       </div>
                       <p className="companion-action-description">{spellDCText(c, entries, stats.support)}</p>

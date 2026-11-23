@@ -251,6 +251,10 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
         { label: '2-action healing', dice: rank, sides: 8, bonus: 8 * rank, type: 'HP' },
         { label: '3-action healing', dice: rank, sides: 8, type: 'HP' },
       ] : []
+    case 'Lay on Hands':
+      return rank >= 1 ? [{ label: 'Healing', dice: 0, sides: 0, bonus: 6 * rank, type: 'HP' }] : []
+    case 'Sun Blade':
+      return rank >= 2 ? [{ label: 'Damage', dice: rank - 1, sides: 4, type: 'fire' }] : []
     case 'Heal Animal':
     case 'Heal Companion':
       return rank >= 1 ? [
@@ -360,6 +364,8 @@ export function WarpWorldRoll({ rank }: { rank: number }) {
 
 export function spellActionRolls(name: string, rank: number, entry?: ContentEntry, spellcastingModifier?: number) {
   const rolls = spellDamage(name, rank, spellcastingModifier)
+  if (name === 'Sun Blade') return rolls.map(damage => ({ damage, actions: 'Two Actions' }))
+  if (name === 'Lay on Hands') return rolls.map(damage => ({ damage, actions: 'Single Action' }))
   if (name === "Vindicator's Mark") return rolls.map((damage, index) => ({ damage, actions: index === 0 ? 'Two Actions' : 'One Action' }))
   if (name === 'Vampiric Revelry') return rolls.map(damage => ({ damage, actions: 'Two Actions' }))
   if (name === 'Harm') return rolls.flatMap(damage =>
@@ -445,8 +451,32 @@ export function MultipleDamageRoll({ name, damages, actions }: { name: string; d
   </span>
 }
 
+export function sunBladeDamage(rank: number, sunlight: boolean, evil: boolean, undead: boolean): Damage {
+  const dice = rank - 1
+  const sides = sunlight ? 6 : 4
+  const components = [
+    ...(evil ? [{ dice, sides, type: 'good' }] : []),
+    ...(undead ? [{ dice, sides, type: 'positive' }] : []),
+  ]
+  return { label: 'Damage', dice, sides, type: 'fire', ...(components.length ? { components } : {}) }
+}
+
+function SunBladeActions({ rank }: { rank: number }) {
+  const [sunlight, setSunlight] = useState(false)
+  const [evil, setEvil] = useState(false)
+  const [undead, setUndead] = useState(false)
+  return <span>
+    <DamageRoll key={`${rank}:${sunlight}:${evil}:${undead}`} name="Sun Blade" actions="Two Actions" toggleResult
+      damage={sunBladeDamage(rank, sunlight, evil, undead)} />
+    <label><input type="checkbox" checked={sunlight} onChange={event => setSunlight(event.target.checked)} /> Bright sunlight</label>
+    <label><input type="checkbox" checked={evil} onChange={event => setEvil(event.target.checked)} /> Evil</label>
+    <label><input type="checkbox" checked={undead} onChange={event => setUndead(event.target.checked)} /> Undead</label>
+  </span>
+}
+
 export function SpellActions({ name, rank, entry, spellcastingModifier, actionOverride }: { name: string; rank: number; entry?: ContentEntry; spellcastingModifier?: number; actionOverride?: string }) {
   if (name === 'Warp World' && rank >= 4) return <WarpWorldRoll rank={rank} />
+  if (name === 'Sun Blade' && rank >= 2) return <SunBladeActions rank={rank} />
   const allRolls = spellActionRolls(name, rank, entry, spellcastingModifier)
   const action = actionOverride?.replace(/^Single Action$/i, 'One Action')
   const rolls = name === 'Heal' && action && /^(?:One|Two|Three) Actions?$/i.test(action)

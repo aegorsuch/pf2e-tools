@@ -9,7 +9,7 @@ import { ActionIcon } from './ActionIcon'
 import { DamageRoll, SpellActions, SpellDamageRolls, spellActionRolls, spellDamage } from './SpellDamage'
 import { intensifiedElementDamage } from './builder'
 import { companionAdvancementFor, companionStats } from './companions'
-import { dailyInnateUses, innateTraditionOptions, gnomeHeritageCantripOptions, gnomeHeritageTradition, grantedFeatSpells, mageAutomatonOptions, originalNephilimLineage, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
+import { classInnateTradition, dailyInnateUses, innateTraditionOptions, gnomeHeritageCantripOptions, gnomeHeritageTradition, grantedFeatSpells, mageAutomatonOptions, originalNephilimLineage, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
 import { fiendOptions, plantOptions, type SummonedFiend } from './summonedFiends'
 import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
@@ -34,7 +34,7 @@ import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
-const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Tailwind']
+const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Enduring Might', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Tailwind']
 
 function PharasmaSpellBonus({ c, entry, name, rank }: { c: Character; entry?: ContentEntry; name: string; rank: number }) {
   if (!hasDivineIntercession(c, 'Pharasma', 'moderate-boon') || rank < 1) return null
@@ -737,6 +737,25 @@ export function ProtectCompanionOptions({ c, save, companionId, disabled }: Pick
   </div>
 }
 
+export function SpiritOfTheBeastOptions({ c, save, companionId, disabled }: Pick<SectionProps, 'c' | 'save'> & {
+  companionId?: string; disabled?: boolean
+}) {
+  const companions = (c.companions ?? []).filter(companion => !companionId || companion.id === companionId)
+  const hasAlpha = activeFeatsNamed(c, 'Spirit of the Alpha').length > 0
+  return <div className="col">{companions.map(companion => <label key={companion.id}>
+    {companions.length > 1 && <>{companion.name || companion.type}{' '}</>}
+    <SearchableSelect aria-label={`Spirit of the Beast aspect on ${companion.name || companion.type}`}
+      value={companion.spiritAspect ?? ''} disabled={disabled} onChange={event => {
+        const spiritAspect = (['Might', 'Swiftness', 'Insight', 'Alpha'] as const).find(aspect => aspect === event.target.value)
+        save({ companions: c.companions?.map(item => item.id === companion.id ? { ...item, spiritAspect } : item) })
+      }}>
+      <option value="">Spirit of the Beast…</option>
+      {['Insight', 'Might', 'Swiftness', ...(hasAlpha ? ['the Alpha'] : [])].map(aspect =>
+        <option key={aspect} value={aspect === 'the Alpha' ? 'Alpha' : aspect}>Aspect of {aspect}</option>)}
+    </SearchableSelect>
+  </label>)}</div>
+}
+
 function ActiveSpellActions({ name, entry, rank, actions: actionOverride, children }: {
   name: string; entry?: ContentEntry; rank?: number; actions?: string; children: ReactNode
 }) {
@@ -920,7 +939,7 @@ function SpellItem({ c, name, nameControl, entry, note, onRemove, active, onTogg
           {onToggle ? <ActiveSpellActions name={name} entry={entry} actions={activeActions} rank={name === 'Oaken Resilience' ? effectRank : effectRank ?? rank}>
             {activeToggle}{effectControls}
           </ActiveSpellActions> : actionControls ?? (!['Animal Feature', 'Untamed Shift', 'Untamed Form', 'Dinosaur Form', 'Pest Form',
-            'Shield', 'Bone Shield', 'False Vitality', 'Canopy Crawler', 'Enlarge Companion', 'Apex Companion', 'Protect Companion'].includes(name)
+            'Shield', 'Bone Shield', 'False Vitality', 'Canopy Crawler', 'Enlarge Companion', 'Apex Companion', 'Protect Companion', 'Spirit of the Beast'].includes(name)
             && !(name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length)
             && <SpellActions name={name} entry={entry} rank={rank} spellcastingModifier={spellcastingModifier} />)}{inlineControls}
           <PharasmaSpellBonus c={c} entry={entry} name={name} rank={rank} /></div>
@@ -1471,6 +1490,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     ? <BoneShieldActions c={c} save={save} entry={spellEntry(name)} rank={rank} />
     : name === 'Protect Companion'
     ? <ActiveSpellActions name={name} entry={spellEntry(name)} rank={rank}><ProtectCompanionOptions c={c} save={save} /></ActiveSpellActions>
+    : name === 'Spirit of the Beast'
+    ? <ActiveSpellActions name={name} entry={spellEntry(name)} rank={rank}><SpiritOfTheBeastOptions c={c} save={save} /></ActiveSpellActions>
     : name === 'Shield'
     ? <ActiveSpellActions name={name} entry={spellEntry(name)} rank={rank}><label title="Raise the Shield cantrip for a +1 circumstance bonus to AC until your next turn.">
       <input type="checkbox" aria-label="Raise Shield Cantrip (+1 AC)" checked={isSpellActive(c, entries, 'Shield')}
@@ -1907,6 +1928,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     ? <TailwindActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
                     : selectedEntry.name === 'Protect Companion'
                     ? <ActiveSpellActions name={selectedEntry.name} entry={selectedEntry} rank={Math.ceil(c.level / 2)}><ProtectCompanionOptions c={c} save={save} disabled={!valid} /></ActiveSpellActions>
+                    : selectedEntry.name === 'Spirit of the Beast'
+                    ? <ActiveSpellActions name={selectedEntry.name} entry={selectedEntry} rank={rank}><SpiritOfTheBeastOptions c={c} save={save} disabled={!valid} /></ActiveSpellActions>
                     : selectedEntry.name === 'Pest Form'
                     ? <PestFormActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
                     : selectedEntry.name === 'Animal Feature' || selectedEntry.name === 'Untamed Shift' || selectedEntry.name === 'Dinosaur Form'
@@ -1988,7 +2011,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </div>}
       {innateGroups.length > 0 && <div>
         <div className="row"><b>Innate Spells</b>
-          {getSettings().consolidateInnateTraditions && innateTraditionOptions(c, entries).length > 1
+          {getSettings().consolidateInnateTraditions && !classInnateTradition(c, entries) && innateTraditionOptions(c, entries).length > 1
             && <select aria-label="Innate spell tradition" value={c.innateTradition ?? ''}
               onChange={event => save({ innateTradition: event.target.value || undefined })}>
               <option value="">Each spell's own tradition</option>

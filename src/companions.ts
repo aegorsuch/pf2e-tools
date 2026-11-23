@@ -233,6 +233,10 @@ const SPIRIT_ASPECTS: Record<'Might' | 'Swiftness' | 'Insight', SpiritAspect> = 
   Insight: { save: 'Will', skills: ['Perception', 'Survival'] },
 }
 
+const DEITY_SERVITOR_TYPES: Record<string, 'Angel' | 'Devil' | 'Psychopomp'> = {
+  iomedae: 'Angel', sarenrae: 'Angel', asmodeus: 'Devil', pharasma: 'Psychopomp',
+}
+
 export function companionStats(c: Character, entries: ContentEntry[], type: string, advancement = { mature: false, advanced: undefined as string | undefined, specializations: [] as string[] }, companionId = c.companions?.[0]?.id) {
   const entry = byName(entries, 'companion', type)
   if (!entry) return undefined
@@ -244,10 +248,14 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
   const servitor = !auspice ? undefined : c.className === 'Champion'
     ? championSanctification === 'Holy' ? 'Celestial' : championSanctification === 'Unholy' ? 'Fiend' : 'Monitor'
     : companion?.auspiceServitor
-  const subtype = servitor === 'Celestial' && (companion?.auspiceSubtype === 'Angel' || entry.traits.some(trait => trait.toLowerCase() === 'angel'))
-    ? 'Angel' : servitor === 'Fiend' && (companion?.auspiceSubtype === 'Devil' || entry.traits.some(trait => trait.toLowerCase() === 'devil'))
-      ? 'Devil' : undefined
-  const auspiceLanguage = subtype === 'Angel' ? 'Empyrean' : subtype === 'Devil' ? 'Diabolic' : auspice ? companion?.auspiceLanguage?.trim() : undefined
+  const deitySubtype = DEITY_SERVITOR_TYPES[c.deity?.toLowerCase() ?? '']
+  const selectedSubtype = companion?.auspiceSubtype ?? deitySubtype
+  const subtype = servitor === 'Celestial' && (selectedSubtype === 'Angel' || entry.traits.some(trait => trait.toLowerCase() === 'angel'))
+    ? 'Angel' : servitor === 'Fiend' && (selectedSubtype === 'Devil' || entry.traits.some(trait => trait.toLowerCase() === 'devil'))
+      ? 'Devil' : servitor === 'Monitor' && (selectedSubtype === 'Psychopomp' || entry.traits.some(trait => trait.toLowerCase() === 'psychopomp'))
+        ? 'Psychopomp' : undefined
+  const auspiceLanguage = subtype === 'Angel' ? 'Empyrean' : subtype === 'Devil' ? 'Diabolic'
+    : subtype === 'Psychopomp' ? 'Requian' : auspice ? companion?.auspiceLanguage?.trim() : undefined
   const auspiceTraits = [...(servitor === 'Celestial' ? ['Celestial', 'Holy'] : servitor === 'Fiend' ? ['Fiend', 'Unholy'] : servitor === 'Monitor' ? ['Monitor'] : []),
     ...(subtype ? [subtype] : [])]
   const firstCompanion = companionId !== undefined && companionId === c.companions?.[0]?.id

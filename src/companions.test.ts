@@ -602,6 +602,23 @@ describe('animal companions', () => {
     expect(companionAdvancement(without).specializations).not.toContain('Auspice')
   })
 
+  it('defaults Auspice subtype and language from known deity servitors without changing saved choices', () => {
+    const c: Character = { ...base, level: 16, className: 'Champion', deity: 'Iomedae', sanctification: 'Holy',
+      companions: [{ id: 'mount', type: 'Bear', name: '' }],
+      feats: [{ ...feat('Auspicious Mount', 'Auspice'), level: 16 }] }
+    const deity = entry('deity', 'Iomedae', { sanctification: 'holy' })
+    const stats = (character: Character, patron = deity) => companionStats(character, [bear, patron], 'Bear', companionAdvancement(character), 'mount')!
+    expect(stats(c)).toMatchObject({ servitor: 'Celestial', subtype: 'Angel', auspiceLanguage: 'Empyrean' })
+    const asmodeus = { ...deity, name: 'Asmodeus', data: { sanctification: 'unholy' } }
+    expect(stats({ ...c, deity: 'Asmodeus', sanctification: 'Unholy' }, asmodeus))
+      .toMatchObject({ servitor: 'Fiend', subtype: 'Devil', auspiceLanguage: 'Diabolic' })
+    expect(stats({ ...c, deity: 'Pharasma', sanctification: undefined }, { ...deity, name: 'Pharasma', data: {} }))
+      .toMatchObject({ servitor: 'Monitor', subtype: 'Psychopomp', auspiceLanguage: 'Requian' })
+    expect(stats({ ...c, companions: [{ ...c.companions![0], auspiceSubtype: 'Other' }] }).subtype).toBeUndefined()
+    expect(stats({ ...c, deity: 'Unknown' }, { ...deity, name: 'Unknown' }).subtype).toBeUndefined()
+    expect(c.companions![0].auspiceSubtype).toBeUndefined()
+  })
+
   it('offers Auspice only for Auspicious Mount and keeps that feat non-repeatable', () => {
     const c = { ...base, level: 16, feats: [
       { ...feat('Auspicious Mount'), level: 16 }, feat('Specialized Mount'),

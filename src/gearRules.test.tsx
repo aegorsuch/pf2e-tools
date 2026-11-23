@@ -103,6 +103,25 @@ it('adds active Thruneosaurus support damage to melee strikes at the companion a
   expect(damage({ ...c, companions: [] })).toEqual([])
 })
 
+it('applies mounted Horse support to melee damage, including the jousting bonus', () => {
+  const melee: ContentEntry = { id: 'blade', systems: ['pf2e'], name: 'Blade', kind: 'weapon', source: 'official',
+    level: 0, traits: [], description: '', data: { damage: '1d8 slashing', weapon_type: 'Melee' }, effects: [], updatedAt: 0 }
+  const lance = { ...melee, id: 'lance', name: 'Lance', traits: ['Jousting d6'] }
+  const bow = { ...melee, id: 'bow', name: 'Bow', data: { ...melee.data, weapon_type: 'Ranged', range: 60 } }
+  const weapon: OwnedWeapon = { id: 'blade', name: 'Blade', potency: 0, striking: 1, runes: [] }
+  const horse = { id: 'horse', type: 'Horse', name: '', supportActive: true }
+  const c: Character = { ...base, companions: [horse], mountedCompanionId: horse.id }
+  const entries = [melee, lance, bow]
+  const extra = (character: Character, selected = weapon) => weaponAttack(character, entries, selected).additionalDamage
+  expect(extra(c)).toContainEqual(expect.objectContaining({ source: 'Horse Support Benefit', value: '4 (conditional)',
+    note: expect.stringContaining('moved at least 10 feet') }))
+  expect(extra(c, { ...weapon, id: 'lance', name: 'Lance' }))
+    .toContainEqual(expect.objectContaining({ source: 'Horse Support Benefit', value: '6 (conditional)' }))
+  expect(extra(c, { ...weapon, id: 'bow', name: 'Bow' })).toEqual([])
+  expect(extra({ ...c, mountedCompanionId: undefined })).toEqual([])
+  expect(extra({ ...c, companions: [{ ...horse, supportActive: false }] })).toEqual([])
+})
+
 it('adds active Riding Drake support damage only to melee strikes while riding and in reach', () => {
   const melee: ContentEntry = { id: 'blade', systems: ['pf2e'], name: 'Blade', kind: 'weapon', source: 'official',
     level: 0, traits: [], description: '', data: { damage: '1d8 slashing', weapon_type: 'Melee' }, effects: [], updatedAt: 0 }

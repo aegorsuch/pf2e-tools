@@ -315,7 +315,7 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     return [{ ...original, id, name, source: 'homebrew' as const,
       traits: [...new Set([...original.traits.filter(trait => !oldClasses.includes(trait)), ...classes])],
       data: { ...Object.fromEntries(Object.entries(original.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))),
-        class: classes.join(', ') }, updatedAt: 1 }]
+        class: classes.join(', '), ...(id === 'homebrew:instinctive-support' ? { prerequisite: 'Animal Companion or Faithful Steed' } : {}) }, updatedAt: 1 }]
   })
   return [
     ...rangerCopies,

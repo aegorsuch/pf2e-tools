@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 import { CompanionEquipmentSlots, FollowerCards, MinionsContent, MinionsSection, MinionsSummary, SummonedFiendCard } from './MinionsSection'
 import { SearchableSelect } from './SearchableSelect'
-import { CaypinAllyToggle, CompanionSpellOptions, CreatureShapeOptions, LashuntaAllyOptions, ShirrenAllyToggle, SpellsSection } from './SpellsSection'
+import { CaypinAllyToggle, CompanionSpellOptions, CreatureShapeOptions, LashuntaAllyOptions, ShirrenAllyToggle, SpellsSection, SpiritOfTheBeastOptions } from './SpellsSection'
 import { activeBattleForm, armorClass, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, movementSpeeds, ownedWeapons, spellActiveChange } from './builder'
 import { familiarAbilityEffects, familiarAbilityUnavailableReason } from './familiarAbilities'
 import { EntryDescription } from './EntryDescription'
@@ -61,6 +61,23 @@ function findButton(node: ReactNode, label: string): (() => void) | undefined {
 }
 
 afterEach(() => vi.unstubAllGlobals())
+
+it('opens Spirit of the Beast from its spell action and synchronizes companion aspects', () => {
+  const spell: ContentEntry = { id: 'spirit', name: 'Spirit of the Beast', kind: 'spell', systems: ['pf2e'], source: 'official',
+    level: 2, traits: ['Focus'], description: '', data: { actions: 'Single Action' }, effects: [], updatedAt: 0 }
+  let c: Character = { id: 'c', name: 'Test', systems: ['pf2e'], level: 9,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    spells: [{ name: spell.name, rank: 2, cantrip: false }], companions: [{ id: 'bear', name: 'Bear', type: 'Bear' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const html = () => renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={save} />)
+  expect(html().match(/aria-label="Spirit of the Beast options"/g)).toHaveLength(1)
+  findSelect(SpiritOfTheBeastOptions({ c, save }), 'Spirit of the Beast aspect on Bear')!({ target: { value: 'Might' } })
+  expect(c.companions?.[0].spiritAspect).toBe('Might')
+  expect(renderToStaticMarkup(<SpiritOfTheBeastOptions c={c} save={save} companionId="bear" />)).toContain('selected=""')
+  findSelect(SpiritOfTheBeastOptions({ c, save, companionId: 'bear' }), 'Spirit of the Beast aspect on Bear')!({ target: { value: '' } })
+  expect(c.companions?.[0].spiritAspect).toBeUndefined()
+})
 
 it('grants saved followers and permits ancestry selection only with Leader of All', () => {
   const elf: ContentEntry = { id: 'elf', name: 'Elf', kind: 'ancestry', systems: ['pf2e'], source: 'official',
@@ -558,7 +575,7 @@ it('opens Special summaries by name without asterisks and capitalizes attack lab
   const horse: ContentEntry = {
     id: 'horse', systems: ['pf2e'], name: 'Horse', kind: 'companion', source: 'official', level: 1,
     traits: ['Animal'], description: '', effects: [], updatedAt: 0,
-    data: { size: 'Medium', hp: 8, companion_attacks: 'hoof|1d6 bludgeoning|;tail lash|1d4 bludgeoning|' },
+    data: { size: 'Medium', hp: 8, companion_attacks: 'hoof|1d6 bludgeoning|agile, finesse;tail lash|1d4 bludgeoning|' },
   }
   const instincts: ContentEntry = { ...horse, id: 'instincts', name: 'Heightened Instincts', kind: 'feat',
     description: 'Succeeding at a save improves the result.', data: {}, level: 18 }
@@ -572,6 +589,7 @@ it('opens Special summaries by name without asterisks and capitalizes attack lab
   expect(special).not.toContain('source-note-trigger')
   expect(special).not.toContain('Description unavailable')
   expect(markup).toContain('<b>Hoof</b>')
+  expect(markup).toContain('(Agile, Finesse)')
   expect(markup).toContain('<b>Tail Lash</b>')
   expect(markup).not.toContain('<b>hoof</b>')
   expect(JSON.stringify({ c, horse })).toBe(before)

@@ -5182,6 +5182,15 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   }
   const cairn = cairnForm(c, entries)
   if (cairn) out.push({ damage: 'physical (except adamantine)', value: cairn.resistance, source: 'Cairn Form' })
+  if (isSpellActive(c, entries, 'Enduring Might')) {
+    const saved = c.spells?.find(spell => spell.name === 'Enduring Might')
+    const focus = focusSpells(c, entries).spells.some(spell => spell.name === 'Enduring Might')
+      || !!saved && !!byName(entries, 'spell', 'Enduring Might')?.traits.some(trait => trait.toLowerCase() === 'focus')
+    const rank = focus ? Math.ceil(c.level / 2)
+      : grantedFeatSpells(c, entries).find(grant => grant.entry.name === 'Enduring Might')?.rank ?? saved?.rank
+    if (rank !== undefined && rank >= 4) out.push({ damage: 'all damage from triggering attack or effect',
+      value: Math.max(0, 8 + abilityMod(c.abilities.str) + 2 * (rank - 4)), source: 'Enduring Might' })
+  }
   if (isSpellActive(c, entries, 'Mountain Resilience')) {
     const rank = grantedFeatSpells(c, entries).find(grant => grant.entry.name === 'Mountain Resilience')?.rank
       ?? Math.ceil(c.level / 2)
@@ -7656,11 +7665,17 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const drakeSupport = !ranged && (c.companions ?? []).reduce((dice, companion, index) =>
     companion.type === 'Riding Drake' && companion.supportActive
       ? Math.max(dice, !!companionAdvancementFor(c, index).advanced ? 2 : 1) : dice, 0)
+  const horseSupport = !ranged && dice > 0 && c.companions?.some(companion =>
+    companion.id === c.mountedCompanionId && companion.type === 'Horse' && companion.supportActive)
+  const horseJousting = jousting || traits.some(trait => /^jousting\b/i.test(trait))
   const supportDamage = [
     ...(thruneosaurusSupport ? [{ source: 'Thruneosaurus Support Benefit',
       value: `${thruneosaurusSupport}d6 persistent fire`, note: "Applies when the damaged target is in the thruneosaurus's reach, until the start of your next turn." }] : []),
     ...(drakeSupport ? [{ source: 'Riding Drake Support Benefit',
       value: `${drakeSupport}d4 fire`, note: "Applies while riding the drake when the target is in its reach, until the start of your next turn." }] : []),
+    ...(horseSupport ? [{ source: 'Horse Support Benefit',
+      value: `${dice * (horseJousting ? 3 : 2)} (conditional)`,
+      note: `Only if the mounted horse moved at least 10 feet on the action before this melee Strike. ${horseJousting ? 'Includes the jousting bonus; ' : ''}Circumstance bonuses do not stack.` }] : []),
   ]
   const desperateWrath = c.raging && isFeatEffectActive(c, 'Desperate Wrath') ? 2 : 0
   const ragingThrower = thrown && activeFeatsNamed(c, 'Raging Thrower').length > 0

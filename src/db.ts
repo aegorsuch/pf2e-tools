@@ -52,7 +52,7 @@ export async function ensureSupplementalContent() {
       else if ((entry.id.startsWith('supplemental:sf2e:') || ['homebrew:clawed-gauntlet', 'homebrew:seax', DISARMING_RUNE.id, GRAPPLING_RUNE.id, PARRYING_RUNE.id, SHOVING_RUNE.id, KILLERS_BELT_MAJOR.id,
         'homebrew:living-weapon-joust', 'homebrew:favored-weapon-jousting', 'homebrew:favored-weapon-symbol', 'homebrew:direwolf-bonded', 'homebrew:rider',
         'homebrew:sarkorian-direwolf', 'homebrew:snow-leopard', 'homebrew:ranger-twinned-defense-stance',
-        'homebrew:persistent-magic-hide', 'homebrew:mobile-hunter', 'homebrew:divine-warrior', 'homebrew:primal-warrior'].includes(entry.id))
+        'homebrew:persistent-magic-hide', 'homebrew:mobile-hunter', 'homebrew:divine-warrior', 'homebrew:primal-warrior', 'homebrew:instinctive-support'].includes(entry.id))
         && existing.updatedAt === 1 && !existing.deleted) await db.content.put(entry)
     }
   })

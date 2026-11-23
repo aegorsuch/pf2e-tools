@@ -488,6 +488,9 @@ it('checks Kijimuna or primal magic from a gnome heritage or feat', () => {
 })
 
 it('checks Energized Font against actual Gnome innate and focus spell traditions', () => {
+  const previous = getSettings().consolidateInnateTraditions
+  onTestFinished(() => updateSettings({ consolidateInnateTraditions: previous }))
+  updateSettings({ consolidateInnateTraditions: true })
   const prerequisite = 'focus pool; at least one innate spell from a gnome heritage or ancestry feat that shares a tradition with at least one of your focus spells'
   const font = entry('feat', 'Energized Font', { prerequisite }, 5, ['Gnome'])
   const magic = mapAonHit({ _id: 'first-world', _source: { name: 'First World Magic', category: 'feat', level: 1, trait: ['Gnome'],
@@ -500,8 +503,12 @@ it('checks Energized Font against actual Gnome innate and focus spell traditions
   expect(result(c)).toEqual({ missing: [], manual: [] })
   expect(result({ ...c, feats: [] }).missing).toContain(prerequisite.split('; ')[1])
   expect(result({ ...c, feats: [{ ...c.feats[0], choice: undefined }] }).missing).toContain(prerequisite.split('; ')[1])
-  expect(result({ ...c, heritage: 'Wellspring Gnome', gnomeHeritageMagic: { tradition: 'Occult' } }).missing)
+  const wellspring = { ...c, heritage: 'Wellspring Gnome', gnomeHeritageMagic: { tradition: 'Occult' as const } }
+  expect(result(wellspring)).toEqual({ missing: [], manual: [] })
+  updateSettings({ consolidateInnateTraditions: false })
+  expect(result(wellspring).missing)
     .toContain(prerequisite.split('; ')[1])
+  updateSettings({ consolidateInnateTraditions: true })
   expect(result({ ...c, order: undefined, className: 'Fighter' }).missing).toContain('focus pool')
   const otherMagic = { ...magic, traits: ['Elf'] }
   expect(featPrerequisiteChecker(c, [font, otherMagic, light])(font).missing).toContain(prerequisite.split('; ')[1])

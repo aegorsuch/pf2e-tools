@@ -7,7 +7,7 @@ import { parseFeatSpellGrants } from './aonQuery'
 import { canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, hitPointBonuses, knowsSpell, maxHp, movementSpeeds, oakenResilience, ownedWeapons, resistances, savingThrowBreakdown, spellDifficultyClass, temporaryHpGrant, untamedFormOptions, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
 import { hellknightTrainingBenefit } from './hellknight'
-import { automaticFeatChoiceKey, boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells, refocusRecovery } from './featSpells'
+import { automaticFeatChoiceKey, boneMagicChoiceOptions, dailyInnateUses, featSpellOptions, grantedFeatSpells, innateTraditionOptions, unresolvedFeatSpells, refocusRecovery } from './featSpells'
 import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionSpellChoice, DinosaurFormOptions, EnergizedFont, FalseVitalityActions, FloralRestoration, FocusPointTracker, InnateSpellUses, PestFormActions, PyreResistEnergyActions, RapidShapeActions, SpellsSection, UntamedFormOptions } from './SpellsSection'
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
@@ -127,7 +127,7 @@ it('auto-heightens fixed-rank Primal Rampage spells and their effects, restoring
   expect(heightened.map(grant => dailyInnateUses(c, grant))).toEqual(original.map(grant => dailyInnateUses(c, grant)))
   expect(resistances(c, entries)).toContainEqual({ damage: 'Physical (except adamantine)', value: 20, source: 'Mountain Resilience' })
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup).toContain('Primal Spell Rank 10')
+  expect(markup).toContain('Occult Spell Rank 10')
   expect(markup).not.toContain('Primal Spell Rank 4')
   updateSettings({ innateAutoHeighten: false })
   expect(grantedFeatSpells(c, entries)).toEqual(original)
@@ -2048,7 +2048,7 @@ it('keeps Clan Crystal Form at its fixed sixth rank at higher character levels',
 })
 
 it('puts buff Active toggles in spell action dialogs without duplicates', () => {
-  const names = ['Athletic Rush', 'Cairn Form', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
+  const names = ['Athletic Rush', 'Cairn Form', 'Enduring Might', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Oaken Resilience', 'Stormwind Flight', 'Untamed Form']
   const c: Character = { ...base, className: 'Ranger',
     spells: names.map(name => ({ name, rank: 1, cantrip: false })), activeSpells: ['Imitate Fauna', 'Keen Smell'] }
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={names.map(name => entry(name, 'spell',
@@ -2063,6 +2063,15 @@ it('puts buff Active toggles in spell action dialogs without duplicates', () => 
   for (const name of names) expect(visible).not.toContain(`aria-label="${name} active"`)
   expect(html).toContain('aria-label="Imitate Fauna active" checked=""')
   expect(html).toContain('aria-label="Keen Smell active" checked=""')
+})
+
+it.each([[7, 10], [11, 14], [19, 22]])('applies Enduring Might only while active at level %i', (level, value) => {
+  const spell = entry('Enduring Might', 'spell', { actions: 'Reaction' }, ['Focus'])
+  const c: Character = { ...base, level, abilities: { ...base.abilities, str: 14 },
+    spells: [{ name: spell.name, rank: 4, cantrip: false }], activeSpells: [spell.name] }
+  const expected = { damage: 'All damage from triggering attack or effect', value, source: spell.name }
+  expect(resistances(c, [spell])).toContainEqual(expected)
+  expect(resistances({ ...c, activeSpells: [] }, [spell])).not.toContainEqual(expected)
 })
 
 it('shows Mountain Resilience activation and heightened resistance inside its action dialog', () => {
@@ -2401,6 +2410,39 @@ it.each(['once per day', 'twice per day', 'at will', 'once per hour', 'twice per
     const limit = frequency.startsWith('twice') ? 2 : 1
     expect(markup).toContain(`aria-label="${limit} of ${limit} uses remaining"`)
   }
+})
+
+it('locks innate traditions to class casting only while consolidation is enabled', () => {
+  const previous = getSettings().consolidateInnateTraditions
+  onTestFinished(() => updateSettings({ consolidateInnateTraditions: previous }))
+  const grants: ContentEntry[] = [
+    { ...entry('Divine Gift', 'feat'), spellGrants: [{ kind: 'innate', spells: ['Heal'], tradition: 'divine', frequency: 'once per hour' }] },
+    { ...entry('Occult Gift', 'feat'), spellGrants: [{ kind: 'innate', spells: ['Ring of Truth'], tradition: 'occult', frequency: 'once per hour' }] },
+  ]
+  const entries = [...grants, entry('Heal', 'spell'), entry('Ring of Truth', 'spell'), entry('Wizard', 'class', { tradition: 'Arcane' })]
+  const c: Character = { ...base, className: 'Wizard', innateTradition: 'occult', feats: grants.map(grant => taken(grant.name)) }
+  updateSettings({ consolidateInnateTraditions: true })
+  expect(grantedFeatSpells(c, entries).map(grant => grant.rule.tradition)).toEqual(['arcane', 'arcane'])
+  expect(innateTraditionOptions(c, entries)).toEqual(['divine', 'occult'])
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).not.toContain('Innate spell tradition')
+  expect(markup).not.toContain('once per hour')
+  expect(markup.match(/aria-label="1 of 1 uses remaining"/g)).toHaveLength(2)
+  expect(grantedFeatSpells({ ...c, className: 'Druid' }, entries).map(grant => grant.rule.tradition)).toEqual(['primal', 'primal'])
+  const ranger = { ...c, className: 'Ranger' }
+  expect(grantedFeatSpells(ranger, entries).map(grant => grant.rule.tradition)).toEqual(['occult', 'occult'])
+  expect(grantedFeatSpells({ ...ranger, feats: [...ranger.feats, taken('Primal Warrior')] }, entries)
+    .map(grant => grant.rule.tradition)).toEqual(['primal', 'primal'])
+  const multiTradition = [...entries.filter(item => item.name !== 'Wizard'), entry('Wizard', 'class', { tradition: 'Arcane, Occult' })]
+  const chosen: Character = { ...c, spellcasting: { ability: 'int', tradition: 'Occult', rank: 1, slots: {} } }
+  expect(grantedFeatSpells(chosen, multiTradition).map(grant => grant.rule.tradition)).toEqual(['occult', 'occult'])
+  expect(grantedFeatSpells({ ...chosen, spellcasting: { ...chosen.spellcasting!, tradition: 'Arcane' } }, multiTradition)
+    .map(grant => grant.rule.tradition)).toEqual(['arcane', 'arcane'])
+  const noncaster = { ...c, className: 'Fighter' }
+  expect(grantedFeatSpells(noncaster, entries).map(grant => grant.rule.tradition)).toEqual(['occult', 'occult'])
+  expect(renderToStaticMarkup(<SpellsSection c={noncaster} entries={entries} save={() => {}} />)).toContain('Innate spell tradition')
+  updateSettings({ consolidateInnateTraditions: false })
+  expect(grantedFeatSpells(c, entries).map(grant => grant.rule.tradition)).toEqual(['divine', 'occult'])
 })
 
 it('uses higher class spell proficiency and highest mental attribute for innate spells', () => {

@@ -7,6 +7,7 @@ import { getSettings } from './settings'
 import { cantripOptions } from './minorMagic'
 import { GODCLAW_DOMAINS, hellknightTrainingBenefit, hellknightTrainingSpellRules } from './hellknight'
 import { spellAccessGranted } from './featAccess'
+import { classSpellcasting, classSpellSlots } from './builder'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 export const KITSUNE_SPELL_FAMILIARITY_CANTRIPS = ['Daze', 'Forbidding Ward', 'Ghost Sound']
@@ -385,9 +386,20 @@ export function innateTraditionOptions(c: Character, entries: ContentEntry[]) {
   let byCharacter = innateOptionsCache.get(entries)
   if (!byCharacter) innateOptionsCache.set(entries, byCharacter = new WeakMap())
   let options = byCharacter.get(c)
-  if (!options) byCharacter.set(c, options = [...new Set(computeGrantedFeatSpells({ ...c, innateTradition: undefined }, entries)
+  if (!options) byCharacter.set(c, options = [...new Set(computeGrantedFeatSpells(c, entries, false)
     .flatMap(grant => grant.rule.kind === 'innate' && grant.rule.tradition ? [grant.rule.tradition.toLowerCase()] : []))].sort())
   return options
+}
+
+export function classInnateTradition(c: Character, entries: ContentEntry[]) {
+  const casting = classSpellcasting(c, entries)
+  const traditions = casting?.traditions ?? []
+  if (!traditions.length) return undefined
+  const focusOnly = ['Champion', 'Monk', 'Ranger'].includes(c.className ?? '')
+  const hasClassSpells = classSpellSlots(c) !== undefined || !focusOnly
+    || Object.values(c.spellcasting?.slots ?? {}).some(count => count > 0)
+  if (!hasClassSpells) return undefined
+  return (traditions.length === 1 ? traditions[0] : c.spellcasting?.tradition || traditions[0]).toLowerCase()
 }
 
 type FeatSpellGrant = { entry: ContentEntry; source: string; rule: SpellGrant; rank: number; usageKey: string }
@@ -404,7 +416,7 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
   return grants
 }
 
-function computeGrantedFeatSpells(c: Character, entries: ContentEntry[]) {
+function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consolidate = true) {
   const out: { entry: ContentEntry; source: string; rule: SpellGrant; rank: number; usageKey: string }[] = []
   const gnomeTradition = gnomeHeritageTradition(c)
   const gnomeCantrip = gnomeTradition && c.gnomeHeritageMagic?.cantrips?.[gnomeTradition]
@@ -896,10 +908,13 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[]) {
       }
     }
   }
-  if (c.innateTradition && getSettings().consolidateInnateTraditions) {
+  const tradition = consolidate && out.some(grant => grant.rule.kind === 'innate' || grant.source === 'Heroic Presence')
+    && getSettings().consolidateInnateTraditions
+    ? classInnateTradition(c, entries) ?? c.innateTradition : undefined
+  if (tradition) {
     for (let i = 0; i < out.length; i++) {
       const rule = out[i].rule
-      if (rule.kind === 'innate' || out[i].source === 'Heroic Presence') out[i] = { ...out[i], rule: { ...rule, tradition: c.innateTradition } }
+      if (rule.kind === 'innate' || out[i].source === 'Heroic Presence') out[i] = { ...out[i], rule: { ...rule, tradition } }
     }
   }
   return getSettings().innateAutoHeighten
