@@ -275,7 +275,7 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       renderDetails={value => {
         const entry = shownOptions.find(option => option.id === value)
         return entry && <span className="picker-spell-name"><EntryDescription name={entry.name} entry={entry} entries={entries}
-          character={c} buttonSuffix={` (level ${entry.level})`} /></span>
+          character={c} buttonSuffix={` (level ${entry.level})`} deferDetails /></span>
       }}
       filters={installable.some(isApex) && <label><input type="checkbox" checked={apexOnly} onChange={event => setApexOnly(event.target.checked)} /> Apex only</label>} onChange={event => {
       const chosen = installable.find(entry => entry.id === event.target.value)

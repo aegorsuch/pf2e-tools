@@ -58,7 +58,7 @@ export function AutomaticFeatChoice({ c, entries, save, name, source, choice, ch
       return <>
         <SearchableSelect aria-label="Nephilim Lore Additional Lore" alwaysSearchable value={selected}
           renderDetails={() => <EntryDescription character={c} name={name} entry={feat} entries={entries}
-            buttonLabel="Details" className="picker-details" />}
+            buttonLabel="Details" className="picker-details" deferDetails />}
           onChange={event => {
             const value = event.target.value
             if (!PLANAR_LORE_CHOICES.includes(value)) return

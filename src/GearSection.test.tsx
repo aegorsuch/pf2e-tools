@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
+import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
@@ -11,6 +11,7 @@ import { getSettings, updateSettings } from './settings'
 import { canEquipShield, equippedHands, equippedShield, hardwoodShield, ownedShields, shieldAcBonus, shieldEquipChange, shieldRaisedChange } from './builder'
 import { GearSystemFilter } from './GearSystemFilter'
 import { SearchableSelect } from './SearchableSelect'
+import { EntryDescription } from './EntryDescription'
 import type { GearSystem } from './gearSystem'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
@@ -566,8 +567,11 @@ it('shows augmentation descriptions in the picker without installing until selec
   const details = (picker!.props.renderDetails as (value: string) => ReactNode)(augmentation.id)
   const html = renderToStaticMarkup(<>{details}</>)
   expect(html).toContain('Cognition Accelerator')
-  expect(html).toContain('Improves trained skills.')
+  expect(html).not.toContain('Improves trained skills.')
   expect(html).toContain('aria-haspopup="dialog"')
+  const description = findElement(details, element => element.type === EntryDescription)!
+  expect(description.props.deferDetails).toBe(true)
+  expect(renderToStaticMarkup(cloneElement(description, { deferDetails: false }))).toContain('Improves trained skills.')
   expect(c.augmentations).toEqual([])
   ;(picker!.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: augmentation.id } })
   expect(c.augmentations).toEqual([expect.objectContaining({ entryId: augmentation.id, name: augmentation.name })])

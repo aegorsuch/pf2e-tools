@@ -111,7 +111,7 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
         searchText={kind === 'background' ? name => String(byName.get(name)?.data.feat ?? '') : undefined}
         renderDetails={name => {
           const entry = byName.get(name)
-          return entry ? <EntryDescription name={entry.name} entry={entry} buttonLabel="Details" className="picker-details" /> : null
+          return entry ? <EntryDescription name={entry.name} entry={entry} buttonLabel="Details" className="picker-details" deferDetails /> : null
         }}
         onFocus={prepare} onPointerDown={prepare} onChange={(e) => {
           const option = variants.find(option => option.value === e.target.value)

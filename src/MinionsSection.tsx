@@ -309,7 +309,7 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
           {remaining.length > 0 && <SearchableSelect aria-label={`${companion.name || companion.type} Add other equipment`}
             value="" optionCount={remaining.length} optionLevel={value => remaining.find(option => option.id === value)?.level} renderDetails={value => {
               const entry = remaining.find(option => option.id === value)
-              return entry && <EntryDescription name={itemName(entry.name)} entry={entry} entries={entries} character={c} buttonLabel="Details" />
+              return entry && <EntryDescription name={itemName(entry.name)} entry={entry} entries={entries} character={c} buttonLabel="Details" deferDetails />
             }} onChange={event => {
               const entry = remaining.find(option => option.id === event.target.value)
               if (entry) updateOther({ entryId: entry.id, name: entry.name }, true)
@@ -329,7 +329,7 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
           value="" optionCount={slotOptions.length} optionLevel={value => slotOptions.find(option => option.id === value)?.level}
           renderDetails={value => {
             const entry = slotOptions.find(option => option.id === value)
-            return entry && <EntryDescription name={itemName(entry.name)} entry={entry} entries={entries} character={c} buttonLabel="Details" />
+            return entry && <EntryDescription name={itemName(entry.name)} entry={entry} entries={entries} character={c} buttonLabel="Details" deferDetails />
           }}
           onChange={event => {
             const entry = slotOptions.find(option => option.id === event.target.value)
@@ -998,7 +998,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               renderDetails={value => {
                 const entry = abilityOptions.find(option => option.id === value)
                 return entry && <EntryDescription name={entry.name} entry={entry} entries={entries} character={c}
-                  buttonLabel="Details" className="picker-details" />
+                  buttonLabel="Details" className="picker-details" deferDetails />
               }} onChange={chooseAbility}>
               <option value="">+</option>
               {['Familiar', 'Master', 'Divine Emissary'].map(type => {

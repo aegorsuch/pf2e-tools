@@ -1045,7 +1045,7 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
                   value={value} alwaysSearchable primaryDetails optionLevel={choice => spellIndex.byId.get(choice)?.level}
                   optionSpell={choice => spellIndex.byId.get(choice) ?? spellIndex.byName.get(choice)} renderDetails={choice => {
                     const entry = spellIndex.byId.get(choice) ?? spellIndex.byName.get(choice)
-                    return entry && <span className="picker-spell-name"><EntryDescription name={entry.name} entry={entry} />
+                    return entry && <span className="picker-spell-name"><EntryDescription name={entry.name} entry={entry} deferDetails />
                       {' '}<small>{entry.systems.map(system => system.toUpperCase()).join(' / ')}</small></span>
                   }} onChange={event => {
                     const value = event.target.value
@@ -1767,7 +1767,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                       const entry = option && spellEntry(option.name, option.entryId)
                       return entry && <span className="picker-spell-name">
                         {!cantrip && rank > option.baseRank ? `+${rank - option.baseRank} ` : ''}
-                        <EntryDescription name={entry.name} entry={entry} />
+                        <EntryDescription name={entry.name} entry={entry} deferDetails />
                         {' '}<small>{entry.systems.map(system => system.toUpperCase()).join(' / ')}</small>
                       </span>
                     }}
