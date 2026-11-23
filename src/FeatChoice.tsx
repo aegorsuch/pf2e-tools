@@ -431,7 +431,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     })}</span>
   }
   const spellOptions = featSpellOptions(c, entries, feat)
-  if (['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip', 'Free Heart', 'Bone Magic', 'Widespread Fascination', 'Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon'].includes(feat.name)) return null
+  if (['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip', 'Free Heart', 'Bone Magic', 'Widespread Fascination', 'Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon', 'Divine Warrior', 'Primal Warrior'].includes(feat.name)) return null
   if (spellOptions) return <span className="feat-choice">
     <SearchableSelect aria-label={`${feat.name} spell`} value={feat.choice ?? ''}
       optionLevel={value => spellOptions.find(spell => spell.name === value)?.level}

@@ -2087,7 +2087,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       && archetypesOf(source).includes('Beastmaster')
     return wardenSpellOptions({ name }, entries, beastmaster).map((spell) => spell.name).filter((choice) => !selected.has(choice))
   }
-  if (name === 'First World Magic' || name === 'Ancestral Magic' || name === 'Ancestral Cantrip') return undefined
+  if (['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip', 'Divine Warrior', 'Primal Warrior'].includes(name)) return undefined
   if (name === 'Bone Magic') return boneMagicChoiceOptions(c, entries, { name, type: '', level: 1 })
   if (name === 'Widespread Fascination') return [...new Set(widespreadFascinationOptions(
     { ...c, subclass: selectedSubclass(c, entries) }, entries, c.feats[index]?.name === name ? c.feats[index]
@@ -2156,7 +2156,9 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
   const klass = byName(entries, 'class', c.className)
   const chosenSubclass = ['Mystic', 'Sorcerer', 'Summoner', 'Witch'].includes(c.className ?? '')
     ? subclassOptions(c, entries).find(entry => entry.name === selectedSubclass(c, entries)) : undefined
-  const traditions = isVindicator(c, entries) ? ['Divine'] : c.className === 'Druid' ? ['Primal'] : c.className === 'Necromancer' ? ['Occult']
+  const warriorTradition = c.className === 'Champion' && activeFeatsNamed(c, 'Divine Warrior').length ? 'Divine'
+    : c.className === 'Ranger' && activeFeatsNamed(c, 'Primal Warrior').length ? 'Primal' : undefined
+  const traditions = isVindicator(c, entries) ? ['Divine'] : warriorTradition ? [warriorTradition] : c.className === 'Druid' ? ['Primal'] : c.className === 'Necromancer' ? ['Occult']
     : c.className === 'Mystic' && c.systems.includes('sf2e')
       ? STARFINDER_MYSTIC_TRADITIONS[c.subclass ?? ''] ? [STARFINDER_MYSTIC_TRADITIONS[c.subclass ?? '']] : []
       : c.className === 'Technomancer' && c.systems.includes('sf2e') ? ['Arcane']
@@ -2309,6 +2311,8 @@ export function classExtraSlots(c: Character) {
 export function classSpellSlots(c: Character): Record<number, number> | undefined {
   if (c.className === 'Witchwarper') return witchwarperSpellSlots(c)
   if (isBloodragerCaster(c)) return bloodragerSpellSlots(c)
+  if (c.systems.includes('pf2e') && (c.className === 'Champion' && activeFeatsNamed(c, 'Divine Warrior').length
+    || c.className === 'Ranger' && activeFeatsNamed(c, 'Primal Warrior').length)) return { 0: 2 }
   if (FLEXIBLE_SPELLCASTER_CLASSES.has(c.className ?? '')
     && activeFeatsNamed(c, 'Flexible Spellcaster Dedication').length) return undefined
   if (c.level < 1) return {}
@@ -6087,7 +6091,12 @@ function selectedTailwind(c: Character, entries: ContentEntry[]) {
 }
 
 export function knowsSpell(c: Character, entries: ContentEntry[], name: string) {
+  const warrior = c.className === 'Champion' ? activeFeatsNamed(c, 'Divine Warrior')[0]
+    : c.className === 'Ranger' ? activeFeatsNamed(c, 'Primal Warrior')[0] : undefined
+  const warriorKnown = warrior && featSpellOptions(c, entries, warrior)?.some(entry => entry.name === name
+    && ['0:0', '0:1'].some(key => [entry.id, entry.name].includes(c.spellcasting?.prepared?.[key] ?? '')))
   return !!(c.spells?.some((spell) => spell.name === name)
+    || warriorKnown
     || name === 'Shield' && selectedShieldCantrip(c, entries)
     || name === 'Tailwind' && selectedTailwind(c, entries)
     || necromancerGrantedDirgeSpells(c).includes(name)
@@ -8502,7 +8511,8 @@ export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const heritageGrants = heritages.flatMap(heritage =>
     tokens(heritage.data.grants_languages).map(lang => ({ lang: titleCase(lang), source: heritage.name })))
     .filter(grant => known.has(grant.lang.toLowerCase()))
-  const featGrants = c.feats.flatMap((f) => tokens(selectedFeatEntry(c, entries, f.name, f.sourceId)?.data.grants_languages).map((l) => ({ lang: titleCase(l), source: f.name })))
+  const featGrants = c.feats.filter(f => f.name !== 'Primal Warrior' || featTakenLevel(f) <= c.level)
+    .flatMap((f) => tokens(selectedFeatEntry(c, entries, f.name, f.sourceId)?.data.grants_languages).map((l) => ({ lang: titleCase(l), source: f.name })))
     .filter((g) => known.has(g.lang.toLowerCase()))
   const fromFeats = featGrants.map((g) => g.lang)
   const heritageSlots = heritages.flatMap(heritage =>

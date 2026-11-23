@@ -273,6 +273,14 @@ export function migrateCopiedFeats(c: Character): Character {
     ? { ...c, feats, entryIds } : c
 }
 
+export function migrateMobileHunt(c: Character): Character {
+  const feats = c.feats.map(feat => feat.name === 'Mobile Hunter'
+    && feat.type === 'Class Feat' && (!feat.sourceId || feat.sourceId === 'homebrew:mobile-hunter')
+    && (!feat.slot || feat.slot.startsWith('class:'))
+    ? { ...feat, name: 'Mobile Hunt' } : feat)
+  return feats.some((feat, index) => feat !== c.feats[index]) ? { ...c, feats } : c
+}
+
 export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[] {
   const nimbleClasses = ['Champion', 'Fighter', 'Gunslinger', 'Monk', 'Operative', 'Ranger', 'Rogue', 'Swashbuckler']
   const guardbreakClasses = ['Champion', 'Cleric', 'Commander', 'Druid', 'Exemplar', 'Fighter', 'Guardian', 'Inventor', 'Runesmith']
@@ -388,9 +396,15 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     homebrewFeat('instinctive-hunt', 'Instinctive Hunt', 1, ['Ranger'],
       'You draw or shift your weapon and designate a single creature as your prey to focus your attacks against that creature. You Interact to draw a weapon, shift your weapon, or Switch Hands and then Hunt Prey.',
       { class: 'Ranger', actions: 'Single Action' }),
-    homebrewFeat('mobile-hunter', 'Mobile Hunter', 1, ['Ranger', 'Traversal'],
+    homebrewFeat('mobile-hunter', 'Mobile Hunt', 1, ['Ranger', 'Traversal'],
       "You're rarely still, and you've learned to reliably hunt your target even while moving. You Stride and then Hunt Prey.",
       { class: 'Ranger', actions: 'Single Action' }),
+    homebrewFeat('divine-warrior', 'Divine Warrior', 1, ['Champion'],
+      'You learn two cantrips of your choice from the divine spell list. They count as paladin spells for you, and Charisma is your spellcasting ability for them. Whenever you gain a level in this class, you can replace one of these cantrips with another cantrip from the divine spell list.',
+      { class: 'Champion' }),
+    homebrewFeat('primal-warrior', 'Primal Warrior', 1, ['Ranger'],
+      'You learn two cantrips of your choice from the primal spell list. They count as ranger spells for you, and Wisdom is your spellcasting ability for them. Whenever you gain a level in this class, you can replace one of these cantrips with another cantrip from the primal spell list.\n\nYou learn the Wildsong language, and you are bound by the druid’s anathema.',
+      { class: 'Ranger', grants_languages: 'Wildsong' }),
     homebrewFeat('quick-shift', 'Quick Shift', 2, ['Gunslinger', 'Ranger', 'Rogue'],
       'You shift your weapon and attack with the same motion. You Interact to shift a weapon, then Strike with that weapon.',
       { class: 'Gunslinger, Ranger, Rogue', actions: 'Single Action' }),

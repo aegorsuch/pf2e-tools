@@ -89,6 +89,8 @@ it('grants Vindication starting skills and divine warden spell at level 1', () =
   expect(focusSpells(c, [ranger, mark])).toMatchObject({ spells: [{ name: "Vindicator's Mark", source: 'Vindication' }], points: 1 })
   expect(focusSpells(c, [ranger]).spells[0].name).toBe("Vindicator's Mark")
   expect(classSpellcasting(c, [ranger])).toMatchObject({ traditions: ['Divine'], ability: 'wis' })
+  expect(classSpellcasting({ ...c, feats: [{ name: 'Primal Warrior', type: 'Class Feat', level: 1 }] }, [ranger]))
+    .toMatchObject({ traditions: ['Divine'], ability: 'wis' })
   expect(focusSpells({ ...c, subclass: 'Flurry' }, [ranger]).spells).toEqual([])
   expect(focusSpells({ ...c, level: 0 }, [ranger]).spells).toEqual([])
   expect(focusSpells({ ...c, systems: ['sf2e'] }, [ranger]).spells).toEqual([])

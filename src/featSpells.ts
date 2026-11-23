@@ -232,6 +232,14 @@ export function witchLessonOptions(c: Character, entries: ContentEntry[], feat: 
 
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   if (['Fiendish Magic', 'Celestial Magic', 'Summon Nephilim Kin'].includes(feat.name)) return undefined
+  if (['Divine Warrior', 'Primal Warrior'].includes(feat.name) && c.systems.includes('pf2e')) {
+    const tradition = feat.name === 'Divine Warrior' ? 'divine' : 'primal'
+    return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e')
+      && spell.traits.some(trait => /^cantrip$/i.test(trait))
+      && !spell.traits.some(trait => /^focus$/i.test(trait))
+      && String(spell.data.tradition ?? '').split(',').some(value => value.trim().toLowerCase() === tradition)
+      && spellAccessGranted(c, spell)).sort((a, b) => a.name.localeCompare(b.name))
+  }
   if (feat.name in WITCH_LESSON_RANKS) return witchLessonOptions(c, entries, feat)
   if (feat.name === 'Psychic Talent' && c.systems.includes('sf2e')) {
     return spellIndex(entries).spells.filter(spell => spell.systems.includes('sf2e')

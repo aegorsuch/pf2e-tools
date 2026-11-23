@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import type { Character, ContentEntry } from './types'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, homebrewCharacterOptions, homebrewWeapons, IRON_FIST, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, homebrewCharacterOptions, homebrewWeapons, IRON_FIST, migrateMobileHunt, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
 import { automaticFeatGrants, backgroundSkills, boostSlots, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featChoiceOptions, gearPickerEntries, handwrapRuneOptions, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { FeatSlots } from './FeatSlots'
@@ -138,16 +138,21 @@ it('provides requested Cleric and Ranger homebrew actions', () => {
   expect(entries.find(entry => entry.id === 'homebrew:guiding-heal')?.traits).toEqual(['Cleric', 'Concentrate', 'Spellshape'])
 })
 
-it('offers Mobile Hunter to rangers as a traversal action', () => {
+it('offers Mobile Hunt to rangers as a traversal action and migrates saved selections', () => {
   const entries = homebrewCharacterOptions([])
   const feat = entries.find(entry => entry.id === 'homebrew:mobile-hunter')!
   const slot = { key: 'class:1:0', category: 'class' as const, level: 1 }
-  expect(feat).toMatchObject({ name: 'Mobile Hunter', level: 1, source: 'homebrew',
+  expect(feat).toMatchObject({ name: 'Mobile Hunt', level: 1, source: 'homebrew',
     traits: ['Ranger', 'Traversal'], data: { class: 'Ranger', actions: 'Single Action' } })
   expect(feat.description).toContain('You Stride and then Hunt Prey.')
   expect(groupHomebrew(entries).find(group => group.name === 'Ranger Feats')?.entries).toContain(feat)
   expect(eligibleFeats(entries, { ...base, className: 'Ranger', level: 1 }, slot)).toContain(feat)
   expect(eligibleFeats(entries, { ...base, className: 'Druid', level: 1 }, slot)).not.toContain(feat)
+  const c: Character = { ...base, feats: [{ name: 'Mobile Hunter', type: 'Class Feat', level: 1, sourceId: feat.id, slot: slot.key }] }
+  const migrated = migrateMobileHunt(c)
+  expect(migrated.feats[0]).toMatchObject({ name: 'Mobile Hunt', sourceId: feat.id, slot: slot.key })
+  expect(migrateMobileHunt(migrated)).toBe(migrated)
+  expect(migrateMobileHunt({ ...c, feats: [{ ...c.feats[0], sourceId: 'custom:mobile-hunter' }] }).feats[0].name).toBe('Mobile Hunter')
 })
 
 it('offers Shift Ace to rangers with its shifting rune requirement', () => {

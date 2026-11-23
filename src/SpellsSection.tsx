@@ -1250,14 +1250,15 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const bard = automaticSlots !== undefined && isSpontaneousClass(c)
   const bloodrager = c.className === 'Barbarian' && c.systems.includes('pf2e')
     && activeFeatsNamed(c, 'Bloodrager Dedication').some(feat => feat.choice === 'Arcane' || feat.choice === 'Divine')
+  const warrior = c.className === 'Champion' ? activeFeatsNamed(c, 'Divine Warrior')[0]
+    : c.className === 'Ranger' ? activeFeatsNamed(c, 'Primal Warrior')[0] : undefined
   const extraSlots = automaticSlots ? classExtraSlots(c) : []
+  const traditions = warrior ? [warrior.name === 'Divine Warrior' ? 'Divine' : 'Primal'] : casting?.traditions ?? []
   const sc: Character['spellcasting'] = automaticSlots ? { ...c.spellcasting,
     ability: casting?.ability ?? c.spellcasting?.ability ?? 'int',
-    tradition: casting?.traditions.length === 1 ? casting.traditions[0]
-      : c.spellcasting?.tradition ?? casting?.traditions[0] ?? '',
+    tradition: traditions.length === 1 ? traditions[0] : c.spellcasting?.tradition ?? traditions[0] ?? '',
     rank: casting?.rank ?? c.spellcasting?.rank ?? 1, slots: classRepertoireRows(c) ?? automaticSlots } : c.spellcasting
   const benefits = familiarSpellBenefits(c, entries, automaticSlots ?? sc?.slots ?? {})
-  const traditions = casting?.traditions ?? []
   const spellIndex = useMemo(() => {
     const spells = entries.filter(entry => entry.kind === 'spell' && !entry.deleted
       && entry.systems.some(system => c.systems.includes(system)))
@@ -1476,7 +1477,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     }) : []
     const bloodragerSpells = bloodrager ? spellIndex.spells.filter(entry => spellAccessGranted(c, entry)
       && (entry.traits.some(trait => /^cantrip$/i.test(trait)) || isCommonSpell(entry))) : undefined
-    const available = [...((bloodragerSpells ?? druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
+    const warriorSpells = warrior ? featSpellOptions(c, entries, warrior) : undefined
+    const available = [...((warriorSpells ?? bloodragerSpells ?? druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
       rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: false })) ?? (c.spells ?? [])
       .filter(spell => !forced.some(extra => extra.name === spell.name)).map(spell => ({ ...spell, forced: false }))), ...forced]
       .map(spell => {
@@ -1500,7 +1502,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         return [...entry?.systems ?? []].sort().join(',')
       }) : options }
     })
-  }, [druidAvailable, dirge, c, preparedClass, selectedTradition, spellIndex, bard, bloodrager])
+  }, [druidAvailable, dirge, c, entries, warrior, preparedClass, selectedTradition, spellIndex, bard, bloodrager])
   const classSlotRanks = Array.from({ length: 11 }, (_, rank) => ({
     rank,
     count: Math.max(0, Math.min(20, Math.trunc(Number(sc?.slots[rank]) || 0)))
@@ -1688,12 +1690,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 : extra ? options.filter(option => option.name === extra.spell)
                   : preparedClass && baseDisplayedSelection
                     ? choices.map(option => option.name === baseDisplayedSelection.name ? baseDisplayedSelection : option) : choices
-              if (bloodrager && cantrip) {
+              if ((bloodrager || warrior && index < 2) && cantrip) {
                 const other = sc.prepared?.[`0:${index === 0 ? 1 : 0}`]
                 const otherEntry = other ? spellIndex.byId.get(other) ?? spellIndex.byName.get(other) : undefined
                 slotOptions = slotOptions.filter(option => {
                   const entry = option.entryId ? spellIndex.byId.get(option.entryId) : spellIndex.byName.get(option.name)
-                  return option.name !== otherEntry?.name && (!otherEntry || spellResolution(otherEntry).attack
+                  return option.name !== otherEntry?.name && (!bloodrager || !otherEntry || spellResolution(otherEntry).attack
                     || !!entry && spellResolution(entry).attack)
                 })
               }
