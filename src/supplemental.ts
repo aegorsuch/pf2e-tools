@@ -248,6 +248,31 @@ export const PERSISTENT_SPELLS = [
   { name: 'Enlarge Companion', level: 18 },
 ] as const
 
+const COPIED_FEAT_IDS: Record<string, string> = {
+  'aon:pf2e:feat-4733:ranger': 'homebrew:deimatic-display-ranger',
+  'aon:pf2e:feat-5418:druid': 'homebrew:ears-of-the-forest-druid',
+  'aon:pf2e:feat-5418:ranger': 'homebrew:ears-of-the-forest-ranger',
+}
+
+export function migrateCopiedFeats(c: Character): Character {
+  const steadyId = 'homebrew:steady-spellcasting-ranger-champion'
+  const steadySelected = ['Ranger', 'Champion'].includes(c.className ?? '') && c.feats.some(feat =>
+    feat.name === 'Steady Spellcasting' && feat.type === 'Class Feat'
+    && (!feat.slot || feat.slot.startsWith('class:'))
+    && (!feat.sourceId || feat.sourceId === 'aon:pf2e:feat-4602'))
+  const feats = c.feats.map(feat => {
+    const mapped = feat.sourceId && COPIED_FEAT_IDS[feat.sourceId]
+    if (mapped) return { ...feat, sourceId: mapped }
+    if (steadySelected && feat.name === 'Steady Spellcasting' && feat.type === 'Class Feat'
+      && (!feat.slot || feat.slot.startsWith('class:'))
+      && (!feat.sourceId || feat.sourceId === 'aon:pf2e:feat-4602')) return { ...feat, sourceId: steadyId }
+    return feat
+  })
+  const entryIds = c.entryIds.map(id => COPIED_FEAT_IDS[id] ?? (steadySelected && id === 'aon:pf2e:feat-4602' ? steadyId : id))
+  return feats.some((feat, i) => feat !== c.feats[i]) || entryIds.some((id, i) => id !== c.entryIds[i])
+    ? { ...c, feats, entryIds } : c
+}
+
 export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[] {
   const nimbleClasses = ['Champion', 'Fighter', 'Gunslinger', 'Monk', 'Operative', 'Ranger', 'Rogue', 'Swashbuckler']
   const guardbreakClasses = ['Champion', 'Cleric', 'Commander', 'Druid', 'Exemplar', 'Fighter', 'Guardian', 'Inventor', 'Runesmith']
@@ -268,8 +293,23 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     && entry.name === 'Strong Arm' && entry.traits.includes('Rogue'))
   const twinnedDefense = entries.find(entry => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
     && entry.name === 'Twinned Defense (Fighter)' && entry.traits.includes('Fighter'))
+  const copiedClassFeats = [
+    { sourceId: 'aon:pf2e:feat-4733', id: 'homebrew:deimatic-display-ranger', name: 'Deimatic Display (Ranger)', classes: ['Ranger'], oldClasses: ['Druid'] },
+    { sourceId: 'aon:pf2e:feat-5418', id: 'homebrew:ears-of-the-forest-druid', name: 'Ears of the Forest (Druid)', classes: ['Druid'], oldClasses: ['Bard'] },
+    { sourceId: 'aon:pf2e:feat-5418', id: 'homebrew:ears-of-the-forest-ranger', name: 'Ears of the Forest (Ranger)', classes: ['Ranger'], oldClasses: ['Bard'] },
+    { sourceId: 'aon:pf2e:feat-4602', id: 'homebrew:steady-spellcasting-ranger-champion', name: 'Steady Spellcasting', classes: ['Ranger', 'Champion'],
+      oldClasses: ['Bard', 'Cleric', 'Druid', 'Necromancer', 'Oracle', 'Psychic', 'Sorcerer', 'Witch', 'Wizard'] },
+  ].flatMap(({ sourceId, id, name, classes, oldClasses }) => {
+    const original = entries.find(entry => entry.id === sourceId && entry.kind === 'feat' && entry.source === 'official' && !entry.deleted)
+    if (!original) return []
+    return [{ ...original, id, name, source: 'homebrew' as const,
+      traits: [...new Set([...original.traits.filter(trait => !oldClasses.includes(trait)), ...classes])],
+      data: { ...Object.fromEntries(Object.entries(original.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))),
+        class: classes.join(', ') }, updatedAt: 1 }]
+  })
   return [
     ...rangerCopies,
+    ...copiedClassFeats,
     homebrewFeat('bony-plates', 'Bony Plates', 1, ['Lizardfolk'], BONY_PLATES_DESCRIPTION),
     homebrewFeat('incredible-undead-familiar', 'Incredible Undead Familiar', 10, ['Necromancer'],
       'You infuse your undead familiar with even more void energy. You can select five familiar or master abilities each day, instead of three.',

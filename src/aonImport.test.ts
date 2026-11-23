@@ -1,6 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { AON_IMPORT_VERSION, importFromAon, mapAonHits } from './aon'
 import { eligibleFeats } from './builder'
+import { groupHomebrew } from './HomebrewList'
+import { homebrewCharacterOptions, migrateCopiedFeats } from './supplemental'
 import type { Character } from './types'
 import sf2eSnapshot from '../public/data/aon-sf2e.json?raw'
 
@@ -70,63 +72,78 @@ it('imports feat-granted natural weapons with damage, traits, range, and feat so
   })
 })
 
-it('adds identical class copies of Deimatic Display and Ears of the Forest', () => {
+it('lists copied class feats as homebrew without changing official feats', () => {
   const entries = mapAonHits([{
-    _id: 'feat-deimatic-display',
+    _id: 'feat-4733',
     _source: {
       name: 'Deimatic Display', category: 'feat', level: 8, trait: ['Druid', 'Visual'],
       prerequisite: 'Trained in Intimidation', actions: '1', markdown: 'Deimatic Display rules.',
     },
   }, {
-    _id: 'feat-ears-of-the-forest',
+    _id: 'feat-5418',
     _source: {
       name: 'Ears of the Forest', category: 'feat', level: 8, trait: ['Bard', 'Auditory'],
       prerequisite: 'Zoophonia Muse', markdown: 'Ears of the Forest rules.',
     },
-  }], 'pf2e')
-  const find = (name: string) => entries.find(entry => entry.name === name)!
-  const deimatic = find('Deimatic Display')
-  const rangerDeimatic = find('Deimatic Display (Ranger)')
-  const ears = find('Ears of the Forest')
-
-  expect(rangerDeimatic).toMatchObject({
-    id: 'aon:pf2e:feat-deimatic-display:ranger',
-    level: deimatic.level,
-    traits: ['Visual', 'Ranger'],
-    description: deimatic.description,
-    data: deimatic.data,
-  })
-  for (const targetClass of ['Druid', 'Ranger']) {
-    expect(find(`Ears of the Forest (${targetClass})`)).toMatchObject({
-      id: `aon:pf2e:feat-ears-of-the-forest:${targetClass.toLowerCase()}`,
-      level: ears.level,
-      traits: ['Auditory', targetClass],
-      description: ears.description,
-      data: ears.data,
-    })
-  }
-})
-
-it('offers the level 6 Steady Spellcasting to Ranger and Champion without changing its rules', () => {
-  const hit = { _id: 'feat-4602', _source: {
+  }, { _id: 'feat-4602', _source: {
     name: 'Steady Spellcasting', category: 'feat', level: 6, trait: ['Bard', 'Druid', 'Wizard'],
     archetype: ['Hellknight'], markdown: 'If a reaction would disrupt your spellcasting action, attempt a DC 15 flat check.',
-  } }
-  const [steady] = mapAonHits([hit], 'pf2e')
-  expect(steady.traits).toEqual(['Bard', 'Druid', 'Wizard', 'Ranger', 'Champion'])
-  expect(steady.description).toContain('DC 15 flat check')
-  expect(steady.level).toBe(6)
+  } }], 'pf2e')
+  const copies = homebrewCharacterOptions(entries).filter(entry => [
+    'homebrew:deimatic-display-ranger', 'homebrew:ears-of-the-forest-druid',
+    'homebrew:ears-of-the-forest-ranger', 'homebrew:steady-spellcasting-ranger-champion',
+  ].includes(entry.id))
+  expect(copies).toHaveLength(4)
+  expect(entries[0].traits).toEqual(['Druid', 'Visual'])
+  expect(entries[2].traits).toEqual(['Bard', 'Druid', 'Wizard'])
+  expect(copies[0]).toMatchObject({ name: 'Deimatic Display (Ranger)', source: 'homebrew', level: 8,
+    description: entries[0].description, traits: ['Visual', 'Ranger'], data: { prerequisite: 'Trained in Intimidation', class: 'Ranger' } })
+  expect(copies[1]).toMatchObject({ name: 'Ears of the Forest (Druid)', description: entries[1].description,
+    traits: ['Auditory', 'Druid'], data: { prerequisite: 'Zoophonia Muse', class: 'Druid' } })
+  expect(copies[2]).toMatchObject({ name: 'Ears of the Forest (Ranger)', description: entries[1].description,
+    traits: ['Auditory', 'Ranger'], data: { prerequisite: 'Zoophonia Muse', class: 'Ranger' } })
+  const steady = copies[3]
+  expect(steady).toMatchObject({ name: 'Steady Spellcasting', level: 6, traits: ['Ranger', 'Champion'],
+    description: entries[2].description, data: { class: 'Ranger, Champion' } })
+  expect(steady.data.archetype).toBeUndefined()
+  const groups = groupHomebrew(copies)
+  expect(groups.find(group => group.name === 'Ranger Feats')?.entries.map(entry => entry.name))
+    .toEqual(expect.arrayContaining(['Deimatic Display (Ranger)', 'Ears of the Forest (Ranger)', 'Steady Spellcasting']))
+  expect(groups.find(group => group.name === 'Druid Feats')?.entries.map(entry => entry.name)).toContain('Ears of the Forest (Druid)')
+  expect(groups.find(group => group.name === 'Champion Feats')?.entries.map(entry => entry.name)).toContain('Steady Spellcasting')
   const base: Character = {
     id: 'c', systems: ['pf2e'], name: 'Test', level: 6,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   }
   for (const className of ['Ranger', 'Champion', 'Druid']) {
-    expect(eligibleFeats([steady], { ...base, className }, { key: 'class:6:0', category: 'class', level: 6 })).toContain(steady)
+    const expected = className === 'Druid' ? entries[2] : steady
+    expect(eligibleFeats([...entries, ...copies], { ...base, className }, { key: 'class:6:0', category: 'class', level: 6 })).toContain(expected)
     expect(eligibleFeats([steady], { ...base, className }, { key: 'class:4:0', category: 'class', level: 4 })).not.toContain(steady)
   }
   expect(eligibleFeats([steady], { ...base, className: 'Fighter' },
     { key: 'class:6:0', category: 'class', level: 6 })).not.toContain(steady)
+})
+
+it('preserves existing copied feat selections when moving them to homebrew', () => {
+  const c: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Test', level: 8, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [
+      { name: 'Deimatic Display (Ranger)', type: 'Class Feat', level: 8, sourceId: 'aon:pf2e:feat-4733:ranger' },
+      { name: 'Ears of the Forest (Ranger)', type: 'Class Feat', level: 8, sourceId: 'aon:pf2e:feat-5418:ranger' },
+      { name: 'Steady Spellcasting', type: 'Class Feat', level: 6, slot: 'class:6:0', sourceId: 'aon:pf2e:feat-4602' },
+    ],
+    equipment: [], lores: [], languages: [], entryIds: ['aon:pf2e:feat-4733:ranger', 'aon:pf2e:feat-4602'], extraSlots: [], updatedAt: 0,
+  }
+  const migrated = migrateCopiedFeats(c)
+  expect(migrated.feats.map(feat => feat.sourceId)).toEqual([
+    'homebrew:deimatic-display-ranger', 'homebrew:ears-of-the-forest-ranger', 'homebrew:steady-spellcasting-ranger-champion',
+  ])
+  expect(migrated.entryIds).toEqual(['homebrew:deimatic-display-ranger', 'homebrew:steady-spellcasting-ranger-champion'])
+  expect(migrateCopiedFeats(migrated)).toBe(migrated)
+  const druid = { ...c, className: 'Druid', feats: [c.feats[2]], entryIds: ['aon:pf2e:feat-4602'] }
+  expect(migrateCopiedFeats(druid)).toBe(druid)
 })
 
 it('imports a Witch patron’s mandatory familiar ability separately from patron text', () => {

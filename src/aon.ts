@@ -504,11 +504,7 @@ export function mapAonHits(hits: Hit[], system: GameSystem) {
     if (hasUpdatedFlexibility && h._id === 'feat-1171') continue
     const e = mapAonHit(h, system)
     if (!e) continue
-    const adjusted = dropHellknightTrainingPrerequisite(
-      system === 'pf2e' && h._id === 'feat-4602'
-        ? { ...e, traits: [...new Set([...e.traits, 'Ranger', 'Champion'])] }
-        : e,
-    )
+    const adjusted = dropHellknightTrainingPrerequisite(e)
     if (system === 'pf2e' && adjusted.kind === 'feat' && adjusted.name === 'Mortification' && /\bHellknight\b/.test(String(adjusted.data.archetype ?? ''))) {
       entries.push(...MORTIFICATION_DAMAGE.map(damage => ({
         ...adjusted, id: `${adjusted.id}:${damage}`, name: `Mortification (${damage[0].toUpperCase()}${damage.slice(1)})`,
@@ -521,29 +517,10 @@ export function mapAonHits(hits: Hit[], system: GameSystem) {
       if (adjusted.kind === 'heritage') entries.push(...heritageAttackEntries(adjusted, text(h._source?.markdown)))
     }
   }
-  if (system === 'pf2e') for (const copy of CLASS_FEAT_COPIES) {
-    const source = entries.find(entry => entry.kind === 'feat' && entry.name === copy.name)
-    if (!source) continue
-    for (const targetClass of copy.targetClasses) {
-      const name = `${copy.name} (${targetClass})`
-      if (entries.some(entry => entry.kind === 'feat' && entry.name === name)) continue
-      entries.push({
-        ...source,
-        id: `${source.id}:${targetClass.toLowerCase()}`,
-        name,
-        traits: [...new Set([...source.traits.filter(trait => trait !== copy.sourceClass), targetClass])],
-      })
-    }
-  }
   return deityBackgroundEntries(entries)
 }
 
 const MORTIFICATION_DAMAGE = ['bludgeoning', 'piercing', 'slashing']
-
-const CLASS_FEAT_COPIES = [
-  { name: 'Deimatic Display', sourceClass: 'Druid', targetClasses: ['Ranger'] },
-  { name: 'Ears of the Forest', sourceClass: 'Bard', targetClasses: ['Druid', 'Ranger'] },
-]
 
 const HELLKNIGHT_MANUAL = /trained by a Hellknight Order|member of a Hellknight Order|passed the Hellknight Test|refused to take or have failed the Hellknight Test|^lawful alignment$/i
 
