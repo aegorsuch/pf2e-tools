@@ -62,14 +62,14 @@ it('shows Gravity Weapon only for the first weapon Strike and scales with weapon
     .find(damage => damage.source === 'Gravity Weapon')
   expect(bonus(c, sword)).toBeUndefined()
   expect(bonus(active, { ...sword, striking: 0 })).toMatchObject({ value: '2 status' })
-  expect(bonus(active, sword)).toMatchObject({ value: '4 status', note: expect.stringContaining('first weapon Strike each round') })
+  expect(bonus(active, sword)).toMatchObject({ value: '4 status' })
   expect(bonus(active, { ...sword, striking: 3 })).toMatchObject({ value: '8 status' })
   expect(bonus({ ...active, feats: [] }, sword)).toBeUndefined()
   expect(bonus({ ...active, ...spellActiveChange(active, 'Gravity Weapon', false) }, sword)).toBeUndefined()
   expect(bonus(active, { id: IRUXI_CLAWS.id, name: IRUXI_CLAWS.name, potency: 0, striking: 0, runes: [] })).toBeUndefined()
   const html = renderToStaticMarkup(<WeaponList c={active} entries={[weapon]} save={() => {}} displayOnly />)
   expect(html).toContain('Gravity Weapon')
-  expect(html).toContain('first weapon Strike each round')
+  expect(html).not.toContain('first weapon Strike each round')
 })
 
 it('inherits Vesk tail traits and replaces its attack when the tailblade matches its damage', () => {
