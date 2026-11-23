@@ -249,7 +249,9 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
     <ul className="gear-results">
       {matches.map(g => <li key={g.id}>
         <EntryDescription name={g.name} entry={g} className="equipment-name" /> <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}){' '}
-        <button aria-label={`Add ${equipmentDisplayName(g.name)}`} disabled={equipmentGroupName(g) === 'Rings' && ringsFull}
+        <button aria-label={`Add ${equipmentDisplayName(g.name)}`} disabled={equipmentGroupName(g) === 'Rings' && ringsFull
+          || g.name === 'Storied Skin' && (c.equipment.some(item => item.name === g.name && item.qty > 0)
+            || c.systems.includes('pf2e') && activeFeatsNamed(c, 'Tattooed Historian Dedication').length > 0)}
           title={equipmentGroupName(g) === 'Rings' && ringsFull ? 'Ring capacity reached' : undefined} onClick={() => {
           const have = c.equipment.find(item => item.name === g.name
             && (!category || equipmentGroupName(g, item.name, item.group) === category))
@@ -276,21 +278,29 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
     ...(simplePoisons ? [{ kind: 'simple-poisons' as const, name: 'Simple injury poisons' }] : []),
     ...(group === 'Mask' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Warmask').length
       ? [{ kind: 'warmask' as const, name: adoptedAncestryText(c, 'Orc Warmask') }] : []),
+    ...(group === 'Tattoos' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Tattooed Historian Dedication').length
+      && !c.equipment.some(item => item.name === 'Storied Skin' && item.qty > 0)
+      ? [{ kind: 'storied-skin' as const, name: 'Storied Skin' }] : []),
   ].sort((a, b) => a.name.localeCompare(b.name))
   const alwaysAvailable = WORN_EQUIPMENT_GROUPS.some(name => name === group) || group === 'Grafts' || group === 'Tattoos' || group === 'Toolkits'
   if (!displayed.length && !alwaysAvailable) return null
   const body = displayed.length > 0 && <ul>
     {displayed.map(display => {
       if (display.kind === 'warmask') return <li key="warmask"><WarmaskGear c={c} entries={entries} save={save} /></li>
+      if (display.kind === 'storied-skin') return <li key="storied-skin"><EntryDescription name="Storied Skin"
+        entry={entries.find(entry => entry.kind === 'item' && entry.name === 'Storied Skin' && !entry.deleted && entry.systems.includes('pf2e'))}
+        className="equipment-name" /></li>
       if (display.kind === 'comm') return <li key="integrated-comm"><EntryDescription name="Comm Unit" entry={integratedComm ?? undefined}
         descriptionNote="Integrated comm unit operated by thought, including calls and photos without speaking or moving. Does not count as an augmentation." /></li>
       if (display.kind === 'bracelet') return <li key={`bracelet-${display.id}`}><EntryDescription name="Bracelet of Empathy"
         entry={entries.find(entry => entry.kind === 'item' && entry.name === 'Collar of Empathy')} className="equipment-name" /></li>
       if (display.kind === 'simple-poisons') return <li key="simple-poisons"><SimplePoisons c={c} entries={entries} save={save} /></li>
       const { item, index, entry } = display.row
+      const locked = item.name === 'Storied Skin' && c.systems.includes('pf2e')
+        && activeFeatsNamed(c, 'Tattooed Historian Dedication').length > 0
       return <li key={`${item.name}-${index}`}>
       <EntryDescription name={item.name} entry={entry} className="equipment-name" /> <ActionIcon entry={entry} />{item.qty > 1 && <span> x{item.qty}</span>}{' '}
-      <button onClick={() => confirmRemoval(`gear "${item.name}"`, () => {
+      {!locked && <button onClick={() => confirmRemoval(`gear "${item.name}"`, () => {
         const nextMods = { ...c.mechanicGrenadeMods }
         delete nextMods[`equipment:${item.name}`]
         save({ ...(c.mechanicEnduringMod?.kind === 'medic' && c.mechanicEnduringMod.item === item.mechanicItemId
@@ -298,7 +308,7 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
           ...clearItemGlitching(c, 'equipment', item.mechanicItemId),
           ...(c.mechanicEnduringMod?.kind === 'grenade' && c.mechanicEnduringMod.item === `equipment:${item.name}`
             ? { mechanicEnduringMod: undefined } : {}) })
-      })}>Remove</button>
+      })}>Remove</button>}
       <HighTechMedic c={c} save={save} index={index} entry={entry} />
       {entry?.name === 'Shadowed Scale, the Jungle Secret' && <NamedArmorAbilities entry={entry} />}
       <ItemTroubleshoot c={c} save={save} kind="equipment" id={item.mechanicItemId} label={item.name}
@@ -522,12 +532,13 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
     }
     c.equipment.forEach((item, index) => {
       const entry = items.get(item.name) ?? fallback.get(item.name)
-      const group = equipmentGroupName(entry, item.name, item.group)
+      const group = item.name === 'Storied Skin' && c.systems.includes('pf2e')
+        && activeFeatsNamed(c, 'Tattooed Historian Dedication').length ? 'Tattoos' : equipmentGroupName(entry, item.name, item.group)
       groups[group].push({ item, index, entry })
     })
     Object.values(groups).forEach(rows => rows.sort((a, b) => a.item.name.localeCompare(b.item.name)))
     return groups
-  }, [c.equipment, entries])
+  }, [c.equipment, c.feats, c.level, c.systems, entries])
   const freeHeart = activeFeatsNamed(c, 'Free Heart')[0]
   const freeHeartOptions = freeHeart ? new Set(featChoiceOptions('Free Heart', c, entries, freeHeart.slot ?? '') ?? []) : undefined
   const extraBackground = freeHeartBackground(c, entries)

@@ -627,7 +627,7 @@ export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWi
   || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
   || key.startsWith('general:1:social-chameleon:') || key.startsWith('ancestry:1:social-chameleon:')
   || key.startsWith('ancestry:1:scion-of-many-planes:')
-  || key === 'ancestry:1:in-another-life'
+  || key === 'ancestry:1:in-another-life' || key === 'ancestry:1:elders-deeds'
   || key === 'general:1:direwolf-bonded' || key === 'skill:1:scholar' || key.startsWith('skill:1:background:')
   || key === TORAG_BOON_FEAT_SLOT || key.includes(':redundant:')
 
@@ -710,6 +710,10 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     if (!groupOrder.has('ancestry:1')) groupOrder.set('ancestry:1', groupOrder.size)
     slots.push({ key: TORAG_BOON_FEAT_SLOT, category: 'ancestry', level: 1, maxFeatLevel: 1,
       grantedBy: 'Torag (Moderate Boon)', grantedAncestry: 'Dwarf' })
+  }
+  if (c.systems.includes('pf2e') && activeFeatsNamed(c, "Inscribed with Elders' Deeds").length) {
+    if (!groupOrder.has('ancestry:1')) groupOrder.set('ancestry:1', groupOrder.size)
+    slots.push({ key: 'ancestry:1:elders-deeds', category: 'ancestry', level: 1, grantedBy: "Inscribed with Elders' Deeds" })
   }
   Object.entries(GRANTED_SLOTS).forEach(([name, g], i) => {
     const grantingFeat = c.feats.find((f) => f.name === name)
@@ -1734,6 +1738,14 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     ? byName(entries, 'background', c.background) : undefined
   const fixedBackgroundChoice = background?.data[`background_choice_${name}`]
   if (name !== 'Assurance' && typeof fixedBackgroundChoice === 'string') return [fixedBackgroundChoice]
+  if (name === 'Tattooed Historian Dedication' && c.systems.includes('pf2e')) {
+    const level = index >= 0 ? Math.min(c.level, featTakenLevel(c.feats[index]))
+      : Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)
+    const prior = index >= 0 ? ancestrySkillBefore(c, entries, index)
+      : ranksAt({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slotKey && featTakenLevel(feat) <= level) }, entries)
+    const available = ['Diplomacy', 'Performance'].filter(skill => !(prior[skill] ?? 0))
+    return available.length ? available : undefined
+  }
   if (name === 'Researched Spell Resistance') return researchedSpellResistanceVariants(c, entries)
   if (name === 'Elemental Evolution') {
     const element = c.barbarianElement && ELEMENTAL_INSTINCTS[c.barbarianElement]
@@ -3720,6 +3732,12 @@ const rankDependentFeats = new Set(['Dwarven Lore', 'Clan Lore', 'Lizardfolk Lor
 function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   const skills = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
   const trained = activeFeatsNamed(c, 'Skill Training').flatMap((feat) => feat.choice && skills.has(feat.choice) ? [feat.choice] : [])
+  if (c.systems.includes('pf2e')) c.feats.forEach((feat, index) => {
+    if (feat.name !== 'Tattooed Historian Dedication' || featTakenLevel(feat) > c.level
+      || !['Diplomacy', 'Performance'].includes(feat.choice ?? '')) return
+    const prior = ancestrySkillBefore(c, entries, index)
+    if (!(prior[feat.choice!] ?? 0)) trained.push(feat.choice!)
+  })
   c.feats.forEach((feat, index) => {
     const grant = ancestrySkillGrant(c, entries, feat.name)
     if (!grant || featTakenLevel(feat) > c.level) return
@@ -7342,6 +7360,13 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     rageDamage,
     areaAttacks,
     additionalDamage: [...supportDamage,
+      ...(w.id !== 'mechanic:turret' && isFeatEffectActive(c, "Infused with Belkzen's Might") ? [{
+        source: "Infused with Belkzen's Might",
+        value: `${1 + Math.floor(c.feats.filter(feat => featTakenLevel(feat) <= c.level
+          && (["Tattooed Historian Dedication", "Infused with Belkzen's Might"].includes(feat.name)
+            || archetypesOf(selectedFeatEntry(c, entries, feat.name, feat.sourceId)).includes('Tattooed Historian'))).length / 2)} spirit`,
+        note: 'Until the end of your next turn; expend one use of Storied Skin’s Living History.',
+      }] : []),
       ...(w.id !== 'mechanic:turret' && hasDivineIntercession(c, 'Pharasma', 'moderate-boon') ? [{ source: 'Pharasma (Moderate Boon)',
         value: '1 vitality vs. undead', note: 'Applies to your Strikes against undead.' }] : []),
       ...(entry?.data.raptorial_edge ? [{ source: 'Raptorial Edge', value: '1d6 acid',
@@ -7610,6 +7635,10 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
     + backgroundSkills(freeHeartBackground(c, entries), c).filter(skill => autoClassSkills(c, entries).includes(skill)).length
     + c.feats.reduce((total, feat, index) => {
       if (featTakenLevel(feat) > c.level) return total
+      if (feat.name === 'Tattooed Historian Dedication' && c.systems.includes('pf2e')) {
+        const prior = ancestrySkillBefore(c, entries, index)
+        return total + Number((prior.Diplomacy ?? 0) > 0 && (prior.Performance ?? 0) > 0)
+      }
       const ancestry = ancestrySkillGrant(c, entries, feat.name)
       const warmask = feat.name === 'Orc Warmask' ? warmaskSource(c) : undefined
       const named = ancestry ? [ancestry.skill]

@@ -654,6 +654,33 @@ it('keeps empty Equipment categories available with accessible plus controls and
   expect(c.equipment).toEqual([])
 })
 
+it('shows a locked Storied Skin tattoo for an active Tattooed Historian without duplicating saved equipment', () => {
+  const tattoo: ContentEntry = { id: 'skin', name: 'Storied Skin', kind: 'item', systems: ['pf2e'], source: 'official',
+    level: 3, traits: ['Tattoo', 'Magical'], description: 'Living History', data: { item_category: 'Tattoos' }, effects: [], updatedAt: 0 }
+  content.entries = [tattoo]
+  const c: Character = { id: 'historian', systems: ['pf2e'], name: 'Test', level: 2,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Tattooed Historian Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const render = (character: Character) => {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
+    return markup.slice(markup.indexOf('<h4>Tattoos</h4>'), markup.indexOf('<h4>Throat</h4>'))
+  }
+  try {
+    expect(render(c)).toContain('Storied Skin')
+    expect(render(c)).not.toContain('Remove</button>')
+    expect(c.equipment).toEqual([])
+    expect(render({ ...c, level: 1 })).not.toContain('Storied Skin')
+    expect(render({ ...c, feats: [] })).not.toContain('Storied Skin')
+    const existing = { ...c, equipment: [{ name: 'Storied Skin', qty: 1 }] }
+    expect(render(existing).match(/>Storied Skin<\/button>/g)).toHaveLength(1)
+    expect(render(existing)).not.toContain('Remove</button>')
+    expect(render({ ...existing, feats: [] })).toContain('Remove</button>')
+    const picker = renderToStaticMarkup(<EquipmentSearch c={c} entries={[tattoo]} save={() => {}} category="Tattoos" />)
+    expect(picker).toMatch(/aria-label="Add Storied Skin" disabled=""/)
+  } finally { content.entries = [] }
+})
+
 it('groups existing and selectable toolkits separately from other equipment', () => {
   const item = (name: string): ContentEntry => ({ id: name, name, kind: 'item', systems: ['sf2e'], source: 'official',
     level: 1, traits: [], description: '', data: { item_category: 'Adventuring Gear' }, effects: [], updatedAt: 0 })

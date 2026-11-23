@@ -895,7 +895,7 @@ describe('animal companions', () => {
       { key: 'class:20:0', category: 'class', level: 20 })).not.toContain(specialized)
   })
 
-  it('offers and applies Peerless Mascot only through its Commander feat', () => {
+  it('offers and applies Peerless Mascot through Commander companion specialization feats', () => {
     const c: Character = { ...base, className: 'Commander', level: 16,
       feats: [feat('Battle-Hardened Companion', 'Savage'), feat('Peerless Mascot Companion')],
       companions: [{ id: 'bear', type: 'Bear', name: '' }] }
@@ -903,6 +903,11 @@ describe('animal companions', () => {
     expect(specializationOptions({ ...c, className: 'Ranger' }, [], 1)).not.toContain('Peerless Mascot')
     expect(specializationOptions({ ...c, feats: [c.feats[0], feat('Specialized Companion')] }, [], 1))
       .not.toContain('Peerless Mascot')
+    const beastmaster = { ...c, feats: [feat("Commander's Companion"), feat('Specialized Beastmaster Companion')] }
+    expect(specializationOptions(beastmaster, [], 1)).toContain('Peerless Mascot')
+    expect(companionAdvancement({ ...beastmaster, feats: [beastmaster.feats[0],
+      { ...beastmaster.feats[1], choice: 'Peerless Mascot' }] }).specializations).toContain('Peerless Mascot')
+    expect(specializationOptions({ ...beastmaster, className: 'Ranger' }, [], 1)).not.toContain('Peerless Mascot')
     const selected = { ...c, feats: [c.feats[0], { ...c.feats[1], choice: 'Peerless Mascot' }] }
     const other = { ...selected, feats: [selected.feats[0], { ...selected.feats[1], choice: 'Ambusher' }] }
     const source = { ...bear, data: { ...bear.data, speed_raw: '35 feet, fly 60 feet, swim 20 feet' } }

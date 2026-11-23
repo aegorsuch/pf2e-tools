@@ -20,6 +20,19 @@ const selected = (name: string, choice?: string, level = 1): Character['feats'][
 const attack = (c: Character, entry: ContentEntry, entries: ContentEntry[]) =>
   weaponAttack(c, entries, { id: 'w', name: entry.name, potency: 0, striking: 0, runes: [] })
 
+it('grants access only to uncommon magical orc tattoos from Tattooed Historian', () => {
+  const tattoo = content('Orc tattoo', 'item', { access: 'Membership in a particular group' }, ['Orc', 'Magical', 'Tattoo', 'Uncommon'])
+  const c = { ...character, feats: [selected('Tattooed Historian Dedication', undefined, 2)] }
+  expect(gearAccess(character, [tattoo], tattoo)?.automatic).toBe(false)
+  expect(gearAccess(c, [tattoo], tattoo)).toMatchObject({ automatic: true, sources: ['Tattooed Historian Dedication'] })
+  expect(gearAccess(c, [tattoo], { ...tattoo, traits: ['Orc', 'Occult', 'Tattoo', 'Uncommon'] })?.automatic).toBe(true)
+  for (const traits of [['Orc', 'Magical', 'Tattoo', 'Rare'], ['Magical', 'Tattoo', 'Uncommon'],
+    ['Orc', 'Tattoo', 'Uncommon'], ['Orc', 'Magical', 'Uncommon']]) {
+    expect(gearAccess(c, [tattoo], { ...tattoo, traits })?.automatic).toBe(false)
+  }
+  expect(gearAccess({ ...c, level: 1 }, [tattoo], tattoo)?.automatic).toBe(false)
+})
+
 it('remaps Dwarven weapons to scaling category proficiency without changing unrelated weapons or granting universal training', () => {
   const martial = weapon('Long Hammer', 'Martial', ['Dwarf'])
   const advanced = weapon('Dwarven Waraxe', 'Advanced', ['Dwarf'], 'uncommon')

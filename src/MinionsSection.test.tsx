@@ -1583,6 +1583,23 @@ it('offers Peerless Mascot and its language and banner controls', () => {
     .toContain('60-foot aura')
 })
 
+it("offers Peerless Mascot on a Commander's Companion with Beastmaster specialization", () => {
+  const companion: ContentEntry = { ...CONSTRUCT_COMPANION_ENTRY, id: 'bear', name: 'Bear',
+    traits: ['Animal'], data: { size: 'Medium', hp: 6, speed_raw: '35 feet' } }
+  let c: Character = { id: 'mascot', systems: ['pf2e'], name: 'Test', level: 16, className: 'Commander',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: "Commander's Companion", type: 'Class Feat', level: 2 },
+      { name: 'Specialized Beastmaster Companion', type: 'Archetype Feat', level: 14 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'bear', type: 'Bear', name: '' }] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => MinionsContent({ c, entries: [companion], save })
+  expect(renderToStaticMarkup(tree())).toContain('<option value="Peerless Mascot">Peerless Mascot</option>')
+  findSelect(tree(), 'Companion specialization 2')!({ target: { value: 'Peerless Mascot' } })
+  expect(c.feats[1].choice).toBe('Peerless Mascot')
+  expect(renderToStaticMarkup(tree())).toContain('30-foot aura')
+})
+
 it('grants a Beastmaster Dedication companion and extra companions only with Additional Companion', () => {
   let c: Character = {
     id: 'beastmaster', systems: ['pf2e'], name: 'Test', level: 4, className: 'Fighter',

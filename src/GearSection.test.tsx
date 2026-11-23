@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, hardpointWeaponEligible, hasParryWeapon, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, OVERSIZED_THROW } from './supplemental'
@@ -30,6 +30,27 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
+})
+
+it("toggles Infused with Belkzen's Might on weapons and unarmed attacks and scales with historian feats", () => {
+  const name = "Infused with Belkzen's Might"
+  const c: Character = { ...character([
+    { name: 'Tattooed Historian Dedication', type: 'Archetype Feat', level: 2 },
+    { name, type: 'Archetype Feat', level: 6 },
+    { name: 'Another Historian Feat', type: 'Archetype Feat', level: 8 },
+    { name: 'Future Historian Feat', type: 'Archetype Feat', level: 12 },
+  ]) }
+  const historian = (name: string): ContentEntry => ({ ...weapon, id: name, name, kind: 'feat',
+    data: { archetype: 'Tattooed Historian' } })
+  const entries = [weapon, historian('Another Historian Feat'), historian('Future Historian Feat')]
+  const active = { ...c, ...featEffectChange(c, name, true) }
+  const bonus = (current: Character, owned: OwnedWeapon) => weaponAttack(current, entries, owned).additionalDamage.find(item => item.source === name)
+  expect(bonus(c, c.weapons![0])).toBeUndefined()
+  expect(bonus(active, c.weapons![0])).toMatchObject({ value: '2 spirit' })
+  expect(bonus(active, { id: IRUXI_CLAWS.id, name: IRUXI_CLAWS.name, potency: 0, striking: 0, runes: [] })).toMatchObject({ value: '2 spirit' })
+  expect(bonus({ ...active, level: 12 }, c.weapons![0])).toMatchObject({ value: '3 spirit' })
+  expect(bonus({ ...active, feats: active.feats.filter(feat => feat.name !== name) }, c.weapons![0])).toBeUndefined()
+  expect(bonus({ ...active, ...featEffectChange(active, name, false) }, c.weapons![0])).toBeUndefined()
 })
 
 it('shows Gravity Weapon only for the first weapon Strike and scales with weapon damage dice', () => {

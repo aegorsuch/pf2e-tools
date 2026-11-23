@@ -530,7 +530,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     const projected = { ...c, feats: c.feats.map((item, itemIndex) => ({ ...item,
                       choice: item.name === 'Specialized Beastmaster Companion'
                         ? comp.beastmasterSpecializations?.[beastmasterSpecializationKey(item, itemIndex)] : undefined })) }
-                    const options = specializationOptions(projected, entries, featIndex)
+                    const options = specializationOptions(projected, entries, featIndex).filter(option => option !== 'Peerless Mascot')
                     return <SearchableSelect key={key} aria-label={`Companion specialization ${featIndex + 1}: ${comp.name || comp.type}`}
                       value={value} onChange={event => {
                         if (event.target.value && !options.includes(event.target.value)) return

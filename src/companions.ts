@@ -163,13 +163,17 @@ export const ADVANCED_TYPES = ['Nimble', 'Savage'] as const
 
 const SKILL_ABILITY: Record<string, Ability> = { Acrobatics: 'dex', Athletics: 'str', Intimidation: 'cha', Religion: 'wis', Performance: 'cha', Stealth: 'dex', Survival: 'wis', 'Warfare Lore': 'int' }
 
+const canSelectPeerlessMascot = (c: Character, feat: Character['feats'][number]) =>
+  c.className === 'Commander' && (feat.name === 'Peerless Mascot Companion'
+    || c.feats.some(other => other.name === "Commander's Companion" && featTakenLevel(other) <= c.level))
+
 // Advancement the character's feats give the companion: Mature, Nimble/Savage and up to three specializations
 export function companionAdvancement(c: Character) {
   const active = c.feats.filter((feat) => featTakenLevel(feat) <= c.level)
   const advanced = active.filter((feat) => isCompanionAdvancement(feat.name)).map((f) => f.choice).find((v): v is string => v === 'Nimble' || v === 'Savage')
   const specializations = [...new Set(active.filter((feat) => isCompanionSpecialization(feat.name))
     .flatMap((f) => (f.choice && (f.choice !== 'Auspice' || f.name === 'Auspicious Mount')
-      && (f.choice !== 'Peerless Mascot' || c.className === 'Commander' && f.name === 'Peerless Mascot Companion') ? [f.choice] : [])))].slice(0, MAX_SPECIALIZATIONS)
+      && (f.choice !== 'Peerless Mascot' || canSelectPeerlessMascot(c, f)) ? [f.choice] : [])))].slice(0, MAX_SPECIALIZATIONS)
   return { mature: active.some(feat => companionProgressionStage(feat.name) === 'mature') || !!advanced, advanced, specializations }
 }
 
@@ -208,7 +212,8 @@ export function specializationOptions(c: Character, entries: ContentEntry[], exc
   const names = new Set([...Object.keys(COMPANION_SPECS), ...entries.filter((e) => e.kind === 'companionSpec').map((e) => e.name)])
   const feat = c.feats[exceptIndex]
   return [...names].filter((n) => !used.has(n) && (n !== 'Auspice' || feat?.name === 'Auspicious Mount' && featTakenLevel(feat) <= c.level)
-    && (n !== 'Peerless Mascot' || c.className === 'Commander' && feat?.name === 'Peerless Mascot Companion' && featTakenLevel(feat) <= c.level))
+    && (n !== 'Peerless Mascot' || !!feat && isCompanionSpecialization(feat.name)
+      && featTakenLevel(feat) <= c.level && canSelectPeerlessMascot(c, feat)))
     .sort((a, b) => a.localeCompare(b))
 }
 

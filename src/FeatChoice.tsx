@@ -352,7 +352,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </SearchableSelect>
   }
   const atavism = feat.name === 'Elf Atavism' || feat.name === 'Elven Atavism'
-  if (atavism || ['Adopted Ancestry', 'Skill Training', 'Weapon Proficiency', 'Technomagical Scrapper', 'Exceptional Artisan'].includes(feat.name)) {
+  if (atavism || ['Adopted Ancestry', 'Skill Training', 'Weapon Proficiency', 'Technomagical Scrapper', 'Exceptional Artisan', 'Tattooed Historian Dedication'].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)
     if (!options) return null
     const label = atavism ? 'heritage' : feat.name === 'Adopted Ancestry' ? 'ancestry'

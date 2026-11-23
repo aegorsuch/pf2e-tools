@@ -48,6 +48,27 @@ it('reuses feat eligibility while searching, but recomputes for another slot, ch
   }
 })
 
+it("makes historian actions clickable for Belkzen's Might and Wrath of the Hold", () => {
+  const might: ContentEntry = { id: 'might', systems: ['pf2e'], kind: 'feat', source: 'official',
+    name: "Infused with Belkzen's Might", level: 6, traits: ['Archetype'],
+    description: '', data: { actions: 'Two Actions', archetype: 'Tattooed Historian' }, effects: [], updatedAt: 0 }
+  const wrath: ContentEntry = { ...might, id: 'wrath', name: 'Wrath of the Hold', level: 8 }
+  const c: Character = { ...emptyRanger(), level: 10, feats: [
+    { name: might.name, type: 'Archetype Feat', level: 6, slot: 'archetype:6:0' },
+    { name: wrath.name, type: 'Archetype Feat', level: 8, slot: 'archetype:8:0' },
+  ] }
+  const html = renderToStaticMarkup(<FeatSlots c={c} entries={[might, wrath]} categories={['archetype']} save={() => {}} />)
+  expect(html).toContain('aria-label="Infused with Belkzen&#x27;s Might options"')
+  expect(html).toContain('aria-label="Infused with Belkzen&#x27;s Might active"')
+  expect(html).not.toContain('aria-label="Infused with Belkzen&#x27;s Might active" disabled')
+  expect(html).toContain('aria-label="Roll Wrath of the Hold: Damage"')
+  expect(html).toContain('Damage: 5d6 spirit')
+  const level20 = renderToStaticMarkup(<FeatSlots c={{ ...c, level: 20 }} entries={[might, wrath]} categories={['archetype']} save={() => {}} />)
+  expect(level20).toContain('Damage: 10d6 spirit')
+  const level8 = renderToStaticMarkup(<FeatSlots c={{ ...c, level: 8 }} entries={[might, wrath]} categories={['archetype']} save={() => {}} />)
+  expect(level8).toContain('Damage: 4d6 spirit')
+})
+
 it.each([
   ["Pilgrim's Token", 'Trained in Religion; follower of a specific religion'],
   ['Sanctify Water', 'Expert in Religion; you follow a deity with “holy” or “unholy” sanctification'],

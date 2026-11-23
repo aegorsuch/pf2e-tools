@@ -13,6 +13,37 @@ const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['dat
   id: `${kind}:${name}`, systems: ['pf2e'], kind, source: 'official', name, level, traits, description: '', data, effects: [], updatedAt: 1,
 })
 
+it('grants Tattooed Historian skill choice or a free trained skill when both are already trained', () => {
+  const feat = { name: 'Tattooed Historian Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }
+  const c: Character = { ...base, level: 2, feats: [feat] }
+  expect(featChoiceOptions(feat.name, c, [], feat.slot, 0)).toEqual(['Diplomacy', 'Performance'])
+  const picked = { ...c, feats: [{ ...feat, choice: 'Diplomacy' }] }
+  expect(ranksAt(picked, []).Diplomacy).toBe(1)
+  expect(ranksAt({ ...picked, level: 1 }, []).Diplomacy ?? 0).toBe(0)
+  const background = entry('background', 'Diplomat', { skill: 'Diplomacy' })
+  expect(featChoiceOptions(feat.name, { ...c, background: background.name }, [background], feat.slot, 0)).toEqual(['Performance'])
+  const both = entry('background', 'Performer', { skill: 'Diplomacy, Performance' })
+  const trained = { ...c, background: both.name }
+  expect(featChoiceOptions(feat.name, trained, [both], feat.slot, 0)).toBeUndefined()
+  expect(skillRankBudget(trained, [both]).trained).toBe(skillRankBudget({ ...trained, feats: [] }, [both]).trained + 1)
+  expect(ranksAt({ ...trained, skillPicks: ['Crafting'] }, [both])).toMatchObject({ Diplomacy: 1, Performance: 1, Crafting: 1 })
+})
+
+it("grants Inscribed with Elders' Deeds a normal first-level ancestry slot", () => {
+  const source = { name: "Inscribed with Elders' Deeds", type: 'Archetype Feat', level: 6, slot: 'archetype:6:0' }
+  const c: Character = { ...base, level: 6, ancestry: 'Human', feats: [source] }
+  const first = entry('feat', 'Orc First', {}, 1, ['Orc'])
+  const fifth = entry('feat', 'Orc Fifth', {}, 5, ['Orc'])
+  const human = entry('feat', 'Human First', {}, 1, ['Human'])
+  const entries = [first, fifth, human]
+  const slot = plannedSlots(c, entries).find(item => item.key === 'ancestry:1:elders-deeds')!
+  expect(slot).toMatchObject({ level: 1, category: 'ancestry' })
+  expect(eligibleFeats(entries, c, slot).map(item => item.name)).toEqual(['Human First'])
+  expect(eligibleFeats(entries, { ...c, level: 13 }, slot).map(item => item.name)).toEqual(['Human First'])
+  expect(plannedSlots({ ...c, level: 5 }, entries).some(item => item.key === slot.key)).toBe(false)
+  expect(plannedSlots({ ...c, feats: [] }, entries).some(item => item.key === slot.key)).toBe(false)
+})
+
 it('grants permanent flight at land Speed from Eternal Wings only when active', () => {
   const c: Character = { ...base, systems: ['pf2e'], level: 17,
     feats: [{ name: 'Eternal Wings', type: 'Ancestry Feat', level: 17, takenLevel: 17 }] }
