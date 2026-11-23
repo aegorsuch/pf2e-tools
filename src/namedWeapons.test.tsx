@@ -504,7 +504,7 @@ it('uses the canonical Axe of the Dwarven Lords name and fixed Orichalcum', () =
   const axe = specific(name, 'Dwarven Waraxe', '+4 major striking', [])
   const entries = [...namedCatalog, melee('Dwarven Waraxe', '1d8 slashing'), axe]
   const weapon = { ...owned(name), material: 'Cold Iron' as const }
-  const entry = gearPickerEntries(entries, 'weapon').find(candidate => candidate.name === name)!
+  const entry = gearPickerEntries(entries, 'weapon').find(candidate => candidate.name === `${name} (Melee)`)!
   expect(specificMagicItemName(entry)).toBe(name)
   expect(effectiveWeapon(c, entries, weapon).material).toBe('Orichalcum')
   expect(weapon.material).toBe('Cold Iron')

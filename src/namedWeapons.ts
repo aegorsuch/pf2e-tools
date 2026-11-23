@@ -60,7 +60,7 @@ const ACTIONS: Record<string, { name: string; actions: string }[]> = {
   'Coldstar Pistols': [{ name: 'Switch form and Feint', actions: 'Single Action' }, { name: 'Twin shots', actions: 'Single Action' }],
 }
 
-const SPLIT_THROWN = new Set(["Clear Cutter's Axe", 'Fungicidal Hatchet'])
+const SPLIT_THROWN = new Set(["Clear Cutter's Axe", 'Fungicidal Hatchet', 'Axe of the Dwarven Lords', "Spear of the Destroyer's Flame"])
 
 const MATERIALS: Record<string, string> = {
   'Scalding Gauntlets': 'Orichalcum',
