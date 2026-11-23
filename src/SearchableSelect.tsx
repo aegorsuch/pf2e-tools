@@ -41,8 +41,14 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
   const searchLabel = `Search ${props['aria-label'].replace(/^(?:add|choose)\s+/i, '').toLowerCase()}`
   const searchable = useMemo(() => alwaysSearchable || !!optionLevel || !!optionSpell || (optionCount ?? selectOptionCount(children)) > 10, [children, optionCount, alwaysSearchable, optionLevel, optionSpell])
   const options = useMemo(() => selectOptionList(children), [children])
-  const levels = useMemo(() => optionLevel && open && sort === 'level'
-    ? new Map(options.map(option => [option.value, optionLevel(option.value)])) : undefined, [optionLevel, open, options, sort])
+  const levelFor = useMemo(() => {
+    if (!optionLevel || !open || sort !== 'level') return undefined
+    const levels = new Map<string, number | undefined>()
+    return (value: string) => {
+      if (!levels.has(value)) levels.set(value, optionLevel(value))
+      return levels.get(value)
+    }
+  }, [optionLevel, open, options, sort])
   const activeQuery = searchable && open ? query.trim().toLowerCase() : ''
   let matches = 0
   const matching: typeof options = []
@@ -60,7 +66,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
   const ordered = optionLevel && open ? [
     ...matching.filter(option => !option.value),
     ...sortPickerOptions(matching.filter(option => !!option.value), sort,
-      option => optionSortName?.(option.value) ?? option.label, option => levels?.get(option.value)),
+      option => optionSortName?.(option.value) ?? option.label, option => levelFor?.(option.value)),
   ] : matching
   const shown = ordered.slice(0, limit)
   const choose = (next: string) => {

@@ -184,6 +184,30 @@ it('does not resolve option levels while the picker is closed', () => {
   expect(optionLevel).not.toHaveBeenCalled()
 })
 
+it('resolves levels only for matching or selected options when sorting search results', () => {
+  vi.mocked(useState).mockReturnValueOnce(['flame', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
+    .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['level', vi.fn()])
+    .mockReturnValueOnce(['all', vi.fn()]).mockReturnValueOnce(['both', vi.fn()])
+  vi.mocked(useRef).mockReturnValue({ current: null })
+  vi.mocked(useId).mockReturnValue('picker')
+  vi.mocked(useMemo).mockImplementation(fn => fn())
+  const levels: Record<string, number | undefined> = { shield: 3, flameA: 2, flameB: 1, flameC: undefined, ice: 4 }
+  const optionLevel = vi.fn((value: string) => levels[value])
+  const found: Array<{ type: unknown; props: Record<string, unknown> }> = []
+  const visit = (node: ReactNode) => Children.forEach(node, child => {
+    if (!isValidElement<Record<string, unknown>>(child)) return
+    found.push({ type: child.type, props: child.props })
+    visit(child.props.children as ReactNode)
+  })
+  visit(SearchableSelect({ 'aria-label': 'Spell', value: 'shield', optionLevel,
+    children: <><option value="">None</option><option value="shield">Shield</option>
+      <option value="flameA">Flame A</option><option value="flameB">Flame B</option>
+      <option value="flameC">Flame C</option><option value="ice">Ice</option></> }))
+  expect(optionLevel.mock.calls.map(([value]) => value).sort()).toEqual(['flameA', 'flameB', 'flameC', 'shield'])
+  expect(found.filter(item => item.type === 'button' && String(item.props['aria-label']).startsWith('Spell: '))
+    .map(item => item.props['aria-label'])).toEqual(['Spell: None', 'Spell: Flame B', 'Spell: Flame A', 'Spell: Shield', 'Spell: Flame C'])
+})
+
 it('does not resolve spells when defense and system filters are inactive', () => {
   vi.mocked(useState).mockReturnValueOnce(['flame', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
     .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
