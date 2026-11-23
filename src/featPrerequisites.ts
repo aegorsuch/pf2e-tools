@@ -317,6 +317,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (name === 'intercept attack' || name === 'disarming intercept') {
       return resultFor(facts.className === 'Guardian', text)
     }
+    if (name === 'medium or small size') return met()
     if (name === 'you have a swim speed' || name === 'you have swim speed') return resultFor(!!facts.swimSpeed, text)
     if (name === 'focus pool') return resultFor(!!facts.focusPool, text)
     if (trail.has('hallowed earth') && ['the hallowed dead', 'hallowed dead'].includes(name))
