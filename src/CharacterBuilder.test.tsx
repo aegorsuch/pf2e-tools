@@ -1107,7 +1107,11 @@ it('retains official access metadata and shows saved ethnicity without changing 
     expect(dwarfEthnicity).toContain('disabled=""')
     expect(dwarfEthnicity).toContain('Kellid (not available for Dwarf)')
     expect(renderToStaticMarkup(<CharacterBuilder character={{ ...saved, ancestry: undefined }} onClose={() => {}} />))
-      .toContain('aria-label="Ethnicity" disabled=""')
+      .not.toContain('aria-label="Ethnicity"')
+    const unknownAncestry = { ...saved, ancestry: 'Android' }
+    expect(renderToStaticMarkup(<CharacterBuilder character={unknownAncestry} onClose={() => {}} />))
+      .not.toContain('aria-label="Ethnicity"')
+    expect(unknownAncestry.ethnicity).toBe('Kellid')
   } finally { content.entries = [] }
 })
 

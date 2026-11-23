@@ -628,13 +628,13 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
             <Pick label="Heritage" kind="heritage" ancestry={c.ancestry} value={c.heritage}
               options={heritagesFor(entries, c.ancestry).filter(entry => !getSettings().disableAncientElfMultitalented || entry.name !== 'Ancient Elf')}
               onChange={(v) => save({ heritage: v })} />
-              <SearchableSelect label="Ethnicity" aria-label="Ethnicity" value={selectedEthnicity} disabled={!c.ancestry} onChange={(e) => save({ ethnicity: e.target.value || undefined })}>
+              {ethnicities.length > 0 && <SearchableSelect label="Ethnicity" aria-label="Ethnicity" value={selectedEthnicity} onChange={(e) => save({ ethnicity: e.target.value || undefined })}>
                 <option value="">Not specified</option>
                 {selectedEthnicity && !ethnicities.includes(selectedEthnicity) && <option value={selectedEthnicity} disabled={unavailableEthnicity}>
                   {selectedEthnicity}{unavailableEthnicity ? ` (not available for ${c.ancestry ?? 'this ancestry'})` : ''}
                 </option>}
                 {ethnicities.map(name => <option key={name}>{name}</option>)}
-              </SearchableSelect>
+              </SearchableSelect>}
           </div>
           {ancestry && <AncestryDetails entry={ancestry} />}
           {heritage && <AncestryDetails entry={heritage} />}
