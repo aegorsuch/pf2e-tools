@@ -208,7 +208,7 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
         traits.splice(0, traits.length, ...item.traits, 'Backstabber', 'Concussive', 'Kickback', 'Fatal d12')
       }
       const entry: ContentEntry = { ...item, id: choices.length === 1 ? item.id : `${item.id}:${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, kind: 'weapon',
-        source: custom ? 'homebrew' : item.source, name: choices.length === 1 ? sourceName : `${sourceName} (${label})`, traits, data,
+        source: custom ? 'homebrew' : item.source, name: choices.length === 1 ? sourceName : item.name === 'Scalding Gauntlets' ? `Scalding ${label}` : `${sourceName} (${label})`, traits, data,
         description: `${custom ? 'Custom weapon version' : 'Base weapon'}: ${base.name}. Named-item abilities are unchanged.\n\n${common}${section}` }
       if (!native || alias || choices.length === 1) return [entry]
       alias = true
