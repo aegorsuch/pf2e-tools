@@ -156,8 +156,15 @@ export function familiarAbilityUnavailableReason(entry: ContentEntry, c: Charact
     return 'This ability has already been selected.'
   }
   const selectedNames = new Set(selected.map(key))
-  if (emissaryNames.has(key(entry.name)) && selected.some(name => emissaryNames.has(key(name)))) {
-    return 'Only one divine emissary familiar ability can be selected at a time.'
+  const emissary = activeFeatsNamed(c, 'Divine Emissary').length > 0
+  if (emissaryNames.has(key(entry.name))) {
+    if (!emissary) return 'Requires the Divine Emissary feat.'
+    if (selected.some(name => emissaryNames.has(key(name)))) {
+      return 'Only one divine emissary familiar ability can be selected at a time.'
+    }
+  } else if (emissary && selected.filter(name => !emissaryNames.has(key(name))).length
+    >= familiarAbilityCapacity(c, entries).selectableAbilityLimit - 1) {
+    return 'The extra slot from Divine Emissary can only hold a divine emissary familiar ability.'
   }
   const abilityPrerequisites = [...entry.description.matchAll(/(?:familiar|it) must have (?:the )?\[?([a-z][a-z -]*?)\]?(?:\([^)]*\))? ability/gi)]
     .map(match => key(match[1]))

@@ -113,3 +113,15 @@ it('reserves one Witch familiar ability for the selected patron', () => {
     imported: { source: 'pathbuilder', raw: { build: { class: 'Witch', specials: ['Wilding Steward'] } }, unmapped: [] } },
   [patron]).selectableAbilityLimit).toBe(3)
 })
+
+it('reserves the Divine Emissary slot for divine emissary abilities', () => {
+  const witch: Character = { ...character, className: 'Witch', level: 6,
+    feats: [{ name: 'Divine Emissary', type: 'Class Feat', level: 6 }] }
+  const entries = familiarAbilityEntries([], witch)
+  const get = (name: string) => entries.find(entry => entry.name === name)!
+  expect(entries.map(entry => entry.name)).toContain('Erudite')
+  expect(familiarAbilityUnavailableReason(get('Erudite'), witch, ['Flier', 'Tough', 'Scent'], false, [])).toBeUndefined()
+  expect(familiarAbilityUnavailableReason(ability('Speech', ''), witch, ['Flier', 'Tough', 'Scent', 'Darkvision', 'Climber'], false, [])).toMatch(/Divine Emissary/)
+  expect(familiarAbilityUnavailableReason(get('Luminous'), witch, ['Erudite'], false, [])).toMatch(/Only one/)
+  expect(familiarAbilityUnavailableReason(get('Erudite'), { ...witch, feats: [] }, [], false, [])).toMatch(/requires/i)
+})
