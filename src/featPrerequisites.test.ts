@@ -21,6 +21,35 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it('allows Steel Skin through Stalwart Defender at level 6 while retaining Survival training', () => {
+  const defender = entry('feat', 'Stalwart Defender Dedication', { archetype: 'Stalwart Defender' }, 2, ['Archetype', 'Dedication'])
+  const sentinel = entry('feat', 'Sentinel Dedication', { archetype: 'Sentinel' }, 2, ['Archetype', 'Dedication'])
+  const skin = entry('feat', 'Steel Skin', {
+    archetype: 'Sentinel, Stalwart Defender', archetype_levels: 'Stalwart Defender:6',
+    prerequisite: 'Sentinel Dedication; trained in Survival',
+  }, 4, ['Archetype', 'Skill'])
+  const entries = [defender, sentinel, skin]
+  const c: Character = { ...base, level: 6, className: 'Fighter', rankOverrides: { Survival: 1 },
+    feats: [{ name: defender.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }] }
+  for (const category of ['archetype', 'skill'] as const) {
+    const slot = (level: number) => ({ key: `${category}:${level}:0`, category, level })
+    expect(eligibleFeats(entries, c, slot(4))).not.toContain(skin)
+    expect(eligibleFeats(entries, c, slot(6))).toContain(skin)
+    expect(eligibleFeats(entries, { ...c, rankOverrides: { Survival: 0 } }, slot(6))).not.toContain(skin)
+    expect(eligibleFeats(entries, { ...c, feats: [] }, slot(6))).not.toContain(skin)
+    const sentinelCharacter = { ...c, feats: [{ ...c.feats[0], name: sentinel.name }] }
+    expect(eligibleFeats(entries, sentinelCharacter, slot(4))).toContain(skin)
+  }
+  const other = entry('feat', 'Other Sentinel Feat', { archetype: 'Sentinel', prerequisite: 'Sentinel Dedication' }, 4, ['Archetype'])
+  expect(featPrerequisiteChecker(c, [...entries, other])(other).missing).toContain('Sentinel Dedication')
+  const previous = getSettings().dwarfStalwartDefender
+  try {
+    updateSettings({ dwarfStalwartDefender: true })
+    const granted = { ...c, ancestry: 'Dwarf', className: 'Wizard', feats: [] }
+    expect(featPrerequisiteChecker(granted, entries)(skin).missing).toEqual([])
+  } finally { updateSettings({ dwarfStalwartDefender: previous }) }
+})
+
 it('waives prerequisites only for the active house-rule dedication', () => {
   const settings = getSettings()
   onTestFinished(() => updateSettings(settings))

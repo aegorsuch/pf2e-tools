@@ -2900,6 +2900,29 @@ describe('feat grants beyond languages', () => {
 })
 
 describe('armor specialization from feats', () => {
+  it('grants trained armor specialization and increases its value in Tenacious Stance', () => {
+    const feat = entry('feat', 'Unshaken in Iron', { grants_armor_specialization: 'yes', grants_armor_categories: 'light' }, 8)
+    const fighter = entry('class', 'Fighter', { light_armor_proficiency: 'Trained', medium_armor_proficiency: 'Trained', heavy_armor_proficiency: 'Trained' })
+    const wizard = entry('class', 'Wizard', { light_armor_proficiency: 'Trained' })
+    const group = entry('armorGroup', 'Plate')
+    const heavy = entry('armor', 'Plate', { armor_group: 'Plate', armor_category: 'Heavy', check_penalty: -3, speed_penalty: -10, strength: 18 })
+    const medium = { ...heavy, data: { ...heavy.data, armor_category: 'Medium', check_penalty: -2 } }
+    const light = { ...heavy, data: { ...heavy.data, armor_category: 'Light' } }
+    const data = [feat, fighter, wizard, group, heavy]
+    const c: Character = { ...base, level: 8, className: 'Fighter', abilities: { ...base.abilities, str: 18 },
+      feats: [{ name: 'Stalwart Defender Dedication', type: 'Archetype Feat', level: 2 },
+        { name: feat.name, type: 'Archetype Feat', level: 8 }],
+      armors: [{ id: 'armor', name: heavy.name, worn: true, potency: 1, resilient: 0, runes: [] }] }
+    expect(armorSpecialization(c, data)?.benefit?.value).toBe(3)
+    const active = { ...c, activeStance: 'Tenacious Stance' }
+    expect(armorSpecialization(active, data)?.benefit?.value).toBe(6)
+    expect(resistances(active, data)).toContainEqual({ damage: 'Slashing', value: 6, source: 'Plate Armor Specialization' })
+    expect(armorSpecialization({ ...active, level: 7 }, data)).toBeUndefined()
+    expect(armorSpecialization({ ...c, className: 'Wizard' }, data)).toBeUndefined()
+    expect(armorSpecialization(c, [feat, fighter, group, medium])?.benefit?.value).toBe(2)
+    expect(armorSpecialization(c, [feat, fighter, group, light])?.summary).toContain('Value not specified for light armor')
+  })
+
   it('limits Skins of the Slain to its armor groups and categories', () => {
     const feat = entry('feat', 'Skins Of The Slain', { grants_armor_specialization: 'yes', grants_armor_groups: 'leather, skeletal, wood', grants_armor_categories: 'light, medium' })
     const groups = ['Leather', 'Chain'].map((n) => ({ ...entry('armorGroup', n), description: `${n} effect.` }))

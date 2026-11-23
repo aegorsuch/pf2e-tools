@@ -1087,8 +1087,11 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
     && c.feats.filter(feat => feat.name === entry.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1) return 14
   const classArchetype = category === 'class' && !entry.traits.some(trait => trait.toLowerCase() === c.className?.toLowerCase())
     ? selectedClassArchetype(c, entries)?.name : undefined
-  if (category !== 'archetype' && !classArchetype || typeof entry.data.archetype_levels !== 'string') return entry.level
+  const archetypeSkill = (category === 'skill' || category === 'general')
+    && entry.traits.some(trait => trait.toLowerCase() === 'archetype')
+  if (category !== 'archetype' && !classArchetype && !archetypeSkill || typeof entry.data.archetype_levels !== 'string') return entry.level
   const dedications = new Set(c.feats.flatMap((feat) => {
+    if (slot && (feat.slot === slot.key || featTakenLevel(feat) > slot.level)) return []
     const content = featByName(entries).get(feat.name)
     return isDedication(content) ? archetypesOf(content) : []
   }))
@@ -1177,6 +1180,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           category: feat.slot?.split(':')[0] ?? feat.type.replace(/ Feat$/, '').toLowerCase(),
           sourceId: feat.sourceId,
         })),
+        get steelSkinStalwart() { return activeHomebrewDedications(character).some(rule => rule.name === 'Stalwart Defender Dedication') },
         get features() { return featureNames ??= [...features.map((feature) => feature.name), ...museFeats,
           ...fatalMethodGrants(character).features,
           ...automaticFeatGrants(character, entries).map((feat) => feat.name),
@@ -4885,6 +4889,9 @@ export function armorSpecialization(c: Character, entries: ContentEntry[]) {
     if (!e?.data.grants_armor_specialization && !/armor specialization/i.test(f.name)) return false
     const allowed = tokens(e?.data.grants_armor_groups).map((g) => g.toLowerCase())
     const categories = tokens(e?.data.grants_armor_categories).map((g) => g.toLowerCase())
+    if (f.name === 'Unshaken in Iron' && e?.systems.includes('pf2e')) {
+      return category === 'light' || ['medium', 'heavy'].includes(category) && armorProficiencyRank(c, entries, armor) >= 1
+    }
     return (!allowed.length || groups.some((g) => allowed.includes(g))) && (!categories.length || categories.includes(category))
   })
   const preferment = isHellknightArmor(armor) ? activeFeatsNamed(c, 'Hellknight Preferment')[0] : undefined
@@ -4894,7 +4901,11 @@ export function armorSpecialization(c: Character, entries: ContentEntry[]) {
   const rule = ARMOR_SPECIALIZATIONS[group.name.toLowerCase()]
   const base = category === 'medium' ? rule?.medium : category === 'heavy' ? rule?.heavy : undefined
   const improvement = armor?.data.armor_grade ? num(armor.data.grade_save_bonus) : worn.potency
-  const benefit = rule && base !== undefined ? { kind: rule.kind, damage: rule.damage, value: base + improvement + (preferment && rule.kind === 'resistance' ? 1 : 0) } : undefined
+  const unshaken = activeFeatsNamed(c, 'Unshaken in Iron').some(feat =>
+    selectedFeatEntry(c, entries, feat.name, feat.sourceId)?.systems.includes('pf2e'))
+    && tenaciousStanceActive(c, entries) ? -starfinderArmorPenalties(c, entries).check : 0
+  const benefit = rule && base !== undefined ? { kind: rule.kind, damage: rule.damage,
+    value: base + improvement + (preferment && rule.kind === 'resistance' ? 1 : 0) + unshaken } : undefined
   const summary = benefit ? `${benefit.value} ${rule.label}`
     : rule ? `Value not specified for ${category || 'unknown-category'} armor` : undefined
   return {
