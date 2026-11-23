@@ -68,6 +68,43 @@ it('imports feat-granted natural weapons with damage, traits, range, and feat so
   })
 })
 
+it('adds identical class copies of Deimatic Display and Ears of the Forest', () => {
+  const entries = mapAonHits([{
+    _id: 'feat-deimatic-display',
+    _source: {
+      name: 'Deimatic Display', category: 'feat', level: 8, trait: ['Druid', 'Visual'],
+      prerequisite: 'Trained in Intimidation', actions: '1', markdown: 'Deimatic Display rules.',
+    },
+  }, {
+    _id: 'feat-ears-of-the-forest',
+    _source: {
+      name: 'Ears of the Forest', category: 'feat', level: 8, trait: ['Bard', 'Auditory'],
+      prerequisite: 'Zoophonia Muse', markdown: 'Ears of the Forest rules.',
+    },
+  }], 'pf2e')
+  const find = (name: string) => entries.find(entry => entry.name === name)!
+  const deimatic = find('Deimatic Display')
+  const rangerDeimatic = find('Deimatic Display (Ranger)')
+  const ears = find('Ears of the Forest')
+
+  expect(rangerDeimatic).toMatchObject({
+    id: 'aon:pf2e:feat-deimatic-display:ranger',
+    level: deimatic.level,
+    traits: ['Visual', 'Ranger'],
+    description: deimatic.description,
+    data: deimatic.data,
+  })
+  for (const targetClass of ['Druid', 'Ranger']) {
+    expect(find(`Ears of the Forest (${targetClass})`)).toMatchObject({
+      id: `aon:pf2e:feat-ears-of-the-forest:${targetClass.toLowerCase()}`,
+      level: ears.level,
+      traits: ['Auditory', targetClass],
+      description: ears.description,
+      data: ears.data,
+    })
+  }
+})
+
 it('imports a Witch patron’s mandatory familiar ability separately from patron text', () => {
   const [patron] = mapAonHits([{
     _id: 'patron-wilding-steward',
