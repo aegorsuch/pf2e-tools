@@ -1001,10 +1001,10 @@ it('calculates thrown melee attacks with Dexterity and Raging Thrower damage', (
   expect(weaponAttack({ ...dragon, feats: [] }, [dagger], weapon, { thrown: true }).additionalDamage)
     .not.toContainEqual(expect.objectContaining({ source: 'Draconic Rage' }))
   const html = renderToStaticMarkup(<WeaponList c={c} entries={[dagger]} save={() => {}} displayOnly />)
-  expect(html).toContain('Thrown: Attack')
+  expect(html).toContain('Ranged: Attack')
   expect(html).toContain('Damage 2d4+5 P')
   const calm = renderToStaticMarkup(<WeaponList c={{ ...c, raging: false }} entries={[dagger]} save={() => {}} displayOnly />)
-  expect(calm).not.toContain('Thrown: Attack')
+  expect(calm).toContain('Ranged: Attack')
   } finally { updateSettings({ barbarianIgnoreAgile: previous }) }
 })
 

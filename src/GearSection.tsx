@@ -1287,8 +1287,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const untamedPersistent = !a.upgrades.some(upgrade => upgrade.name === 'Merciful')
           && c.level >= 11 && ['Untamed Claws', 'Untamed Jaws'].includes(w.name)
           ? `${c.level >= 19 ? 4 : 2}d6 persistent ${w.name === 'Untamed Claws' ? 'bleed' : 'poison'}` : undefined
-        const meleeAndRanged = a.thrownRange > 0 && ["Clear Cutter's Hatchet", 'Fungicidal Hatchet', 'Axe of the Dwarven Lords',
-          "Spear of the Destroyer's Flame"].includes(namedSource)
+        const meleeAndRanged = a.thrownRange > 0 && !(a.range > 0)
         const attackSummaries = (namedSource === 'Coldstar Pistols' && (!w.coldstarForm || w.coldstarForm === 'Paired')
           ? (['Flame', 'Frost'] as const).map(coldstarForm => {
             const formWeapon = { ...w, coldstarForm }
