@@ -28,8 +28,8 @@ it('shows active temporary HP in the collapsed Defense summary', () => {
     raging: true, abilities: { str: 10, dex: 10, con: 16, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const render = (character: Character) => renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
-  expect(render(c)).toContain('Temporary HP granted 11')
-  expect(render({ ...c, raging: false })).not.toContain('Temporary HP granted')
+  expect(render(c)).toMatch(/Hit Points \d+\+11/)
+  expect(render({ ...c, raging: false })).not.toMatch(/Hit Points \d+\+/)
 })
 
 it('shows Devise a Stratagem toggle in the Investigator class header and Statuses', () => {

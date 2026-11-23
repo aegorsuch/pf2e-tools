@@ -812,7 +812,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               note={`Reaction against a melee Strike: AC ${ac.total + Math.max(0, 2 - acCircumstance)} (+2 circumstance, does not stack). If hit, Step to an open space within the attacker's reach.`} />}
             {hazardFinder && <SourceNote inlineSource={false} source="Hazard Finder"
               note="+1 circumstance bonus to AC against hazard attacks; circumstance bonuses do not stack." />}</b></span>
-          <span><small>Hit Points</small><b>{maxHp(c, entries)}
+          <span><small>Hit Points</small><b>{maxHp(c, entries)}{temporaryHp && `+${temporaryHp.value}`}
             {c.raging && (c.className === 'Barbarian' || !!activeFeatsNamed(c, 'Barbarian Dedication').length)
               && <SourceNote source="Rage" note={`When you Rage, gain ${Math.max(0, c.level + abilityMod(c.abilities.con))} temporary HP, lost when Rage ends. You cannot gain temporary HP from Rage again for ${classFeatures(entries, c).some(feature => feature.name === 'Revitalizing Rage') ? 'one full turn outside Rage' : '1 minute'}.${activeFeatsNamed(c, 'Second Wind').length ? ' Second Wind lets you gain them earlier, but leaves you fatigued until you rest for 10 minutes when that Rage ends.' : ''}`} />}
             {c.raging && !!activeFeatsNamed(c, 'Share Rage').length && <SourceNote source="Share Rage"

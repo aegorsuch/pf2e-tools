@@ -835,7 +835,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
         <summary className="character-section-summary">
           <strong>Defense</strong>
           <span>Armor Class <TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />, Hit Points {defense.hp}
-            {temporaryHp && `, Temporary HP granted ${temporaryHp.value}`}</span>
+            {temporaryHp && `+${temporaryHp.value}`}</span>
           {(shield || shieldCantrip || boneShield || parry > 0) && <span className="combat-summary-toggles" onClick={(event) => event.stopPropagation()}>
             {shield && <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
               <input type="checkbox" aria-label={`${shieldRaiseLabel} (summary)`} checked={shieldRaised(c)} disabled={shieldParagonActive(c)}

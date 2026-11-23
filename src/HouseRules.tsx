@@ -11,7 +11,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
     description: "Non-Champions and non-Avengers gain training in their deity's divine skill. If already trained, gain another trained skill choice." },
   { key: 'consolidateInnateTraditions', label: 'Consolidate Innate Spell Traditions' },
   { key: 'innateAutoHeighten', label: 'Auto-Heighten Innate and Item Spells',
-    description: 'Also heightens Heroic Presence’s Zealous Conviction.' },
+    description: 'Innate grants, including feat-granted spells such as Oaken Resilience, heighten to at least half your level (rounded up, maximum rank 10). Also heightens Heroic Presence’s Zealous Conviction.' },
   { key: 'barbarianWarJavelinAccess', label: 'Barbarian Access: War Javelin',
     description: 'Barbarians gain Access to the War Javelin. Weapon proficiency is unchanged.' },
   { key: 'barbarianIgnoreAgile', label: 'Barbarians ignore Agile while Raging',

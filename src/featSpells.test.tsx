@@ -1594,6 +1594,10 @@ it('heightens Grown of Oak automatically for the character and leshy familiar', 
     { damage: 'Piercing', value: 4, source: spell.name },
   ])
   expect(oakenResilience({ ...c, level: 18 }, entries)).toEqual({ rank: 8, resistance: 8, fireWeakness: 12 })
+  updateSettings({ innateAutoHeighten: true })
+  expect(grantedFeatSpells({ ...c, level: 20 }, entries)).toMatchObject([{ rank: 10 }])
+  expect(oakenResilience({ ...c, level: 20 }, entries)).toEqual({ rank: 10, resistance: 10, fireWeakness: 15 })
+  updateSettings({ innateAutoHeighten: false })
   expect(oakenResilience({ ...c, activeSpells: [] }, entries)).toBeUndefined()
   expect(oakenResilience({ ...c, feats: [] }, entries)).toBeUndefined()
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
