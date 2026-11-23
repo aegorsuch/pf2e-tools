@@ -927,7 +927,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           {glyph && !isWasp && <div className="gear-runes">{GLYPH_FAMILIAR_ABILITIES.map(name => {
             const entry = familiarAbilityEntry(name, familiarAbilityCatalog, c)
             return entry ? <EntryDescription key={name} name={name} entry={entry} entries={entries} character={c}
-              buttonLabel={`Granted ${name}`} /> : <small key={name}>{name}</small>
+              buttonLabel={name} /> : <small key={name}>{name}</small>
           })}</div>}
           {isWasp && <div className="gear-runes">{['Burrower', 'Flier'].map(name => {
             const entry = familiarAbilityEntry(name, familiarAbilityCatalog, c)
