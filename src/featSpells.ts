@@ -437,6 +437,13 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: 3, usageKey: JSON.stringify([selection, feat.name, 'haste']) })
       continue
     }
+    if (feat.name === 'Astral Blink' && c.systems.includes('pf2e')) {
+      const entry = matchingSpells(entries, 'Translocate').find(spell => spell.systems.includes('pf2e'))
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'arcane', frequency: 'once per hour', fixedRank: true },
+        rank: 4, usageKey: JSON.stringify([selection, feat.name, 'translocate']) })
+      continue
+    }
     if (feat.name === 'Messenger' && c.systems.includes('pf2e')) {
       const entry = matchingSpells(entries, 'Message').find(spell => spell.systems.includes('pf2e'))
       if (entry) out.push({ entry, source: feat.name,
