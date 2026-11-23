@@ -516,7 +516,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (/^(?:passed the hellknight test|member of a hellknight order|trained by a hellknight order|lawful alignment|you've refused to take or have failed the hellknight test)\.?$/.test(name)) return met()
     if (/^way of the (?:drifter|pistolero|sniper|vanguard|spellshot|triggerbrand)$/.test(name)
       || knownEntries(name).some(entry => entry.kind === 'subclass' && entry.data.class === 'Gunslinger')) {
-      return resultFor(facts.className === 'Gunslinger' && key(facts.subclass ?? '') === name, text)
+      return resultFor(facts.className === 'Gunslinger'
+        && [facts.subclass ?? '', ...facts.additionalSubclasses].some(subclass => key(subclass) === name), text)
     }
     const patronTradition = /^(arcane|divine|occult|primal) patron$/.exec(name)
     if (patronTradition) return resultFor(facts.className === 'Witch' && facts.witchPatronTradition?.toLowerCase() === patronTradition[1], text)

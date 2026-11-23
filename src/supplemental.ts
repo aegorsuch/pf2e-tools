@@ -528,6 +528,9 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     homebrewFeat('versatile-investigator', 'Versatile Investigator', 10, ['Investigator'],
       "Your investigative practice draws on more than one methodology. Choose an investigator methodology you don't already have. You gain its trained skill, skill feat, and special benefits.\n\nSpecial: You can select this feat multiple times, choosing a different methodology each time.",
       { class: 'Investigator', repeatable: true }),
+    homebrewFeat('versatile-gunslinger', 'Versatile Gunslinger', 14, ['Gunslinger'],
+      "Your gunslinging practice draws on more than one way. Choose a gunslinger way you don't already have. You gain its trained skill and special benefits, including benefits that improve as you gain levels.\n\nSpecial: You can select this feat multiple times, choosing a different way each time.",
+      { class: 'Gunslinger', repeatable: true }),
     {
       ...homebrewFeat('summertouched-human', 'Summertouched Human', 1, ['Human'],
         'The power of summer flows through you. You gain fire resistance equal to half your level (minimum 1), and you treat environmental heat effects as if they were one step less extreme (incredible heat becomes extreme, extreme heat becomes severe, and so on).',

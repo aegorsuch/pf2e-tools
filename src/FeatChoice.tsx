@@ -310,11 +310,14 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </select>
     </label>
   }
-  if (feat.name === 'Versatile Rogue' || feat.name === 'Versatile Investigator' || feat.name === 'Multifarious Muse') {
+  if (feat.name === 'Versatile Rogue' || feat.name === 'Versatile Investigator'
+    || feat.name === 'Versatile Gunslinger' || feat.name === 'Multifarious Muse') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
     const className = feat.name === 'Versatile Rogue' ? 'Rogue'
-      : feat.name === 'Versatile Investigator' ? 'Investigator' : 'Bard'
-    const kind = className === 'Rogue' ? 'racket' : className === 'Investigator' ? 'methodology' : 'muse'
+      : feat.name === 'Versatile Investigator' ? 'Investigator'
+        : feat.name === 'Versatile Gunslinger' ? 'Gunslinger' : 'Bard'
+    const kind = className === 'Rogue' ? 'racket' : className === 'Investigator' ? 'methodology'
+      : className === 'Gunslinger' ? 'way' : 'muse'
     const subclass = entries.find(entry => entry.kind === 'subclass' && entry.name === feat.choice && entry.data.class === className)
     const investigatorVariants = className === 'Investigator' ? options.flatMap(method => {
       const choice = subclassSkillChoice({ ...c, className: 'Investigator', subclass: method }, entries)
@@ -322,11 +325,22 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         ? choice.options.map(skill => ({ value: `${method}|${skill}`, label: `${method} (${skill})` }))
         : [{ value: method, label: method }]
     }) : []
+    const gunslingerVariants = className === 'Gunslinger' ? options.flatMap(way => {
+      const choice = subclassSkillChoice({ ...c, className: 'Gunslinger', subclass: way }, entries)
+      return choice?.options.length
+        ? choice.options.map(skill => ({ value: `${way}|${skill}`, label: `${way} (${skill})` }))
+        : [{ value: way, label: way }]
+    }) : []
     const investigatorChoice = feat.choice
       ? subclassSkillChoice({ ...c, className: 'Investigator', subclass: feat.choice }, entries) : undefined
     const investigatorSkill = investigatorChoice ? c.subclassSkillChoices?.[investigatorChoice.key] ?? '' : ''
     const investigatorValue = feat.choice && investigatorChoice?.options.length
       ? investigatorSkill ? `${feat.choice}|${investigatorSkill}` : feat.choice : feat.choice ?? ''
+    const gunslingerChoice = feat.choice
+      ? subclassSkillChoice({ ...c, className: 'Gunslinger', subclass: feat.choice }, entries) : undefined
+    const gunslingerSkill = gunslingerChoice ? c.subclassSkillChoices?.[gunslingerChoice.key] ?? '' : ''
+    const gunslingerValue = feat.choice && gunslingerChoice?.options.length
+      ? gunslingerSkill ? `${feat.choice}|${gunslingerSkill}` : feat.choice : feat.choice ?? ''
     return <span className="feat-choice feat-choice-with-note">
       {className === 'Investigator' ? <SearchableSelect label={`Additional ${kind}`} aria-label={`${feat.name} ${kind}`}
         value={investigatorValue} onChange={event => {
@@ -344,6 +358,23 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         {feat.choice && !investigatorVariants.some(option => option.value === investigatorValue)
           && <option value={investigatorValue} disabled>{feat.choice}{investigatorChoice?.options.length ? ' (choose skill)' : ' (unavailable)'}</option>}
         {[...investigatorVariants].sort((a, b) => a.label.localeCompare(b.label))
+          .map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </SearchableSelect> : className === 'Gunslinger' ? <SearchableSelect label={`Additional ${kind}`} aria-label={`${feat.name} ${kind}`}
+        value={gunslingerValue} onChange={event => {
+          const value = event.target.value
+          const separator = value.indexOf('|')
+          const choice = separator < 0 ? value : value.slice(0, separator)
+          const skill = separator < 0 ? undefined : value.slice(separator + 1)
+          if (choice && !options.includes(choice)) return
+          const skillChoice = choice ? subclassSkillChoice({ ...c, className: 'Gunslinger', subclass: choice }, entries) : undefined
+          if (skillChoice?.options.length && (!skill || !skillChoice.options.includes(skill))) return
+          save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing),
+            ...(skillChoice ? { subclassSkillChoices: { ...c.subclassSkillChoices, [skillChoice.key]: skill ?? '' } } : {}) })
+        }}>
+        <option value="">Choose way</option>
+        {feat.choice && !gunslingerVariants.some(option => option.value === gunslingerValue)
+          && <option value={gunslingerValue} disabled>{feat.choice}{gunslingerChoice?.options.length ? ' (choose skill)' : ' (unavailable)'}</option>}
+        {[...gunslingerVariants].sort((a, b) => a.label.localeCompare(b.label))
           .map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
       </SearchableSelect> : <SearchableSelect label={`Additional ${kind}`} aria-label={`${feat.name} ${kind}`} value={feat.choice ?? ''} onChange={event => {
         const choice = event.target.value

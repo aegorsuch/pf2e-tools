@@ -923,6 +923,26 @@ it('shows and searches distinct Versatile Rogue racket options', () => {
   expect(renderToStaticMarkup(tree())).toContain('Ruffian racket benefits.')
 })
 
+it('offers a level-14 Versatile Gunslinger way and its selected trained skill', () => {
+  const feat: ContentEntry = { id: 'versatile-gunslinger', name: 'Versatile Gunslinger', kind: 'feat', source: 'homebrew',
+    systems: ['pf2e'], level: 14, traits: ['Gunslinger'], description: '', data: { class: 'Gunslinger', repeatable: true }, effects: [], updatedAt: 0 }
+  const sniper: ContentEntry = { ...feat, id: 'sniper', kind: 'subclass', name: 'Way of the Sniper',
+    description: 'Sniper way benefits.', data: { class: 'Gunslinger', skill: 'Stealth' } }
+  const pistolero: ContentEntry = { ...feat, id: 'pistolero', kind: 'subclass', name: 'Way of the Pistolero',
+    description: 'Pistolero way benefits.', data: { class: 'Gunslinger', skill: 'Deception, Intimidation' } }
+  let c: Character = { ...emptyRanger(), className: 'Gunslinger', subclass: sniper.name, level: 14 }
+  const entries = [feat, sniper, pistolero]
+  const tree = () => FeatSlots({ c, entries, categories: ['class'], save: patch => { c = { ...c, ...patch } },
+    search: { 'class:14:0:open': '1', 'class:14:0:query': 'pistolero' }, onSearch: () => {} })
+  const label = 'L14 Class: Versatile Gunslinger (Way of the Pistolero - Intimidation)'
+  expect(renderToStaticMarkup(tree())).toContain(label)
+  expect(detailsMarkup(tree(), 'Versatile Gunslinger')).toContain('Pistolero way benefits.')
+  findButton(tree(), label)!()
+  expect(c.feats).toContainEqual(expect.objectContaining({ name: feat.name, choice: pistolero.name, slot: 'class:14:0' }))
+  expect(c.subclassSkillChoices?.[`Gunslinger:${pistolero.name}`]).toBe('Intimidation')
+  expect(renderToStaticMarkup(tree())).toContain('Versatile Gunslinger (Way of the Pistolero - Intimidation)')
+})
+
 it.each([
   { name: 'Unconventional Weaponry', count: 2 },
   { name: 'Unconventional Weaponry', count: 12 },

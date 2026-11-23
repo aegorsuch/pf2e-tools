@@ -48,7 +48,7 @@ const LABEL: Record<FeatSlotCategory, string> = {
   class: 'Class', ancestry: 'Ancestry', skill: 'Skill', general: 'General', archetype: 'Dedication', bonus: 'Bonus',
 }
 
-type FeatOption = { entry: ContentEntry; choice?: string; mastermindSkill?: string; methodologySkill?: string; value: string; label: string; disabled?: boolean }
+type FeatOption = { entry: ContentEntry; choice?: string; mastermindSkill?: string; methodologySkill?: string; gunslingerSkill?: string; value: string; label: string; disabled?: boolean }
 
 function FeatVariantGroup({ summary, autoOpen, count, renderOptions }: {
   summary: ReactNode; autoOpen: boolean; count: number; renderOptions: (limit: number) => ReactNode
@@ -250,7 +250,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     : name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : featSkillChoiceLabel(name, choice)
   const subclassDescription = (name: string, choice?: string) => {
     const classes: Record<string, string> = { 'Versatile Rogue': 'Rogue', 'Versatile Investigator': 'Investigator', 'Multifarious Muse': 'Bard',
-      'Second Innovation': 'Inventor', 'Third Innovation': 'Inventor', 'Order Explorer': 'Druid' }
+      'Versatile Gunslinger': 'Gunslinger', 'Second Innovation': 'Inventor', 'Third Innovation': 'Inventor', 'Order Explorer': 'Druid' }
     const className = classes[name]
     if (!choice || !className) return undefined
     const names = [choice, `${choice} Order`, ...(choice === 'Wild' ? ['Untamed', 'Untamed Order'] : [])]
@@ -304,6 +304,13 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           if (skillChoice?.options.length) return skillChoice.options.map(methodologySkill => ({
             entry, choice, methodologySkill, disabled, value: JSON.stringify([entry.name, choice, methodologySkill]),
             label: `${label} (${choice} - ${methodologySkill})`,
+          }))
+        }
+        if (entry.name === 'Versatile Gunslinger') {
+          const skillChoice = subclassSkillChoice({ ...c, className: 'Gunslinger', subclass: choice }, entries)
+          if (skillChoice?.options.length) return skillChoice.options.map(gunslingerSkill => ({
+            entry, choice, gunslingerSkill, disabled, value: JSON.stringify([entry.name, choice, gunslingerSkill]),
+            label: `${label} (${choice} - ${gunslingerSkill})`,
           }))
         }
         return [{ entry, choice, disabled, value: JSON.stringify([entry.name, choice]), label: `${label} (${choiceLabel(entry.name, choice)}${noImprovement ? ' - no improvement' : ''})` }]
@@ -360,6 +367,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       ...(option?.mastermindSkill ? { rogueRacketSkills: { ...c.rogueRacketSkills, Mastermind: option.mastermindSkill } } : {}),
       ...(option?.methodologySkill && option.choice ? {
         subclassSkillChoices: { ...c.subclassSkillChoices, [`Investigator:${option.choice}`]: option.methodologySkill },
+      } : {}),
+      ...(option?.gunslingerSkill && option.choice ? {
+        subclassSkillChoices: { ...c.subclassSkillChoices, [`Gunslinger:${option.choice}`]: option.gunslingerSkill },
       } : {}) })
   }
   const removeExtra = (category: FeatSlotCategory, level: number, key: string) => {
@@ -477,6 +487,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             ? `Mastermind - ${c.rogueRacketSkills.Mastermind}`
             : selection?.name === 'Versatile Investigator' && selectedChoice && c.subclassSkillChoices?.[`Investigator:${selectedChoice}`]
               ? `${selectedChoice} - ${c.subclassSkillChoices[`Investigator:${selectedChoice}`]}`
+              : selection?.name === 'Versatile Gunslinger' && selectedChoice && c.subclassSkillChoices?.[`Gunslinger:${selectedChoice}`]
+                ? `${selectedChoice} - ${c.subclassSkillChoices[`Gunslinger:${selectedChoice}`]}`
               : selectedChoice && choiceLabel(selection?.name ?? '', selectedChoice)
           const fixedOrSelectedLabel = selection && (fixedLabel(selection.name, selection.sourceId) ?? selectedLabel)
           const selectedName = selection

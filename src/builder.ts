@@ -1188,6 +1188,9 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         || character.className === 'Investigator' && feat.name === 'Versatile Investigator'
           && entries.some(entry => !entry.deleted && entry.kind === 'subclass' && entry.name === feat.choice
             && entry.data.class === 'Investigator' && entry.data.subclass_type !== 'fatal-method')
+        || character.className === 'Gunslinger' && feat.name === 'Versatile Gunslinger'
+          && entries.some(entry => !entry.deleted && entry.kind === 'subclass' && entry.name === feat.choice
+            && entry.data.class === 'Gunslinger')
       ) ? [feat.choice] : [])
       const museFeats = character.className === 'Bard' ? [subclass, ...additionalSubclasses].flatMap((name) => {
         const muse = entries.find((entry) => entry.kind === 'subclass' && entry.data.class === 'Bard' && entry.name === name)
@@ -2103,6 +2106,13 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     return subclassOptions({ ...c, className: 'Investigator' }, entries)
       .filter(method => method.data.subclass_type !== 'fatal-method' && !used.has(method.name))
       .map(method => method.name)
+  }
+  if (name === 'Versatile Gunslinger') {
+    const used = new Set([selectedSubclass(c, entries), ...c.feats.flatMap((feat, featIndex) =>
+      featIndex !== index && feat.name === name && featTakenLevel(feat) <= c.level && feat.choice ? [feat.choice] : [])])
+    return subclassOptions({ ...c, className: 'Gunslinger' }, entries)
+      .filter(way => !used.has(way.name))
+      .map(way => way.name)
   }
   if (name === 'Hold Mark') return ['Burning Sun', "Death's Head", 'Defiled Corpse', 'Empty Hand']
   if (name === 'Orc Warmask') return Object.keys(WARMASK_SOURCES)
@@ -3336,6 +3346,20 @@ export function subclassSkillGrants(c: Character, entries: ContentEntry[]): stri
   const erudite = eruditeWarrior(c)
   if (erudite) return [erudite.skill, ...(erudite.lore ? [erudite.lore] : [])]
   const subclass = selectedSubclass(c, entries)
+  if (c.className === 'Gunslinger') {
+    const ways = [...new Set([subclass, ...activeFeatsNamed(c, 'Versatile Gunslinger').map(feat => feat.choice)]
+      .filter((way): way is string => !!way))]
+    return [...new Set(ways.flatMap(way => {
+      const option = subclassOptions(c, entries).find(entry => entry.name === way)
+      if (!option) return []
+      const skills = tokens(option.data.skill)
+      if (way === 'Way of the Pistolero') {
+        const selected = c.subclassSkillChoices?.[`Gunslinger:${way}`]
+        return selected && skills.includes(selected) ? [selected] : []
+      }
+      return skills
+    }))]
+  }
   if (!subclass) return []
   if (c.className === 'Druid') return DRUID_ORDERS[subclass] ? [DRUID_ORDERS[subclass]] : []
   const option = subclassOptions(c, entries).find(entry => entry.name === subclass)
@@ -3522,7 +3546,8 @@ export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {
   const specials = build && typeof build === 'object' && 'class' in build && build.class === c.className
     && 'specials' in build && Array.isArray(build.specials) ? build.specials : []
   const names = new Set([...c.feats.flatMap((feat) => [feat.name,
-    ...(['Second Innovation', 'Third Innovation', 'Versatile Rogue', 'Versatile Investigator', 'Multifarious Muse', 'Widespread Fascination'].includes(feat.name) ? [] : [feat.choice])]), ...specials]
+    ...(['Second Innovation', 'Third Innovation', 'Versatile Rogue', 'Versatile Investigator', 'Versatile Gunslinger',
+      'Multifarious Muse', 'Widespread Fascination'].includes(feat.name) ? [] : [feat.choice])]), ...specials]
     .filter((name): name is string => typeof name === 'string').map((name) => name.replace(/ (?:Instinct|Order)$/, '')))
   if (c.className === 'Druid') {
     const explored = new Set(c.feats.flatMap((feat) => feat.name === 'Order Explorer' && feat.choice ? [normalizeDruidOrder(feat.choice)] : []))

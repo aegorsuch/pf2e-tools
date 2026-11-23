@@ -2026,6 +2026,19 @@ describe('shared prerequisite enforcement', () => {
       .toEqual([`${method} methodology`])
   })
 
+  it('recognizes a Way granted through Versatile Gunslinger for Way-specific prerequisites', () => {
+    const ways = ['Way of the Sniper', 'Way of the Pistolero']
+      .map(name => entry('subclass', name, { class: 'Gunslinger' }))
+    const feat = entry('feat', 'Pistolero Feat', { prerequisite: 'Way of the Pistolero' }, 16, ['Gunslinger'])
+    const versatile = { name: 'Versatile Gunslinger', type: 'Class Feat', level: 14,
+      slot: 'class:14:0', takenLevel: 14, choice: 'Way of the Pistolero' }
+    const gunslinger: Character = { ...base, className: 'Gunslinger', subclass: 'Way of the Sniper',
+      level: 16, feats: [versatile] }
+    expect(featPrerequisiteChecker(gunslinger, [...ways, feat])(feat)).toEqual({ missing: [], manual: [] })
+    expect(featPrerequisiteChecker({ ...gunslinger, feats: [] }, [...ways, feat])(feat).missing)
+      .toEqual(['Way of the Pistolero'])
+  })
+
   it('checks Witch patron tradition prerequisites such as arcane or primal patron', () => {
     const patron = entry('subclass', 'Wild', { class: 'Witch', tradition: 'Primal' })
     const witch = { ...base, className: 'Witch', subclass: 'Wild' }

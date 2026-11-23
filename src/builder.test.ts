@@ -2,7 +2,7 @@ import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQue
 import { mapAonHit } from './aon'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, investigatorSkillfulLessonSkills, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, selectedSubclass, investigatorSkillfulLessonSkills, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
@@ -1045,6 +1045,27 @@ describe('subclass skill grants', () => {
       }
       expect(subclassSkillGrants({ ...gunslinger, subclass: undefined }, entries)).toEqual([])
     } finally { updateSettings(previous) }
+  })
+
+  it('grants distinct additional Gunslinger ways and their selected skills', () => {
+    const ways = [
+      entry('subclass', 'Way of the Sniper', { class: 'Gunslinger', skill: 'Stealth' }),
+      entry('subclass', 'Way of the Vanguard', { class: 'Gunslinger', skill: 'Athletics' }),
+      entry('subclass', 'Way of the Pistolero', { class: 'Gunslinger', skill: 'Deception, Intimidation' }),
+    ]
+    const versatile = { name: 'Versatile Gunslinger', type: 'Class Feat', level: 14, slot: 'class:14:0',
+      takenLevel: 14, choice: 'Way of the Vanguard' }
+    const gunslinger = { ...base, className: 'Gunslinger', subclass: 'Way of the Sniper', level: 16, feats: [versatile] }
+    expect(selectedSubclass({ ...gunslinger, subclass: undefined }, ways)).toBeUndefined()
+    expect(subclassSkillGrants(gunslinger, ways)).toEqual(['Stealth', 'Athletics'])
+    expect(featChoiceOptions('Versatile Gunslinger', gunslinger, ways, 'class:16:0', -1))
+      .toEqual(['Way of the Pistolero'])
+
+    const pistolero = { ...versatile, slot: 'class:16:0', choice: 'Way of the Pistolero' }
+    const selected = { ...gunslinger, feats: [versatile, pistolero],
+      subclassSkillChoices: { 'Gunslinger:Way of the Pistolero': 'Intimidation' } }
+    expect(subclassSkillGrants(selected, ways)).toEqual(['Stealth', 'Athletics', 'Intimidation'])
+    expect(featChoiceOptions('Versatile Gunslinger', selected, ways, 'class:18:0', -1)).toEqual([])
   })
 
   it('parses Starfinder class choice and excludes subclass placeholders', () => {
