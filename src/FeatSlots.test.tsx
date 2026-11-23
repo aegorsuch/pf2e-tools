@@ -1757,6 +1757,22 @@ it('offers explicit favored-terrain variants and persists the chosen terrain', (
   ])
 })
 
+it.each(['Natural', 'Urban'])("offers and saves Shooter's Camouflage (%s)", choice => {
+  let c: Character = { ...emptyRanger(), className: 'Gunslinger', level: 12, rankOverrides: { Stealth: 3 } }
+  const feat: ContentEntry = {
+    id: 'shooters-camouflage', systems: ['pf2e'], kind: 'feat', name: "Shooter's Camouflage",
+    level: 12, traits: ['Gunslinger'], source: 'official', description: '',
+    data: { prerequisite: 'Master in Stealth' }, effects: [], updatedAt: 1,
+  }
+  const tree = () => FeatSlots({ c, entries: [feat], save: patch => { c = { ...c, ...patch } }, categories: ['class'] })
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain("Shooter&#x27;s Camouflage (Natural)")
+  expect(markup).toContain("Shooter&#x27;s Camouflage (Urban)")
+  findSelect(tree(), 'L12 Class feat')!({ target: { value: JSON.stringify([feat.name, choice]) } })
+  expect(c.feats).toContainEqual(expect.objectContaining({ name: feat.name, slot: 'class:12:0', choice }))
+  expect(renderToStaticMarkup(tree())).toContain(`Shooter&#x27;s Camouflage (${choice})`)
+})
+
 it.each([
   ['Hold Mark', 'Burning Sun', 'Diplomacy', 9],
   ['Orc Warmask', 'The Land', 'Nature', 1],

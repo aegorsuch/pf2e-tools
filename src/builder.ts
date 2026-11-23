@@ -1821,6 +1821,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       .filter(damage => damage !== c.elementalDamage).map(cap) : []
   }
   if (name === 'Planar Resilience' && c.systems.includes('pf2e')) return ['Cold', 'Fire']
+  if (name === "Shooter's Camouflage" && c.systems.includes('pf2e')) return ['Natural', 'Urban']
   if (name === 'Nephilim Resistance' && c.systems.includes('pf2e')) return NEPHILIM_RESISTANCE_TYPES
   if (name === 'Extraplanar Supplication' && c.systems.includes('pf2e')) return EXTRAPLANAR_SUPPLICATION_SPELLS
   if (name === 'Bestial Manifestation' && c.systems.includes('pf2e')) return ['Claw', 'Hoof', 'Jaws', 'Tail']
