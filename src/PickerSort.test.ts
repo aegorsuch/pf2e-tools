@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { sortPickerOptions } from './PickerSort'
 
 it.each(['name', 'level'] as const)('preserves locale ordering and stable ties when sorting by %s', order => {
@@ -18,4 +18,11 @@ it.each(['name', 'level'] as const)('preserves locale ordering and stable ties w
   })
   expect(sortPickerOptions(items, order, item => item.name, item => item.level)).toEqual(expected)
   expect(items.map(item => item.name)).toEqual(['Éclair', 'Alpha', 'eclair', 'Beta', 'alpha'])
+})
+
+it('skips name lookups when levels determine the order', () => {
+  const items = [{ name: 'Alpha', level: 2 }, { name: 'Beta', level: 1 }]
+  const name = vi.fn((item: typeof items[number]) => item.name)
+  expect(sortPickerOptions(items, 'level', name, item => item.level)).toEqual([items[1], items[0]])
+  expect(name).not.toHaveBeenCalled()
 })

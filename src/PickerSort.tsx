@@ -5,11 +5,13 @@ const pickerNameCollator = new Intl.Collator(undefined, { sensitivity: 'base' })
 export function sortPickerOptions<T>(items: readonly T[], order: PickerSortOrder,
   name: (item: T) => string, level: (item: T) => number | undefined): T[] {
   return [...items].sort((a, b) => {
-    const byName = pickerNameCollator.compare(name(a), name(b))
-    if (order === 'name') return byName
-    const aLevel = level(a) ?? Infinity
-    const bLevel = level(b) ?? Infinity
-    return (aLevel === bLevel ? 0 : aLevel - bLevel) || byName
+    if (order === 'level') {
+      const aLevel = level(a) ?? Infinity
+      const bLevel = level(b) ?? Infinity
+      const byLevel = aLevel === bLevel ? 0 : aLevel - bLevel
+      if (byLevel) return byLevel
+    }
+    return pickerNameCollator.compare(name(a), name(b))
   })
 }
 
