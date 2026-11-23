@@ -76,14 +76,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
       {!imported && <p>Class feature data is still loading.</p>}
       <MechanicFeatures c={c} save={save} />
       <WitchwarperFeatures c={c} save={save} />
-      {c.systems.includes('pf2e') && !!activeFeatsNamed(c, 'Inscribed Blast').length && <div className="row">
-        <span>Inscribed Blast{' '}
-          <DamageRoll name="Inscribed Blast" actions="Reaction" disabled={!!c.inscribedBlastUsed}
-            onRoll={() => save({ inscribedBlastUsed: true })}
-            damage={{ label: 'Damage', dice: 2 + (c.level >= 10 ? Math.floor((c.level - 5) / 5) : 0), sides: 4, type: 'force' }} />
-        </span>
-        {c.inscribedBlastUsed && <button type="button" onClick={() => save({ inscribedBlastUsed: false })}>Re-inscribe runes</button>}
-      </div>}
       {(c.className === 'Solarian' || activeFeatsNamed(c, 'Solarian Dedication').length > 0) && <div className="col" aria-label="Solarian manifestations">
         <label>Attunement{' '}
           <select aria-label="Solarian attunement" value={c.solarianAttunement ?? 'Graviton'}

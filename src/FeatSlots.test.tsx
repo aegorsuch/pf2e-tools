@@ -253,6 +253,18 @@ it('renders two separately saved Damaya Self-Perfection Lore choices', () => {
   expect(ranksAt(c, [])).toMatchObject({ 'Engineering Lore': 4, 'Warfare Lore': 4 })
 })
 
+it('shows an Inscribed Blast roll and use counter beside the feat', () => {
+  const feat: ContentEntry = { id: 'inscribed-blast', name: 'Inscribed Blast', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 5, traits: ['Automaton'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), systems: ['pf2e'], ancestry: 'Automaton', level: 5, feats: [
+    { name: 'Inscribed Blast', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' },
+  ] }
+  const render = (character: Character) => renderToStaticMarkup(FeatSlots({ c: character, entries: [feat], categories: ['ancestry'], save: () => {}, search: {}, onSearch: () => {} }))
+  expect(render(c)).toContain('Roll Inscribed Blast')
+  expect(render(c)).toContain('1/1')
+  expect(render({ ...c, inscribedBlastUsed: true })).toContain('0/1')
+})
+
 it('uses Iruxi Armaments variants without a trailing selector', () => {
   const c: Character = { ...emptyRanger(), ancestry: 'Lizardfolk', feats: [
     { name: 'Iruxi Armaments', type: 'Ancestry Feat', level: 1, choice: 'Claws' },

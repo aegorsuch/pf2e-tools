@@ -442,6 +442,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const showFeatActionControls = !!currentEntry && FEAT_ACTION_CONTROLS.has(currentEntry.name)
             && !!activeFeatsNamed(c, currentEntry.name).length
           const showWrathRoll = currentEntry?.name === 'Wrath of the Hold' && !!activeFeatsNamed(c, currentEntry.name).length
+          const showInscribedBlast = c.systems.includes('pf2e') && currentEntry?.name === 'Inscribed Blast' && !!activeFeatsNamed(c, currentEntry.name).length
           const showAcidicSpitRoll = c.systems.includes('sf2e') && currentEntry?.name === 'Acidic Spit'
             && !!activeFeatsNamed(c, currentEntry.name).length
           const access = currentEntry ? featAccess(c, currentEntry) : undefined
@@ -594,7 +595,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               ) : current ? (
                 current === 'N/A' ? <span>N/A</span> : <>
                   <EntryDescription character={c} name={selectedName} entry={currentEntry} choice={selection?.choice} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} grantSource={grantSource}
-                    buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showAcidicSpitRoll}
+                    buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showAcidicSpitRoll || showInscribedBlast}
                     descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                       : selection?.choice && DOMAIN_FEATS.includes(selection.name)
                         ? domainSpellDescription(c, entries, selection.name, selection.choice)
@@ -602,6 +603,13 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   {showFeatActionControls && <FeatActionControls c={c} entries={entries} save={save} entry={currentEntry} />}
                   {showWrathRoll && <DamageRoll name="Wrath of the Hold" actions="Two Actions" toggleResult
                     damage={{ label: 'Damage', dice: 4 + Math.floor((c.level - 8) / 2), sides: 6, type: 'spirit' }} />}
+                  {showInscribedBlast && <>
+                    <DamageRoll name="Inscribed Blast" actions="Reaction" disabled={!!c.inscribedBlastUsed}
+                      onRoll={() => save({ inscribedBlastUsed: true })}
+                      damage={{ label: 'Damage', dice: 2 + (c.level >= 10 ? Math.floor((c.level - 5) / 5) : 0), sides: 4, type: 'force' }} />
+                    <button type="button" aria-label="Inscribed Blast uses" title="Click to toggle runes intact or faded"
+                      onClick={() => save({ inscribedBlastUsed: !c.inscribedBlastUsed })}>{c.inscribedBlastUsed ? 0 : 1}/1</button>
+                  </>}
                   {showAcidicSpitRoll && <DamageRoll name="Acidic Spit" actions="Two Actions" toggleResult
                     damage={{ label: 'Damage', dice: c.level >= 16 ? 11 : 8, sides: 6, type: 'acid' }} />}
                 </>
