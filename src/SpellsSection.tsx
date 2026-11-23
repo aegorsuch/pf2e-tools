@@ -410,14 +410,17 @@ export function CreatureShapeOptions({ c, entries, save, rank }: SectionProps & 
   const shirren = c.ancestry === 'Shirren'
   const spell = shirren ? 'Insect Form' : 'Animal Form'
   const active = isSpellActive(c, entries, spell) && !!c.creatureShape
-  const form = c.creatureShape && (shirren ? insectBattleForm(c.creatureShape.form, rank, c.level)
+  const form = c.creatureShape && (shirren ? insectBattleForm('Ant', rank, c.level)
     : animalBattleForm(c.creatureShape.form, c.creatureShape.rank, c.level))
   const lashunta = c.ancestry === 'Lashunta'
-  const options = shirren ? INSECT_FORMS : lashunta ? LASHUNTA_CREATURE_FORMS : [...ANIMAL_FORMS, CAYPIN_FORM]
+  const options = lashunta ? LASHUNTA_CREATURE_FORMS : [...ANIMAL_FORMS, CAYPIN_FORM]
   const label = shirren ? 'Kucharn' : lashunta ? 'Creature Shape' : 'Caypin'
   return <fieldset className="col">
     <legend>{label} form</legend>
-    <label>Battle form{' '}
+    {shirren ? <label><input type="checkbox" aria-label="Kucharn form active" checked={active}
+      onChange={event => save({ ...spellActiveChange(c, spell, event.target.checked),
+        creatureShape: event.target.checked ? { form: 'Ant', rank } : undefined })} /> Active</label>
+      : <label>Battle form{' '}
       <select aria-label={`${label} battle form`} value={active ? c.creatureShape?.form ?? '' : ''}
         onChange={event => {
           if (!options.some(option => option.name === event.target.value)) return
@@ -426,11 +429,11 @@ export function CreatureShapeOptions({ c, entries, save, rank }: SectionProps & 
         <option value="">Choose form</option>
         {options.map(option => <option key={option.name}>{option.name}</option>)}
       </select>
-    </label>
+    </label>}
     {active && form && <p>{form.size}; AC {form.ac}; temporary HP {form.temporaryHp}; Speed {form.speed} feet;
       attack {signed(form.attack)}; Athletics {signed(form.athletics)}.</p>}
     <SourceNote source="Creature Shape" note={shirren
-      ? 'Use the closest battle form chosen by the GM for your kucharn form. Use your normal AC if higher.'
+      ? 'Uses ant battle form statistics for kucharn; GM approval required. Use your normal AC if higher.'
       : lashunta
       ? 'Shotalashu and Squox battle forms are custom options requiring GM approval. Use your normal AC if higher.'
       : 'Caypin battle form is a custom option requiring GM approval; other forms use the closest battle form chosen by the GM. Use your normal AC if higher.'} />

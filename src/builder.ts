@@ -5961,7 +5961,7 @@ export function activeBattleForm(c: Character, entries: ContentEntry[]) {
       if (form) return form
     } else if (name === 'Insect Form' && c.systems.includes('sf2e') && c.ancestry === 'Shirren' && c.creatureShape) {
       const grant = grantedFeatSpells(c, entries).find(item => item.source === 'Creature Shape' && item.entry.name === name)
-      const form = grant && insectBattleForm(c.creatureShape.form, grant.rank, c.level)
+      const form = grant && insectBattleForm('Ant', grant.rank, c.level)
       if (form) return { ...form, source: 'Creature Shape' }
     } else if (name === 'Animal Form') {
       const creatureShape = grantedFeatSpells(c, entries).find(grant => grant.source === 'Creature Shape' && grant.entry.name === name)

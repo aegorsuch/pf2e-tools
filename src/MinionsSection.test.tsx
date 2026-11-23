@@ -194,7 +194,7 @@ it('grants Lashunta Creature Shape as occult Animal Form with two custom creatur
   expect(spellActiveChange(c, 'Dinosaur Form', true).creatureShape).toBeUndefined()
 })
 
-it('grants Shirren Creature Shape as occult Insect Form for a GM-selected kucharn form', () => {
+it('grants Shirren Creature Shape as occult Insect Form using the ant form', () => {
   const previous = getSettings().innateAutoHeighten
   updateSettings({ innateAutoHeighten: false })
   onTestFinished(() => updateSettings({ innateAutoHeighten: previous }))
@@ -216,16 +216,18 @@ it('grants Shirren Creature Shape as occult Insect Form for a GM-selected kuchar
   expect(unresolvedFeatSpells(c, [])).toContainEqual(expect.objectContaining({ name: 'Insect Form' }))
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)
   expect(markup).toContain('Occult Spell Rank 8')
-  expect(markup).toContain('aria-label="Kucharn battle form"')
+  expect(markup).toContain('aria-label="Kucharn form active"')
+  expect(markup).not.toContain('aria-label="Kucharn battle form"')
   expect(markup).not.toContain('<option>Bear</option>')
   const normalAC = armorClass(c, entries)
   const shape = () => CreatureShapeOptions({ c, entries, save, rank: 8 })
-  findSelect(shape(), 'Kucharn battle form')!({ target: { value: 'Ant' } })
+  findToggle(shape(), 'Kucharn form active')!({ target: { checked: true } })
   expect(activeBattleForm(c, entries)).toMatchObject({ name: 'Ant', source: 'Creature Shape', rank: 8,
     speed: 30, climbSpeed: 30, temporaryHp: 20,
     attacks: [expect.objectContaining({ name: 'Ant Mandibles', data: expect.objectContaining({ damage: '4d6 bludgeoning' }) })] })
   expect(armorClass(c, entries)).toBe(Math.max(normalAC, 35))
   expect(ownedWeapons(c, entries).map(weapon => weapon.name)).toEqual(['Ant Mandibles'])
+  expect(activeBattleForm({ ...c, creatureShape: { form: 'Spider', rank: 8 } }, entries)?.name).toBe('Ant')
   expect(activeBattleForm({ ...c, feats: [] }, entries)).toBeUndefined()
   expect(spellActiveChange(c, 'Dinosaur Form', true).activeSpells).not.toContain('Insect Form')
 })
