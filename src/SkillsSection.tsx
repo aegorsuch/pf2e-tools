@@ -665,6 +665,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {s.kind === 'save' && artifactNotes.map(source => <SourceNote key={source} inlineSource={false} source={source} note={artifactSaves[source]} />)}
           {s.kind === 'skill' && hasDivineIntercession(c, 'Kazutal', 'major-boon') && <SourceNote inlineSource={false}
             source="Kazutal (Major Boon)" note="When you Aid, or another creature Aids you, the helper can automatically succeed. If rolling, a success becomes a critical success granting +4 circumstance, regardless of proficiency. Applies only to Aid, not ordinary checks." />}
+          {s.name === 'Religion' && !!activeFeatsNamed(c, 'Prayer for Aid').length && <SourceNote source="Prayer for Aid"
+            note="When you pray while preparing to Aid, you may roll Religion for the Aid reaction. Both actions gain the divine trait. You automatically critically fail to Aid creatures actively committing your deity's anathema or actions your deity considers anathema." />}
           {armorSkill && <SourceNote inlineSource={false} source={armorSkill.source} note={`+${armorSkill.value} circumstance bonus during Overdrive.`} />}
           {['Deception', 'Diplomacy', 'Intimidation', 'Performance'].includes(s.name) && !!activeFeatsNamed(c, 'Shiny').length
             && <SourceNote inlineSource={false} source="Shiny" note={`${s.name} ${conditionalTotal(3)} when using Aid.`} />}

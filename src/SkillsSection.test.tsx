@@ -1960,6 +1960,17 @@ it('applies Athletic Rush to Athletics and Speed only while the known spell is a
   }
 })
 
+it('shows Prayer for Aid on Religion only while the feat is active', () => {
+  const c: Character = { ...base, level: 2, feats: [{ name: 'Prayer for Aid', type: 'Class Feat', level: 2 }] }
+  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[ranger]} save={() => {}} />)
+  const markup = render(c)
+  expect(markup).toContain('aria-label="Prayer for Aid note"')
+  expect(markup).toContain('you may roll Religion for the Aid reaction')
+  expect(markup).toContain('automatically critically fail')
+  expect(render({ ...c, feats: [] })).not.toContain('Prayer for Aid note')
+  expect(render({ ...c, level: 1 })).not.toContain('Prayer for Aid note')
+})
+
 it('marks Shiny Aid bonuses without adding them to ordinary skill totals', () => {
   const c: Character = { ...base, systems: ['sf2e'], feats: [{ name: 'Shiny', type: 'Ancestry Feat', level: 1 }] }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger]} save={() => {}} />)

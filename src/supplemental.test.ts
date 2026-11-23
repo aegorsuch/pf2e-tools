@@ -138,6 +138,32 @@ it('provides requested Cleric and Ranger homebrew actions', () => {
   expect(entries.find(entry => entry.id === 'homebrew:guiding-heal')?.traits).toEqual(['Cleric', 'Concentrate', 'Spellshape'])
 })
 
+it('offers Mobile Hunter to rangers as a traversal action', () => {
+  const entries = homebrewCharacterOptions([])
+  const feat = entries.find(entry => entry.id === 'homebrew:mobile-hunter')!
+  const slot = { key: 'class:1:0', category: 'class' as const, level: 1 }
+  expect(feat).toMatchObject({ name: 'Mobile Hunter', level: 1, source: 'homebrew',
+    traits: ['Ranger', 'Traversal'], data: { class: 'Ranger', actions: 'Single Action' } })
+  expect(feat.description).toContain('You Stride and then Hunt Prey.')
+  expect(groupHomebrew(entries).find(group => group.name === 'Ranger Feats')?.entries).toContain(feat)
+  expect(eligibleFeats(entries, { ...base, className: 'Ranger', level: 1 }, slot)).toContain(feat)
+  expect(eligibleFeats(entries, { ...base, className: 'Druid', level: 1 }, slot)).not.toContain(feat)
+})
+
+it('offers Prayer for Aid to clerics starting at level 2', () => {
+  const entries = homebrewCharacterOptions([])
+  const feat = entries.find(entry => entry.id === 'homebrew:prayer-for-aid')!
+  const slot = { key: 'class:2:0', category: 'class' as const, level: 2 }
+  const cleric = { ...base, className: 'Cleric', level: 2 }
+  expect(feat).toMatchObject({ name: 'Prayer for Aid', level: 2, source: 'homebrew',
+    traits: ['Cleric'], data: { class: 'Cleric' } })
+  expect(feat.description).toContain('automatically critically fail')
+  expect(groupHomebrew(entries).find(group => group.name === 'Cleric Feats')?.entries).toContain(feat)
+  expect(eligibleFeats(entries, cleric, slot)).toContain(feat)
+  expect(eligibleFeats(entries, cleric, { ...slot, level: 1 })).not.toContain(feat)
+  expect(eligibleFeats(entries, { ...cleric, className: 'Ranger' }, slot)).not.toContain(feat)
+})
+
 it('offers level-20 Tethered weapon feats for each weapon feature', () => {
   const entries = homebrewCharacterOptions([])
   expect(entries.find(entry => entry.name === 'Tethered Living Weapon')).toMatchObject({
