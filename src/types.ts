@@ -262,6 +262,7 @@ export interface Character {
   runicTattooFaded?: boolean
   runicRepertoire?: string[]
   etchedRunes?: string[]
+  runeTraditions?: Record<string, string>
   coreCannonUsed?: boolean
   scouringRageDamage?: string
   giantStature?: 'Large' | 'Huge'

@@ -887,6 +887,8 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
   }
   return [...missingBoonSpells, ...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
+    if (c.systems.includes('pf2e') && ['Arcane Eye', 'Astral Blink', 'Axial Recall', 'Messenger', 'Overburn', 'Core Attunement',
+      'Backup Runic Enhancement'].includes(feat.name)) return []
     if (feat.name === 'Celestial Mercy' && c.systems.includes('pf2e')) {
       return matchingSpells(entries, 'Cleanse Affliction').some(entry => entry.systems.includes('pf2e'))
         ? [] : [{ name: 'Cleanse Affliction', source }]
