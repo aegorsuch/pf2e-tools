@@ -69,6 +69,12 @@ const MATERIALS: Record<string, string> = {
   'Phoenix Fighting Fan': 'Silver', "Sorshen's Sinuous Guisarme": 'Dawnsilver (High-Grade)',
 }
 
+const ELEMENTAL_GAUNTLETS: Record<string, { rune: string; damage: string }> = {
+  Corrosive: { rune: 'Corrosive', damage: 'acid' }, Frost: { rune: 'Frost', damage: 'cold' }, Shock: { rune: 'Shock', damage: 'electricity' },
+}
+const SCALDING_RUNES: Record<string, string> = { 'Scalding Gauntlet': 'Flaming',
+  ...Object.fromEntries(Object.entries(ELEMENTAL_GAUNTLETS).map(([element, { rune }]) => [`${element} Gauntlet`, rune])) }
+export const ELEMENTAL_GAUNTLET_SOURCES = Object.keys(SCALDING_RUNES)
 const runeBase = (rune: string) => rune.replace(/ \((?:Lesser|Greater|Major|True)\)$/, '')
 
 function artifactRunes(entry: ContentEntry, runes: string) {
@@ -135,7 +141,7 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
   const items = entries.filter(entry => entry.kind === 'item' && !entry.deleted
     && entry.name !== 'Wintershot' && !/^Scalding Gauntlets \(/.test(entry.name) && entry.name !== "Meloth's Lifedrinker"
     && (entry.data.item_subcategory === 'Specific Magic Weapons' || entry.name === 'Wintershot (Artifact)' || !!BASES[entry.name]))
-  return items.flatMap(item => {
+  const result = items.flatMap(item => {
     const sourceName = item.name === "Meloth's Lifedrinker (Improved)" ? "Meloth's Lifedrinker"
       : item.name === "Clear Cutter's Axe" ? "Clear Cutter's Hatchet" : item.name === 'Scalding Gauntlets' ? 'Scalding Gauntlet' : item.name
     const originalBase = (item.name === 'Serithtial' ? 'Longsword' : undefined)
@@ -215,18 +221,29 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
       return [{ ...entry, id: item.id, name: item.name, data: { ...data, named_weapon_resolver_only: true } }, entry]
     })
   })
+  const elemental = result.filter(entry => entry.data.named_weapon_source === 'Scalding Gauntlet' && !entry.data.named_weapon_resolver_only)
+  return [...result, ...Object.entries(ELEMENTAL_GAUNTLETS).flatMap(([element, { rune, damage }]) => elemental.map((entry): ContentEntry => {
+    const label = `${element} Gauntlet`
+    const rename = (text: string) => text.replace(/Scalding Gauntlets?/g, label).replace(/persistent fire/g, `persistent ${damage}`)
+      .replace(/\bflaming\b/gi, rune.toLowerCase())
+    return { ...entry, id: `${entry.id}:${element.toLowerCase()}`, name: rename(entry.name), description: rename(entry.description),
+      traits: entry.traits.map(trait => trait.toLowerCase() === 'fire' ? damage[0].toUpperCase() + damage.slice(1) : trait),
+      data: { ...entry.data, named_weapon_source: label,
+        named_weapon_runes: String(entry.data.named_weapon_runes ?? '').split(';').filter(r => r && runeBase(r) !== 'Flaming').join(';') } }
+  }))]
 }
 
 export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: OwnedWeapon, level?: number) {
   if (!entry?.data.named_weapon) return entry
   const source = entry.data.named_weapon_source
-  if (source === 'Scalding Gauntlet') {
+  if (typeof source === 'string' && SCALDING_RUNES[source]) {
     const at = level ?? entry.level
+    const element = SCALDING_RUNES[source]
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
     return { ...entry, data: { ...entry.data,
       named_weapon_potency: at >= 18 ? 3 : 2, named_weapon_striking: at >= 13 ? 2 : 1,
-      named_weapon_runes: [...new Set([...runes.filter(rune => runeBase(rune) !== 'Flaming'),
-        at >= 18 ? 'Flaming (Greater)' : 'Flaming', 'Hooked', 'Grappling', 'Grievous'])].join(';') } }
+      named_weapon_runes: [...new Set([...runes.filter(rune => runeBase(rune) !== 'Flaming' && runeBase(rune) !== element),
+        at >= 18 ? `${element} (Greater)` : element, 'Hooked', 'Grappling', 'Grievous'])].join(';') } }
   }
   if (source === 'Fungicidal Hatchet') {
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)

@@ -9,7 +9,7 @@ export function specificMagicItemName(entry: ContentEntry | undefined, name = en
   const sourceName = String(entry?.data.named_weapon_source ?? name)
   if (sourceName === 'Coldstar Pistols') return `Coldstar Dueling Pistol${Number(entry?.data.hands) === 1 ? '' : 's'}`
   if (sourceName === 'Axe of the Dwarven Lords') return sourceName
-  if (sourceName === 'Scalding Gauntlet') return `Scalding ${entry?.data.named_weapon_base ?? 'Gauntlet'}`
+  if (/^(?:Scalding|Corrosive|Frost|Shock) Gauntlet$/.test(sourceName)) return `${sourceName.split(' ')[0]} ${entry?.data.named_weapon_base ?? 'Gauntlet'}`
   const rawBase = String(entry?.data.named_armor_base ?? entry?.data.named_weapon_base
     ?? (entry?.data.named_shield || sourceName === 'Scale of Igroon' ? 'Shield' : ''))
   const base = !!entry?.data.named_armor_elven && rawBase === 'Chain Shirt' ? 'Elven Chain Shirt' : rawBase

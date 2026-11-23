@@ -33,7 +33,7 @@ import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
 import { divineAttackDamage, hasDivineIntercession, TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
 import { characterHeritages, characterSize, elfAtavismOptions, isVersatileHeritage } from './heritages'
 import { fatalMethodGrants, selectedFatalMethod } from './fatalMethods'
-import { makeNamedWeaponEntries, namedWeaponBaseName, namedWeaponDamage, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
+import { ELEMENTAL_GAUNTLET_SOURCES, makeNamedWeaponEntries, namedWeaponBaseName, namedWeaponDamage, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
 export { heritagesFor, isVersatileHeritage } from './heritages'
 
 export type Ability = keyof Character['abilities']
@@ -6917,7 +6917,7 @@ export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEnt
       && weapon.id !== OVERSIZED_THROW.id && weapon.name !== SHIELD_BASH.name
       && weapon.name !== HAFT_STRIKER_WEAPON.name
     || !!shieldAttachmentSource(c, weapon) && weapon.name !== SHIELD_BASH.name
-    || ["Hunter's Dawn", "Clear Cutter's Hatchet", 'Fungicidal Hatchet', 'Scalding Gauntlet'].includes(String(weaponEntry(entries, weapon.name, weapon.id)?.data.named_weapon_source))
+    || ["Hunter's Dawn", "Clear Cutter's Hatchet", 'Fungicidal Hatchet', ...ELEMENTAL_GAUNTLET_SOURCES].includes(String(weaponEntry(entries, weapon.name, weapon.id)?.data.named_weapon_source))
     || weapon.name === 'Bladed Gauntlet' && !!armorGauntlet(c, entries)?.locked
     || deityWeapon(c, entries)?.id === weapon.id
     || isGrantedDwarfClanWeapon(c, entries, weapon)

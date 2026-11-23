@@ -91,7 +91,7 @@ it('implements Debilitating Dart as a returning dart with its conditional saving
       expect(maxLevel).toContain('>Cunning</button>')
       expect(maxLevel).not.toContain(' + Cunning')
       expect(maxLevel).toContain('>Thrown 40</button>')
-      if (!displayOnly) expect(maxLevel).toContain('>Orichalcum</button>')
+      expect(maxLevel).not.toContain('>Orichalcum</button>')
     }
   }
   expect(gearPickerEntries([item], 'weapon').some(entry => entry.name === item.name)).toBe(false)
@@ -512,7 +512,7 @@ it('uses the canonical Axe of the Dwarven Lords name and fixed Orichalcum', () =
     const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [weapon] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)
     expect(html).toContain(`>${name}</button>`)
     expect(html).not.toContain(`${name} Dwarven Waraxe`)
-    if (!displayOnly) expect(html).toContain('>Orichalcum</button>')
+    expect(html).not.toContain('>Orichalcum</button>')
   }
 })
 
@@ -873,8 +873,13 @@ it('scales Scalding Gauntlets potency, striking and Flaming with level and hides
   const plain: ContentEntry = { ...gauntlet, id: 'gauntlet', name: 'Gauntlet', data: { ...gauntlet.data, damage: '1d4 bludgeoning' } }
   const bladed: ContentEntry = { ...gauntlet, id: 'bladed', name: 'Bladed Gauntlet', data: { ...gauntlet.data, damage: '1d4 slashing' } }
   const entries = makeNamedWeaponEntries([gauntlet, plain, bladed, { ...gauntlet, id: 'clawed', name: 'Clawed Gauntlet' }, item, greater], [{ name: 'Flaming' }])
-  expect(entries.map(entry => entry.name).sort()).toEqual(['Scalding Gauntlet (Bladed Gauntlet)', 'Scalding Gauntlet (Clawed Gauntlet)',
+  expect(entries.map(entry => entry.name).filter(name => name.startsWith('Scalding')).sort()).toEqual(['Scalding Gauntlet (Bladed Gauntlet)', 'Scalding Gauntlet (Clawed Gauntlet)',
     'Scalding Gauntlet (Gauntlet)', 'Scalding Gauntlet (Spiked Gauntlet)', 'Scalding Gauntlets'])
+  expect(entries.map(entry => entry.name).filter(name => name.startsWith('Frost')).sort()).toEqual(['Frost Gauntlet (Bladed Gauntlet)',
+    'Frost Gauntlet (Clawed Gauntlet)', 'Frost Gauntlet (Gauntlet)', 'Frost Gauntlet (Spiked Gauntlet)'])
+  const shock = entries.find(entry => entry.name === 'Shock Gauntlet (Clawed Gauntlet)')!
+  expect(withNamedWeaponState(shock, owned(shock.name), 18)?.data.named_weapon_runes).toBe('Shock (Greater);Hooked;Grappling;Grievous')
+  expect(specificMagicItemName(shock)).toBe('Shock Clawed Gauntlet')
   expect(entries.find(entry => entry.name === 'Scalding Gauntlet (Gauntlet)')?.data.named_weapon_base).toBe('Gauntlet')
   const at = (level: number) => withNamedWeaponState(entries[1], owned('Scalding Gauntlet'), level)?.data
   expect(at(11)).toMatchObject({ named_weapon_potency: 2, named_weapon_striking: 1,
