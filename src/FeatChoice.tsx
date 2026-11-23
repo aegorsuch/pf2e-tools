@@ -2,7 +2,7 @@ import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompani
 import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, orderMagicOptions, statDefs, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
 import { automaticFeatGrants } from './builder'
 import type { SectionProps } from './builder'
-import { DOMAIN_FEATS, automaticFeatChoiceKey, featSpellOptions } from './featSpells'
+import { DOMAIN_FEATS, automaticFeatChoiceKey, coreAttunementOptions, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
 import { SearchableSelect } from './SearchableSelect'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
@@ -410,6 +410,25 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </SearchableSelect>
       {choice && !options.includes(choice) && <small>Saved domain is unavailable for the current deity or earlier feat choices.</small>}
     </span>
+  }
+  if (feat.name === 'Core Attunement' && c.systems.includes('pf2e')) {
+    const chosen = (feat.choice ?? '').split('|')
+    return <span className="feat-choice">{([0, 1] as const).map(slot => {
+      const options = coreAttunementOptions(c, entries, slot)
+      return <SearchableSelect key={slot} aria-label={`Core Attunement ${slot === 0 ? '1st-rank' : '2nd-rank or lower'} spell`} value={chosen[slot] ?? ''}
+        optionLevel={value => options.find(spell => spell.name === value)?.level}
+        optionSpell={value => options.find(spell => spell.name === value)} onChange={event => {
+        const name = event.target.value
+        if (name && !options.some(spell => spell.name === name)) return
+        const next = [chosen[0] ?? '', chosen[1] ?? '']
+        next[slot] = name
+        const choice = next[0] || next[1] ? next.join('|') : undefined
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+      }}>
+        <option value="">{slot === 0 ? 'Choose 1st-rank spell' : 'Choose 2nd-rank or lower spell'}</option>
+        {[...new Set(options.map(spell => spell.name))].map(name => <option key={name}>{name}</option>)}
+      </SearchableSelect>
+    })}</span>
   }
   const spellOptions = featSpellOptions(c, entries, feat)
   if (['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip', 'Free Heart', 'Bone Magic', 'Widespread Fascination', 'Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon'].includes(feat.name)) return null

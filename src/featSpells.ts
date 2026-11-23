@@ -326,6 +326,16 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
+export function coreAttunementOptions(c: Character, entries: ContentEntry[], slot: 0 | 1) {
+  if (!c.systems.includes('pf2e')) return []
+  return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e')
+    && (slot === 0 ? spell.level === 1 : spell.level >= 1 && spell.level <= 2)
+    && !spell.traits.some(trait => /^(?:cantrip|focus)$/i.test(trait))
+    && String(spell.data.tradition ?? '').toLowerCase().split(/,\s*/).includes('arcane')
+    && spellAccessGranted(c, spell))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
 export function boneMagicChoiceOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   return [...new Set((featSpellOptions(c, entries, feat) ?? []).flatMap(spell =>
     (['occult', 'primal'] as const)
@@ -411,6 +421,15 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (feat.name === 'Core Attunement' && c.systems.includes('pf2e')) {
+      for (const [slot, name] of (feat.choice ?? '').split('|').entries()) {
+        const entry = slot < 2 && name ? coreAttunementOptions(c, entries, slot as 0 | 1).find(spell => spell.name === name) : undefined
+        if (entry) out.push({ entry, source: feat.name,
+          rule: { kind: 'innate', spells: [entry.name], tradition: 'arcane', frequency: 'once per day', fixedRank: true },
+          rank: entry.level, usageKey: JSON.stringify([selection, feat.name, slot, entry.name.toLowerCase()]) })
+      }
+      continue
+    }
     if (feat.name === 'Overburn' && c.systems.includes('pf2e')) {
       const entry = matchingSpells(entries, 'Haste').find(spell => spell.systems.includes('pf2e'))
       if (entry) out.push({ entry, source: feat.name,

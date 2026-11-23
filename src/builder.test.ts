@@ -4,6 +4,7 @@ import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
 import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice } from './builder'
 import { getSettings, updateSettings } from './settings'
+import { coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting } from './builder'
 import { hasRemainingFeatSelections } from './builder'
@@ -566,6 +567,25 @@ it.each(['Diplomacy', 'Intimidation'])('grants Nephilim Lore %s and chosen plana
   const trained = { ...c, className: 'Theologian' }
   expect(additionalSkillCount(trained, [klass]) - additionalSkillCount({ ...trained, feats: [] }, [klass])).toBe(2)
   expect(featLores({ ...c, feats: [] }, [])).not.toContain('Heaven Lore')
+})
+
+it('grants Core Attunement two chosen arcane innate spells once per day', () => {
+  const spell = (name: string, level: number, tradition = 'arcane') => ({ ...entry('spell', name, { tradition }, level), traits: [] })
+  const spells = [spell('Fear', 1), spell('Mirror Image', 2), spell('Fireball', 3), spell('Heal', 1, 'divine')]
+  const feat = { name: 'Core Attunement', type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0', choice: 'Fear|Mirror Image' }
+  const c: Character = { ...base, level: 9, feats: [feat] }
+  expect(coreAttunementOptions(c, spells, 0).map(item => item.name)).toEqual(['Fear'])
+  expect(coreAttunementOptions(c, spells, 1).map(item => item.name)).toEqual(['Fear', 'Mirror Image'])
+  expect(grantedFeatSpells(c, spells).filter(grant => grant.source === 'Core Attunement').map(grant => grant.entry.name))
+    .toEqual(['Fear', 'Mirror Image'])
+})
+
+it('offers Arcane Locomotion climb and swim variants granting a 20 foot Speed', () => {
+  const feat = { name: 'Arcane Locomotion', type: 'Ancestry Feat', level: 13, slot: 'ancestry:13:0', choice: 'Swim' }
+  const c: Character = { ...base, systems: ['pf2e'], level: 13, feats: [feat] }
+  expect(featChoiceOptions(feat.name, c, [], feat.slot)).toEqual(['Climb', 'Swim'])
+  expect(movementSpeeds(c, []).find(speed => speed.name === 'Swim')?.feet).toBe(20)
+  expect(movementSpeeds(c, []).some(speed => speed.name === 'Climb')).toBe(false)
 })
 
 it('offers Magical Resistance energy variants and grants the selected resistance 5', () => {

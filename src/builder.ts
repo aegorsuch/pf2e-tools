@@ -1837,6 +1837,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   }
   if (name === 'Bestial Manifestation' && c.systems.includes('pf2e')) return ['Claw', 'Hoof', 'Jaws', 'Tail']
   if (name === 'Sublime Mobility' && c.systems.includes('pf2e')) return ['Climb', 'Swim']
+  if (name === 'Arcane Locomotion' && c.systems.includes('pf2e')) return ['Climb', 'Swim']
   if (name === 'Nephilim Lore' && c.systems.includes('pf2e')) return ['Diplomacy', 'Intimidation']
   if (name === 'Sanctified Soul' && c.systems.includes('pf2e')) return ['Holy', 'Unholy']
   if (name === 'Energized Spark' && c.systems.includes('pf2e')) {
@@ -2772,6 +2773,9 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
   }
   if (activeFeatsNamed(c, 'Natural Swimmer').length) movement.push(fixed('Swim', 15, 'Natural Swimmer'))
   if (c.systems.includes('pf2e')) {
+    for (const feat of activeFeatsNamed(c, 'Arcane Locomotion')) {
+      if (feat.choice === 'Climb' || feat.choice === 'Swim') movement.push(fixed(feat.choice, 20, feat.name))
+    }
     for (const feat of activeFeatsNamed(c, 'Sublime Mobility')) {
       if (feat.choice === 'Climb' || feat.choice === 'Swim') movement.push(fixed(feat.choice, 10, feat.name))
     }
