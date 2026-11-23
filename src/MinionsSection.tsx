@@ -437,7 +437,7 @@ export function FollowerCards({ c, entries, save }: SectionProps) {
       {follower?.type === 'Adept' && Array.from({ length: stage >= 2 ? 3 : 2 }, (_, slot) => {
         const selected = follower.energyTypes ?? []
         const choices = slot === 2 ? [...ADEPT_NOVICE_ENERGY, ...ADEPT_VETERAN_ENERGY] : ADEPT_NOVICE_ENERGY
-        return <label key={slot}>Energy {slot + 1} <select aria-label={`Follower ${index + 1} energy ${slot + 1}`}
+        return <select key={slot} aria-label={`Follower ${index + 1} energy ${slot + 1}`}
           value={selected[slot] ?? ''} onChange={event => {
             const energyTypes = [...selected]
             while (energyTypes.length <= slot) energyTypes.push('')
@@ -446,7 +446,7 @@ export function FollowerCards({ c, entries, save }: SectionProps) {
           }}>
           <option value="">Choose energy...</option>
           {choices.map(energy => <option key={energy} disabled={selected.slice(0, stage >= 2 ? 3 : 2).some((value, i) => i !== slot && value === energy)}>{energy}</option>)}
-        </select></label>
+        </select>
       })}
       {stats && <>
         <div className="gear-stats">{ABILITIES.map(ability => <span key={ability}><small>{ABILITY_LABEL[ability]}</small>{signed(stats.attributes[ability])}</span>)}</div>
