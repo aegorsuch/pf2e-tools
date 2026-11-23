@@ -21,6 +21,48 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it.each([
+  ["Drifter's Juke", 'Drifter', 6],
+  ['Phalanx Breaker', 'Vanguard', 6],
+  ["Pistolero's Challenge", 'Pistolero', 6],
+  ["Sniper's Aim", 'Sniper', 6],
+  ['Triggerbrand Salvo', 'Triggerbrand', 6],
+  ['Spellshot Dedication', 'Spellshot', 2],
+  ['Disruptive Blur', 'Drifter', 14],
+  ['Blast Tackle', 'Vanguard', 14],
+  ['Headshot', 'Sniper', 14],
+  ['Triggerbrand Blitz', 'Triggerbrand', 14],
+] as const)('checks %s against its Gunslinger way', (name, way, level) => {
+  const prerequisite = `way of the ${way.toLowerCase()}`
+  const wayEntry = entry('subclass', `Way of the ${way}`, { class: 'Gunslinger' })
+  const feat = entry('feat', name, { prerequisite }, level, ['Gunslinger'])
+  const c: Character = { ...base, className: 'Gunslinger', subclass: wayEntry.name, level }
+  const checkFeat = (character: Character, entries = [wayEntry, feat]) => featPrerequisiteChecker(character, entries)(feat)
+  expect(checkFeat(c)).toEqual({ missing: [], manual: [] })
+  expect(checkFeat({ ...c, subclass: 'Way of the Other' }).missing).toEqual([prerequisite])
+  expect(checkFeat({ ...c, subclass: undefined }).missing).toEqual([prerequisite])
+  expect(checkFeat({ ...c, className: 'Fighter' }).missing).toEqual([prerequisite])
+  expect(checkFeat(c, [feat])).toEqual({ missing: [], manual: [] })
+  const slot = { key: `class:${level}:0`, category: 'class' as const, level }
+  expect(eligibleFeats([wayEntry, feat], c, slot)).toContain(feat)
+  expect(eligibleFeats([wayEntry, feat], { ...c, subclass: 'Way of the Other' }, slot)).not.toContain(feat)
+})
+
+it('reserves the second-level class feat for Spellshot Dedication and restores displaced choices', () => {
+  const dedication = entry('feat', 'Spellshot Dedication', {
+    archetype: 'Spellshot', prerequisite: 'way of the spellshot',
+  }, 2, ['Archetype', 'Dedication'])
+  const displaced = { name: 'Other Feat', type: 'Class Feat', level: 2, slot: 'class:2:0' }
+  const c: Character = { ...base, className: 'Gunslinger', subclass: 'Way of the Spellshot', level: 2, feats: [displaced] }
+  const synced = { ...c, ...syncClassArchetypeDedication(c, [dedication]) }
+  expect(synced.feats).toContainEqual(expect.objectContaining({ name: dedication.name, slot: 'class:2:0' }))
+  expect(plannedSlots(synced, [dedication]).find(slot => slot.key === 'class:2:0')?.grantedFeat).toBe(dedication.name)
+  expect(synced.classArchetypeDisplacedFeats?.[0].feat).toEqual(displaced)
+  const switched = { ...synced, subclass: 'Way of the Vanguard' }
+  expect({ ...switched, ...syncClassArchetypeDedication(switched, [dedication]) }.feats).toContainEqual(displaced)
+  expect(syncClassArchetypeDedication({ ...c, level: 1, feats: [] }, [dedication])).toBeUndefined()
+})
+
 it('allows Steel Skin through Stalwart Defender at level 6 while retaining Survival training', () => {
   const defender = entry('feat', 'Stalwart Defender Dedication', { archetype: 'Stalwart Defender' }, 2, ['Archetype', 'Dedication'])
   const sentinel = entry('feat', 'Sentinel Dedication', { archetype: 'Sentinel' }, 2, ['Archetype', 'Dedication'])

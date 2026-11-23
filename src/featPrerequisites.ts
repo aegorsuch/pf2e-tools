@@ -499,6 +499,10 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       }
     }
     if (/^(?:passed the hellknight test|member of a hellknight order|trained by a hellknight order|lawful alignment|you've refused to take or have failed the hellknight test)\.?$/.test(name)) return met()
+    if (/^way of the (?:drifter|pistolero|sniper|vanguard|spellshot|triggerbrand)$/.test(name)
+      || knownEntries(name).some(entry => entry.kind === 'subclass' && entry.data.class === 'Gunslinger')) {
+      return resultFor(facts.className === 'Gunslinger' && key(facts.subclass ?? '') === name, text)
+    }
     const role = ROLE_PATTERN.exec(name)
     if (role) {
       const choices = role[2] === 'order' ? facts.orders : role[2] === 'fatal method' ? [facts.fatalMethod ?? '']

@@ -3378,6 +3378,7 @@ export const CLASS_ARCHETYPES = [
   { className: 'Barbarian', name: 'Bloodrager', subclass: 'Bloodrager' },
   { className: 'Ranger', name: 'Vindicator', subclass: 'Vindication' },
   { className: 'Rogue', name: 'Avenger', subclass: 'Avenger' },
+  { className: 'Gunslinger', name: 'Spellshot', subclass: 'Way of the Spellshot' },
   { className: 'Wizard', name: 'Runelord', subclass: 'School of Thassilonian Rune Magic' },
 ] as const
 
