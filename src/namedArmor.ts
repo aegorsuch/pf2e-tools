@@ -15,8 +15,9 @@ export const isBastionNamedArmor = (name?: string) =>
 export const INHERITOR_RUNE_FAMILIES = ['Advancing', 'Fortification', 'Moonweave', 'Sunweave'] as const
 export const isInheritorPlate = (name?: string) => name === 'Bastion Plate of the Inheritor' || name === 'Bastion of the Inheritor'
 export const isHighhelmPlate = (name?: string) => name === 'Highhelm Stronghold Bastion Plate' || name === 'Highhelm Stronghold Plate'
+export const isImmortalBastion = (name?: string) => name === 'Immortal Bastion Plate' || name === 'Immortal Bastion'
 export const scalingBastionRuneFamilies = (name?: string): readonly string[] =>
-  isInheritorPlate(name) ? INHERITOR_RUNE_FAMILIES : isHighhelmPlate(name) ? ['Fortification', 'Moonweave', 'Sunweave'] : []
+  isInheritorPlate(name) ? INHERITOR_RUNE_FAMILIES : isImmortalBastion(name) ? INHERITOR_RUNE_FAMILIES : isHighhelmPlate(name) ? ['Fortification', 'Moonweave', 'Sunweave'] : []
 const BODY = /\n\n-{3,}\s*\n\n/
 export const SCALE_OF_IGROON_FORTRESS = 'Scale of Igroon (Fortress Shield)'
 export const isScaleOfIgroonShield = (name?: string) =>
@@ -126,6 +127,12 @@ export function scaleInheritorPlate(entry: ContentEntry | undefined, level: numb
   if (!entry?.data.named_armor || !scalingBastionRuneFamilies(entry.name).length) return entry
   const fortification = level >= 12
   const highhelm = isHighhelmPlate(entry.name)
+  const immortal = isImmortalBastion(entry.name)
+  if (immortal) {
+    return { ...entry, data: { ...entry.data, named_armor_runes: '',
+      automatic_property_runes: [...automaticArmigerRunes(level).filter(rune => /^(Moonweave|Sunweave|Advancing)/.test(rune)),
+        'Fortification (Greater)'].join(';') } }
+  }
   return { ...entry, data: { ...entry.data,
     ...(highhelm ? { named_armor_runes: '', strength: Number(entry.data.strength) - (fortification ? 0 : 1) } : {}),
     automatic_property_runes: automaticArmigerRunes(level).filter(rune => !highhelm || !rune.startsWith('Advancing')).join(';'),

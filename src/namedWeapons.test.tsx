@@ -830,3 +830,14 @@ it('shows Shadowpiercer conditional save bonus only while held without adding it
   for (const save of ['Fortitude', 'Reflex', 'Will'] as const)
     expect(savingThrowBreakdown(character, namedCatalog, save).total).toBe(savingThrowBreakdown(c, namedCatalog, save).total)
 })
+
+it("implements Clear Cutter's Axe as a +1 striking returning hatchet", () => {
+  const hatchet: ContentEntry = { ...bow('Hatchet', false, false), traits: ['Agile', 'Sweep', 'Thrown 10 ft.'],
+    data: { damage: '1d6 slashing', range: 0, thrown_range: 10, weapon_type: 'Melee', weapon_category: 'Martial', weapon_group: 'Axe', hands: 1, bulk: 'L' } }
+  const item: ContentEntry = { ...winter, id: 'clear-cutter', name: "Clear Cutter's Axe", level: 9, traits: ['Magical', 'Rare'],
+    description: 'Base Weapon Hatchet\n\nThis +1 striking returning hatchet has an axe head resembling a roaring lion\u2019s head.',
+    data: { item_subcategory: 'Specific Magic Weapons', rarity: 'rare', url: 'https://2e.aonprd.com/Equipment.aspx?ID=3598' } }
+  const [entry] = makeNamedWeaponEntries([hatchet, item], [{ name: 'Returning' }])
+  expect(entry).toMatchObject({ name: "Clear Cutter's Axe", data: { named_weapon_base: 'Hatchet', named_weapon_potency: 1,
+    named_weapon_striking: 1, named_weapon_runes: 'Returning', named_weapon_rules_missing: false } })
+})

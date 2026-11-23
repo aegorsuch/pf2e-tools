@@ -117,7 +117,10 @@ it('scales Immortal Bastion fundamentals and grants Orichalcum without changing 
     [10, 1, 1], [11, 2, 1], [13, 2, 1], [14, 2, 2], [17, 2, 2], [18, 3, 2], [19, 3, 2], [20, 3, 3]]) {
     const c = { ...character, className: 'Fighter', level, armors: [armor] }
     const effective = effectiveArmor(c, bastionEntries, armor)
-    expect(effective).toMatchObject({ potency, resilient, material: 'Orichalcum', runes: ['Fortification (Greater)'] })
+    const weaves = [...(level >= 5 ? [level >= 17 ? 'Moonweave (Major)' : level >= 13 ? 'Moonweave (Greater)' : 'Moonweave'] : []),
+      ...(level >= 7 ? [level >= 18 ? 'Sunweave (Major)' : level >= 11 ? 'Sunweave (Greater)' : 'Sunweave'] : []),
+      ...(level >= 9 ? [level >= 16 ? 'Advancing (Greater)' : 'Advancing'] : [])]
+    expect(effective).toMatchObject({ potency, resilient, material: 'Orichalcum', runes: [...weaves, 'Fortification (Greater)'] })
     expect(armorSaveBonus(c, bastionEntries)).toBe(resilient)
     const html = renderToStaticMarkup(<ArmorList c={c} entries={bastionEntries} save={() => {}} part="armor" />)
     expect(html).toContain('Material: Orichalcum')
@@ -174,7 +177,7 @@ it('shows scaled armor runes in descriptions and exposes Keep Stone armor detail
     ['Highhelm Stronghold Bastion Plate', 20, '+3 major resilient major moonweave major sunweave greater fortification bastion plate'],
     ['Bastion Plate of the Inheritor', 1, 'This is bastion plate.'],
     ['Bastion Plate of the Inheritor', 20, '+3 major resilient major moonweave major sunweave greater fortification greater advancing bastion plate'],
-    ['Immortal Bastion Plate', 20, '+3 major resilient greater fortification bastion plate'],
+    ['Immortal Bastion Plate', 20, '+3 major resilient major moonweave major sunweave greater advancing greater fortification bastion plate'],
   ] as const) {
     const c = { ...character, level, armors: [owned(name)] }
     const html = renderToStaticMarkup(<ArmorList c={c} entries={data} save={() => {}} part="armor" />)
@@ -188,12 +191,10 @@ it('shows scaled armor runes in descriptions and exposes Keep Stone armor detail
   expect(bastionEntries[1].description).toContain('+2 resilient fortification bastion plate')
 })
 
-it('uses Orichalcum to allow one additional Immortal Bastion property rune', () => {
-  const armor = { ...owned('Immortal Bastion Plate'), runes: ['Shadow', 'Slick'] }
-  const render = (runes: string[]) => renderToStaticMarkup(<ArmorList c={{ ...character, level: 18, armors: [{ ...armor, runes }] }}
+it('counts Immortal Bastion automatic runes against its property rune slots', () => {
+  const render = (level: number) => renderToStaticMarkup(<ArmorList c={{ ...character, level, armors: [owned('Immortal Bastion Plate')] }}
     entries={bastionEntries} save={() => {}} part="armor" />)
-  expect(render(armor.runes)).toContain('aria-label="Add property rune"')
-  expect(render([...armor.runes, 'Glamered'])).not.toContain('aria-label="Add property rune"')
+  expect(render(18)).not.toContain('aria-label="Add property rune"')
 })
 
 it('scales Inheritor fundamentals and property runes at each progression boundary', () => {

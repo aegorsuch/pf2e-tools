@@ -6,7 +6,7 @@ export function briarSharpnessPoints(value: number | undefined) {
   return value !== undefined && Number.isSafeInteger(value) && value >= 0 ? Math.min(value, BRIAR_MAX_SHARPNESS) : 0
 }
 
-const basePattern = "(?:Composite )?(?:Shortbows?|Longbows?)|Dancer['\u2019]s Spear|Dwarven War ?Axe|Elven Curve Blade|Bastard Sword|Dueling Pistol|Fighting Fan|Light Hammer|Gun Sword|Longsword|Shortsword|Greatsword|Greataxe|Morningstar|Longspear|Guisarme|Glaive|Rapier|Spear|Club|Dart"
+const basePattern = "(?:Composite )?(?:Shortbows?|Longbows?)|Dancer['\u2019]s Spear|Dwarven War ?Axe|Elven Curve Blade|Bastard Sword|Dueling Pistol|Fighting Fan|Light Hammer|Gun Sword|Longsword|Shortsword|Greatsword|Greataxe|Morningstar|Longspear|Guisarme|Glaive|Rapier|Spear|Club|Dart|Hatchet"
 const weaponBase = new RegExp(`\\bBase Weapon\\s+(${basePattern})\\b`, 'i')
 const enchantment = new RegExp(`\\+([1-4])\\s+([^.!?\\n]{0,100}?)\\b(?:${basePattern})\\b`, 'i')
 const BASES: Record<string, string[]> = {
@@ -23,6 +23,7 @@ const BASES: Record<string, string[]> = {
   'Azlanti Diamond': ['Longsword'],
   Blackaxe: ['Greataxe'],
   'Cane of the Maelstrom': ['Club'],
+  "Clear Cutter's Axe": ['Hatchet'],
   "Cayden's Tankard": ['Light Hammer'],
   'Coldstar Pistols': ['Dueling Pistol'],
   'Debilitating Dart': ['Dart'],
