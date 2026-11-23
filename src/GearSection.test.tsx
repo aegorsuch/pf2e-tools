@@ -2150,7 +2150,7 @@ it.each(ARMOR_GAUNTLETS)('inherits plate material and fundamentals for armor-pro
     armors: [{ id: 'plate', name: 'Full Plate', material: 'Orichalcum', gauntlet: name, worn: true, potency: 0, resilient: 0, runes: [] }] }
   const material = () => findElement(WeaponList({ c, entries: [], save: () => {} }), (element) => element.props['aria-label'] === 'Weapon material')
   expect(material()).toBeUndefined()
-  expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)).toContain('aria-haspopup="dialog">Orichalcum</button>')
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)).not.toContain('aria-haspopup="dialog">Orichalcum</button>')
   expect(effectiveWeapon(c, [], saved)).toMatchObject({ material: 'Orichalcum', potency: 0, striking: 0, runes: [] })
   const card = findElement(WeaponList({ c, entries: [], save: () => {} }),
     element => element.type === 'details' && element.props['aria-label'] === name)!

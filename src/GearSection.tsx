@@ -1604,9 +1604,10 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             {shieldSource || fixed ? null : linkedSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {linkedSource.name})</small>
               : unarmed ? alloyMaterial : <div className="row">
               {osteoArmament ? null : card ? <small>Material: playing cards</small> : <>
-              {grantedClanWeapon ? <div className="gear-runes"><span>Material</span>
+              {grantedClanWeapon ? (enhanced.material ?? 'Orichalcum') === 'Orichalcum' ? null : <div className="gear-runes"><span>Material</span>
                 <Material name={enhanced.material ?? 'Orichalcum'} entries={entries} equipment="Weapon" source="Granted Dwarf clan weapon" />
-              </div> : enhanced.material ? <div className="gear-runes"><span>Material{pristineSource && pristineNote
+              </div> : enhanced.material ? enhanced.material === 'Orichalcum' && (livingWeapon || plate || innovation || giantWeapon
+                || w.verdantWeapon && canUseVerdantWeapon || builtIn?.material === enhanced.material) ? null : <div className="gear-runes"><span>Material{pristineSource && pristineNote
                 && <SourceNote source={pristineSource} note={pristineNote} />}</span>
                 <Material name={enhanced.material} entries={entries} equipment={plate ? 'Armor' : 'Weapon'}
                   source={plate ? `Inherited from ${plate.name}` : giantWeapon ? 'Granted by Giant Instinct' : innovation ? 'Granted by Weapon Innovation' : livingWeapon ? 'Granted by Living Weapon'
