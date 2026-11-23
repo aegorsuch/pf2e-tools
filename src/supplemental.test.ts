@@ -194,6 +194,21 @@ it('offers Running Draw to rangers starting at level 4', () => {
   expect(eligibleFeats(entries, { ...ranger, className: 'Rogue' }, slot)).not.toContain(feat)
 })
 
+it('offers Running Shift to rangers starting at level 4', () => {
+  const entries = homebrewCharacterOptions([])
+  const feat = entries.find(entry => entry.id === 'homebrew:running-shift')!
+  const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
+  const ranger = { ...base, className: 'Ranger', level: 4 }
+  expect(feat).toMatchObject({ name: 'Running Shift', level: 4, source: 'homebrew',
+    traits: ['Ranger'], data: { class: 'Ranger', actions: 'Single Action' } })
+  expect(feat.description).toContain('You can shift your weapon on the move.')
+  expect(feat.description).toContain('Stride, Step, or Sneak, then Interact to shift a weapon.')
+  expect(groupHomebrew(entries).find(group => group.name === 'Ranger Feats')?.entries).toContain(feat)
+  expect(eligibleFeats(entries, ranger, slot)).toContain(feat)
+  expect(eligibleFeats(entries, ranger, { ...slot, level: 2 })).not.toContain(feat)
+  expect(eligibleFeats(entries, { ...ranger, className: 'Rogue' }, slot)).not.toContain(feat)
+})
+
 it('offers level-20 Tethered weapon feats for each weapon feature', () => {
   const entries = homebrewCharacterOptions([])
   expect(entries.find(entry => entry.name === 'Tethered Living Weapon')).toMatchObject({
