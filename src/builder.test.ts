@@ -928,6 +928,39 @@ it("grants Officer's Education benefits twice at their selected levels", () => {
 })
 
 describe('subclass skill grants', () => {
+  it('grants Gunslinger way skills and scales them only with the class skills house rule', () => {
+    const previous = getSettings()
+    try {
+      const ways = [
+        ['Way of the Vanguard', 'Athletics'], ['Way of the Drifter', 'Acrobatics'],
+        ['Way of the Sniper', 'Stealth'],
+        ['Way of the Spellshot', 'Arcana'], ['Way of the Triggerbrand', 'Thievery'],
+      ] as const
+      const entries = ways.map(([name, skill]) => entry('subclass', name, { class: 'Gunslinger', skill }))
+      const gunslinger = { ...base, background: undefined, className: 'Gunslinger' }
+      updateSettings({ autoClassSkills: false })
+      for (const [subclass, skill] of ways) {
+        const c = { ...gunslinger, level: 15, subclass }
+        expect(subclassSkillGrants(c, entries)).toEqual([skill])
+        expect(ranksAt(c, entries)[skill]).toBe(1)
+      }
+      const pistolero = entry('subclass', 'Way of the Pistolero', { class: 'Gunslinger', skill: 'Deception, Intimidation' })
+      const pistoleroEntries = [...entries, pistolero]
+      const pistoleroCharacter = { ...gunslinger, level: 15, subclass: pistolero.name }
+      expect(subclassSkillChoice(pistoleroCharacter, pistoleroEntries)?.options).toEqual(['Deception', 'Intimidation'])
+      expect(subclassSkillGrants(pistoleroCharacter, pistoleroEntries)).toEqual([])
+      const chosen = { ...pistoleroCharacter, subclassSkillChoices: { 'Gunslinger:Way of the Pistolero': 'Intimidation' } }
+      expect(ranksAt(chosen, pistoleroEntries).Intimidation).toBe(1)
+      expect(ranksAt(chosen, pistoleroEntries).Deception ?? 0).toBe(0)
+      updateSettings({ autoClassSkills: true })
+      expect(ranksAt(chosen, pistoleroEntries).Intimidation).toBe(4)
+      for (const [level, rank] of [[1, 1], [3, 2], [7, 3], [15, 4]] as const) {
+        expect(ranksAt({ ...gunslinger, level, subclass: 'Way of the Vanguard' }, entries).Athletics).toBe(rank)
+      }
+      expect(subclassSkillGrants({ ...gunslinger, subclass: undefined }, entries)).toEqual([])
+    } finally { updateSettings(previous) }
+  })
+
   it('parses Starfinder class choice and excludes subclass placeholders', () => {
     const envoy = entry('class', 'Envoy', { skill_proficiency: 'Trained in one of the following skills of your choice: Deception, Diplomacy, Intimidation, Trained in one skill based on your leadership style, Trained in a number of additional skills equal to 6 plus your Intelligence modifier' })
     expect(classSkills(envoy)).toEqual({ fixed: [], choices: ['Deception', 'Diplomacy', 'Intimidation'], additional: 6 })

@@ -3145,6 +3145,9 @@ const DRACONIC_SKILLS: Record<string, string> = {
 export function subclassSkillChoice(c: Character, entries: ContentEntry[]) {
   const subclass = selectedSubclass(c, entries)
   const key = `${c.className}:${subclass}`
+  if (c.className === 'Gunslinger' && subclass === 'Way of the Pistolero') {
+    return { key, label: 'Way skill', options: ['Deception', 'Intimidation'] }
+  }
   if (c.className === 'Investigator' && subclass === 'Empiricism') {
     return { key, label: 'Methodology skill', options: [...statDefs(c).filter(stat => stat.kind === 'skill' && stat.ability === 'int').map(stat => stat.name), 'Lore'].sort() }
   }
@@ -3168,6 +3171,9 @@ export function subclassSkillGrants(c: Character, entries: ContentEntry[]): stri
   if (c.className === 'Druid') return DRUID_ORDERS[subclass] ? [DRUID_ORDERS[subclass]] : []
   const option = subclassOptions(c, entries).find(entry => entry.name === subclass)
   const selected = c.subclassSkillChoices?.[`${c.className}:${subclass}`]
+  if (c.className === 'Gunslinger' && subclass === 'Way of the Pistolero') {
+    return selected && ['Deception', 'Intimidation'].includes(selected) ? [selected] : []
+  }
   if (c.className === 'Investigator') {
     const skill = INVESTIGATOR_SKILLS[subclass]
     if (skill) return [skill]
@@ -3182,7 +3188,7 @@ export function subclassSkillGrants(c: Character, entries: ContentEntry[]): stri
     return []
   }
   if (c.className === 'Swashbuckler') return SWASHBUCKLER_SKILLS[subclass] ? [SWASHBUCKLER_SKILLS[subclass]] : []
-  if (['Witch', 'Oracle', 'Sorcerer', 'Envoy', 'Mystic', 'Operative', 'Witchwarper'].includes(c.className)) {
+  if (['Gunslinger', 'Witch', 'Oracle', 'Sorcerer', 'Envoy', 'Mystic', 'Operative', 'Witchwarper'].includes(c.className)) {
     const skills = tokens(option?.data.skill)
     if (c.className === 'Sorcerer' && subclass === 'Draconic' && selected && DRACONIC_SKILLS[selected]) skills.push(DRACONIC_SKILLS[selected])
     if (c.className === 'Oracle' && subclass === 'Lore') {
