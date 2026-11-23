@@ -227,7 +227,7 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
   if (source === "Clear Cutter's Hatchet") {
     const at = level ?? entry.level
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
-    return { ...entry, data: { ...entry.data, named_weapon_runes: [...new Set([...runes,
+    return { ...entry, data: { ...entry.data, named_weapon_runes: [...new Set([...runes, 'Returning', 'Grievous',
       ...(at >= 8 ? [at >= 19 ? 'Flaming (Major)' : at >= 15 ? 'Flaming (Greater)' : 'Flaming'] : [])])].join(';') } }
   }
   if (source === 'Coldstar Pistols') {
