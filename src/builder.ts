@@ -2688,6 +2688,9 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
   if (c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Horizon Seeker Vesk') {
     movement.push(atLandSpeed('Climb', 'Horizon Seeker Vesk'))
   }
+  if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Basic Insectile Flight').length) {
+    movement.push(fixed('Fly', c.heritage === 'Winged Shirren' ? 25 : 20, 'Basic Insectile Flight'))
+  }
   if (magneticLevitatorsActive(c, entries)) movement.push(fixed('Fly', boostingTheBasics(c) ? 20 : 10, 'Magnetic Levitators'))
   const jetpackArmor = c.systems.includes('sf2e') ? wornArmor(c, entries) : undefined
   const jetpackEntry = jetpackArmor?.activeJetpack ? entries.find(entry => entry.id === jetpackArmor.activeJetpack) : undefined

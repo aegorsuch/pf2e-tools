@@ -66,6 +66,19 @@ it('grants and improves Seismic Sensitivity tremorsense', () => {
   ])
 })
 
+it('grants Basic Insectile Flight and improves Winged Shirren flight', () => {
+  const catalog = mapAonHits(hits.filter(hit => ['Shirren', 'Winged Shirren', 'Basic Insectile Flight']
+    .includes(String(hit._source?.name))), 'sf2e')
+  const c: Character = { ...base, ancestry: 'Shirren', level: 9,
+    feats: [{ name: 'Basic Insectile Flight', type: 'Ancestry Feat', level: 9 }] }
+  expect(movementSpeeds(c, catalog)).toContainEqual({ name: 'Fly', feet: 20, source: 'Basic Insectile Flight' })
+  expect(movementSpeeds({ ...c, level: 8 }, catalog).some(movement => movement.name === 'Fly')).toBe(false)
+  const winged = { ...c, heritage: 'Winged Shirren' }
+  expect(movementSpeeds({ ...winged, level: 8 }, catalog)).toContainEqual({ name: 'Fly', feet: 15, source: 'Winged Shirren' })
+  expect(movementSpeeds(winged, catalog).filter(movement => movement.name === 'Fly'))
+    .toEqual([{ name: 'Fly', feet: 25, source: 'Basic Insectile Flight' }])
+})
+
 it('upgrades Shirren jaws and critical poison with Bug Bite', () => {
   const featEntries = mapAonHits(hits.filter(hit => hit._source?.name === 'Ancestral Unarmed Attack'), 'sf2e')
   const source = featEntries.find(entry => entry.kind === 'feat' && entry.traits.includes('Shirren'))!
