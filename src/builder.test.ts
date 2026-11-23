@@ -580,6 +580,16 @@ it('grants Core Attunement two chosen arcane innate spells once per day', () => 
     .toEqual(['Fear', 'Mirror Image'])
 })
 
+it('grants Backup Runic Enhancement spells in the selected tradition', () => {
+  const spell = (name: string, level: number) => ({ ...entry('spell', name, { tradition: 'arcane' }, level), traits: [] })
+  const spells = [spell('Sigil', 1), spell('Runic Body', 1)]
+  const feat = { name: 'Backup Runic Enhancement', type: 'Class Feat', level: 1, slot: 'class:1:0', choice: 'Primal: Runic Body' }
+  const c: Character = { ...base, systems: ['pf2e'], level: 5, feats: [feat] }
+  expect(grantedFeatSpells(c, spells).filter(grant => grant.source === feat.name)
+    .map(grant => [grant.entry.name, grant.rule.tradition, grant.rule.frequency]))
+    .toEqual([['Sigil', 'primal', 'at will'], ['Runic Body', 'primal', 'once per day']])
+})
+
 it('applies constant enlarge from Enlarged Chassis', () => {
   const c: Character = { ...base, systems: ['pf2e'], level: 13, feats: [{ name: 'Enlarged Chassis', type: 'Ancestry Feat', level: 13, slot: 'ancestry:13:0' }] }
   expect(enlargedChassisSize(c, [])).toBe('Large')

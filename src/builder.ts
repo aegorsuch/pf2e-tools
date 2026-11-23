@@ -1838,6 +1838,12 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Bestial Manifestation' && c.systems.includes('pf2e')) return ['Claw', 'Hoof', 'Jaws', 'Tail']
   if (name === 'Sublime Mobility' && c.systems.includes('pf2e')) return ['Climb', 'Swim']
   if (name === 'Arcane Locomotion' && c.systems.includes('pf2e')) return ['Climb', 'Swim']
+  if (name === 'Backup Runic Enhancement' && c.systems.includes('pf2e')) {
+    const ranks = ranksAt(c, entries)
+    return [['Arcane', 'Arcana'], ['Primal', 'Nature'], ['Occult', 'Occultism'], ['Divine', 'Religion']]
+      .filter(([, skill]) => (ranks[skill] ?? 0) >= 1)
+      .flatMap(([tradition]) => ['Runic Body', 'Runic Weapon'].map(spell => `${tradition}: ${spell}`))
+  }
   if (name === 'Nephilim Lore' && c.systems.includes('pf2e')) return ['Diplomacy', 'Intimidation']
   if (name === 'Sanctified Soul' && c.systems.includes('pf2e')) return ['Holy', 'Unholy']
   if (name === 'Energized Spark' && c.systems.includes('pf2e')) {

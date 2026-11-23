@@ -437,6 +437,20 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: 3, usageKey: JSON.stringify([selection, feat.name, 'haste']) })
       continue
     }
+    if (feat.name === 'Backup Runic Enhancement' && c.systems.includes('pf2e')) {
+      const [tradition, spellName] = (feat.choice ?? '').split(': ')
+      const pf2eSpell = (name: string) => matchingSpells(entries, name).find(spell => spell.systems.includes('pf2e'))
+      const sigil = pf2eSpell('Sigil')
+      const runic = tradition && spellName ? pf2eSpell(spellName) : undefined
+      const lowered = tradition?.toLowerCase()
+      if (sigil && lowered) out.push({ entry: sigil, source: feat.name,
+        rule: { kind: 'innate', spells: [sigil.name], tradition: lowered, frequency: 'at will', heightened: true },
+        rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, 'sigil']) })
+      if (runic && lowered) out.push({ entry: runic, source: feat.name,
+        rule: { kind: 'innate', spells: [runic.name], tradition: lowered, frequency: 'once per day', fixedRank: true },
+        rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, runic.name.toLowerCase()]) })
+      continue
+    }
     if (feat.name === 'Axial Recall' && c.systems.includes('pf2e')) {
       const entry = ['Interplanar Teleport', 'Plane Shift'].flatMap(name => matchingSpells(entries, name)).find(spell => spell.systems.includes('pf2e'))
       if (entry) out.push({ entry, source: feat.name,
