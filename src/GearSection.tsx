@@ -1287,6 +1287,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const untamedPersistent = !a.upgrades.some(upgrade => upgrade.name === 'Merciful')
           && c.level >= 11 && ['Untamed Claws', 'Untamed Jaws'].includes(w.name)
           ? `${c.level >= 19 ? 4 : 2}d6 persistent ${w.name === 'Untamed Claws' ? 'bleed' : 'poison'}` : undefined
+        const meleeAndRanged = a.thrownRange > 0 && ["Clear Cutter's Hatchet", 'Fungicidal Hatchet', 'Axe of the Dwarven Lords',
+          "Spear of the Destroyer's Flame"].includes(namedSource)
         const attackSummaries = (namedSource === 'Coldstar Pistols' && (!w.coldstarForm || w.coldstarForm === 'Paired')
           ? (['Flame', 'Frost'] as const).map(coldstarForm => {
             const formWeapon = { ...w, coldstarForm }
@@ -1297,6 +1299,9 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             const formWeapon = { ...w, combinationForm: form }
             return { form, weapon: effectiveWeapon(c, entries, formWeapon), attack: weaponAttack(c, entries, formWeapon) }
           })
+          : meleeAndRanged
+          ? [{ form: 'Melee', weapon: enhanced, attack: a },
+            { form: 'Ranged', weapon: enhanced, attack: weaponAttack(c, entries, w, { thrown: true }) }]
           : [{ form: undefined, weapon: enhanced, attack: a },
             ...(c.raging && activeFeatsNamed(c, 'Raging Thrower').length && a.thrownRange > 0
               ? [{ form: 'Thrown', weapon: enhanced, attack: weaponAttack(c, entries, w, { thrown: true }) }] : [])])

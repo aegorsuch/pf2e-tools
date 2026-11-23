@@ -60,8 +60,6 @@ const ACTIONS: Record<string, { name: string; actions: string }[]> = {
   'Coldstar Pistols': [{ name: 'Switch form and Feint', actions: 'Single Action' }, { name: 'Twin shots', actions: 'Single Action' }],
 }
 
-const SPLIT_THROWN = new Set(["Clear Cutter's Axe", 'Fungicidal Hatchet', 'Axe of the Dwarven Lords', "Spear of the Destroyer's Flame"])
-
 const MATERIALS: Record<string, string> = {
   'Scalding Gauntlets': 'Orichalcum',
   Briar: 'Cold Iron', Blackaxe: 'Adamantine', Ridill: 'Adamantine', Serithtial: 'Orichalcum',
@@ -160,7 +158,7 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
     const common = replaceSpeed(rawCommon)
     const section = replaceSpeed(rawSection)
     let alias = false
-    const built = choices.flatMap(baseName => {
+    return choices.flatMap(baseName => {
       const base = item.name === "Ghosthand's Comet" ? item : entries.find(entry => entry.kind === 'weapon' && !entry.deleted
         && entry.name.toLowerCase() === baseName.toLowerCase()
         && entry.systems.some(system => item.systems.includes(system)))
@@ -215,15 +213,6 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
       if (!native || alias || choices.length === 1) return [entry]
       alias = true
       return [{ ...entry, id: item.id, name: item.name, data: { ...data, named_weapon_resolver_only: true } }, entry]
-    })
-    if (!SPLIT_THROWN.has(item.name)) return built
-    return built.flatMap(entry => {
-      const range = Number(entry.data.thrown_range)
-      if (!(range > 0)) return [entry]
-      const split = (form: 'Melee' | 'Ranged'): ContentEntry => ({ ...entry, id: `${entry.id}:${form.toLowerCase()}`,
-        name: `${entry.name} (${form})`,
-        data: { ...entry.data, weapon_type: form, ...(form === 'Ranged' ? { range } : {}), named_weapon_resolver_only: false } })
-      return [{ ...entry, data: { ...entry.data, named_weapon_resolver_only: true } }, split('Melee'), split('Ranged')]
     })
   })
 }
