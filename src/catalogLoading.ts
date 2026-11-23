@@ -4,7 +4,10 @@ import type { GameSystem } from './types'
 
 export async function readCatalog(full: boolean, enabled: GameSystem[], readyKey: string, requestKey: string) {
   if (full && requestKey && readyKey !== requestKey) return { key: readyKey, full: false, entries: [] }
-  const all = full ? await db.content.toArray() : [
+  const systemEntries = full && enabled.length
+    ? await db.content.where('systems').anyOf(...enabled).distinct().toArray()
+    : []
+  const all = full ? systemEntries : [
     ...await db.content.where('source').equals('homebrew').toArray(),
     ...await db.content.where('kind').anyOf('class', 'ancestry', 'subclass').toArray(),
   ]
