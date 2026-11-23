@@ -420,11 +420,11 @@ export function FollowerCards({ c, entries, save }: SectionProps) {
     return <details className="character-subsection" data-minion-name={followerTitle(c, index)} open key={`follower:${index}`}>
       <summary><h4>{followerTitle(c, index)}</h4></summary>
       <div className="gear-traits"><span>Level {c.level}</span><span>{FOLLOWER_STAGES[stage]}</span><span>Minion</span></div>
-      <label>Type <select aria-label={`Follower ${index + 1} type`} value={follower?.type ?? ''}
+      <select aria-label={`Follower ${index + 1} type`} value={follower?.type ?? ''}
         onChange={event => update(index, { type: event.target.value || undefined })}>
         <option value="">Choose follower...</option>{FOLLOWER_TYPES.map(type => <option key={type}>{type}</option>)}
-      </select></label>
-      {!!activeFeatsNamed(c, 'Leader of All').length && <SearchableSelect label="Ancestry" aria-label={`Follower ${index + 1} ancestry`}
+      </select>
+      {!!activeFeatsNamed(c, 'Leader of All').length && <SearchableSelect aria-label={`Follower ${index + 1} ancestry`}
         value={follower?.ancestry ?? 'Human'} onChange={event => update(index, { ancestry: event.target.value })}>
         {[...new Set(['Human', follower?.ancestry].filter((name): name is string => !!name && !ancestries.includes(name)))]
           .map(name => <option key={name}>{name}</option>)}

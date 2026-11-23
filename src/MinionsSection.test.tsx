@@ -82,6 +82,11 @@ it('grants saved followers and permits ancestry selection only with Leader of Al
     { name: 'Additional Follower', type: 'Archetype Feat', level: 4, slot: 'class:4:1' }] }
   findSelect(content(), 'Follower 1 ancestry')!({ target: { value: 'Elf' } })
   expect(c.followers?.[0].ancestry).toBe('Elf')
+  const markup = renderToStaticMarkup(content())
+  expect(markup).not.toContain('<label>Type')
+  expect(markup).not.toMatch(/<label[^>]*>Ancestry<\/label>/)
+  expect(markup).toContain('aria-label="Follower 1 type"')
+  expect(markup).toContain('aria-label="Follower 1 ancestry"')
   expect(renderToStaticMarkup(content())).toContain('Experienced')
   expect(findSelect(content(), 'Follower 2 type')).toBeDefined()
   expect(renderToStaticMarkup(<MinionsSummary c={c} />)).toContain('Elf Scout')
