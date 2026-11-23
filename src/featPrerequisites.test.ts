@@ -1987,6 +1987,28 @@ describe('shared prerequisite enforcement', () => {
     expect(check(prerequisite, { ...base, className, subclass: 'Other' }, data).missing).toEqual([prerequisite])
   })
 
+  it.each([
+    ['Personalized Poisoning', 'Alchemical Sciences', 2],
+    ['Alchemical Discoveries', 'Alchemical Sciences', 4],
+    ["Scalpel's Point", 'Forensic Medicine', 4],
+    ["Make 'em Sweat", 'Interrogation', 10],
+    ['Share Tincture', 'Alchemical Sciences', 12],
+    ['Surgical Shock', 'Forensic Medicine', 12],
+  ])('recognizes %s methodology prerequisites through Versatile Investigator', (name, method, level) => {
+    const methods = ['Alchemical Sciences', 'Forensic Medicine', 'Interrogation']
+      .map(value => entry('subclass', value, { class: 'Investigator' }))
+    const feat = entry('feat', name, { prerequisite: `${method} methodology` }, level, ['Investigator'])
+    const data = [...methods, feat]
+    const versatile = { name: 'Versatile Investigator', type: 'Class Feat', level: 10,
+      slot: 'class:10:0', choice: method }
+    const investigator: Character = { ...base, className: 'Investigator', level: 20, feats: [versatile] }
+    expect(featPrerequisiteChecker(investigator, data)(feat)).toEqual({ missing: [], manual: [] })
+
+    const otherMethod = methods.find(entry => entry.name !== method)!.name
+    expect(featPrerequisiteChecker({ ...investigator, feats: [{ ...versatile, choice: otherMethod }] }, data)(feat).missing)
+      .toEqual([`${method} methodology`])
+  })
+
   it('checks Witch patron tradition prerequisites such as arcane or primal patron', () => {
     const patron = entry('subclass', 'Wild', { class: 'Witch', tradition: 'Primal' })
     const witch = { ...base, className: 'Witch', subclass: 'Wild' }

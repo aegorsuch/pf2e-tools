@@ -1336,12 +1336,14 @@ export function spellCategoryAvailability(c: Character, entries: ContentEntry[],
   const focusAvailable = focus.length > 0 || granted.length > 0 || focusPoints > 0
     || (c.className === 'Champion' && c.level >= 1) || !!activeFeatsNamed(c, 'Floral Restoration').length
     || !!activeFeatsNamed(c, 'Desperate Warden').length
-  const innateAvailable = innate.length > 0 || investigatorMethodologies(c, entries).includes('Esoterica') || c.heritage === 'Mage Automaton' && c.level >= 1
+  const investigatorClassAvailable = c.className === 'Investigator' && c.systems.includes('pf2e')
+    && (investigatorMethodologies(c, entries).includes('Esoterica') || investigatorTricksterAceSlots(c, entries).length > 0)
+  const innateAvailable = innate.some(grant => grant.source !== 'Esoterica') || c.heritage === 'Mage Automaton' && c.level >= 1
     || c.systems.includes('pf2e') && c.level >= 1 && ['fey-touched gnome', 'wellspring gnome'].includes(heritage)
     || !!activeFeatsNamed(c, 'Minor Magic').length || !!activeFeatsNamed(c, 'First World Magic').length
     || c.systems.includes('sf2e') && ['Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon'].some(name => activeFeatsNamed(c, name).length > 0)
-  return { class: class_, focus: focusAvailable, innate: innateAvailable,
-    feat: special.length > 0 || investigatorTricksterAceSlots(c, entries).length > 0, items: items.length > 0,
+  return { class: class_ || investigatorClassAvailable, focus: focusAvailable, innate: innateAvailable,
+    feat: special.some(grant => grant.source !== "Trickster's Ace"), items: items.length > 0,
     rituals: characterRituals(c, entries).ritualNames.length > 0 }
 }
 
@@ -1605,6 +1607,47 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     }
   }
   const choiceGrants = new Set(choiceSlots.flatMap(slot => slot.grant ? [slot.grant] : []))
+  const investigatorClassChoices = choiceSlots.filter(slot => slot.key.startsWith('Esoterica:'))
+  const innateChoiceSlots = choiceSlots.filter(slot => !slot.key.startsWith('Esoterica:'))
+  const tricksterAceSpells = special.filter(grant => grant.source === "Trickster's Ace")
+  const otherSpecialSpells = special.filter(grant => grant.source !== "Trickster's Ace")
+  const renderChoiceSlot = (slot: typeof choiceSlots[number]) => {
+    const details = slot.grant ? grantDetails(slot.grant) : undefined
+    const ability = innateSpellAbility(c)
+    const modifier = details?.spellcastingModifier ?? abilityMod(c.abilities[ability])
+    const dc = details?.dc ?? 10 + modifier + proficiencyBonus(1, c.level) - spellPenalty(ability)
+    if (slot.entry) return <SpellItem c={c} key={slot.key} name={slot.entry.name} entry={slot.entry} rank={slot.rank}
+      nameControl={<SelectedSlotSpell name={slot.entry.name} entry={slot.entry} source={slot.label}
+        onClear={() => slot.select('')} />}
+      note={details?.note} spellcastingModifier={modifier} saveDC={dc} attackBonus={details?.attackBonus ?? dc - 10}
+      actionControls={slot.entry.name === 'Summon Plant or Fungus'
+        ? <SummonPlantActions c={c} save={save} entry={slot.entry} rank={slot.rank} /> : undefined}
+      inlineControls={<>{inlineControls(slot.entry.name, slot.rank, slot.grant?.source)}
+        {slot.grant && <InnateSpellUses c={c} save={save} grant={slot.grant} />}</>}
+      effectControls={effectControls(slot.entry.name)} effectRank={activeRank(slot.entry.name)}
+      {...buffProps(slot.entry.name)}>
+      {controls(slot.entry.name, slot.rank, modifier)}
+    </SpellItem>
+    return <li className="spellbook-row" key={slot.key}>
+      <div className="spellbook-slot"><SearchableSelect aria-label={slot.label}
+        value={slot.current} alwaysSearchable primaryDetails
+        optionSpell={value => slot.options.find(entry => entry.name === value)}
+        onChange={event => {
+          const value = event.target.value
+          if (value && !slot.options.some(entry => entry.name === value)) return
+          const select = () => slot.select(value)
+          if (!value && slot.current) confirmRemoval(`spell "${slot.current}"`, select)
+          else select()
+        }}>
+        <option value="">Choose spell</option>
+        {slot.current && !slot.options.some(entry => entry.name === slot.current)
+          && <option disabled value={slot.current}>{slot.current} (unavailable)</option>}
+        {[...new Set(slot.options.map(entry => entry.name))].map(name => <option key={name}>{name}</option>)}
+      </SearchableSelect></div>
+      <span><small>Duration</small>—</span><span><small>Range</small>—</span>
+      <span><small>Save</small>—</span><span><small>Area/Targets</small>—</span>
+    </li>
+  }
   const innateGroups: { key: string; tradition: string; rank: number; grants: (typeof innate)[]; choices: typeof choiceSlots }[] = []
   const innateGroup = (traditionName: string | undefined, rank: number) => {
     const tradition = traditionName ? traditionName[0].toUpperCase() + traditionName.slice(1) : 'Innate'
@@ -1620,7 +1663,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     const grant = grants[0]
     innateGroup(grant.rule.tradition, grant.rank).grants.push(grants)
   }
-  for (const slot of choiceSlots) innateGroup(slot.tradition, slot.rank).choices.push(slot)
+  for (const slot of innateChoiceSlots) innateGroup(slot.tradition, slot.rank).choices.push(slot)
   innateGroups.sort((a, b) => a.tradition.localeCompare(b.tradition) || a.rank - b.rank)
   const preparedOptions = useMemo(() => {
     const forced = bard ? extraSlots.flatMap(extra => {
@@ -1710,6 +1753,44 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     dirgeDialog.current?.showModal()
     dirgeDialog.current?.querySelector('h4')?.focus()
   }
+  const renderTricksterAceChoices = () => tricksterAceSlots.map(({ feat, index, options }) => {
+    const label = `Trickster's Ace spell${tricksterAceSlots.length > 1 ? ` ${index + 1}` : ''}`
+    return <label key={`trickster-ace:${index}`}>{label}{' '}
+      <SearchableSelect aria-label={label} value={feat.choice ?? ''} alwaysSearchable
+        optionSpell={value => options.find(entry => entry.name === value)}
+        onChange={event => {
+          const value = event.target.value
+          if (value && !options.some(entry => entry.name === value)) return
+          const select = () => save({ feats: c.feats.map((existing, i) => i === index
+            ? { ...existing, choice: value || undefined } : existing) })
+          if (!value && feat.choice) confirmRemoval(`spell "${feat.choice}"`, select)
+          else select()
+        }}>
+        <option value="">Choose spell</option>
+        {feat.choice && !options.some(entry => entry.name === feat.choice)
+          && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
+        {[...new Set(options.map(entry => entry.name))].map(name => <option key={name}>{name}</option>)}
+      </SearchableSelect>
+    </label>
+  })
+  const renderSpecialGroups = (grants: typeof special) => [...new Set(grants.map(grant => grant.source))]
+    .map(source => <section className="innate-spell-group" key={source}>
+      <h5>{source} · Spell Rank {grants.find(grant => grant.source === source)?.rank}</h5>
+      <SpellColumns />
+      <ul>{grants.filter(grant => grant.source === source).map(grant => {
+        const details = grant.source === 'Natural Illusionist'
+          ? { note: grant.rule.condition, dc: undefined, attackBonus: undefined, spellcastingModifier: undefined } : grantDetails(grant)
+        return <SpellItem c={c} key={`${grant.usageKey}:${grant.entry.name}`} name={grant.entry.name}
+          entry={grant.entry} rank={grant.rank} note={details.note} saveDC={details.dc} attackBonus={details.attackBonus} spellcastingModifier={details.spellcastingModifier}
+          actionControls={grant.entry.name === 'Summon Fiend' ? <SummonFiendActions c={c} entries={entries} save={save} entry={grant.entry} rank={grant.rank}
+            requiredTrait={grant.rule.condition === 'Devils only' ? 'devil' : undefined} />
+            : grant.entry.name === 'Summon Plant or Fungus' ? <SummonPlantActions c={c} save={save} entry={grant.entry} rank={grant.rank} /> : undefined}
+          inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
+          effectControls={effectControls(grant.entry.name)} effectRank={activeRank(grant.entry.name)} {...buffProps(grant.entry.name)}>
+          {controls(grant.entry.name, grant.rank, details.spellcastingModifier, grant.entry)}
+        </SpellItem>
+      })}</ul>
+    </section>)
 
   return (
       <div className="character-section-content">
@@ -1723,45 +1804,18 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             aria-pressed={activeCategory === value} onClick={() => setCategory(value)}>{label}</button>)}
       </div>
       <div hidden={activeCategory !== 'feat'}>
-        {tricksterAceSlots.map(({ feat, index, options }) => {
-          const label = `Trickster's Ace spell${tricksterAceSlots.length > 1 ? ` ${index + 1}` : ''}`
-          return <label key={`trickster-ace:${index}`}>{label}{' '}
-            <SearchableSelect aria-label={label} value={feat.choice ?? ''} alwaysSearchable
-              optionSpell={value => options.find(entry => entry.name === value)}
-              onChange={event => {
-                const value = event.target.value
-                if (value && !options.some(entry => entry.name === value)) return
-                const select = () => save({ feats: c.feats.map((existing, i) => i === index
-                  ? { ...existing, choice: value || undefined } : existing) })
-                if (!value && feat.choice) confirmRemoval(`spell "${feat.choice}"`, select)
-                else select()
-              }}>
-              <option value="">Choose spell</option>
-              {feat.choice && !options.some(entry => entry.name === feat.choice)
-                && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
-              {[...new Set(options.map(entry => entry.name))].map(name => <option key={name}>{name}</option>)}
-            </SearchableSelect>
-          </label>
-        })}
-        {[...new Set(special.map(grant => grant.source))].map(source => <section className="innate-spell-group" key={source}>
-          <h5>{source} · Spell Rank {special.find(grant => grant.source === source)?.rank}</h5>
-          <SpellColumns />
-          <ul>{special.filter(grant => grant.source === source).map(grant => {
-            const details = grant.source === 'Natural Illusionist'
-              ? { note: grant.rule.condition, dc: undefined, attackBonus: undefined, spellcastingModifier: undefined } : grantDetails(grant)
-            return <SpellItem c={c} key={`${grant.usageKey}:${grant.entry.name}`} name={grant.entry.name}
-              entry={grant.entry} rank={grant.rank} note={details.note} saveDC={details.dc} attackBonus={details.attackBonus} spellcastingModifier={details.spellcastingModifier}
-              actionControls={grant.entry.name === 'Summon Fiend' ? <SummonFiendActions c={c} entries={entries} save={save} entry={grant.entry} rank={grant.rank}
-                requiredTrait={grant.rule.condition === 'Devils only' ? 'devil' : undefined} />
-                : grant.entry.name === 'Summon Plant or Fungus' ? <SummonPlantActions c={c} save={save} entry={grant.entry} rank={grant.rank} /> : undefined}
-              inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
-              effectControls={effectControls(grant.entry.name)} effectRank={activeRank(grant.entry.name)} {...buffProps(grant.entry.name)}>
-              {controls(grant.entry.name, grant.rank, details.spellcastingModifier, grant.entry)}
-            </SpellItem>
-          })}</ul>
-        </section>)}
+        {renderSpecialGroups(otherSpecialSpells)}
       </div>
       <div hidden={activeCategory !== 'class'}>
+      {investigatorClassChoices.length > 0
+        && (!sc || traditions.length === 0 || !classSlotRanks.some(({ rank }) => rank === 0))
+        && <div className="class-spell-slots"><section className="spell-slot-group">
+          <h5>Cantrips (Heightened Level {Math.ceil(c.level / 2)})</h5>
+          <SpellColumns />
+          <ul>{investigatorClassChoices.map(renderChoiceSlot)}</ul>
+        </section></div>}
+      {renderTricksterAceChoices()}
+      {renderSpecialGroups(tricksterAceSpells)}
       {necromancer && c.level >= 1 && <>
         <dialog ref={dirgeDialog} className="entry-dialog dirge-dialog" aria-labelledby={dirgeTitleId}
           onClose={event => { if (event.target === event.currentTarget) setDirgeOpen(false) }}
@@ -1996,7 +2050,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                   Selected spell unavailable for your current spell list or slot rank.
                 </small>}
               </li>
-            })}</ul>
+            })}{cantrip && investigatorClassChoices.map(renderChoiceSlot)}</ul>
           </section>
         })}
       </div>}
@@ -2071,43 +2125,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         {innateGroups.map(group => <section className="innate-spell-group" key={group.key}>
           <h5>{group.tradition} Spell Rank {group.rank}</h5>
           <SpellColumns />
-          <ul>{group.choices.map(slot => {
-            const details = slot.grant ? grantDetails(slot.grant) : undefined
-            const ability = innateSpellAbility(c)
-            const modifier = details?.spellcastingModifier ?? abilityMod(c.abilities[ability])
-            const dc = details?.dc ?? 10 + modifier + proficiencyBonus(1, c.level) - spellPenalty(ability)
-            if (slot.entry) return <SpellItem c={c} key={slot.key} name={slot.entry.name} entry={slot.entry} rank={slot.rank}
-              nameControl={<SelectedSlotSpell name={slot.entry.name} entry={slot.entry} source={slot.label}
-                onClear={() => slot.select('')} />}
-              note={details?.note} spellcastingModifier={modifier} saveDC={dc} attackBonus={details?.attackBonus ?? dc - 10}
-              actionControls={slot.entry.name === 'Summon Plant or Fungus'
-                ? <SummonPlantActions c={c} save={save} entry={slot.entry} rank={slot.rank} /> : undefined}
-              inlineControls={<>{inlineControls(slot.entry.name, slot.rank, slot.grant?.source)}
-                {slot.grant && <InnateSpellUses c={c} save={save} grant={slot.grant} />}</>}
-              effectControls={effectControls(slot.entry.name)} effectRank={activeRank(slot.entry.name)}
-              {...buffProps(slot.entry.name)}>
-              {controls(slot.entry.name, slot.rank, modifier)}
-            </SpellItem>
-            return <li className="spellbook-row" key={slot.key}>
-              <div className="spellbook-slot"><SearchableSelect aria-label={slot.label}
-                value={slot.current} alwaysSearchable primaryDetails
-                optionSpell={value => slot.options.find(entry => entry.name === value)}
-                onChange={event => {
-                  const value = event.target.value
-                  if (value && !slot.options.some(entry => entry.name === value)) return
-                  const select = () => slot.select(value)
-                  if (!value && slot.current) confirmRemoval(`spell "${slot.current}"`, select)
-                  else select()
-                }}>
-                <option value="">Choose spell</option>
-                {slot.current && !slot.options.some(entry => entry.name === slot.current)
-                  && <option disabled value={slot.current}>{slot.current} (unavailable)</option>}
-                {[...new Set(slot.options.map(entry => entry.name))].map(name => <option key={name}>{name}</option>)}
-              </SearchableSelect></div>
-              <span><small>Duration</small>—</span><span><small>Range</small>—</span>
-              <span><small>Save</small>—</span><span><small>Area/Targets</small>—</span>
-            </li>
-          })}{group.grants.map(grants => {
+          <ul>{group.choices.map(renderChoiceSlot)}{group.grants.map(grants => {
             const grant = grants[0]
             const details = grantDetails(grant)
             return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc} attackBonus={details.attackBonus} spellcastingModifier={details.spellcastingModifier}

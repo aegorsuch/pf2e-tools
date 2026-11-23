@@ -1043,7 +1043,7 @@ describe('subclass skill grants', () => {
     expect(subclassSkillGrants({ ...c, className: 'Swashbuckler', subclass: 'Wit' }, [])).toEqual(['Diplomacy'])
   })
 
-  it('lets Versatile Investigator add a distinct methodology and its skill and feat slot', () => {
+  it('lets Versatile Investigator add methodology benefits and only grants an extra skill feat slot when needed', () => {
     const methods = ['Forensic Medicine', 'Empiricism', 'Esoterica']
       .map(name => entry('subclass', name, { class: 'Investigator' }))
     const c: Character = { ...base, level: 10, className: 'Investigator', subclass: 'Forensic Medicine',
@@ -1064,6 +1064,13 @@ describe('subclass skill grants', () => {
     expect(plannedSlots(c, methods)).toContainEqual(expect.objectContaining({
       key: 'skill:1:versatile-investigator:class:10:0', category: 'skill', level: 10, grantedBy: 'Versatile Investigator',
     }))
+    const esoterica: Character = { ...c,
+      feats: [{ ...c.feats[0], choice: 'Esoterica' }],
+      subclassSkillChoices: { 'Investigator:Esoterica': 'Religion' } }
+    expect(automaticFeatGrants(esoterica, methods).filter(grant => grant.name === 'Quick Identification')).toEqual([
+      { name: 'Quick Identification', source: 'Versatile Investigator (Esoterica)', level: 10 },
+    ])
+    expect(plannedSlots(esoterica, methods).filter(slot => slot.key.startsWith('skill:1:versatile-investigator:'))).toEqual([])
   })
 
   it.each([

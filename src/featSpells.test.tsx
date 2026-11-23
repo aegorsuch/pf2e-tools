@@ -396,9 +396,12 @@ it("offers Trickster's Ace only single-target spells that meet its preparation r
   expect(dailyInnateUses(c, grant)?.limit).toBe(1)
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
   expect(markup).toContain('Trickster&#x27;s Ace · Spell Rank 2')
+  expect(markup).toContain('aria-pressed="true">Class Spells</button>')
+  expect(markup).not.toContain('>Feat Spells</button>')
   expect(markup).toContain('Choose a trigger during daily preparations')
   const emptySlot = renderToStaticMarkup(<SpellsSection c={{ ...c, feats: [taken("Trickster's Ace", 18)] }} entries={spells} save={() => {}} />)
   expect(emptySlot).toContain('aria-label="Trickster&#x27;s Ace spell"')
+  expect(emptySlot).toContain('aria-pressed="true">Class Spells</button>')
 })
 
 it('provides Divine and Occult cantrip slots for Esoterica in Spells', () => {
@@ -410,6 +413,10 @@ it('provides Divine and Occult cantrip slots for Esoterica in Spells', () => {
   expect(investigatorEsotericaCantripOptions(c, entries, 'Divine').map(spell => spell.name)).toEqual(['Divine Cantrip'])
   expect(investigatorEsotericaCantripOptions(c, entries, 'Occult').map(spell => spell.name)).toEqual(['Occult Cantrip'])
   const emptySlots = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(emptySlots).toContain('aria-pressed="true">Class Spells</button>')
+  expect(emptySlots).not.toContain('>Innate Spells</button>')
+  expect(emptySlots).toContain('Cantrips (Heightened Level 3)')
+  expect(emptySlots).toContain('class="spell-slot-group"')
   expect(emptySlots).toContain('aria-label="Esoterica Divine cantrip"')
   expect(emptySlots).toContain('aria-label="Esoterica Occult cantrip"')
   const selected: Character = { ...c, investigatorEsotericaSpells: {

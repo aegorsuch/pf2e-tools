@@ -880,9 +880,11 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     if (c.className !== 'Investigator' || level > c.level || !feat.choice || takenMethodologies.has(feat.choice)
       || !subclassOptions({ ...c, className: 'Investigator' }, entries).some(method => method.name === feat.choice)) continue
     takenMethodologies.add(feat.choice)
-    const group = `skill:${level}`
-    if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
-    slots.push({ key: `skill:1:versatile-investigator:${identity}`, category: 'skill', level, grantedBy: 'Versatile Investigator' })
+    if (!INVESTIGATOR_METHODS_WITH_SKILL_FEATS.has(feat.choice)) {
+      const group = `skill:${level}`
+      if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+      slots.push({ key: `skill:1:versatile-investigator:${identity}`, category: 'skill', level, grantedBy: 'Versatile Investigator' })
+    }
   }
   if (c.className === 'Rogue' && c.level >= 1 && selectedSubclass(c) === 'Eldritch Trickster') {
     if (!groupOrder.has('archetype:1')) groupOrder.set('archetype:1', groupOrder.size)
@@ -1176,6 +1178,9 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         character.className === 'Bard' && feat.name === 'Multifarious Muse'
         || character.className === 'Inventor' && ['Second Innovation', 'Third Innovation'].includes(feat.name)
         || character.className === 'Rogue' && feat.name === 'Versatile Rogue' && ROGUE_RACKETS.some(racket => racket === feat.choice)
+        || character.className === 'Investigator' && feat.name === 'Versatile Investigator'
+          && entries.some(entry => !entry.deleted && entry.kind === 'subclass' && entry.name === feat.choice
+            && entry.data.class === 'Investigator' && entry.data.subclass_type !== 'fatal-method')
       ) ? [feat.choice] : [])
       const museFeats = character.className === 'Bard' ? [subclass, ...additionalSubclasses].flatMap((name) => {
         const muse = entries.find((entry) => entry.kind === 'subclass' && entry.data.class === 'Bard' && entry.name === name)
@@ -3253,6 +3258,7 @@ const INVESTIGATOR_METHOD_FEATS: Record<string, string[]> = {
   'Forensic Medicine': ['Forensic Acumen', 'Battle Medicine'],
   Interrogation: ['No Cause for Alarm'],
 }
+const INVESTIGATOR_METHODS_WITH_SKILL_FEATS = new Set(['Alchemical Sciences', 'Esoterica', 'Forensic Medicine', 'Interrogation'])
 const SWASHBUCKLER_SKILLS: Record<string, string> = {
   Battledancer: 'Performance', Braggart: 'Intimidation', Fencer: 'Deception',
   Gymnast: 'Athletics', Rascal: 'Thievery', Wit: 'Diplomacy',
