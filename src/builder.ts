@@ -1845,7 +1845,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       .filter(([, skill]) => (ranks[skill] ?? 0) >= 1)
       .flatMap(([tradition]) => ['Runic Body', 'Runic Weapon'].map(spell => `${tradition}: ${spell}`))
   }
-  if (name === 'Runic Tattoo' && c.systems.includes('pf2e')) return RUNESMITH_RUNES.filter(rune => rune.level <= c.level).map(rune => rune.name)
+  if (name === 'Runic Tattoo' && c.systems.includes('pf2e')) return RUNESMITH_RUNES.filter(rune => rune.level <= c.level && (c.className !== 'Runesmith' || !c.runicRepertoire?.length || c.runicRepertoire.includes(rune.name))).map(rune => rune.name)
   if (name === 'Nephilim Lore' && c.systems.includes('pf2e')) return ['Diplomacy', 'Intimidation']
   if (name === 'Sanctified Soul' && c.systems.includes('pf2e')) return ['Holy', 'Unholy']
   if (name === 'Energized Spark' && c.systems.includes('pf2e')) {

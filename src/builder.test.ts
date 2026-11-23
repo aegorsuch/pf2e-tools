@@ -8,6 +8,7 @@ import { coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting } from './builder'
 import { hasRemainingFeatSelections } from './builder'
+import { maxEtchedRunes, runicRepertoireSize } from './runesmithRunes'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -3369,4 +3370,9 @@ it('labels Witches by their patron', () => {
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 } as Character
   expect(classLabel(witch)).toBe('Witch of the Resentment')
   expect(classLabel({ ...witch, subclass: "Faith's Flamekeeper" })).toBe("Witch of Faith's Flamekeeper")
+})
+
+it('scales the Runesmith repertoire and etched rune limit by level', () => {
+  expect([1, 4, 5, 9, 17, 20].map(level => [runicRepertoireSize(level), maxEtchedRunes(level)]))
+    .toEqual([[4, 2], [4, 2], [6, 3], [8, 4], [12, 6], [12, 6]])
 })

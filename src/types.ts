@@ -260,6 +260,8 @@ export interface Character {
   inscribedBlastUsed?: boolean
   coreCannonActive?: boolean
   runicTattooFaded?: boolean
+  runicRepertoire?: string[]
+  etchedRunes?: string[]
   coreCannonUsed?: boolean
   scouringRageDamage?: string
   giantStature?: 'Large' | 'Huge'

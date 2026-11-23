@@ -344,14 +344,14 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
 }
 
 export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
-  const { companions, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
+  const { companions, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, glyph, seaFriend, pet } = minionSummaryData(c)
   const lashuntaAlly = activeLashuntaAlly(c)
   return <summary className="character-section-summary">
     <strong>Minions</strong>
     <span>{[...companions.map((_, index) => companionTitle(c, index)),
       ...(c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' ? ['Drone'] : []),
       ...(familiar ? [leshy ? 'Leshy Familiar' : undeadFamiliar ? 'Undead Familiar'
-        : crocodileFamiliar ? 'Crocodile Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
+        : crocodileFamiliar ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
       ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
       ...Array.from({ length: followerCount(c) }, (_, index) => {
         return followerTitle(c, index)
@@ -870,7 +870,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           const dailyAbilityLimit = familiarCapacity.dailyAbilityLimit
           const selectableAbilityLimit = patronAbility ? familiarCapacity.selectableAbilityLimit : dailyAbilityLimit
           const familiarType = isUndead ? 'Undead familiar' : isLeshy ? 'Leshy familiar'
-            : isCrocodile ? 'Crocodile familiar' : 'Familiar'
+            : isCrocodile ? 'Crocodile familiar' : glyph ? 'Glyph familiar' : 'Familiar'
           const familiarLabel = isWasp ? 'Wasp familiar' : familiarType
           const savedAbilities = (data?.abilities ?? []).map((ability, index) => ({ ability, index })).filter(item => !!item.ability)
           const activeAbilityChoices = savedAbilities.filter(item => item.index < selectableAbilityLimit)
@@ -917,9 +917,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               && (!alreadySelected || isFamiliarAbilityRepeatable(entry))
               && !familiarAbilityUnavailableReason(entry, c, savedAbilities.map(item => item.ability), isUndead, entries)
           })
-          return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" data-minion-name={isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : isCrocodile ? 'Crocodile Familiar' : 'Familiar'} open>
+          return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" data-minion-name={isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'} open>
           <summary><h4>{isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
-            : isCrocodile ? 'Crocodile Familiar' : 'Familiar'}</h4> ({activeAbilityChoices.length + Number(!!patronAbility)}/{dailyAbilityLimit})</summary>
+            : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'}</h4> ({activeAbilityChoices.length + Number(!!patronAbility)}/{dailyAbilityLimit})</summary>
           <article className="gear-card">
           {isCrocodile && <small>Tiny crocodile familiar granted by Crocodile's Twin.</small>}
           {patronAbility && <div className="gear-traits"><EntryDescription name={patronAbility.name} entry={patronAbility}

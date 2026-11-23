@@ -6,6 +6,7 @@ import { HANDWRAPS } from './supplemental'
 import { SearchableSelect } from './SearchableSelect'
 import { championCauseTenets } from './featPrerequisites'
 import { MechanicFeatures } from './MechanicFeatures'
+import { RunesmithFeatures } from './RunesmithFeatures'
 import { WitchwarperFeatures } from './WitchwarperFeatures'
 import { abilityMod, animalRageFormChange, classDifficultyClass, conditionPenalty, dragonTransformationChange, elementalRageType, isFeatEffectActive, proficiencyBonus, signed, thrashDamage, weaponRanks, withoutBattleForm } from './builder'
 import { animalBattleForm } from './battleForms'
@@ -321,6 +322,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
       </div>}
       {c.raging && instinct && !['giant', 'fury', 'dragon', 'animal', 'spirit', 'superstition'].includes(instinct) && !(instinct === 'elemental' && elementalType)
         && <small role="status">Only base Rage damage is automated for this instinct; apply its instinct-specific damage benefits separately.</small>}
+      {c.className === 'Runesmith' && c.systems.includes('pf2e') && <RunesmithFeatures c={c} entries={entries} save={save} />}
       {c.className === 'Guardian' && features.some(feature => feature.name === 'Reaction Time') && <div className="col">
         <Info label="Reaction Time">You have 2 reactions each turn; the additional reaction can be used only for guardian feats or class features
           (including Shield Block){features.some(feature => feature.name === 'Ever Ready' || feature.name === "Guardian's Techniques")
