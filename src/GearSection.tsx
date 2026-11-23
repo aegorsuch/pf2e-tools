@@ -2137,7 +2137,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
       {grantedShields.map(grantedShield => <article className="gear-card" key={grantedShield.id}>
         <header className="row"><strong><EntryDescription name={grantedShield.name}
           entry={entries.find(entry => entry.kind === 'shield' && entry.name === grantedShield.name)} className="equipment-name" /></strong>
-          <ShieldEquipped c={c} entries={entries} save={save} shield={grantedShield} />
+          {grantedShield.id !== 'granted-shield:chitinous' && <ShieldEquipped c={c} entries={entries} save={save} shield={grantedShield} />}
           <label><input type="checkbox" checked={equipped?.id === grantedShield.id && shieldRaised(c)}
             disabled={equipped?.id !== grantedShield.id || shieldParagonActive(c)}
             onChange={event => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} />

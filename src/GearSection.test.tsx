@@ -738,6 +738,14 @@ it('grants Chitinous Shield without occupying a hand and preserves its selected 
   expect(markup).toContain('Hardness 7; Hit Points 68; Broken Threshold 34')
   expect(markup).toContain('aria-label="Chitinous Shield grade"')
   expect(markup).not.toContain('Attached weapon: Chitinous Shield')
+  expect(markup).not.toContain('aria-label="Equipped Chitinous Shield"')
+  expect(shieldEquipChange(c, shield, false)).toEqual({})
+  expect(equippedShield({ ...c, chitinousShield: { ...c.chitinousShield, equipped: false } })?.id).toBe(shield.id)
+  const steel = { id: 'steel', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false }
+  const withSteel = { ...c, ...shieldEquipChange(c, steel, true) }
+  expect(equippedShield(withSteel)?.id).toBe(steel.id)
+  expect(ownedShields(withSteel).find(item => item.id === shield.id)?.equipped).toBe(true)
+  expect(equippedShield({ ...withSteel, ...shieldEquipChange(withSteel, steel, false) })?.id).toBe(shield.id)
   expect(ownedShields({ ...c, level: 7 }).find(item => item.id === shield.id)).toMatchObject({ hardness: 4, hp: 12 })
   expect(ownedShields({ ...c, feats: [] }).some(item => item.id === shield.id)).toBe(false)
   expect(c.chitinousShield?.grade).toBe('Advanced')

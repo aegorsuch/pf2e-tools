@@ -475,7 +475,7 @@ export function chitinousShield(c: Character): OwnedShield | undefined {
   const grade = CHITINOUS_SHIELD_GRADES[saved?.grade ?? 'Commercial']
   const bonus = grade && grade.level <= c.level ? grade : CHITINOUS_SHIELD_GRADES.Commercial
   return { id: 'granted-shield:chitinous', name: 'Chitinous Shield', hardness: 4 + bonus.hardness,
-    hp: 12 + bonus.hp, damage: saved?.damage ?? 0, raised: !!saved?.raised, equipped: saved?.equipped }
+    hp: 12 + bonus.hp, damage: saved?.damage ?? 0, raised: !!saved?.raised, equipped: true }
 }
 export function hardwoodShield(c: Character): OwnedShield | undefined {
   if (!hardwoodHasShield(c)) return undefined
@@ -561,16 +561,19 @@ export function shieldMaterial(entry: ContentEntry): NonNullable<OwnedShield['ma
   return stats ? { name: entry.name, hardness: Number(stats[1]), hp: Number(stats[2]) } : { name: entry.name }
 }
 export function equippedShield(c: Character) {
-  const generated = ownedShields(c).find(shield => shield.id !== c.shield?.id && (shield.equipped ?? !c.shield))
+  const shields = ownedShields(c)
+  const generated = shields.find(shield => shield.id !== c.shield?.id && shield.id !== 'granted-shield:chitinous'
+    && (shield.equipped ?? !c.shield))
   return generated ? generated
-    : c.shield?.equipped !== false ? c.shield : undefined
+    : c.shield && c.shield.equipped !== false ? c.shield : shields.find(shield => shield.id === 'granted-shield:chitinous')
 }
 export function shieldEquipChange(c: Character, shield: OwnedShield, equipped: boolean): Partial<Character> {
+  if (shield.id === 'granted-shield:chitinous' && !equipped) return {}
   const previous = equippedShield(c)?.id
   const change: Partial<Character> = {}
   for (const current of [shield, ...ownedShields(c).filter(item => item.id !== shield.id)]) {
     const active = current.id === shield.id ? equipped : !equipped && current.id === previous
-    Object.assign(change, shieldChange(c, current, { equipped: active,
+    Object.assign(change, shieldChange(c, current, { ...(current.id === 'granted-shield:chitinous' ? {} : { equipped: active }),
       ...(!active ? { raised: false, takingCover: false } : {}) }))
   }
   return change
