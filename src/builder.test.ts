@@ -3181,6 +3181,19 @@ it.each(['pf2e', 'sf2e'] as const)('applies Hellknight Mobility to %s heavy armo
     .toBe(speed(strong, [armor]) + 5)
 })
 
+it('applies Starfinder Mobility Enhancer armor upgrades and augmentations to speeds', () => {
+  const armor: ContentEntry = { ...entry('armor', 'Test Plate', { armor_category: 'Heavy', strength: 4, speed_penalty: -10, upgrade_slots: 1 }), systems: ['sf2e'] }
+  const upgrade: ContentEntry = { ...entry('item', 'Mobility Enhancer', { item_subcategory: 'Armor Upgrades' }), id: 'enhancer', systems: ['sf2e'] }
+  const c: Character = { ...base, systems: ['sf2e'], level: 10, abilities: { ...base.abilities, str: 10 },
+    armors: [{ id: 'a', name: armor.name, potency: 0, resilient: 0, runes: [], worn: true, upgrades: ['enhancer'] }] }
+  expect(starfinderArmorPenalties({ ...c, armors: [{ ...c.armors![0], upgrades: [] }] }, [armor, upgrade]).speed).toBe(-10)
+  expect(starfinderArmorPenalties(c, [armor, upgrade]).speed).toBe(-5)
+  const winged: Character = { ...base, systems: ['sf2e'], level: 11, feats: [{ name: 'Basic Insectile Flight', type: 'Ancestry Feat', level: 1 }],
+    augmentations: [{ id: 'm', entryId: 'x', name: 'Mobility Enhancer (Tactical)', slot: 'standard' }] }
+  expect(movementSpeeds(winged, []).find(move => move.name === 'Fly')?.feet)
+    .toBe(movementSpeeds({ ...winged, augmentations: [] }, []).find(move => move.name === 'Fly')!.feet + 10)
+})
+
 it('offers Cross-Training order variants once each while preserving edits and spell or domain variants', () => {
   const dedication = { name: 'Hellknight Dedication', type: 'Archetype Feat', level: 2, choice: 'Order of the Pyre' }
   const cross = entry('feat', 'Order Cross-Training', { repeatable: true }, 12, ['Archetype'])

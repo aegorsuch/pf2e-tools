@@ -281,7 +281,7 @@ export interface Character {
   equipment: { name: string; qty: number; group?: EquipmentGroupName | 'Belts' | 'Waist'; cheekQty?: number; cheekPreparedQty?: number; mechanicRigQty?: number; mechanicMedicMods?: MedicMod[]; mechanicItemId?: string }[]
   simplePoisonsSpent?: number
   apexAugmentationId?: string
-  augmentations?: { id: string; entryId: string; name: string; slot: string }[]
+  augmentations?: { id: string; entryId: string; name: string; slot: string; speed?: string }[]
   hardpointWeaponId?: string
   dermalPlating?: { grade?: HardlightGrade; raised?: boolean; damaged?: boolean }
   secondaryPowerSourceIds?: string[]

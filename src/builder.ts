@@ -2559,7 +2559,10 @@ export function starfinderArmorPenalties(c: Character, entries: ContentEntry[]) 
   const heavyConstruction = worn?.id === INVENTOR_ARMOR_ID && armorModifications(c).some(mod => mod.name === 'Heavy Construction')
   const mobility = activeFeatsNamed(c, 'Hellknight Mobility').length > 0 && armorCategory(armor) === 'Heavy'
   const iron = activeFeatsNamed(c, 'Unburdened Iron').length ? 5 : 0
-  return { check, speed: heavyConstruction && meets ? 0 : Math.min(0, penalty + iron + (meets ? mobility ? 10 : 5 : 0)) }
+  const enhancer = worn && armorUpgradeSlots(armor) + (c.heritage === 'Mod Fanatic Android' && armor.data.upgrades_allowed !== false ? 1 : 0) > 0
+    && (worn.upgrades ?? []).slice(0, armorUpgradeSlots(armor) + (c.heritage === 'Mod Fanatic Android' && armor.data.upgrades_allowed !== false ? 1 : 0))
+      .some(id => entries.find(entry => entry.id === id)?.name === 'Mobility Enhancer') ? 5 : 0
+  return { check, speed: heavyConstruction && meets ? 0 : Math.min(0, penalty + iron + enhancer + (meets ? mobility ? 10 : 5 : 0)) }
 }
 
 type MovementSpeedOptions = { includeUncannyDash?: boolean; includeUpliftingWinds?: boolean; ignorePenalties?: boolean }
@@ -2668,6 +2671,10 @@ const ANCESTRY_MOVEMENT_FEATS: Record<string, Record<string, number>> = {
   'Sodbuster': { Burrow: 10 }, 'Summiting Dragonblood': { Climb: 20 }, 'Swift Swimmer': { Swim: 15 }, 'Swimming Poppet': { Swim: 15 },
   'Tree Climber (Goblin)': { Climb: 10 }, "True Dragon's Flight": { Fly: 20 }, 'Warren Digger': { Burrow: 15 },
 }
+
+export const MOBILITY_ENHANCER_SPEEDS = ['Burrow', 'Climb', 'Fly', 'Swim']
+export const mobilityEnhancers = (c: Character) => (c.augmentations ?? []).filter(item => /^Mobility Enhancer\b/.test(item.name))
+  .map(item => ({ ...item, bonus: /\(Advanced\)$/.test(item.name) ? 15 : /\(Tactical\)$/.test(item.name) ? 10 : 5 }))
 
 export function movementSpeeds(c: Character, entries: ContentEntry[], options: MovementSpeedOptions = {}) {
   if (isFeatEffectActive(c, 'Verdant Metamorphosis')) return [{ name: 'Land', feet: 0, source: 'Verdant Rest', status: 0 }]
@@ -2840,6 +2847,14 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
       const extra = Math.max(0, 10 - fly.status)
       if (extra) merged.set('Fly', { ...fly, feet: fly.feet + extra, status: 10,
         source: `${fly.source}, Uplifting Winds (+10 status)` })
+    }
+  }
+  if (c.systems.includes('sf2e')) {
+    for (const item of mobilityEnhancers(c)) {
+      const name = item.speed && merged.has(item.speed) ? item.speed : MOBILITY_ENHANCER_SPEEDS.find(mode => merged.has(mode))
+      const previous = name && merged.get(name)
+      if (name && previous) merged.set(name, { ...previous, feet: previous.feet + item.bonus,
+        source: `${previous.source}, ${item.name} (+${item.bonus} item)` })
     }
   }
   return [{ name: 'Land', feet: land, source: undefined }, ...[...merged.values()]

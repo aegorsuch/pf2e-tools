@@ -70,7 +70,7 @@ const MATERIALS: Record<string, string> = {
 }
 
 const ELEMENTAL_GAUNTLETS: Record<string, { rune: string; damage: string }> = {
-  Corrosive: { rune: 'Corrosive', damage: 'acid' }, Frost: { rune: 'Frost', damage: 'cold' }, Shock: { rune: 'Shock', damage: 'electricity' },
+  Corroding: { rune: 'Corrosive', damage: 'acid' }, Freezing: { rune: 'Frost', damage: 'cold' }, Shocking: { rune: 'Shock', damage: 'electricity' },
 }
 const SCALDING_RUNES: Record<string, string> = { 'Scalding Gauntlet': 'Flaming',
   ...Object.fromEntries(Object.entries(ELEMENTAL_GAUNTLETS).map(([element, { rune }]) => [`${element} Gauntlet`, rune])) }

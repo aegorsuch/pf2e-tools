@@ -9,7 +9,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { isAncestralEmbrace, isBastionNamedArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
-import { ABILITY_LABEL, APEX_AUGMENTATIONS, activeApexAugmentation, armorBulk, armorStrengthMet, installedApexAugmentations } from './builder'
+import { ABILITY_LABEL, APEX_AUGMENTATIONS, MOBILITY_ENHANCER_SPEEDS, activeApexAugmentation, armorBulk, armorStrengthMet, installedApexAugmentations } from './builder'
 import { barbarianInstinct, classHandwrapKind, isGiantWeapon } from './builder'
 import { equipmentDisplayName, specificMagicItemName } from './equipmentGroups'
 import { adoptedAncestryText, selectedFeatEntry } from './featChoices'
@@ -222,6 +222,12 @@ export function Augmentations({ c, entries, save }: SectionProps) {
         {biotechUpgrade && String(entry?.data.item_subcategory ?? '').toLowerCase() === 'cybernetics' && <SourceNote inlineSource={false}
           source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
         {' '}<small>({item.slot === 'apex' ? 'apex' : item.slot === 'exempt' ? 'item exemption' : 'implant limit'})</small>
+        {/^Mobility Enhancer\b/.test(item.name) && <label>{' '}Speed{' '}<select aria-label={`${item.name} speed`} value={item.speed ?? ''}
+          onChange={event => save({ augmentations: installed.map(existing => existing.id === item.id
+            ? { ...existing, speed: MOBILITY_ENHANCER_SPEEDS.find(mode => mode === event.target.value) } : existing) })}>
+          <option value="">Automatic</option>
+          {MOBILITY_ENHANCER_SPEEDS.map(mode => <option key={mode}>{mode}</option>)}
+        </select></label>}
         {powerControl(item.id, item.name)}</li>
     })}</ul>
     {!!activeFeatsNamed(c, 'Thresher Ko-1 Frame').length && <>
