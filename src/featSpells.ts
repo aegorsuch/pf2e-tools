@@ -488,7 +488,7 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: entry.level, usageKey: JSON.stringify([selection, feat.name, 'see the unseen']) })
       continue
     }
-    if (feat.name === "Answer the First World's Call" && c.systems.includes('pf2e')) {
+    if (feat.name.toLowerCase() === "answer the first world's call" && c.systems.includes('pf2e')) {
       const entry = matchingSpells(entries, 'Interplanar Teleport').find(spell => spell.systems.includes('pf2e'))
       if (entry) out.push({ entry, source: feat.name,
         rule: { kind: 'innate', spells: [entry.name], tradition: 'primal', frequency: 'twice per week', fixedRank: true },
@@ -904,7 +904,8 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
   return [...missingBoonSpells, ...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
     if (c.systems.includes('pf2e') && ['Arcane Eye', 'Astral Blink', 'Axial Recall', 'Messenger', 'Overburn', 'Core Attunement',
-      'Backup Runic Enhancement'].includes(feat.name)) return []
+      'Backup Runic Enhancement'].includes(feat.name)
+      || feat.name.toLowerCase() === "answer the first world's call") return []
     if (feat.name === 'Celestial Mercy' && c.systems.includes('pf2e')) {
       return matchingSpells(entries, 'Cleanse Affliction').some(entry => entry.systems.includes('pf2e'))
         ? [] : [{ name: 'Cleanse Affliction', source }]

@@ -1956,7 +1956,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (familiarityOptions) return familiarityOptions
   if (name === 'Clan Lore') return Object.keys(CLAN_LORE_OPTIONS).sort((a, b) => clanLoreLabel(a).localeCompare(clanLoreLabel(b)))
   if (name === 'Dongun Education') return Object.keys(DONGUN_EDUCATION_LORES)
-  if (name === 'Knowledge of the Realm Before' && c.systems.includes('pf2e')) return ['Fey Lore', 'First World Lore']
+  if (name === 'Knowledge Of The Realm Before' && c.systems.includes('pf2e')) return ['Fey Lore', 'First World Lore']
   if ((name === 'Eye for Treasure' || name === 'Expressive Face') && index >= 0) {
     const ranks = ancestrySkillBefore(c, entries, index)
     if ((ranks[name === 'Expressive Face' ? 'Diplomacy' : 'Crafting'] ?? 0) < 1) return undefined
@@ -3690,7 +3690,7 @@ export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set(
       ? CLAN_LORE_OPTIONS[feat.choice]?.lore : undefined
     return lore ? [`${lore} Lore`] : []
   }),
-  ...c.feats.flatMap(feat => feat.name === 'Knowledge of the Realm Before' && feat.choice && featTakenLevel(feat) <= c.level
+  ...c.feats.flatMap(feat => feat.name === 'Knowledge Of The Realm Before' && feat.choice && featTakenLevel(feat) <= c.level
     ? [feat.choice] : []),
   ...c.feats.flatMap(feat => feat.name === 'Lizardfolk Lore' && featTakenLevel(feat) <= c.level
     ? [lizardfolkLoreSelection(feat).lore].filter((lore): lore is string => !!lore) : []),
@@ -3877,7 +3877,7 @@ const ANCESTRY_SKILL_ONLY_GRANTS: Record<string, string[]> = {
   'X-hat Firewalker Frame': ['Computers'],
   'Subtle Cyborg': ['Deception'],
   'Pick On Someone My Size': ['Intimidation'],
-  'Knowledge of the Realm Before': ['Nature', 'Stealth'],
+  'Knowledge Of The Realm Before': ['Nature', 'Stealth'],
 }
 function ancestryLoreGrant(c: Character, entries: ContentEntry[], name: string) {
   if (ANCESTRY_LORE_GRANTS[name]) return ANCESTRY_LORE_GRANTS[name]
@@ -4236,7 +4236,7 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
       name: 'Additional Lore', choice: lore.replace(/ Lore$/, ''), source: feat.name, level: featTakenLevel(feat),
     })
   }
-  for (const feat of activeFeatsNamed(c, 'Knowledge of the Realm Before')) {
+  for (const feat of activeFeatsNamed(c, 'Knowledge Of The Realm Before')) {
     if (feat.choice) grants.push({ name: 'Additional Lore', choice: feat.choice.replace(/ Lore$/, ''), source: feat.name, level: featTakenLevel(feat) })
   }
   if (c.systems.includes('pf2e')) for (const feat of activeFeatsNamed(c, 'Gnome Obsession')) {
