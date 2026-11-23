@@ -15,7 +15,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, type Ability } from './builder'
+import { classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, type Ability } from './builder'
 import { divineAttackDamage, hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
@@ -1253,8 +1253,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     return { spells, byId, byName }
   }, [entries, c.systems])
   const spellEntry = (name: string, id?: string) => id ? spellIndex.byId.get(id) : spellIndex.byName.get(name)
-  const druidList = useMemo(() => druid ? druidSpellList(c, spellIndex.spells) : undefined,
-    [druid, c.className, c.level, c.feats, c.systems, spellIndex])
+  const druidList = useMemo(() => druid ? druidSpellList(c, spellIndex.spells)
+    : c.className === 'Witch' ? witchSpellList(c, spellIndex.spells) : undefined,
+    [druid, c.className, c.subclass, c.level, c.feats, c.systems, spellIndex])
   const druidAvailable = useMemo(() => druidList?.filter(entry => spellAccessGranted(c, entry)),
     [druidList, c.spells, c.ancestry, c.ethnicity, c.background, c.achievements, c.featAccessOverrides])
   const dirge = useMemo(() => necromancer ? necromancerDirge(c, spellIndex.spells) : undefined,

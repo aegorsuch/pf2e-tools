@@ -2413,6 +2413,15 @@ export function necromancerDirge(c: Character, entries: ContentEntry[]) {
   return [...byName.values()]
 }
 
+export function witchSpellList(c: Character, entries: ContentEntry[]) {
+  if (c.className !== 'Witch' || !c.systems.includes('pf2e')) return []
+  const traditions = new Set((classSpellcasting(c, entries)?.traditions ?? []).map(tradition => tradition.toLowerCase()))
+  return entries.filter(entry => entry.kind === 'spell' && !entry.deleted && entry.systems.includes('pf2e')
+    && !entry.traits.some(trait => trait.toLowerCase() === 'focus')
+    && tokens(entry.data.tradition).some(tradition => traditions.has(tradition.toLowerCase())))
+    .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+}
+
 export function druidSpellList(c: Character, entries: ContentEntry[]) {
   if (c.className !== 'Druid') return []
   const extra = new Set([
