@@ -164,6 +164,36 @@ it('offers Prayer for Aid to clerics starting at level 2', () => {
   expect(eligibleFeats(entries, { ...cleric, className: 'Ranger' }, slot)).not.toContain(feat)
 })
 
+it('offers Quick Shift to gunslingers, rangers, and rogues starting at level 2', () => {
+  const entries = homebrewCharacterOptions([])
+  const feat = entries.find(entry => entry.id === 'homebrew:quick-shift')!
+  const slot = { key: 'class:2:0', category: 'class' as const, level: 2 }
+  expect(feat).toMatchObject({ name: 'Quick Shift', level: 2, source: 'homebrew',
+    traits: ['Gunslinger', 'Ranger', 'Rogue'], data: { class: 'Gunslinger, Ranger, Rogue', actions: 'Single Action' } })
+  expect(feat.description).toContain('Interact to shift a weapon, then Strike with that weapon.')
+  for (const className of ['Gunslinger', 'Ranger', 'Rogue']) {
+    const c = { ...base, className, level: 2 }
+    expect(groupHomebrew(entries).find(group => group.name === `${className} Feats`)?.entries).toContain(feat)
+    expect(eligibleFeats(entries, c, slot)).toContain(feat)
+    expect(eligibleFeats(entries, c, { ...slot, level: 1 })).not.toContain(feat)
+  }
+  expect(eligibleFeats(entries, { ...base, className: 'Cleric', level: 2 }, slot)).not.toContain(feat)
+})
+
+it('offers Running Draw to rangers starting at level 4', () => {
+  const entries = homebrewCharacterOptions([])
+  const feat = entries.find(entry => entry.id === 'homebrew:running-draw')!
+  const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
+  const ranger = { ...base, className: 'Ranger', level: 4 }
+  expect(feat).toMatchObject({ name: 'Running Draw', level: 4, source: 'homebrew',
+    traits: ['Ranger'], data: { class: 'Ranger', actions: 'Single Action' } })
+  expect(feat.description).toContain('Stride, Step, or Sneak, then Interact to draw a weapon.')
+  expect(groupHomebrew(entries).find(group => group.name === 'Ranger Feats')?.entries).toContain(feat)
+  expect(eligibleFeats(entries, ranger, slot)).toContain(feat)
+  expect(eligibleFeats(entries, ranger, { ...slot, level: 2 })).not.toContain(feat)
+  expect(eligibleFeats(entries, { ...ranger, className: 'Rogue' }, slot)).not.toContain(feat)
+})
+
 it('offers level-20 Tethered weapon feats for each weapon feature', () => {
   const entries = homebrewCharacterOptions([])
   expect(entries.find(entry => entry.name === 'Tethered Living Weapon')).toMatchObject({
