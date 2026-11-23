@@ -130,7 +130,8 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
     && entry.name !== 'Wintershot' && entry.name !== "Meloth's Lifedrinker"
     && (entry.data.item_subcategory === 'Specific Magic Weapons' || entry.name === 'Wintershot (Artifact)' || !!BASES[entry.name]))
   return items.flatMap(item => {
-    const sourceName = item.name === "Meloth's Lifedrinker (Improved)" ? "Meloth's Lifedrinker" : item.name
+    const sourceName = item.name === "Meloth's Lifedrinker (Improved)" ? "Meloth's Lifedrinker"
+      : item.name === "Clear Cutter's Axe" ? "Clear Cutter's Hatchet" : item.name
     const originalBase = (item.name === 'Serithtial' ? 'Longsword' : undefined)
       ?? weaponBase.exec(item.description)?.[1]?.replace(/Dwarven War Axe/i, 'Dwarven Waraxe')
       ?? (item.name === 'Wintershot (Artifact)' && /\bcomposite shortbow\b/i.test(item.description) ? 'Composite Shortbow' : undefined)

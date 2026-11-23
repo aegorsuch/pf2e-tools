@@ -6902,7 +6902,7 @@ export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEnt
       && weapon.id !== OVERSIZED_THROW.id && weapon.name !== SHIELD_BASH.name
       && weapon.name !== HAFT_STRIKER_WEAPON.name
     || !!shieldAttachmentSource(c, weapon) && weapon.name !== SHIELD_BASH.name
-    || weaponEntry(entries, weapon.name, weapon.id)?.data.named_weapon_source === "Hunter's Dawn"
+    || ["Hunter's Dawn", "Clear Cutter's Hatchet"].includes(String(weaponEntry(entries, weapon.name, weapon.id)?.data.named_weapon_source))
     || weapon.name === 'Bladed Gauntlet' && !!armorGauntlet(c, entries)?.locked
     || deityWeapon(c, entries)?.id === weapon.id
     || isGrantedDwarfClanWeapon(c, entries, weapon)
