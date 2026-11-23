@@ -969,6 +969,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               const { entry, reason } = abilityStatus(ability, index)
               return <div key={`${index}:${ability}`} className="rune">
                 <EntryDescription name={entry?.name ?? ability} entry={entry} entries={entries} character={c} />
+                {ability === 'Restorative Familiar' && index < selectableAbilityLimit && !reason
+                  && <> <DamageRoll name="Restorative Familiar" actions="Two Actions"
+                    damage={{ label: 'Healing', dice: Math.max(1, Math.floor(c.level / 2)), sides: 8, type: 'HP' }} /></>}
                 {index >= selectableAbilityLimit && <small> (inactive)</small>}
                 {reason && index < selectableAbilityLimit && <small title={reason}> (unavailable)</small>}
                 <button type="button" aria-label={`Remove ${familiarLabel} ability ${index + 1}`}

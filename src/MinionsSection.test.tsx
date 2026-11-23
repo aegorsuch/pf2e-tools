@@ -471,6 +471,7 @@ const familiarEntries = [
   familiarAbility('Tremorsense', 'It gains imprecise tremorsense with a range of 30 feet.'),
   familiarAbility('Wavesense', 'It gains imprecise wavesense with a range of 30 feet.'),
   familiarAbility('Dragon', 'Your familiar has the dragon trait instead of the animal trait.'),
+  familiarAbility('Restorative Familiar', 'Once per day, your familiar can heal you.', 'Master'),
   familiarAbility('Constructed', 'Your aeon wyrd is immune to bleed and poison.'),
 ]
 
@@ -789,6 +790,14 @@ it('selects, details, removes, and applies familiar abilities without exposing s
   let html = renderToStaticMarkup(tree())
   expect(c.familiar?.abilities).toEqual(['Flier', 'Tough', 'Fast Movement'])
   expect(html).toContain('</h4> (3/4)')
+  expect(html).not.toContain('Roll Restorative Familiar')
+  const saved = c
+  c = { ...c, familiar: { ...c.familiar!, abilities: ['Flier', 'Restorative Familiar'] } }
+  html = renderToStaticMarkup(tree())
+  expect(html).toContain('aria-label="Roll Restorative Familiar: Healing"')
+  expect(html).toContain('4d8')
+  c = saved
+  html = renderToStaticMarkup(tree())
   expect(html).toContain('<small>Hit Points</small><b>56</b>')
   expect(html).toContain('Fly 40 feet')
   expect(html).toContain('Your familiar’s maximum Hit Points increase by 2 per level.')
