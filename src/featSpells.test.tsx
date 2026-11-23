@@ -134,6 +134,31 @@ it('auto-heightens fixed-rank Primal Rampage spells and their effects, restoring
   expect(resistances(c, entries)).toContainEqual({ damage: 'Physical (except adamantine)', value: 5, source: 'Mountain Resilience' })
 })
 
+it('shows Build the First Walls as a daily Wall of Stone effect with the feat limits', () => {
+  const wall = { ...entry('Wall of Stone', 'spell', { actions: 'Three Actions', range: 120 }), level: 5,
+    description: 'Stone wall: Hardness 14 and 50 Hit Points.' }
+  const feat = { ...entry('Build the First Walls', 'feat'), level: 9,
+    description: 'A wall of dirt up to 60 feet long and 10 feet high. Each section has Hardness 10 and 20 Hit Points. The wall lasts 1 hour.' }
+  const c: Character = { ...base, level: 9, feats: [taken(feat.name, 9)] }
+  const entries = [feat, wall]
+  const grants = grantedFeatSpells(c, entries)
+  expect(grants).toHaveLength(1)
+  expect(grants[0]).toMatchObject({ source: feat.name, rank: 5, rule: { kind: 'feat', frequency: 'once per day' } })
+  expect(grants[0].entry.description).toBe(feat.description)
+  expect(dailyInnateUses(c, grants[0])?.limit).toBe(1)
+  expect(grantedFeatSpells({ ...c, level: 8 }, entries)).toEqual([])
+  expect(unresolvedFeatSpells(c, [feat]).map(item => item.name)).toContain('Wall of Stone')
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('Build the First Walls · Spell Rank 5')
+  expect(markup).toContain('Wall of Stone')
+  expect(markup).toContain('<small>Duration</small>1 hour')
+  expect(markup).toContain('Wall up to 60 feet long and 10 feet high')
+  expect(markup).toContain('Hardness 10 and 20 Hit Points')
+  expect(markup).not.toContain('Hardness 14 and 50 Hit Points')
+  updateSettings({ innateAutoHeighten: true })
+  expect(grantedFeatSpells({ ...c, level: 20 }, entries)[0].rank).toBe(5)
+})
+
 it('grants Lizardfolk innate spells with fixed ranks and daily use tracking', () => {
   const boneInvestiture = feat('Bone Investiture',
     'You can cast [_dinosaur form_](/Spells.aspx?ID=1) on yourself as a 5th-rank innate spell once per day.', 13)

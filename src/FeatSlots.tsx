@@ -163,12 +163,14 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
     ? automaticFeatGrants(c, entries) : []
   const automaticFeats = grants.filter((grant) =>
       (!categories || categories.some(category => grantedType(grant.name) === `${LABEL[category]} Feat`))
-      && (grant.name === 'Additional Lore' || grant.name === 'Augmented Body' || grant.name === 'Assurance' && (grant.source.startsWith('Exceptional Artisan (') || grant.source === 'Test-Subject Ysoki' || grant.source === 'Gnome Obsession')
+      && (grant.name === 'Additional Lore' || grant.name === 'Augmented Body' && !getSettings().singleAugmentedBody || grant.name === 'Assurance' && (grant.source.startsWith('Exceptional Artisan (') || grant.source === 'Test-Subject Ysoki' || grant.source === 'Gnome Obsession')
         || !c.feats.some((feat) => feat.name === grant.name && featTakenLevel(feat) <= c.level))
       && !backgroundFeats.some((feat) => feat.name === grant.name))
     .map(grant => ({ ...grant, fixedLore: grant.name === 'Additional Lore' && !!grant.choice, choice: grant.choice
       ?? c.automaticFeatChoices?.[grant.choiceKey ?? automaticFeatChoiceKey(grant.source, grant.name)] }))
     .filter((grant, index, all) => {
+      if (grant.name === 'Augmented Body' && getSettings().singleAugmentedBody)
+        return all.findIndex(other => other.name === grant.name) === index
       if (grant.name !== 'Additional Lore' || !grant.choice) return true
       const key = grant.choice.trim().replace(/\s+lore$/i, '').toLowerCase()
       const matches = all.filter(other => other.name === 'Additional Lore'

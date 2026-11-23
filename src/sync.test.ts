@@ -110,11 +110,12 @@ describe('settings sync', () => {
     expect(settings.getSettings().disableAncientElfMultitalented).toBe(true)
     expect(settings.getSettings().disableBeastmasterWardenSpells).toBe(true)
     expect(settings.getSettings().singleAdditionalArms).toBe(true)
+    expect(settings.getSettings().singleAugmentedBody).toBe(true)
     expect(settings.getSettings().exclusiveCyborgHearts).toBe(true)
     expect(settings.getSettings().innateAutoHeighten).toBe(true)
     expect(settings.getSettings().deityLore).toBe(true)
     expect(settings.getSettings().sf2eDeitySkills).toBe(true)
-    settings.updateSettings({ singleTrainingFeats: false, championFormNoFlight: false, orderExplorerSkills: false, unarmedCountsAsWeapons: false, barbarianIgnoreAgile: false, adoptedDwarfClanDagger: false, disableAdoptedAncestry: false, singleAdditionalArms: false, exclusiveCyborgHearts: false })
+    settings.updateSettings({ singleTrainingFeats: false, championFormNoFlight: false, orderExplorerSkills: false, unarmedCountsAsWeapons: false, barbarianIgnoreAgile: false, adoptedDwarfClanDagger: false, disableAdoptedAncestry: false, singleAdditionalArms: false, singleAugmentedBody: false, exclusiveCyborgHearts: false })
     settings.updateSettings({ bucklerMeleeFinesse: false, rangerCavalier: false, innateAutoHeighten: false, deityLore: false,
       sf2eDeitySkills: false, disableAncientElfMultitalented: false, disableBeastmasterWardenSpells: false })
     const saved = vi.mocked(localStorage.setItem).mock.lastCall?.[1]
@@ -137,6 +138,7 @@ describe('settings sync', () => {
     expect(reloaded.getSettings().disableAncientElfMultitalented).toBe(false)
     expect(reloaded.getSettings().disableBeastmasterWardenSpells).toBe(false)
     expect(reloaded.getSettings().singleAdditionalArms).toBe(false)
+    expect(reloaded.getSettings().singleAugmentedBody).toBe(false)
     expect(reloaded.getSettings().exclusiveCyborgHearts).toBe(false)
     reloaded.applySyncedSettings({ singleTrainingFeats: true, championFormNoFlight: true, orderExplorerSkills: true,
       disableAdoptedAncestry: false, disableAncientElfMultitalented: false, disableBeastmasterWardenSpells: false }, reloaded.getSettingsUpdatedAt() + 1)

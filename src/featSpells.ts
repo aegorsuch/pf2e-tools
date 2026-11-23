@@ -474,6 +474,16 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (feat.name === 'Build the First Walls' && c.systems.includes('pf2e')) {
+      const spell = matchingSpells(entries, 'Wall of Stone').find(entry => entry.systems.includes('pf2e'))
+      if (spell) out.push({
+        entry: { ...spell, description: source?.description || 'Create a wall of dirt with the effects of Wall of Stone. The wall is up to 60 feet long and 10 feet high, must stand vertically, and lasts 1 hour or until dismissed. Each 10-foot-by-10-foot section has AC 10, Hardness 10, and 20 Hit Points.',
+          data: { ...spell.data, actions: 'Three Actions', duration: 3600, area: 'Wall up to 60 feet long and 10 feet high' } },
+        source: feat.name, rule: { kind: 'feat', spells: [spell.name], frequency: 'once per day', fixedRank: true },
+        rank: spell.level, usageKey: JSON.stringify([selection, feat.name, 'wall of stone']),
+      })
+      continue
+    }
     if (feat.name === 'Core Attunement' && c.systems.includes('pf2e')) {
       for (const [slot, name] of (feat.choice ?? '').split('|').entries()) {
         const entry = slot < 2 && name ? coreAttunementOptions(c, entries, slot as 0 | 1).find(spell => spell.name === name) : undefined
@@ -957,6 +967,10 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
   }
   return [...missingBoonSpells, ...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
+    if (feat.name === 'Build the First Walls' && c.systems.includes('pf2e')) {
+      return matchingSpells(entries, 'Wall of Stone').some(entry => entry.systems.includes('pf2e'))
+        ? [] : [{ name: 'Wall of Stone', source }]
+    }
     if (c.systems.includes('pf2e') && ['Arcane Eye', 'Astral Blink', 'Axial Recall', 'Messenger', 'Overburn', 'Core Attunement',
       'Backup Runic Enhancement'].includes(feat.name)
       || feat.name.toLowerCase() === "answer the first world's call") return []

@@ -1902,13 +1902,22 @@ it('adds granted Augmented Body capacity to the normal limit without rewriting i
   expect(renderToStaticMarkup(<Augmentations c={{ ...c, systems: ['pf2e'] }} entries={[]} save={() => {}} />)).toBe('')
 })
 
-it('adds one normal implant per active Augmented Body acquisition', () => {
+it('caps Augmented Body capacity at one while enabled and restores saved repeats when disabled', () => {
+  const previous = getSettings().singleAugmentedBody
   const c: Character = { ...base, systems: ['sf2e'], level: 4, feats: [
     { ...feat('Augmented Body'), takenLevel: 5 }, { ...feat('Augmented Body'), slot: 'general:9:0' },
   ] }
-  expect(augmentationLimit(c)).toBe(4)
-  expect(augmentationLimit({ ...c, level: 5 })).toBe(5)
-  expect(augmentationLimit({ ...c, level: 9 })).toBe(6)
+  try {
+    updateSettings({ singleAugmentedBody: true })
+    expect(augmentationLimit(c)).toBe(4)
+    expect(augmentationLimit({ ...c, level: 5 })).toBe(5)
+    expect(augmentationLimit({ ...c, level: 9 })).toBe(5)
+    const granted = { ...c, level: 9, feats: [...c.feats, feat('Transgnomanist', 5), feat('Augmented Dedication', 2)] }
+    expect(augmentationLimit(granted)).toBe(7)
+    updateSettings({ singleAugmentedBody: false })
+    expect(augmentationLimit({ ...c, level: 9 })).toBe(6)
+    expect(augmentationLimit(granted)).toBe(10)
+  } finally { updateSettings({ singleAugmentedBody: previous }) }
 })
 
 it('keeps Augmented Dedication implant increases alongside its granted Augmented Body capacity', () => {

@@ -580,7 +580,7 @@ export function SummonPlantActions({ c, save, entry, rank, disabled, slainCreatu
 
 export function ZealousConvictionToggle({ c, save, rank }: Pick<SectionProps, 'c' | 'save'> & { rank: number }) {
   return <label><input type="checkbox" aria-label="Zealous Conviction active on self" checked={c.zealousConvictionRank !== undefined}
-    onChange={event => save({ zealousConvictionRank: event.target.checked ? rank : undefined })} /> Active on self</label>
+    onChange={event => save({ zealousConvictionRank: event.target.checked ? rank : undefined })} /> Zealous Conviction</label>
 }
 
 function CrocodileFormActions({ c, entries, save, rank }: SectionProps & { rank: number }) {
@@ -1219,7 +1219,7 @@ function spellSummaryData(c: Character, entries: ContentEntry[]) {
   return { spells, granted, featSpells, innate, special, focus, focusPoints, manualSpells, items: itemSpells(c, entries) }
 }
 
-export function AutomatedSpellStatuses({ c, entries, save }: SectionProps) {
+export function automatedSpellStatusControls({ c, entries, save }: SectionProps) {
   const data = spellSummaryData(c, entries)
   const names = new Set([
     ...data.spells.map(spell => spell.name),
@@ -1229,10 +1229,10 @@ export function AutomatedSpellStatuses({ c, entries, save }: SectionProps) {
     ...data.items.map(spell => spell.name),
     ...c.activeSpells ?? [],
   ])
-  return <>{AUTOMATED_SPELL_EFFECTS.filter(name => names.has(name)).map(name => <label key={name}>
+  return AUTOMATED_SPELL_EFFECTS.filter(name => names.has(name)).map(name => ({ name, element: <label>
     <input type="checkbox" aria-label={`${name} status`} checked={name === 'Magic Hide' ? isMagicHideActive(c, entries) : !!c.activeSpells?.includes(name)}
       onChange={event => save(name === 'Magic Hide' ? magicHideChange(c, event.target.checked) : spellActiveChange(c, name, event.target.checked))} /> {name}
-  </label>)}</>
+  </label> }))
 }
 
 function characterRituals(c: Character, entries: ContentEntry[]) {

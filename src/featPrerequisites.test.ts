@@ -935,6 +935,26 @@ it('optionally limits Distant Telepath while preserving its existing slot', () =
   } finally { updateSettings({ singleDistantTelepath: previous }) }
 })
 
+it('limits Augmented Body to one selection or grant unless its house rule is disabled', () => {
+  const previous = getSettings().singleAugmentedBody
+  onTestFinished(() => updateSettings({ singleAugmentedBody: previous }))
+  const feat = { ...entry('feat', 'Augmented Body', { repeatable: true }, 1, ['General']), systems: ['sf2e' as const] }
+  const c: Character = { ...base, systems: ['sf2e'], level: 10,
+    feats: [{ name: feat.name, type: 'General Feat', level: 1, slot: 'general:3:0' }] }
+  const slot = { key: 'general:7:0', category: 'general' as const, level: 7 }
+  updateSettings({ singleAugmentedBody: true })
+  expect(eligibleFeats([feat], { ...c, feats: [] }, slot)).toContain(feat)
+  expect(eligibleFeats([feat], c, slot, { includeUnmetPrerequisites: true })).not.toContain(feat)
+  expect(eligibleFeats([feat], c, { ...slot, key: 'general:3:0', level: 3 })).toContain(feat)
+  expect(featSelectionPrerequisiteChecker(c, [feat], slot)(feat).missing.join()).toContain('only be selected once')
+  const granted = { ...c, feats: [{ name: 'Augmented Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }] }
+  expect(eligibleFeats([feat], granted, slot)).not.toContain(feat)
+  expect(featSelectionPrerequisiteChecker(granted, [feat], slot)(feat).missing.join()).toContain('only be selected once')
+  updateSettings({ singleAugmentedBody: false })
+  expect(eligibleFeats([feat], c, slot)).toContain(feat)
+  expect(eligibleFeats([feat], granted, slot)).toContain(feat)
+})
+
 it.each(['Machine Heart', 'Mortal Heart'])('optionally excludes the other Cyborg heart after %s', name => {
   const previous = getSettings().exclusiveCyborgHearts
   const data = ['Machine Heart', 'Mortal Heart'].map(name =>

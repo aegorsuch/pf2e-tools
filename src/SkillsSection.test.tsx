@@ -808,6 +808,57 @@ it('converts training recursively at 2:1, persists purchases and refunds them wi
   } finally { vi.unstubAllGlobals() }
 })
 
+it('returns usable change when a Legendary token buys Expert and preserves independent refunds', () => {
+  const previous = getSettings().skillTokenConversion
+  updateSettings({ skillTokenConversion: true })
+  let c: Character = { ...base, level: 15, skillPicks: ['Athletics', 'Acrobatics', 'Stealth', 'Medicine'],
+    rankOverrides: { Athletics: 1, Acrobatics: 1, Stealth: 2 },
+    skillIncreases: { 3: 'Nature', 5: 'Nature', 7: 'Nature', 9: 'Nature', 11: 'Nature', 13: 'Nature' } }
+  const confirm = vi.fn(() => true)
+  vi.stubGlobal('window', { confirm })
+  try {
+    const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
+    const click = (name: string) => {
+      const button = findButtons(tree()).get(name)!
+      expect(button.disabled).toBeFalsy()
+      ;(button.onClick as () => void)()
+    }
+    expect(skillRankBudget(c, [ranger])).toMatchObject({ trained: 0, expert: 0, master: 0, legendary: 1 })
+    click('Athletics Expert')
+    expect(c.skillTokenUpgrades?.[0].payment).toEqual(['15~0~0'])
+    expect(skillRankBudget(c, [ranger])).toMatchObject({ expert: 1, master: 1, legendary: 0 })
+    expect(builder.skillRankAllocations(c, [ranger])).toEqual(expect.arrayContaining([
+      { rank: 'Expert', used: 3, total: 4 }, { rank: 'Master', used: 4, total: 5 },
+      { rank: 'Legendary', used: 0, total: 0 },
+    ]))
+    click('Acrobatics Expert')
+    click('Stealth Master')
+    expect(skillRankBudget(c, [ranger])).toMatchObject({ expert: 0, master: 0, legendary: 0 })
+    expect(ranksAt(c, [ranger])).toMatchObject({ Athletics: 2, Acrobatics: 2, Stealth: 3 })
+    click('Athletics Expert')
+    expect(ranksAt(c, [ranger])).toMatchObject({ Athletics: 1, Acrobatics: 2, Stealth: 3 })
+    expect(skillRankBudget(c, [ranger]).expert).toBe(1)
+    expect(builder.skillTokenState(c, [ranger]).inactive).toEqual([])
+  } finally {
+    vi.unstubAllGlobals()
+    updateSettings({ skillTokenConversion: previous })
+  }
+})
+
+it('keeps split Mechanic token change restricted to Computers and Crafting', () => {
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', level: 15,
+    rankOverrides: { Computers: 1, Crafting: 1, Athletics: 1 },
+    skillIncreases: { 3: 'Athletics', 5: 'Athletics', 7: 'Athletics', 9: 'Athletics', 11: 'Athletics', 13: 'Athletics', 15: 'Athletics',
+      'mechanic-ingenuity:3': 'Crafting', 'mechanic-ingenuity:7': 'Crafting' } }
+  const purchases = builder.skillTokenPurchase(c, [mechanic], 'Computers', 2)!
+  expect(purchases[0].payment).toEqual(['mechanic-ingenuity:15~0~0'])
+  const next = { ...c, skillTokenUpgrades: purchases }
+  expect(builder.skillTokenState(next, [mechanic]).available.map(token => token.key))
+    .toEqual(expect.arrayContaining(['mechanic-ingenuity:15~0~1', 'mechanic-ingenuity:15~1']))
+  expect(builder.skillTokenPurchase(next, [mechanic], 'Athletics', 2)).toBeUndefined()
+  expect(builder.skillTokenPurchase(next, [mechanic], 'Crafting', 2)).toBeDefined()
+})
+
 it('refunds converted ranks through the rank buttons, keeping original allocations and honoring cancellation', () => {
   const klass = { ...ranger, data: { ...ranger.data,
     skill_proficiency: 'Trained in Nature, Trained in a number of additional skills equal to 20 plus your Intelligence modifier' } }
@@ -1829,7 +1880,8 @@ it('keeps Ancestral Skills training fixed, refunds redundant picks and spends on
   expect(ranksAt(c, [ranger, feat]).Society).toBe(1)
   c = { ...c, level: 7 }
   ;(findButtons(tree()).get('Diplomacy Expert')!.onClick as () => void)()
-  expect(c.skillIncreases).toEqual({ 7: 'Diplomacy' })
+  expect(c.skillTokenUpgrades?.[0].payment).toEqual(['7~0'])
+  expect(ranksAt(c, [ranger, feat]).Diplomacy).toBe(2)
 })
 
 it('keeps movement terrain synchronized without a redundant feat selector and applies Terrain Master automatically', () => {
@@ -1890,10 +1942,10 @@ it('allocates paid increases after Scrapper grants instead of spending earlier i
   c = { ...c, level: 7 }
   expect(findButtons(tree()).get('Occultism Expert')?.disabled).toBe(false)
   ;(findButtons(tree()).get('Occultism Expert')!.onClick as () => void)()
-  expect(c.skillIncreases).toEqual({ 7: 'Occultism' })
+  expect(c.skillTokenUpgrades?.[0].payment).toEqual(['7~0'])
   expect(ranksAt(c, [ranger])).toMatchObject({ Occultism: 2, Crafting: 2 })
   expect(c.feats[0].choice).toBe('Occultism to Trained')
-  c = { ...c, skillIncreases: {} }
+  c = { ...c, skillIncreases: {}, skillTokenUpgrades: [] }
   ;(findButtons(tree()).get('Crafting Master')!.onClick as () => void)()
   expect(c.skillIncreases).toEqual({ 7: 'Crafting' })
   expect(ranksAt(c, [ranger]).Crafting).toBe(3)

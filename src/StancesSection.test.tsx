@@ -5,7 +5,8 @@ import { activeStance, availableStances, intensifiedElementDamage, starfinderArm
 import { EntryDescription } from './EntryDescription'
 import { featDisplayName } from './featChoices'
 import { FeatSlots } from './FeatSlots'
-import { StancesContent, StancesSummary } from './StancesSection'
+import { StancesContent } from './StancesSection'
+import { StatusesContent, StatusesSummary } from './StatusesSection'
 import { SpellsSection } from './SpellsSection'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
@@ -23,13 +24,17 @@ const learn = (entry: ContentEntry): Character['feats'][number] => ({
   name: entry.name, type: 'Class Feat', level: entry.level, sourceId: entry.id,
 })
 
-it('summarizes available stance count and the active stance without counting future selections', () => {
+it('shows stance controls and the active stance in statuses', () => {
   const entries = [stance('Foeseeker Stance'), stance('Tiger Stance'), stance('Future Stance', 18)]
   const c = { ...base, feats: entries.map(learn) }
-  const render = (character: Character) => renderToStaticMarkup(<StancesSummary c={character} entries={entries} save={() => {}} />)
-  expect(render(c)).toContain('2, None Active')
-  expect(render({ ...c, activeStance: 'Foeseeker Stance' })).toContain('2, Foeseeker Stance Active')
-  expect(render({ ...c, activeStance: 'Future Stance' })).toContain('2, None Active')
+  const render = (character: Character) => renderToStaticMarkup(<StatusesSummary c={character} entries={entries} save={() => {}} />)
+  expect(render(c)).toContain('None active')
+  expect(render({ ...c, activeStance: 'Foeseeker Stance' })).toContain('Foeseeker Stance')
+  expect(render({ ...c, activeStance: 'Future Stance' })).toContain('None active')
+  const controls = renderToStaticMarkup(<StatusesContent c={c} entries={entries} save={() => {}} />)
+  expect(controls).toContain('aria-label="Use Foeseeker Stance"')
+  expect(controls).toContain('aria-label="Use Tiger Stance"')
+  expect(controls).not.toContain('aria-label="Use Future Stance"')
 })
 
 it('lists learned stances once in display order, rejecting future, deleted and wrong-source selections', () => {

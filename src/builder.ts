@@ -434,10 +434,11 @@ export function signiferExpertSlots(c: Character) {
 }
 export function augmentationLimit(c: Character) {
   const count = (name: string) => activeFeatsNamed(c, name).length
+  const augmentedBody = count('Augmented Body') + count('Transgnomanist') + count('Augmented Dedication')
   return 4 + 4 * Number(hasCyborgHeritage(c)) + 2 * count('Augmented Shell') + count('Reconfigurable Frame')
     + count('Easily Augmented') * (c.heritage?.toLowerCase() === 'synthflesh verthani' ? 2 : 1)
     + 2 * (count('Augmented Dedication') + count('Augmented Perfection'))
-    + count('Augmented Body') + count('Transgnomanist') + count('Augmented Dedication') + count('Adapted Augmentations')
+    + (getSettings().singleAugmentedBody ? Math.min(1, augmentedBody) : augmentedBody) + count('Adapted Augmentations')
 }
 export function augmentationLimitUsed(c: Character) {
   // Saved feat-specific slots now count as ordinary implants.
@@ -1410,6 +1411,12 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
       && character.feats.some(feat => feat.name === entry.name)) {
       missing.push('Additional Arms can only be selected once (house rule)')
     }
+    if (getSettings().singleAugmentedBody && entry.name === 'Augmented Body'
+      && (character.feats.some(feat => feat.name === entry.name)
+        || automaticFeatGrants(character, entries).some(grant => grant.name === entry.name)
+        || tokens(byName(entries, 'background', character.background)?.data.feat).includes(entry.name))) {
+      missing.push('Augmented Body can only be selected once (house rule)')
+    }
     if (getSettings().singleDistantTelepath && entry.name === 'Distant Telepath'
       && character.feats.some(feat => feat.name === entry.name)) {
       missing.push('Distant Telepath can only be selected once (house rule)')
@@ -1595,6 +1602,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === e.name && (!feat.sourceId || feat.sourceId === e.id)))
       && !(getSettings().singleTrainingFeats && ['General Training', 'Advanced General Training'].includes(e.name) && taken.has(e.name))
       && !(getSettings().singleAdditionalArms && e.name === 'Additional Arms' && taken.has(e.name))
+      && !(getSettings().singleAugmentedBody && e.name === 'Augmented Body' && taken.has(e.name))
       && !(getSettings().singleDistantTelepath && e.name === 'Distant Telepath' && taken.has(e.name))
       && (e.name !== "Officer's Education" || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
       && (e.name !== 'Adaptive Visual Receptors' || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
@@ -8062,36 +8070,66 @@ type SkillTokenUpgrade = NonNullable<Character['skillTokenUpgrades']>[number]
 interface SkillToken {
   key: string
   rank: number
+  level: number
   skills?: string[]
 }
 
 function skillIncreaseTokens(c: Character, entries: ContentEntry[]): SkillToken[] {
   return [
-    ...(longevityExpertLevel(c) !== undefined ? [{ key: LONGEVITY_EXPERT_SLOT, rank: 2 }] : []),
-    ...officerEducationSlots(c).map(slot => ({ key: slot.key, rank: 2 })),
-    ...signiferExpertSlots(c).map(slot => ({ key: slot.key, rank: 2, skills: slot.skills })),
-    ...mechanicIngenuitySlots(c).map(slot => ({ key: slot.key, rank: rankCap(slot.level), skills: ['Computers', 'Crafting'] })),
+    ...(longevityExpertLevel(c) !== undefined ? [{ key: LONGEVITY_EXPERT_SLOT, rank: 2, level: longevityExpertLevel(c)! }] : []),
+    ...officerEducationSlots(c).map(slot => ({ key: slot.key, rank: 2, level: slot.level })),
+    ...signiferExpertSlots(c).map(slot => ({ key: slot.key, rank: 2, level: slot.level, skills: slot.skills })),
+    ...mechanicIngenuitySlots(c).map(slot => ({ key: slot.key, rank: rankCap(slot.level), level: slot.level, skills: ['Computers', 'Crafting'] })),
     ...backgroundLoreIncreaseSlots(c, entries).map(slot => ({ ...slot, rank: rankCap(slot.level) })),
-    ...skillIncreaseLevels(c).map(level => ({ key: String(level), rank: rankCap(level) })),
+    ...skillIncreaseLevels(c).map(level => ({ key: String(level), rank: rankCap(level), level })),
   ]
 }
 
 function unusedSkillTokens(c: Character, entries: ContentEntry[]) {
   const tokens: SkillToken[] = Array.from({ length: baseSkillRankBudget(c, entries).trained },
-    (_, index) => ({ key: `trained:${index}`, rank: 1 }))
+    (_, index) => ({ key: `trained:${index}`, rank: 1, level: 1 }))
   tokens.push(...skillIncreaseTokens(c, entries).filter(token => !c.skillIncreases?.[token.key]
     || token.skills && !token.skills.includes(c.skillIncreases[token.key])))
   return tokens
 }
 
-function takeSkillToken(tokens: SkillToken[], rank: number): string[] | undefined {
-  const index = tokens.reduce((best, token, index) => token.rank >= rank
-    && (best < 0 || token.rank < tokens[best].rank) ? index : best, -1)
+function takeSkillToken(tokens: SkillToken[], rank: number, preferHigher = false): string[] | undefined {
+  const index = tokens.findIndex(token => token.rank === rank)
   if (index >= 0) return [tokens.splice(index, 1)[0].key]
-  if (rank <= 1) return undefined
-  const first = takeSkillToken(tokens, rank - 1)
-  const second = first && takeSkillToken(tokens, rank - 1)
-  return first && second ? [...first, ...second] : undefined
+  const higher = tokens.reduce((best, token, i) => token.rank > rank
+    && (best < 0 || token.rank < tokens[best].rank) ? i : best, -1)
+  if (higher >= 0 && preferHigher) {
+    const token = tokens.splice(higher, 1)[0]
+    tokens.push({ ...token, key: `${token.key}~0`, rank: token.rank - 1 },
+      { ...token, key: `${token.key}~1`, rank: token.rank - 1 })
+    return takeSkillToken(tokens, rank, true)
+  }
+  if (rank > 1) {
+    const trial = tokens.filter(token => token.rank < rank)
+    const first = takeSkillToken(trial, rank - 1)
+    if (first) {
+      const second = takeSkillToken(trial, rank - 1)
+      if (second) {
+        tokens.splice(0, tokens.length, ...tokens.filter(token => token.rank >= rank), ...trial)
+        return [...first, ...second]
+      }
+    }
+  }
+  if (higher < 0) return undefined
+  const token = tokens.splice(higher, 1)[0]
+  const left = { ...token, key: `${token.key}~0`, rank: token.rank - 1 }
+  const right = { ...token, key: `${token.key}~1`, rank: token.rank - 1 }
+  tokens.push(left, right)
+  return takeSkillToken(tokens, rank)
+}
+
+function splitSkillTokens(tokens: SkillToken[], paths: Iterable<string>): SkillToken[] {
+  const keys = [...paths]
+  const split = (token: SkillToken): SkillToken[] => token.rank > 1
+    && keys.some(key => key.startsWith(`${token.key}~`))
+    ? [0, 1].flatMap(branch => split({ ...token, key: `${token.key}~${branch}`, rank: token.rank - 1 }))
+    : [token]
+  return tokens.flatMap(split)
 }
 
 export function normalizeGrantedSkillSpending(c: Character, entries: ContentEntry[]): Character {
@@ -8150,6 +8188,7 @@ function calculateSkillTokenState(c: Character, entries: ContentEntry[]) {
   const active: { purchase: SkillTokenUpgrade; index: number }[] = []
   const inactive: { purchase: SkillTokenUpgrade; index: number; reason: string }[] = []
   const used = new Set<string>()
+  const spent = new Set<string>()
   const names = new Set(statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name))
   const enabled = getSettings().skillTokenConversion
   for (const { purchase, index } of (c.skillTokenUpgrades ?? []).map((purchase, index) => ({ purchase, index }))
@@ -8168,44 +8207,49 @@ function calculateSkillTokenState(c: Character, entries: ContentEntry[]) {
         ...active.filter(item => item.purchase.skill === purchase.skill).map(item => item.purchase.rank))
       if (prior < purchase.rank - 1) reason = `Requires ${RANKS[purchase.rank - 1]} ${purchase.skill} first.`
     }
-    const sources = !reason ? unusedSkillTokens(atLevel, entries).filter(token =>
-      !used.has(token.key) && (!token.skills || token.skills.includes(purchase.skill))) : []
+    const sources = !reason ? splitSkillTokens(unusedSkillTokens(atLevel, entries), [...spent, ...purchase.payment]).filter(token =>
+      ![...spent].some(key => token.key === key || token.key.startsWith(`${key}~`))
+      && (!token.skills || token.skills.includes(purchase.skill))) : []
     const payment = !reason && new Set(purchase.payment).size === purchase.payment.length
       ? takeSkillToken(sources.filter(token => purchase.payment.includes(token.key)), purchase.rank) : undefined
     if (!reason && (!payment || payment.length !== purchase.payment.length)) reason = 'Payment unavailable; refund or restore its unused skill choices.'
     if (reason) inactive.push({ purchase, index, reason })
     else {
-      purchase.payment.forEach(key => used.add(key))
+      purchase.payment.forEach(key => { spent.add(key); used.add(key.split('~')[0]) })
       active.push({ purchase, index })
       ranks[purchase.skill] = Math.max(ranks[purchase.skill] ?? 0, purchase.rank)
     }
   }
-  return { active, inactive, used, ranks, available: available.filter(token => !used.has(token.key)) }
+  const split = splitSkillTokens(available, spent)
+  return { active, inactive, used, ranks, split, available: split.filter(token =>
+    ![...spent].some(key => token.key === key || token.key.startsWith(`${key}~`))) }
 }
 
 export function skillTokenPurchase(c: Character, entries: ContentEntry[], skill: string, target: number,
-  convertOnly = false, state = skillTokenState(c, entries)) {
+  convertOnly = false, state = skillTokenState(c, entries), canSpendAt?: (level: number) => boolean) {
   c = normalizeGrantedSkillSpending(c, entries)
   if (!getSettings().skillTokenConversion || !Number.isInteger(target)
     || target < 2 || target > (c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1)) return undefined
   const current = state.ranks[skill] ?? 0
   if (current < 1 || target <= current || !statDefs(c).some(stat => stat.kind === 'skill' && stat.name === skill)
     && !/^.+ lore$/i.test(skill)) return undefined
-  const available = state.available.filter(token => !token.skills || token.skills.includes(skill))
+  const available = state.available.filter(token => (!token.skills || token.skills.includes(skill))
+    && (token.rank === 1 || !canSpendAt || canSpendAt(token.level)))
   const purchases: SkillTokenUpgrade[] = []
   for (const rank of [2, 3, 4] as const) {
     if (rank <= current || rank > target) continue
     const eligible = available.filter(token => !convertOnly || token.rank < rank)
-    const payment = takeSkillToken(eligible, rank)
+    const eligibleKeys = new Set(eligible.map(token => token.key))
+    const payment = takeSkillToken(eligible, rank, !convertOnly)
     if (!payment) return undefined
-    for (const key of payment) available.splice(available.findIndex(token => token.key === key), 1)
+    available.splice(0, available.length, ...available.filter(token => !eligibleKeys.has(token.key)), ...eligible)
     purchases.push({ skill, rank, level: c.level, payment })
   }
   return [...c.skillTokenUpgrades ?? [], ...purchases]
 }
 
 export function skillTokenPayment(payment: string[], c: Character, entries: ContentEntry[]) {
-  const sources = unusedSkillTokens({ ...c, skillTokenUpgrades: undefined }, entries)
+  const sources = splitSkillTokens(unusedSkillTokens({ ...c, skillTokenUpgrades: undefined }, entries), payment)
   return [1, 2, 3, 4].flatMap(rank => {
     const count = payment.filter(key => sources.some(token => token.key === key && token.rank === rank)).length
     return count ? [`${count} ${RANKS[rank]}`] : []
@@ -8218,9 +8262,9 @@ export function skillRankBudget(c: Character, entries: ContentEntry[]) {
   const remaining = baseSkillRankBudget(raw, entries)
   if (!getSettings().skillTokenConversion || !c.skillTokenUpgrades?.length) return remaining
   const state = skillTokenState(c, entries)
-  for (const token of unusedSkillTokens(raw, entries)) {
-    if (state.used.has(token.key)) remaining[(['trained', 'expert', 'master', 'legendary'] as const)[token.rank - 1]]--
-  }
+  const keys = ['trained', 'expert', 'master', 'legendary'] as const
+  for (const token of unusedSkillTokens(raw, entries)) remaining[keys[token.rank - 1]]--
+  for (const token of state.available) remaining[keys[token.rank - 1]]++
   return remaining
 }
 
@@ -8244,6 +8288,10 @@ export function skillRankAllocations(c: Character, entries: ContentEntry[]) {
     remaining.trained += Number(!erudite.lore)
   }
   for (const token of skillIncreaseTokens(c, entries)) total[keys[token.rank - 1]]++
+  if (getSettings().skillTokenConversion && c.skillTokenUpgrades?.length) {
+    for (const token of unusedSkillTokens({ ...c, skillTokenUpgrades: undefined }, entries)) total[keys[token.rank - 1]]--
+    for (const token of skillTokenState(c, entries).split) total[keys[token.rank - 1]]++
+  }
   for (const training of temporarySkillTrainings(c, entries)) {
     const key = keys[training.rank - 1]
     total[key]++

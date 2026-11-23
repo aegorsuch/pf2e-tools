@@ -4,13 +4,6 @@ import { adoptedAncestryText, featDisplayName } from './featChoices'
 import { DamageRoll } from './SpellDamage'
 import { SourceNote } from './Info'
 
-export function StancesSummary({ c, entries }: SectionProps) {
-  const active = activeStance(c, entries)
-  return <summary className="character-section-summary">
-    <strong>Stances</strong><span>{availableStances(c, entries).length}, {active ? adoptedAncestryText(c, featDisplayName(active)) : 'None'} Active</span>
-  </summary>
-}
-
 export function StancesContent({ c, entries, save }: SectionProps) {
   const stances = availableStances(c, entries)
   const active = activeStance(c, entries)

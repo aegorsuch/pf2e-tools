@@ -27,6 +27,7 @@ it('synchronizes condition and Zealous Conviction state with character statistic
   expect(c.conditions?.frightened).toBe(2)
   expect(savingThrowBreakdown(c, [], 'Will').total).toBe(baseline - 2)
   const toggle = ZealousConvictionToggle({ c, save, rank: 10 })
+  expect(renderToStaticMarkup(toggle)).toContain('> Zealous Conviction</label>')
   const input = Children.toArray(toggle.props.children).find(child => isValidElement(child) && child.type === 'input')
   if (!isValidElement<{ onChange: (event: { target: { checked: boolean } }) => void }>(input)) throw Error('Missing toggle')
   input.props.onChange({ target: { checked: true } })
@@ -55,4 +56,21 @@ it('synchronizes Protect Companion target and active state', () => {
   expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).toContain('Protect Companion')
   input.props.onChange({ target: { checked: false } })
   expect(c.activeSpells).not.toContain('Protect Companion')
+})
+
+it('renders each available status in its own alphabetical row', () => {
+  const c: Character = { id: 'statuses', name: 'Test', systems: ['pf2e'], level: 20, className: 'Barbarian',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    activeSpells: ['Tailwind', 'Protect Companion', 'Enduring Might'], zealousConvictionRank: 9,
+    companions: [{ id: 'bear', name: 'Bear', type: 'Bear' }] }
+  const markup = renderToStaticMarkup(<StatusesContent c={c} entries={[]} save={() => {}} />)
+  expect(markup.match(/class="status-row"/g)).toHaveLength(9)
+  const labels = ['Active stance', 'Enduring Might status', 'Enfeebled status', 'Frightened status',
+    'Protect Companion active', 'Rage active (defense)', 'Sickened status', 'Tailwind status', 'Zealous Conviction active on self']
+  const positions = labels.map(label => markup.indexOf(label))
+  expect(positions.every(position => position >= 0)).toBe(true)
+  expect(positions).toEqual([...positions].sort((a, b) => a - b))
+  const summary = renderToStaticMarkup(<StatusesSummary c={{ ...c, raging: true, conditions: { frightened: 2, enfeebled: 1 } }} entries={[]} save={() => {}} />)
+  expect(summary).toContain('Enduring Might, Enfeebled 1, Frightened 2, Protect Companion, Rage, Tailwind, Zealous Conviction')
 })

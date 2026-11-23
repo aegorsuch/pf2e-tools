@@ -313,6 +313,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     for (const slot of slots) {
       if (next[slot.key] || tokenState?.used.has(slot.key) || !canSpendAt(name, slot.level)
         || !!slot.skills && !slot.skills.includes(name)
+        || getSettings().skillTokenConversion && !slot.expertOnly && canIncreaseTo(slot.level, rank + 1)
         || (slot.expertOnly ? rank !== 1 || !canUseExpertSlot(slot.level) : !canIncreaseTo(slot.level, rank))) continue
       next[slot.key] = name
       if (++rank >= target) return next
@@ -320,7 +321,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     return undefined
   }
   const canReachRank = (name: string, target: number) => !!assignRank(name, target)
-    || !!tokenState && !!skillTokenPurchase(c, entries, name, target, false, tokenState)
+    || !!tokenState && !!skillTokenPurchase(c, entries, name, target, false, tokenState, level => canSpendAt(name, level))
   const setRank = (name: string, r: number) => {
     if (!skillNames.has(name)) return
     if (r === 1 && eruditeChoice(name)) {
@@ -367,7 +368,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
 
     const next = assignRank(name, target)
     if (!next) {
-      const purchases = tokenState && skillTokenPurchase(c, entries, name, target, false, tokenState)
+      const purchases = tokenState && skillTokenPurchase(c, entries, name, target, false, tokenState, level => canSpendAt(name, level))
       if (purchases) save({ skillTokenUpgrades: purchases })
       return
     }
