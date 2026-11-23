@@ -437,6 +437,13 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: 3, usageKey: JSON.stringify([selection, feat.name, 'haste']) })
       continue
     }
+    if (feat.name === 'Axial Recall' && c.systems.includes('pf2e')) {
+      const entry = ['Interplanar Teleport', 'Plane Shift'].flatMap(name => matchingSpells(entries, name)).find(spell => spell.systems.includes('pf2e'))
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'arcane', frequency: 'twice per week', fixedRank: true },
+        rank: 7, usageKey: JSON.stringify([selection, feat.name, 'interplanar teleport']) })
+      continue
+    }
     if (feat.name === 'Astral Blink' && c.systems.includes('pf2e')) {
       const entry = matchingSpells(entries, 'Translocate').find(spell => spell.systems.includes('pf2e'))
       if (entry) out.push({ entry, source: feat.name,
