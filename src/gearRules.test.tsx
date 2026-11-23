@@ -3502,6 +3502,14 @@ it('adds the selected Automaton Armament claw or pincer attack', () => {
   }
 })
 
+it('adds a Core Cannon energy blast only while in cannon form', () => {
+  const c: Character = { ...base, systems: ['pf2e'], level: 17, feats: [feat('Core Cannon', 17)] }
+  expect(ownedWeapons(c, []).some(weapon => weapon.name === 'Energy Blast')).toBe(false)
+  const active = { ...c, coreCannonActive: true }
+  const blast = ownedWeapons(active, []).find(weapon => weapon.name === 'Energy Blast')!
+  expect(weaponAttack(active, [], blast).damage).toContain('3d8')
+})
+
 it('adds the selected Iruxi Armaments attack and its ancestry-feat benefits', () => {
   const c: Character = { ...base, ancestry: 'Lizardfolk', level: 13,
     feats: [feat('Iruxi Armaments', 1, 'Fangs'), feat('Iruxi Spirit Strike', 13), feat('Iruxi Unarmed Cunning', 5)] }

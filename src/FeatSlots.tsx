@@ -443,6 +443,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             && !!activeFeatsNamed(c, currentEntry.name).length
           const showWrathRoll = currentEntry?.name === 'Wrath of the Hold' && !!activeFeatsNamed(c, currentEntry.name).length
           const showInscribedBlast = c.systems.includes('pf2e') && currentEntry?.name === 'Inscribed Blast' && !!activeFeatsNamed(c, currentEntry.name).length
+          const showCoreCannon = c.systems.includes('pf2e') && currentEntry?.name === 'Core Cannon' && !!activeFeatsNamed(c, currentEntry.name).length
           const showAcidicSpitRoll = c.systems.includes('sf2e') && currentEntry?.name === 'Acidic Spit'
             && !!activeFeatsNamed(c, currentEntry.name).length
           const access = currentEntry ? featAccess(c, currentEntry) : undefined
@@ -595,7 +596,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               ) : current ? (
                 current === 'N/A' ? <span>N/A</span> : <>
                   <EntryDescription character={c} name={selectedName} entry={currentEntry} choice={selection?.choice} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} grantSource={grantSource}
-                    buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showAcidicSpitRoll || showInscribedBlast}
+                    buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showAcidicSpitRoll || showInscribedBlast || showCoreCannon}
                     descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                       : selection?.choice && DOMAIN_FEATS.includes(selection.name)
                         ? domainSpellDescription(c, entries, selection.name, selection.choice)
@@ -609,6 +610,16 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                       damage={{ label: 'Damage', dice: 2 + (c.level >= 10 ? Math.floor((c.level - 5) / 5) : 0), sides: 4, type: 'force' }} />
                     <button type="button" aria-label="Inscribed Blast uses" title="Click to toggle runes intact or faded"
                       onClick={() => save({ inscribedBlastUsed: !c.inscribedBlastUsed })}>{c.inscribedBlastUsed ? 0 : 1}/1</button>
+                  </>}
+                  {showCoreCannon && <>
+                    <button type="button" className="spell-action-button" aria-label="Core Cannon transform"
+                      disabled={!c.coreCannonActive && !!c.coreCannonUsed}
+                      title={c.coreCannonActive ? 'Interact to revert to standard form' : 'Transform into cannon form'}
+                      onClick={() => save(c.coreCannonActive ? { coreCannonActive: false } : { coreCannonActive: true, coreCannonUsed: true })}>
+                      {c.coreCannonActive ? 'Revert' : <ActionIcon actions="Two Actions" showOther />}
+                    </button>
+                    <button type="button" aria-label="Core Cannon uses" title="Click to toggle daily use"
+                      onClick={() => save({ coreCannonUsed: !c.coreCannonUsed })}>{c.coreCannonUsed ? 0 : 1}/1</button>
                   </>}
                   {showAcidicSpitRoll && <DamageRoll name="Acidic Spit" actions="Two Actions" toggleResult
                     damage={{ label: 'Damage', dice: c.level >= 16 ? 11 : 8, sides: 6, type: 'acid' }} />}

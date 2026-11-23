@@ -176,6 +176,13 @@ export const AUTOMATON_CLAW: ContentEntry = {
   data: { ...FIST.data, weapon_group: 'Brawling', damage: '1d4 slashing' },
 }
 
+export const ENERGY_BLAST: ContentEntry = {
+  ...FIST, id: 'supplemental:energy-blast', name: 'Energy Blast', systems: ['pf2e'],
+  traits: ['Unarmed'],
+  description: 'Core Cannon: while in cannon form, a ranged unarmed energy blast dealing fire and force damage.',
+  data: { ...FIST.data, weapon_type: 'Ranged', damage: '3d8 fire', range: 120 },
+}
+
 export const AUTOMATON_PINCER: ContentEntry = {
   ...FIST, id: 'supplemental:automaton-pincer', name: 'Pincer', systems: ['pf2e'],
   traits: ['Grapple', 'Unarmed'],
@@ -491,7 +498,7 @@ export const HARDLIGHT_GRADES: Record<HardlightGrade, { potency: number; strikin
 }
 
 export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, CAIRN_FIST, SPARK_FIST, ORC_TUSKS, TENGU_BITE, TENGU_DOGFANG_BITE,
-  IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, AUTOMATON_CLAW, AUTOMATON_PINCER,
+  IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, AUTOMATON_CLAW, AUTOMATON_PINCER, ENERGY_BLAST,
   CLAN_PISTOL, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, UNTAMED_CLAWS, UNTAMED_JAWS, GAUNTLET]
 
 export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {

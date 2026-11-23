@@ -14,7 +14,7 @@ import { companionAdvancement, companionAdvancementFor } from './companions'
 import { contentAccessGranted, featRarity, spellAccessGranted } from './featAccess'
 import { spellResolution } from './spellDefense'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
-import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, AUTOMATON_CLAW, AUTOMATON_PINCER, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
+import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, AUTOMATON_CLAW, AUTOMATON_PINCER, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ENERGY_BLAST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
 import { isAncestralEmbrace, isHighhelmPlate, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
@@ -5388,7 +5388,7 @@ export const armorClass = (c: Character, entries: ContentEntry[]) => armorClassB
 const DWARF_CLAN_PISTOL_ID = 'granted-weapon:dwarf:clan-pistol'
 const DWARF_CLAN_DAGGER_ID = 'granted-weapon:dwarf:clan-dagger'
 
-const iruxiAttackIds = new Set([IRUXI_CLAWS.id, IRUXI_FANGS.id, IRUXI_TAIL.id, AUTOMATON_CLAW.id, AUTOMATON_PINCER.id, TENGU_BITE.id, TENGU_DOGFANG_BITE.id])
+const iruxiAttackIds = new Set([IRUXI_CLAWS.id, IRUXI_FANGS.id, IRUXI_TAIL.id, AUTOMATON_CLAW.id, AUTOMATON_PINCER.id, ENERGY_BLAST.id, TENGU_BITE.id, TENGU_DOGFANG_BITE.id])
 const nephilimAttackBase: ContentEntry = { ...FIST, systems: ['pf2e'],
   description: 'Bestial Manifestation grants this unarmed attack.',
   data: { ...FIST.data, url: 'https://2e.aonprd.com/Feats.aspx?ID=4548' } }
@@ -5900,6 +5900,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
       : feat.choice === 'Tail' ? [IRUXI_TAIL] : [])
   const automatonAttacks = c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Automaton Armament').flatMap(feat =>
     feat.choice === 'Claw' ? [AUTOMATON_CLAW] : feat.choice === 'Pincer' ? [AUTOMATON_PINCER] : []) : []
+  const energyBlasts = c.systems.includes('pf2e') && c.coreCannonActive && activeFeatsNamed(c, 'Core Cannon').length ? [ENERGY_BLAST] : []
   const nephilimSelected = c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Bestial Manifestation').flatMap(feat =>
     nephilimAttacks.filter(entry => entry.name === feat.choice)) : []
   const nativeJaws = c.systems.includes('sf2e') && c.ancestry === 'Ysoki'
@@ -5922,6 +5923,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (weapon.name !== IRON_FIST.name || ironFists) && (weapon.name !== ORC_TUSKS.name || tusks)
     && (weapon.name !== CAIRN_FIST.name || cairnAttacks.length > 0)
     && (weapon.name !== SPARK_FIST.name || sparkAttacks.length > 0)
+    && (weapon.id !== ENERGY_BLAST.id || energyBlasts.length > 0)
     && (!bestialWeapon(weapon.id) || bestialAttacks.some(attack => attack.id === weapon.id))
     && (!ysokiJaws.some(entry => entry.id === weapon.id) || nativeJaws.some(entry => entry.id === weapon.id))
     && (weapon.id !== shirrenJaws.id || shirrenAttacks.length > 0)
@@ -5937,7 +5939,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (![...animalAttacks, UNTAMED_CLAWS, UNTAMED_JAWS].some((entry) => entry.name === weapon.name)
       || [...selectedAttacks, ...untamedAttacks].some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...automatonAttacks, ...nephilimSelected, ...tenguBite, ...nativeJaws, ...shirrenAttacks, ...brutalAttacks, ...predatoryAttacks, ...witchSelected, ...venomousJaws,
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...automatonAttacks, ...energyBlasts, ...nephilimSelected, ...tenguBite, ...nativeJaws, ...shirrenAttacks, ...brutalAttacks, ...predatoryAttacks, ...witchSelected, ...venomousJaws,
     ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []),
     ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...bestialAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
     if (!available.some((weapon) => iruxiAttackIds.has(entry.id) || witchAttackIds.has(entry.id) || nephilimAttacks.some(attack => attack.id === entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {
@@ -7320,6 +7322,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     const fist = sparkFist ? SPARK_FIST : CAIRN_FIST
     entry = { ...fist, data: { ...fist.data, damage: `${cairn.dice}d6 bludgeoning` } }
   }
+  if (entry && w.id === ENERGY_BLAST.id) entry = { ...entry, data: { ...entry.data, damage: c.level >= 20 ? '4d8 fire' : '3d8 fire' } }
   if (sparkFist && (activeFeatsNamed(c, 'Iron Fists').length || activeFeatsNamed(c, 'Iron Fist').length) && entry) {
     entry = { ...entry, traits: [...new Set([...entry.traits, 'Shove'])] }
   }
@@ -7483,7 +7486,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const modifiedDamageType = c.level >= 5 && chosenDamageType
     && (physicalTypes.includes(damageType ?? '') && physicalTypes.includes(chosenDamageType)
       || energyTypes.includes(damageType ?? '') && energyTypes.includes(chosenDamageType)) ? chosenDamageType : m?.[3]
-  const dice = m ? Math.max(cairn ? Math.max(+m[1], 1 + w.striking) : (+m[1]) * (1 + w.striking), num(entry?.data.named_weapon_damage_dice)) : 0
+  const dice = m ? w.id === ENERGY_BLAST.id ? +m[1] : Math.max(cairn ? Math.max(+m[1], 1 + w.striking) : (+m[1]) * (1 + w.striking), num(entry?.data.named_weapon_damage_dice)) : 0
   const attachedSource = w.attachedTo
     ? ownedWeapons(c, entries).find(source => source.id === w.attachedTo && !source.attachedTo) : undefined
   const twoHandDie = weaponHands(entries, attachedSource ?? w, c) === 2
@@ -7631,6 +7634,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         note: 'Persistent poison from a venomous unarmed attack.' }] : []),
       ...(bugBite ? [{ source: 'Bug Bite', value: `${dice} persistent poison (critical hit)`,
         note: 'On a critical hit, deal 1 persistent poison damage per weapon damage die.' }] : []),
+      ...(w.id === ENERGY_BLAST.id ? [{ source: 'Core Cannon', value: '3d6 force',
+        note: 'Critical hit: 10 persistent fire damage. Striking and property runes have no effect.' }] : []),
       ...(sparkFist ? [{ source: 'Spark Fist', value: `${dice} fire`,
         note: `Activate with one action, once per minute, until the end of your next turn. Each successful fist Strike also deals ${dice} fire damage to you.` }] : []),
       ...((w.id === 'sf2e:solarian:solar-weapon' || w.id === 'sf2e:solarian:twin-weapon')

@@ -258,6 +258,8 @@ export interface Character {
   elementalExplosionUsed?: boolean
   scouringRageUsed?: boolean
   inscribedBlastUsed?: boolean
+  coreCannonActive?: boolean
+  coreCannonUsed?: boolean
   scouringRageDamage?: string
   giantStature?: 'Large' | 'Huge'
   giantWeaponId?: string
