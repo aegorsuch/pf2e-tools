@@ -1348,6 +1348,13 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     const missing = [...result.missing.filter(requirement => !planned || !unplanned
       || planned.missing.includes(requirement) || !unplanned.missing.includes(requirement)), ...archetype(entry),
       ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
+    const captainWithCompanion = character.className === 'Commander' && getSettings().commanderCaptain
+      && character.feats.some(feat => feat.name === 'Captain Dedication' && feat.slot === 'archetype:2:g85')
+    if (!captainWithCompanion && character.feats.some(feat => feat.name === 'Captain Dedication')
+      && ['Animal Companion', 'Animal Trainer Dedication', 'Beastmaster Dedication', 'Cavalier Dedication',
+        "Commander's Companion", 'Faithful Steed'].includes(entry.name)) {
+      missing.push('Cannot gain a companion while you have a follower')
+    }
     if (entry.id === 'homebrew:guardbreak' && !c.feats.some(feat => feat.slot !== slot.key && feat.name === 'Shield Block')
       && !automaticFeatGrants(character, entries).some(feat => feat.name === 'Shield Block')
       && !tokens(byName(entries, 'background', character.background)?.data.feat).includes('Shield Block')

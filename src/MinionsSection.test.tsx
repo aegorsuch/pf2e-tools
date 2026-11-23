@@ -62,6 +62,33 @@ function findButton(node: ReactNode, label: string): (() => void) | undefined {
 
 afterEach(() => vi.unstubAllGlobals())
 
+it('grants saved followers and permits ancestry selection only with Leader of All', () => {
+  const elf: ContentEntry = { id: 'elf', name: 'Elf', kind: 'ancestry', systems: ['pf2e'], source: 'official',
+    level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 0 }
+  let c: Character = { id: 'captain', name: 'Test', systems: ['pf2e'], level: 4,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 14 },
+    feats: [{ name: 'Captain Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const content = () => MinionsContent({ c, entries: [elf], save })
+  expect(renderToStaticMarkup(content())).toContain('Novice')
+  expect(findSelect(content(), 'Follower 1 ancestry')).toBeUndefined()
+  findSelect(content(), 'Follower 1 type')!({ target: { value: 'Scout' } })
+  findInput(content(), 'Follower 1 name')!({ target: { value: 'Rook' } })
+  expect(c.followers).toEqual([{ name: 'Rook', type: 'Scout' }])
+  c = { ...c, feats: [...c.feats,
+    { name: 'Leader of All', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' },
+    { name: 'Experienced Follower', type: 'Archetype Feat', level: 4, slot: 'class:4:0' },
+    { name: 'Additional Follower', type: 'Archetype Feat', level: 4, slot: 'class:4:1' }] }
+  findSelect(content(), 'Follower 1 ancestry')!({ target: { value: 'Elf' } })
+  expect(c.followers?.[0].ancestry).toBe('Elf')
+  expect(renderToStaticMarkup(content())).toContain('Experienced')
+  expect(findSelect(content(), 'Follower 2 type')).toBeDefined()
+  expect(renderToStaticMarkup(<MinionsSummary c={c} />)).toContain('Scout (Rook)')
+  expect(findSelect(MinionsContent({ c: { ...c, level: 1 }, entries: [elf], save }), 'Follower 1 type')).toBeUndefined()
+  expect(c.followers?.[0].ancestry).toBe('Elf')
+})
+
 it('displays and dismisses a saved summoned fiend', () => {
   const [fiend] = normalizeFiends([{ _id: 'creature-1', _source: {
     name: 'Test Demon', url: '/Monsters.aspx?ID=1', level: 4, rarity: 'common', trait: ['Fiend', 'Demon'],

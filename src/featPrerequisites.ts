@@ -426,6 +426,11 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       return resultFor(!!facts.devotionSpells?.some(value => key(value) === spell), text)
     }
     // Bare lowercase wording describes a capability, not the named Animal Companion feat.
+    if (name === "you don't have an animal companion, construct companion, or other companion that functions similarly")
+      return resultFor(!facts.companionTypes?.length && !facts.constructCompanion
+        && !facts.features.some(feature => ['animal companion', 'an animal companion', 'construct companion'].includes(key(feature)))
+        && !facts.feats.some(feat => ['animal companion', 'animal trainer dedication', 'beastmaster dedication',
+          'cavalier dedication', "commander's companion", 'faithful steed'].includes(key(feat.name))), text)
     if (name === 'an animal companion' || text.replace(/\.$/, '').trim() === 'animal companion') return resultFor(!!facts.companionTypes?.length
       || facts.feats.some(feat => key(feat.name) === 'animal companion')
       || facts.features.some(feature => ['animal companion', 'an animal companion'].includes(key(feature))), text)

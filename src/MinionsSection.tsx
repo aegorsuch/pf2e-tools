@@ -23,6 +23,11 @@ import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntr
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
 const COMPANION_EQUIPMENT_SLOTS: CompanionEquipmentSlot[] = ['Barding', 'Collar', 'Other', 'Saddle', 'Shoes']
 const PET_ABILITIES = ['Amphibious', 'Burrower', 'Climber', 'Darkvision', 'Echolocation', 'Fast Movement', 'Flier', 'Manual Dexterity', 'Scent', 'Tough']
+const FOLLOWER_TYPES = ['Berserker', 'Medic', 'Scout', 'Sharpshooter', 'Shieldbearer', 'Adept']
+const followerCount = (c: Character) => c.systems.includes('pf2e') && activeFeatsNamed(c, 'Captain Dedication').length
+  ? Math.min(4, 1 + activeFeatsNamed(c, 'Additional Follower').length) : 0
+const followerStage = (c: Character) => ['Exceptional', 'Veteran', 'Experienced'].find(stage =>
+  activeFeatsNamed(c, `${stage} Follower`).length) ?? 'Novice'
 const PET_ABILITY_NOTES: Record<string, string> = {
   Amphibious: 'Breathes air and water; land and swim Speeds equal highest land or swim Speed.',
   Burrower: 'Burrow Speed 5 feet; can dig Tiny holes.',
@@ -327,6 +332,10 @@ export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
       ...(familiar ? [leshy ? 'Leshy Familiar' : undeadFamiliar ? 'Undead Familiar'
         : crocodileFamiliar ? 'Crocodile Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
       ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
+      ...Array.from({ length: followerCount(c) }, (_, index) => {
+        const follower = c.followers?.[index]
+        return `${followerStage(c)} ${follower?.type ?? 'Follower'}${follower?.name ? ` (${follower.name})` : ''}`
+      }),
       ...(lashuntaAlly ? [`Summoned ${lashuntaAlly}`] : []),
       ...(activeShirrenAlly(c) ? ['Summoned Kucharn'] : []),
       ...(activeSummonedFiend(c) ? [`Summoned ${activeSummonedFiend(c)!.name}`] : [])].join(', ') || '0 minions'}</span>
@@ -388,12 +397,45 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
     save({ companions: companions.map((x) => (x.id === id ? { ...x, ...patch } : x)) })
   const setFeatChoice = (featIndex: number, choice: string) =>
     save({ feats: c.feats.map((feat, i) => i === featIndex ? { ...feat, choice: choice || undefined } : feat) })
+  const updateFollower = (index: number, patch: Partial<NonNullable<Character['followers']>[number]>) => {
+    const followers = [...(c.followers ?? [])]
+    while (followers.length <= index) followers.push({})
+    followers[index] = { ...followers[index], ...patch }
+    save({ followers })
+  }
   return (
       <div className="character-section-content minions-section-content">
         {activeCaypinAlly(c) && <SummonedCreature name="Caypin" />}
         {lashuntaAlly && <SummonedCreature name={lashuntaAlly} />}
         {activeShirrenAlly(c) && <SummonedCreature name="Emganat" displayName="Kucharn" />}
         {activeSummonedFiend(c) && <SummonedFiendCard fiend={activeSummonedFiend(c)!} save={save} />}
+        {Array.from({ length: followerCount(c) }, (_, index) => {
+          const follower = c.followers?.[index]
+          const typeIndex = FOLLOWER_TYPES.indexOf(follower?.type ?? '')
+          const leaderOfAll = activeFeatsNamed(c, 'Leader of All').length > 0
+          const ancestries = [...new Set(entries.filter(entry => entry.kind === 'ancestry' && !entry.deleted
+            && entry.systems.includes('pf2e')).map(entry => entry.name))].sort((a, b) => a.localeCompare(b))
+          return <details className="character-subsection" open key={index}>
+            <summary><h4>{followerCount(c) > 1 ? `Follower ${index + 1}` : 'Follower'}</h4></summary>
+            <div className="gear-traits"><span>Level {c.level}</span><span>{followerStage(c)}</span><span>Minion</span></div>
+            <label>Name <input aria-label={`Follower ${index + 1} name`} value={follower?.name ?? ''}
+              onChange={event => updateFollower(index, { name: event.target.value })} /></label>
+            <label>Type <select aria-label={`Follower ${index + 1} type`} value={follower?.type ?? ''}
+              onChange={event => updateFollower(index, { type: event.target.value || undefined })}>
+              <option value="">Choose follower...</option>
+              {FOLLOWER_TYPES.map(type => <option key={type}>{type}</option>)}
+            </select></label>
+            {leaderOfAll && <SearchableSelect label="Ancestry" aria-label={`Follower ${index + 1} ancestry`}
+              value={follower?.ancestry ?? 'Human'} onChange={event => updateFollower(index, { ancestry: event.target.value })}>
+              {(!ancestries.includes('Human') || follower?.ancestry && !ancestries.includes(follower.ancestry))
+                && [...new Set(['Human', follower?.ancestry].filter((name): name is string => !!name && !ancestries.includes(name)))]
+                  .map(name => <option key={name}>{name}</option>)}
+              {ancestries.map(name => <option key={name}>{name}</option>)}
+            </SearchableSelect>}
+            <a href={typeIndex < 0 ? 'https://2e.aonprd.com/Followers.aspx' : `https://2e.aonprd.com/Followers.aspx?ID=${typeIndex + 1}`}
+              target="_blank" rel="noreferrer">Follower statistics and abilities</a>
+          </details>
+        })}
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" open>
           <summary><h4>Drone</h4></summary>
           <DroneFeatures c={c} entries={entries} save={save} />
