@@ -872,7 +872,7 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
   if (c.innateTradition && getSettings().consolidateInnateTraditions) {
     for (let i = 0; i < out.length; i++) {
       const rule = out[i].rule
-      if (rule.kind === 'innate' && rule.tradition) out[i] = { ...out[i], rule: { ...rule, tradition: c.innateTradition } }
+      if (rule.kind === 'innate' || out[i].source === 'Heroic Presence') out[i] = { ...out[i], rule: { ...rule, tradition: c.innateTradition } }
     }
   }
   return getSettings().innateAutoHeighten
