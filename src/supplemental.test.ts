@@ -162,6 +162,18 @@ it('offers Shift Ace to rangers with its shifting rune requirement', () => {
   expect(eligibleFeats(entries, { ...base, className: 'Druid', level: 1 }, slot)).not.toContain(feat)
 })
 
+it('offers Weapon Ace to rangers with its sheathed weapon requirement', () => {
+  const entries = homebrewCharacterOptions([])
+  const feat = entries.find(entry => entry.id === 'homebrew:weapon-ace')!
+  const slot = { key: 'class:1:0', category: 'class' as const, level: 1 }
+  expect(feat).toMatchObject({ name: 'Weapon Ace', level: 1, source: 'homebrew', traits: ['Ranger'],
+    data: { class: 'Ranger', actions: 'Single Action', requirements: 'You are carrying a sheathed weapon.' } })
+  expect(feat.description).toContain('Either Create a Diversion or Take Cover, then Interact to draw a weapon.')
+  expect(groupHomebrew(entries).find(group => group.name === 'Ranger Feats')?.entries).toContain(feat)
+  expect(eligibleFeats(entries, { ...base, className: 'Ranger', level: 1 }, slot)).toContain(feat)
+  expect(eligibleFeats(entries, { ...base, className: 'Druid', level: 1 }, slot)).not.toContain(feat)
+})
+
 it('offers Prayer for Aid to clerics starting at level 2', () => {
   const entries = homebrewCharacterOptions([])
   const feat = entries.find(entry => entry.id === 'homebrew:prayer-for-aid')!
