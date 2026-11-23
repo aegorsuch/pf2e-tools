@@ -13,20 +13,43 @@ const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['dat
   id: `${kind}:${name}`, systems: ['pf2e'], kind, source: 'official', name, level, traits, description: '', data, effects: [], updatedAt: 1,
 })
 
-it('grants Tattooed Historian skill choice or a free trained skill when both are already trained', () => {
+it('grants Tattooed Historian a trained skill token and preserves legacy choices', () => {
   const feat = { name: 'Tattooed Historian Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }
   const c: Character = { ...base, level: 2, feats: [feat] }
-  expect(featChoiceOptions(feat.name, c, [], feat.slot, 0)).toEqual(['Diplomacy', 'Performance'])
+  expect(skillRankBudget(c, []).trained).toBe(skillRankBudget({ ...c, feats: [] }, []).trained + 1)
   const picked = { ...c, feats: [{ ...feat, choice: 'Diplomacy' }] }
   expect(ranksAt(picked, []).Diplomacy).toBe(1)
   expect(ranksAt({ ...picked, level: 1 }, []).Diplomacy ?? 0).toBe(0)
   const background = entry('background', 'Diplomat', { skill: 'Diplomacy' })
-  expect(featChoiceOptions(feat.name, { ...c, background: background.name }, [background], feat.slot, 0)).toEqual(['Performance'])
+  expect(skillRankBudget({ ...c, background: background.name }, [background]).trained)
+    .toBe(skillRankBudget({ ...c, background: background.name, feats: [] }, [background]).trained + 1)
   const both = entry('background', 'Performer', { skill: 'Diplomacy, Performance' })
   const trained = { ...c, background: both.name }
   expect(featChoiceOptions(feat.name, trained, [both], feat.slot, 0)).toBeUndefined()
   expect(skillRankBudget(trained, [both]).trained).toBe(skillRankBudget({ ...trained, feats: [] }, [both]).trained + 1)
   expect(ranksAt({ ...trained, skillPicks: ['Crafting'] }, [both])).toMatchObject({ Diplomacy: 1, Performance: 1, Crafting: 1 })
+})
+
+it('grants Captain Dedication a trained token and a constrained bonus skill feat', () => {
+  const feat = { name: 'Captain Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }
+  const c: Character = { ...base, level: 2, feats: [feat] }
+  expect(skillRankBudget(c, []).trained).toBe(skillRankBudget({ ...c, feats: [] }, []).trained + 1)
+  expect(ranksAt({ ...c, skillPicks: ['Intimidation'] }, []).Intimidation).toBe(1)
+  const background = entry('background', 'Leader', { skill: 'Diplomacy, Intimidation' })
+  const trained = { ...c, background: background.name }
+  expect(skillRankBudget(trained, [background]).trained).toBe(skillRankBudget({ ...trained, feats: [] }, [background]).trained + 1)
+
+  const impression = entry('feat', 'Group Impression', {}, 1, ['Skill'])
+  const coercion = entry('feat', 'Group Coercion', {}, 1, ['Skill'])
+  const other = entry('feat', 'Other Skill Feat', {}, 1, ['Skill'])
+  const entries = [impression, coercion, other]
+  const slot = plannedSlots(c, entries).find(s => s.grantedBy === 'Captain Dedication')!
+  expect(slot).toMatchObject({ category: 'skill', level: 2, maxFeatLevel: 1 })
+  expect(eligibleFeats(entries, c, slot).map(e => e.name).sort()).toEqual(['Group Coercion', 'Group Impression'])
+  const both = { ...c, feats: [...c.feats, { name: impression.name, type: 'Skill Feat', level: 1 },
+    { name: coercion.name, type: 'Skill Feat', level: 1 }] }
+  expect(eligibleFeats(entries, both, slot).map(e => e.name)).toEqual(['Other Skill Feat'])
+  expect(plannedSlots({ ...c, level: 1 }, entries).some(s => s.grantedBy === 'Captain Dedication')).toBe(false)
 })
 
 it("grants Inscribed with Elders' Deeds a normal first-level ancestry slot", () => {

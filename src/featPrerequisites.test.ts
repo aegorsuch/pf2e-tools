@@ -21,6 +21,31 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it('waives prerequisites only for the active house-rule dedication', () => {
+  const settings = getSettings()
+  onTestFinished(() => updateSettings(settings))
+  updateSettings({ commanderCaptain: true })
+  const dedication = entry('feat', 'Captain Dedication', { prerequisite: 'Charisma +4; trained in Acrobatics', archetype: 'Captain' }, 2, ['Archetype', 'Dedication'])
+  const c: Character = { ...base, className: 'Commander', level: 2, feats: [] }
+  const granted = plannedSlots(c, [dedication]).find(slot => slot.key === 'archetype:2:g85')!
+  expect(featSelectionPrerequisiteChecker(c, [dedication], granted)(dedication)).toEqual({ missing: [], manual: [] })
+  expect(featSelectionPrerequisiteChecker(c, [dedication], { key: 'archetype:2:0', category: 'archetype', level: 2 })(dedication).missing.length).toBeGreaterThan(0)
+  updateSettings({ commanderCaptain: false })
+  expect(featSelectionPrerequisiteChecker(c, [dedication], granted)(dedication).missing.length).toBeGreaterThan(0)
+})
+
+it('allows Commanders with Captain Dedication to substitute Intelligence for Captain feat Charisma requirements', () => {
+  const captain = entry('feat', 'Captain Test', { prerequisite: 'Charisma +2', archetype: 'Captain' }, 4, ['Archetype'])
+  const other = entry('feat', 'Other Test', { prerequisite: 'Charisma +2', archetype: 'Other' }, 4, ['Archetype'])
+  const c: Character = { ...base, className: 'Commander', level: 4, abilities: { ...base.abilities, int: 16, cha: 10 },
+    feats: [{ name: 'Captain Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }] }
+  const entries = [captain, other]
+  expect(featPrerequisiteChecker(c, entries)(captain).missing).toEqual([])
+  expect(featPrerequisiteChecker(c, entries)(other).missing.length).toBeGreaterThan(0)
+  expect(featPrerequisiteChecker({ ...c, className: 'Fighter' }, entries)(captain).missing.length).toBeGreaterThan(0)
+  expect(featPrerequisiteChecker({ ...c, feats: [] }, entries)(captain).missing.length).toBeGreaterThan(0)
+})
+
 it.each([
   ['Barbarian', 'Bloodrager', 'Bloodrager'],
   ['Ranger', 'Vindication', 'Vindicator'],

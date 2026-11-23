@@ -347,7 +347,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const removeSlot = (slot: PlannedSlot, extra: boolean) => {
     const selection = c.feats.find((feat) => feat.slot === slot.key)
     const remove = () => {
-      if (slot.grantedFeat || slot.redundantFeat || slot.grantedAncestry || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === "Operative's Specialization" || slot.grantedBy === 'Sniper' || slot.grantedBy === 'Social Chameleon' || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'Pitborn' || slot.grantedBy === 'Scion of Many Planes' || slot.grantedBy === 'In Another Life'
+      if (slot.grantedFeat || slot.redundantFeat || slot.grantedAncestry || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === "Operative's Specialization" || slot.grantedBy === 'Sniper' || slot.grantedBy === 'Social Chameleon' || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'Pitborn' || slot.grantedBy === 'Captain Dedication' || slot.grantedBy === 'Scion of Many Planes' || slot.grantedBy === 'In Another Life'
         || allSlots.filter((other) => other.category === slot.category && other.level === slot.level).length === 1) {
         choose(slot.key, slot.category, slot.level, '')
       } else if (extra) {
@@ -425,7 +425,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const selection = c.feats[featIndex]
           const selectedChoices = selection ? featChoiceOptions(selection.name, c, entries, s.key, featIndex, s.category) : undefined
-          const selectedChoice = selection && (['Elemental Wrath', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', 'Carry Their Memories',
+          const selectedChoice = selection && (['Elemental Wrath', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', 'Tattooed Historian Dedication', 'Captain Dedication', 'Carry Their Memories',
             'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Eye for Treasure', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body', 'Distant Telepath'].includes(selection.name)
             || c.systems.includes('sf2e') && c.ancestry === 'Lashunta' && ['Creature Shape', 'Creature Ally'].includes(selection.name)
             || isFixedAncestralWeaponFamiliarity(c, entries, selection)) ? undefined
@@ -444,7 +444,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const showWrathRoll = currentEntry?.name === 'Wrath of the Hold' && !!activeFeatsNamed(c, currentEntry.name).length
           const access = currentEntry ? featAccess(c, currentEntry) : undefined
           const ambiguous = new Set(sources.map((entry) => String(entry.data.prerequisite ?? ''))).size > 1
-          const prerequisites = ambiguous ? { missing: [], manual: [`Verify source version of ${current}`] }
+          const ruleGranted = activeFeatsNamed(c, current).some(feat => feat.slot === s.key)
+            && (homebrewDedication(s.key)?.name === current || s.key === 'class:2:0' && s.grantedFeat === current)
+          const prerequisites = ambiguous && !ruleGranted ? { missing: [], manual: [`Verify source version of ${current}`] }
             : currentEntry ? selectedPrerequisites(s, currentEntry) : undefined
           const picksType = s.category === 'archetype'
           const popup = !!onSearch || picksType
@@ -538,7 +540,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
           const classDedication = s.key === 'class:2:0' && !!s.grantedFeat
           const locked = !!homebrewDedication(s.key) || classDedication
-          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer' || s.grantedBy === 'Pitborn' || s.grantedBy === 'Scion of Many Planes' || s.grantedBy === 'In Another Life'
+          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer' || s.grantedBy === 'Pitborn' || s.grantedBy === 'Captain Dedication' || s.grantedBy === 'Scion of Many Planes' || s.grantedBy === 'In Another Life'
           const automaticOrderFeat = s.grantedBy === 'Order Explorer' && !!current
             && (() => {
               const eligible = eligibleFeats(entries, c, s)
@@ -674,7 +676,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 </PickerDialog>
               )}
               {featIndex >= 0 && (classDedication && selection.name === 'Bloodrager Dedication' || !selection.choice || selectedChoices === undefined || selection.name === 'Favored Terrain'
-                || ['Bone Magic', 'Reinforced Skeleton', 'Tattooed Historian Dedication'].includes(selection.name)
+                || ['Bone Magic', 'Reinforced Skeleton'].includes(selection.name)
                 || selection.name === 'Lizardfolk Lore' && !selectedChoices.includes(selection.choice)
                 || DOMAIN_FEATS.includes(selection.name) && !selectedChoices.some(choice => choice.toLowerCase() === selection.choice?.trim().toLowerCase())
                 || selection.name === 'Mercy' && !selectedChoices.includes(selection.choice)

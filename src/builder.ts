@@ -623,7 +623,7 @@ export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWi
   || key.startsWith('skill:1:operative-specialization:') || key === 'class:1:operative-sniper'
   || key.startsWith('ancestry:1:warblood-vesk:')
   || key.startsWith('skill:1:versatile-rogue:') || key.startsWith('skill:1:exceptional-artisan:')
-  || key.startsWith('skill:1:natural-performer:') || key.startsWith('skill:1:pitborn:')
+  || key.startsWith('skill:1:natural-performer:') || key.startsWith('skill:1:pitborn:') || key.startsWith('skill:1:captain:')
   || key.startsWith('skill:1:mechanic-ingenuity:')
   || key.startsWith('archetype:1:eldritch-trickster:') || key.startsWith('general:1:officer-education:')
   || key.startsWith('general:1:social-chameleon:') || key.startsWith('ancestry:1:social-chameleon:')
@@ -796,6 +796,14 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
     slots.push({ key: `skill:1:natural-performer:${feat.slot ?? 'unslotted'}`, category: 'skill', level,
       maxFeatLevel: 1, grantedBy: 'Natural Performer', grantedSkill: 'Performance' })
+  }
+  for (const feat of activeFeatsNamed(c, 'Captain Dedication')) {
+    if (!c.systems.includes('pf2e')) continue
+    const level = featTakenLevel(feat)
+    const group = `skill:${level}`
+    if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+    slots.push({ key: `skill:1:captain:${feat.slot ?? 'unslotted'}`, category: 'skill', level,
+      maxFeatLevel: 1, grantedBy: 'Captain Dedication' })
   }
   for (const feat of activeFeatsNamed(c, 'Pitborn')) {
     if (!c.systems.includes('pf2e')) continue
@@ -1090,10 +1098,10 @@ function mechanicExocortexes(c: Character) {
 }
 
 export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], level = c.level, excludedIndex = -1,
-  options: { ignoreAttributePrerequisites?: boolean; planSkillPrerequisites?: boolean } = {}) {
+  options: { ignoreAttributePrerequisites?: boolean; planSkillPrerequisites?: boolean; captainIntelligence?: boolean } = {}) {
   const facts = new Map<number, PrerequisiteFacts>()
   let buildSkillRanks: PrerequisiteFacts['ranks'] | undefined
-  return createFeatPrerequisiteChecker(entries, {
+  const check = createFeatPrerequisiteChecker(entries, {
     level, entryIds: c.entryIds, knownOrders: Object.keys(DRUID_ORDERS), ...options,
     facts: (atLevel) => {
       const cached = facts.get(atLevel)
@@ -1166,7 +1174,10 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         hellknightWeapons: HELLKNIGHT_FAVORED_WEAPONS[hellknightOrder(character) ?? ''],
         weaponRank: name => weaponEntry(entries, name) ? weaponAttack(character, entries,
           { id: 'prerequisite', name, potency: 0, striking: 0, runes: [] }).rank : undefined,
-        abilities: character.abilities,
+        abilities: options.captainIntelligence && character.className === 'Commander'
+          && character.feats.some(feat => feat.name === 'Captain Dedication')
+          ? { ...character.abilities, cha: Math.max(character.abilities.cha, character.abilities.int) }
+          : character.abilities,
         // Prerequisites describe available capabilities, not the current combat toggle.
         get senses() { return senseValues ??= senses({ ...character, raging: true }, entries).map((sense) => sense.value) },
         get spellcastingClassFeature() {
@@ -1263,6 +1274,14 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
       return value
     },
   })
+  let captainCheck: ReturnType<typeof createFeatPrerequisiteChecker> | undefined
+  return (entry: ContentEntry) => {
+    if (!options.captainIntelligence && c.className === 'Commander' && archetypesOf(entry).includes('Captain')) {
+      captainCheck ??= featPrerequisiteChecker(c, entries, level, excludedIndex, { ...options, captainIntelligence: true })
+      return captainCheck(entry)
+    }
+    return check(entry)
+  }
 }
 
 export function featSelectionPrerequisiteChecker(c: Character, entries: ContentEntry[], slot: PlannedSlot) {
@@ -1285,6 +1304,10 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     'Pristine Living Weapon': ['Living Weapon', 'Wild Hunter Dedication'],
   }
   return (entry: ContentEntry) => {
+    if (activeHomebrewDedications(c).some(rule => rule.slot === slot.key && rule.name === entry.name)
+      || slot.key === 'class:2:0' && slot.grantedFeat === entry.name) {
+      return { missing: [], manual: [] }
+    }
     const result = check(entry)
     const planned = result.missing.length ? plannedCheck?.(entry) : undefined
     const unplanned = planned && !planned.manual.length ? unplannedCheck?.(entry) : undefined
@@ -1421,6 +1444,12 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     ...automaticFeatGrants({ ...c, level: Math.min(c.level, slot.level),
       feats: c.feats.filter((feat) => feat.slot !== slot.key) }, entries).map((feat) => feat.name),
   ])
+  const captainPrior = slot.grantedBy === 'Captain Dedication'
+    ? new Set([
+      ...c.feats.filter(feat => feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).map(feat => feat.name),
+      ...tokens(byName(entries, 'background', c.background)?.data.feat),
+      ...automaticFeatGrants({ ...c, level: slot.level, feats: c.feats.filter(feat => feat.slot !== slot.key) }, entries).map(feat => feat.name),
+    ]) : undefined
   const specializations = c.feats.filter((feat) => feat.slot !== slot.key && isCompanionSpecialization(feat.name)).length
   const generalOnly = slot.category === 'general' && getSettings().generalFeatsOnly
   const classTrait = c.className?.toLowerCase()
@@ -1482,6 +1511,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (slot.grantedBy !== 'Natural Performer'
         || tokens(e.data.skill).some(skill => skill.toLowerCase() === 'performance')
         || e.name === 'Assurance')
+      && (!captainPrior
+        || ['Group Impression', 'Group Coercion'].every(name => captainPrior.has(name))
+        || ['Group Impression', 'Group Coercion'].includes(e.name))
       && (slot.grantedBy !== 'Pitborn' || !featRarity(e)
         && /\btrained in athletics\b/i.test(String(e.data.prerequisite ?? '')))
       && (slot.grantedBy !== 'Scion of Many Planes'
@@ -1739,14 +1771,6 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     ? byName(entries, 'background', c.background) : undefined
   const fixedBackgroundChoice = background?.data[`background_choice_${name}`]
   if (name !== 'Assurance' && typeof fixedBackgroundChoice === 'string') return [fixedBackgroundChoice]
-  if (name === 'Tattooed Historian Dedication' && c.systems.includes('pf2e')) {
-    const level = index >= 0 ? Math.min(c.level, featTakenLevel(c.feats[index]))
-      : Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)
-    const prior = index >= 0 ? ancestrySkillBefore(c, entries, index)
-      : ranksAt({ ...c, level, feats: c.feats.filter(feat => feat.slot !== slotKey && featTakenLevel(feat) <= level) }, entries)
-    const available = ['Diplomacy', 'Performance'].filter(skill => !(prior[skill] ?? 0))
-    return available.length ? available : undefined
-  }
   if (name === 'Researched Spell Resistance') return researchedSpellResistanceVariants(c, entries)
   if (name === 'Elemental Evolution') {
     const element = c.barbarianElement && ELEMENTAL_INSTINCTS[c.barbarianElement]
@@ -3457,12 +3481,17 @@ export function normalizeLongevitySkills(c: Character): Character {
   const valid = new Set([...statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name), ...c.lores.map(lore => lore.name)])
   const trainingChoice = training?.choice && valid.has(training.choice) ? training.choice : undefined
   const expertChoice = expert?.choice && valid.has(expert.choice) ? expert.choice : undefined
-  if (!trainingChoice && !expertChoice) return c
+  const legacyTraining = c.systems.includes('pf2e') ? c.feats.filter(feat => featTakenLevel(feat) <= c.level
+    && (feat.name === 'Tattooed Historian Dedication' && ['Diplomacy', 'Performance'].includes(feat.choice ?? '')
+      || feat.name === 'Captain Dedication' && ['Diplomacy', 'Intimidation'].includes(feat.choice ?? ''))) : []
+  if (!trainingChoice && !expertChoice && !legacyTraining.length) return c
   return {
     ...c,
-    skillPicks: trainingChoice ? [...new Set([...(c.skillPicks ?? []), trainingChoice])] : c.skillPicks,
+    skillPicks: trainingChoice || legacyTraining.length
+      ? [...new Set([...(c.skillPicks ?? []), ...(trainingChoice ? [trainingChoice] : []),
+        ...legacyTraining.flatMap(feat => feat.choice ? [feat.choice] : [])])] : c.skillPicks,
     skillIncreases: expertChoice ? { [LONGEVITY_EXPERT_SLOT]: expertChoice, ...c.skillIncreases } : c.skillIncreases,
-    feats: c.feats.map(feat => feat === training && trainingChoice || feat === expert && expertChoice
+    feats: c.feats.map(feat => feat === training && trainingChoice || feat === expert && expertChoice || legacyTraining.includes(feat)
       ? { ...feat, choice: undefined } : feat),
   }
 }
@@ -3733,12 +3762,6 @@ const rankDependentFeats = new Set(['Dwarven Lore', 'Clan Lore', 'Lizardfolk Lor
 function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   const skills = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
   const trained = activeFeatsNamed(c, 'Skill Training').flatMap((feat) => feat.choice && skills.has(feat.choice) ? [feat.choice] : [])
-  if (c.systems.includes('pf2e')) c.feats.forEach((feat, index) => {
-    if (feat.name !== 'Tattooed Historian Dedication' || featTakenLevel(feat) > c.level
-      || !['Diplomacy', 'Performance'].includes(feat.choice ?? '')) return
-    const prior = ancestrySkillBefore(c, entries, index)
-    if (!(prior[feat.choice!] ?? 0)) trained.push(feat.choice!)
-  })
   c.feats.forEach((feat, index) => {
     const grant = ancestrySkillGrant(c, entries, feat.name)
     if (!grant || featTakenLevel(feat) > c.level) return
@@ -7640,9 +7663,8 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
     + backgroundSkills(freeHeartBackground(c, entries), c).filter(skill => autoClassSkills(c, entries).includes(skill)).length
     + c.feats.reduce((total, feat, index) => {
       if (featTakenLevel(feat) > c.level) return total
-      if (feat.name === 'Tattooed Historian Dedication' && c.systems.includes('pf2e')) {
-        const prior = ancestrySkillBefore(c, entries, index)
-        return total + Number((prior.Diplomacy ?? 0) > 0 && (prior.Performance ?? 0) > 0)
+      if (['Tattooed Historian Dedication', 'Captain Dedication'].includes(feat.name) && c.systems.includes('pf2e')) {
+        return total + 1
       }
       const ancestry = ancestrySkillGrant(c, entries, feat.name)
       const warmask = feat.name === 'Orc Warmask' ? warmaskSource(c) : undefined
@@ -7688,7 +7710,8 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
 function trainedSkillFeatBonus(c: Character, entries: ContentEntry[]) {
   return c.feats.reduce((total, selected) => {
     if (featTakenLevel(selected) > c.level) return total
-    if (selected.name === 'Skill Download' || selected.name === 'Consult the Stars') return total
+    if (selected.name === 'Skill Download' || selected.name === 'Consult the Stars'
+      || selected.name === 'Tattooed Historian Dedication' || selected.name === 'Captain Dedication') return total
     if (selected.name === 'Natural Skill') return total + 2
     if (selected.name === "Officer's Education") return total + (activeFeatsNamed(c, selected.name).slice(0, 2).includes(selected) ? 2 : 0)
     if (selected.name === 'Ancestral Longevity') return total + 1
