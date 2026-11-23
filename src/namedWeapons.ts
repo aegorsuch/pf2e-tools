@@ -6,7 +6,7 @@ export function briarSharpnessPoints(value: number | undefined) {
   return value !== undefined && Number.isSafeInteger(value) && value >= 0 ? Math.min(value, BRIAR_MAX_SHARPNESS) : 0
 }
 
-const basePattern = "(?:Composite )?(?:Shortbows?|Longbows?)|Dancer['\u2019]s Spear|Dwarven War ?Axe|Elven Curve Blade|Bastard Sword|Dueling Pistol|Fighting Fan|Light Hammer|Gun Sword|Longsword|Shortsword|Greatsword|Greataxe|Morningstar|Longspear|Guisarme|Glaive|Rapier|Spear|Club|Dart|Hatchet"
+const basePattern = "(?:Composite )?(?:Shortbows?|Longbows?)|Dancer['\u2019]s Spear|Dwarven War ?Axe|Elven Curve Blade|Bastard Sword|Dueling Pistol|Fighting Fan|Light Hammer|Gun Sword|Longsword|Shortsword|Greatsword|Greataxe|Morningstar|Longspear|Guisarme|Glaive|Rapier|Spear|Club|Dart|Hatchet|Spiked Gauntlet"
 const weaponBase = new RegExp(`\\bBase Weapon\\s+(${basePattern})\\b`, 'i')
 const enchantment = new RegExp(`\\+([1-4])\\s+([^.!?\\n]{0,100}?)\\b(?:${basePattern})\\b`, 'i')
 const BASES: Record<string, string[]> = {
@@ -25,6 +25,7 @@ const BASES: Record<string, string[]> = {
   'Cane of the Maelstrom': ['Club'],
   "Clear Cutter's Axe": ['Hatchet'],
   'Fungicidal Hatchet': ['Hatchet'],
+  'Scalding Gauntlets': ['Spiked Gauntlet'],
   "Cayden's Tankard": ['Light Hammer'],
   'Coldstar Pistols': ['Dueling Pistol'],
   'Debilitating Dart': ['Dart'],
@@ -60,12 +61,15 @@ const ACTIONS: Record<string, { name: string; actions: string }[]> = {
 }
 
 const MATERIALS: Record<string, string> = {
+  'Scalding Gauntlets': 'Orichalcum',
   Briar: 'Cold Iron', Blackaxe: 'Adamantine', Ridill: 'Adamantine', Serithtial: 'Orichalcum',
   'Axe of the Dwarven Lords': 'Orichalcum', 'Wintershot (Artifact)': 'Orichalcum', "Clear Cutter's Axe": 'Orichalcum',
   'Blade of Fallen Stars': 'Cold Siccatite (High-Grade)',
   'Debilitating Dart': 'Orichalcum',
   'Phoenix Fighting Fan': 'Silver', "Sorshen's Sinuous Guisarme": 'Dawnsilver (High-Grade)',
 }
+
+const runeBase = (rune: string) => rune.replace(/ \((?:Lesser|Greater|Major|True)\)$/, '')
 
 function artifactRunes(entry: ContentEntry, runes: string) {
   return [...new Set([...runes.split(';').filter(Boolean),
@@ -129,7 +133,7 @@ function enhancements(item: ContentEntry, family: ContentEntry[], runes: { name:
 
 export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: string }[]) {
   const items = entries.filter(entry => entry.kind === 'item' && !entry.deleted
-    && entry.name !== 'Wintershot' && entry.name !== "Meloth's Lifedrinker"
+    && entry.name !== 'Wintershot' && !/^Scalding Gauntlets \(/.test(entry.name) && entry.name !== "Meloth's Lifedrinker"
     && (entry.data.item_subcategory === 'Specific Magic Weapons' || entry.name === 'Wintershot (Artifact)' || !!BASES[entry.name]))
   return items.flatMap(item => {
     const sourceName = item.name === "Meloth's Lifedrinker (Improved)" ? "Meloth's Lifedrinker"
@@ -216,6 +220,14 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
 export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: OwnedWeapon, level?: number) {
   if (!entry?.data.named_weapon) return entry
   const source = entry.data.named_weapon_source
+  if (source === 'Scalding Gauntlets') {
+    const at = level ?? entry.level
+    const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
+    return { ...entry, data: { ...entry.data,
+      named_weapon_potency: at >= 18 ? 3 : 2, named_weapon_striking: at >= 13 ? 2 : 1,
+      named_weapon_runes: [...new Set([...runes.filter(rune => runeBase(rune) !== 'Flaming'),
+        at >= 18 ? 'Flaming (Greater)' : 'Flaming', 'Parrying', 'Grievous'])].join(';') } }
+  }
   if (source === 'Fungicidal Hatchet') {
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
     return { ...entry, data: { ...entry.data, named_weapon_runes: [...new Set([...runes, 'Returning', 'Grievous'])].join(';'),

@@ -347,7 +347,7 @@ it('applies Erastil moderate boon to the artifact composite longbow and saved na
   const blessed = { ...c, deity: 'Erastil', divineIntercessions: { Erastil: ['moderate-boon'] } }
   for (const name of ['Wintershot (Artifact)', 'Wintershot (Shortbow)', native.name]) {
     const attack = weaponAttack(blessed, entries, owned(name))
-    expect(attack.range).toBe(400)
+    expect(attack.range).toBe(name === native.name ? 200 : 400)
     expect(attack.traits).toContain('Volley (if beneficial)')
     expect(attack.traits).not.toContain('Volley 30 ft.')
   }
@@ -860,4 +860,21 @@ it('implements Fungicidal Hatchet with scaling Peachwood, Returning, Grievous an
   expect(at(5)).toMatchObject({ named_weapon_runes: 'Returning;Grievous', named_weapon_material: 'Peachwood (Standard-Grade)' })
   expect(at(18)?.named_weapon_material).toBe('Peachwood (High-Grade)')
   expect(namedWeaponDamage(entry)[0].value).toContain('poison')
+})
+
+it('scales Scalding Gauntlets potency, striking and Flaming with level and hides graded duplicates', () => {
+  const gauntlet: ContentEntry = { ...bow('Spiked Gauntlet', false, false), traits: ['Agile', 'Free-Hand'],
+    data: { damage: '1d4 piercing', range: 0, weapon_type: 'Melee', weapon_category: 'Simple', weapon_group: 'Brawling', hands: 1, bulk: 'L' } }
+  const item: ContentEntry = { ...winter, id: 'scalding', name: 'Scalding Gauntlets', level: 11, traits: ['Fire', 'Invested', 'Magical'],
+    description: 'Base Weapon Spiked Gauntlet\n\nThese are a pair of +2 striking spiked gauntlets.',
+    data: { item_subcategory: 'Specific Magic Weapons', url: 'https://2e.aonprd.com/Equipment.aspx?ID=2608' } }
+  const greater: ContentEntry = { ...item, id: 'scalding-greater', name: 'Scalding Gauntlets (Greater)', level: 13,
+    description: 'Base Weapon Spiked Gauntlet\n\nThe gauntlets are a +2 greater striking flaming spiked gauntlet.' }
+  const entries = makeNamedWeaponEntries([gauntlet, item, greater], [{ name: 'Flaming' }])
+  expect(entries.map(entry => entry.name)).toEqual(['Scalding Gauntlets'])
+  const at = (level: number) => withNamedWeaponState(entries[0], owned('Scalding Gauntlets'), level)?.data
+  expect(at(11)).toMatchObject({ named_weapon_potency: 2, named_weapon_striking: 1,
+    named_weapon_runes: 'Flaming;Parrying;Grievous', named_weapon_material: 'Orichalcum' })
+  expect(at(13)).toMatchObject({ named_weapon_striking: 2, named_weapon_runes: 'Flaming;Parrying;Grievous' })
+  expect(at(18)).toMatchObject({ named_weapon_potency: 3, named_weapon_runes: 'Flaming (Greater);Parrying;Grievous' })
 })
