@@ -372,12 +372,31 @@ function orderTrainingRules(c: Character, entries: ContentEntry[], feat: Charact
   return hellknightTrainingSpellRules(c, feat.name, feat.choice)
 }
 
+const innateOptionsCache = new WeakMap<ContentEntry[], WeakMap<Character, string[]>>()
 export function innateTraditionOptions(c: Character, entries: ContentEntry[]) {
-  return [...new Set(grantedFeatSpells({ ...c, innateTradition: undefined }, entries)
-    .flatMap(grant => grant.rule.kind === 'innate' && grant.rule.tradition ? [grant.rule.tradition.toLowerCase()] : []))].sort()
+  let byCharacter = innateOptionsCache.get(entries)
+  if (!byCharacter) innateOptionsCache.set(entries, byCharacter = new WeakMap())
+  let options = byCharacter.get(c)
+  if (!options) byCharacter.set(c, options = [...new Set(computeGrantedFeatSpells({ ...c, innateTradition: undefined }, entries)
+    .flatMap(grant => grant.rule.kind === 'innate' && grant.rule.tradition ? [grant.rule.tradition.toLowerCase()] : []))].sort())
+  return options
 }
 
+type FeatSpellGrant = { entry: ContentEntry; source: string; rule: SpellGrant; rank: number; usageKey: string }
+const featSpellCache = new WeakMap<ContentEntry[], Map<string, WeakMap<Character, FeatSpellGrant[]>>>()
 export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
+  let bySettings = featSpellCache.get(entries)
+  if (!bySettings) featSpellCache.set(entries, bySettings = new Map())
+  const { innateAutoHeighten, consolidateInnateTraditions } = getSettings()
+  const settingsKey = `${innateAutoHeighten}:${consolidateInnateTraditions}`
+  let byCharacter = bySettings.get(settingsKey)
+  if (!byCharacter) bySettings.set(settingsKey, byCharacter = new WeakMap())
+  let grants = byCharacter.get(c)
+  if (!grants) byCharacter.set(c, grants = computeGrantedFeatSpells(c, entries))
+  return grants
+}
+
+function computeGrantedFeatSpells(c: Character, entries: ContentEntry[]) {
   const out: { entry: ContentEntry; source: string; rule: SpellGrant; rank: number; usageKey: string }[] = []
   const gnomeTradition = gnomeHeritageTradition(c)
   const gnomeCantrip = gnomeTradition && c.gnomeHeritageMagic?.cantrips?.[gnomeTradition]
