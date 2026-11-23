@@ -150,20 +150,32 @@ it('retains explicit learned access to uncommon spells', () => {
   expect(render(c, [rare])).toContain('aria-label="Remove Rare Magic"')
 })
 
-it.each(['', 'aon:pf2e:heal', 'aon:sf2e:heal', 'Heal'])('deduplicates Druid choices while preserving saved preparation %j', selected => {
+it.each(['', 'aon:pf2e:heal', 'aon:sf2e:heal', 'Heal'])('deduplicates Druid choices within each system while preserving saved preparation %j', selected => {
   const entries = [
     { ...spell('Heal'), id: 'aon:sf2e:heal', systems: ['sf2e'] as Character['systems'] },
     { ...spell('Guidance', 1, 'Primal', ['Cantrip']), id: 'aon:sf2e:guidance', systems: ['sf2e'] as Character['systems'] },
     { ...spell('Heal'), id: 'aon:pf2e:heal' },
     { ...spell('Guidance', 1, 'Primal', ['Cantrip']), id: 'aon:pf2e:guidance' },
+    { ...spell('Heal'), id: 'aon:pf2e:heal-duplicate' },
+    { ...spell('Guidance', 1, 'Primal', ['Cantrip']), id: 'aon:pf2e:guidance-duplicate' },
   ]
   const c: Character = { ...base, systems: ['pf2e', 'sf2e'],
     spells: [{ name: 'Heal', rank: 1, cantrip: false }],
     spellcasting: { ability: 'wis', tradition: 'Primal', rank: 1, slots: {}, prepared: { '1:0': selected } } }
   const before = JSON.stringify(c)
   const html = render(c, entries)
-  if (!selected) expect(choices(html, 'Spell Rank 1 slot 1').match(/>Heal<\/option>/g)).toHaveLength(1)
-  expect(choices(html, 'Cantrip slot 1').match(/>Guidance<\/option>/g)).toHaveLength(1)
+  if (!selected) {
+    const healChoices = choices(html, 'Spell Rank 1 slot 1')
+    expect(healChoices.match(/>Heal<\/option>/g)).toHaveLength(2)
+    expect(healChoices).toContain('value="aon:pf2e:heal"')
+    expect(healChoices).toContain('value="aon:sf2e:heal"')
+    expect(healChoices).not.toContain('value="aon:pf2e:heal-duplicate"')
+  }
+  const cantripChoices = choices(html, 'Cantrip slot 1')
+  expect(cantripChoices.match(/>Guidance<\/option>/g)).toHaveLength(2)
+  expect(cantripChoices).toContain('value="aon:pf2e:guidance"')
+  expect(cantripChoices).toContain('value="aon:sf2e:guidance"')
+  expect(cantripChoices).not.toContain('value="aon:pf2e:guidance-duplicate"')
   if (selected) {
     expect(html).toContain('aria-label="Clear Heal spell slot"')
     expect(html).not.toContain('aria-label="Details: Heal"')
