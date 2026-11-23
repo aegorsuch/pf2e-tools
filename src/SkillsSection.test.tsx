@@ -40,13 +40,16 @@ it('summarizes current senses and movement speeds in the section header', () => 
   const c: Character = { ...base, ancestry: 'Elf', level: 9,
     spells: [{ name: 'Stormwind Flight', rank: 4, cantrip: false }], activeSpells: ['Stormwind Flight'] }
   const render = (character: Character) => renderToStaticMarkup(<SensesAndSpeedSummary c={character} entries={[ancestry]} />)
-  expect(render(c)).toContain('Low-Light Vision; 25 ft.; Fly 25 ft.')
+  expect(render(c)).toContain('Low-Light Vision; Speed 25 ft., Fly 25 ft.')
   expect(render({ ...c, feats: [{ name: 'Nightvision Adaptation', type: 'Ancestry Feat', level: 1 }] }))
-    .toContain('Darkvision, Low-Light Vision; 25 ft.; Fly 25 ft.')
+    .toContain('Darkvision, Low-Light Vision; Speed 25 ft., Fly 25 ft.')
   expect(render({ ...c, feats: [{ name: 'Nimble Hooves', type: 'Ancestry Feat', level: 1 }] }))
-    .toContain('Low-Light Vision; 30 ft.; Fly 30 ft.')
-  expect(render({ ...c, activeSpells: [] })).toContain('Low-Light Vision; 25 ft.</span>')
-  expect(render({ ...c, ancestry: undefined })).toContain('No special senses; 25 ft.; Fly 25 ft.')
+    .toContain('Low-Light Vision; Speed 30 ft., Fly 30 ft.')
+  expect(render({ ...c, activeSpells: [] })).toContain('Low-Light Vision; Speed 25 ft.</span>')
+  expect(render({ ...c, ancestry: undefined })).toContain('No special senses; Speed 25 ft., Fly 25 ft.')
+  expect(render({ ...base, systems: ['sf2e'], ancestry: 'Shirren', level: 9,
+    feats: [{ name: 'Basic Insectile Flight', type: 'Ancestry Feat', level: 9 }] }))
+    .toContain('Speed 25 ft., Fly 20 ft.')
 })
 
 it('shows professional weapon toolkit bonuses only while held', () => {

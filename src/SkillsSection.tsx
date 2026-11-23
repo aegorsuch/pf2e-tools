@@ -83,8 +83,8 @@ export function SensesAndSpeedSummary({ c, entries }: Pick<SectionProps, 'c' | '
   const hover = magneticLevitatorsActive(c, entries)
   return <summary className="character-section-summary">
     <strong>Senses and Speed</strong>
-    <span>{characterSenses.map(sense => sense.value).join(', ') || 'No special senses'}; {speeds.map(movement =>
-      `${movementLabel(movement)}${movement.name === 'Land' && hover ? ' (hover)' : ''}`).join('; ')}</span>
+    <span>{characterSenses.map(sense => sense.value).join(', ') || 'No special senses'}; Speed {speeds.map(movement =>
+      `${movementLabel(movement)}${movement.name === 'Land' && hover ? ' (hover)' : ''}`).join(', ')}</span>
   </summary>
 }
 
