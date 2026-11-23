@@ -793,6 +793,21 @@ it('lists the second Ubiquitous Gadgets selection at level 14', () => {
   expect(markup).not.toContain('<li class="feat-modal-level">L08</li>')
 })
 
+it('lists the second Rupture Stomp selection at level 16', () => {
+  const dedication: ContentEntry = { id: 'defender', name: 'Stalwart Defender Dedication', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 2, traits: ['Archetype', 'Dedication'], description: '', data: { archetype: 'Stalwart Defender' }, effects: [], updatedAt: 0 }
+  const stomp: ContentEntry = { ...dedication, id: 'rupture', name: 'Rupture Stomp', level: 8, traits: ['Archetype'],
+    data: { archetype: 'Stalwart Defender', prerequisite: dedication.name } }
+  const c: Character = { ...emptyRanger(), level: 16, feats: [
+    { name: dedication.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+    { name: stomp.name, type: 'Archetype Feat', level: 8, slot: 'archetype:8:0' },
+  ], extraSlots: [{ category: 'archetype', level: 16, count: 1 }] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[dedication, stomp]} categories={['archetype']} save={() => {}}
+    search={{ 'archetype:16:0:open': '1' }} onSearch={() => {}} />)
+  expect(markup).toContain('<li class="feat-modal-level">L16</li>')
+  expect(markup).toContain('Rupture Stomp')
+})
+
 it('selects Free Heart without choosing a background in the feat picker', () => {
   const feat: ContentEntry = { id: 'free-heart', name: 'Free Heart', kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 1, traits: ['Elf'], description: '', data: {}, effects: [], updatedAt: 0 }

@@ -50,6 +50,45 @@ it('allows Steel Skin through Stalwart Defender at level 6 while retaining Survi
   } finally { updateSettings({ dwarfStalwartDefender: previous }) }
 })
 
+it('allows Armored Rebuff through Stalwart Defender at level 10 or Sentinel at level 8', () => {
+  const defender = entry('feat', 'Stalwart Defender Dedication', { archetype: 'Stalwart Defender' }, 2, ['Archetype', 'Dedication'])
+  const sentinel = entry('feat', 'Sentinel Dedication', { archetype: 'Sentinel' }, 2, ['Archetype', 'Dedication'])
+  const rebuff = entry('feat', 'Armored Rebuff', {
+    archetype: 'Sentinel, Stalwart Defender', archetype_levels: 'Stalwart Defender:10', prerequisite: 'Sentinel Dedication',
+  }, 8, ['Archetype'])
+  const entries = [defender, sentinel, rebuff]
+  const c: Character = { ...base, level: 10, feats: [
+    { name: defender.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+  ] }
+  const slot = (level: number) => ({ key: `archetype:${level}:0`, category: 'archetype' as const, level })
+  expect(eligibleFeats(entries, c, slot(8))).not.toContain(rebuff)
+  expect(eligibleFeats(entries, c, slot(10))).toContain(rebuff)
+  expect(eligibleFeats(entries, { ...c, feats: [] }, slot(10))).not.toContain(rebuff)
+  expect(eligibleFeats(entries, { ...c, feats: [{ ...c.feats[0], name: sentinel.name }] }, slot(8))).toContain(rebuff)
+})
+
+it('offers Stalwart Standard to Cavaliers who also meet its explicit Knight Vigilant prerequisite', () => {
+  const cavalier = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
+  const knight = entry('feat', 'Knight Vigilant', { archetype: 'Knight Vigilant' }, 6, ['Archetype', 'Dedication'])
+  const banner = entry('feat', "Cavalier's Banner", { archetype: 'Cavalier', prerequisite: cavalier.name }, 4, ['Archetype'])
+  const standard = entry('feat', 'Stalwart Standard', {
+    archetype: 'Cavalier, Knight Vigilant', archetype_levels: 'Knight Vigilant:10',
+    prerequisite: "Cavalier's Banner; Knight Vigilant",
+  }, 10, ['Archetype'])
+  const entries = [cavalier, knight, banner, standard]
+  const c: Character = { ...base, level: 10, feats: [
+    { name: cavalier.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+    { name: banner.name, type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' },
+    { name: knight.name, type: 'Archetype Feat', level: 6, slot: 'archetype:6:0' },
+  ] }
+  const slot = { key: 'archetype:10:0', category: 'archetype' as const, level: 10 }
+  expect(eligibleFeats(entries, c, slot)).toContain(standard)
+  expect(featSelectionPrerequisiteChecker({ ...c, feats: c.feats.slice(0, 2) }, entries, slot)(standard).missing)
+    .toContain('Knight Vigilant')
+  expect(featSelectionPrerequisiteChecker({ ...c, feats: [c.feats[0], c.feats[2]] }, entries, slot)(standard).missing)
+    .toContain("Cavalier's Banner")
+})
+
 it('waives prerequisites only for the active house-rule dedication', () => {
   const settings = getSettings()
   onTestFinished(() => updateSettings(settings))
@@ -1438,6 +1477,24 @@ describe('shared prerequisite enforcement', () => {
     expect(eligibleFeats([gadget], inventor, slot(12))).toEqual([])
     expect(eligibleFeats([gadget], inventor, slot(14))).toEqual([gadget])
     expect(eligibleFeats([gadget], { ...inventor, feats: [...inventor.feats, selected('Ubiquitous Gadgets', 14)] }, slot(16))).toEqual([])
+  })
+  it('permits Rupture Stomp twice, with the second selection at level 16 or later', () => {
+    const dedication = entry('feat', 'Stalwart Defender Dedication', { archetype: 'Stalwart Defender' }, 2, ['Archetype', 'Dedication'])
+    const stomp = entry('feat', 'Rupture Stomp', {
+      prerequisite: dedication.name, archetype: 'Stalwart Defender', repeatable: true,
+    }, 8, ['Archetype'])
+    const c: Character = { ...base, level: 20, feats: [
+      { name: dedication.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+      { name: stomp.name, type: 'Archetype Feat', level: 8, slot: 'archetype:8:0' },
+    ] }
+    const entries = [dedication, stomp]
+    const slot = (level: number) => ({ key: `archetype:${level}:0`, category: 'archetype' as const, level })
+    expect(eligibleFeats(entries, c, slot(14))).not.toContain(stomp)
+    expect(eligibleFeats(entries, c, slot(16))).toContain(stomp)
+    expect(eligibleFeats(entries, { ...c, feats: [...c.feats,
+      { name: stomp.name, type: 'Archetype Feat', level: 8, slot: 'archetype:16:0' }] }, slot(18))).not.toContain(stomp)
+    expect(eligibleFeats(entries, { ...c, feats: [c.feats[0],
+      { ...c.feats[1], slot: 'archetype:18:0' }] }, slot(16))).not.toContain(stomp)
   })
   it('grants each Order Explorer a first-level feat from its chosen order at the acquisition level', () => {
     const animal = entry('feat', 'Animal Companion', { prerequisite: 'animal order' }, 1, ['Druid'])

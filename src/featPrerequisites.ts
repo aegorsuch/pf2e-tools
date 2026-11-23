@@ -25,7 +25,7 @@ export interface PrerequisiteFacts {
   orders: string[]
   feats: { name: string; level: number; category?: string; sourceId?: string }[]
   features: string[]
-  steelSkinStalwart?: boolean
+  stalwartDefenderGranted?: boolean
   ranks: Record<string, number>
   buildSkillRanks?: Record<string, number>
   armor: Record<string, number>
@@ -275,7 +275,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   const atom = (text: string, level: number, trail: Set<string>, inheritedRank?: string, survivalForCrafting = false): PrerequisiteCheck | undefined => {
     const facts = context.facts(level)
     const name = key(text).replace(/\.$/, '')
-    if (name === 'sentinel dedication' && trail.has('steel skin') && facts.steelSkinStalwart) return met()
+    if (name === 'sentinel dedication' && (trail.has('steel skin') || trail.has('armored rebuff'))
+      && facts.stalwartDefenderGranted) return met()
     if (['bloodrager', 'vindicator', 'avenger', 'runelord'].includes(name)
       && trail.has(`${name} dedication`)) return resultFor(key(facts.classArchetype ?? '') === name, text)
     const bloodragerSkill = /^(master|legendary) in arcana or religion, depending on your chosen tradition$/.exec(name)
@@ -518,7 +519,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     const reference = name.replace(/ (?:class feature|feat|heritage|ancestry)$/, '')
     const references = reference === 'attack of opportunity' ? [reference, 'reactive strike']
       : reference === 'reactive strike' ? [reference, 'attack of opportunity']
-      : reference === 'sentinel dedication' && trail.has('steel skin') ? [reference, 'stalwart defender dedication']
+      : reference === 'sentinel dedication' && (trail.has('steel skin') || trail.has('armored rebuff'))
+        ? [reference, 'stalwart defender dedication']
       : reference === 'tusks unarmed attack' ? ['tusks', 'tusks (orc)']
       : reference === 'ancestral unarmed attack' ? [reference, ...ancestralUnarmedFeatNames(
         facts.ancestryTraits ?? [facts.ancestry ?? '', facts.heritage ?? '']).map(key)] : [reference]

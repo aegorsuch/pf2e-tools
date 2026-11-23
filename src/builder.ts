@@ -1085,6 +1085,8 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
   }
   if (entry.name === 'Ubiquitous Gadgets' && category === 'class' && slot && slot.level >= 14
     && c.feats.filter(feat => feat.name === entry.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1) return 14
+  if (entry.name === 'Rupture Stomp' && entry.systems.includes('pf2e') && slot && slot.level >= 16
+    && c.feats.filter(feat => feat.name === entry.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1) return 16
   const classArchetype = category === 'class' && !entry.traits.some(trait => trait.toLowerCase() === c.className?.toLowerCase())
     ? selectedClassArchetype(c, entries)?.name : undefined
   const archetypeSkill = (category === 'skill' || category === 'general')
@@ -1180,7 +1182,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           category: feat.slot?.split(':')[0] ?? feat.type.replace(/ Feat$/, '').toLowerCase(),
           sourceId: feat.sourceId,
         })),
-        get steelSkinStalwart() { return activeHomebrewDedications(character).some(rule => rule.name === 'Stalwart Defender Dedication') },
+        get stalwartDefenderGranted() { return activeHomebrewDedications(character).some(rule => rule.name === 'Stalwart Defender Dedication') },
         get features() { return featureNames ??= [...features.map((feature) => feature.name), ...museFeats,
           ...fatalMethodGrants(character).features,
           ...automaticFeatGrants(character, entries).map((feat) => feat.name),
@@ -1582,6 +1584,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (e.name !== 'Exocortex Experimenter' || !taken.has(e.name) || slot.level >= 12
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
       && (e.name !== 'Expansive Array' || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
+      && (e.name !== 'Rupture Stomp' || !taken.has(e.name) || slot.level >= 16
+        && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length === 1
+        && c.feats.some(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level))
       && (!['Exocortex Experimenter', 'Convertible Chassis', 'Order Cross-Training'].includes(e.name)
         || c.feats.some(feat => feat.name === e.name && feat.slot === slot.key)
         || !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
@@ -1600,6 +1605,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || !CYBORG_HEART_FEATS.some(name => name !== e.name && taken.has(name)))
       && (!/^Mortification \(/.test(e.name) || ![...taken].some(name => /^Mortification \(/.test(name)))
       && (!taken.has(e.name) || e.name === 'Ubiquitous Gadgets' && slot.level >= 14
+        && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
+        || e.name === 'Rupture Stomp' && slot.level >= 16
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
         || e.name === 'Plentiful Grenades' && slot.level >= 14
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
