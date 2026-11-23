@@ -1150,8 +1150,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
   return (
     <div className="col gear-list">
       {displayOnly && <small>Hands used: {handsUsed}/{handLimit}{unknownHands ? ' (some weapon hands unknown)' : ''}</small>}
-      {activeFeatsNamed(c, "Fane's Fourberie").length > 0 && PLAYING_CARD_WEAPONS.some(card => !weapons.some(weapon => weapon.id === card.id))
-        && <small role="status">Playing-card weapon statistics unavailable. Sync dagger and dart content.</small>}
       {displayOnly && (unknownHands || handsUsed > handLimit) && <small role="status">
         {unknownHands ? 'Equipped weapon hands unavailable; unequip it or sync weapon content before equipping more.'
           : `Unequip weapons to use at most ${handLimit} hands in total.`}
