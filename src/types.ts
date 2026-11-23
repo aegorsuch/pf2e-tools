@@ -406,6 +406,7 @@ export interface Character {
   pestForm?: { rank: number; source: 'Pest Form' | 'Ancestral Pest'; flying?: boolean; swimming?: boolean }
   creatureShape?: { form: string; rank: number }
   creatureAllyActive?: boolean
+  shirrenCreatureAllyActive?: boolean
   lashuntaCreatureAlly?: 'Shotalashu' | 'Squox'
   summonedFiend?: import('./summonedFiends.ts').SummonedFiend
   untamedForm?: {

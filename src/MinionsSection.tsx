@@ -13,7 +13,7 @@ import { getSettings } from './settings'
 import { SearchableSelect } from './SearchableSelect'
 import { bardingOptions, equippedBarding, isCompanionEquipmentItem } from './companions'
 import { confirmRemoval } from './confirmRemoval'
-import { activeCaypinAlly, activeLashuntaAlly } from './featSpells'
+import { activeCaypinAlly, activeLashuntaAlly, activeShirrenAlly } from './featSpells'
 import { activeSummonedFiend, type SummonedFiend } from './summonedFiends'
 import { DroneFeatures } from './DroneFeatures'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
@@ -35,6 +35,20 @@ const PET_ABILITY_NOTES: Record<string, string> = {
 }
 
 const SUMMONED_CREATURES = {
+  Emganat: {
+    level: 3, traits: ['Medium', 'Kucharn'],
+    abilities: [2, 4, 1, 0, 0, -2], hp: 38, ac: 18, saves: [8, 11, 7],
+    perception: 9, senses: 'Darkvision, motion sense (imprecise) 30 feet', skills: ['Athletics +9', 'Stealth +11'],
+    speed: '20 feet, burrow 30 feet', languages: 'Shirren; telepathy 100 feet', resistances: 'acid 5',
+    attacks: [{ name: 'Claws', traits: 'agile', bonus: 11, damage: '1d8+4 piercing' },
+      { name: 'Acidic Mouth Cannon', traits: 'acid, range increment 15 feet', bonus: 13, damage: '1d8 acid plus 1d4 persistent acid' }],
+    specials: [
+      { name: 'Colony Mind', description: 'Telepathic communication with allies with colony mind within 30 feet; successful saves against mental effects become critical successes while in range of an ally with colony mind.' },
+      { name: 'Burrowing Reveal', actions: 'Reaction', description: 'Before initiative, when a creature enters motion sense range while burrowed, Burrow to emerge before rolling initiative.' },
+      { name: 'Coordinated Digestion', description: 'A mouth cannon hit increases existing persistent acid damage dice by one step, up to d8.' },
+    ],
+    url: 'https://2e.aonsrd.com/creatures/93-emganat',
+  },
   Caypin: {
     level: 6, traits: ['Large', 'Amphibious', 'Beast'],
     abilities: [5, 3, 4, -3, -1, -1], hp: 100, ac: 24, saves: [17, 14, 11],
@@ -75,13 +89,13 @@ const SUMMONED_CREATURES = {
   },
 } satisfies Record<string, {
   level: number; traits: string[]; abilities: number[]; hp: number; ac: number; saves: number[]
-  perception: number; senses: string; skills: string[]; speed: string; languages?: string
+  perception: number; senses: string; skills: string[]; speed: string; languages?: string; resistances?: string
   attacks: { name: string; traits: string; bonus: number; damage: string }[]
   specials: { name: string; actions?: string; description: string }[]; url: string
 }>
 
 function SummonedCreature({ name }: { name: keyof typeof SUMMONED_CREATURES }) {
-  const creature: (typeof SUMMONED_CREATURES)[keyof typeof SUMMONED_CREATURES] & { languages?: string } = SUMMONED_CREATURES[name]
+  const creature: (typeof SUMMONED_CREATURES)[keyof typeof SUMMONED_CREATURES] & { languages?: string; resistances?: string } = SUMMONED_CREATURES[name]
   return <details className="character-subsection" open>
     <summary><h4>Summoned {name}</h4></summary>
     <div className="gear-traits"><span>Level {creature.level}</span>{creature.traits.map(trait => <span key={trait}>{trait}</span>)}</div>
@@ -96,7 +110,7 @@ function SummonedCreature({ name }: { name: keyof typeof SUMMONED_CREATURES }) {
     <section className="companion-actions"><h5>Defenses</h5><div className="gear-stats">
       <span><small>Hit Points</small><b>{creature.hp}</b></span><span><small>Armor Class</small><b>{creature.ac}</b></span>
       {['Fortitude', 'Reflex', 'Will'].map((save, index) => <span key={save}><small>{save}</small>{signed(creature.saves[index])}</span>)}
-    </div></section>
+    </div>{creature.resistances && <div>Resistances {creature.resistances}</div>}</section>
     <section className="companion-actions"><h5>Senses</h5><div><small>Perception</small> <b>{signed(creature.perception)}</b> · {creature.senses}</div></section>
     <section className="companion-actions"><h5>Skills</h5>{creature.skills.map(skill => <div key={skill}>{skill}</div>)}</section>
     <section className="companion-actions"><h5>Speed</h5><div>{creature.speed}</div></section>
@@ -314,6 +328,7 @@ export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
         : crocodileFamiliar ? 'Crocodile Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
       ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
       ...(lashuntaAlly ? [`Summoned ${lashuntaAlly}`] : []),
+      ...(activeShirrenAlly(c) ? ['Summoned Emganat'] : []),
       ...(activeSummonedFiend(c) ? [`Summoned ${activeSummonedFiend(c)!.name}`] : [])].join(', ') || '0 minions'}</span>
   </summary>
 }
@@ -377,6 +392,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
       <div className="character-section-content minions-section-content">
         {activeCaypinAlly(c) && <SummonedCreature name="Caypin" />}
         {lashuntaAlly && <SummonedCreature name={lashuntaAlly} />}
+        {activeShirrenAlly(c) && <SummonedCreature name="Emganat" />}
         {activeSummonedFiend(c) && <SummonedFiendCard fiend={activeSummonedFiend(c)!} save={save} />}
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" open>
           <summary><h4>Drone</h4></summary>

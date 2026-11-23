@@ -106,6 +106,11 @@ export function activeLashuntaAlly(c: Character) {
     ? c.lashuntaCreatureAlly : undefined
 }
 
+export function activeShirrenAlly(c: Character) {
+  return !!c.shirrenCreatureAllyActive && c.systems.includes('sf2e') && c.ancestry === 'Shirren'
+    && c.feats.some(feat => feat.name === 'Creature Ally' && featTakenLevel(feat) <= c.level)
+}
+
 const hasUntamedForm = (c: Character) =>
   c.feats.some(feat => feat.name === 'Untamed Form' && featTakenLevel(feat) <= c.level)
   || !!c.spells?.some(spell => spell.name === 'Untamed Form')
@@ -275,7 +280,7 @@ export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Ch
       .sort((a, b) => a.name.localeCompare(b.name))
   }
   if (feat.name === 'Creature Ally' || feat.name === 'Creature Shape') {
-    if (c.systems.includes('sf2e') && (c.ancestry === 'Lashunta' || c.ancestry === 'Shirren' && feat.name === 'Creature Shape')) return undefined
+    if (c.systems.includes('sf2e') && ['Lashunta', 'Shirren'].includes(c.ancestry ?? '')) return undefined
     const trait = feat.name === 'Creature Ally' ? 'summon' : 'polymorph'
     return spellIndex(entries).spells.filter(spell => spell.kind === 'spell' && !spell.deleted
       && spell.systems.some(system => c.systems.includes(system))
@@ -676,12 +681,13 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
         rank: highest - 1, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue
     }
-    if (c.systems.includes('sf2e') && (c.ancestry === 'Lashunta' && ['Creature Shape', 'Creature Ally'].includes(feat.name)
-      || c.ancestry === 'Shirren' && feat.name === 'Creature Shape')) {
-      const name = c.ancestry === 'Shirren' ? 'Insect Form' : feat.name === 'Creature Shape' ? 'Animal Form' : 'Summon Animal'
+    if (c.systems.includes('sf2e') && ['Lashunta', 'Shirren'].includes(c.ancestry ?? '')
+      && ['Creature Shape', 'Creature Ally'].includes(feat.name)) {
+      const name = feat.name === 'Creature Ally' ? 'Summon Animal' : c.ancestry === 'Shirren' ? 'Insect Form' : 'Animal Form'
       const entry = matchingSpells(entries, name).find(spell => spell.systems.includes('sf2e'))
       if (entry) out.push({ entry, source: feat.name,
-        rule: { kind: 'innate', spells: [entry.name], tradition: 'occult', frequency: 'once per day', fixedRank: true },
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'occult', frequency: 'once per day', fixedRank: true,
+          ...(c.ancestry === 'Shirren' && feat.name === 'Creature Ally' ? { condition: 'Kucharn only' } : {}) },
         rank: feat.name === 'Creature Shape' ? 8 : 5, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue
     }
@@ -839,9 +845,9 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
         .filter(name => !matchingSpells(entries, name).some(entry => entry.systems.includes('sf2e')))
         .map(name => ({ name, source }))
     }
-    if (c.systems.includes('sf2e') && (c.ancestry === 'Lashunta' && ['Creature Shape', 'Creature Ally'].includes(feat.name)
-      || c.ancestry === 'Shirren' && feat.name === 'Creature Shape')) {
-      const name = c.ancestry === 'Shirren' ? 'Insect Form' : feat.name === 'Creature Shape' ? 'Animal Form' : 'Summon Animal'
+    if (c.systems.includes('sf2e') && ['Lashunta', 'Shirren'].includes(c.ancestry ?? '')
+      && ['Creature Shape', 'Creature Ally'].includes(feat.name)) {
+      const name = feat.name === 'Creature Ally' ? 'Summon Animal' : c.ancestry === 'Shirren' ? 'Insect Form' : 'Animal Form'
       return matchingSpells(entries, name).some(entry => entry.systems.includes('sf2e')) ? [] : [{ name, source }]
     }
     const training = hellknightTrainingBenefit(c, feat.name, feat.choice)

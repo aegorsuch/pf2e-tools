@@ -2036,8 +2036,8 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Widespread Fascination') return [...new Set(widespreadFascinationOptions(
     { ...c, subclass: selectedSubclass(c, entries) }, entries, c.feats[index]?.name === name ? c.feats[index]
       : { name, type: '', level: 1, slot: slotKey }).map(entry => entry.name))]
-  if (c.systems.includes('sf2e') && (c.ancestry === 'Lashunta' && ['Creature Shape', 'Creature Ally'].includes(name)
-    || c.ancestry === 'Shirren' && name === 'Creature Shape')) return undefined
+  if (c.systems.includes('sf2e') && ['Lashunta', 'Shirren'].includes(c.ancestry ?? '')
+    && ['Creature Shape', 'Creature Ally'].includes(name)) return undefined
   const spells = featSpellOptions(c, entries, { name, type: '', level: 1 })
   if (spells) return [...new Set(spells.map(spell => spell.name))]
 }

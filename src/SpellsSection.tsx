@@ -447,6 +447,13 @@ export function CaypinAllyToggle({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
   </label>
 }
 
+export function ShirrenAllyToggle({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
+  return <label><input type="checkbox" aria-label="Summoned Emganat active" checked={!!c.shirrenCreatureAllyActive}
+    onChange={event => save({ shirrenCreatureAllyActive: event.target.checked })} /> Active
+    <SourceNote source="Emganat" note="GM approval required: kucharns do not have the animal trait required by Summon Animal." />
+  </label>
+}
+
 export function LashuntaAllyOptions({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
   return <label>Summoned creature{' '}
     <select aria-label="Creature Ally summoned creature" value={c.lashuntaCreatureAlly ?? ''} onChange={event => {
@@ -1904,6 +1911,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 && grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal'
                 ? <ActiveSpellActions name={grant.entry.name} entry={grant.entry} rank={grant.rank} actions="Three Actions">
                   <CaypinAllyToggle c={c} save={save} />
+                </ActiveSpellActions>
+                : c.systems.includes('sf2e') && c.ancestry === 'Shirren'
+                && grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal'
+                ? <ActiveSpellActions name={grant.entry.name} entry={grant.entry} rank={grant.rank} actions="Three Actions">
+                  <ShirrenAllyToggle c={c} save={save} />
                 </ActiveSpellActions>
                 : c.systems.includes('sf2e') && grant.source === 'Creature Shape'
                   && (['Vesk', 'Lashunta'].includes(c.ancestry ?? '') && grant.entry.name === 'Animal Form'
