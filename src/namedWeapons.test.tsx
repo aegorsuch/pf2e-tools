@@ -871,8 +871,10 @@ it('scales Scalding Gauntlets potency, striking and Flaming with level and hides
   const greater: ContentEntry = { ...item, id: 'scalding-greater', name: 'Scalding Gauntlets (Greater)', level: 13,
     description: 'Base Weapon Spiked Gauntlet\n\nThe gauntlets are a +2 greater striking flaming spiked gauntlet.' }
   const plain: ContentEntry = { ...gauntlet, id: 'gauntlet', name: 'Gauntlet', data: { ...gauntlet.data, damage: '1d4 bludgeoning' } }
-  const entries = makeNamedWeaponEntries([gauntlet, plain, item, greater], [{ name: 'Flaming' }])
-  expect(entries.map(entry => entry.name).sort()).toEqual(['Scalding Gauntlets', 'Scalding Gauntlets (Gauntlet)', 'Scalding Gauntlets (Spiked Gauntlet)'])
+  const bladed: ContentEntry = { ...gauntlet, id: 'bladed', name: 'Bladed Gauntlet', data: { ...gauntlet.data, damage: '1d4 slashing' } }
+  const entries = makeNamedWeaponEntries([gauntlet, plain, bladed, item, greater], [{ name: 'Flaming' }])
+  expect(entries.map(entry => entry.name).sort()).toEqual(['Scalding Gauntlets', 'Scalding Gauntlets (Bladed Gauntlet)',
+    'Scalding Gauntlets (Gauntlet)', 'Scalding Gauntlets (Spiked Gauntlet)'])
   expect(entries.find(entry => entry.name === 'Scalding Gauntlets (Gauntlet)')?.data.named_weapon_base).toBe('Gauntlet')
   const at = (level: number) => withNamedWeaponState(entries[0], owned('Scalding Gauntlets'), level)?.data
   expect(at(11)).toMatchObject({ named_weapon_potency: 2, named_weapon_striking: 1,
