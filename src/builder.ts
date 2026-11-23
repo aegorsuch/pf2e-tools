@@ -7134,6 +7134,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     w = { ...w, runes: w.runes.filter(rune => weaponRuneApplies(entries, w, rune)) }
   }
   let entry = withNamedWeaponState(weaponEntry(entries, w.name, w.id), w, c.level)
+  const bugBite = w.id === shirrenJaws.id && hasShirrenJaws(c, entries) && activeFeatsNamed(c, 'Bug Bite').length > 0
+  if (entry && bugBite) entry = { ...entry, traits: entry.traits.filter(trait => trait.toLowerCase() !== 'finesse'),
+    data: { ...entry.data, damage: '1d8 piercing' } }
   const bestial = !!bestialWeapon(w.id) && c.raging && barbarianInstinct(c, entries) === 'animal'
     && !!c.barbarianAnimal && w.id.startsWith(`bestial:${c.barbarianAnimal}:`)
   const brutality = c.animalisticBrutality
@@ -7464,6 +7467,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           note: 'Physical attacks deal persistent bleed damage equal to half your additional Rage damage.' }] : []),
       ...(bestial && traits.includes('venomous') ? [{ source: 'Venomous', value: `${w.striking >= 2 ? 2 : 1} persistent poison`,
         note: 'Persistent poison from a venomous unarmed attack.' }] : []),
+      ...(bugBite ? [{ source: 'Bug Bite', value: `${dice} persistent poison (critical hit)`,
+        note: 'On a critical hit, deal 1 persistent poison damage per weapon damage die.' }] : []),
       ...(sparkFist ? [{ source: 'Spark Fist', value: `${dice} fire`,
         note: `Activate with one action, once per minute, until the end of your next turn. Each successful fist Strike also deals ${dice} fire damage to you.` }] : []),
       ...((w.id === 'sf2e:solarian:solar-weapon' || w.id === 'sf2e:solarian:twin-weapon')

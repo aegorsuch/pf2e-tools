@@ -54,6 +54,30 @@ it('grants Shirren jaws only with its ancestral unarmed feat', () => {
     .some(weapon => weapon.id === jaws.id)).toBe(false)
 })
 
+it('upgrades Shirren jaws and critical poison with Bug Bite', () => {
+  const featEntries = mapAonHits(hits.filter(hit => hit._source?.name === 'Ancestral Unarmed Attack'), 'sf2e')
+  const source = featEntries.find(entry => entry.kind === 'feat' && entry.traits.includes('Shirren'))!
+  const data = [...entries, ...featEntries]
+  const c: Character = { ...base, ancestry: 'Shirren', level: 5, feats: [
+    { name: source.name, type: 'Ancestry Feat', level: 1, sourceId: source.id },
+    { name: 'Bug Bite', type: 'Ancestry Feat', level: 5 },
+  ] }
+  const jaws = ownedWeapons(c, data).find(weapon => weapon.id === 'sf2e:shirren:jaws')!
+  const attack = weaponAttack(c, data, jaws)
+  expect(attack.damage).toMatch(/^2d8/)
+  expect(attack.traits).not.toContain('Finesse')
+  expect(attack.traits).toContain('Unarmed')
+  expect(attack.additionalDamage).toContainEqual(expect.objectContaining({ source: 'Bug Bite',
+    value: '2 persistent poison (critical hit)' }))
+  const stronger = weaponAttack({ ...c, level: 12 }, data, jaws)
+  expect(stronger.damage).toMatch(/^3d8/)
+  expect(stronger.additionalDamage).toContainEqual(expect.objectContaining({ source: 'Bug Bite',
+    value: '3 persistent poison (critical hit)' }))
+  expect(weaponAttack({ ...c, level: 4 }, data, jaws)).toMatchObject({
+    damage: expect.stringMatching(/^2d6/), traits: expect.arrayContaining(['Finesse']),
+  })
+})
+
 it('grants heritage training, duplicate replacement slots and fixed skill feats', () => {
   const shipborn: Character = { ...base, heritage: 'Shipborn Ysoki' }
   expect(ranksAt(shipborn, entries).Piloting).toBe(1)
