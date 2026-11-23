@@ -1,9 +1,11 @@
 export type PickerSortOrder = 'name' | 'level'
 
+const pickerNameCollator = new Intl.Collator(undefined, { sensitivity: 'base' })
+
 export function sortPickerOptions<T>(items: readonly T[], order: PickerSortOrder,
   name: (item: T) => string, level: (item: T) => number | undefined): T[] {
   return [...items].sort((a, b) => {
-    const byName = name(a).localeCompare(name(b), undefined, { sensitivity: 'base' })
+    const byName = pickerNameCollator.compare(name(a), name(b))
     if (order === 'name') return byName
     const aLevel = level(a) ?? Infinity
     const bLevel = level(b) ?? Infinity
