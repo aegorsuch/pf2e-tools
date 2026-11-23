@@ -25,7 +25,7 @@ const BASES: Record<string, string[]> = {
   'Cane of the Maelstrom': ['Club'],
   "Clear Cutter's Axe": ['Hatchet'],
   'Fungicidal Hatchet': ['Hatchet'],
-  'Scalding Gauntlets': ['Spiked Gauntlet'],
+  'Scalding Gauntlets': ['Spiked Gauntlet', 'Gauntlet'],
   "Cayden's Tankard": ['Light Hammer'],
   'Coldstar Pistols': ['Dueling Pistol'],
   'Debilitating Dart': ['Dart'],
