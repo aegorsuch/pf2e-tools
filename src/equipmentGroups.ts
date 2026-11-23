@@ -3,6 +3,7 @@ export { WORN_EQUIPMENT_GROUPS, EQUIPMENT_GROUPS, type EquipmentGroupName } from
 
 export const equipmentDisplayName = (name: string) => name.replace(/[\u2018\u2019]/g, "'")
   .replace(/^Orc Necksplitter$/, 'Orc Necksplitter Axe')
+  .replace(/\bStarday Night Special \(Gyrojet Pistol\)$/, 'Starday Night Special Gyrojet Pistol')
   .replace(/^(Minor|Lesser|Moderate|Greater|Major|Supreme|True)\s+(.+)$/, '$2 ($1)')
 
 export function specificMagicItemName(entry: ContentEntry | undefined, name = entry?.name ?? '', owned = false) {

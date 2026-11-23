@@ -7,6 +7,7 @@ import type { ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
 import * as settings from './settings'
 import { HouseRules, matchingHouseRules } from './HouseRules'
+import { equipmentDisplayName } from './equipmentGroups'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -70,6 +71,26 @@ it('filters homebrew by entry or category and expands matching groups', () => {
   expect(render('wOlF')).not.toContain('Edit Cat')
   expect(render('companions')).toContain('Edit Cat')
   expect(render('missing')).toContain('No homebrew matches your search.')
+})
+
+it('lists each homebrew weapon grade family once without changing its saved entries', () => {
+  const feat = homebrewCharacterOptions([])[0]
+  const family = 'supplemental:sf2e:starday-gyrojet'
+  const base: ContentEntry = { ...feat, id: family, kind: 'weapon', systems: ['sf2e'], level: 3,
+    name: 'Starday Night Special (Gyrojet Pistol)', data: { weapon_grade_family: family } }
+  const advanced = { ...base, id: `${family}:advanced`, level: 4, name: `Advanced ${base.name}` }
+  const elite = { ...base, id: `${family}:elite`, level: 12, name: `Elite ${base.name}` }
+  const unrelated = { ...base, id: 'other', name: 'Other Weapon', data: {} }
+  const entries = [elite, unrelated, advanced, base]
+  const before = JSON.stringify(entries)
+  const weapons = groupHomebrew(entries).find(group => group.name === 'Weapons')!.entries
+  expect(weapons).toEqual([unrelated, base])
+  const markup = renderToStaticMarkup(<HomebrewList entries={entries} search="gyrojet" onEdit={() => {}} onDelete={() => {}} />)
+  expect(markup).toContain('Starday Night Special Gyrojet Pistol')
+  expect(markup).not.toContain('Advanced Starday')
+  expect(markup).not.toContain('(Gyrojet Pistol)')
+  expect(equipmentDisplayName(advanced.name)).toBe('Advanced Starday Night Special Gyrojet Pistol')
+  expect(JSON.stringify(entries)).toBe(before)
 })
 
 it('groups homebrew runes separately from gear and makes the category searchable', () => {

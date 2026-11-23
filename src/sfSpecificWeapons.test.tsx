@@ -69,6 +69,15 @@ it('uses base-weapon proficiency without duplicate Unconventional Weaponry choic
   expect(weaponAttack(c, entries, owned('Starday Night Special (Rotating Pistol)')).rank).toBeGreaterThan(0)
 })
 
+it('displays the gyrojet name without parentheses while preserving saved identity and grade scaling', () => {
+  const weapon = owned('Starday Night Special (Gyrojet Pistol)')
+  const html = renderToStaticMarkup(<WeaponList c={{ ...base, weapons: [weapon] }} entries={entries} save={() => {}} />)
+  expect(html).toContain('Starday Night Special Gyrojet Pistol')
+  expect(html).not.toContain('Starday Night Special (Gyrojet Pistol)')
+  expect(effectiveWeapon(base, entries, weapon).name).toBe('Superior Starday Night Special (Gyrojet Pistol)')
+  expect(weapon.name).toBe('Starday Night Special (Gyrojet Pistol)')
+})
+
 it('preserves Raptorial Edge modes, acid damage and permanently occupied upgrade slot', () => {
   const blade = owned('Raptorial Edge')
   const character = { ...base, weapons: [blade] }

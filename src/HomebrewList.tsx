@@ -19,7 +19,17 @@ const LABELS: Partial<Record<EntryKind, string>> = {
 export function groupHomebrew(entries: ContentEntry[]) {
   const affiliations = entries.filter((entry) => entry.kind === 'class' || entry.kind === 'ancestry').map((entry) => entry.name)
   const groups = new Map<string, ContentEntry[]>()
-  for (const entry of entries.filter((entry) => entry.source === 'homebrew' && !entry.deleted && !entry.data.retired)) {
+  const active = entries.filter((entry) => entry.source === 'homebrew' && !entry.deleted && !entry.data.retired)
+  const weaponFamilies = new Map<string, ContentEntry>()
+  for (const entry of active) {
+    const family = entry.kind === 'weapon' && entry.systems.includes('sf2e') ? entry.data.weapon_grade_family : undefined
+    if (typeof family !== 'string' || !family) continue
+    const current = weaponFamilies.get(family)
+    if (!current || entry.id === family || current.id !== family && entry.level < current.level) weaponFamilies.set(family, entry)
+  }
+  for (const entry of active) {
+    const family = entry.kind === 'weapon' && entry.systems.includes('sf2e') ? entry.data.weapon_grade_family : undefined
+    if (typeof family === 'string' && family && weaponFamilies.get(family) !== entry) continue
     const names = entry.kind === 'feat' ? [...new Set([
       ...[entry.data.class, entry.data.ancestry, entry.data.archetype].flatMap((value) => typeof value === 'string' ? value.split(',').map((name) => name.trim()).filter(Boolean) : []),
       ...affiliations.filter((name) => entry.traits.some((trait) => trait.toLowerCase() === name.toLowerCase())),
