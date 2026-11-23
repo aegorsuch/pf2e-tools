@@ -139,6 +139,67 @@ it('uses Orichalcum to allow one additional Immortal Bastion property rune', () 
   expect(render([...armor.runes, 'Glamered'])).not.toContain('aria-label="Add property rune"')
 })
 
+it('scales Inheritor fundamentals and property runes at each progression boundary', () => {
+  const armor = { ...owned('Bastion Plate of the Inheritor'), potency: 3, resilient: 3,
+    material: 'Duskwood' as const, runes: ['Moonweave (Major)', 'Fortification (Greater)', 'Shadow'] }
+  const original = JSON.stringify(armor)
+  const cases: [number, number, number, string[]][] = [
+    [1, 0, 0, []], [4, 0, 0, []], [5, 1, 0, ['Moonweave']],
+    [7, 1, 0, ['Moonweave', 'Sunweave']], [8, 1, 1, ['Moonweave', 'Sunweave']],
+    [9, 1, 1, ['Moonweave', 'Sunweave', 'Advancing']],
+    [11, 2, 1, ['Moonweave', 'Sunweave (Greater)', 'Advancing']],
+    [12, 2, 1, ['Moonweave', 'Sunweave (Greater)', 'Fortification', 'Advancing']],
+    [13, 2, 1, ['Moonweave (Greater)', 'Sunweave (Greater)', 'Fortification', 'Advancing']],
+    [14, 2, 2, ['Moonweave (Greater)', 'Sunweave (Greater)', 'Fortification', 'Advancing']],
+    [16, 2, 2, ['Moonweave (Greater)', 'Sunweave (Greater)', 'Fortification', 'Advancing (Greater)']],
+    [17, 2, 2, ['Moonweave (Major)', 'Sunweave (Greater)', 'Fortification', 'Advancing (Greater)']],
+    [18, 3, 2, ['Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)', 'Advancing (Greater)']],
+    [20, 3, 3, ['Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)', 'Advancing (Greater)']],
+  ]
+  for (const [level, potency, resilient, automatic] of cases) {
+    const c = { ...character, level, armors: [armor] }
+    const effective = effectiveArmor(c, bastionEntries, armor)
+    const available = Math.max(0, (potency ? potency + 1 : 0) - automatic.length)
+    expect(effective).toMatchObject({ potency, resilient, material: 'Orichalcum',
+      runes: [...(available ? ['Shadow'] : []), ...automatic] })
+    expect(armorEntry(c, bastionEntries, armor.name)?.data).toMatchObject({
+      bulk: level >= 12 ? 6 : 5, strength: level >= 12 ? 5 : 4,
+    })
+    expect(armorSaveBonus(c, bastionEntries)).toBe(resilient)
+    const html = renderToStaticMarkup(<ArmorList c={c} entries={bastionEntries} save={() => {}} part="armor" />)
+    expect(html).toContain('Material: Orichalcum')
+    expect(html).not.toContain('aria-label="Potency"')
+    expect(html).not.toContain('aria-label="Resilient"')
+    for (const rune of automatic) {
+      expect(html).toContain(rune)
+      expect(html).not.toContain(`aria-label="Remove ${rune} rune"`)
+    }
+    if (level >= 12) expect(html).not.toContain('aria-label="Add property rune"')
+  }
+  expect(JSON.stringify(armor)).toBe(original)
+})
+
+it('preserves dormant Inheritor runes and fundamentals when changing armor settings', () => {
+  const armor = { ...owned('Bastion Plate of the Inheritor'), potency: 2, resilient: 1,
+    material: 'Duskwood' as const, runes: ['Moonweave (Major)', 'Shadow', 'Slick'] }
+  const c = { ...character, level: 20, armors: [armor] }
+  let patch: Partial<Character> = {}
+  const tree = ArmorList({ c, entries: bastionEntries, save: change => { patch = change }, part: 'armor' })
+  const find = (node: ReactNode): ((event: { target: { checked: boolean } }) => void) | undefined => {
+    let result: ((event: { target: { checked: boolean } }) => void) | undefined
+    Children.forEach(node, child => {
+      if (result || !isValidElement<{ children?: ReactNode; 'aria-label'?: string; onChange?: typeof result }>(child)) return
+      if (child.props['aria-label'] === `Worn ${armor.name}`) result = child.props.onChange
+      else result = find(child.props.children)
+    })
+    return result
+  }
+  find(tree)!({ target: { checked: false } })
+  expect(patch.armors?.[0]).toMatchObject({ potency: 2, resilient: 1, material: 'Duskwood',
+    runes: expect.arrayContaining(armor.runes) })
+  expect(effectiveArmor({ ...c, level: 5 }, bastionEntries, patch.armors![0]).runes).toEqual(['Shadow', 'Moonweave'])
+})
+
 it('applies Highhelm piercing specialization only while armor benefits apply', () => {
   const data = [...bastionEntries, bastionFighter, plateGroup, armorExpertise]
   const armor = owned('Highhelm Stronghold Bastion Plate')

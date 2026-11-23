@@ -6,7 +6,7 @@ import {
 import { newId } from './db'
 import { blessedShieldBenefit, canEquipShield, championBlessings, clanPistolRunes, equippedHands, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
-import { isAncestralEmbrace, isBastionNamedArmor, isScaleOfIgroonShield, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { INHERITOR_RUNE_FAMILIES, isAncestralEmbrace, isBastionNamedArmor, isInheritorPlate, isScaleOfIgroonShield, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ABILITY_LABEL, APEX_AUGMENTATIONS, activeApexAugmentation, armorBulk, armorStrengthMet, installedApexAugmentations } from './builder'
@@ -1828,10 +1828,16 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
       const automaticRunes = armor.id === ARMIGER_ARMOR_ID
         ? automaticArmorPropertyRunes(armorEntry(c, entries, armor.name, armor.id)) : []
       const isAutomaticFamily = (rune: string) => automaticRunes.some(automatic => runeBaseName(automatic) === runeBaseName(rune))
+      const isInheritorFamily = (rune: string) => INHERITOR_RUNE_FAMILIES.some(family => family === runeBaseName(rune))
+      const savedOtherRunes = saved?.runes.filter(rune => !isInheritorFamily(rune)) ?? []
+      const visibleOtherRunes = armors.find(current => current.id === armor.id)?.runes.filter(rune => !isInheritorFamily(rune)) ?? []
       const runes = armor.id === BONY_PLATES_ID
         ? saved?.runes ?? []
         : armor.id === ARMIGER_ARMOR_ID
           ? [...armor.runes.filter(rune => !isAutomaticFamily(rune)), ...(saved?.runes.filter(isAutomaticFamily) ?? [])]
+          : isInheritorPlate(armor.name)
+            ? [...armor.runes.filter(rune => !isInheritorFamily(rune)),
+              ...savedOtherRunes.slice(visibleOtherRunes.length), ...(saved?.runes.filter(isInheritorFamily) ?? [])]
           : isAncestralEmbrace(armor.name) && c.level >= 12
             ? [...new Set([...armor.runes.filter(rune => runeBaseName(rune) !== 'Fortification'), ...(saved?.runes ?? [])])]
           : armorEntry(c, entries, armor.name, armor.id)?.systems.includes('sf2e')
@@ -2041,14 +2047,17 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                 onChange={(resilient) => update(a.id, { resilient })} />}
             </div>
             {runesAllowed ? <><Runes runes={bonyPlates ? [] : a.runes.filter(rune => !fixedRunes.includes(rune)
-              && (a.id !== ARMIGER_ARMOR_ID || !automaticRunes.some(fixed => runeBaseName(fixed) === runeBaseName(rune))))} entries={entries}
+              && (a.id !== ARMIGER_ARMOR_ID || !automaticRunes.some(fixed => runeBaseName(fixed) === runeBaseName(rune)))
+              && (!isInheritorPlate(a.name) || !INHERITOR_RUNE_FAMILIES.some(family => family === runeBaseName(rune))))} entries={entries}
               freeRunes={[...(named?.runes.map(name => ({ name, source: `Built into ${a.name}` })) ?? []),
                 ...automaticRunes.map(name => ({ name, source: bonyPlates ? 'Granted by Bony Plates'
                   : `Granted by ${String(entry?.data.granted_by ?? a.name)}` }))]}
               options={bonyPlates ? [] : propertyRunes(entries, 'Armor').filter(rune => !fixedRunes.includes(rune.name)
                 && (a.id !== ARMIGER_ARMOR_ID || !automaticRunes.some(fixed => runeBaseName(fixed) === runeBaseName(rune.name)))
+                && (!isInheritorPlate(a.name) || !INHERITOR_RUNE_FAMILIES.some(family => family === runeBaseName(rune.name)))
                 && (a.id !== BONY_PLATES_ID || !BONY_PLATE_RUNE_FAMILIES.some(base => base === runeBaseName(rune.name))))}
-              limit={bonyPlates ? 0 : Math.max(0, runeLimit(runePotency, a.material) - (named?.runes.length ?? 0))}
+              limit={bonyPlates ? 0 : Math.max(0, runeLimit(runePotency, a.material) - (named?.runes.length ?? 0)
+                - (isInheritorPlate(a.name) ? automaticRunes.length : 0))}
               onChange={bonyPlates ? undefined : (runes) => update(a.id, { runes: [...(named?.runes ?? []), ...runes] })} /></>
               : !sf2eArmor && <small>Armor runes cannot be etched onto this shell.</small>}
             {!granted && <button type="button" className="spell-remove" aria-label={`Remove ${labelName}`} title="Remove"

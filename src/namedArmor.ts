@@ -1,4 +1,5 @@
 import type { ContentEntry } from './types'
+import { automaticArmigerRunes } from './grantedArmor'
 
 const ANCESTRAL_HIDE = 'Ancestral Embrace Hide Armor'
 export const isAncestralEmbrace = (name?: string) => name === 'Ancestral Embrace' || name === ANCESTRAL_HIDE
@@ -11,6 +12,8 @@ const BASTION_NAMES: Record<string, string> = {
 }
 export const isBastionNamedArmor = (name?: string) =>
   !!name && (Object.hasOwn(BASTION_NAMES, name) || Object.values(BASTION_NAMES).includes(name))
+export const INHERITOR_RUNE_FAMILIES = ['Advancing', 'Fortification', 'Moonweave', 'Sunweave'] as const
+export const isInheritorPlate = (name?: string) => name === 'Bastion Plate of the Inheritor' || name === 'Bastion of the Inheritor'
 const BODY = /\n\n-{3,}\s*\n\n/
 export const SCALE_OF_IGROON_FORTRESS = 'Scale of Igroon (Fortress Shield)'
 export const isScaleOfIgroonShield = (name?: string) =>
@@ -80,8 +83,8 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
             ? Number(item.data.bulk) : Number(item.data.bulk ?? base.data.bulk) + Number(thickening?.[1] ?? 1),
             strength: Number(base.data.strength) + Number(thickening?.[2] ?? 1) } : {}),
           ...(elven ? { named_armor_elven: true, named_armor_material: /\bhigh-grade elven chain\b/i.test(item.description) ? 'High-grade dawnsilver elven chain' : 'Dawnsilver elven chain' } : {}),
-          ...(WEAVE_ARMORS.has(item.name) || item.name === 'Immortal Bastion' ? { named_armor_material: 'Orichalcum' } : {}),
-          ...(item.name === 'Immortal Bastion' ? { automatic_fundamentals: true } : {}),
+          ...(WEAVE_ARMORS.has(item.name) || item.name === 'Immortal Bastion' || isInheritorPlate(item.name) ? { named_armor_material: 'Orichalcum' } : {}),
+          ...(item.name === 'Immortal Bastion' || isInheritorPlate(item.name) ? { automatic_fundamentals: true } : {}),
         },
         description: `${item.description}${elven ? `\n\nElven chain construction: ${elven.description.split(BODY)[1]?.trim() ?? elven.description}` : ''}`,
       }]
@@ -103,6 +106,14 @@ export function scaleAncestralEmbrace(entry: ContentEntry | undefined, level: nu
   return { ...entry, data: { ...entry.data,
     named_armor_runes: [...runes, level >= 18 ? 'Fortification (Greater)' : 'Fortification'].join(';'),
     bulk: Number(entry.data.bulk) + 1, strength: Number(entry.data.strength) + 1,
+  } }
+}
+
+export function scaleInheritorPlate(entry: ContentEntry | undefined, level: number) {
+  if (!entry?.data.named_armor || !isInheritorPlate(entry.name)) return entry
+  const fortification = level >= 12
+  return { ...entry, data: { ...entry.data, automatic_property_runes: automaticArmigerRunes(level).join(';'),
+    ...(fortification ? { bulk: Number(entry.data.bulk) + 1, strength: Number(entry.data.strength) + 1 } : {}),
   } }
 }
 

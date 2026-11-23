@@ -76,14 +76,18 @@ const weaveRunes = (level: number) => [
 ]
 const fortificationRune = (level: number) => level >= 18 ? 'Fortification (Greater)' : 'Fortification'
 
+export const automaticArmigerRunes = (level: number) => [
+  ...weaveRunes(level),
+  ...(level >= 12 ? [fortificationRune(level)] : []),
+  ...(level >= 9 ? [level >= 16 ? 'Advancing (Greater)' : 'Advancing'] : []),
+]
+
 export function armigerArmorEntry(c: Character, ranks: Record<string, number>): ContentEntry | undefined {
   if (!c.systems.includes('pf2e') || !c.feats.some(feat => feat.name === 'Ardent Armiger' && featTakenLevel(feat) <= c.level)
     || !ranks.Heavy && !ranks.Medium) return undefined
   const heavy = ranks.Heavy > 0
   const fortification = c.level >= 12
-  const runes = [...weaveRunes(c.level),
-    ...(fortification ? [fortificationRune(c.level)] : []),
-    ...(c.level >= 9 ? [c.level >= 16 ? 'Advancing (Greater)' : 'Advancing'] : [])]
+  const runes = automaticArmigerRunes(c.level)
   return armorEntry(ARMIGER_ARMOR_ID, heavy ? 'Hellknight Plate' : 'Hellknight Breastplate', {
     armor_category: heavy ? 'Heavy' : 'Medium', armor_group: 'Plate', ac: heavy ? 6 : 4,
     dex_cap: heavy ? 0 : 1, check_penalty: heavy ? -3 : -2, speed_penalty: heavy ? -10 : -5,
