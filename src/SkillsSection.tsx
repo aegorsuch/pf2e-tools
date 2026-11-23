@@ -552,6 +552,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Tinkering Fingers" note={`Repair without a toolkit without the penalty; ${conditionalTotal(1)} to Repair checks with a repair toolkit (+1 circumstance).`} />}
           {s.name === 'Crafting' && !!activeFeatsNamed(c, 'Eye for Treasure').length && <SourceNote inlineSource={false}
             source="Eye for Treasure" note={`${conditionalTotal(1)} to Recall Knowledge using Crafting (+1 circumstance; circumstance bonuses do not stack).`} />}
+          {s.kind === 'skill' && (certitudeSkills.has(s.name.toLowerCase()) || / lore$/i.test(s.name))
+            && !!activeFeatsNamed(c, 'Divine Insight').length
+            && <SourceNote source="Divine Insight" note={`${/ lore$/i.test(s.name) && !certitudeSkills.has(s.name.toLowerCase()) ? 'Only for Lore about your deity. ' : ''}Once per hour on Recall Knowledge: before rolling, roll twice and use the higher result; after a failure or critical failure, reroll and use the new result. On success, gain an optional +1 circumstance bonus within 1 minute on the next related check (not Recall Knowledge), or to AC, DCs, and saves against the next attack and hostile effect. Circumstance bonuses do not stack.`} />}
           {s.kind === 'skill' && certitudeSkills.has(s.name.toLowerCase()) && !!activeFeatsNamed(c, 'Divine Certitude').length
             && <SourceNote source="Divine Certitude" note="On a Recall Knowledge check, a failure becomes a success." />}
           {s.name === 'Nature' && !!activeFeatsNamed(c, 'Rider').length && <SourceNote inlineSource={false}
@@ -751,6 +754,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, [name]: event.target.checked } })} />
           {' '}{name} used
         </label>)}
+        {!!activeFeatsNamed(c, 'Divine Strike').length && <label>
+          <input type="checkbox" aria-label="Divine Strike used" checked={!!c.dailyFeatUses?.['Divine Strike']}
+            onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, 'Divine Strike': event.target.checked } })} />
+          {' '}Divine Strike used <SourceNote source="Divine Strike" note="Once per day. Wield your deity's favored weapon and expend a Cleric spell slot for a one- or two-action spell attack; use the Strike result for both effects." />
+        </label>}
         {["Grandmother's Curse", 'Slip From Sight', 'Wormhole Warren', 'Dense Weave Musculature',
           'Flying Rocket Punch', 'Uncanny Dash'].filter(name => activeFeatsNamed(c, name).length > 0).map(name => <label key={name}>
           <input type="checkbox" checked={!!c.hourlyFeatUses?.[name]}
@@ -1102,6 +1110,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           ? { hourlyFeatUses: { ...c.hourlyFeatUses, 'Memories of Valor': event.target.checked } }
           : { dailyFeatUses: { ...c.dailyFeatUses, 'Memories of Valor': event.target.checked } })} />
         Memories of Valor used
+      </label>}
+      {!!activeFeatsNamed(c, 'Divine Insight').length && <label><input type="checkbox" aria-label="Divine Insight used"
+        checked={!!c.hourlyFeatUses?.['Divine Insight']}
+        onChange={event => save({ hourlyFeatUses: { ...c.hourlyFeatUses, 'Divine Insight': event.target.checked } })} />
+        Divine Insight used <SourceNote source="Divine Insight" note="Once per hour. Clear after an hour has passed." />
       </label>}
       <div className="skill-grid" role="table" aria-label="Skills">
         {renderRows(skills)}

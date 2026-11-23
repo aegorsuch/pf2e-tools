@@ -95,13 +95,19 @@ it('offers favored weapon symbol and jousting to clerics as well as champions', 
 })
 
 it('offers Divine Certitude to clerics at level 12 with Divine Insight', () => {
-  const feat = homebrewCharacterOptions([]).find(entry => entry.id === 'homebrew:divine-certitude')!
-  const insight: ContentEntry = { ...feat, id: 'insight', source: 'official', name: 'Divine Insight',
-    level: 8, data: { class: 'Cleric' } }
+  const options = homebrewCharacterOptions([])
+  const feat = options.find(entry => entry.id === 'homebrew:divine-certitude')!
+  const insight = options.find(entry => entry.id === 'homebrew:divine-insight')!
   const slot = { category: 'class' as const, level: 12, key: 'class:12:0' }
   const c: Character = { ...base, className: 'Cleric', level: 12,
-    feats: [{ name: insight.name, type: 'Class Feat', level: 8, slot: 'class:8:0' }] }
+    feats: [{ name: insight.name, type: 'Class Feat', level: 1, slot: 'class:1:0' }] }
   const entries = [feat, insight]
+  expect(insight).toMatchObject({ name: 'Divine Insight', level: 1, source: 'homebrew',
+    traits: ['Cleric', 'Concentrate', 'Fortune'], data: { class: 'Cleric', frequency: 'once per hour' } })
+  expect(insight.description).toContain('You may not apply this to another Recall Knowledge check.')
+  expect(eligibleFeats(entries, { ...c, feats: [] }, { key: 'class:1:0', category: 'class', level: 1 })).toContain(insight)
+  expect(eligibleFeats(entries, { ...c, className: 'Ranger', feats: [] },
+    { key: 'class:1:0', category: 'class', level: 1 })).not.toContain(insight)
   expect(feat).toMatchObject({ name: 'Divine Certitude', level: 12, source: 'homebrew',
     traits: ['Cleric'], data: { class: 'Cleric', prerequisite: 'Divine Insight' } })
   expect(eligibleFeats(entries, c, slot)).toContain(feat)
@@ -111,6 +117,25 @@ it('offers Divine Certitude to clerics at level 12 with Divine Insight', () => {
   expect(eligibleFeats(entries, c, { ...slot, level: 10 })).not.toContain(feat)
   expect(eligibleFeats(entries, { ...c, className: 'Druid' }, slot)).not.toContain(feat)
   expect(groupHomebrew(entries).find(group => group.name === 'Cleric Feats')?.entries).toContain(feat)
+})
+
+it('provides requested Cleric and Ranger homebrew actions', () => {
+  const entries = homebrewCharacterOptions([])
+  const cases = [
+    { id: 'homebrew:divine-strike', name: 'Divine Strike', level: 10, className: 'Cleric', actions: 'Two Actions' },
+    { id: 'homebrew:guiding-heal', name: 'Guiding Heal', level: 2, className: 'Cleric', actions: 'Single Action' },
+    { id: 'homebrew:firearm-ace', name: 'Firearm Ace', level: 1, className: 'Ranger', actions: 'Single Action' },
+    { id: 'homebrew:instinctive-hunt', name: 'Instinctive Hunt', level: 1, className: 'Ranger', actions: 'Single Action' },
+  ]
+  for (const { id, name, level, className, actions } of cases) {
+    const feat = entries.find(entry => entry.id === id)!
+    expect(feat).toMatchObject({ name, level, source: 'homebrew', data: { class: className, actions } })
+    expect(groupHomebrew(entries).find(group => group.name === `${className} Feats`)?.entries).toContain(feat)
+  }
+  const firearm = entries.find(entry => entry.id === 'homebrew:firearm-ace')!
+  expect(firearm.data.requirements).toContain('reload 1 or higher')
+  expect(firearm.description).toContain('Either Create a Diversion or Take Cover, then Interact to reload')
+  expect(entries.find(entry => entry.id === 'homebrew:guiding-heal')?.traits).toEqual(['Cleric', 'Concentrate', 'Spellshape'])
 })
 
 it('offers level-20 Tethered weapon feats for each weapon feature', () => {

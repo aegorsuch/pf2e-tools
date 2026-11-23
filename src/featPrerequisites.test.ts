@@ -21,6 +21,35 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it('checks Divine Strike against its prerequisite feat and deity favored weapon rank', () => {
+  const strike = homebrewCharacterOptions([]).find(feat => feat.name === 'Divine Strike')!
+  const deity = entry('deity', 'Patron', { favored_weapon: 'staff' })
+  const staff = entry('weapon', 'Staff', { weapon_category: 'Simple', damage: '1d4 bludgeoning' })
+  const cleric = entry('class', 'Cleric', { attack_proficiency: 'Expert in simple weapons' })
+  const c: Character = { ...base, className: 'Cleric', level: 10, deity: 'Patron', feats: [selected('Channel Smite', 4)] }
+  const entries = [strike, deity, staff, cleric]
+  const result = (character: Character, content = entries) => featPrerequisiteChecker(character, content)(strike)
+  expect(result(c)).toEqual({ missing: [], manual: [] })
+  expect(result({ ...c, feats: [selected('Sacred Strike', 4)] })).toEqual({ missing: [], manual: [] })
+  expect(result({ ...c, feats: [] }).missing).toContain('Channel Smite or Sacred Strike')
+  expect(result({ ...c, deity: undefined }).missing).toContain("expert with your deity's favored weapon")
+  expect(result(c, [strike, deity, staff, { ...cleric, data: { attack_proficiency: 'Trained in simple weapons' } }]).missing)
+    .toContain("expert with your deity's favored weapon")
+  expect(result(c, [strike, deity, cleric]).manual).toContain("expert with your deity's favored weapon")
+  expect(result(c, [strike, staff, cleric]).manual).toContain("expert with your deity's favored weapon")
+})
+
+it('checks Guiding Heal against known deity font options without guessing a mixed font choice', () => {
+  const feat = homebrewCharacterOptions([]).find(item => item.name === 'Guiding Heal')!
+  const deity = entry('deity', 'Patron', { divine_font: 'Heal' })
+  const c: Character = { ...base, className: 'Cleric', level: 2, deity: 'Patron' }
+  const result = (font: string) => featPrerequisiteChecker(c, [feat, { ...deity, data: { divine_font: font } }])(feat)
+  expect(result('Heal')).toEqual({ missing: [], manual: [] })
+  expect(result('Harm').missing).toEqual(['healing font'])
+  expect(result('Heal, Harm').manual).toEqual(['healing font'])
+  expect(featPrerequisiteChecker({ ...c, deity: undefined }, [feat])(feat).manual).toEqual(['healing font'])
+})
+
 it.each([
   ["Drifter's Juke", 'Drifter', 6],
   ['Phalanx Breaker', 'Vanguard', 6],

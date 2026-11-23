@@ -920,6 +920,21 @@ it('offers Rapid Shape at level 8 only to druids who can cast Untamed Form', () 
   expect(eligibleFeats([rapid], { ...c, className: 'Ranger' }, slot)).not.toContain(rapid)
 })
 
+it('shows Guiding Heal on Heal without affecting other spells or future feats', () => {
+  const heal = entry('Heal', 'spell')
+  const harm = entry('Harm', 'spell')
+  const c: Character = { ...base, systems: ['pf2e'], className: 'Cleric', level: 2,
+    feats: [taken('Guiding Heal', 2)], spells: [
+      { name: 'Heal', rank: 1, cantrip: false }, { name: 'Harm', rank: 1, cantrip: false },
+    ] }
+  const render = (character: Character) => renderToStaticMarkup(<SpellsSection c={character} entries={[heal, harm]} save={() => {}} />)
+  const markup = render(c)
+  expect(markup).toContain('aria-label="Guiding Heal note"')
+  expect(markup).toContain('one- or two-action heal grants its target +1 status')
+  expect(render({ ...c, feats: [] })).not.toContain('Guiding Heal note')
+  expect(render({ ...c, level: 1 })).not.toContain('Guiding Heal note')
+})
+
 it('tracks Rapid Shape once per day without changing ordinary Untamed Form casting', () => {
   let c: Character = { ...base, className: 'Druid', level: 8, feats: [taken('Untamed Form'), taken('Rapid Shape', 8)],
     dailyAbilityUses: { Other: true }, spentFocusPoints: [0] }

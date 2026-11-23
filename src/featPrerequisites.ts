@@ -34,6 +34,8 @@ export interface PrerequisiteFacts {
   weapons: Record<string, number>
   weaponRank?: (name: string) => number | undefined
   hellknightWeapons?: string[]
+  deityFavoredWeapons?: string[]
+  healingFont?: boolean
   abilities: Character['abilities']
   senses: string[]
   swimSpeed?: boolean
@@ -279,6 +281,9 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   const atom = (text: string, level: number, trail: Set<string>, inheritedRank?: string, survivalForCrafting = false): PrerequisiteCheck | undefined => {
     const facts = context.facts(level)
     const name = key(text).replace(/\.$/, '')
+    if (name === 'healing font' && trail.has('guiding heal')) {
+      return facts.healingFont === undefined ? manual(text) : resultFor(facts.healingFont, text)
+    }
     if (name === 'sentinel dedication' && ['steel skin', 'armored rebuff', 'mighty bulwark'].some(feat => trail.has(feat))
       && facts.stalwartDefenderGranted) return met()
     if (trail.has('stalwart standard') && ["cavalier's banner", 'knight vigilant'].includes(name)
@@ -487,6 +492,12 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
         return resultFor(rankSatisfied(facts.armor[group[0].toUpperCase() + group.slice(1)] ?? 0, rank), text)
       }
       if (/^clan daggers?$/.test(subject)) return resultFor(rankSatisfied(facts.weapons.Simple ?? 0, rank), text)
+      if (/^(?:your )?deity'?s favored weapons?$/.test(subject)) {
+        if (!facts.deityFavoredWeapons?.length) return facts.deity ? manual(text) : missing(text)
+        const ranks = facts.deityFavoredWeapons.map(weapon => facts.weaponRank?.(weapon))
+        if (ranks.some(value => value !== undefined && rankSatisfied(value, rank))) return met()
+        return ranks.some(value => value === undefined) ? manual(text) : missing(text)
+      }
       if (/^(?:your )?order'?s favored weapons?$/.test(subject)) {
         if (!facts.hellknightWeapons?.length || !facts.weaponRank) return manual(text)
         const ranks = facts.hellknightWeapons.map(weapon => facts.weaponRank!(weapon))
@@ -563,7 +574,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       })
       return checks.find(satisfied) ?? checks[0]
     }
-    if (reference === 'tusks unarmed attack' || reference === 'divine insight' && trail.has('divine certitude')) return missing(text)
+    if (reference === 'tusks unarmed attack' || reference === 'divine insight' && trail.has('divine certitude')
+      || ['channel smite', 'sacred strike'].includes(reference) && trail.has('divine strike')) return missing(text)
     if (content.some((entry) => entry.kind === 'feat' || entry.kind === 'classFeature')) return missing(text)
     if (name === 'a sense with a listed range') {
       return resultFor(facts.senses.some(sense => {

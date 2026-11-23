@@ -844,6 +844,8 @@ function SpellItem({ c, name, nameControl, entry, note, onRemove, active, onTogg
             && !(name === 'Animal Form' && activeFeatsNamed(c, 'Ancestral Form').length)
             && <SpellActions name={name} entry={entry} rank={rank} spellcastingModifier={spellcastingModifier} />)}{inlineControls}
           <PharasmaSpellBonus c={c} entry={entry} name={name} rank={rank} /></div>
+        {name === 'Heal' && !!activeFeatsNamed(c, 'Guiding Heal').length && <SourceNote source="Guiding Heal"
+          note="After using Guiding Heal, a one- or two-action heal grants its target +1 status to AC, saves, and attack rolls until the end of your next turn. Status bonuses do not stack." />}
         {note && <small>{note}</small>}
       </div>
       <span><small>Duration</small>{metadata.duration}{metadata.durationNote

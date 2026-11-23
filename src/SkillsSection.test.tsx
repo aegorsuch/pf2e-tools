@@ -497,6 +497,58 @@ it('shows Divine Certitude only on Religion and the selected deity’s divine sk
   expect(render({ ...c, feats: [] })).not.toContain('Divine Certitude note')
 })
 
+it('tracks Divine Insight hourly and marks eligible Recall Knowledge checks', () => {
+  const deity: ContentEntry = { ...ranger, id: 'deity', kind: 'deity', name: 'Example', data: { skill: 'Nature' } }
+  const c: Character = { ...base, className: 'Cleric', deity: deity.name,
+    lores: [{ name: 'Example Lore', rank: 1 }, { name: 'Other Lore', rank: 1 }],
+    hourlyFeatUses: { Other: true },
+    feats: [{ name: 'Divine Insight', type: 'Class Feat', level: 1, slot: 'class:1:0' }] }
+  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[deity]} save={() => {}} />)
+  const row = (html: string, skill: string) => html.split('<div class="skill-row').find(part => part.includes(`class="skill-name">${skill} `)) ?? ''
+  const html = render(c)
+  expect(html).toContain('aria-label="Divine Insight used"')
+  for (const skill of ['Religion', 'Nature', 'Example Lore']) expect(row(html, skill)).toContain('Divine Insight note')
+  expect(row(html, 'Other Lore')).toContain('Only for Lore about your deity.')
+  expect(row(html, 'Arcana')).not.toContain('Divine Insight note')
+  expect(html).toContain('not Recall Knowledge')
+  expect(render({ ...c, feats: [] })).not.toContain('Divine Insight used')
+  expect(render({ ...c, level: 0 })).not.toContain('Divine Insight used')
+
+  const save = vi.fn()
+  let change: ((event: { target: { checked: boolean } }) => void) | undefined
+  const visit = (node: ReactNode) => Children.forEach(node, child => {
+    if (!isValidElement<Record<string, unknown>>(child)) return
+    if (child.type === 'input' && child.props['aria-label'] === 'Divine Insight used') change = child.props.onChange as typeof change
+    visit(child.props.children as ReactNode)
+  })
+  visit(SkillsSection({ c, entries: [deity], save }))
+  if (!change) throw new Error('Missing Divine Insight use control')
+  change({ target: { checked: true } })
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ hourlyFeatUses: { Other: true, 'Divine Insight': true } }))
+  change({ target: { checked: false } })
+  expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ hourlyFeatUses: { Other: true, 'Divine Insight': false } }))
+})
+
+it('tracks Divine Strike daily without spending other feat uses', () => {
+  const c: Character = { ...base, level: 10, dailyFeatUses: { Other: true },
+    feats: [{ name: 'Divine Strike', type: 'Class Feat', level: 10, slot: 'class:10:0' }] }
+  const save = vi.fn()
+  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[]} save={save} part="offense" />)
+  expect(render(c)).toContain('aria-label="Divine Strike used"')
+  expect(render(c)).toContain('use the Strike result for both effects')
+  expect(render({ ...c, level: 9 })).not.toContain('Divine Strike used')
+  let change: ((event: { target: { checked: boolean } }) => void) | undefined
+  const visit = (node: ReactNode) => Children.forEach(node, child => {
+    if (!isValidElement<Record<string, unknown>>(child)) return
+    if (child.type === 'input' && child.props['aria-label'] === 'Divine Strike used') change = child.props.onChange as typeof change
+    visit(child.props.children as ReactNode)
+  })
+  visit(SkillsSection({ c, entries: [], save, part: 'offense' }))
+  if (!change) throw new Error('Missing Divine Strike use control')
+  change({ target: { checked: true } })
+  expect(save).toHaveBeenCalledWith({ dailyFeatUses: { Other: true, 'Divine Strike': true } })
+})
+
 it('shows Hellknight Preferment at the Intimidation total instead of a separate circumstance column', () => {
   const plate: ContentEntry = { ...ranger, id: 'hellknight', kind: 'armor', name: 'Hellknight Plate',
     data: { armor_category: 'Heavy', armor_group: 'Plate' } }

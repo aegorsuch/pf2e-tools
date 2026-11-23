@@ -1209,8 +1209,20 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         get armor() { return armor ??= armorRanks(character, entries) },
         get weapons() { return weapons ??= weaponRanks(character, entries) },
         hellknightWeapons: HELLKNIGHT_FAVORED_WEAPONS[hellknightOrder(character) ?? ''],
-        weaponRank: name => weaponEntry(entries, name) ? weaponAttack(character, entries,
-          { id: 'prerequisite', name, potency: 0, striking: 0, runes: [] }).rank : undefined,
+        deityFavoredWeapons: tokens(byName(entries, 'deity', character.deity)?.data.favored_weapon)
+          .flatMap(value => value.split(/\s+or\s+/i)).map(value => value.trim()).filter(Boolean),
+        healingFont: (() => {
+          if (character.className !== 'Cleric' || character.level < 1) return false
+          const font = tokens(byName(entries, 'deity', character.deity)?.data.divine_font).map(value => value.toLowerCase())
+          if (!font.length || font.includes('heal') && font.includes('harm')) return undefined
+          return font.includes('heal')
+        })(),
+        weaponRank: name => {
+          const weapon = weaponEntry(entries, name) ?? [...entries, ...SUPPLEMENTAL_WEAPONS].find(entry => entry.kind === 'weapon'
+            && !entry.deleted && entry.name.toLowerCase() === name.toLowerCase())
+          return weapon ? weaponAttack(character, entries,
+            { id: 'prerequisite', name: weapon.name, potency: 0, striking: 0, runes: [] }).rank : undefined
+        },
         abilities: options.captainIntelligence && character.className === 'Commander'
           && character.feats.some(feat => feat.name === 'Captain Dedication')
           ? { ...character.abilities, cha: Math.max(character.abilities.cha, character.abilities.int) }
