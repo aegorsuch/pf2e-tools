@@ -796,6 +796,11 @@ it('selects, details, removes, and applies familiar abilities without exposing s
   html = renderToStaticMarkup(tree())
   expect(html).toContain('aria-label="Roll Restorative Familiar: Healing"')
   expect(html).toContain('4d8')
+  c = { ...c, className: 'Witch', level: 11, feats: [{ name: 'Stitched Familiar', type: 'Class Feat', level: 8 }, { name: 'Spirit Familiar (Witch)', type: 'Class Feat', level: 8 }] }
+  html = renderToStaticMarkup(tree())
+  expect(html).toContain('aria-label="Roll Stitching Strike: Damage"')
+  expect(html).toContain('aria-label="Roll Shed Spirit: Damage"')
+  expect(html).toContain('10d6')
   c = saved
   html = renderToStaticMarkup(tree())
   expect(html).toContain('<small>Hit Points</small><b>56</b>')

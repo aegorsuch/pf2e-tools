@@ -10,6 +10,7 @@ export interface PrerequisiteCheck {
 
 export interface PrerequisiteFacts {
   className?: string
+  witchPatronTradition?: string
   ancestry?: string
   heritage?: string
   heritages?: string[]
@@ -505,6 +506,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       || knownEntries(name).some(entry => entry.kind === 'subclass' && entry.data.class === 'Gunslinger')) {
       return resultFor(facts.className === 'Gunslinger' && key(facts.subclass ?? '') === name, text)
     }
+    const patronTradition = /^(arcane|divine|occult|primal) patron$/.exec(name)
+    if (patronTradition) return resultFor(facts.className === 'Witch' && facts.witchPatronTradition?.toLowerCase() === patronTradition[1], text)
     const role = ROLE_PATTERN.exec(name)
     if (role) {
       const choices = role[2] === 'order' ? facts.orders : role[2] === 'fatal method' ? [facts.fatalMethod ?? '']
@@ -594,6 +597,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
         let value = restore(part)
         if (sharedRole && (knownEntries(value).some((entry) => entry.kind === 'subclass' && entry.data.class === ROLE_CLASSES[sharedRole[2]])
           || sharedRole[2] === 'order' && context.knownOrders.some((order) => key(order) === key(value)))) value += ` ${sharedRole[2]}`
+        else if (sharedRole?.[2] === 'patron' && /^(?:arcane|divine|occult|primal)$/i.test(value)) value += ' patron'
         else if (sharedHeritage && knownEntries(value).some((entry) => entry.kind === 'heritage')) value += ' heritage'
         return evaluate(value, level, trail, inherited, survivalForCrafting)
       })

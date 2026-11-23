@@ -979,6 +979,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                     saveFamiliar({ abilities: (data?.abilities ?? []).filter((_, abilityIndex) => abilityIndex !== index) }))}>×</button>
               </div>
             })}
+            {c.className === 'Witch' && ([['Stitched Familiar', 'Stitching Strike', 'slashing'], ['Spirit Familiar', 'Shed Spirit', 'spirit']] as const)
+              .filter(([feat]) => c.feats.some(taken => taken.name.startsWith(feat) && !/\(Animist\)/.test(taken.name)))
+              .map(([, activity, type]) => <div key={activity} className="rune">
+                <b>{activity}</b> <DamageRoll name={activity} actions="Two Actions"
+                  damage={{ label: 'Damage', dice: 6 + 2 * Math.max(0, Math.floor((c.level - 7) / 2)), sides: 6, type }} />
+              </div>)}
             {activeAbilityChoices.length < selectableAbilityLimit && <SearchableSelect aria-label={`${familiarLabel} ability`}
               value="" optionCount={abilityOptions.length}
               renderDetails={value => {

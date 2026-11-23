@@ -1169,6 +1169,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         heritages: characterHeritages(character, entries).map(heritage => heritage.name),
         ancestryTraits: ancestryFeatTraits(character),
         subclass: character.className === 'Witchwarper' ? witchwarperParadox(character)?.name : subclass,
+        witchPatronTradition: character.className === 'Witch' ? classSpellcasting(character, entries)?.traditions[0] : undefined,
         classArchetype: selectedClassArchetype(character, entries)?.name,
         bloodragerTradition: character.feats.find(feat => feat.name === 'Bloodrager Dedication')?.choice,
         additionalSubclasses, fatalMethod: selectedFatalMethod(character), exocortexes: mechanicExocortexes(character),

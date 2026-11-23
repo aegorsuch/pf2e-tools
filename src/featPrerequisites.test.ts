@@ -1919,6 +1919,13 @@ describe('shared prerequisite enforcement', () => {
     expect(check(prerequisite, { ...base, className, subclass: 'Other' }, data).missing).toEqual([prerequisite])
   })
 
+  it('checks Witch patron tradition prerequisites such as arcane or primal patron', () => {
+    const patron = entry('subclass', 'Wild', { class: 'Witch', tradition: 'Primal' })
+    const witch = { ...base, className: 'Witch', subclass: 'Wild' }
+    expect(check('arcane or primal patron', witch, [patron])).toEqual({ missing: [], manual: [] })
+    expect(check('divine or occult patron', witch, [patron]).missing).toEqual(['divine or occult patron'])
+  })
+
   it('recognizes additional druid orders, Untamed/Wild naming, and class-qualified prerequisites', () => {
     const c = { ...base, className: 'Druid', order: 'Storm', subclass: undefined,
       feats: [{ ...selected('Order Explorer', 2), choice: 'Wild' }] }
