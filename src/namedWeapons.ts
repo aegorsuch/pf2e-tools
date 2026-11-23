@@ -225,7 +225,8 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
   return [...result, ...Object.entries(ELEMENTAL_GAUNTLETS).flatMap(([element, { rune, damage }]) => elemental.map((entry): ContentEntry => {
     const label = `${element} Gauntlet`
     const rename = (text: string) => text.replace(/Scalding Gauntlets?/g, label).replace(/persistent fire/g, `persistent ${damage}`)
-      .replace(/\bflaming\b/gi, rune.toLowerCase())
+      .replace(/\bflaming\b/gi, rune.toLowerCase()).replace(/\bfire\b/g, damage).replace(/\bFire\b/g, damage[0].toUpperCase() + damage.slice(1))
+      .replace(/\bflames?\b/g, damage).replace(/\bscalding\b/g, element.toLowerCase())
     return { ...entry, id: `${entry.id}:${element.toLowerCase()}`, name: rename(entry.name), description: rename(entry.description),
       traits: entry.traits.map(trait => trait.toLowerCase() === 'fire' ? damage[0].toUpperCase() + damage.slice(1) : trait),
       data: { ...entry.data, named_weapon_source: label,
