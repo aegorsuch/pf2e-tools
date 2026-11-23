@@ -121,8 +121,8 @@ it('scales Immortal Bastion fundamentals and grants Orichalcum without changing 
     expect(armorSaveBonus(c, bastionEntries)).toBe(resilient)
     const html = renderToStaticMarkup(<ArmorList c={c} entries={bastionEntries} save={() => {}} part="armor" />)
     expect(html).toContain('Material: Orichalcum')
-    if (potency) expect(html).toContain(`+${potency} Potency`)
-    if (resilient) expect(html).toContain(['', 'Resilient', 'Greater Resilient', 'Major Resilient'][resilient])
+    if (potency) expect(html).not.toContain(`<span>+${potency} Potency</span>`)
+    if (resilient) expect(html).not.toContain(`<span>${['', 'Resilient', 'Greater Resilient', 'Major Resilient'][resilient]}</span>`)
     expect(html).not.toContain('aria-label="Potency"')
     expect(html).not.toContain('aria-label="Resilient"')
   }
@@ -152,6 +152,8 @@ it('scales Highhelm fundamentals and property runes with fixed Keep Stone', () =
     const html = renderToStaticMarkup(<ArmorList c={c} entries={bastionEntries} save={() => {}} part="armor" />)
     expect(html).toContain('Material:</span>')
     expect(html).toContain('>Keep Stone</button>')
+    if (potency) expect(html).not.toContain(`<span>+${potency} Potency</span>`)
+    if (resilient) expect(html).not.toContain(`<span>${['', 'Resilient', 'Greater Resilient', 'Major Resilient'][resilient]}</span>`)
     expect(html).not.toContain('aria-label="Potency"')
     expect(html).not.toContain('aria-label="Resilient"')
     for (const rune of runes) {
