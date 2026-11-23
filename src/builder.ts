@@ -7561,9 +7561,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const str = abilityMod(c.abilities.str)
   const dex = abilityMod(c.abilities.dex)
   const dexPenalty = Math.max(giantWeaponClumsy(c, entries), conditionPenalty(c, 'dex'))
-  const ability: Ability = ranged ? 'dex' : traits.includes('finesse')
+  const deviseAStratagem = c.systems.includes('pf2e') && c.className === 'Investigator' && c.deviseAStratagemActive
+    && !!entry && (isRanged(entry) || traits.includes('agile') || traits.includes('finesse')
+      || namedWeaponBaseName(entry).toLowerCase() === 'sap')
+  const ability: Ability = deviseAStratagem ? 'int' : ranged ? 'dex' : traits.includes('finesse')
     && dex - dexPenalty > str - conditionPenalty(c, 'str') ? 'dex' : 'str'
-  const mod = ability === 'dex' ? dex : str
+  const mod = abilityMod(c.abilities[ability])
   const clumsy = ability === 'dex' ? giantWeaponClumsy(c, entries) : 0
   const attackPenalty = Math.max(clumsy, conditionPenalty(c, ability))
   const divineAttackBonus = hasDivineIntercession(c, 'Iomedae', 'major-boon')
@@ -7809,7 +7812,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         ...(untamedBonus && ownUnarmed + untamedBonus > form.attack + divineAttackBonus
           ? [{ label: 'Untamed Form (status)', value: untamedBonus }] : []),
       ] : [
-        { label: ABILITY_LABEL[ability], value: mod },
+        { label: ABILITY_LABEL[ability], value: mod, ...(deviseAStratagem ? { note: 'Devise a Stratagem' } : {}) },
         { label: 'Proficiency', value: prof, note: `${RANKS[rank]} (${proficiencySources.join(', ')})` },
         { label: 'Effective weapon potency (item)', value: w.potency },
         ...(divineAttackBonus ? [{ label: 'Iomedae (Major Boon) (status)', value: divineAttackBonus }] : []),

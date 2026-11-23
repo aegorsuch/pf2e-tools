@@ -74,6 +74,31 @@ it('shows Gravity Weapon only for the first weapon Strike and scales with weapon
   expect(html).not.toContain('first weapon Strike each round')
 })
 
+it('uses Intelligence for eligible Investigator attacks while Devise a Stratagem is active', () => {
+  const investigator: Character = { ...character([]), className: 'Investigator',
+    abilities: { str: 10, dex: 16, con: 10, int: 18, wis: 10, cha: 10 }, deviseAStratagemActive: true }
+  const rapier: ContentEntry = { ...weapon, id: 'rapier', name: 'Rapier', traits: ['Finesse'],
+    data: { weapon_category: 'Martial', damage: '1d6 piercing' } }
+  const sap: ContentEntry = { ...weapon, id: 'sap', name: 'Sap',
+    data: { weapon_category: 'Simple', damage: '1d6 bludgeoning' } }
+  const bow: ContentEntry = { ...weapon, id: 'shortbow', name: 'Shortbow',
+    data: { weapon_category: 'Simple', weapon_type: 'Ranged', range: 60, damage: '1d6 piercing' } }
+  const longsword: ContentEntry = { ...weapon, traits: [],
+    data: { weapon_category: 'Martial', damage: '1d8 slashing' } }
+  const javelin: ContentEntry = { ...weapon, id: 'javelin', name: 'Javelin', traits: ['Thrown 30 ft.'],
+    data: { weapon_category: 'Simple', damage: '1d6 piercing' } }
+  const attack = (entry: ContentEntry, thrown = false) => weaponAttack(investigator, [entry],
+    { id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] }, thrown ? { thrown: true } : {})
+  expect(attack(rapier)).toMatchObject({ ability: 'int', mod: 4 })
+  expect(attack(sap)).toMatchObject({ ability: 'int', mod: 4 })
+  expect(attack(bow)).toMatchObject({ ability: 'int', mod: 4 })
+  expect(attack(longsword)).toMatchObject({ ability: 'str', mod: 0 })
+  expect(attack(javelin, true)).toMatchObject({ ability: 'dex', mod: 3 })
+  expect(attack(rapier).breakdown.parts[0]).toMatchObject({ label: 'Intelligence', note: 'Devise a Stratagem' })
+  expect(weaponAttack({ ...investigator, deviseAStratagemActive: false }, [rapier],
+    { id: rapier.id, name: rapier.name, potency: 0, striking: 0, runes: [] })).toMatchObject({ ability: 'dex', mod: 3 })
+})
+
 it('inherits Vesk tail traits and replaces its attack when the tailblade matches its damage', () => {
   const blade: ContentEntry = { ...weapon, id: 'tailblade', name: 'Tailblade', systems: ['sf2e'],
     traits: ['Agile', 'Finesse', 'Free-hand'], data: { weapon_category: 'Martial', hands: 0, damage: '1d4 slashing' } }
