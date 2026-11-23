@@ -917,3 +917,12 @@ it('keeps cached Warden choices scoped to tier, system, and current catalog', ()
   expect(wardenSpellOptions(initiate, updated).map(spell => spell.name)).toEqual(['Heal Companion'])
   expect(wardenSpellOptions(advanced, updated).map(spell => spell.name)).toEqual(['Animal Feature', 'Gravity Weapon'])
 })
+
+it('offers only summon spells from the caster tradition as Rites of Convocation variants', () => {
+  const summon = (name: string, tradition: string): ContentEntry => ({ ...spell(name, 'Initiate'), traits: [], data: { tradition } })
+  const klass: ContentEntry = { ...spell('Witch', 'Initiate'), kind: 'class', data: { tradition: 'Occult' } }
+  const spells = [summon('Summon Entity', 'Occult'), summon('Summon Animal', 'Primal'), summon('Summon Lesser Servitor', 'Divine, Occult'),
+    summon('Heal', 'Occult'), klass]
+  const witch: Character = { ...base, className: 'Witch' }
+  expect(featChoiceOptions('Rites of Convocation', witch, spells, 'class:4')).toEqual(['Summon Entity', 'Summon Lesser Servitor'])
+})

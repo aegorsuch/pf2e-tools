@@ -1827,6 +1827,11 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === "Shooter's Camouflage" && c.systems.includes('pf2e')) return ['Natural', 'Urban']
   if (name === 'Nephilim Resistance' && c.systems.includes('pf2e')) return NEPHILIM_RESISTANCE_TYPES
   if (name === 'Extraplanar Supplication' && c.systems.includes('pf2e')) return EXTRAPLANAR_SUPPLICATION_SPELLS
+  if (name === 'Rites of Convocation' && c.systems.includes('pf2e')) {
+    const traditions = new Set((classSpellcasting(c, entries)?.traditions ?? []).map(tradition => tradition.toLowerCase()))
+    return [...new Set(entries.filter(entry => entry.kind === 'spell' && entry.systems.includes('pf2e') && /^Summon\b/i.test(entry.name)
+      && tokens(entry.data.tradition).some(tradition => traditions.has(tradition.toLowerCase()))).map(entry => entry.name))].sort()
+  }
   if (name === 'Bestial Manifestation' && c.systems.includes('pf2e')) return ['Claw', 'Hoof', 'Jaws', 'Tail']
   if (name === 'Sublime Mobility' && c.systems.includes('pf2e')) return ['Climb', 'Swim']
   if (name === 'Nephilim Lore' && c.systems.includes('pf2e')) return ['Diplomacy', 'Intimidation']
