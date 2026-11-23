@@ -54,7 +54,6 @@ function AccountIcon() {
 export default function App() {
   const enabled = ALL_SYSTEMS
   const settings = useSettings()
-  useEffect(() => { const id = setTimeout(() => void loadCharacterBuilder(), 1500); return () => clearTimeout(id) }, [])
   const [rulesOpen, setRulesOpen] = useState(false)
   const [showAccount, setShowAccount] = useState(false)
   const [draft, setDraft] = useState<ContentEntry | null>(null)
@@ -257,6 +256,7 @@ export default function App() {
             <span><b>{c.name}{remainingFeats.has(c.id) && <span title="Feat selections remaining" aria-label="Feat selections remaining"> *</span>}</b> - {characterSummary(c, entries ?? [])}</span>
             <span className="character-actions">
               <button type="button" className="icon-button" title="Edit character" aria-label={`Edit ${c.name}`}
+                onPointerEnter={() => void loadCharacterBuilder()} onFocus={() => void loadCharacterBuilder()}
                 onClick={() => { setCatalogRetry(value => value + 1); setEditingId(c.id) }}><EditIcon /></button>
               <button type="button" className="icon-button" title="Delete character" aria-label={`Delete ${c.name}`}
                 onClick={() => confirmRemoval(`character "${c.name}" and all its saved options`, () => {
