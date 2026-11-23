@@ -41,6 +41,20 @@ it('shows Devise a Stratagem toggle in the Investigator class header and Statuse
   expect(markup.match(/aria-label="Devise a Stratagem active"/g)).toHaveLength(2)
 })
 
+it('shows requested spell and feat effects in Statuses', () => {
+  content.entries = []
+  const names = ['Animal Feature', 'Canopy Crawler', 'Speak with Plants', 'Warning Stripes']
+  const c: Character = { id: 'statuses', name: 'Test', systems: ['pf2e'], level: 11, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Favored Terrain', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Plains' }],
+    spells: names.map(name => ({ name, rank: 1, cantrip: false })), activeFeatEffects: ['Favored Terrain'],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  for (const name of names) expect(markup).toContain(`aria-label="${name} status"`)
+  expect(markup).toContain('aria-label="Favored Terrain status"')
+  expect(markup).toContain('<strong>Statuses</strong><span>Favored Terrain</span>')
+})
+
 it.each([
   { className: 'Ranger', subclass: undefined },
   { className: 'Rogue', subclass: 'Avenger' },

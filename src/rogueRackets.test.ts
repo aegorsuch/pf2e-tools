@@ -84,21 +84,22 @@ it('checks additional racket prerequisites at the level the feat was acquired', 
   expect(eligibleFeats([ruffian, brutal], { ...c, feats: [] }, { key: 'class:8:0', category: 'class', level: 8 })).not.toContain(brutal)
 })
 
-it('offers a different repeatable racket with its grants and bonus skill feat slot', () => {
+it('offers a different repeatable racket and its benefits without an extra skill feat slot', () => {
   const versatile = { name: 'Versatile Rogue', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Ruffian' }
   const c: Character = { ...base, feats: [versatile] }
   expect(homebrewCharacterOptions([]).find(entry => entry.name === versatile.name)?.data.repeatable).toBe(true)
   expect(featChoiceOptions(versatile.name, c, [rogue], 'class:10:0')).toEqual(['Ruffian', 'Scoundrel', 'Mastermind', 'Avenger'])
   expect(ranksAt(c, [rogue]).Intimidation).toBe(1)
   expect(armorRanks(c, [rogue]).Medium).toBe(2)
-  expect(plannedSlots(c)).toContainEqual(expect.objectContaining({ category: 'skill', level: 10, grantedBy: 'Versatile Rogue' }))
-  expect(plannedSlots({ ...c, level: 9 }).some(slot => slot.grantedBy === 'Versatile Rogue')).toBe(false)
+  expect(plannedSlots(c).filter(slot => slot.category === 'skill').map(slot => slot.level))
+    .toEqual(Array.from({ length: c.level }, (_, index) => index + 1))
+  expect(plannedSlots(c).some(slot => slot.grantedBy === 'Versatile Rogue')).toBe(false)
   expect(featChoiceOptions(versatile.name, { ...c, feats: [versatile, { ...versatile, slot: 'class:12:0', choice: 'Scoundrel' }] },
     [rogue], 'class:12:0')).toEqual(['Scoundrel', 'Mastermind', 'Avenger'])
   const duplicates = { ...base, level: 20, feats: [
     { ...versatile, choice: 'Thief' }, { ...versatile, slot: 'class:12:0' }, { ...versatile, slot: 'class:14:0' },
   ] }
-  expect(plannedSlots(duplicates).filter(slot => slot.grantedBy === 'Versatile Rogue')).toHaveLength(1)
+  expect(plannedSlots(duplicates).some(slot => slot.grantedBy === 'Versatile Rogue')).toBe(false)
 })
 
 it('grants Avenger divine skill, medium armor and deity-favored weapon proficiency', () => {

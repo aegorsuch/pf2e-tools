@@ -985,7 +985,8 @@ it('offers Mastermind skill variants and saves the chosen skill with its racket'
       expect(c.feats[0]).toMatchObject({ name: feat.name, choice: 'Mastermind' })
       expect(c.rogueRacketSkills?.Mastermind).toBe(skill)
       expect(ranksAt(c, entries)[skill]).toBe(3)
-      expect(plannedSlots(c)).toContainEqual(expect.objectContaining({ category: 'skill', grantedBy: 'Versatile Rogue' }))
+      expect(plannedSlots(c)).toContainEqual(expect.objectContaining({ category: 'skill', level: 10, key: 'skill:10:0' }))
+      expect(plannedSlots(c).some(slot => slot.grantedBy === 'Versatile Rogue')).toBe(false)
       expect(renderToStaticMarkup(tree())).toContain(`Versatile Rogue (Mastermind - ${skill})`)
       expect(renderToStaticMarkup(tree())).toContain('Mastermind racket benefits.')
       expect(featPrerequisiteChecker(c, entries)({ ...feat, data: { prerequisite: 'mastermind racket' } }).missing).toEqual([])
@@ -1116,26 +1117,22 @@ it('keeps Torag boon slot and source tag when clearing its selected feat, includ
   expect(markup).toContain('aria-label="Clear L01 Ancestry feat selection" title="Clear selection" disabled=""')
 })
 
-it('keeps Versatile Rogue and Eldritch Trickster granted slots while allowing their selections to be cleared', () => {
+it('keeps Eldritch Trickster granted slot while allowing its selection to be cleared', () => {
   let c: Character = { ...emptyRanger(), className: 'Rogue', subclass: 'Thief', level: 10,
     extraSlots: [{ category: 'skill', level: 10, count: 1 }, { category: 'archetype', level: 10, count: 1 }],
     feats: [{ name: 'Versatile Rogue', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Eldritch Trickster' }] }
-  const grants = plannedSlots(c).filter(slot => slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster')
-  expect(grants).toHaveLength(2)
+  const grants = plannedSlots(c).filter(slot => slot.grantedBy === 'Eldritch Trickster')
+  expect(grants).toHaveLength(1)
   c = { ...c, dismissedFeatSlots: grants.map(slot => slot.key), feats: [...c.feats,
-    ...grants.map(slot => ({ name: slot.category === 'skill' ? 'Assurance' : 'Wizard Dedication',
-      type: slot.category === 'skill' ? 'Skill Feat' : 'Dedication Feat', level: 1, slot: slot.key, takenLevel: 10 }))] }
-  expect(plannedSlots(c).filter(slot => grants.some(grant => grant.key === slot.key))).toHaveLength(2)
-  const tree = (category: 'skill' | 'archetype') => FeatSlots({ c, entries: [], categories: [category],
+    ...grants.map(slot => ({ name: 'Wizard Dedication', type: 'Dedication Feat', level: 1, slot: slot.key, takenLevel: 10 }))] }
+  expect(plannedSlots(c).filter(slot => grants.some(grant => grant.key === slot.key))).toHaveLength(1)
+  const tree = () => FeatSlots({ c, entries: [], categories: ['archetype'],
     save: patch => { c = { ...c, ...patch } } })
-  findButton(tree('skill'), 'Clear L10 Skill feat selection')!()
-  expect(c.feats.some(feat => feat.name === 'Assurance')).toBe(false)
-  expect(plannedSlots(c).some(slot => slot.key === grants[0].key)).toBe(true)
-  findButton(tree('archetype'), 'Clear L10 Dedication feat selection')!()
+  findButton(tree(), 'Clear L10 Dedication feat selection')!()
   expect(c.feats.some(feat => feat.name === 'Wizard Dedication')).toBe(false)
-  expect(plannedSlots(c).some(slot => slot.key === grants[1].key)).toBe(true)
-  expect(renderToStaticMarkup(tree('archetype'))).toContain('aria-label="Clear L10 Dedication feat selection" title="Clear selection" disabled=""')
-  const search = { [`${grants[1].key}:open`]: '1' }
+  expect(plannedSlots(c).some(slot => slot.key === grants[0].key)).toBe(true)
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="Clear L10 Dedication feat selection" title="Clear selection" disabled=""')
+  const search = { [`${grants[0].key}:open`]: '1' }
   expect(renderToStaticMarkup(<FeatSlots c={c} entries={[]} categories={['archetype']} save={() => {}} search={search} onSearch={() => {}} />))
     .not.toContain('aria-label="L10 Dedication N/A"')
 })

@@ -460,7 +460,7 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
       const selected = c.investigatorEsotericaSpells?.[tradition]
       const entry = selected && investigatorEsotericaCantripOptions(c, entries, tradition).find(spell => spell.name === selected)
       if (entry) out.push({ entry, source: 'Esoterica',
-        rule: { kind: 'innate', spells: [entry.name], tradition, ability: 'int', frequency: 'at will', heightened: true },
+        rule: { kind: 'class', spells: [entry.name], tradition, ability: 'int', heightened: true },
         rank: Math.ceil(c.level / 2), usageKey: JSON.stringify(['investigator', 'Esoterica', tradition, entry.name.toLowerCase()]) })
     }
   }
@@ -523,8 +523,7 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
     if (feat.name === "Trickster's Ace" && c.className === 'Investigator' && c.systems.includes('pf2e')) {
       const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
       if (entry) out.push({ entry, source: feat.name,
-        rule: { kind: 'feat', spells: [entry.name], frequency: 'once per day', fixedRank: true,
-          condition: 'Choose a trigger during daily preparations; the spell targets only you.' },
+        rule: { kind: 'feat', spells: [entry.name], frequency: 'once per day', fixedRank: true },
         rank: entry.level, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue
     }

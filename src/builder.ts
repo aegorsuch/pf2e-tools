@@ -652,6 +652,7 @@ export const activeHomebrewDedications = (c: Character) =>
     && ('className' in d ? c.className === d.className : c.systems.includes('pf2e') && c.ancestry === d.ancestry))
 export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWith('class:1:order-explorer:')
   || key === 'class:1:fury-instinct'
+  || key.startsWith('skill:1:investigator-skillful-lessons:')
   || key.startsWith('skill:1:operative-specialization:') || key === 'class:1:operative-sniper'
   || key.startsWith('ancestry:1:warblood-vesk:')
   || key.startsWith('skill:1:versatile-rogue:') || key.startsWith('skill:1:versatile-investigator:')
@@ -692,7 +693,8 @@ function heritageSkillGrants(c: Character, entries: ContentEntry[]) {
 
 export function plannedSlots(c: Character, entries: ContentEntry[] = []): PlannedSlot[] {
   const base: FeatSlot[] = [
-    ...SLOT_RULES.flatMap((r) => r.levels.map((level) => ({ category: r.category, level, count: 1 }))),
+    ...SLOT_RULES.flatMap((r) => (r.category === 'skill' && c.systems.includes('pf2e') && c.className === 'Rogue'
+      ? range(1, 20) : r.levels).map((level) => ({ category: r.category, level, count: 1 }))),
     ...(getSettings().freeArchetype ? [{ category: 'archetype' as const, levels: range(2, 20, 2) }].flatMap((r) => r.levels.map((level) => ({ category: r.category, level, count: level === 2 && activeHomebrewDedications(c).some(rule => rule.replacesFreeArchetype) ? 0 : 1 }))) : []),
     ...c.extraSlots,
   ]
@@ -717,6 +719,13 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     if (barbarianInstinct(c, entries) === 'fury') {
       if (!groupOrder.has('class:1')) groupOrder.set('class:1', groupOrder.size)
       slots.push({ key: 'class:1:fury-instinct', category: 'class', level: 1, maxFeatLevel: 1, grantedBy: 'Fury Instinct' })
+    }
+  }
+  if (c.systems.includes('pf2e') && c.className === 'Investigator') {
+    for (const level of range(3, 19, 2).filter(level => level <= c.level)) {
+      if (!groupOrder.has(`skill:${level}`)) groupOrder.set(`skill:${level}`, groupOrder.size)
+      slots.push({ key: `skill:1:investigator-skillful-lessons:${level}`, category: 'skill', level,
+        grantedBy: "Investigator's Skillful Lessons" })
     }
   }
   if (c.background === 'Direwolf Bonded' && c.level >= 1) {
@@ -855,18 +864,14 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     slots.push({ key: `ancestry:1:scion-of-many-planes:${feat.slot ?? 'unslotted'}`, category: 'ancestry', level,
       grantedBy: 'Scion of Many Planes' })
   }
-  let unslottedRogue = 0
   const takenRackets = new Set([selectedSubclass(c)])
   for (const feat of [...c.feats].sort((a, b) => featTakenLevel(a) - featTakenLevel(b))) {
     if (feat.name !== 'Versatile Rogue') continue
-    const identity = feat.slot ?? `unslotted-${unslottedRogue++}`
+    const identity = feat.slot ?? `unslotted-${c.feats.indexOf(feat)}`
     const level = featTakenLevel(feat)
     if (c.className !== 'Rogue' || level > c.level || !feat.choice || takenRackets.has(feat.choice)
       || !ROGUE_RACKETS.some(racket => racket === feat.choice)) continue
     takenRackets.add(feat.choice)
-    const group = `skill:${level}`
-    if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
-    slots.push({ key: `skill:1:versatile-rogue:${identity}`, category: 'skill', level, grantedBy: 'Versatile Rogue' })
     if (feat.choice === 'Eldritch Trickster') {
       if (!groupOrder.has(`archetype:${level}`)) groupOrder.set(`archetype:${level}`, groupOrder.size)
       slots.push({ key: `archetype:1:eldritch-trickster:${identity}`, category: 'archetype', level,
@@ -903,7 +908,7 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     slots.push(slot)
   }
   const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key) || !!slot.grantedFeat || !!slot.redundantFeat
-    || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
+    || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
     || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon'
     || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'Pitborn' || slot.grantedBy === 'Scion of Many Planes' || slot.grantedBy === 'In Another Life' || slot.grantedBy === "Operative's Specialization"
     || slot.grantedBy === 'Sniper' || !!slot.grantedAncestry)
@@ -1524,6 +1529,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   if (slot.category !== 'bonus' && !trait && !ancestryTraits.length) return []
   const taken = new Set([
     ...c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : f.name),
+    ...(c.feats.some(feat => feat.name === 'Greywatch Initiate') ? INITIATE_TRAINING['Greywatch Initiate'].feats.slice(0, 1) : []),
     ...tokens(entries.find(entry => entry.kind === 'background' && !entry.deleted && entry.name === c.background
       && entry.systems.some(system => c.systems.includes(system)))?.data.feat).filter(name => name !== slot.grantedFeat),
     ...automaticFeatGrants({ ...c, level: Math.min(c.level, slot.level),
@@ -1554,6 +1560,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const orderExplorerOk = availableOrders(c).length > 0
   const artisanSkillEligible = slot.grantedBy !== 'Exceptional Artisan' || !!slot.grantedSkill
     && (ranksAt({ ...c, level: slot.level }, entries)[slot.grantedSkill] ?? 0) >= 3
+  const investigatorLessonSkills = slot.grantedBy === "Investigator's Skillful Lessons"
+    ? investigatorSkillfulLessonSkills(c, entries, slot.level) : undefined
   const spellcastingDedications = slot.grantedBy === 'Eldritch Trickster' ? eldritchTricksterDedications(entries) : undefined
   const prerequisites = featSelectionPrerequisiteChecker(c, entries, slot)
   const redundantUnarmedTraits = new Set(options.name && options.name !== 'Ancestral Unarmed Attack' ? [] : ancestryTraits.filter(ancestry => {
@@ -1608,6 +1616,10 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || e.name === 'Assurance' || tokens(e.data.skill).some(skill => /^(computers|crafting)$/i.test(skill)))
       && (slot.grantedBy !== "Operative's Specialization" || !!slot.grantedSkill
         && e.name !== 'Skill Training' && matchesSkill(e, slot.grantedSkill, skillFeats!))
+      && (!investigatorLessonSkills || investigatorLessonSkills.length > 0
+        && (e.name === 'Assurance' || e.name === 'Skill Training' || e.name === 'Additional Lore'
+          ? investigatorLessonSkills.some(skill => /(?:^|\s)Lore$/i.test(skill))
+          : investigatorLessonSkills.some(skill => matchesSkill(e, skill, featByName(entries)))))
       && (slot.grantedBy !== 'Sniper' || ['keep them in your sights', 'scope sight'].includes(e.name.toLowerCase()))
       && (slot.grantedBy !== 'Social Chameleon' || (slot.category === 'general'
         ? e.name === 'Adopted Ancestry'
@@ -3347,6 +3359,16 @@ export function subclassSkillGrants(c: Character, entries: ContentEntry[]): stri
     return skills
   }
   return []
+}
+
+export function investigatorSkillfulLessonSkills(c: Character, entries: ContentEntry[], level = c.level) {
+  const atLevel = { ...c, level: Math.min(c.level, level) }
+  const ranks = ranksAt(atLevel, entries, level + 1)
+  const methodologySkills = subclassSkillGrants(atLevel, entries)
+  return Object.keys(ranks).filter(skill => ranks[skill] > 0
+    && (methodologySkills.includes(skill) || /(?:^|\s)Lore$/i.test(skill)
+      || statDefs(atLevel).some(stat => stat.kind === 'skill' && stat.name === skill
+        && ['int', 'wis', 'cha'].includes(stat.ability))))
 }
 
 // The initial order spell (a focus spell) each druidic order grants
@@ -5376,7 +5398,8 @@ export function cairnForm(c: Character, entries: ContentEntry[]) {
 export function oakenResilience(c: Character, entries: ContentEntry[], target: 'character' | 'familiar' = 'character') {
   const spellRank = isSpellActive(c, entries, 'Oaken Resilience')
     ? grantedFeatSpells(c, entries).find(grant => grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience')?.rank
-      ?? c.oakenResilienceRank : undefined
+      ?? c.oakenResilienceRank
+      ?? c.spells?.find(spell => spell.name === 'Oaken Resilience')?.rank : undefined
   const itemRanks = target === 'character' ? carriedWeapons(c, entries)
     .filter(weapon => weapon.briarOakenResilienceActive)
     .map(weapon => withNamedWeaponState(weaponEntry(entries, weapon.name), weapon, c.level)?.data.named_weapon_oaken_rank) : []

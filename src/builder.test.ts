@@ -2,7 +2,7 @@ import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQue
 import { mapAonHit } from './aon'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, investigatorSkillfulLessonSkills, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
@@ -1070,6 +1070,7 @@ describe('subclass skill grants', () => {
     expect(automaticFeatGrants(c, methods)).toContainEqual({
       name: "That's Odd", source: 'Versatile Investigator (Empiricism)', level: 10,
     })
+
     expect(automaticFeatGrants({ ...c, subclass: 'Empiricism', feats: [] }, methods)).toContainEqual({
       name: "That's Odd", source: 'Empiricism Methodology', level: 1,
     })
@@ -1086,6 +1087,28 @@ describe('subclass skill grants', () => {
       { name: 'Quick Identification', source: 'Versatile Investigator (Esoterica)', level: 10 },
     ])
     expect(plannedSlots(esoterica, methods).filter(slot => slot.key.startsWith('skill:1:versatile-investigator:'))).toEqual([])
+  })
+
+  it('adds Rogue skill feats every level and constrains Investigator Skillful Lessons to eligible trained skills', () => {
+    const rogue = { ...base, className: 'Rogue', level: 4 }
+    expect(plannedSlots(rogue).filter(slot => slot.category === 'skill').map(slot => slot.level)).toEqual([1, 1, 2, 3, 4])
+    const investigator: Character = { ...base, className: 'Investigator', subclass: 'Esoterica', level: 5,
+      skillPicks: ['Arcana', 'Athletics', 'Medicine'], subclassSkillChoices: { 'Investigator:Esoterica': 'Religion' } }
+    const lesson = plannedSlots(investigator).find(slot => slot.grantedBy === "Investigator's Skillful Lessons")!
+    const arcana = entry('feat', 'Arcana Lesson', { skill: 'Arcana' }, 1, ['Skill'])
+    const athletics = entry('feat', 'Athletics Lesson', { skill: 'Athletics' }, 1, ['Skill'])
+    const medicine = entry('feat', 'Medicine Lesson', { skill: 'Medicine' }, 1, ['Skill'])
+    expect(investigatorSkillfulLessonSkills(investigator, [])).toEqual(['Religion', 'Arcana', 'Medicine'])
+    expect(eligibleFeats([arcana, athletics, medicine], investigator, lesson)).toEqual([arcana, medicine])
+  })
+
+  it('does not offer Face in the Crowd before a planned Greywatch Initiate grants it', () => {
+    const face = entry('feat', 'Face in the Crowd', {}, 1, ['General', 'Skill'])
+    const character: Character = { ...base, className: 'Ranger', level: 2, skillPicks: ['Deception'],
+      feats: [{ name: 'Greywatch Initiate', type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
+    const slot = { key: 'skill:2:0', category: 'skill' as const, level: 2 }
+    expect(eligibleFeats([face], { ...character, feats: [] }, slot)).toContain(face)
+    expect(eligibleFeats([face], character, slot)).not.toContain(face)
   })
 
   it.each([

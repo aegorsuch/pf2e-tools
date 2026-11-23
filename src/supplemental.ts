@@ -516,7 +516,7 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       'Choose a third innovation, different from your other innovations, and gain its benefits.',
       { class: 'Inventor', prerequisite: 'Second Innovation' }),
     homebrewFeat('versatile-rogue', 'Versatile Rogue', 10, ['Rogue'],
-      "Your street-smart adaptability lets you master more than one style of underhanded work. Choose a rogue's racket you don't already have. You gain the trained skill, skill feat, and special benefits of that racket.\n\nSpecial: You do not gain an additional key attribute boost from this racket. You can select this feat multiple times, choosing a different rogue's racket each time.",
+      "Your street-smart adaptability lets you master more than one style of underhanded work. Choose a rogue's racket you don't already have. You gain its trained skill and special benefits.\n\nSpecial: You do not gain an additional key attribute boost from this racket. You can select this feat multiple times, choosing a different rogue's racket each time.",
       { class: 'Rogue', repeatable: true }),
     homebrewFeat('versatile-investigator', 'Versatile Investigator', 10, ['Investigator'],
       "Your investigative practice draws on more than one methodology. Choose an investigator methodology you don't already have. You gain its trained skill, skill feat, and special benefits.\n\nSpecial: You can select this feat multiple times, choosing a different methodology each time.",

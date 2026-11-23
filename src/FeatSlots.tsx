@@ -6,7 +6,7 @@ import { RUNESMITH_RUNES } from './runesmithRunes'
 import { DamageRoll } from './SpellDamage'
 import { PickerDialog } from './PickerDialog'
 import { sortPickerOptions } from './PickerSort'
-import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, isFeatEffectActive, isGrantedSlot, matchesSkill, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, matchesSkill, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -285,7 +285,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
         slot: slot.key, takenLevel: slot.level, sourceId: entry.id }) ?? []).map(spell => spell.name))]
       : ['Free Heart', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity'].includes(entry.name)
       ? undefined : featChoiceOptions(entry.name, c, entries, slot.key, undefined, slot.category)
-    const choices = skill && entry.name === 'Skill Training' ? allChoices?.filter(choice => choice === skill) : allChoices
+    const lessonSkills = slot.grantedBy === "Investigator's Skillful Lessons"
+      ? investigatorSkillfulLessonSkills(c, entries, slot.level) : undefined
+    const choices = allChoices?.filter(choice => (!skill || entry.name !== 'Skill Training' || choice === skill)
+      && (!lessonSkills || lessonSkills.some(lessonSkill => choice === lessonSkill
+        || /Lore$/i.test(lessonSkill) && /^Lore$/i.test(choice))))
     if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label }]
     return choices !== undefined
       ? choices.flatMap((choice) => {
@@ -504,6 +508,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const open = search[`${s.key}:open`] === '1'
           const lazy = !!onSearch && !open
           const slotQuery = (open ? search[`${s.key}:query`] ?? '' : '').trim().toLowerCase()
+          const investigatorLessonSkills = s.grantedBy === "Investigator's Skillful Lessons"
+            ? investigatorSkillfulLessonSkills(c, entries, s.level) : undefined
           const skill = s.category === 'skill' && open ? search[`${s.key}:skill`] ?? '' : ''
           const suggestible = ['general', 'skill'].includes(s.category)
           const matchesEntry = (entry: ContentEntry) => matches(entry, slotQuery,
@@ -588,7 +594,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
           const classDedication = s.key === 'class:2:0' && !!s.grantedFeat
           const locked = !!homebrewDedication(s.key) || classDedication
-          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Versatile Investigator' || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer' || s.grantedBy === 'Pitborn' || s.grantedBy === 'Captain Dedication' || s.grantedBy === 'Scion of Many Planes' || s.grantedBy === 'In Another Life'
+          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Versatile Investigator' || s.grantedBy === "Investigator's Skillful Lessons" || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer' || s.grantedBy === 'Pitborn' || s.grantedBy === 'Captain Dedication' || s.grantedBy === 'Scion of Many Planes' || s.grantedBy === 'In Another Life'
           const automaticOrderFeat = s.grantedBy === 'Order Explorer' && !!current
             && (() => {
               const eligible = eligibleFeats(entries, c, s)
@@ -718,7 +724,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                         onSearch?.(`${s.key}:limit`, '')
                       }}>
                         <option value="">All skills</option>
-                        {[...statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name), 'Lore']
+                        {(investigatorLessonSkills ?? statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name).concat('Lore'))
                           .sort((a, b) => a.localeCompare(b)).map(name => <option key={name}>{name}</option>)}
                       </select>
                     </label>}

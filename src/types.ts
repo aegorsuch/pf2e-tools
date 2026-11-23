@@ -143,7 +143,7 @@ export interface FeatSlot {
 }
 
 export interface SpellGrant {
-  kind: 'innate' | 'focus' | 'feat'
+  kind: 'class' | 'innate' | 'focus' | 'feat'
   spells: string[]
   choice?: 'cantrip' | 'listed'
   tradition?: string

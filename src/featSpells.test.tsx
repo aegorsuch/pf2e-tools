@@ -398,7 +398,7 @@ it("offers Trickster's Ace only single-target spells that meet its preparation r
   expect(markup).toContain('Trickster&#x27;s Ace · Spell Rank 2')
   expect(markup).toContain('aria-pressed="true">Class Spells</button>')
   expect(markup).not.toContain('>Feat Spells</button>')
-  expect(markup).toContain('Choose a trigger during daily preparations')
+  expect(markup).not.toContain('Choose a trigger during daily preparations')
   const emptySlot = renderToStaticMarkup(<SpellsSection c={{ ...c, feats: [taken("Trickster's Ace", 18)] }} entries={spells} save={() => {}} />)
   expect(emptySlot).toContain('aria-label="Trickster&#x27;s Ace spell"')
   expect(emptySlot).toContain('aria-pressed="true">Class Spells</button>')
@@ -461,10 +461,14 @@ it('provides Divine and Occult cantrip slots for Esoterica in Spells', () => {
   } }
   expect(grantedFeatSpells(selected, entries)).toEqual(expect.arrayContaining([
     expect.objectContaining({ entry: expect.objectContaining({ name: 'Divine Cantrip' }), source: 'Esoterica', rank: 3,
-      rule: expect.objectContaining({ kind: 'innate', tradition: 'Divine', frequency: 'at will' }) }),
+      rule: expect.objectContaining({ kind: 'class', tradition: 'Divine' }) }),
     expect.objectContaining({ entry: expect.objectContaining({ name: 'Occult Cantrip' }), source: 'Esoterica', rank: 3,
-      rule: expect.objectContaining({ kind: 'innate', tradition: 'Occult', frequency: 'at will' }) }),
+      rule: expect.objectContaining({ kind: 'class', tradition: 'Occult' }) }),
   ]))
+  const selectedMarkup = renderToStaticMarkup(<SpellsSection c={selected} entries={entries} save={() => {}} />)
+  expect(selectedMarkup).not.toContain('>Innate Spells</button>')
+  expect(selectedMarkup).toContain('title="Esoterica Divine cantrip"')
+  expect(selectedMarkup).toContain('title="Esoterica Occult cantrip"')
 })
 
 it('shows a two-action Fly activation control and adds Fly Speed only while active', () => {
@@ -1694,6 +1698,8 @@ it('keeps manual cast rank for Oaken Resilience without Grown of Oak', () => {
   const c: Character = { ...base, spells: [{ name: 'Oaken Resilience', rank: 2, cantrip: false }],
     activeSpells: ['Oaken Resilience'], oakenResilienceRank: 6 }
   expect(oakenResilience(c, [])).toEqual({ rank: 6, resistance: 6, fireWeakness: 9 })
+  expect(oakenResilience({ ...c, oakenResilienceRank: undefined }, []))
+    .toEqual({ rank: 2, resistance: 2, fireWeakness: 3 })
   expect(oakenResilience({ ...c, oakenResilienceRank: 11 }, [])).toBeUndefined()
   expect(renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)).toContain('Oaken Resilience cast rank')
 })

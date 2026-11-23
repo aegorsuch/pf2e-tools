@@ -35,6 +35,7 @@ import { matchesGearSystem, type GearSystem } from './gearSystem'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Cairn Form', 'Enduring Might', 'Fly', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Tailwind']
+const STATUS_TRACKED_SPELL_EFFECTS = [...AUTOMATED_SPELL_EFFECTS, 'Animal Feature', 'Canopy Crawler', 'Speak with Plants', 'Warning Stripes']
 
 function PharasmaSpellBonus({ c, entry, name, rank }: { c: Character; entry?: ContentEntry; name: string; rank: number }) {
   if (!hasDivineIntercession(c, 'Pharasma', 'moderate-boon') || rank < 1) return null
@@ -1245,7 +1246,7 @@ export function automatedSpellStatusControls({ c, entries, save }: SectionProps)
     ...data.items.map(spell => spell.name),
     ...c.activeSpells ?? [],
   ])
-  return AUTOMATED_SPELL_EFFECTS.filter(name => names.has(name)).map(name => ({ name, element: <label>
+  return STATUS_TRACKED_SPELL_EFFECTS.filter(name => names.has(name)).map(name => ({ name, element: <label>
     <input type="checkbox" aria-label={`${name} status`} checked={name === 'Magic Hide' ? isMagicHideActive(c, entries) : !!c.activeSpells?.includes(name)}
       onChange={event => save(name === 'Magic Hide' ? magicHideChange(c, event.target.checked) : spellActiveChange(c, name, event.target.checked))} /> {name}
   </label> }))
@@ -1288,7 +1289,7 @@ function RitualsContent({ c, entries, save }: SectionProps) {
 }
 
 export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'entries'> & { data?: ReturnType<typeof spellSummaryData> }) {
-  const { manualSpells, granted, focus, innate, special, items } = data ?? spellSummaryData(c, entries)
+  const { manualSpells, granted, featSpells, focus, innate, special, items } = data ?? spellSummaryData(c, entries)
   const baseSlots = classSpellSlots(c)
   const benefits = familiarSpellBenefits(c, entries, baseSlots ?? c.spellcasting?.slots ?? {})
   const witchwarper = witchwarperParadox(c)
@@ -1316,7 +1317,7 @@ export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'en
   const missingLoanerSpellChoices = loanerSpellSlots(c, entries).filter(slot =>
     !slot.options.some(option => option.name === slot.feat.choice)).length
   const esotericaSlots = investigatorMethodologies(c, entries).includes('Esoterica') ? 2 : 0
-  const selectedEsotericaSlots = innate.filter(grant => grant.source === 'Esoterica').length
+  const selectedEsotericaSlots = featSpells.filter(grant => grant.source === 'Esoterica').length
   const missingEsotericaSlots = Math.max(0, esotericaSlots - selectedEsotericaSlots)
   const featChoices = c.feats.filter(feat => featTakenLevel(feat) <= c.level
     && (feat.name === 'First World Magic' || ['Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon'].includes(feat.name) && c.systems.includes('sf2e')))
@@ -1572,7 +1573,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     .sort((a, b) => groupOrder.indexOf(a) - groupOrder.indexOf(b))
   const choiceSlots: {
     key: string; label: string; tradition: string; rank: number; current: string; options: ContentEntry[]
-    select: (value: string) => void; grant?: typeof innate[number]; entry?: ContentEntry
+    select: (value: string) => void; grant?: typeof featSpells[number]; entry?: ContentEntry
   }[] = []
   c.feats.forEach((feat, index) => {
     if (!(feat.name === 'First World Magic' || ['Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon'].includes(feat.name) && c.systems.includes('sf2e'))
@@ -1592,7 +1593,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     for (const tradition of ['Divine', 'Occult'] as const) {
       const current = c.investigatorEsotericaSpells?.[tradition] ?? ''
       const options = investigatorEsotericaCantripOptions(c, entries, tradition)
-      const grant = innate.find(item => item.source === 'Esoterica' && item.rule.tradition === tradition
+      const grant = featSpells.find(item => item.source === 'Esoterica' && item.rule.tradition === tradition
         && item.entry.name === current)
       choiceSlots.push({ key: `Esoterica:${tradition}`, label: `Esoterica ${tradition} cantrip`, tradition,
         rank: Math.ceil(c.level / 2), current, options, grant, entry: grant?.entry,
@@ -1637,7 +1638,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       actionControls={slot.entry.name === 'Summon Plant or Fungus'
         ? <SummonPlantActions c={c} save={save} entry={slot.entry} rank={slot.rank} /> : undefined}
       inlineControls={<>{inlineControls(slot.entry.name, slot.rank, slot.grant?.source)}
-        {slot.grant && <InnateSpellUses c={c} save={save} grant={slot.grant} />}</>}
+        {slot.grant?.rule.kind === 'innate' && <InnateSpellUses c={c} save={save} grant={slot.grant} />}</>}
       effectControls={effectControls(slot.entry.name)} effectRank={activeRank(slot.entry.name)}
       {...buffProps(slot.entry.name)}>
       {controls(slot.entry.name, slot.rank, modifier)}

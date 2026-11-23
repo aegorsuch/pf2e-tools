@@ -1,4 +1,4 @@
-import { activeFeatsNamed, activeStance, conditionValue, hasHuntPrey, knowsSpell, type SectionProps } from './builder'
+import { activeFeatsNamed, activeStance, conditionValue, featEffectChange, hasHuntPrey, isFeatEffectActive, knowsSpell, type SectionProps } from './builder'
 import { grantedFeatSpells } from './featSpells'
 import { RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
@@ -21,6 +21,7 @@ export function StatusesSummary({ c, entries }: SectionProps) {
     ...c.activeSpells ?? [],
     ...c.activeFeatEffects ?? [],
     ...(c.zealousConvictionRank !== undefined ? ['Zealous Conviction'] : []),
+    ...(activeFeatsNamed(c, 'Favored Terrain').length && isFeatEffectActive(c, 'Favored Terrain') ? ['Favored Terrain'] : []),
     ...(['frightened', 'sickened', 'enfeebled'] as const).flatMap(name =>
       conditionValue(c, name) ? [`${name[0].toUpperCase() + name.slice(1)} ${conditionValue(c, name)}`] : []),
   ]
@@ -72,6 +73,10 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       ? [{ name: 'Rage', element: <RageToggle c={c} save={save} /> }] : []),
     ...(grant || c.zealousConvictionRank !== undefined
       ? [{ name: 'Zealous Conviction', element: <ZealousConvictionToggle c={c} save={save} rank={grant?.rank ?? c.zealousConvictionRank!} /> }] : []),
+    ...(activeFeatsNamed(c, 'Favored Terrain').length
+      ? [{ name: 'Favored Terrain', element: <label><input type="checkbox" aria-label="Favored Terrain status"
+        checked={isFeatEffectActive(c, 'Favored Terrain')} disabled={activeFeatsNamed(c, 'Terrain Master').length > 0}
+        onChange={event => save(featEffectChange(c, 'Favored Terrain', event.target.checked))} /> Favored Terrain</label> }] : []),
     ...(knowsSpell(c, entries, 'Protect Companion') || c.activeSpells?.includes('Protect Companion')
       ? [{ name: 'Protect Companion', element: <ProtectCompanionOptions c={c} save={save} /> }] : []),
     ...automatedSpellStatusControls({ c, entries, save }),
