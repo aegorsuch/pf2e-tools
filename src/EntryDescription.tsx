@@ -56,6 +56,11 @@ export function EntryDescription({ name, entry, choice, className, prerequisites
     originalDescription = originalDescription?.replace(/\n\n[^\n]*Nethys Note:[^\n]*uncanny eruption[^\n]*/i, '')
       .replace(/\buncanny eruption\b/i, 'Burstmoji (substituted for uncanny eruption)')
   }
+  if (active?.kind === 'feat' && active.name === 'Captain Dedication' && active.systems.includes('pf2e')) {
+    originalDescription = originalDescription
+      ?.replace(/;\s*you don['’]t have an animal companion, construct companion, or other companion that functions similarly\.?/i, '')
+      .replace(/(?:^|\n\n)Special\s+Once you have a follower, you can never take a feat or class feature that grants an animal companion or another companion that prevents you from having an animal companion\.?/i, '')
+  }
   if (active && ignoresFeatPrerequisites(active) && typeof active.data.prerequisite === 'string') {
     const prerequisite = active.data.prerequisite.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')
     originalDescription = originalDescription?.replace(new RegExp(`(?:^|\\n\\n)Prerequisites?\\s*:?\\s*${prerequisite}\\.?(?=\\n\\n|$)`, 'i'), '')

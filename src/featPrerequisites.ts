@@ -23,7 +23,7 @@ export interface PrerequisiteFacts {
   exocortexes?: string[]
   witchArmaments?: string[]
   orders: string[]
-  feats: { name: string; level: number; category?: string; sourceId?: string }[]
+  feats: { name: string; level: number; category?: string; sourceId?: string; waivedPrerequisites?: boolean }[]
   features: string[]
   stalwartDefenderGranted?: boolean
   cavalierGranted?: boolean
@@ -73,6 +73,8 @@ export const ignoresFeatPrerequisites = (entry: ContentEntry) =>
 const prerequisiteText = (entry: ContentEntry) => {
   const text = typeof entry.data.prerequisite === 'string' ? entry.data.prerequisite : ''
   if (ignoresFeatPrerequisites(entry)) return ''
+  if (entry.kind === 'feat' && key(entry.name) === 'captain dedication')
+    return text.split(';').filter(part => !/^you don['’]t have an animal companion, construct companion, or other companion that functions similarly\.?$/i.test(part.trim())).join(';')
   return entry.kind === 'feat' && key(entry.name) === 'numb to death'
     ? text.split(';').filter(part => key(part).replace(/\.$/, '') !== 'you have died at least once').join(';')
     : text
@@ -426,11 +428,6 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       return resultFor(!!facts.devotionSpells?.some(value => key(value) === spell), text)
     }
     // Bare lowercase wording describes a capability, not the named Animal Companion feat.
-    if (name === "you don't have an animal companion, construct companion, or other companion that functions similarly")
-      return resultFor(!facts.companionTypes?.length && !facts.constructCompanion
-        && !facts.features.some(feature => ['animal companion', 'an animal companion', 'construct companion'].includes(key(feature)))
-        && !facts.feats.some(feat => ['animal companion', 'animal trainer dedication', 'beastmaster dedication',
-          'cavalier dedication', "commander's companion", 'faithful steed'].includes(key(feat.name))), text)
     if (name === 'an animal companion' || text.replace(/\.$/, '').trim() === 'animal companion') return resultFor(!!facts.companionTypes?.length
       || facts.feats.some(feat => key(feat.name) === 'animal companion')
       || facts.features.some(feature => ['animal companion', 'an animal companion'].includes(key(feature))), text)
@@ -551,6 +548,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       if (references.some(value => trail.has(value))) return missing(`Circular prerequisite: ${text}`)
       const next = new Set([...trail, ...references])
       const checks = selected.map((feat) => {
+        if (feat.waivedPrerequisites) return met()
         const sources = featPrerequisiteSources(entries, {
           className: facts.className, ancestry: facts.ancestry, heritage: facts.heritage,
           ancestryTraits: facts.ancestryTraits, name: feat.name, category: feat.category, entryIds: context.entryIds,

@@ -1181,6 +1181,8 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           name: feat.name, level: featTakenLevel(feat),
           category: feat.slot?.split(':')[0] ?? feat.type.replace(/ Feat$/, '').toLowerCase(),
           sourceId: feat.sourceId,
+          waivedPrerequisites: feat.name === 'Captain Dedication' && feat.slot === 'archetype:2:g85'
+            && activeHomebrewDedications(character).some(rule => rule.slot === feat.slot),
         })),
         get stalwartDefenderGranted() { return activeHomebrewDedications(character).some(rule => rule.name === 'Stalwart Defender Dedication') },
         get cavalierGranted() { return activeHomebrewDedications(character).some(rule => rule.name === 'Cavalier Dedication') },
@@ -1348,13 +1350,6 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     const missing = [...result.missing.filter(requirement => !planned || !unplanned
       || planned.missing.includes(requirement) || !unplanned.missing.includes(requirement)), ...archetype(entry),
       ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
-    const captainWithCompanion = character.className === 'Commander' && getSettings().commanderCaptain
-      && character.feats.some(feat => feat.name === 'Captain Dedication' && feat.slot === 'archetype:2:g85')
-    if (!captainWithCompanion && character.feats.some(feat => feat.name === 'Captain Dedication')
-      && ['Animal Companion', 'Animal Trainer Dedication', 'Beastmaster Dedication', 'Cavalier Dedication',
-        "Commander's Companion", 'Faithful Steed'].includes(entry.name)) {
-      missing.push('Cannot gain a companion while you have a follower')
-    }
     if (entry.id === 'homebrew:guardbreak' && !c.feats.some(feat => feat.slot !== slot.key && feat.name === 'Shield Block')
       && !automaticFeatGrants(character, entries).some(feat => feat.name === 'Shield Block')
       && !tokens(byName(entries, 'background', character.background)?.data.feat).includes('Shield Block')
@@ -1585,6 +1580,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && !(getSettings().singleDistantTelepath && e.name === 'Distant Telepath' && taken.has(e.name))
       && (e.name !== "Officer's Education" || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
       && (e.name !== 'Adaptive Visual Receptors' || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 2)
+      && (e.name !== 'Additional Follower' || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 3)
       && (!['Commercial Customization', 'Tactical Customization', 'Advanced Customization', 'Superior Customization', 'Superior Drone'].includes(e.name)
         || c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length < 3)
       && (e.name !== 'Plentiful Grenades' || !taken.has(e.name) || slot.level >= 14

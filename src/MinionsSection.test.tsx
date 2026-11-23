@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
-import { CompanionEquipmentSlots, MinionsContent, MinionsSection, MinionsSummary, SummonedFiendCard } from './MinionsSection'
+import { CompanionEquipmentSlots, FollowerCards, MinionsContent, MinionsSection, MinionsSummary, SummonedFiendCard } from './MinionsSection'
 import { SearchableSelect } from './SearchableSelect'
 import { CaypinAllyToggle, CompanionSpellOptions, CreatureShapeOptions, LashuntaAllyOptions, ShirrenAllyToggle, SpellsSection } from './SpellsSection'
 import { activeBattleForm, armorClass, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, movementSpeeds, ownedWeapons, spellActiveChange } from './builder'
@@ -70,12 +70,12 @@ it('grants saved followers and permits ancestry selection only with Leader of Al
     feats: [{ name: 'Captain Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
-  const content = () => MinionsContent({ c, entries: [elf], save })
+  const content = () => FollowerCards({ c, entries: [elf], save })
   expect(renderToStaticMarkup(content())).toContain('Novice')
   expect(findSelect(content(), 'Follower 1 ancestry')).toBeUndefined()
   findSelect(content(), 'Follower 1 type')!({ target: { value: 'Scout' } })
-  findInput(content(), 'Follower 1 name')!({ target: { value: 'Rook' } })
-  expect(c.followers).toEqual([{ name: 'Rook', type: 'Scout' }])
+  expect(findInput(content(), 'Follower 1 name')).toBeUndefined()
+  expect(c.followers).toEqual([{ type: 'Scout' }])
   c = { ...c, feats: [...c.feats,
     { name: 'Leader of All', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' },
     { name: 'Experienced Follower', type: 'Archetype Feat', level: 4, slot: 'class:4:0' },
@@ -84,9 +84,47 @@ it('grants saved followers and permits ancestry selection only with Leader of Al
   expect(c.followers?.[0].ancestry).toBe('Elf')
   expect(renderToStaticMarkup(content())).toContain('Experienced')
   expect(findSelect(content(), 'Follower 2 type')).toBeDefined()
-  expect(renderToStaticMarkup(<MinionsSummary c={c} />)).toContain('Scout (Rook)')
-  expect(findSelect(MinionsContent({ c: { ...c, level: 1 }, entries: [elf], save }), 'Follower 1 type')).toBeUndefined()
+  expect(renderToStaticMarkup(<MinionsSummary c={c} />)).toContain('Elf Scout')
+  expect(findSelect(FollowerCards({ c: { ...c, level: 1 }, entries: [elf], save }), 'Follower 1 type')).toBeUndefined()
   expect(c.followers?.[0].ancestry).toBe('Elf')
+  const withCompanion = { ...c, companions: [{ id: 'wolf', name: '', type: 'Wolf' }] }
+  const ordered = renderToStaticMarkup(<MinionsContent c={withCompanion} entries={[elf]} save={save} />)
+  expect(ordered.indexOf('<h4>Animal Companion</h4>')).toBeLessThan(ordered.indexOf('<h4>Elf Scout</h4>'))
+})
+
+it('shows follower advancement and retains adept choices', () => {
+  let c: Character = { id: 'captain', name: 'Test', systems: ['pf2e'], level: 14,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Captain Dedication', type: 'Archetype Feat', level: 2 },
+      { name: 'Exceptional Follower', type: 'Archetype Feat', level: 14 }],
+    followers: [{ type: 'Sharpshooter', name: 'Old name' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const content = () => FollowerCards({ c, entries: [], save })
+  const html = renderToStaticMarkup(content())
+  expect(html).toContain('Human Sharpshooter')
+  expect(html).not.toContain('Old name')
+  expect(html).toContain('3d6+4 piercing')
+  expect(html).toContain('Following Shot')
+  expect(html).toContain('ignoring concealment')
+  findSelect(content(), 'Follower 1 type')!({ target: { value: 'Adept' } })
+  findSelect(content(), 'Follower 1 adept skill')!({ target: { value: 'Occultism' } })
+  findSelect(content(), 'Follower 1 energy 1')!({ target: { value: 'Fire' } })
+  findSelect(content(), 'Follower 1 energy 3')!({ target: { value: 'Force' } })
+  expect(c.followers?.[0]).toMatchObject({ adeptSkill: 'Occultism', energyTypes: ['Fire', '', 'Force'] })
+  expect(renderToStaticMarkup(content())).toContain('fire / force')
+  const novice = renderToStaticMarkup(FollowerCards({ c: { ...c, level: 2 }, entries: [], save }))
+  expect(novice).not.toContain('Force')
+  expect(c.followers?.[0].energyTypes?.[2]).toBe('Force')
+})
+
+it('omits Captain companion restrictions from feat details', () => {
+  const entry: ContentEntry = { id: 'captain', name: 'Captain Dedication', kind: 'feat', systems: ['pf2e'],
+    source: 'official', level: 2, traits: [], data: {}, effects: [], updatedAt: 0,
+    description: "Prerequisites Charisma +2; you don't have an animal companion, construct companion, or other companion that functions similarly\n\nSpecial Once you have a follower, you can never take a feat or class feature that grants an animal companion or another companion that prevents you from having an animal companion." }
+  const html = renderToStaticMarkup(<EntryDescription name={entry.name} entry={entry} />)
+  expect(html).toContain('Charisma +2')
+  expect(html).not.toContain('animal companion')
 })
 
 it('displays and dismisses a saved summoned fiend', () => {

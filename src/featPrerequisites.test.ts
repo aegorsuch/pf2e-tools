@@ -170,20 +170,20 @@ it('waives prerequisites only for the active house-rule dedication', () => {
   expect(featSelectionPrerequisiteChecker(c, [dedication], granted)(dedication).missing.length).toBeGreaterThan(0)
 })
 
-it('checks Captain Dedication against companion grants rather than requesting manual verification', () => {
+it('allows Captain Dedication alongside companions while retaining Charisma prerequisites', () => {
   const restriction = "you don't have an animal companion, construct companion, or other companion that functions similarly"
   const dedication = entry('feat', 'Captain Dedication', { prerequisite: `Charisma +2; ${restriction}`, archetype: 'Captain' }, 2, ['Archetype', 'Dedication'])
   const c: Character = { ...base, level: 2, abilities: { ...base.abilities, cha: 14 } }
   const verify = (character: Character) => featPrerequisiteChecker(character, [dedication])(dedication)
   expect(verify(c)).toEqual({ missing: [], manual: [] })
-  expect(verify({ ...c, companions: [{ id: 'a', name: '', type: 'Wolf' }] }).missing).toContain(restriction)
-  expect(verify({ ...c, feats: [selected('Beastmaster Dedication', 2)] }).missing).toContain(restriction)
-  expect(verify({ ...c, className: 'Inventor', subclass: 'Construct' }).missing).toContain(restriction)
+  expect(verify({ ...c, companions: [{ id: 'a', name: '', type: 'Wolf' }] })).toEqual({ missing: [], manual: [] })
+  expect(verify({ ...c, feats: [selected('Beastmaster Dedication', 2)] })).toEqual({ missing: [], manual: [] })
+  expect(verify({ ...c, className: 'Inventor', subclass: 'Construct' })).toEqual({ missing: [], manual: [] })
   expect(verify({ ...c, familiar: { name: 'Familiar' } })).toEqual({ missing: [], manual: [] })
   expect(verify({ ...c, abilities: { ...c.abilities, cha: 10 } }).missing).toContain('Charisma +2')
 })
 
-it('prevents new companions after Captain Dedication except for the Commander house rule', () => {
+it('allows companions after Captain Dedication and honors waived Commander prerequisites for Additional Follower', () => {
   const settings = getSettings()
   onTestFinished(() => updateSettings(settings))
   const companion = entry('feat', 'Animal Companion', {}, 4, ['Fighter'])
@@ -191,11 +191,19 @@ it('prevents new companions after Captain Dedication except for the Commander ho
     { name: 'Captain Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
   ] }
   const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
-  expect(featSelectionPrerequisiteChecker(c, [companion], slot)(companion).missing)
-    .toContain('Cannot gain a companion while you have a follower')
+  expect(featSelectionPrerequisiteChecker(c, [companion], slot)(companion).missing).toEqual([])
   updateSettings({ commanderCaptain: true })
   const commander = { ...c, className: 'Commander', feats: [{ ...c.feats[0], slot: 'archetype:2:g85' }] }
   expect(featSelectionPrerequisiteChecker(commander, [companion], slot)(companion).missing).toEqual([])
+  const captain = entry('feat', 'Captain Dedication', { prerequisite: "Charisma +2; you don't have an animal companion, construct companion, or other companion that functions similarly", archetype: 'Captain' }, 2, ['Archetype', 'Dedication'])
+  const additional = entry('feat', 'Additional Follower', { prerequisite: 'Captain Dedication', archetype: 'Captain', repeatable: true }, 4, ['Archetype'])
+  const withCompanion = { ...commander, companions: [{ id: 'wolf', name: '', type: 'Wolf' }] }
+  expect(featPrerequisiteChecker(withCompanion, [captain, additional])(additional)).toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats([captain, additional], withCompanion, { key: 'archetype:4:0', category: 'archetype', level: 4 })).toContain(additional)
+  const full = { ...withCompanion, level: 10, feats: [...withCompanion.feats, ...[4, 6, 8].map(level =>
+    ({ name: 'Additional Follower', type: 'Archetype Feat', level, slot: `archetype:${level}:0` }))] }
+  expect(eligibleFeats([captain, additional], full, { key: 'archetype:10:0', category: 'archetype', level: 10 })).not.toContain(additional)
+  expect(eligibleFeats([captain, additional], full, { key: 'archetype:8:0', category: 'archetype', level: 8 })).toContain(additional)
 })
 
 it('allows Commanders with Captain Dedication to substitute Intelligence for Captain feat Charisma requirements', () => {

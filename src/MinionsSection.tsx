@@ -16,6 +16,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { activeCaypinAlly, activeLashuntaAlly, activeShirrenAlly } from './featSpells'
 import { activeSummonedFiend, type SummonedFiend } from './summonedFiends'
 import { DroneFeatures } from './DroneFeatures'
+import { FOLLOWER_STAGES, FOLLOWER_TYPES, followerStage, followerStats } from './followers'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
   familiarAbilityEntry, familiarAbilityUnavailableReason, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds } from './familiarAbilities'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
@@ -23,11 +24,15 @@ import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntr
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
 const COMPANION_EQUIPMENT_SLOTS: CompanionEquipmentSlot[] = ['Barding', 'Collar', 'Other', 'Saddle', 'Shoes']
 const PET_ABILITIES = ['Amphibious', 'Burrower', 'Climber', 'Darkvision', 'Echolocation', 'Fast Movement', 'Flier', 'Manual Dexterity', 'Scent', 'Tough']
-const FOLLOWER_TYPES = ['Berserker', 'Medic', 'Scout', 'Sharpshooter', 'Shieldbearer', 'Adept']
+const ADEPT_NOVICE_ENERGY = ['Acid', 'Cold', 'Electricity', 'Fire', 'Mental', 'Poison', 'Void']
+const ADEPT_VETERAN_ENERGY = ['Force', 'Sonic', 'Spirit', 'Vitality']
 const followerCount = (c: Character) => c.systems.includes('pf2e') && activeFeatsNamed(c, 'Captain Dedication').length
   ? Math.min(4, 1 + activeFeatsNamed(c, 'Additional Follower').length) : 0
-const followerStage = (c: Character) => ['Exceptional', 'Veteran', 'Experienced'].find(stage =>
-  activeFeatsNamed(c, `${stage} Follower`).length) ?? 'Novice'
+const followerTitle = (c: Character, index: number) => {
+  const follower = c.followers?.[index]
+  const ancestry = activeFeatsNamed(c, 'Leader of All').length ? follower?.ancestry ?? 'Human' : 'Human'
+  return `${ancestry} ${follower?.type ?? 'Follower'}`
+}
 const PET_ABILITY_NOTES: Record<string, string> = {
   Amphibious: 'Breathes air and water; land and swim Speeds equal highest land or swim Speed.',
   Burrower: 'Burrow Speed 5 feet; can dig Tiny holes.',
@@ -333,8 +338,7 @@ export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
         : crocodileFamiliar ? 'Crocodile Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
       ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
       ...Array.from({ length: followerCount(c) }, (_, index) => {
-        const follower = c.followers?.[index]
-        return `${followerStage(c)} ${follower?.type ?? 'Follower'}${follower?.name ? ` (${follower.name})` : ''}`
+        return `${FOLLOWER_STAGES[followerStage(c)]} ${followerTitle(c, index)}`
       }),
       ...(lashuntaAlly ? [`Summoned ${lashuntaAlly}`] : []),
       ...(activeShirrenAlly(c) ? ['Summoned Kucharn'] : []),
@@ -347,6 +351,109 @@ export function MinionsSection(props: SectionProps) {
     <MinionsSummary {...props} />
     <MinionsContent {...props} />
   </details>
+}
+
+export function FollowerCards({ c, entries, save }: SectionProps) {
+  const ancestries = [...new Set(entries.filter(entry => entry.kind === 'ancestry' && !entry.deleted
+    && entry.systems.includes('pf2e')).map(entry => entry.name))].sort((a, b) => a.localeCompare(b))
+  const update = (index: number, patch: Partial<NonNullable<Character['followers']>[number]>) => {
+    const followers = [...(c.followers ?? [])]
+    while (followers.length <= index) followers.push({})
+    followers[index] = { ...followers[index], ...patch }
+    save({ followers })
+  }
+  return <>{Array.from({ length: followerCount(c) }, (_, index) => {
+    const follower = c.followers?.[index]
+    const typeIndex = FOLLOWER_TYPES.indexOf(follower?.type ?? '')
+    const stage = followerStage(c)
+    const stats = followerStats(c, follower?.type, follower?.adeptSkill)
+    const specials: { name: string; actions?: string; text: string }[] = []
+    if (follower?.type === 'Sharpshooter') {
+      specials.push({ name: 'Take Aim', actions: 'Two Actions', text: `Make a ranged Strike with a +2 circumstance bonus to attack${stage >= 2 ? ', ignoring concealment' : ''}.` })
+      if (stage >= 1) specials.push({ name: 'Slowing Shot', text: 'Ranged Strike damage reduces target Speeds by 5 feet for 1 round, or 10 feet on a critical hit.' })
+      if (stage >= 3) specials.push({ name: 'Following Shot', actions: 'Free Action', text: 'Once per turn, after a ranged critical hit with a reload 0 weapon, Strike again with that weapon at the same multiple attack penalty; this Strike counts toward the penalty.' })
+    } else if (follower?.type === 'Berserker') {
+      specials.push({ name: 'Berserker', text: `After taking damage, gain a +${stage + 1} status bonus to the next damage roll before the end of your next turn.` })
+      if (stage >= 2) specials.push({ name: 'Reckless Attack', actions: 'Free Action', text: 'Once per turn when Directed, gain +1 circumstance to the next attack this turn; remain off-guard until your next turn.' })
+      if (stage >= 3) specials.push({ name: 'Share the Pain', actions: 'Reaction', text: 'When critically hit by a creature within reach, make a melee Strike against it. Gain a reaction when Directed, lost at the start of your next turn if unused.' })
+    } else if (follower?.type === 'Medic') {
+      specials.push({ name: 'Battle Medicine', actions: 'Single Action', text: stage === 0 ? 'Has Battle Medicine and a healer’s toolkit.'
+        : `Has Battle Medicine and a healer’s toolkit; may treat a temporarily immune creature once per ${stage === 3 ? 'hour' : 'day'}.` })
+      if (stage >= 1) specials.push({ name: 'Scalpel', text: `${stage === 3 ? '2' : '1'} persistent bleed on a Strike, or ${stage === 3 ? '2d6' : '1d6'} on a critical hit.` })
+      if (stage >= 2) specials.push({ name: 'Medic’s Treatment', actions: 'Single Action', text: 'With a healer’s toolkit, attempt a Medicine counteract check against an adjacent creature’s clumsy, enfeebled, sickened, or stupefied condition; counteract rank is half the follower’s level.' })
+      if (stage >= 3) specials.push({ name: 'Quick Treatment', actions: 'Single Action', text: 'Once per round, Stride then Administer First Aid, Battle Medicine, Medic’s Treatment, or Treat Poison.' })
+    } else if (follower?.type === 'Scout') {
+      specials.push({ name: 'Precision Damage', text: `Deals ${stage >= 2 ? '1d6' : '1d4'} extra precision damage against off-guard targets.` })
+      specials.push({ name: 'Exploration', text: stage === 3 ? 'Can Scout, Avoid Notice, and Search together without spending your exploration activity.'
+        : `Can Scout${stage >= 1 ? ' or Search' : ''} without spending your exploration activity.` })
+      if (stage >= 2) specials.push({ name: 'Exploit Injury', actions: 'Single Action', text: 'After a successful melee Strike against an off-guard target, keep it off-guard until the end of your next turn.' })
+    } else if (follower?.type === 'Shieldbearer') {
+      const shields = [[5, 20, 10], [6, 40, 20], [8, 64, 32], [10, 100, 50]]
+      const [hardness, hp, bt] = shields[stage]
+      specials.push({ name: 'Shield', text: `Hardness ${hardness}, HP ${hp}, BT ${bt}; Raise a Shield grants +2 circumstance AC. Has Shield Block and gains a reaction when Directed.${stage >= 1 ? ` Can Shield Block for ${stage >= 2 ? 'an adjacent ally' : 'you while adjacent'}.` : ''}${stage >= 3 ? ' Gains an additional reaction for Shield Block protecting themself.' : ''}` })
+      if (stage >= 2) specials.push({ name: 'Bulwark', text: 'Armor has the bulwark trait; the kit includes a repair toolkit.' })
+    } else if (follower?.type === 'Adept') {
+      specials.push({ name: 'Spellshaped Blast', actions: 'Two Actions', text: 'Make an energy blast with two choices: fatal d8, 120-foot range, or splash damage equal to its damage dice.' })
+      if (stage >= 2) {
+        specials.push({ name: 'Dagger Energy', text: `Dagger Strikes deal ${stage === 3 ? 5 : 3} additional damage of a selected energy type.` })
+        specials.push({ name: 'Energy Deflection', actions: 'Reaction', text: `Protect yourself or an ally within 10 feet against eligible energy damage: resistance ${Math.floor(c.level / 2)}, or ${c.level} against a selected blast damage type. Target is then immune for 1 minute.` })
+      }
+      if (stage >= 3 && stats) specials.push({ name: 'Energy Wave', actions: 'Two Actions', text: `Deal energy blast damage in a 15-foot or 30-foot cone with a basic Reflex save against DC ${10 + c.level + 4 + stats.attributes.int}. Recharge after 1d6 rounds.` })
+    }
+    return <details className="character-subsection" open key={index}>
+      <summary><h4>{followerTitle(c, index)}</h4></summary>
+      <div className="gear-traits"><span>Level {c.level}</span><span>{FOLLOWER_STAGES[stage]}</span><span>Minion</span></div>
+      <label>Type <select aria-label={`Follower ${index + 1} type`} value={follower?.type ?? ''}
+        onChange={event => update(index, { type: event.target.value || undefined })}>
+        <option value="">Choose follower...</option>{FOLLOWER_TYPES.map(type => <option key={type}>{type}</option>)}
+      </select></label>
+      {!!activeFeatsNamed(c, 'Leader of All').length && <SearchableSelect label="Ancestry" aria-label={`Follower ${index + 1} ancestry`}
+        value={follower?.ancestry ?? 'Human'} onChange={event => update(index, { ancestry: event.target.value })}>
+        {[...new Set(['Human', follower?.ancestry].filter((name): name is string => !!name && !ancestries.includes(name)))]
+          .map(name => <option key={name}>{name}</option>)}
+        {ancestries.map(name => <option key={name}>{name}</option>)}
+      </SearchableSelect>}
+      {follower?.type === 'Adept' && <label>Skill <select aria-label={`Follower ${index + 1} adept skill`}
+        value={follower.adeptSkill ?? ''} onChange={event => update(index, { adeptSkill: event.target.value || undefined })}>
+        <option value="">Choose skill...</option>{['Nature', 'Occultism', 'Religion'].map(skill => <option key={skill}>{skill}</option>)}
+      </select></label>}
+      {follower?.type === 'Adept' && Array.from({ length: stage >= 2 ? 3 : 2 }, (_, slot) => {
+        const selected = follower.energyTypes ?? []
+        const choices = slot === 2 ? [...ADEPT_NOVICE_ENERGY, ...ADEPT_VETERAN_ENERGY] : ADEPT_NOVICE_ENERGY
+        return <label key={slot}>Energy {slot + 1} <select aria-label={`Follower ${index + 1} energy ${slot + 1}`}
+          value={selected[slot] ?? ''} onChange={event => {
+            const energyTypes = [...selected]
+            while (energyTypes.length <= slot) energyTypes.push('')
+            energyTypes[slot] = event.target.value
+            update(index, { energyTypes })
+          }}>
+          <option value="">Choose energy...</option>
+          {choices.map(energy => <option key={energy} disabled={selected.slice(0, stage >= 2 ? 3 : 2).some((value, i) => i !== slot && value === energy)}>{energy}</option>)}
+        </select></label>
+      })}
+      {stats && <>
+        <div className="gear-stats">{ABILITIES.map(ability => <span key={ability}><small>{ABILITY_LABEL[ability]}</small>{signed(stats.attributes[ability])}</span>)}</div>
+        <section className="companion-actions"><h5>Attacks</h5>{stats.attacks.map(attack =>
+          <div className="companion-action" key={attack.name}><div className="companion-action-title"><ActionIcon actions="Single Action" />
+            <b>{attack.name}</b> {attack.traits && <small>({attack.traits})</small>} <span>{signed(attack.bonus)}</span><span>— {attack.damage.replace('chosen energy',
+              follower?.energyTypes?.slice(0, stage >= 2 ? 3 : 2).filter(Boolean).join(' / ').toLowerCase() || 'chosen energy')}</span>
+          </div>{stage >= 2 && <small>Magical for overcoming resistances</small>}</div>)}</section>
+        <section className="companion-actions"><h5>Defenses</h5><div className="gear-stats">
+          <span><small>Hit Points</small><b>{stats.hp}</b></span><span><small>Armor Class</small><b>{stats.ac}</b></span>
+          {['Fortitude', 'Reflex', 'Will'].map((name, i) => <span key={name}><small>{name}</small>{signed(stats.saves[i])}</span>)}
+        </div><div>Kit armor +{stats.armor}, Dexterity cap +{stats.dexCap}</div></section>
+        <section className="companion-actions"><h5>Senses</h5><div>Perception {signed(stats.perception)}</div></section>
+        <section className="companion-actions"><h5>Skills</h5>{stats.skills.map(skill =>
+          <div key={skill.name}>{skill.name} {signed(skill.value)}</div>)}</section>
+        {specials.length > 0 && <section className="companion-actions"><h5>Special</h5>{specials.map(special =>
+          <div className="companion-action" key={special.name}><div className="companion-action-title">
+            {special.actions && <ActionIcon actions={special.actions} />}<b>{special.name}</b></div>
+            <p className="companion-action-description">{special.text}</p></div>)}</section>}
+      </>}
+      <a href={typeIndex < 0 ? 'https://2e.aonprd.com/Followers.aspx' : `https://2e.aonprd.com/Followers.aspx?ID=${typeIndex + 1}`}
+        target="_blank" rel="noreferrer">Follower statistics and abilities</a>
+    </details>
+  })}</>
 }
 
 export function MinionsContent({ c, entries, save }: SectionProps) {
@@ -397,45 +504,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
     save({ companions: companions.map((x) => (x.id === id ? { ...x, ...patch } : x)) })
   const setFeatChoice = (featIndex: number, choice: string) =>
     save({ feats: c.feats.map((feat, i) => i === featIndex ? { ...feat, choice: choice || undefined } : feat) })
-  const updateFollower = (index: number, patch: Partial<NonNullable<Character['followers']>[number]>) => {
-    const followers = [...(c.followers ?? [])]
-    while (followers.length <= index) followers.push({})
-    followers[index] = { ...followers[index], ...patch }
-    save({ followers })
-  }
   return (
       <div className="character-section-content minions-section-content">
         {activeCaypinAlly(c) && <SummonedCreature name="Caypin" />}
         {lashuntaAlly && <SummonedCreature name={lashuntaAlly} />}
         {activeShirrenAlly(c) && <SummonedCreature name="Emganat" displayName="Kucharn" />}
         {activeSummonedFiend(c) && <SummonedFiendCard fiend={activeSummonedFiend(c)!} save={save} />}
-        {Array.from({ length: followerCount(c) }, (_, index) => {
-          const follower = c.followers?.[index]
-          const typeIndex = FOLLOWER_TYPES.indexOf(follower?.type ?? '')
-          const leaderOfAll = activeFeatsNamed(c, 'Leader of All').length > 0
-          const ancestries = [...new Set(entries.filter(entry => entry.kind === 'ancestry' && !entry.deleted
-            && entry.systems.includes('pf2e')).map(entry => entry.name))].sort((a, b) => a.localeCompare(b))
-          return <details className="character-subsection" open key={index}>
-            <summary><h4>{followerCount(c) > 1 ? `Follower ${index + 1}` : 'Follower'}</h4></summary>
-            <div className="gear-traits"><span>Level {c.level}</span><span>{followerStage(c)}</span><span>Minion</span></div>
-            <label>Name <input aria-label={`Follower ${index + 1} name`} value={follower?.name ?? ''}
-              onChange={event => updateFollower(index, { name: event.target.value })} /></label>
-            <label>Type <select aria-label={`Follower ${index + 1} type`} value={follower?.type ?? ''}
-              onChange={event => updateFollower(index, { type: event.target.value || undefined })}>
-              <option value="">Choose follower...</option>
-              {FOLLOWER_TYPES.map(type => <option key={type}>{type}</option>)}
-            </select></label>
-            {leaderOfAll && <SearchableSelect label="Ancestry" aria-label={`Follower ${index + 1} ancestry`}
-              value={follower?.ancestry ?? 'Human'} onChange={event => updateFollower(index, { ancestry: event.target.value })}>
-              {(!ancestries.includes('Human') || follower?.ancestry && !ancestries.includes(follower.ancestry))
-                && [...new Set(['Human', follower?.ancestry].filter((name): name is string => !!name && !ancestries.includes(name)))]
-                  .map(name => <option key={name}>{name}</option>)}
-              {ancestries.map(name => <option key={name}>{name}</option>)}
-            </SearchableSelect>}
-            <a href={typeIndex < 0 ? 'https://2e.aonprd.com/Followers.aspx' : `https://2e.aonprd.com/Followers.aspx?ID=${typeIndex + 1}`}
-              target="_blank" rel="noreferrer">Follower statistics and abilities</a>
-          </details>
-        })}
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" open>
           <summary><h4>Drone</h4></summary>
           <DroneFeatures c={c} entries={entries} save={save} />
@@ -767,6 +841,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             )
           })}
         </details>}
+        <FollowerCards c={c} entries={entries} save={save} />
         {[...(familiar ? [{ wasp: false, data: c.familiar }] : []),
           ...(wasp ? [{ wasp: true, data: c.waspFamiliar }] : [])].map(({ wasp: isWasp, data }) => {
           const isLeshy = leshy && !isWasp
