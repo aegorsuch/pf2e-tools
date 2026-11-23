@@ -259,6 +259,7 @@ export interface Character {
   scouringRageUsed?: boolean
   inscribedBlastUsed?: boolean
   coreCannonActive?: boolean
+  runicTattooFaded?: boolean
   coreCannonUsed?: boolean
   scouringRageDamage?: string
   giantStature?: 'Large' | 'Huge'

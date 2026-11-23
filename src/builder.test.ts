@@ -590,6 +590,14 @@ it('grants Backup Runic Enhancement spells in the selected tradition', () => {
     .toEqual([['Sigil', 'primal', 'at will'], ['Runic Body', 'primal', 'once per day']])
 })
 
+it('offers Runic Tattoo the Runesmith runes available at the character level', () => {
+  const feat = { name: 'Runic Tattoo', type: 'Class Feat', level: 2, slot: 'class:2:0' }
+  const c: Character = { ...base, systems: ['pf2e'], level: 2, feats: [feat] }
+  const options = featChoiceOptions(feat.name, c, [], feat.slot)
+  expect(options).toContain('Atryl, Rune of Fire')
+  expect(featChoiceOptions(feat.name, { ...c, systems: ['sf2e'] }, [], feat.slot)).toBeUndefined()
+})
+
 it('applies constant enlarge from Enlarged Chassis', () => {
   const c: Character = { ...base, systems: ['pf2e'], level: 13, feats: [{ name: 'Enlarged Chassis', type: 'Ancestry Feat', level: 13, slot: 'ancestry:13:0' }] }
   expect(enlargedChassisSize(c, [])).toBe('Large')

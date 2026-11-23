@@ -2,6 +2,7 @@ import { Fragment, useId, useMemo, useRef, useState } from 'react'
 import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { ActionIcon } from './ActionIcon'
+import { RUNESMITH_RUNES } from './runesmithRunes'
 import { DamageRoll } from './SpellDamage'
 import { PickerDialog } from './PickerDialog'
 import { sortPickerOptions } from './PickerSort'
@@ -444,6 +445,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const showWrathRoll = currentEntry?.name === 'Wrath of the Hold' && !!activeFeatsNamed(c, currentEntry.name).length
           const showInscribedBlast = c.systems.includes('pf2e') && currentEntry?.name === 'Inscribed Blast' && !!activeFeatsNamed(c, currentEntry.name).length
           const showCoreCannon = c.systems.includes('pf2e') && currentEntry?.name === 'Core Cannon' && !!activeFeatsNamed(c, currentEntry.name).length
+          const tattooRune = c.systems.includes('pf2e') && currentEntry?.name === 'Runic Tattoo' && activeFeatsNamed(c, currentEntry.name).length
+            ? RUNESMITH_RUNES.find(rune => rune.name === selection?.choice) : undefined
           const showAcidicSpitRoll = c.systems.includes('sf2e') && currentEntry?.name === 'Acidic Spit'
             && !!activeFeatsNamed(c, currentEntry.name).length
           const access = currentEntry ? featAccess(c, currentEntry) : undefined
@@ -611,6 +614,14 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     <button type="button" aria-label="Inscribed Blast uses" title="Click to toggle runes intact or faded"
                       onClick={() => save({ inscribedBlastUsed: !c.inscribedBlastUsed })}>{c.inscribedBlastUsed ? 0 : 1}/1</button>
                   </>}
+                  {tattooRune && <details className="character-subsection">
+                    <summary>{tattooRune.name}{c.runicTattooFaded ? ' (faded)' : ''}</summary>
+                    <small>{[`Rune ${tattooRune.level}`, ...tattooRune.traits, tattooRune.usage].filter(Boolean).join(' · ')}</small>
+                    <p style={{ whiteSpace: 'pre-line' }}>{tattooRune.description}</p>
+                    <button type="button" aria-label="Runic Tattoo invoked"
+                      title="Invoke the tattoo; it stays faded until your next daily preparations"
+                      onClick={() => save({ runicTattooFaded: !c.runicTattooFaded })}>{c.runicTattooFaded ? 'Faded' : 'Invoke'}</button>
+                  </details>}
                   {showCoreCannon && <>
                     <button type="button" className="spell-action-button" aria-label="Core Cannon transform"
                       disabled={!c.coreCannonActive && !!c.coreCannonUsed}

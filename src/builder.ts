@@ -14,6 +14,7 @@ import { companionAdvancement, companionAdvancementFor } from './companions'
 import { contentAccessGranted, featRarity, spellAccessGranted } from './featAccess'
 import { spellResolution } from './spellDefense'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
+import { RUNESMITH_RUNES } from './runesmithRunes'
 import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, AUTOMATON_CLAW, AUTOMATON_PINCER, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ENERGY_BLAST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
@@ -1844,6 +1845,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       .filter(([, skill]) => (ranks[skill] ?? 0) >= 1)
       .flatMap(([tradition]) => ['Runic Body', 'Runic Weapon'].map(spell => `${tradition}: ${spell}`))
   }
+  if (name === 'Runic Tattoo' && c.systems.includes('pf2e')) return RUNESMITH_RUNES.filter(rune => rune.level <= c.level).map(rune => rune.name)
   if (name === 'Nephilim Lore' && c.systems.includes('pf2e')) return ['Diplomacy', 'Intimidation']
   if (name === 'Sanctified Soul' && c.systems.includes('pf2e')) return ['Holy', 'Unholy']
   if (name === 'Energized Spark' && c.systems.includes('pf2e')) {
