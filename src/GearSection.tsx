@@ -6,7 +6,7 @@ import {
 import { newId } from './db'
 import { blessedShieldBenefit, canEquipShield, championBlessings, clanPistolRunes, equippedHands, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
-import { isAncestralEmbrace, isBastionNamedArmor, isScaleOfIgroonShield, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { isAncestralEmbrace, isBastionNamedArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ABILITY_LABEL, APEX_AUGMENTATIONS, activeApexAugmentation, armorBulk, armorStrengthMet, installedApexAugmentations } from './builder'
@@ -1865,6 +1865,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         onPick={(e) => saveArmors([...armors, { id: newId(), name: e.name, potency: 0, resilient: 0, runes: [], worn: !armors.some((a) => a.worn) }])} />
       {[...armors].sort((x, y) => x.name.localeCompare(y.name)).map((a) => {
         const entry = armorEntry(c, entries, a.name, a.id)
+        const displayEntry = entry?.data.automatic_fundamentals === true && entry.data.named_armor
+          ? { ...entry, description: scaledNamedArmorDescription(entry, a) } : entry
         const bonyPlates = a.id === BONY_PLATES_ID
         const body = !!entry?.data.attached
         const wornLocked = body || !!a.strongholdWallActive || !canWearWithAttachedArmor(a, attached)
@@ -1932,7 +1934,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         return (
           <article key={a.id} className="gear-card">
             <header className="row">
-              <strong><EntryDescription name={displayName} entry={entry} className="equipment-name" /></strong>
+              <strong><EntryDescription name={displayName} entry={displayEntry} className="equipment-name" /></strong>
               <label><input type="checkbox" aria-label={`Worn ${labelName}`} checked={a.worn} disabled={wornLocked}
                 title={body ? 'Attached to character' : wornLocked ? 'Cannot wear armor over attached body armor' : undefined}
                 onChange={(e) => {
@@ -1971,7 +1973,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             <EnergyNeutralizer c={c} save={save} id={a.id} label={labelName} />
             <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={labelName} />
             {entry?.description && !entry.data.named_armor && <small>{entry.description}</small>}
-            <NamedArmorAbilities entry={entry} inlineSummary activations={activations} avatar={isAncestralEmbrace(entry?.name) ? {
+            <NamedArmorAbilities entry={displayEntry} inlineSummary activations={activations} avatar={isAncestralEmbrace(entry?.name) ? {
               active: !!c.activeSpells?.includes(ANCESTRAL_AVATAR) && a.worn,
               disabled: !a.worn,
               toggle: () => save(spellActiveChange(c, ANCESTRAL_AVATAR, !c.activeSpells?.includes(ANCESTRAL_AVATAR))),
@@ -2015,7 +2017,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               </div>
             )}
             <div className="row">
-              {entry?.data.named_armor_material ? <span>Material: {String(entry.data.named_armor_material)}</span> : a.material ? <div className="gear-runes"><span>Material</span>
+              {entry?.data.named_armor_material === 'Keep Stone' ? <div className="gear-runes"><span>Material:</span>
+                <Material name="Keep Stone" entries={entries} equipment="Armor" source="Built into armor" />
+              </div> : entry?.data.named_armor_material ? <span>Material: {String(entry.data.named_armor_material)}</span> : a.material ? <div className="gear-runes"><span>Material</span>
                 <Material name={a.material} entries={entries} equipment="Armor" source={body ? 'Attached to character'
                   : typeof entry?.data.granted_by === 'string' ? entry.data.granted_by : 'Locked by Wood armor group'}
                   onRemove={body || !!entry?.data.fixed_material || isWoodArmor(entries, a) ? undefined : () =>

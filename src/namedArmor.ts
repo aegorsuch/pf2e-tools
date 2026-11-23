@@ -1,4 +1,4 @@
-import type { ContentEntry } from './types'
+import type { ContentEntry, OwnedArmor } from './types'
 import { automaticArmigerRunes } from './grantedArmor'
 
 const ANCESTRAL_HIDE = 'Ancestral Embrace Hide Armor'
@@ -102,6 +102,15 @@ export function namedArmorEnhancements(entry?: ContentEntry) {
     resilient: Number(entry.data.named_armor_resilient),
     runes: String(entry.data.named_armor_runes ?? '').split(';').filter(Boolean),
   }
+}
+
+export function scaledNamedArmorDescription(entry: ContentEntry, armor: OwnedArmor) {
+  if (!entry.data.named_armor || entry.data.automatic_fundamentals !== true) return entry.description
+  const resilient = ['', 'resilient', 'greater resilient', 'major resilient'][armor.resilient]
+  const runes = armor.runes.map(rune => rune.replace(/^(.+) \((Lesser|Greater|Major|True)\)$/, '$2 $1').toLowerCase())
+  const enhancements = [armor.potency ? `+${armor.potency}` : '', resilient, ...runes].filter(Boolean).join(' ')
+  return entry.description.replace(/\+[1-4]\s+[^.!?\n]{0,100}?\bbastion plate\b/i,
+    `${enhancements ? `${enhancements} ` : ''}bastion plate`)
 }
 
 export function scaleAncestralEmbrace(entry: ContentEntry | undefined, level: number) {

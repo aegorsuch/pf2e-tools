@@ -150,7 +150,8 @@ it('scales Highhelm fundamentals and property runes with fixed Keep Stone', () =
     })
     expect(armorEntry(c, bastionEntries, armor.name)?.data.strength).toBe(level >= 12 ? 5 : 4)
     const html = renderToStaticMarkup(<ArmorList c={c} entries={bastionEntries} save={() => {}} part="armor" />)
-    expect(html).toContain('Material: Keep Stone')
+    expect(html).toContain('Material:</span>')
+    expect(html).toContain('>Keep Stone</button>')
     expect(html).not.toContain('aria-label="Potency"')
     expect(html).not.toContain('aria-label="Resilient"')
     for (const rune of runes) {
@@ -159,6 +160,30 @@ it('scales Highhelm fundamentals and property runes with fixed Keep Stone', () =
     }
   }
   expect(JSON.stringify(armor)).toBe(original)
+})
+
+it('shows scaled armor runes in descriptions and exposes Keep Stone armor details', () => {
+  const keepStone = item('Keep Stone Armor', 'Keep stone armor protects against spells.', { item_category: 'Armor' })
+  const data = [...bastionEntries, keepStone]
+  for (const [name, level, description] of [
+    ['Highhelm Stronghold Bastion Plate', 5, '+1 moonweave bastion plate'],
+    ['Highhelm Stronghold Bastion Plate', 11, '+2 resilient moonweave greater sunweave bastion plate'],
+    ['Highhelm Stronghold Bastion Plate', 18, '+3 greater resilient major moonweave major sunweave greater fortification bastion plate'],
+    ['Highhelm Stronghold Bastion Plate', 20, '+3 major resilient major moonweave major sunweave greater fortification bastion plate'],
+    ['Bastion Plate of the Inheritor', 1, 'This is bastion plate.'],
+    ['Bastion Plate of the Inheritor', 20, '+3 major resilient major moonweave major sunweave greater fortification greater advancing bastion plate'],
+    ['Immortal Bastion Plate', 20, '+3 major resilient greater fortification bastion plate'],
+  ] as const) {
+    const c = { ...character, level, armors: [owned(name)] }
+    const html = renderToStaticMarkup(<ArmorList c={c} entries={data} save={() => {}} part="armor" />)
+    expect(html).toContain(description)
+    if (name.startsWith('Highhelm')) {
+      expect(html).toContain('>Keep Stone</button>')
+      expect(html).toContain('Keep stone armor protects against spells.')
+      expect(html).not.toContain('aria-label="Remove Keep Stone material"')
+    }
+  }
+  expect(bastionEntries[1].description).toContain('+2 resilient fortification bastion plate')
 })
 
 it('uses Orichalcum to allow one additional Immortal Bastion property rune', () => {
