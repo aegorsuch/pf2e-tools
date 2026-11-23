@@ -228,7 +228,8 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
     const at = level ?? entry.level
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
     return { ...entry, data: { ...entry.data, named_weapon_runes: [...new Set([...runes, 'Returning', 'Grievous',
-      ...(at >= 8 ? [at >= 19 ? 'Flaming (Major)' : at >= 15 ? 'Flaming (Greater)' : 'Flaming'] : [])])].join(';') } }
+      ...(at >= 8 ? [at >= 19 ? 'Flaming (Major)' : at >= 15 ? 'Flaming (Greater)' : 'Flaming'] : []),
+      ...(at >= 20 ? ['Impossible'] : [])])].join(';') } }
   }
   if (source === 'Coldstar Pistols') {
     const merged = weapon.coldstarForm === 'Merged'

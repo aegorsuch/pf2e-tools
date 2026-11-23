@@ -845,5 +845,5 @@ it("implements Clear Cutter's Axe as a +1 striking returning hatchet", () => {
     owned("Clear Cutter's Hatchet"))
   expect(weapon).toMatchObject({ potency: 2, striking: 2 })
   const runes = (level: number) => withNamedWeaponState(entry, owned("Clear Cutter's Hatchet"), level)?.data.named_weapon_runes
-  expect([7, 8, 15, 19].map(runes)).toEqual(['Returning;Grievous', 'Returning;Grievous;Flaming', 'Returning;Grievous;Flaming (Greater)', 'Returning;Grievous;Flaming (Major)'])
+  expect([7, 8, 15, 19, 20].map(runes)).toEqual(['Returning;Grievous', 'Returning;Grievous;Flaming', 'Returning;Grievous;Flaming (Greater)', 'Returning;Grievous;Flaming (Major)', 'Returning;Grievous;Flaming (Major);Impossible'])
 })
