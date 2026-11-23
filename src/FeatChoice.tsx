@@ -151,8 +151,8 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   }
   if (feat.name === 'Carry Their Memories' || feat.name === 'Dongun Education'
     || isFixedAncestralWeaponFamiliarity(c, entries, feat)) return null
-  if (c.systems.includes('sf2e') && c.ancestry === 'Lashunta'
-    && ['Creature Shape', 'Creature Ally'].includes(feat.name)) return null
+  if (c.systems.includes('sf2e') && (c.ancestry === 'Lashunta' && ['Creature Shape', 'Creature Ally'].includes(feat.name)
+    || c.ancestry === 'Shirren' && feat.name === 'Creature Shape')) return null
   if (feat.name === 'Memories of Valor' && c.systems.includes('sf2e')) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
     return <SearchableSelect label="Memories of Valor skill" aria-label="Memories of Valor skill" value={feat.choice ?? ''}

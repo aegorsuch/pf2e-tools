@@ -2036,7 +2036,8 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Widespread Fascination') return [...new Set(widespreadFascinationOptions(
     { ...c, subclass: selectedSubclass(c, entries) }, entries, c.feats[index]?.name === name ? c.feats[index]
       : { name, type: '', level: 1, slot: slotKey }).map(entry => entry.name))]
-  if (['Creature Shape', 'Creature Ally'].includes(name) && c.systems.includes('sf2e') && c.ancestry === 'Lashunta') return undefined
+  if (c.systems.includes('sf2e') && (c.ancestry === 'Lashunta' && ['Creature Shape', 'Creature Ally'].includes(name)
+    || c.ancestry === 'Shirren' && name === 'Creature Shape')) return undefined
   const spells = featSpellOptions(c, entries, { name, type: '', level: 1 })
   if (spells) return [...new Set(spells.map(spell => spell.name))]
 }
@@ -5958,6 +5959,10 @@ export function activeBattleForm(c: Character, entries: ContentEntry[]) {
     } else if (name === 'Dinosaur Form') {
       const form = dinosaurForm(c, entries)
       if (form) return form
+    } else if (name === 'Insect Form' && c.systems.includes('sf2e') && c.ancestry === 'Shirren' && c.creatureShape) {
+      const grant = grantedFeatSpells(c, entries).find(item => item.source === 'Creature Shape' && item.entry.name === name)
+      const form = grant && insectBattleForm(c.creatureShape.form, grant.rank, c.level)
+      if (form) return { ...form, source: 'Creature Shape' }
     } else if (name === 'Animal Form') {
       const creatureShape = grantedFeatSpells(c, entries).find(grant => grant.source === 'Creature Shape' && grant.entry.name === name)
       if (creatureShape && c.creatureShape && c.systems.includes('sf2e')

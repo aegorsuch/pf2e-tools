@@ -2,7 +2,7 @@ import type { ContentEntry } from './types'
 import { DRAGON_FORMS } from './barbarian'
 
 export const ANCESTRAL_AVATAR = 'Ancestral Embrace Avatar'
-export const BATTLE_FORM_SPELLS = new Set(['Animal Form', 'Dinosaur Form', 'Pest Form', 'Untamed Form', ANCESTRAL_AVATAR])
+export const BATTLE_FORM_SPELLS = new Set(['Animal Form', 'Dinosaur Form', 'Insect Form', 'Pest Form', 'Untamed Form', ANCESTRAL_AVATAR])
 
 const AVATAR_WEAPONS: ContentEntry[] = [
   { id: 'armor:ancestral-avatar:spear', name: 'Avatar Spear', kind: 'weapon', systems: ['pf2e'], source: 'official',

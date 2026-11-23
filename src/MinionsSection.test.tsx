@@ -194,6 +194,42 @@ it('grants Lashunta Creature Shape as occult Animal Form with two custom creatur
   expect(spellActiveChange(c, 'Dinosaur Form', true).creatureShape).toBeUndefined()
 })
 
+it('grants Shirren Creature Shape as occult Insect Form for a GM-selected kucharn form', () => {
+  const previous = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: false })
+  onTestFinished(() => updateSettings({ innateAutoHeighten: previous }))
+  const spell: ContentEntry = { id: 'insect-form', name: 'Insect Form', kind: 'spell', systems: ['sf2e'],
+    source: 'official', level: 3, traits: ['Polymorph'], description: 'You transform into a battle form.',
+    data: { tradition: 'Primal', actions: 'Two Actions' }, effects: [], updatedAt: 0 }
+  const entries = [spell]
+  let c: Character = { id: 'shirren', name: 'Test', systems: ['sf2e'], level: 17, ancestry: 'Shirren',
+    abilities: { str: 10, dex: 80, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Creature Shape', type: 'Ancestry Feat', level: 17, slot: 'ancestry:17:0', choice: 'Animal Form' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  expect(featChoiceOptions('Creature Shape', c, entries, 'ancestry:17:0')).toBeUndefined()
+  expect(featSpellOptions(c, entries, c.feats[0])).toBeUndefined()
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={entries} save={save} index={0} />)).toBe('')
+  expect(grantedFeatSpells(c, entries)).toEqual([expect.objectContaining({ entry: spell, source: 'Creature Shape', rank: 8,
+    rule: expect.objectContaining({ tradition: 'occult', frequency: 'once per day', fixedRank: true }) })])
+  expect(grantedFeatSpells({ ...c, level: 16 }, entries)).toEqual([])
+  expect(unresolvedFeatSpells(c, [])).toContainEqual(expect.objectContaining({ name: 'Insect Form' }))
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)
+  expect(markup).toContain('Occult Spell Rank 8')
+  expect(markup).toContain('aria-label="Kucharn battle form"')
+  expect(markup).not.toContain('<option>Bear</option>')
+  const normalAC = armorClass(c, entries)
+  const shape = () => CreatureShapeOptions({ c, entries, save, rank: 8 })
+  findSelect(shape(), 'Kucharn battle form')!({ target: { value: 'Ant' } })
+  expect(activeBattleForm(c, entries)).toMatchObject({ name: 'Ant', source: 'Creature Shape', rank: 8,
+    speed: 30, climbSpeed: 30, temporaryHp: 20,
+    attacks: [expect.objectContaining({ name: 'Ant Mandibles', data: expect.objectContaining({ damage: '4d6 bludgeoning' }) })] })
+  expect(armorClass(c, entries)).toBe(Math.max(normalAC, 35))
+  expect(ownedWeapons(c, entries).map(weapon => weapon.name)).toEqual(['Ant Mandibles'])
+  expect(activeBattleForm({ ...c, feats: [] }, entries)).toBeUndefined()
+  expect(spellActiveChange(c, 'Dinosaur Form', true).activeSpells).not.toContain('Insect Form')
+})
+
 it('grants Lashunta Creature Ally as occult Summon Animal and shows the selected summoned creature', () => {
   const previous = getSettings().innateAutoHeighten
   updateSettings({ innateAutoHeighten: false })

@@ -428,6 +428,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const selectedChoice = selection && (['Elemental Wrath', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', 'Tattooed Historian Dedication', 'Captain Dedication', 'Carry Their Memories',
             'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Eye for Treasure', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body', 'Distant Telepath'].includes(selection.name)
             || c.systems.includes('sf2e') && c.ancestry === 'Lashunta' && ['Creature Shape', 'Creature Ally'].includes(selection.name)
+            || c.systems.includes('sf2e') && c.ancestry === 'Shirren' && selection.name === 'Creature Shape'
             || isFixedAncestralWeaponFamiliarity(c, entries, selection)) ? undefined
             : selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
           const selectedLabel = selection?.name === 'Versatile Rogue' && selectedChoice === 'Mastermind' && c.rogueRacketSkills?.Mastermind
