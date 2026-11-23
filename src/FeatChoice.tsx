@@ -474,6 +474,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     )
   }
   const isWarden = hasWardenChoice(feat) && c.systems.includes('pf2e')
+  if (feat.name === 'Additional Follower' && c.systems.includes('pf2e')) return null
   if (['Commercial Customization', 'Tactical Customization', 'Advanced Customization', 'Superior Customization', 'Superior Drone'].includes(feat.name)
     && c.className === 'Mechanic' && c.systems.includes('sf2e')) return null
   const repeatable = !isWarden && isRepeatableFeat(entries, feat.name)

@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Children, Fragment, isValidElement, type ReactNode } from 'react'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, companionItemName, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
@@ -199,6 +199,26 @@ function minionSummaryData(c: Character) {
   return { companions, advancement, constructAdvancement, stage, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet }
 }
 
+function companionTitle(c: Character, index: number) {
+  const companion = c.companions![index]
+  const advancement = companion.type === CONSTRUCT_COMPANION_NAME
+    ? constructCompanionAdvancement(c) : companionAdvancementFor(c, index)
+  const stage = advancement.advanced ?? (advancement.mature
+    ? companion.type === CONSTRUCT_COMPANION_NAME ? 'Advanced' : 'Mature'
+    : companion.type === CONSTRUCT_COMPANION_NAME ? 'Prototype' : 'Young')
+  return `${stage} ${companion.type}${companion.name && companion.name !== companion.type ? ` (${companion.name})` : ''}`
+}
+
+function SortedMinionSections({ children }: { children: ReactNode }) {
+  const name = (child: ReactNode) => {
+    if (!isValidElement<Record<string, unknown>>(child)) return ''
+    if (child.type === SummonedCreature) return `Summoned ${child.props.displayName ?? child.props.name}`
+    if (child.type === SummonedFiendCard) return `Summoned ${(child.props.fiend as SummonedFiend).name}`
+    return String(child.props['data-minion-name'] ?? '')
+  }
+  return <>{Children.toArray(children).sort((a, b) => name(a).localeCompare(name(b), undefined, { sensitivity: 'base' }))}</>
+}
+
 function MinionFerocity({ c, ferocity }: { c: Character; ferocity: ReturnType<typeof minionFerocity> }) {
   if (!ferocity) return null
   const name = adoptedAncestryText(c, 'Orc Ferocity')
@@ -324,25 +344,22 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
 }
 
 export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
-  const { companions, constructAdvancement, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
+  const { companions, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
   const lashuntaAlly = activeLashuntaAlly(c)
   return <summary className="character-section-summary">
     <strong>Minions</strong>
-    <span>{[...companions.map((comp, index) => {
-      const compStage = comp.type === CONSTRUCT_COMPANION_NAME
-        ? constructAdvancement.advanced ?? (constructAdvancement.mature ? 'Advanced' : 'Prototype')
-        : companionAdvancementFor(c, index).advanced ?? (companionAdvancementFor(c, index).mature ? 'Mature' : 'Young')
-      return `${compStage} ${comp.type}${comp.name && comp.name !== comp.type ? ` (${comp.name})` : ''}`
-    }), ...(c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' ? ['Drone'] : []),
+    <span>{[...companions.map((_, index) => companionTitle(c, index)),
+      ...(c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' ? ['Drone'] : []),
       ...(familiar ? [leshy ? 'Leshy Familiar' : undeadFamiliar ? 'Undead Familiar'
         : crocodileFamiliar ? 'Crocodile Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
       ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
       ...Array.from({ length: followerCount(c) }, (_, index) => {
-        return `${FOLLOWER_STAGES[followerStage(c)]} ${followerTitle(c, index)}`
+        return followerTitle(c, index)
       }),
       ...(lashuntaAlly ? [`Summoned ${lashuntaAlly}`] : []),
       ...(activeShirrenAlly(c) ? ['Summoned Kucharn'] : []),
-      ...(activeSummonedFiend(c) ? [`Summoned ${activeSummonedFiend(c)!.name}`] : [])].join(', ') || '0 minions'}</span>
+      ...(activeSummonedFiend(c) ? [`Summoned ${activeSummonedFiend(c)!.name}`] : [])]
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })).join(', ') || '0 minions'}</span>
   </summary>
 }
 
@@ -362,7 +379,7 @@ export function FollowerCards({ c, entries, save }: SectionProps) {
     followers[index] = { ...followers[index], ...patch }
     save({ followers })
   }
-  return <>{Array.from({ length: followerCount(c) }, (_, index) => {
+  return Array.from({ length: followerCount(c) }, (_, index) => {
     const follower = c.followers?.[index]
     const typeIndex = FOLLOWER_TYPES.indexOf(follower?.type ?? '')
     const stage = followerStage(c)
@@ -400,7 +417,7 @@ export function FollowerCards({ c, entries, save }: SectionProps) {
       }
       if (stage >= 3 && stats) specials.push({ name: 'Energy Wave', actions: 'Two Actions', text: `Deal energy blast damage in a 15-foot or 30-foot cone with a basic Reflex save against DC ${10 + c.level + 4 + stats.attributes.int}. Recharge after 1d6 rounds.` })
     }
-    return <details className="character-subsection" open key={index}>
+    return <details className="character-subsection" data-minion-name={followerTitle(c, index)} open key={`follower:${index}`}>
       <summary><h4>{followerTitle(c, index)}</h4></summary>
       <div className="gear-traits"><span>Level {c.level}</span><span>{FOLLOWER_STAGES[stage]}</span><span>Minion</span></div>
       <label>Type <select aria-label={`Follower ${index + 1} type`} value={follower?.type ?? ''}
@@ -453,7 +470,7 @@ export function FollowerCards({ c, entries, save }: SectionProps) {
       <a href={typeIndex < 0 ? 'https://2e.aonprd.com/Followers.aspx' : `https://2e.aonprd.com/Followers.aspx?ID=${typeIndex + 1}`}
         target="_blank" rel="noreferrer">Follower statistics and abilities</a>
     </details>
-  })}</>
+  })
 }
 
 export function MinionsContent({ c, entries, save }: SectionProps) {
@@ -506,19 +523,18 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
     save({ feats: c.feats.map((feat, i) => i === featIndex ? { ...feat, choice: choice || undefined } : feat) })
   return (
       <div className="character-section-content minions-section-content">
+        <SortedMinionSections>
         {activeCaypinAlly(c) && <SummonedCreature name="Caypin" />}
         {lashuntaAlly && <SummonedCreature name={lashuntaAlly} />}
         {activeShirrenAlly(c) && <SummonedCreature name="Emganat" displayName="Kucharn" />}
         {activeSummonedFiend(c) && <SummonedFiendCard fiend={activeSummonedFiend(c)!} save={save} />}
-        {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" open>
+        {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" data-minion-name="Drone" open>
           <summary><h4>Drone</h4></summary>
           <DroneFeatures c={c} entries={entries} save={save} />
         </details>}
-        {(companions.length > 0 || companionGrant) && <details className="character-subsection" open>
-          <summary><h4>{companions.length === 1
-            ? companions[0].type === CONSTRUCT_COMPANION_NAME ? 'Construct Companion' : 'Animal Companion'
-            : 'Animal Companions'}</h4></summary>
-            {companions.length === 0 && companionGrant && <span>{companionGrant}{' '}
+        {companions.length === 0 && companionGrant && <details className="character-subsection" data-minion-name="Animal Companion" open>
+          <summary><h4>Animal Companion</h4></summary>
+          <span>{companionGrant}{' '}
             <SearchableSelect aria-label="Choose Faithful Steed" value="" onChange={(e) => {
               const type = types.find((type) => type.name === e.target.value)
                 if (type) save({ ...(faithfulSteed ? { faithfulSteedGranted: true } : {}),
@@ -527,16 +543,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               <option value="">Choose companion...</option>
               {types.map((type) => <option key={type.id}>{type.name}</option>)}
             </SearchableSelect>
-          </span>}
-          {companions.length > 0 && companions.length < companionLimit && <span>Beastmaster companion{' '}
-            <SearchableSelect aria-label="Choose additional companion" value="" onChange={(e) => {
-              const type = types.find((type) => type.name === e.target.value)
-              if (type) save({ companions: [...companions, { id: newId(), type: type.name, name: '' }] })
-            }}>
-              <option value="">Choose companion...</option>
-              {types.map((type) => <option key={type.id}>{type.name}</option>)}
-            </SearchableSelect>
-          </span>}
+          </span>
+        </details>}
           {companions.map((comp, index) => {
               const isConstruct = comp.type === CONSTRUCT_COMPANION_NAME
             const companionAdvances = isConstruct ? constructAdvancement : companionAdvancementFor(c, index)
@@ -619,7 +627,18 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   </label> }] : []),
               ].sort((a, b) => a.name.localeCompare(b.name))
             return (
-              <article key={comp.id} className="gear-card">
+              <details key={comp.id} className="character-subsection" data-minion-name={companionTitle(c, index)} open>
+                <summary><h4>{companionTitle(c, index)}</h4></summary>
+                {index === 0 && companions.length < companionLimit && <span>Beastmaster companion{' '}
+                  <SearchableSelect aria-label="Choose additional companion" value="" onChange={(e) => {
+                    const type = types.find((type) => type.name === e.target.value)
+                    if (type) save({ companions: [...companions, { id: newId(), type: type.name, name: '' }] })
+                  }}>
+                    <option value="">Choose companion...</option>
+                    {types.map((type) => <option key={type.id}>{type.name}</option>)}
+                  </SearchableSelect>
+                </span>}
+              <article className="gear-card">
                 <header className="row">
                   <SearchableSelect aria-label="Companion type" value={comp.type} onChange={(e) => update(comp.id, { type: e.target.value, supportActive: false })}>
                     {types.map((t) => <option key={t.id} value={t.name}>{t.name}{t.data.rarity && t.data.rarity !== 'common' ? ` (${t.data.rarity})` : ''}</option>)}
@@ -838,10 +857,10 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   <CompanionEquipmentSlots c={c} companion={comp} entries={companionEntries} save={save} />
                 </>}
               </article>
+              </details>
             )
           })}
-        </details>}
-        <FollowerCards c={c} entries={entries} save={save} />
+        {FollowerCards({ c, entries, save })}
         {[...(familiar ? [{ wasp: false, data: c.familiar }] : []),
           ...(wasp ? [{ wasp: true, data: c.waspFamiliar }] : [])].map(({ wasp: isWasp, data }) => {
           const isLeshy = leshy && !isWasp
@@ -898,7 +917,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               && (!alreadySelected || isFamiliarAbilityRepeatable(entry))
               && !familiarAbilityUnavailableReason(entry, c, savedAbilities.map(item => item.ability), isUndead, entries)
           })
-          return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" open>
+          return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" data-minion-name={isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : isCrocodile ? 'Crocodile Familiar' : 'Familiar'} open>
           <summary><h4>{isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
             : isCrocodile ? 'Crocodile Familiar' : 'Familiar'}</h4> ({activeAbilityChoices.length + Number(!!patronAbility)}/{dailyAbilityLimit})</summary>
           <article className="gear-card">
@@ -1036,7 +1055,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           <MinionFerocity c={c} ferocity={ferocity} />
           </article>
         </details>})}
-        {pet && <details className="character-subsection" open>
+        {pet && <details className="character-subsection" data-minion-name={seaFriend ? 'Aquatic Pet' : 'Pet'} open>
           <summary><h4>{seaFriend ? 'Aquatic Pet' : 'Pet'}</h4></summary>
           <article className="gear-card">
           {!seaFriend && <label><input type="checkbox" aria-label="Aquatic pet" checked={!!c.pet?.aquatic}
@@ -1114,6 +1133,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           <MinionFerocity c={c} ferocity={ferocity} />
           </article>
         </details>}
+        </SortedMinionSections>
       </div>
   )
 }

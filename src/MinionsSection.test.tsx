@@ -89,7 +89,25 @@ it('grants saved followers and permits ancestry selection only with Leader of Al
   expect(c.followers?.[0].ancestry).toBe('Elf')
   const withCompanion = { ...c, companions: [{ id: 'wolf', name: '', type: 'Wolf' }] }
   const ordered = renderToStaticMarkup(<MinionsContent c={withCompanion} entries={[elf]} save={save} />)
-  expect(ordered.indexOf('<h4>Animal Companion</h4>')).toBeLessThan(ordered.indexOf('<h4>Elf Scout</h4>'))
+  expect(ordered.indexOf('<h4>Elf Scout</h4>')).toBeLessThan(ordered.indexOf('<h4>Young Wolf</h4>'))
+})
+
+it('alphabetizes individual minions in the summary and sections without follower advancement in titles', () => {
+  const c: Character = { id: 'captain', name: 'Test', systems: ['pf2e'], level: 14,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Captain Dedication', type: 'Archetype Feat', level: 2 },
+      { name: 'Additional Follower', type: 'Archetype Feat', level: 4 },
+      { name: 'Exceptional Follower', type: 'Archetype Feat', level: 14 },
+      { name: 'Leader of All', type: 'Archetype Feat', level: 4 }],
+    followers: [{ type: 'Sharpshooter', ancestry: 'Orc' }, { type: 'Scout', ancestry: 'Elf' }],
+    companions: [{ id: 'wolf', type: 'Wolf', name: '' }, { id: 'bear', type: 'Bear', name: '' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const summary = renderToStaticMarkup(<MinionsSummary c={c} />)
+  expect(summary).toContain('Elf Scout, Orc Sharpshooter, Young Bear, Young Wolf')
+  expect(summary).not.toContain('Exceptional Orc Sharpshooter')
+  const html = renderToStaticMarkup(<MinionsContent c={c} entries={[]} save={() => {}} />)
+  const headings = [...html.matchAll(/<h4>([^<]+)<\/h4>/g)].map(match => match[1])
+  expect(headings).toEqual(['Elf Scout', 'Orc Sharpshooter', 'Young Bear', 'Young Wolf'])
 })
 
 it('shows follower advancement and retains adept choices', () => {
@@ -1294,7 +1312,7 @@ it('shows alphabetical companion status controls and groups action costs, maneuv
     }, effects: [], updatedAt: 1,
   }
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[cat]} save={() => {}} />)
-  expect(markup).toContain('<h4>Animal Companion</h4>')
+  expect(markup).toContain('<h4>Young Cat</h4>')
   expect(markup).not.toContain('Companions (1)')
   expect(markup.indexOf('Canopy Crawler')).toBeLessThan(markup.indexOf('Enlarge Companion'))
   expect(markup.indexOf('Enlarge Companion')).toBeLessThan(markup.indexOf('Magic Hide'))
@@ -1628,7 +1646,7 @@ it('lets a Champion choose Faithful Steed without a companion naming field', () 
   select({ target: { value: 'Horse' } })
   expect(c.companions).toMatchObject([{ type: 'Horse', name: '' }])
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[horse]} save={save} />)
-  expect(markup).toContain('<h4>Animal Companion</h4>')
+  expect(markup).toContain('<h4>Young Horse</h4>')
   expect(markup).toContain('aria-label="Companion type"')
   expect(markup).not.toContain('Choose Faithful Steed')
   expect(markup).not.toContain('aria-label="Companion name"')

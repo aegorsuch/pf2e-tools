@@ -290,6 +290,14 @@ it('indexes repeatable choice metadata once and refreshes it with the catalog', 
     .toContain('Custom Feat choice')
 })
 
+it('does not show a generic choice field for Additional Follower', () => {
+  const feat: ContentEntry = { ...entries[0], kind: 'feat', name: 'Additional Follower',
+    spellGrants: undefined, data: { repeatable: true } }
+  const c: Character = { ...base, systems: ['pf2e'], feats: [{ name: feat.name, type: 'Archetype Feat', level: 4, choice: 'saved' }] }
+  expect(FeatChoice({ c, entries: [feat], index: 0, save: () => { throw new Error('Unexpected save') } })).toBeNull()
+  expect(c.feats[0].choice).toBe('saved')
+})
+
 it('saves and restores a valid feat spell choice without accepting another tradition', () => {
   const source: ContentEntry = {
     ...entries[0], id: 'magic', kind: 'feat', name: 'Otherworldly Magic', traits: [], data: {},
