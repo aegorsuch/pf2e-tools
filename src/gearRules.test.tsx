@@ -1194,6 +1194,14 @@ it('provides Elemental Explosion with selected damage and a once-per-Rage roll',
   expect(resistances({ ...c, level: 9 }, []).some(resistance => resistance.damage.includes('Water') && resistance.value === 3)).toBe(true)
 })
 
+it('provides an Inscribed Blast roll that scales and is spent until runes are re-inscribed', () => {
+  const c: Character = { ...base, systems: ['pf2e'], className: 'Fighter', level: 5, feats: [feat('Inscribed Blast', 5)] }
+  const html = (character: Character) => renderToStaticMarkup(<ClassFeatures c={character} entries={[]} save={() => {}} />)
+  expect(html(c)).toContain('2d4 force')
+  expect(html({ ...c, level: 15 })).toContain('4d4 force')
+  expect(html({ ...c, inscribedBlastUsed: true })).toContain('Re-inscribe runes')
+})
+
 it('grants animal instinct piercing and slashing resistance only while raging at level 9', () => {
   const c: Character = { ...base, className: 'Barbarian', subclass: 'Animal', level: 9, raging: true,
     abilities: { ...base.abilities, con: 16 } }

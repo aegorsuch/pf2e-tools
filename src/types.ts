@@ -257,6 +257,7 @@ export interface Character {
   elementalUseEvolution?: boolean
   elementalExplosionUsed?: boolean
   scouringRageUsed?: boolean
+  inscribedBlastUsed?: boolean
   scouringRageDamage?: string
   giantStature?: 'Large' | 'Huge'
   giantWeaponId?: string
