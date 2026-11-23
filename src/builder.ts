@@ -1470,7 +1470,7 @@ export function matchesSkill(entry: ContentEntry, skill: string, feats: Readonly
 }
 
 export function eligibleFeats(entries: ContentEntry[], c: Character, slot: PlannedSlot,
-  options: { includeUnmetPrerequisites?: boolean } = {}) {
+  options: { includeUnmetPrerequisites?: boolean; name?: string } = {}) {
   const wanted: Partial<Record<FeatSlotCategory, string | undefined>> = {
     class: c.className, ancestry: c.ancestry, skill: 'skill', general: 'general', archetype: 'archetype',
   }
@@ -1513,7 +1513,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     && (ranksAt({ ...c, level: slot.level }, entries)[slot.grantedSkill] ?? 0) >= 3
   const spellcastingDedications = slot.grantedBy === 'Eldritch Trickster' ? eldritchTricksterDedications(entries) : undefined
   const prerequisites = featSelectionPrerequisiteChecker(c, entries, slot)
-  const redundantUnarmedTraits = new Set(ancestryTraits.filter(ancestry => {
+  const redundantUnarmedTraits = new Set(options.name && options.name !== 'Ancestral Unarmed Attack' ? [] : ancestryTraits.filter(ancestry => {
     const names = new Set(ancestralUnarmedFeatNames([ancestry]))
     return names.size > 0 && (c.feats.some(feat => names.has(feat.name) && feat.slot !== slot.key
       && featTakenLevel(feat) <= Math.min(c.level, slot.level))
@@ -1525,7 +1525,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     ...c, feats: c.feats.filter(feat => featTakenLevel(feat) <= Math.min(c.level, slot.level)),
   }, entries, slot.key, true) : undefined
   const candidates = featIndex(entries)
-    .filter(({ entry: e, traits }) => (e.name === 'Magical Trickster' && slot.category === 'class'
+    .filter(({ entry: e, traits }) => (!options.name || e.name === options.name) && (e.name === 'Magical Trickster' && slot.category === 'class'
       && rogueRackets({ ...c, level: Math.min(c.level, slot.level) }, entries).includes('Eldritch Trickster') ? 2
       : featSelectionLevel(e, c, entries, slot.category, slot)) <= (slot.grantedBy === 'Eldritch Trickster'
       ? slot.maxFeatLevel ?? 2 : Math.min(slot.level, slot.maxFeatLevel ?? slot.level))
