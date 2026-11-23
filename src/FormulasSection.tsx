@@ -68,13 +68,13 @@ export function FormulasContent({ c, entries, save }: SectionProps) {
   const knownKeys = new Set(known.map(formula => key(formula.name)))
   const items = useMemo(() => entries.filter(entry => ['item', 'weapon', 'armor', 'shield'].includes(entry.kind)
     && !entry.deleted && entry.systems.some(system => c.systems.includes(system))), [entries, c.systems])
-  const snares = items.filter(item => item.traits.some(trait => key(trait) === 'snare'))
-  const basic = snares.filter(item => item.level === 1 && !featRarity(item))
+  const snares = useMemo(() => items.filter(item => item.traits.some(trait => key(trait) === 'snare')), [items])
+  const basic = useMemo(() => snares.filter(item => item.level === 1 && !featRarity(item)), [snares])
   const other = sources.brastlewark ? snares.filter(item => item.level <= featTakenLevel(sources.brastlewark!)
     && featRarity(item) === 'Uncommon' && item.traits.some(trait => key(trait) === 'magical')) : []
-  const gadgetOptions = items.filter(item => item.traits.some(trait => key(trait) === 'gadget')
-    && !['Rare', 'Unique'].includes(featRarity(item) ?? ''))
-  const munitionsOptions = munitionsFormulaOptions(items, c.systems)
+  const gadgetOptions = useMemo(() => items.filter(item => item.traits.some(trait => key(trait) === 'gadget')
+    && !['Rare', 'Unique'].includes(featRarity(item) ?? '')), [items])
+  const munitionsOptions = munitions ? munitionsFormulaOptions(items, c.systems) : []
   const options = (field: 'snareFormulaChoices' | 'snareAdvancementFormulaChoices' | 'brastlewarkFormulaChoices'
     | 'gadgetFormulaChoices' | 'munitionsFormulaChoices' | 'grenadeFormulaChoices' | 'cauldronFormulaChoices', count: number, candidates: ContentEntry[], label: string,
     offset = 0, distinct = false) => {

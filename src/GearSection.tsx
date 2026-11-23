@@ -548,6 +548,21 @@ function Material({ name, entries, equipment, onRemove, source }: {
   return <GearTag name={name} entry={entry} onRemove={onRemove} source={source} kind="material" />
 }
 
+const propertyRuneIndex = new WeakMap<ContentEntry[], Map<string, ContentEntry>>()
+function propertyRuneEntries(entries: ContentEntry[]) {
+  let index = propertyRuneIndex.get(entries)
+  if (!index) {
+    index = new Map()
+    for (const entry of entries) {
+      if (entry.kind !== 'item' || !/(?:Property Runes|Clan Dagger Filigrees)$/.test(String(entry.data.item_subcategory))) continue
+      const key = runeName(entry.name)
+      if (!index.has(key)) index.set(key, entry)
+    }
+    propertyRuneIndex.set(entries, index)
+  }
+  return index
+}
+
 function Runes({ runes, options, entries, limit, freeRunes = [], onChange, source }: {
   runes: string[]
   options: { name: string; level?: number }[]
@@ -558,9 +573,7 @@ function Runes({ runes, options, entries, limit, freeRunes = [], onChange, sourc
   source?: string
 }) {
   const sortedRunes = [...runes].sort((a, b) => a.localeCompare(b))
-  const entryFor = (name: string) => entries.find((entry) => entry.kind === 'item'
-    && /(?:Property Runes|Clan Dagger Filigrees)$/.test(String(entry.data.item_subcategory))
-    && runeName(entry.name) === runeName(name).split(':')[0])
+  const entryFor = (name: string) => propertyRuneEntries(entries).get(runeName(name).split(':')[0])
   return (
     <div className="gear-runes">
       {sortedRunes.map((r) => (
