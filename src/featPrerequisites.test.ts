@@ -67,6 +67,30 @@ it('allows Armored Rebuff through Stalwart Defender at level 10 or Sentinel at l
   expect(eligibleFeats(entries, { ...c, feats: [{ ...c.feats[0], name: sentinel.name }] }, slot(8))).toContain(rebuff)
 })
 
+it('allows Mighty Bulwark through Stalwart Defender at level 12 or Sentinel at level 10', () => {
+  const defender = entry('feat', 'Stalwart Defender Dedication', { archetype: 'Stalwart Defender' }, 2, ['Archetype', 'Dedication'])
+  const sentinel = entry('feat', 'Sentinel Dedication', { archetype: 'Sentinel' }, 2, ['Archetype', 'Dedication'])
+  const mighty = mapAonHit({ _id: 'mighty-bulwark', _source: {
+    name: 'Mighty Bulwark', category: 'feat', level: 8, trait: ['Archetype', 'Guardian'],
+    archetype: ['Sentinel', 'Stalwart Defender'], prerequisite: 'Sentinel Dedication',
+    markdown: '**Archetypes** [Stalwart Defender](/Archetypes.aspx?ID=205) (Level 12), [Sentinel](/Archetypes.aspx?ID=264) (Level 10)',
+  } }, 'pf2e')!
+  const entries = [defender, sentinel, mighty]
+  const c: Character = { ...base, level: 12, feats: [
+    { name: defender.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+  ] }
+  const slot = (level: number) => ({ key: `archetype:${level}:0`, category: 'archetype' as const, level })
+  expect(eligibleFeats(entries, c, slot(10))).not.toContain(mighty)
+  expect(eligibleFeats(entries, c, slot(12))).toContain(mighty)
+  expect(eligibleFeats(entries, { ...c, feats: [] }, slot(12))).not.toContain(mighty)
+  expect(eligibleFeats(entries, { ...c, feats: [{ ...c.feats[0], name: sentinel.name }] }, slot(10))).toContain(mighty)
+  const previous = getSettings().dwarfStalwartDefender
+  try {
+    updateSettings({ dwarfStalwartDefender: true })
+    expect(featPrerequisiteChecker({ ...c, ancestry: 'Dwarf', feats: [] }, entries)(mighty).missing).toEqual([])
+  } finally { updateSettings({ dwarfStalwartDefender: previous }) }
+})
+
 it('allows all Cavaliers to meet Stalwart Standard prerequisites', () => {
   const cavalier = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
   const knight = entry('feat', 'Knight Vigilant', { archetype: 'Knight Vigilant' }, 6, ['Archetype', 'Dedication'])

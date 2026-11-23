@@ -276,7 +276,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   const atom = (text: string, level: number, trail: Set<string>, inheritedRank?: string, survivalForCrafting = false): PrerequisiteCheck | undefined => {
     const facts = context.facts(level)
     const name = key(text).replace(/\.$/, '')
-    if (name === 'sentinel dedication' && (trail.has('steel skin') || trail.has('armored rebuff'))
+    if (name === 'sentinel dedication' && ['steel skin', 'armored rebuff', 'mighty bulwark'].some(feat => trail.has(feat))
       && facts.stalwartDefenderGranted) return met()
     if (trail.has('stalwart standard') && ["cavalier's banner", 'knight vigilant'].includes(name)
       && (facts.cavalierGranted || facts.feats.some(feat => key(feat.name) === 'cavalier dedication'))) return met()
@@ -522,7 +522,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     const reference = name.replace(/ (?:class feature|feat|heritage|ancestry)$/, '')
     const references = reference === 'attack of opportunity' ? [reference, 'reactive strike']
       : reference === 'reactive strike' ? [reference, 'attack of opportunity']
-      : reference === 'sentinel dedication' && (trail.has('steel skin') || trail.has('armored rebuff'))
+      : reference === 'sentinel dedication' && ['steel skin', 'armored rebuff', 'mighty bulwark'].some(feat => trail.has(feat))
         ? [reference, 'stalwart defender dedication']
       : reference === 'tusks unarmed attack' ? ['tusks', 'tusks (orc)']
       : reference === 'ancestral unarmed attack' ? [reference, ...ancestralUnarmedFeatNames(
