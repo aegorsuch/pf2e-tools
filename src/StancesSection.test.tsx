@@ -1,12 +1,13 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
-import { activeStance, availableStances, intensifiedElementDamage } from './builder'
+import { activeStance, availableStances, intensifiedElementDamage, starfinderArmorPenalties, temporaryHpGrant, tenaciousStanceHasArmor } from './builder'
 import { EntryDescription } from './EntryDescription'
 import { featDisplayName } from './featChoices'
 import { FeatSlots } from './FeatSlots'
 import { StancesContent, StancesSummary } from './StancesSection'
 import { SpellsSection } from './SpellsSection'
+import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
 const stance = (name: string, level = 1, traits = ['Stance']): ContentEntry => ({
@@ -77,6 +78,79 @@ it('saves one active stance, switches stances and allows leaving without changin
   controls()[0].onChange()
   expect(c.activeStance).toBeUndefined()
   expect(JSON.stringify(c.feats)).toBe(original)
+})
+
+it('grants Tenacious Stance at the dedication level, including the dwarf house rule', () => {
+  const dedication = stance('Stalwart Defender Dedication', 2, ['Dedication'])
+  const c = { ...base, level: 2, feats: [learn(dedication)] }
+  expect(availableStances(c, [dedication]).map(entry => entry.name)).toContain('Tenacious Stance')
+  expect(availableStances({ ...c, level: 1 }, [dedication])).toEqual([])
+  expect(availableStances({ ...c, systems: ['sf2e'] }, [dedication])).toEqual([])
+  const previous = getSettings().dwarfStalwartDefender
+  try {
+    updateSettings({ dwarfStalwartDefender: true })
+    expect(availableStances({ ...c, ancestry: 'Dwarf', feats: [] }, []).map(entry => entry.name)).toContain('Tenacious Stance')
+    expect(availableStances({ ...c, ancestry: 'Dwarf', feats: [], level: 1 }, [])).toEqual([])
+  } finally { updateSettings({ dwarfStalwartDefender: previous }) }
+})
+
+it('requires armor and tracks Tenacious Stance temporary HP immunity across reentry', () => {
+  const dedication = stance('Stalwart Defender Dedication', 2, ['Dedication'])
+  const armor: ContentEntry = { ...stance('Test Plate'), kind: 'armor',
+    data: { armor_category: 'Heavy', strength: 18, check_penalty: -3, speed_penalty: -10 } }
+  const entries = [dedication, armor]
+  let c: Character = { ...base, level: 5, abilities: { ...base.abilities, str: 18 }, feats: [learn(dedication)] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  type Props = { children?: ReactNode; 'aria-label'?: string; disabled?: boolean; onChange?: (event: { target: { checked: boolean } }) => void }
+  const find = (label: string) => {
+    let result: Props | undefined
+    const visit = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<Props>(child)) return
+      if (child.props['aria-label'] === label) result = child.props
+      visit(child.props.children)
+    })
+    visit(StancesContent({ c, entries, save }))
+    if (!result) throw new Error(`Missing ${label}`)
+    return result
+  }
+  const event = { target: { checked: false } }
+  expect(find('Use Tenacious Stance').disabled).toBe(true)
+  c = { ...c, armors: [{ id: 'armor', name: armor.name, potency: 0, resilient: 0, runes: [], worn: true }] }
+  expect(find('Use Tenacious Stance').disabled).toBe(false)
+  expect(tenaciousStanceHasArmor(c, [{ ...armor, data: { armor_category: 'Unarmored' } }])).toBe(false)
+  expect(starfinderArmorPenalties(c, entries)).toEqual({ check: 0, speed: -5 })
+  find('Use Tenacious Stance').onChange!(event)
+  expect(temporaryHpGrant(c, entries)?.value).toBe(2)
+  expect(starfinderArmorPenalties(c, entries)).toEqual({ check: -3, speed: -10 })
+  const sfArmor: ContentEntry = { ...armor, systems: ['sf2e'], data: { ...armor.data, strength: 4 } }
+  const mixed: Character = { ...c, systems: ['pf2e', 'sf2e'], abilities: { ...c.abilities, str: 18 } }
+  expect(starfinderArmorPenalties(mixed, [sfArmor])).toEqual({ check: -3, speed: -10 })
+  expect(starfinderArmorPenalties({ ...mixed, className: 'Soldier', abilities: { ...mixed.abilities, con: 18 } }, [sfArmor]))
+    .toEqual({ check: 0, speed: -5 })
+  const none = () => {
+    const root = StancesContent({ c, entries, save })
+    let handler: (() => void) | undefined
+    const visit = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<{ children?: ReactNode; type?: string; 'aria-label'?: string; onChange?: () => void }>(child)) return
+      if (child.type === 'input' && !child.props['aria-label'] && !handler) handler = child.props.onChange
+      visit(child.props.children)
+    })
+    visit(root)
+    if (!handler) throw new Error('Missing None control')
+    handler()
+  }
+  none()
+  expect(temporaryHpGrant(c, entries)).toBeUndefined()
+  expect(c.tenaciousStanceHpImmune).toBe(true)
+  find('Use Tenacious Stance').onChange!(event)
+  expect(temporaryHpGrant(c, entries)).toBeUndefined()
+  find('Tenacious Stance temporary HP immunity').onChange!(event)
+  expect(temporaryHpGrant(c, entries)).toBeUndefined()
+  none()
+  find('Tenacious Stance temporary HP immunity').onChange!(event)
+  find('Use Tenacious Stance').onChange!(event)
+  expect(temporaryHpGrant(c, entries)?.value).toBe(2)
+  expect(temporaryHpGrant({ ...c, armors: [] }, entries)).toBeUndefined()
 })
 
 it.each([

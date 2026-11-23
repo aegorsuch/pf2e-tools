@@ -263,6 +263,8 @@ export interface Character {
   giantRagingResistance?: 'Cold' | 'Electricity' | 'Fire'
   parrying?: boolean
   activeStance?: string
+  tenaciousStanceHpImmune?: boolean
+  tenaciousStanceHpGranted?: boolean
   intensifiedElement?: { element: 'Earth' | 'Fire' | 'Metal' | 'Water' | 'Wood'; legendary?: boolean; used?: boolean }
   activeFeatEffects?: string[]
   conditions?: { frightened?: number; sickened?: number; enfeebled?: number }

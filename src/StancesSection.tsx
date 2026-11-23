@@ -1,4 +1,4 @@
-import { activeStance, availableStances, ELEMENTAL_MEDICINES, intensifiedElementDamage, type SectionProps } from './builder'
+import { activeStance, availableStances, ELEMENTAL_MEDICINES, intensifiedElementDamage, tenaciousStanceHasArmor, type SectionProps } from './builder'
 import { EntryDescription } from './EntryDescription'
 import { adoptedAncestryText, featDisplayName } from './featChoices'
 import { DamageRoll } from './SpellDamage'
@@ -17,19 +17,31 @@ export function StancesContent({ c, entries, save }: SectionProps) {
   const medicine = c.intensifiedElement
   const damage = intensifiedElementDamage(c, entries)
   const group = `stance:${c.id}`
+  const stanceChange = (name: string | undefined): Partial<typeof c> => ({
+    activeStance: name,
+    ...(active?.name === 'Tenacious Stance' && name !== active.name
+      ? { tenaciousStanceHpImmune: true, tenaciousStanceHpGranted: false } : {}),
+    ...(name === 'Tenacious Stance' && active?.name !== name
+      ? { tenaciousStanceHpGranted: !c.tenaciousStanceHpImmune } : {}),
+  })
   return <div className="character-section-content">
     <fieldset className="stance-options">
       <legend>Active stance</legend>
       <label><input type="radio" name={group} checked={!active}
-        onChange={() => save({ activeStance: undefined })} /> None</label>
+        onChange={() => save(stanceChange(undefined))} /> None</label>
       {stances.map(entry => <div className="stance-option" key={entry.name}>
         <input type="radio" name={group} aria-label={`Use ${adoptedAncestryText(c, featDisplayName(entry))}`}
           checked={active?.name === entry.name}
-          disabled={entry.name === 'Intensified Element Stance' && active?.name !== entry.name && (!medicine || !!medicine.used)}
-          onChange={() => save({ activeStance: entry.name,
+          disabled={active?.name !== entry.name && (entry.name === 'Intensified Element Stance' && (!medicine || !!medicine.used)
+            || entry.name === 'Tenacious Stance' && !tenaciousStanceHasArmor(c, entries))}
+          onChange={() => save({ ...stanceChange(entry.name),
             ...(entry.name === 'Intensified Element Stance' && medicine
               ? { intensifiedElement: { ...medicine, used: true } } : {}) })} />
         <EntryDescription character={c} name={entry.name} entry={entry} entries={entries} className="feat-name" />
+        {entry.name === 'Tenacious Stance' && <label>
+          <input type="checkbox" aria-label="Tenacious Stance temporary HP immunity" checked={!!c.tenaciousStanceHpImmune}
+            onChange={event => save({ tenaciousStanceHpImmune: event.target.checked })} /> Temporary HP immunity
+        </label>}
         {entry.name === 'Intensified Element Stance' && <>
           <label>Elemental medicine{' '}
             <select aria-label="Intensified Element Stance medicine" value={medicine?.element ?? ''} disabled={!!medicine?.used}

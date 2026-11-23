@@ -34,6 +34,18 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('shows Tenacious Stance DC bonuses only while wearing armor in the stance', () => {
+  const armor: ContentEntry = { ...ranger, id: 'plate', kind: 'armor', name: 'Plate',
+    data: { armor_category: 'Heavy' } }
+  const c: Character = { ...base, level: 2, activeStance: 'Tenacious Stance',
+    feats: [{ name: 'Stalwart Defender Dedication', type: 'Archetype Feat', level: 2 }],
+    armors: [{ id: 'plate', name: armor.name, potency: 0, resilient: 0, runes: [], worn: true }] }
+  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[ranger, armor]} save={() => {}} part="defense" />)
+  expect(render(c)).toContain('against Shove or Trip (+2 circumstance; circumstance bonuses do not stack)')
+  expect(render({ ...c, armors: [] })).not.toContain('Tenacious Stance note')
+  expect(render({ ...c, activeStance: undefined })).not.toContain('Tenacious Stance note')
+})
+
 it('summarizes current senses and movement speeds in the section header', () => {
   const ancestry: ContentEntry = { ...ranger, id: 'elf', kind: 'ancestry', name: 'Elf',
     data: { vision: 'Low-Light Vision', speed: 25 } }

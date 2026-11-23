@@ -110,6 +110,8 @@ export function temporaryHpGrant(c: Character, entries: ContentEntry[]) {
   const rage = c.raging && (c.className === 'Barbarian' || activeFeatsNamed(c, 'Barbarian Dedication').length > 0)
     ? Math.max(0, c.level + abilityMod(c.abilities.con)) : 0
   const grants: { source: string; value: number }[] = []
+  if (tenaciousStanceActive(c, entries) && c.tenaciousStanceHpGranted)
+    grants.push({ source: 'Tenacious Stance', value: Math.max(1, Math.floor(c.level / 2)) })
   if (rage || form?.source === 'Dragon Transformation') {
     grants.push({ source: form?.source === 'Dragon Transformation' ? 'Rage and Dragon Transformation' : 'Rage',
       value: rage + (form?.source === 'Dragon Transformation' ? form.temporaryHp : 0) })
@@ -2510,13 +2512,17 @@ export function starfinderArmorPenalties(c: Character, entries: ContentEntry[]) 
   const armor = worn && armorEntry(c, entries, worn.name, worn.id)
   if (armor && !armor.systems.includes('sf2e')) {
     const base = Math.min(0, num(armor.data.speed_penalty))
-    const meets = armorStrengthMet(c, armor)
+    const tenacious = tenaciousStanceActive(c, entries)
+    const meets = armorStrengthMet(c, armor) && !tenacious
     const mobility = activeFeatsNamed(c, 'Hellknight Mobility').length > 0 && armorCategory(armor) === 'Heavy'
     const iron = activeFeatsNamed(c, 'Unburdened Iron').length ? 5 : 0
-    return { check: 0, speed: Math.min(0, base + iron + (meets ? mobility ? 10 : 5 : 0)) }
+    return { check: tenacious ? Math.min(0, num(armor.data.check_penalty)) : 0,
+      speed: Math.min(0, base + iron + (meets ? mobility ? 10 : 5 : 0)) }
   }
   if (!armor) return { check: 0, speed: 0 }
-  const meets = armorStrengthMet(c, armor)
+  const meets = tenaciousStanceActive(c, entries)
+    ? isSoldier(c) && num(armor.data.strength) > 0 && abilityMod(c.abilities.con) >= num(armor.data.strength)
+    : armorStrengthMet(c, armor)
   const check = meets ? 0 : Math.min(0, num(armor.data.check_penalty))
   const penalty = Math.min(0, num(armor.data.speed_penalty))
   const heavyConstruction = worn?.id === INVENTOR_ARMOR_ID && armorModifications(c).some(mod => mod.name === 'Heavy Construction')
@@ -2858,6 +2864,14 @@ function weaponHasParry(c: Character, entries: ContentEntry[], weapon: OwnedWeap
 
 export function availableStances(c: Character, entries: ContentEntry[]) {
   const stances = new Map<string, ContentEntry>()
+  if (hasTenaciousStance(c)) {
+    stances.set('Tenacious Stance', {
+      id: 'granted:tenacious-stance', name: 'Tenacious Stance', level: 2, kind: 'feat',
+      systems: ['pf2e'], source: 'official', traits: ['Stance'], effects: [], updatedAt: 0,
+      data: { actions: 'Single Action' },
+      description: 'Requires armor. Gain temporary HP equal to half your level (minimum 1) and a +2 circumstance bonus to DCs against Shove and Trip. Strength no longer reduces armor check or Speed penalties. On leaving, lose the temporary HP and become immune to gaining them from this stance for 1 minute.',
+    })
+  }
   for (const feat of [...c.feats.filter(feat => featTakenLevel(feat) <= c.level), ...automaticFeatGrants(c, entries)]) {
     const entry = selectedFeatEntry(c, entries, feat.name, 'sourceId' in feat ? feat.sourceId : undefined)
     if (entry && entry.level <= c.level && isStanceFeat(entry)) {
@@ -2871,6 +2885,21 @@ export function availableStances(c: Character, entries: ContentEntry[]) {
 
 export const activeStance = (c: Character, entries: ContentEntry[]) =>
   c.activeStance ? availableStances(c, entries).find(entry => entry.name === c.activeStance) : undefined
+
+function hasTenaciousStance(c: Character) {
+  return c.systems.includes('pf2e') && (activeFeatsNamed(c, 'Stalwart Defender Dedication').length > 0
+    || activeHomebrewDedications(c).some(rule => rule.name === 'Stalwart Defender Dedication'))
+}
+
+export function tenaciousStanceActive(c: Character, entries: ContentEntry[]) {
+  return c.activeStance === 'Tenacious Stance' && hasTenaciousStance(c) && tenaciousStanceHasArmor(c, entries)
+}
+
+export function tenaciousStanceHasArmor(c: Character, entries: ContentEntry[]) {
+  const worn = wornArmor(c, entries)
+  const armor = worn && armorEntry(c, entries, worn.name, worn.id)
+  return !!armor && armorCategory(armor) !== 'Unarmored'
+}
 
 export const ELEMENTAL_MEDICINES = ['Earth', 'Fire', 'Metal', 'Water', 'Wood'] as const
 export function intensifiedElementDamage(c: Character, entries: ContentEntry[]) {

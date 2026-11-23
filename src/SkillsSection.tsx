@@ -12,7 +12,7 @@ import { TotalBreakdown } from './TotalBreakdown'
 import { warmaskSource, warmaskItemBonus } from './warmask'
 import { armorModifications, armorOverdriveActive } from './inventorArmor'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
-import { apexSkillBonus, temporaryHpGrant, wornArmor } from './builder'
+import { apexSkillBonus, temporaryHpGrant, tenaciousStanceActive, wornArmor } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { getSettings } from './settings'
 import { backgroundLoreChoiceOptions, backgroundLoreSlots, backgroundSkillSlots, chosenLoreFeats, normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
@@ -595,6 +595,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             note="A success to Balance on uneven earth or rock becomes a critical success." />}
           {s.kind === 'save' && !!activeFeatsNamed(c, 'Steadying Stone').length && <SourceNote source="Steadying Stone"
             note={`${conditionalTotal(heritages.has('Rock Dwarf') ? 3 : 2)} against spells or effects that would knock you prone while on the ground (+${heritages.has('Rock Dwarf') ? 3 : 2} circumstance). Fortitude and Reflex DCs gain the same bonus against Shove or Trip.`} />}
+          {['Fortitude', 'Reflex'].includes(s.name) && tenaciousStanceActive(c, entries) && <SourceNote source="Tenacious Stance"
+            note={`DC ${10 + total + Math.max(0, 2 - (circumstance?.value ?? 0))} against Shove or Trip (+2 circumstance; circumstance bonuses do not stack).`} />}
           {s.kind === 'save' && shieldRaised(c) && !!activeFeatsNamed(c, 'Necromantic Deflection').length && <SourceNote source="Necromantic Deflection"
             note={`${conditionalTotal(raisedShieldBonus(c, entries))} against necromancy spells while your shield is raised (+${raisedShieldBonus(c, entries)} circumstance). If you have Shield Block, it can also prevent nonphysical damage from necromancy spells.`} />}
           {s.kind === 'save' && !!activeFeatsNamed(c, 'Haughty Obstinacy').length && <SourceNote source="Haughty Obstinacy"
