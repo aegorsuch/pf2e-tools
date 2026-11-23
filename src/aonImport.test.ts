@@ -1,5 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { AON_IMPORT_VERSION, importFromAon, mapAonHits } from './aon'
+import { eligibleFeats } from './builder'
+import type { Character } from './types'
 import sf2eSnapshot from '../public/data/aon-sf2e.json?raw'
 
 const stored = vi.hoisted(() => ({ bulkPut: vi.fn() }))
@@ -103,6 +105,28 @@ it('adds identical class copies of Deimatic Display and Ears of the Forest', () 
       data: ears.data,
     })
   }
+})
+
+it('offers the level 6 Steady Spellcasting to Ranger and Champion without changing its rules', () => {
+  const hit = { _id: 'feat-4602', _source: {
+    name: 'Steady Spellcasting', category: 'feat', level: 6, trait: ['Bard', 'Druid', 'Wizard'],
+    archetype: ['Hellknight'], markdown: 'If a reaction would disrupt your spellcasting action, attempt a DC 15 flat check.',
+  } }
+  const [steady] = mapAonHits([hit], 'pf2e')
+  expect(steady.traits).toEqual(['Bard', 'Druid', 'Wizard', 'Ranger', 'Champion'])
+  expect(steady.description).toContain('DC 15 flat check')
+  expect(steady.level).toBe(6)
+  const base: Character = {
+    id: 'c', systems: ['pf2e'], name: 'Test', level: 6,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  for (const className of ['Ranger', 'Champion', 'Druid']) {
+    expect(eligibleFeats([steady], { ...base, className }, { key: 'class:6:0', category: 'class', level: 6 })).toContain(steady)
+    expect(eligibleFeats([steady], { ...base, className }, { key: 'class:4:0', category: 'class', level: 4 })).not.toContain(steady)
+  }
+  expect(eligibleFeats([steady], { ...base, className: 'Fighter' },
+    { key: 'class:6:0', category: 'class', level: 6 })).not.toContain(steady)
 })
 
 it('imports a Witch patron’s mandatory familiar ability separately from patron text', () => {

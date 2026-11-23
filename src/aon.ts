@@ -504,7 +504,11 @@ export function mapAonHits(hits: Hit[], system: GameSystem) {
     if (hasUpdatedFlexibility && h._id === 'feat-1171') continue
     const e = mapAonHit(h, system)
     if (!e) continue
-    const adjusted = dropHellknightTrainingPrerequisite(e)
+    const adjusted = dropHellknightTrainingPrerequisite(
+      system === 'pf2e' && h._id === 'feat-4602'
+        ? { ...e, traits: [...new Set([...e.traits, 'Ranger', 'Champion'])] }
+        : e,
+    )
     if (system === 'pf2e' && adjusted.kind === 'feat' && adjusted.name === 'Mortification' && /\bHellknight\b/.test(String(adjusted.data.archetype ?? ''))) {
       entries.push(...MORTIFICATION_DAMAGE.map(damage => ({
         ...adjusted, id: `${adjusted.id}:${damage}`, name: `Mortification (${damage[0].toUpperCase()}${damage.slice(1)})`,
