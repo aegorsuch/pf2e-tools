@@ -26,7 +26,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-it('reuses feat eligibility while searching, but recomputes for another slot, character or rules', () => {
+it('reuses feat eligibility across slots, but recomputes for another character or rules', () => {
   const c = emptyRanger()
   const entries: ContentEntry[] = []
   const slot = plannedSlots(c, entries).find(candidate => candidate.category === 'class')!
@@ -36,16 +36,36 @@ it('reuses feat eligibility while searching, but recomputes for another slot, ch
     const first = eligibility(slot)
     expect(eligibility({ ...slot })).toBe(first)
     expect(compute).toHaveBeenCalledTimes(1)
-    eligibility({ ...slot, level: slot.level + 2 })
+    const otherSlot = { ...slot, key: 'class:2:0', level: slot.level + 2 }
+    const other = eligibility(otherSlot)
+    expect(compute).toHaveBeenCalledTimes(2)
+    expect(eligibility({ ...slot })).toBe(first)
+    expect(eligibility({ ...otherSlot })).toBe(other)
     expect(compute).toHaveBeenCalledTimes(2)
     updateSettings({ planSkillPrerequisites: true })
-    eligibility({ ...slot, level: slot.level + 2 })
+    eligibility(otherSlot)
     expect(compute).toHaveBeenCalledTimes(3)
-    featPickerEligibility({ ...c, level: c.level + 1 }, entries)(slot)
+    expect(eligibility(slot)).not.toBe(first)
     expect(compute).toHaveBeenCalledTimes(4)
+    featPickerEligibility({ ...c, level: c.level + 1 }, entries)(slot)
+    expect(compute).toHaveBeenCalledTimes(5)
   } finally {
     compute.mockRestore()
   }
+})
+
+it('bounds cached slot eligibility and retains recently used slots', () => {
+  const c = emptyRanger()
+  const entries: ContentEntry[] = []
+  const slot = plannedSlots(c, entries).find(candidate => candidate.category === 'class')!
+  const eligibility = featPickerEligibility(c, entries)
+  const first = eligibility(slot)
+  const second = eligibility({ ...slot, key: 'class:2:0' })
+  for (let i = 2; i < 32; i++) eligibility({ ...slot, key: `class:${i + 1}:0` })
+  expect(eligibility(slot)).toBe(first)
+  eligibility({ ...slot, key: 'class:33:0' })
+  expect(eligibility(slot)).toBe(first)
+  expect(eligibility({ ...slot, key: 'class:2:0' })).not.toBe(second)
 })
 
 it("makes historian actions clickable for Belkzen's Might and Wrath of the Hold", () => {

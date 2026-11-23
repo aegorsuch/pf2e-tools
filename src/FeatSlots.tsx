@@ -105,18 +105,25 @@ export function SearchableFeatSlots(props: Omit<FeatSlotsProps, 'search' | 'onSe
 }
 
 export function featPickerEligibility(c: Character, entries: ContentEntry[]) {
-  let previousKey: string | undefined
   let previousSettings = getSettings()
-  let previous: ContentEntry[] = []
+  const cached = new Map<string, ContentEntry[]>()
   return (slot: PlannedSlot) => {
     const key = JSON.stringify(slot)
     const settings = getSettings()
-    if (key !== previousKey || settings !== previousSettings) {
-      previous = eligibleFeats(entries, c, slot, { includeUnmetPrerequisites: true })
-      previousKey = key
+    if (settings !== previousSettings) {
+      cached.clear()
       previousSettings = settings
     }
-    return previous
+    const previous = cached.get(key)
+    if (previous) {
+      cached.delete(key)
+      cached.set(key, previous)
+      return previous
+    }
+    const result = eligibleFeats(entries, c, slot, { includeUnmetPrerequisites: true })
+    if (cached.size >= 32) cached.delete(cached.keys().next().value!)
+    cached.set(key, result)
+    return result
   }
 }
 
