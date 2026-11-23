@@ -469,11 +469,14 @@ export const CHITINOUS_SHIELD_GRADES: Record<HardlightGrade, { level: number; ha
   Ultimate: { level: 18, hardness: 6, hp: 100 },
   Paragon: { level: 20, hardness: 7, hp: 120 },
 }
+export function chitinousShieldGrade(level: number): HardlightGrade {
+  return (Object.keys(CHITINOUS_SHIELD_GRADES) as HardlightGrade[]).reduce<HardlightGrade>((best, grade) =>
+    CHITINOUS_SHIELD_GRADES[grade].level <= level ? grade : best, 'Commercial')
+}
 export function chitinousShield(c: Character): OwnedShield | undefined {
   if (!c.systems.includes('sf2e') || !activeFeatsNamed(c, 'Chitinous Shield').length) return undefined
   const saved = c.chitinousShield
-  const grade = CHITINOUS_SHIELD_GRADES[saved?.grade ?? 'Commercial']
-  const bonus = grade && grade.level <= c.level ? grade : CHITINOUS_SHIELD_GRADES.Commercial
+  const bonus = CHITINOUS_SHIELD_GRADES[chitinousShieldGrade(c.level)]
   return { id: 'granted-shield:chitinous', name: 'Chitinous Shield', hardness: 4 + bonus.hardness,
     hp: 12 + bonus.hp, damage: saved?.damage ?? 0, raised: !!saved?.raised, equipped: true }
 }
