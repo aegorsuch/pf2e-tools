@@ -419,10 +419,10 @@ export function grantedFeatSpells(c: Character, entries: ContentEntry[]) {
       continue
     }
     if (feat.name === 'Arcane Eye' && c.systems.includes('pf2e')) {
-      const entry = matchingSpells(entries, 'See Invisibility').find(spell => spell.systems.includes('pf2e'))
+      const entry = matchingSpells(entries, 'See the Unseen').find(spell => spell.systems.includes('pf2e'))
       if (entry) out.push({ entry, source: feat.name,
         rule: { kind: 'innate', spells: [entry.name], tradition: 'arcane', frequency: 'once per hour', fixedRank: true },
-        rank: entry.level, usageKey: JSON.stringify([selection, feat.name, 'see invisibility']) })
+        rank: entry.level, usageKey: JSON.stringify([selection, feat.name, 'see the unseen']) })
       continue
     }
     if (feat.name === 'Halo' && c.systems.includes('pf2e')) {
