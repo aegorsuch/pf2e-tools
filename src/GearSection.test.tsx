@@ -730,6 +730,7 @@ it('grants Chitinous Shield without occupying a hand and preserves its selected 
   c = { ...c, ...shieldRaisedChange(c, true) }
   expect(equippedShield(c)).toMatchObject({ id: shield.id, raised: true })
   expect(shieldAcBonus(c, [sword])).toBe(2)
+  expect(ownedWeapons(c, [sword]).some(item => item.attachedTo === shield.id)).toBe(false)
   c = { ...c, chitinousShield: { ...c.chitinousShield, grade: 'Advanced', damage: 4 } }
   expect(ownedShields(c).find(item => item.id === shield.id)).toMatchObject({ hardness: 7, hp: 68, damage: 4, raised: true })
   const markup = renderToStaticMarkup(<ArmorList c={c} entries={[sword]} save={() => {}} part="shield" />)

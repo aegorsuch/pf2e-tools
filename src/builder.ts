@@ -5825,6 +5825,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     }
   }
   for (const shield of ownedShields(c)) {
+    if (shield.id === 'granted-shield:chitinous') continue
     const attachedWeapon = shieldAttachedWeapon(shield)
     if (shield) available.push({ ...(attachedWeapon ?? {
       id: `shield-bash:${shield.id}`, name: SHIELD_BASH.name, potency: 0, striking: 0, runes: [],
