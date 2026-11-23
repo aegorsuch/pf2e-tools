@@ -1254,7 +1254,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         championReaction: character.className === 'Champion' && ['Justice', 'Grandeur', 'Liberation', 'Redemption'].includes(subclass ?? '')
           ? 'protective' : character.className === 'Champion' && ['Desecration', 'Iniquity', 'Obedience'].includes(subclass ?? '')
             ? 'offensive' : undefined,
-        familiar: character.className === 'Witch' || character.feats.some(feat => ['Familiar', 'Leshy Familiar', 'Animal Accomplice'].includes(feat.name))
+        familiar: character.className === 'Witch' || character.feats.some(feat => ['Familiar', 'Leshy Familiar', 'Animal Accomplice', 'Glyph Familiar'].includes(feat.name))
           || hasDivineIntercession(character, 'Calistria', 'moderate-boon'),
         get primalInnateSpell() { return getInnateGrants().some(grant => grant.rule.tradition?.toLowerCase() === 'primal') },
         get gnomePrimalInnateSpell() {

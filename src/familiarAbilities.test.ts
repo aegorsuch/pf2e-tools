@@ -125,3 +125,11 @@ it('reserves the Divine Emissary slot for divine emissary abilities', () => {
   expect(familiarAbilityUnavailableReason(get('Luminous'), witch, ['Erudite'], false, [])).toMatch(/Only one/)
   expect(familiarAbilityUnavailableReason(get('Erudite'), { ...witch, feats: [] }, [], false, [])).toMatch(/requires/i)
 })
+
+it('gives Glyph Familiar one daily ability plus fixed Construct, Flier and Tough', () => {
+  const feat = (name: string) => ({ name, type: 'Class Feat', level: 1 })
+  const glyph = { ...character, feats: [feat('Glyph Familiar')] }
+  expect(familiarAbilityCapacity(glyph, []).dailyAbilityLimit).toBe(1)
+  expect(familiarAbilityCapacity({ ...glyph, feats: [...glyph.feats, feat('Enhanced Glyph Familiar')] }, []).dailyAbilityLimit).toBe(2)
+  expect(activeFamiliarAbilities(glyph, [])).toEqual(['Construct', 'Flier', 'Tough'])
+})

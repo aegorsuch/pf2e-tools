@@ -18,7 +18,7 @@ import { activeSummonedFiend, type SummonedFiend } from './summonedFiends'
 import { DroneFeatures } from './DroneFeatures'
 import { FOLLOWER_STAGES, FOLLOWER_TYPES, followerStage, followerStats } from './followers'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
-  familiarAbilityEntry, familiarAbilityUnavailableReason, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds } from './familiarAbilities'
+  familiarAbilityEntry, familiarAbilityUnavailableReason, GLYPH_FAMILIAR_ABILITIES, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds } from './familiarAbilities'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
@@ -192,11 +192,11 @@ function minionSummaryData(c: Character) {
   const advancement = companionAdvancement(c)
   const constructAdvancement = constructCompanionAdvancement(c)
   const stage = [advancement.advanced, advancement.mature ? 'Mature' : 'Young'].find(Boolean)
-  const { leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp } = familiarSelection(c)
+  const { leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, glyph } = familiarSelection(c)
   const seaFriend = activeFeatsNamed(c, 'Friend of the Sea').length > 0
   const pet = seaFriend || activeFeatsNamed(c, 'Pet').length > 0
     || activeFeatsNamed(c, 'Beast Trainer').some(feat => feat.choice === 'Pet')
-  return { companions, advancement, constructAdvancement, stage, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet }
+  return { companions, advancement, constructAdvancement, stage, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, glyph, seaFriend, pet }
 }
 
 function companionTitle(c: Character, index: number) {
@@ -474,7 +474,7 @@ export function FollowerCards({ c, entries, save }: SectionProps) {
 }
 
 export function MinionsContent({ c, entries, save }: SectionProps) {
-  const { companions, constructAdvancement, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, seaFriend, pet } = minionSummaryData(c)
+  const { companions, constructAdvancement, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, glyph, seaFriend, pet } = minionSummaryData(c)
   const lashuntaAlly = activeLashuntaAlly(c)
   const ferocity = minionFerocity(c)
   const magicHideKnown = knowsSpell(c, entries, 'Magic Hide')
@@ -886,7 +886,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           })
           const castingAbility = classSpellcasting(c, entries)?.ability ?? c.spellcasting?.ability
           const spellcastingModifier = castingAbility ? Math.floor((c.abilities[castingAbility] - 10) / 2) : 0
-          const movementAbilities = [...activeAbilities, ...(isWasp ? ['Burrower', 'Flier'] : [])]
+          const movementAbilities = [...activeAbilities, ...(isWasp ? ['Burrower', 'Flier'] : []), ...(glyph && !isWasp ? GLYPH_FAMILIAR_ABILITIES : [])]
           const familiarEffects = familiarAbilityEffects(movementAbilities, c.level, data?.abilityOptions, spellcastingModifier)
           const amphibious = movementAbilities.some(ability => ability.toLowerCase() === 'amphibious')
           const baseSpeeds = minionMovementSpeeds(movementAbilities.filter(ability => ability.toLowerCase() !== 'fast movement'))
@@ -924,6 +924,11 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           {isCrocodile && <small>Tiny crocodile familiar granted by Crocodile's Twin.</small>}
           {patronAbility && <div className="gear-traits"><EntryDescription name={patronAbility.name} entry={patronAbility}
             entries={entries} character={c} buttonLabel="Patron familiar ability" /></div>}
+          {glyph && !isWasp && <div className="gear-runes">{GLYPH_FAMILIAR_ABILITIES.map(name => {
+            const entry = familiarAbilityEntry(name, familiarAbilityCatalog, c)
+            return entry ? <EntryDescription key={name} name={name} entry={entry} entries={entries} character={c}
+              buttonLabel={`Granted ${name}`} /> : <small key={name}>{name}</small>
+          })}</div>}
           {isWasp && <div className="gear-runes">{['Burrower', 'Flier'].map(name => {
             const entry = familiarAbilityEntry(name, familiarAbilityCatalog, c)
             return entry ? <EntryDescription key={name} name={name} entry={entry} entries={entries} character={c}
