@@ -837,7 +837,11 @@ it("implements Clear Cutter's Axe as a +1 striking returning hatchet", () => {
   const item: ContentEntry = { ...winter, id: 'clear-cutter', name: "Clear Cutter's Axe", level: 9, traits: ['Magical', 'Rare'],
     description: 'Base Weapon Hatchet\n\nThis +1 striking returning hatchet has an axe head resembling a roaring lion\u2019s head.',
     data: { item_subcategory: 'Specific Magic Weapons', rarity: 'rare', url: 'https://2e.aonprd.com/Equipment.aspx?ID=3598' } }
-  const [entry] = makeNamedWeaponEntries([hatchet, item], [{ name: 'Returning' }])
+  const all = makeNamedWeaponEntries([hatchet, item], [{ name: 'Returning' }])
+  expect(all.map(entry => entry.name)).toEqual(["Clear Cutter's Hatchet", "Clear Cutter's Hatchet (Melee)", "Clear Cutter's Hatchet (Ranged)"])
+  expect(all[2].data).toMatchObject({ weapon_type: 'Ranged', range: 10 })
+  expect(all[1].data.weapon_type).toBe('Melee')
+  const [entry] = all
   expect(entry).toMatchObject({ name: "Clear Cutter's Hatchet", data: { named_weapon_base: 'Hatchet', named_weapon_potency: 1,
     named_weapon_striking: 1, named_weapon_runes: 'Returning', named_weapon_material: 'Orichalcum', named_weapon_rules_missing: false } })
   const character: Character = { ...c, level: 12, className: 'Fighter' }
