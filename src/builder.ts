@@ -5813,13 +5813,26 @@ export function deityWeapon(c: Character, entries: ContentEntry[]) {
   return { entry, id: saved?.id ?? id }
 }
 
+const grantedAttackCache = new WeakMap<ContentEntry[], { heritage: ContentEntry[]; feat: ContentEntry[] }>()
+function grantedAttackEntries(entries: ContentEntry[]) {
+  let cached = grantedAttackCache.get(entries)
+  if (!cached) {
+    const weapons = entries.filter(entry => entry.kind === 'weapon' && !entry.deleted)
+    cached = {
+      heritage: weapons.filter(entry => typeof entry.data.granted_by_heritage === 'string'),
+      feat: weapons.filter(entry => typeof entry.data.granted_by_feat === 'string'),
+    }
+    grantedAttackCache.set(entries, cached)
+  }
+  return cached
+}
+
 export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon[] {
   const form = activeBattleForm(c, entries)
   if (form?.source === 'Animal Rage') return ownedWeapons(withoutBattleForm(c), entries)
     .filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed')
   if (form) return form.attacks.map(entry => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] }))
-  const heritageAttacks = entries.filter(entry => entry.kind === 'weapon' && !entry.deleted
-    && typeof entry.data.granted_by_heritage === 'string')
+  const heritageAttacks = grantedAttackEntries(entries).heritage
   const selectedHeritages = new Set(characterHeritages(c, entries).map(heritage => heritage.name))
   const weapons = [...carriedWeapons(c, entries).filter(weapon => weapon.id !== OFFENSIVE_DEFENSE_WEAPON_ID
     && !isDuplicateVeskAttack(c, entries, weapon) && !heritageAttacks.some(entry => entry.id === weapon.id))]
@@ -5829,8 +5842,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
       weapons.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
   }
-  const featAttacks = entries.filter(entry => entry.kind === 'weapon' && !entry.deleted
-    && typeof entry.data.granted_by_feat === 'string')
+  const featAttacks = grantedAttackEntries(entries).feat
   const importedNephilimAttacks = new Set(featAttacks.filter(entry => entry.data.granted_by_feat === 'Bestial Manifestation').map(entry => entry.id))
   const legacyTusksJaws = new Set(featAttacks.filter(entry => entry.data.granted_by_feat === 'Tusks'
     && entry.name === 'Jaws').map(entry => entry.id))
@@ -6649,15 +6661,24 @@ export function eligibleWeaponRunes(entries: ContentEntry[], weapon: OwnedWeapon
       || forms.some(form => weaponRuneApplies(entries, { ...weapon, name: form.name }, rune.name))))
 }
 
+const handwrapRuneCache = new WeakMap<ContentEntry[], Map<string, ReturnType<typeof propertyRunes>>>()
 export function handwrapRuneOptions(c: Character, entries: ContentEntry[]) {
   const unarmed = [
     ...SUPPLEMENTAL_WEAPONS.filter((entry) => weaponCategory(entry) === 'Unarmed')
       .map((entry) => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })),
     ...ownedWeapons(c, entries).filter((weapon) => weaponCategory(weaponEntry(entries, weapon.name)) === 'Unarmed'),
   ]
+  const handwrapRunes = effectiveHandwraps(c, entries)?.runes ?? []
+  const key = JSON.stringify([unarmed.map(weapon => [weapon.id, weapon.name, weapon.runes]), handwrapRunes])
+  let cache = handwrapRuneCache.get(entries)
+  if (!cache) handwrapRuneCache.set(entries, cache = new Map())
+  const cached = cache.get(key)
+  if (cached) return cached
   const available = new Set(unarmed.flatMap((weapon) =>
-    eligibleWeaponRunes(entries, { ...weapon, runes: effectiveHandwraps(c, entries)?.runes ?? [] }).map((rune) => rune.name)))
-  return propertyRunes(entries, 'Weapon').filter((rune) => available.has(rune.name))
+    eligibleWeaponRunes(entries, { ...weapon, runes: handwrapRunes }).map((rune) => rune.name)))
+  const result = propertyRunes(entries, 'Weapon').filter((rune) => available.has(rune.name))
+  cache.set(key, result)
+  return result
 }
 
 export function canBeLivingWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
@@ -8168,7 +8189,8 @@ const eligibleSourceCache = new WeakMap<ContentEntry[], Map<string, ContentEntry
 function skillRequirementSources(c: Character, entries: ContentEntry[]) {
   const cache = eligibleSourceCache.get(entries) ?? new Map<string, ContentEntry[]>()
   eligibleSourceCache.set(entries, cache)
-  const { updatedAt: _u, equipment: _e, armors: _a, weapons: _w, spentFocusPoints: _f, innateSpellUses: _i, itemSpellUses: _s, ...stable } = c
+  const { updatedAt: _u, equipment: _e, armors: _a, weapons: _w, spentFocusPoints: _f, innateSpellUses: _i, itemSpellUses: _s,
+    extraSlots: _x, skippedFeatSlots: _k, dismissedFeatSlots: _d, ...stable } = c
   const { feats: _feats, entryIds: _ids, ...withoutFeats } = stable
   const sources = new Map<string, ContentEntry>()
   for (const category of ['class', 'ancestry', 'archetype'] as const) {

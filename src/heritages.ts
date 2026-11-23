@@ -69,18 +69,36 @@ export function elfAtavismOptions(c: Character, entries: ContentEntry[]) {
     .filter(entry => !isVersatileHeritage(entry) && entry.systems.some(system => c.systems.includes(system)))
 }
 
+const namedEntryCache = new WeakMap<ContentEntry[], { heritage: Map<string, ContentEntry[]>; ancestry: Map<string, ContentEntry[]> }>()
+function namedEntries(entries: ContentEntry[]) {
+  let index = namedEntryCache.get(entries)
+  if (!index) {
+    index = { heritage: new Map(), ancestry: new Map() }
+    for (const entry of entries) {
+      if (entry.deleted || (entry.kind !== 'heritage' && entry.kind !== 'ancestry')) continue
+      const map = index[entry.kind]
+      const list = map.get(entry.name)
+      if (list) list.push(entry)
+      else map.set(entry.name, [entry])
+    }
+    namedEntryCache.set(entries, index)
+  }
+  return index
+}
+
 export function characterHeritages(c: Character, entries: ContentEntry[]) {
-  const primary = entries.find(entry => entry.kind === 'heritage' && entry.name === c.heritage && !entry.deleted
-    && entry.systems.some(system => c.systems.includes(system)))
-  const choices = new Set(c.feats.filter(feat => ['Elf Atavism', 'Elven Atavism'].includes(feat.name)
-    && featTakenLevel(feat) <= c.level).map(feat => feat.choice))
+  const primary = c.heritage === undefined ? undefined : namedEntries(entries).heritage.get(c.heritage)
+    ?.find(entry => entry.systems.some(system => c.systems.includes(system)))
+  const atavism = c.feats.some(feat => ['Elf Atavism', 'Elven Atavism'].includes(feat.name))
+  const choices = new Set(atavism ? c.feats.filter(feat => ['Elf Atavism', 'Elven Atavism'].includes(feat.name)
+    && featTakenLevel(feat) <= c.level).map(feat => feat.choice) : [])
   return [...(primary ? [primary] : []),
-    ...elfAtavismOptions(c, entries).filter(entry => choices.has(entry.name) && entry.name !== primary?.name)]
+    ...(choices.size ? elfAtavismOptions(c, entries).filter(entry => choices.has(entry.name) && entry.name !== primary?.name) : [])]
 }
 
 export function characterSize(c: Character, entries: ContentEntry[]) {
   const heritageSize = characterHeritages(c, entries).find(entry => typeof entry.data.size === 'string')?.data.size
-  const ancestrySize = entries.find(entry => entry.kind === 'ancestry' && entry.name === c.ancestry && !entry.deleted
-    && entry.systems.some(system => c.systems.includes(system)))?.data.size
+  const ancestrySize = c.ancestry === undefined ? undefined : namedEntries(entries).ancestry.get(c.ancestry)
+    ?.find(entry => entry.systems.some(system => c.systems.includes(system)))?.data.size
   return String(heritageSize ?? ancestrySize ?? 'Medium')
 }

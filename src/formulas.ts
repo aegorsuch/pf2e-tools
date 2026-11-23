@@ -27,10 +27,18 @@ export function isMunitionsConsumable(entry: ContentEntry) {
     || /\bbomb\b/i.test(category) || isMunitionsAmmunition(entry)
 }
 
+const munitionsCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
 export function munitionsFormulaOptions(entries: ContentEntry[], systems: Character['systems']) {
-  return entries.filter(entry => isMunitionsConsumable(entry) && !isBlackPowderDose(entry)
+  let cache = munitionsCache.get(entries)
+  if (!cache) munitionsCache.set(entries, cache = new Map())
+  const key = [...systems].sort().join()
+  const cached = cache.get(key)
+  if (cached) return cached
+  const result = entries.filter(entry => isMunitionsConsumable(entry) && !isBlackPowderDose(entry)
     && entry.level === 1 && entry.systems.some(system => systems.includes(system))
     && !['Rare', 'Unique'].includes(featRarity(entry) ?? ''))
+  cache.set(key, result)
+  return result
 }
 
 export function munitionsLimits(c: Character) {
