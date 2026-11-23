@@ -73,6 +73,28 @@ it('filters homebrew by entry or category and expands matching groups', () => {
   expect(render('missing')).toContain('No homebrew matches your search.')
 })
 
+it('omits class suffixes from homebrew feat labels without changing their identities', () => {
+  const feat = homebrewCharacterOptions([])[0]
+  const entries: ContentEntry[] = [
+    { ...feat, id: 'druid', name: 'Ears of the Forest (Druid)', traits: ['Druid'], data: { class: 'Druid' } },
+    { ...feat, id: 'ranger', name: 'Ears of the Forest (Ranger)', traits: ['Ranger'], data: { class: 'Ranger' } },
+    { ...feat, id: 'variant', name: 'Other Feat (Greater)', traits: ['Druid'], data: { class: 'Druid' } },
+  ]
+  const before = JSON.stringify(entries)
+  const render = (search: string) => renderToStaticMarkup(
+    <HomebrewList entries={entries} search={search} onEdit={() => {}} onDelete={() => {}} />,
+  )
+  const markup = render('ears of the forest')
+  expect(markup.match(/<b>Ears of the Forest<\/b>/g)).toHaveLength(2)
+  expect(markup).toContain('aria-label="Edit Ears of the Forest"')
+  expect(markup).toContain('aria-label="Delete Ears of the Forest"')
+  expect(markup).not.toContain('Ears of the Forest (Druid)')
+  expect(markup).not.toContain('Ears of the Forest (Ranger)')
+  expect(render('ears of the forest (druid)').match(/<b>Ears of the Forest<\/b>/g)).toHaveLength(1)
+  expect(render('druid')).toContain('Other Feat (Greater)')
+  expect(JSON.stringify(entries)).toBe(before)
+})
+
 it('lists each homebrew weapon grade family once without changing its saved entries', () => {
   const feat = homebrewCharacterOptions([])[0]
   const family = 'supplemental:sf2e:starday-gyrojet'

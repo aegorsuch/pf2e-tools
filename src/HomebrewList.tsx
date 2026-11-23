@@ -5,8 +5,13 @@ import { equipmentDisplayName } from './equipmentGroups'
 import type { ContentEntry, EntryKind } from './types'
 import { HouseRules, matchingHouseRules } from './HouseRules'
 
-const displayName = (entry: ContentEntry) => ['item', 'weapon', 'armor', 'shield'].includes(entry.kind)
-  ? equipmentDisplayName(entry.name) : featDisplayName(entry)
+const displayName = (entry: ContentEntry) => {
+  if (['item', 'weapon', 'armor', 'shield'].includes(entry.kind)) return equipmentDisplayName(entry.name)
+  const name = featDisplayName(entry)
+  if (entry.kind !== 'feat' || typeof entry.data.class !== 'string') return name
+  const classes = entry.data.class.split(',').map(value => value.trim().toLowerCase())
+  return name.replace(/ \(([^)]+)\)$/, (suffix, label: string) => classes.includes(label.toLowerCase()) ? '' : suffix)
+}
 
 const LABELS: Partial<Record<EntryKind, string>> = {
   ancestry: 'Ancestries', armor: 'Armor', armorGroup: 'Armor Groups', background: 'Backgrounds', class: 'Classes',
