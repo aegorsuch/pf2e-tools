@@ -198,7 +198,7 @@ it('offers only artifact Wintershot as a composite longbow and suppresses non-ar
   expect(choices.map(entry => entry.name)).toEqual(['Wintershot (Artifact)'])
   expect(choices[0].data.named_weapon_base).toBe('Composite Longbow')
   const attack = weaponAttack(c, catalog, owned(choices[0].name))
-  expect(attack.range).toBe(100)
+  expect(attack.range).toBe(200)
   expect(attack.damage).toBe('4d8+1 piercing')
   expect(attack.traits).toContain('Propulsive')
   expect(attack.traits).toContain('Volley 30 ft.')
@@ -213,9 +213,9 @@ it('offers only artifact Wintershot as a composite longbow and suppresses non-ar
 
 it('applies Wintershot fundamental and Frost runes, preserves upgrades, and shows its manual activations in both views', () => {
   const weapon = owned('Wintershot (Artifact)')
-  expect(effectiveWeapon(c, catalog, weapon)).toMatchObject({ potency: 3, striking: 3, runes: ['Frost (Greater)', 'Holy', 'Grievous'] })
+  expect(effectiveWeapon(c, catalog, weapon)).toMatchObject({ potency: 3, striking: 3, material: 'Orichalcum', runes: ['Frost (Greater)', 'Holy', 'Impossible', 'Grievous'] })
   expect(effectiveWeapon(c, catalog, { ...weapon, potency: 3, striking: 3, runes: ['Frost', 'Holy'] }))
-    .toMatchObject({ potency: 3, striking: 3, runes: expect.arrayContaining(['Frost (Greater)', 'Holy', 'Grievous', 'Frost']) })
+    .toMatchObject({ potency: 3, striking: 3, runes: expect.arrayContaining(['Frost (Greater)', 'Holy', 'Grievous', 'Impossible', 'Frost']) })
   for (const displayOnly of [false, true]) {
     const markup = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [weapon] }} entries={catalog} save={() => {}} displayOnly={displayOnly} />)
     expect(markup).toContain('1d6 cold')
@@ -254,7 +254,7 @@ it('resolves former Wintershot bow names to the artifact composite longbow', () 
     description: 'Wintershot is a +3 major striking greater frost holy composite shortbow. Auroral Shine requires DC 43 Fortitude.' }
   const entries = [...catalog.filter(entry => entry !== winterArtifact), artifact]
   expect(effectiveWeapon(c, entries, owned('Wintershot (Artifact) (Shortbow)')))
-    .toMatchObject({ potency: 3, striking: 3, runes: ['Frost (Greater)', 'Holy', 'Grievous'] })
+    .toMatchObject({ potency: 3, striking: 3, material: 'Orichalcum', runes: ['Frost (Greater)', 'Holy', 'Impossible', 'Grievous'] })
   expect(weaponAttack(c, entries, owned('Wintershot (Artifact) (Longbow)')).damage).toBe('4d8+1 piercing')
   expect(weaponAttack(c, entries, owned('Wintershot (Longbow)')).damage).toBe('4d8+1 piercing')
   expect(weaponEntry(entries, 'Wintershot (Artifact)')?.level).toBe(20)
@@ -347,7 +347,7 @@ it('applies Erastil moderate boon to the artifact composite longbow and saved na
   const blessed = { ...c, deity: 'Erastil', divineIntercessions: { Erastil: ['moderate-boon'] } }
   for (const name of ['Wintershot (Artifact)', 'Wintershot (Shortbow)', native.name]) {
     const attack = weaponAttack(blessed, entries, owned(name))
-    expect(attack.range).toBe(200)
+    expect(attack.range).toBe(400)
     expect(attack.traits).toContain('Volley (if beneficial)')
     expect(attack.traits).not.toContain('Volley 30 ft.')
   }

@@ -61,7 +61,7 @@ const ACTIONS: Record<string, { name: string; actions: string }[]> = {
 
 const MATERIALS: Record<string, string> = {
   Briar: 'Cold Iron', Blackaxe: 'Adamantine', Ridill: 'Adamantine', Serithtial: 'Orichalcum',
-  'Axe of the Dwarven Lords': 'Orichalcum', "Clear Cutter's Axe": 'Orichalcum',
+  'Axe of the Dwarven Lords': 'Orichalcum', 'Wintershot (Artifact)': 'Orichalcum', "Clear Cutter's Axe": 'Orichalcum',
   'Blade of Fallen Stars': 'Cold Siccatite (High-Grade)',
   'Debilitating Dart': 'Orichalcum',
   'Phoenix Fighting Fan': 'Silver', "Sorshen's Sinuous Guisarme": 'Dawnsilver (High-Grade)',
@@ -70,6 +70,7 @@ const MATERIALS: Record<string, string> = {
 function artifactRunes(entry: ContentEntry, runes: string) {
   return [...new Set([...runes.split(';').filter(Boolean),
     ...(entry.name === 'Serithtial' ? ['Astral (Greater)'] : []),
+    ...(entry.name === 'Wintershot (Artifact)' ? ['Impossible'] : []),
     ...(entry.traits.some(trait => trait.toLowerCase() === 'artifact') ? ['Grievous'] : [])])].join(';')
 }
 
