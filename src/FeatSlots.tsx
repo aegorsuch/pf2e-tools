@@ -570,7 +570,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               {optionLabel(option)}
             </button>
             <EntryDescription character={c} name={`${displayName(option.entry.name)}${DOMAIN_FEATS.includes(option.entry.name) && option.choice ? ` (${option.choice})` : ''}`}
-              entry={option.entry} choice={option.choice} entries={entries} buttonLabel="Details" className="picker-details"
+              entry={option.entry} choice={option.choice} entries={entries} buttonLabel="Details" className="picker-details" deferDetails
               prerequisites={prerequisitesFor(option.entry, s)} access={featAccess(c, option.entry)}
               descriptionNote={option.entry.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                 : DOMAIN_FEATS.includes(option.entry.name) && option.choice

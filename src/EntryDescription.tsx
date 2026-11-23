@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import type { Character, ContentEntry } from './types'
 import type { PrerequisiteCheck } from './featPrerequisites'
 import { ignoresFeatPrerequisites } from './featPrerequisites'
@@ -30,12 +30,58 @@ function featIndex(entries: ContentEntry[]) {
   return index
 }
 
-export function EntryDescription({ name, entry, choice, className, prerequisites, access, buttonLabel, buttonSuffix, buttonActions, hideButtonActions, grantSource, descriptionNote, entries, character }: {
+type EntryDescriptionProps = {
   name: string; entry?: ContentEntry; choice?: string; className?: string; prerequisites?: PrerequisiteCheck; access?: FeatAccessCheck; buttonLabel?: string; buttonSuffix?: string; buttonActions?: string; hideButtonActions?: boolean; grantSource?: string; descriptionNote?: string; entries?: ContentEntry[]; character?: Character
-}) {
+  deferDetails?: boolean
+}
+
+export function EntryDescription({ name, entry, className, prerequisites, access, buttonLabel, buttonSuffix, buttonActions, hideButtonActions, grantSource, entries, character, deferDetails, ...details }: EntryDescriptionProps) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const [history, setHistory] = useState<ContentEntry[]>([])
+  const [openRequested, setOpenRequested] = useState(false)
+  useLayoutEffect(() => {
+    if (!openRequested) return
+    dialog.current?.showModal()
+    dialog.current?.querySelector('h4')?.focus()
+  }, [openRequested])
+  const text = (value: string) => {
+    if (!character) return value
+    const adopted = adoptedAncestryText(character, value)
+    return entries ? spellDCText(character, entries, adopted) : adopted
+  }
+  const buttonTitle = text(entry && ['item', 'weapon', 'armor', 'shield'].includes(entry.kind)
+    ? equipmentDisplayName(name) : featDisplayName(entry, name))
+  return (
+    <>
+      <button type="button" className={className} aria-label={buttonLabel ? `${buttonLabel}: ${buttonTitle}` : undefined}
+        aria-haspopup="dialog" onClick={() => {
+          if (deferDetails) setOpenRequested(true)
+          else {
+            dialog.current?.showModal()
+            dialog.current?.querySelector('h4')?.focus()
+          }
+        }}>
+        {buttonLabel ?? buttonTitle}{buttonSuffix}{(!!prerequisites?.missing.length || access && !access.automatic && !access.approved) && <> <span role="img"
+          aria-label={prerequisites?.missing.length ? 'Prerequisites unmet' : 'Access information'}>*</span></>}
+        {!hideButtonActions && !buttonLabel && (buttonActions || entry?.kind === 'feat' && typeof entry.data.actions === 'string' && entry.data.actions.trim())
+          && <> <ActionIcon entry={entry} actions={buttonActions} /></>}
+        {grantSource && <> <small>({text(grantSource)})</small></>}
+      </button>
+      <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}
+        onClose={() => { setHistory([]); setOpenRequested(false) }}
+        onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close() }}>
+        {(!deferDetails || openRequested) && <EntryDescriptionContents {...details} name={name} entry={entry} prerequisites={prerequisites}
+          access={access} entries={entries} character={character} history={history} setHistory={setHistory} dialog={dialog} titleId={titleId} />}
+      </dialog>
+    </>
+  )
+}
+
+function EntryDescriptionContents({ name, entry, choice, prerequisites, access, descriptionNote, entries, character, history, setHistory, dialog, titleId }: EntryDescriptionProps & {
+  history: ContentEntry[]; setHistory: Dispatch<SetStateAction<ContentEntry[]>>
+  dialog: RefObject<HTMLDialogElement | null>; titleId: string
+}) {
   const active = history.at(-1) ?? entry
   const text = (value: string) => {
     if (!character) return value
@@ -82,20 +128,6 @@ export function EntryDescription({ name, entry, choice, className, prerequisites
     ? hellknightTrainingBenefit(character, active.name, history.length ? undefined : choice) : undefined
   return (
     <>
-      <button type="button" className={className} aria-label={buttonLabel ? `${buttonLabel}: ${title(name, entry)}` : undefined}
-        aria-haspopup="dialog" onClick={() => {
-          dialog.current?.showModal()
-          dialog.current?.querySelector('h4')?.focus()
-        }}>
-        {buttonLabel ?? title(name, entry)}{buttonSuffix}{(!!prerequisites?.missing.length || access && !access.automatic && !access.approved) && <> <span role="img"
-          aria-label={prerequisites?.missing.length ? 'Prerequisites unmet' : 'Access information'}>*</span></>}
-        {!hideButtonActions && !buttonLabel && (buttonActions || entry?.kind === 'feat' && typeof entry.data.actions === 'string' && entry.data.actions.trim())
-          && <> <ActionIcon entry={entry} actions={buttonActions} /></>}
-        {grantSource && <> <small>({text(grantSource)})</small></>}
-      </button>
-      <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}
-        onClose={() => setHistory([])}
-        onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close() }}>
         <h4 id={titleId} tabIndex={-1}>{title(history.length ? active?.name ?? name : name)}{featActions && <> <ActionIcon entry={active} /></>}{active && active.kind !== 'trait' && <small> (Level {active.level}{rarity ? `; ${rarity}` : ''})</small>}</h4>
         {!history.length && !!prerequisites?.missing.length && <p className="feat-prerequisite-note" role="status">
           Prerequisites unmet: {text(prerequisites.missing.join('; '))}
@@ -121,7 +153,6 @@ export function EntryDescription({ name, entry, choice, className, prerequisites
         {typeof active?.data.url === 'string' && <p><a href={active.data.url} target="_blank" rel="noreferrer">Archives of Nethys</a></p>}
         {history.length > 0 && <button type="button" onClick={() => { setHistory(previous => previous.slice(0, -1)); dialog.current?.querySelector('h4')?.focus() }}>Back</button>}
         <form method="dialog"><button autoFocus>Close</button></form>
-      </dialog>
     </>
   )
 }

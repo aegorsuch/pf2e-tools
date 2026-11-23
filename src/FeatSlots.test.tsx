@@ -1,4 +1,4 @@
-import { Children, isValidElement, type ReactNode } from 'react'
+import { Children, cloneElement, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
 import { FeatSlots, featPickerEligibility } from './FeatSlots'
@@ -916,7 +916,7 @@ it('shows and searches distinct Versatile Rogue racket options', () => {
     search: { 'class:10:0:open': '1', 'class:10:0:query': 'ruffian' }, onSearch: () => {} })
   const markup = renderToStaticMarkup(tree())
   expect(markup).toContain('L10 Class: Versatile Rogue (Ruffian)')
-  expect(markup).toContain('Ruffian racket benefits.')
+  expect(detailsMarkup(tree(), 'Versatile Rogue')).toContain('Ruffian racket benefits.')
   expect(markup).not.toContain('L10 Class: Versatile Rogue (Scoundrel)')
   findButton(tree(), 'L10 Class: Versatile Rogue (Ruffian)')!()
   expect(c.feats[0]).toMatchObject({ name: 'Versatile Rogue', choice: 'Ruffian', slot: 'class:10:0' })
@@ -1557,7 +1557,7 @@ it('pins prerequisite suggestions before pagination, searches unlocks, and saves
   expect(markup.indexOf(label)).toBeLessThan(markup.indexOf('L03 General: A Filler'))
   expect(markup).toContain('Show more')
   expect(markup).toContain('aria-label="Details: Titan Wrestler"')
-  expect(markup).toContain('Grapple larger creatures.')
+  expect(markup).not.toContain('Grapple larger creatures.')
   search['general:3:0:sort'] = 'name'
   const alphabetical = renderToStaticMarkup(tree())
   expect(alphabetical.indexOf('L03 General: A Filler')).toBeLessThan(alphabetical.indexOf('Show more'))
@@ -2017,6 +2017,17 @@ function findButton(node: ReactNode, label: string): (() => void) | undefined {
   return result
 }
 
+function detailsMarkup(node: ReactNode, name: string): string {
+  let result = ''
+  Children.forEach(node, child => {
+    if (result || !isValidElement<{ name?: string; deferDetails?: boolean; children?: ReactNode }>(child)) return
+    if (child.type === EntryDescription && child.props.name === name)
+      result = renderToStaticMarkup(cloneElement(child, { deferDetails: false }))
+    else result = detailsMarkup(child.props.children, name)
+  })
+  return result
+}
+
 function findSelect(node: ReactNode, label: string): ((event: { target: { value: string } }) => void) | undefined {
   let result: ((event: { target: { value: string } }) => void) | undefined
   Children.forEach(node, (child) => {
@@ -2305,17 +2316,19 @@ it('lists each domain spell in its picker and selected feat descriptions', () =>
     { ...domain, id: 'gozreh', name: 'Gozreh', kind: 'deity', data: { domain_primary: 'Water, Air' } },
     { ...domain, id: 'tidal', name: 'Tidal Surge', kind: 'spell', traits: ['Focus'], description: 'You unleash a surge of water that pushes your foe.', data: { domain: 'Water' } },
     { ...domain, id: 'downpour', name: 'Downpour', kind: 'spell', traits: ['Focus'], level: 4, description: 'A rainstorm drenches an area.', data: { domain: 'Water' } }]
-  const popup = (character: Character, slot: string) => renderToStaticMarkup(<FeatSlots c={character} entries={entries}
-    save={() => {}} categories={['class']} search={{ [`${slot}:open`]: '1' }} onSearch={() => {}} />)
-  const initial = popup(c, 'class:1:0')
+  const popup = (character: Character, slot: string) => FeatSlots({ c: character, entries,
+    save: () => {}, categories: ['class'], search: { [`${slot}:open`]: '1' }, onSearch: () => {} })
+  const initialTree = popup(c, 'class:1:0')
+  const initial = renderToStaticMarkup(initialTree)
   expect(initial).toContain('Details: Deity&#x27;s Domain (Water)')
-  expect(initial).toContain('Water domain grants focus spell: Tidal Surge: You unleash a surge of water that pushes your foe.')
-  expect(initial).toContain('Domain spell data unavailable.')
+  expect(detailsMarkup(initialTree, "Deity's Domain (Water)")).toContain('Water domain grants focus spell: Tidal Surge: You unleash a surge of water that pushes your foe.')
+  expect(detailsMarkup(initialTree, "Deity's Domain (Air)")).toContain('Domain spell data unavailable.')
   const selected: Character = { ...c, feats: [{ name: domain.name, type: 'Class Feat', level: 1, slot: 'class:1:0', choice: 'Water' }] }
-  const next = popup(selected, 'class:8:0')
+  const nextTree = popup(selected, 'class:8:0')
+  const next = renderToStaticMarkup(nextTree)
   expect(next).toContain('Water domain grants focus spell: Tidal Surge: You unleash a surge of water that pushes your foe.')
   expect(next).toContain('Details: Advanced Deity&#x27;s Domain (Water)')
-  expect(next).toContain('Water domain grants focus spell: Downpour: A rainstorm drenches an area.')
+  expect(detailsMarkup(nextTree, "Advanced Deity's Domain (Water)")).toContain('Water domain grants focus spell: Downpour: A rainstorm drenches an area.')
 })
 
 it('links imported leads-to feats inside feat descriptions and marks unavailable targets', () => {
