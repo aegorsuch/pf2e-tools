@@ -1827,6 +1827,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Planar Resilience' && c.systems.includes('pf2e')) return ['Cold', 'Fire']
   if (name === "Shooter's Camouflage" && c.systems.includes('pf2e')) return ['Natural', 'Urban']
   if (name === 'Nephilim Resistance' && c.systems.includes('pf2e')) return NEPHILIM_RESISTANCE_TYPES
+  if (name === 'Magical Resistance' && c.systems.includes('pf2e')) return ['Cold', 'Electricity', 'Sonic']
   if (name === 'Hardened Chassis' && c.systems.includes('pf2e')) return ['Bludgeoning', 'Piercing', 'Slashing']
   if (name === 'Extraplanar Supplication' && c.systems.includes('pf2e')) return EXTRAPLANAR_SUPPLICATION_SPELLS
   if (name === 'Rites of Convocation' && c.systems.includes('pf2e')) {
@@ -5002,7 +5003,7 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     c.background ? byName(entries, 'background', c.background) : undefined,
     ...classFeatures(entries, c),
     ...c.feats.filter((feat) => featTakenLevel(feat) <= c.level
-      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating', 'Infernal Bulwark', 'Energy Neutralizer', 'Enhanced Energy Neutralizer', 'Unstoppable Juggernaut', 'Nephilim Resistance', 'Hardened Chassis'].includes(feat.name))
+      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating', 'Infernal Bulwark', 'Energy Neutralizer', 'Enhanced Energy Neutralizer', 'Unstoppable Juggernaut', 'Nephilim Resistance', 'Hardened Chassis', 'Magical Resistance'].includes(feat.name))
       .map((feat) => selectedFeatEntry(c, entries, feat.name, feat.sourceId)),
     ...c.equipment.filter(g => !isNamedArmor(g.name)).map((g) => byName(entries, 'item', g.name)),
     wornArmor(c, entries) ? armorEntry(c, entries, wornArmor(c, entries)!.name, wornArmor(c, entries)!.id) : undefined,
@@ -5014,6 +5015,11 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   if (juggernaut) out.push({ damage: 'all damage', value: Math.max(0, 3 + abilityMod(c.abilities.con)), source: 'Unstoppable Juggernaut' })
   if (c.systems.includes('pf2e')) for (const feat of activeFeatsNamed(c, 'Nephilim Resistance')) {
     if (feat.choice && NEPHILIM_RESISTANCE_TYPES.includes(feat.choice)) {
+      out.push({ damage: feat.choice, value: 5, source: feat.name })
+    }
+  }
+  if (c.systems.includes('pf2e')) for (const feat of activeFeatsNamed(c, 'Magical Resistance')) {
+    if (feat.choice && ['Cold', 'Electricity', 'Sonic'].includes(feat.choice)) {
       out.push({ damage: feat.choice, value: 5, source: feat.name })
     }
   }
