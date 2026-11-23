@@ -7555,7 +7555,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ]
       : [...divineAttackDamage(c), ...namedWeaponDamage(entry),
       ...(dice > 0 && category !== 'Unarmed' && isSpellActive(c, entries, 'Gravity Weapon')
-        ? [{ source: 'Gravity Weapon', value: `${dice * 2} status` }] : []),
+        ? [{ source: 'Gravity Weapon', value: `${dice * 2}` }] : []),
       ...(spiritDamage ? [{ source: 'Spirit Rage', value: `${rageDamage} spirit`, note: 'The attack gains ghost touch while using Spirit Rage.' }] : []),
       ...(rageDamage > 0 && physicalTypes.includes(String(modifiedDamageType ?? '').toLowerCase())
         && barbarianInstinct(c, entries) === 'bloodrager'

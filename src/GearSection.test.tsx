@@ -61,9 +61,9 @@ it('shows Gravity Weapon only for the first weapon Strike and scales with weapon
   const bonus = (character: Character, owned: OwnedWeapon) => weaponAttack(character, [weapon], owned).additionalDamage
     .find(damage => damage.source === 'Gravity Weapon')
   expect(bonus(c, sword)).toBeUndefined()
-  expect(bonus(active, { ...sword, striking: 0 })).toMatchObject({ value: '2 status' })
-  expect(bonus(active, sword)).toMatchObject({ value: '4 status' })
-  expect(bonus(active, { ...sword, striking: 3 })).toMatchObject({ value: '8 status' })
+  expect(bonus(active, { ...sword, striking: 0 })).toMatchObject({ value: '2' })
+  expect(bonus(active, sword)).toMatchObject({ value: '4' })
+  expect(bonus(active, { ...sword, striking: 3 })).toMatchObject({ value: '8' })
   expect(bonus({ ...active, feats: [] }, sword)).toBeUndefined()
   expect(bonus({ ...active, ...spellActiveChange(active, 'Gravity Weapon', false) }, sword)).toBeUndefined()
   expect(bonus(active, { id: IRUXI_CLAWS.id, name: IRUXI_CLAWS.name, potency: 0, striking: 0, runes: [] })).toBeUndefined()
