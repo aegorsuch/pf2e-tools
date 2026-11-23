@@ -1943,9 +1943,9 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (familiarityOptions) return familiarityOptions
   if (name === 'Clan Lore') return Object.keys(CLAN_LORE_OPTIONS).sort((a, b) => clanLoreLabel(a).localeCompare(clanLoreLabel(b)))
   if (name === 'Dongun Education') return Object.keys(DONGUN_EDUCATION_LORES)
-  if (name === 'Eye for Treasure' && index >= 0) {
+  if ((name === 'Eye for Treasure' || name === 'Expressive Face') && index >= 0) {
     const ranks = ancestrySkillBefore(c, entries, index)
-    if ((ranks.Crafting ?? 0) < 1) return undefined
+    if ((ranks[name === 'Expressive Face' ? 'Diplomacy' : 'Crafting'] ?? 0) < 1) return undefined
     return statDefs(c).filter(stat => stat.kind === 'skill' && !(ranks[stat.name] ?? 0))
       .map(stat => stat.name).sort((a, b) => a.localeCompare(b))
   }
@@ -3783,7 +3783,7 @@ export function normalizeConditionalSkillChoices(c: Character, entries: ContentE
       changed = true
       feat = { ...feat, replacements: keep && feat.replacements?.[0] ? [feat.replacements[0]] : undefined }
     }
-    if (![...SKILLS_TAB_ANCESTRY_GRANTS, 'Eye for Treasure', "Officer's Medical Training", 'Shiny'].includes(feat.name)
+    if (![...SKILLS_TAB_ANCESTRY_GRANTS, 'Eye for Treasure', 'Expressive Face', "Officer's Medical Training", 'Shiny'].includes(feat.name)
       || !feat.choice || !featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)?.includes(feat.choice)) return feat
     add(feat.choice)
     return { ...feat, choice: undefined }
@@ -3872,7 +3872,7 @@ function ancestryLoreGrant(c: Character, entries: ContentEntry[], name: string) 
     && new RegExp(`\\b${stat.name}\\b`, 'i').test(skillsText)).map(stat => stat.name)
   return skills.length ? { skills, lore } : undefined
 }
-const rankDependentFeats = new Set(['Dwarven Lore', 'Clan Lore', 'Lizardfolk Lore', 'Nephilim Lore', 'Munitions Crafter', 'Eye for Treasure', "Stonemason's Eye", "Officer's Medical Training", 'Rat Retinal HUD', ...Object.keys(ANCESTRY_LORE_GRANTS), ...Object.keys(ANCESTRY_SKILL_ONLY_GRANTS)])
+const rankDependentFeats = new Set(['Dwarven Lore', 'Clan Lore', 'Lizardfolk Lore', 'Nephilim Lore', 'Munitions Crafter', 'Eye for Treasure', 'Expressive Face', "Stonemason's Eye", "Officer's Medical Training", 'Rat Retinal HUD', ...Object.keys(ANCESTRY_LORE_GRANTS), ...Object.keys(ANCESTRY_SKILL_ONLY_GRANTS)])
 
 function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
   const skills = new Set(statDefs(c).filter((stat) => stat.kind === 'skill').map((stat) => stat.name))
@@ -3914,6 +3914,9 @@ function skillTrainingSkills(c: Character, entries: ContentEntry[]) {
       }
     } else if (feat.name === 'Munitions Crafter' && !(ranks.Crafting ?? 0)) {
       trained.push('Crafting')
+    } else if (feat.name === 'Expressive Face') {
+      const skill = (ranks.Diplomacy ?? 0) > 0 && feat.choice ? feat.choice : 'Diplomacy'
+      if (skill && skills.has(skill) && !(ranks[skill] ?? 0)) trained.push(skill)
     } else if (feat.name === 'Eye for Treasure') {
       const skill = (ranks.Crafting ?? 0) > 0 && feat.choice ? feat.choice : 'Crafting'
       if (skill && skills.has(skill) && !(ranks[skill] ?? 0)) trained.push(skill)
@@ -4231,6 +4234,9 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
   const sourceLevel = (name: string) => Math.min(...activeFeatsNamed(c, name).map(featTakenLevel))
   if (activeFeatsNamed(c, "Officer's Medical Training").length) {
     grants.push({ name: 'Battle Medicine', source: "Officer's Medical Training", level: sourceLevel("Officer's Medical Training") })
+  }
+  if (activeFeatsNamed(c, 'Expressive Face').length) {
+    grants.push({ name: 'Glad-Hand', source: 'Expressive Face', level: sourceLevel('Expressive Face') })
   }
   const eyeForTreasure = activeFeatsNamed(c, 'Eye for Treasure')
   if (eyeForTreasure.length) {
@@ -7854,6 +7860,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
         ?? (feat.name === 'Dwarven Lore' ? ['Crafting', 'Religion']
         : feat.name === 'Clan Lore' ? CLAN_LORE_OPTIONS[feat.choice ?? '']?.skills ?? []
         : feat.name === 'Eye for Treasure' ? ['Crafting']
+        : feat.name === 'Expressive Face' ? ['Diplomacy']
         : feat.name === "Officer's Medical Training" ? ['Medicine']
         : feat.name === 'Rat Retinal HUD' ? ['Computers']
         : feat.name === 'Shiny' ? ['Performance']

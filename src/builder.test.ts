@@ -1097,6 +1097,15 @@ describe('official passive feat mechanics', () => {
     const trainedTreasure = { ...untrained, skillPicks: ['Crafting'], feats: [{ ...treasure, choice: 'Society' }] }
     expect(featChoiceOptions('Eye for Treasure', trainedTreasure, entries, treasure.slot, 0)).toContain('Society')
     expect(ranksAt(trainedTreasure, entries).Society).toBe(1)
+
+    const face = { name: 'Expressive Face', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }
+    expect(ranksAt({ ...untrained, feats: [face] }, entries).Diplomacy).toBe(1)
+    expect(automaticFeatGrants({ ...untrained, feats: [face] }, entries)).toContainEqual({
+      name: 'Glad-Hand', source: 'Expressive Face', level: 1,
+    })
+    const trainedFace = { ...untrained, skillPicks: ['Diplomacy'], feats: [{ ...face, choice: 'Society' }] }
+    expect(featChoiceOptions('Expressive Face', trainedFace, entries, face.slot, 0)).toContain('Society')
+    expect(ranksAt(trainedFace, entries).Society).toBe(1)
   })
 
   it('grants Pioneer Human Survival and Terrain Expertise without consuming a feat or training pick', () => {
