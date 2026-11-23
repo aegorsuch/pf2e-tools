@@ -499,6 +499,23 @@ it.each([false, true])('includes full base weapon names in specific weapon title
   expect(weapons.map(weapon => weapon.name)).toEqual(['Briar', 'Wintershot (Longbow)'])
 })
 
+it('uses the canonical Axe of the Dwarven Lords name and fixed Orichalcum', () => {
+  const name = 'Axe of the Dwarven Lords'
+  const axe = specific(name, 'Dwarven Waraxe', '+4 major striking', [])
+  const entries = [...namedCatalog, melee('Dwarven Waraxe', '1d8 slashing'), axe]
+  const weapon = { ...owned(name), material: 'Cold Iron' as const }
+  const entry = gearPickerEntries(entries, 'weapon').find(candidate => candidate.name === name)!
+  expect(specificMagicItemName(entry)).toBe(name)
+  expect(effectiveWeapon(c, entries, weapon).material).toBe('Orichalcum')
+  expect(weapon.material).toBe('Cold Iron')
+  for (const displayOnly of [false, true]) {
+    const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [weapon] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+    expect(html).toContain(`>${name}</button>`)
+    expect(html).not.toContain(`${name} Dwarven Waraxe`)
+    if (!displayOnly) expect(html).toContain('>Orichalcum</button>')
+  }
+})
+
 it.each([undefined, 'Paired', 'Merged', 'Flame', 'Frost'] as const)(
   'names Coldstar forms and their individual attachment source correctly (%s)', coldstarForm => {
     const pistol: ContentEntry = { ...melee('Dueling Pistol', '1d6 piercing'),
