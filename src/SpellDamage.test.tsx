@@ -1127,3 +1127,8 @@ it('scales Rocket Dash fire and critical failure persistent damage', () => {
   expect(spellDamage('Rocket Dash', 6)[0]).toMatchObject({ dice: 6, sides: 12, additional: { dice: 2, sides: 6 } })
   expect(spellDamage('Rocket Dash', 10)[0]).toMatchObject({ dice: 10, additional: { dice: 4 } })
 })
+
+it("rolls Scrounger's Glee healing and heightens it every two ranks", () => {
+  expect(spellDamage("Scrounger's Glee", 1)).toEqual([{ label: 'Healing', dice: 1, sides: 4, type: 'HP' }])
+  expect(spellDamage("Scrounger's Glee", 5)[0].dice).toBe(3)
+})

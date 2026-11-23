@@ -17,6 +17,8 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
         { label: 'Dismissal damage', dice: 2 + heightened, sides: 6, type: 'spirit' },
       ]
     }
+    case "Scrounger's Glee":
+      return rank >= 1 ? [{ label: 'Healing', dice: 1 + Math.floor((rank - 1) / 2), sides: 4, type: 'HP' }] : []
     case 'Verdant Code':
       return rank >= 2 ? [{ label: 'Damage', dice: 2, sides: 6, type: 'piercing' }] : []
     case 'Wall of Fire':
