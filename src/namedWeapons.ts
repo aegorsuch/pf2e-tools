@@ -60,7 +60,7 @@ const ACTIONS: Record<string, { name: string; actions: string }[]> = {
 
 const MATERIALS: Record<string, string> = {
   Briar: 'Cold Iron', Blackaxe: 'Adamantine', Ridill: 'Adamantine', Serithtial: 'Orichalcum',
-  'Axe of the Dwarven Lords': 'Orichalcum',
+  'Axe of the Dwarven Lords': 'Orichalcum', "Clear Cutter's Axe": 'Orichalcum',
   'Blade of Fallen Stars': 'Cold Siccatite (High-Grade)',
   'Debilitating Dart': 'Orichalcum',
   'Phoenix Fighting Fan': 'Silver', "Sorshen's Sinuous Guisarme": 'Dawnsilver (High-Grade)',
