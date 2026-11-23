@@ -563,7 +563,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       })
       return checks.find(satisfied) ?? checks[0]
     }
-    if (reference === 'tusks unarmed attack') return missing(text)
+    if (reference === 'tusks unarmed attack' || reference === 'divine insight' && trail.has('divine certitude')) return missing(text)
     if (content.some((entry) => entry.kind === 'feat' || entry.kind === 'classFeature')) return missing(text)
     if (name === 'a sense with a listed range') {
       return resultFor(facts.senses.some(sense => {

@@ -478,6 +478,25 @@ it.each([false, true])('shows Eye for Treasure as a conditional Crafting total d
     entries={[ranger]} save={() => {}} />)).not.toContain('aria-label="Eye for Treasure note"')
 })
 
+it('shows Divine Certitude only on Religion and the selected deity’s divine skills', () => {
+  const deity: ContentEntry = { ...ranger, id: 'deity', kind: 'deity', name: 'Example',
+    data: { skill: 'Crafting, Nature' } }
+  const c: Character = { ...base, className: 'Cleric', level: 12, deity: deity.name,
+    feats: [{ name: 'Divine Certitude', type: 'Class Feat', level: 12, slot: 'class:12:0' }] }
+  const render = (character: Character, entries = [deity]) =>
+    renderToStaticMarkup(<SkillsSection c={character} entries={entries} save={() => {}} />)
+  const row = (html: string, skill: string) => html.split('<div class="skill-row').find(part => part.includes(`class="skill-name">${skill} `)) ?? ''
+  const html = render(c)
+  for (const skill of ['Religion', 'Crafting', 'Nature']) {
+    expect(row(html, skill)).toContain('On a Recall Knowledge check, a failure becomes a success.')
+  }
+  expect(row(html, 'Arcana')).not.toContain('Divine Certitude note')
+  expect(row(render({ ...c, deity: undefined }), 'Religion')).toContain('Divine Certitude note')
+  expect(row(render({ ...c, deity: undefined }), 'Crafting')).not.toContain('Divine Certitude note')
+  expect(render({ ...c, level: 11 })).not.toContain('Divine Certitude note')
+  expect(render({ ...c, feats: [] })).not.toContain('Divine Certitude note')
+})
+
 it('shows Hellknight Preferment at the Intimidation total instead of a separate circumstance column', () => {
   const plate: ContentEntry = { ...ranger, id: 'hellknight', kind: 'armor', name: 'Hellknight Plate',
     data: { armor_category: 'Heavy', armor_group: 'Plate' } }

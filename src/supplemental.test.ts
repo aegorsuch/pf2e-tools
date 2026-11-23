@@ -94,6 +94,25 @@ it('offers favored weapon symbol and jousting to clerics as well as champions', 
   expect(eligibleFeats(entries, { ...base, className: 'Fighter' }, firstSlot)).not.toContain(symbol)
 })
 
+it('offers Divine Certitude to clerics at level 12 with Divine Insight', () => {
+  const feat = homebrewCharacterOptions([]).find(entry => entry.id === 'homebrew:divine-certitude')!
+  const insight: ContentEntry = { ...feat, id: 'insight', source: 'official', name: 'Divine Insight',
+    level: 8, data: { class: 'Cleric' } }
+  const slot = { category: 'class' as const, level: 12, key: 'class:12:0' }
+  const c: Character = { ...base, className: 'Cleric', level: 12,
+    feats: [{ name: insight.name, type: 'Class Feat', level: 8, slot: 'class:8:0' }] }
+  const entries = [feat, insight]
+  expect(feat).toMatchObject({ name: 'Divine Certitude', level: 12, source: 'homebrew',
+    traits: ['Cleric'], data: { class: 'Cleric', prerequisite: 'Divine Insight' } })
+  expect(eligibleFeats(entries, c, slot)).toContain(feat)
+  expect(eligibleFeats(entries, { ...c, feats: [] }, slot)).not.toContain(feat)
+  expect(eligibleFeats([feat], { ...c, feats: [] }, slot)).not.toContain(feat)
+  expect(eligibleFeats([feat], c, slot)).toContain(feat)
+  expect(eligibleFeats(entries, c, { ...slot, level: 10 })).not.toContain(feat)
+  expect(eligibleFeats(entries, { ...c, className: 'Druid' }, slot)).not.toContain(feat)
+  expect(groupHomebrew(entries).find(group => group.name === 'Cleric Feats')?.entries).toContain(feat)
+})
+
 it('offers level-20 Tethered weapon feats for each weapon feature', () => {
   const entries = homebrewCharacterOptions([])
   expect(entries.find(entry => entry.name === 'Tethered Living Weapon')).toMatchObject({

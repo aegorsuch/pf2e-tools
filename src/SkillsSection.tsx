@@ -1,5 +1,5 @@
 import { resistances, activeBattleForm,
-  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, canIncreaseTo, classDifficultyClass, classFeatures, commonLoreOptions, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speed, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
+  ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, byName, canIncreaseTo, classDifficultyClass, classFeatures, commonLoreOptions, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speed, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, selectedSubclass, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, offensiveDefenseAttack, ownedWeapons, weaponEquipped, installedWeaponUpgrades, conditionPenalty, conditionValue, type SectionProps,
 } from './builder'
@@ -251,6 +251,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     ...stats.filter((stat) => stat.kind === 'skill'),
     ...lores.map((name) => ({ name, ability: 'int' as const, kind: 'skill' as const })),
   ].sort((a, b) => a.name.localeCompare(b.name))
+  const divineSkill = byName(entries, 'deity', c.deity)?.data.skill
+  const certitudeSkills = new Set(['religion', ...(typeof divineSkill === 'string'
+    ? divineSkill.split(/,\s*|\s+or\s+/i).map(skill => skill.trim().toLowerCase()).filter(Boolean) : [])])
   const skillNames = new Set(skills.map((stat) => stat.name))
   const memoriesOfValor = editingSkills && c.systems.includes('sf2e') && c.ancestry === 'Vesk'
     && c.heritage === 'Enshrined Vesk' ? activeFeatsNamed(c, 'Memories of Valor').find(feat => feat.choice) : undefined
@@ -549,6 +552,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Tinkering Fingers" note={`Repair without a toolkit without the penalty; ${conditionalTotal(1)} to Repair checks with a repair toolkit (+1 circumstance).`} />}
           {s.name === 'Crafting' && !!activeFeatsNamed(c, 'Eye for Treasure').length && <SourceNote inlineSource={false}
             source="Eye for Treasure" note={`${conditionalTotal(1)} to Recall Knowledge using Crafting (+1 circumstance; circumstance bonuses do not stack).`} />}
+          {s.kind === 'skill' && certitudeSkills.has(s.name.toLowerCase()) && !!activeFeatsNamed(c, 'Divine Certitude').length
+            && <SourceNote source="Divine Certitude" note="On a Recall Knowledge check, a failure becomes a success." />}
           {s.name === 'Nature' && !!activeFeatsNamed(c, 'Rider').length && <SourceNote inlineSource={false}
             source="Rider" note={`${conditionalTotal(1)} to Command an Animal checks for your own animal companion, if a check is required.`} />}
           {CONDITIONAL_BONUSES.filter(b => b.stats.includes(s.name) && activeFeatsNamed(c, b.feat).length > 0).map(b => <SourceNote key={b.feat} inlineSource={false}
