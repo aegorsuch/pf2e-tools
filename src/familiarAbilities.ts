@@ -24,12 +24,13 @@ export function familiarSelection(c: Character) {
   const familiar = !!classFamiliar || crocodileFamiliar
     || ['Animal Accomplice', 'Familiar'].some(name => activeFeatsNamed(c, name).length > 0)
   const wasp = !familiar && hasDivineIntercession(c, 'Calistria', 'moderate-boon')
+  const divineEmissary = activeFeatsNamed(c, 'Divine Emissary').length > 0 ? 1 : 0
   const witchAbilities = c.className === 'Witch' ? 2 + [6, 12, 18].filter(level => c.level >= level).length : 0
   const dailyAbilityLimit = (undeadFamiliar
     ? activeFeatsNamed(c, 'Enhanced Undead Familiar').length
       ? c.level >= 10 && activeFeatsNamed(c, 'Incredible Undead Familiar').length ? 5 : 3 : 1
     : activeFeatsNamed(c, 'Incredible Familiar').length ? 6 : activeFeatsNamed(c, 'Enhanced Familiar').length ? 4 : 2)
-    + witchAbilities
+    + witchAbilities + divineEmissary
   return { leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, dailyAbilityLimit }
 }
 
@@ -93,7 +94,24 @@ export function familiarSpellBenefits(c: Character, entries: ContentEntry[], slo
 }
 
 const familiarEntryCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
+const EMISSARY_ABILITIES: Record<string, string> = {
+  Erudite: "Your familiar gains 1 reaction at the start of its turns, which it can use only to Aid you on a Religion check. It automatically succeeds its check to Aid you with Religion checks, or automatically critically succeeds if you're a master in Religion.",
+  Luminous: 'Your familiar sheds bright light in a 30-foot radius and dim light for the next 30 feet. It can suppress or resume this light by using an action, which has the concentrate trait.',
+  Medic: 'Your familiar can Cast a Spell once per day: the 1-action version of heal at a rank 2 lower than your highest-rank spell slot, only on you. You must be able to cast 3rd-rank spells from spell slots to select this ability.',
+  Radiant: 'Your familiar gains resistance to evil and negative damage equal to half your level.',
+}
+const emissaryNames = new Set(Object.keys(EMISSARY_ABILITIES).map(key))
+
 export function familiarAbilityEntries(entries: ContentEntry[], c: Character) {
+  const base = baseFamiliarAbilityEntries(entries, c)
+  if (!activeFeatsNamed(c, 'Divine Emissary').length) return base
+  return [...base, ...Object.entries(EMISSARY_ABILITIES).map(([name, description]): ContentEntry => ({
+    id: `divine-emissary:${key(name)}`, systems: c.systems, kind: 'familiar', source: 'official', name, level: 1,
+    traits: [], description, data: { ability_type: 'Divine Emissary' }, effects: [], updatedAt: 0,
+  }))]
+}
+
+function baseFamiliarAbilityEntries(entries: ContentEntry[], c: Character) {
   let bySystems = familiarEntryCache.get(entries)
   if (!bySystems) familiarEntryCache.set(entries, bySystems = new Map())
   const systemsKey = c.systems.join()
@@ -138,6 +156,9 @@ export function familiarAbilityUnavailableReason(entry: ContentEntry, c: Charact
     return 'This ability has already been selected.'
   }
   const selectedNames = new Set(selected.map(key))
+  if (emissaryNames.has(key(entry.name)) && selected.some(name => emissaryNames.has(key(name)))) {
+    return 'Only one divine emissary familiar ability can be selected at a time.'
+  }
   const abilityPrerequisites = [...entry.description.matchAll(/(?:familiar|it) must have (?:the )?\[?([a-z][a-z -]*?)\]?(?:\([^)]*\))? ability/gi)]
     .map(match => key(match[1]))
   const missingAbility = abilityPrerequisites.find(name => !selectedNames.has(name))

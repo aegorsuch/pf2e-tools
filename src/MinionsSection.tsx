@@ -993,7 +993,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   buttonLabel="Details" className="picker-details" />
               }} onChange={chooseAbility}>
               <option value="">+</option>
-              {['Familiar', 'Master'].map(type => {
+              {['Familiar', 'Master', 'Divine Emissary'].map(type => {
                 const options = abilityOptions.filter(entry =>
                   String(entry.data.ability_type ?? 'Familiar').toLowerCase() === type.toLowerCase())
                 return options.length > 0 && <optgroup key={type} label={type}>
