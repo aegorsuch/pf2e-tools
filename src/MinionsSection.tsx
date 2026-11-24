@@ -19,7 +19,7 @@ import { activeSummonedFiend, type SummonedFiend } from './summonedFiends'
 import { DroneFeatures } from './DroneFeatures'
 import { FOLLOWER_STAGES, FOLLOWER_TYPES, followerStage, followerStats } from './followers'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
-  familiarAbilityEntry, familiarAbilityUnavailableReason, GLYPH_FAMILIAR_ABILITIES, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds, specificFamiliarOptions } from './familiarAbilities'
+  familiarAbilityEntry, familiarAbilityUnavailableReason, GLYPH_FAMILIAR_ABILITIES, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds, specificFamiliarGrants, specificFamiliarOptions } from './familiarAbilities'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
@@ -985,8 +985,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           })
           const castingAbility = classSpellcasting(c, entries)?.ability ?? c.spellcasting?.ability
           const spellcastingModifier = castingAbility ? Math.floor((c.abilities[castingAbility] - 10) / 2) : 0
-          const movementAbilities = [...activeAbilities, ...(isWasp ? ['Burrower', 'Flier'] : []), ...(glyph && !isWasp ? GLYPH_FAMILIAR_ABILITIES : [])]
-          const familiarEffects = familiarAbilityEffects(movementAbilities, c.level, data?.abilityOptions, spellcastingModifier)
+          const specificGrants = isWasp ? { abilities: [], skilled: [] }
+            : specificFamiliarGrants(specificFamiliarOptions(c, entries).find(option => option.entry.name === data?.specificFamiliar)?.entry)
+          const movementAbilities = [...activeAbilities, ...(isWasp ? ['Burrower', 'Flier'] : []), ...(glyph && !isWasp ? GLYPH_FAMILIAR_ABILITIES : []),
+            ...specificGrants.abilities]
+          const familiarEffects = familiarAbilityEffects(movementAbilities, c.level, {
+            ...data?.abilityOptions, skilled: [...new Set([...data?.abilityOptions?.skilled ?? [], ...specificGrants.skilled])] }, spellcastingModifier)
           const amphibious = movementAbilities.some(ability => ability.toLowerCase() === 'amphibious')
           const baseSpeeds = minionMovementSpeeds(movementAbilities.filter(ability => ability.toLowerCase() !== 'fast movement'))
             .filter(speed => speed.feet === 25 && !(amphibious && speed.movement === 'Swim'))
@@ -1104,6 +1108,10 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           </section>}
           {familiarEffects.skilled.length > 0 && <section className="companion-actions">
             <h5>Skills</h5><div>{familiarEffects.skilled.map(skill => `${skill.skill} ${signed(skill.modifier)}`).join(', ')}</div>
+          </section>}
+          {specificGrants.abilities.length > 0 && <section className="companion-actions">
+            <h5>Granted abilities</h5><div>{specificGrants.abilities.map(ability => ability === 'Skilled' && specificGrants.skilled.length
+              ? `Skilled (${specificGrants.skilled.join(', ')})` : ability).join(', ')}</div>
           </section>}
           {!isWasp && specificFamiliars.length > 0 && <label>Specific familiar{' '}
             <select aria-label="Specific familiar" value={data?.specificFamiliar ?? ''}

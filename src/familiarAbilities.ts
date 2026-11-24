@@ -84,7 +84,8 @@ export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
   if (state.spiritFamiliar && (!data?.spiritManifested || data.spiritDestroyed)) return []
   const choices = (data?.abilities ?? []).slice(0, familiarAbilityCapacity(c, entries).selectableAbilityLimit)
   const catalog = familiarAbilityEntries(entries, c)
-  const granted = state.glyph && !state.wasp ? GLYPH_FAMILIAR_ABILITIES : []
+  const granted = [...state.glyph && !state.wasp ? GLYPH_FAMILIAR_ABILITIES : [],
+    ...!state.wasp ? specificFamiliarGrants(selectedSpecificFamiliar(c, entries)).abilities : []]
   return [...choices.flatMap((name, index) => {
     const entry = familiarAbilityEntry(name, catalog, c)
     if (!entry || /^specific familiar\b/i.test(String(entry.data.ability_type ?? ''))) return []
@@ -267,4 +268,26 @@ export function specificFamiliarOptions(c: Character, entries: ContentEntry[]) {
     const required = Math.max(0, specificFamiliarRequirement(entry) - reduction)
     return { entry, required, available: abilities >= required }
   })
+}
+
+const titleCase = (text: string) => text.replace(/\b\w/g, letter => letter.toUpperCase())
+
+export function specificFamiliarGrants(entry?: ContentEntry) {
+  const raw = String(entry?.data.granted_abilities ?? '')
+    || /\bGranted Abilities\W+([^\n]+?)(?=\s+(?:Required Number|Familiar Abilities|Source)\b|\n|$)/i.exec(entry?.description ?? '')?.[1] || ''
+  const abilities: string[] = []
+  const skilled: string[] = []
+  for (const part of raw.split(/,(?![^()]*\))/).map(item => item.trim().replace(/[.;]$/, '')).filter(Boolean)) {
+    const skills = /^skilled\s*\(([^)]*)\)/i.exec(part)
+    if (skills) {
+      abilities.push('Skilled')
+      skilled.push(...skills[1].split(/,|\band\b/).map(skill => titleCase(skill.trim())).filter(skill => FAMILIAR_SKILLS.includes(skill)))
+    } else abilities.push(titleCase(part))
+  }
+  return { abilities, skilled }
+}
+
+export function selectedSpecificFamiliar(c: Character, entries: ContentEntry[]) {
+  const name = c.familiar?.specificFamiliar
+  return name ? specificFamiliarOptions(c, entries).find(option => option.entry.name === name)?.entry : undefined
 }

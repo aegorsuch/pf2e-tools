@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import { activeFamiliarAbilities, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
-  familiarAbilityUnavailableReason, familiarSelection, familiarSpellBenefits, specificFamiliarOptions } from './familiarAbilities'
+  familiarAbilityUnavailableReason, familiarSelection, familiarSpellBenefits, specificFamiliarGrants, specificFamiliarOptions } from './familiarAbilities'
 import type { Character, ContentEntry } from './types'
 
 const character: Character = {
@@ -153,6 +153,15 @@ it('offers specific familiars by required abilities, reduced by Improved Familia
   expect(specificFamiliarOptions(wizard, [specific]).map(o => [o.required, o.available])).toEqual([[6, false]])
   const improved = { ...wizard, feats: [...wizard.feats, { name: 'Improved Familiar', type: 'Archetype Feat', level: 4 }] }
   expect(specificFamiliarOptions(improved, [specific]).map(o => [o.required, o.available])).toEqual([[4, true]])
+})
+
+it('applies granted abilities of the selected specific familiar without using daily slots', () => {
+  const wyrm = { ...ability('Calligraphy Wyrm', 'Required Number of Abilities 2\nGranted Abilities darkvision, flier, manual dexterity, scent, skilled (arcana, society), speech\nInk Spray'),
+    data: { ability_type: 'Specific Familiar' } }
+  expect(specificFamiliarGrants(wyrm)).toEqual({ abilities: ['Darkvision', 'Flier', 'Manual Dexterity', 'Scent', 'Skilled', 'Speech'], skilled: ['Arcana', 'Society'] })
+  const wizard: Character = { ...character, className: 'Wizard', familiar: { specificFamiliar: 'Calligraphy Wyrm' },
+    feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }] }
+  expect(activeFamiliarAbilities(wizard, [wyrm])).toEqual(['Darkvision', 'Flier', 'Manual Dexterity', 'Scent', 'Skilled', 'Speech'])
 })
 
 it('gives Improved Familiar Attunement a familiar with extra abilities at 6th, 12th and 18th level', () => {
