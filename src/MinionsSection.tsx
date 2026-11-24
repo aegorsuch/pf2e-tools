@@ -1114,7 +1114,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               <option value="">Choose specific familiar…</option>
               {specificFamiliars.map(option => <option key={option.entry.id} value={option.entry.name}
                 disabled={!option.available && option.entry.name !== data?.specificFamiliar}>
-                {option.entry.name}{option.required ? ` (${option.required} abilities)` : ''}</option>)}
+                {option.entry.name}</option>)}
             </SearchableSelect>
           </header>}
           {selectedSpecific && specificAccess && !specificAccess.automatic && <label>

@@ -624,13 +624,15 @@ it('shows the built-in Calligraphy Wyrm picker, header, granted abilities and ac
   const c: Character = {
     id: 'wyrm', systems: ['pf2e'], name: 'Test', level: 8, className: 'Wizard',
     abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
-    feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }, { name: 'Incredible Familiar', type: 'Class Feat', level: 8 }],
+    feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }, { name: 'Incredible Familiar', type: 'Class Feat', level: 8 },
+      { name: 'Improved Familiar', type: 'Class Feat', level: 6 }],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     familiar: { specificFamiliar: 'Calligraphy Wyrm' },
     featAccessOverrides: ['fallback:specific-familiar:calligraphy-wyrm'],
   }
   const markup = renderToStaticMarkup(MinionsContent({ c, entries: [], save: () => {} }))
   expect(markup).toContain('Calligraphy Wyrm')
+  expect(markup).not.toContain('Calligraphy Wyrm (4 abilities)')
   expect(markup).toContain('aria-label="Specific familiar"')
   expect(markup).toContain('Manual Dexterity')
   expect(markup).toContain('Ink Spray')
