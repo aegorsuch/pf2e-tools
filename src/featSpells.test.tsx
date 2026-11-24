@@ -405,7 +405,7 @@ it("offers Trickster's Ace only single-target spells that meet its preparation r
   expect(emptySlot).toContain('aria-pressed="true">Class Spells</button>')
 })
 
-it('adds Loaner Spell in its own once-daily category through rank 3 by default', () => {
+it('adds Loaner Spell to Class Spells with a once-daily limit through rank 3 by default', () => {
   const c: Character = { ...base, level: 10, boosts: { class: 'str' }, feats: [taken('Loaner Spell', 1, 'Save spell')] }
   const fighter = entry('Fighter', 'class', { attribute: 'Strength' })
   const spells = [
@@ -428,11 +428,12 @@ it('adds Loaner Spell in its own once-daily category through rank 3 by default',
   expect(dailyInnateUses(c, grant)?.limit).toBe(1)
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
   expect(markup).toContain('aria-pressed="true">Class Spells</button>')
-  expect(markup).toContain('aria-pressed="false">Loaner Spell</button>')
-  expect(markup.match(/Loaner Spell · Spell Rank 2/g)).toHaveLength(2)
+  expect(markup).not.toContain('>Loaner Spell</button>')
+  expect(markup.match(/Loaner Spell · Spell Rank 2/g)).toHaveLength(1)
   expect(markup).not.toContain('>Feat Spells</button>')
   expect(markup).toContain('aria-label="Loaner Spell"')
   expect(markup).toContain('Loaner Spell · Spell Rank 2')
+  expect(markup).not.toContain('Your allied prepared spellcaster expends a spell slot')
   expect(markup).toContain('aria-label="1 of 1 uses remaining"')
   expect(markup).toContain(`<small>Save</small>Reflex DC ${classDifficultyClass(c, spells)}`)
   const attackMarkup = renderToStaticMarkup(<SpellsSection
@@ -442,6 +443,7 @@ it('adds Loaner Spell in its own once-daily category through rank 3 by default',
   const emptySlot = renderToStaticMarkup(<SpellsSection c={{ ...c, feats: [taken('Loaner Spell')] }} entries={spells} save={() => {}} />)
   expect(emptySlot).toContain('aria-label="Loaner Spell"')
   expect(emptySlot).toContain('aria-pressed="true">Class Spells</button>')
+  expect(emptySlot).not.toContain('>Loaner Spell</button>')
 })
 
 it('auto-heightens Loaner Spell to half character level, up to rank 10, when enabled', () => {
@@ -2700,6 +2702,28 @@ it('locks innate traditions to class casting only while consolidation is enabled
   expect(renderToStaticMarkup(<SpellsSection c={noncaster} entries={entries} save={() => {}} />)).toContain('Innate spell tradition')
   updateSettings({ consolidateInnateTraditions: false })
   expect(grantedFeatSpells(c, entries).map(grant => grant.rule.tradition)).toEqual(['divine', 'occult'])
+})
+
+it('lets a Rogue Loaner Spell tradition lock innate spells', () => {
+  const previous = getSettings().consolidateInnateTraditions
+  onTestFinished(() => updateSettings({ consolidateInnateTraditions: previous }))
+  updateSettings({ consolidateInnateTraditions: true })
+  const innateFeat: ContentEntry = { ...entry('Arcane Gift', 'feat'),
+    spellGrants: [{ kind: 'innate', spells: ['Arcane spell'], tradition: 'arcane', frequency: 'once per day' }] }
+  const spells = [
+    { ...entry('Arcane spell', 'spell', { tradition: 'Arcane', target: '1 creature' }), level: 1 },
+    { ...entry('Divine spell', 'spell', { tradition: 'Divine', target: '1 creature' }), level: 1 },
+  ]
+  const c: Character = { ...base, className: 'Rogue', feats: [
+    taken('Arcane Gift'), taken('Loaner Spell', 1, 'Divine spell'),
+  ] }
+  const entries = [innateFeat, ...spells]
+  expect(innateTraditionOptions(c, entries)).toEqual(['arcane', 'divine'])
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('aria-label="Innate spell tradition"')
+  expect(markup).toContain('<option value="divine">Divine</option>')
+  expect(grantedFeatSpells({ ...c, innateTradition: 'divine' }, entries)
+    .find(grant => grant.source === 'Arcane Gift')?.rule.tradition).toBe('divine')
 })
 
 it('uses higher class spell proficiency and highest mental attribute for innate spells', () => {

@@ -727,23 +727,19 @@ export function SimplePoisons({ c, save }: SectionProps) {
   const spent = Math.max(0, Math.min(total, Math.floor(c.simplePoisonsSpent ?? 0)))
   const remaining = total - spent
   const active = !!c.poisonWeaponActive
-  return <div className="col">
+  return <div className="row">
     <strong>Poison Weapon</strong>
-    <label><input type="checkbox" aria-label="Poison Weapon active" checked={active}
+    <input type="checkbox" aria-label="Poison Weapon active" checked={active}
       disabled={!active && remaining === 0} onChange={event => {
         if (event.target.checked) {
           if (remaining > 0) save({ simplePoisonsSpent: spent + 1, poisonWeaponActive: true })
         } else save({ poisonWeaponActive: false })
-      }} /> Poison Weapon active</label>
-    <div className="row">
-      <output aria-label="Poison Weapon uses remaining">{remaining}/{total}</output>
-      <button type="button" disabled={spent === 0} onClick={() => save({ simplePoisonsSpent: spent - 1 })}>
-        Restore one use
-      </button>
-      <button type="button" disabled={spent === 0 && !active} onClick={() => save({
+      }} />
+    <output aria-label="Poison Weapon uses remaining">{remaining}/{total}</output>
+    <button type="button" className="icon-button" aria-label="Reset Poison Weapon uses"
+      title="Daily preparations" disabled={spent === 0 && !active} onClick={() => save({
         simplePoisonsSpent: 0, poisonWeaponActive: false,
-      })}>Daily preparations</button>
-    </div>
+      })}>↻</button>
   </div>
 }
 

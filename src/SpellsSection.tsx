@@ -1468,7 +1468,7 @@ export function spellCategoryAvailability(c: Character, entries: ContentEntry[],
     || c.systems.includes('sf2e') && ['Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon'].some(name => activeFeatsNamed(c, name).length > 0)
   return { class: class_ || investigatorClassAvailable, focus: focusAvailable, innate: innateAvailable,
     feat: special.some(grant => grant.source !== "Trickster's Ace" && grant.source !== 'Loaner Spell'), items: items.length > 0,
-    rituals: characterRituals(c, entries).ritualNames.length > 0, loaner: hasLoanerSpell }
+    rituals: characterRituals(c, entries).ritualNames.length > 0 }
 }
 
 export function SpellsPanel(props: SectionProps) {
@@ -1490,7 +1490,7 @@ export function SpellsSection(props: SectionProps) {
 }
 
 export function SpellsContent({ c, entries, save, data }: SectionProps & { data?: ReturnType<typeof spellSummaryData> }) {
-  const [category, setCategory] = useState<'class' | 'focus' | 'innate' | 'feat' | 'items' | 'rituals' | 'loaner'>('class')
+  const [category, setCategory] = useState<'class' | 'focus' | 'innate' | 'feat' | 'items' | 'rituals'>('class')
   const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
   const [preparedSlot, setPreparedSlot] = useState<string>()
   const [dirgeOpen, setDirgeOpen] = useState(false)
@@ -1861,7 +1861,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const allFocus = [...otherFocus.map(spell => ({ name: spell.name, entryId: undefined, index: -1 })),
     ...listedSpells.filter(spell => spell.group === 'Focus Spells')].sort((a, b) => a.name.localeCompare(b.name))
   const categories = ([['class', 'Class Spells'], ['focus', 'Focus Spells'], ['innate', 'Innate Spells'], ['feat', 'Feat Spells'],
-    ['items', 'Item Spells'], ['rituals', 'Rituals'], ['loaner', 'Loaner Spell']] as const)
+    ['items', 'Item Spells'], ['rituals', 'Rituals']] as const)
     .filter(([value]) => value === 'focus' ? available.focus || allFocus.length > 0 : available[value])
   const activeCategory = categories.some(([value]) => value === category) ? category : categories[0]?.[0]
   const renderSpellGroup = (group: string) => <section className="innate-spell-group" key={group}>
@@ -2050,6 +2050,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         </section></div>}
       {renderTricksterAceChoices()}
       {renderSpecialGroups(tricksterAceSpells)}
+      {renderLoanerSpellChoices()}
       {renderSpecialGroups(loanerSpells)}
       {necromancer && c.level >= 1 && <>
         <dialog ref={dirgeDialog} className="entry-dialog dirge-dialog" aria-labelledby={dirgeTitleId}
@@ -2354,10 +2355,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </>}
       {druid && groups.some(group => group !== 'Focus Spells') && <b>Learned spell access</b>}
       {!necromancer && groups.filter(group => group !== 'Focus Spells').map(renderSpellGroup)}
-      </div>
-      <div hidden={activeCategory !== 'loaner'}>
-        {renderLoanerSpellChoices()}
-        {renderSpecialGroups(loanerSpells)}
       </div>
       <div hidden={activeCategory !== 'innate'}>
       {c.systems.includes('pf2e') && c.level >= 1 && ['fey-touched gnome', 'wellspring gnome'].includes(c.heritage?.toLowerCase() ?? '') && (() => {

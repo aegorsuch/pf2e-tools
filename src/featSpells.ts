@@ -433,8 +433,15 @@ export function innateTraditionOptions(c: Character, entries: ContentEntry[]) {
   let byCharacter = innateOptionsCache.get(entries)
   if (!byCharacter) innateOptionsCache.set(entries, byCharacter = new WeakMap())
   let options = byCharacter.get(c)
-  if (!options) byCharacter.set(c, options = [...new Set(computeGrantedFeatSpells(c, entries, false)
-    .flatMap(grant => grant.rule.kind === 'innate' && grant.rule.tradition ? [grant.rule.tradition.toLowerCase()] : []))].sort())
+  if (!options) {
+    const innate = computeGrantedFeatSpells(c, entries, false)
+      .flatMap(grant => grant.rule.kind === 'innate' && grant.rule.tradition ? [grant.rule.tradition.toLowerCase()] : [])
+    const rogueClassSpells = c.className === 'Rogue'
+      ? grantedFeatSpells(c, entries).filter(grant => grant.source === 'Loaner Spell')
+        .flatMap(grant => String(grant.entry.data.tradition ?? '').toLowerCase().split(/\s*,\s*/))
+      : []
+    byCharacter.set(c, options = [...new Set([...innate, ...rogueClassSpells].filter(Boolean))].sort())
+  }
   return options
 }
 
@@ -562,8 +569,7 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
     if (feat.name === 'Loaner Spell' && c.systems.includes('pf2e')) {
       const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
       if (entry) out.push({ entry, source: feat.name,
-        rule: { kind: 'feat', spells: [entry.name], frequency: 'once per day', fixedRank: true, dc: 'class',
-          condition: "Your allied prepared spellcaster expends a spell slot of the spell's rank." },
+        rule: { kind: 'feat', spells: [entry.name], frequency: 'once per day', fixedRank: true, dc: 'class' },
         rank: entry.level, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue
     }
