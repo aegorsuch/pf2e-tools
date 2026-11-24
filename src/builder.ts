@@ -112,6 +112,8 @@ export function temporaryHpGrant(c: Character, entries: ContentEntry[]) {
   const rage = c.raging && (c.className === 'Barbarian' || activeFeatsNamed(c, 'Barbarian Dedication').length > 0)
     ? Math.max(0, c.level + abilityMod(c.abilities.con)) : 0
   const grants: { source: string; value: number }[] = []
+  if (isFeatEffectActive(c, 'Heroic Defiance'))
+    grants.push({ source: 'Heroic Defiance', value: c.level })
   if (c.zealousConvictionRank !== undefined && Number.isInteger(c.zealousConvictionRank)
     && c.zealousConvictionRank >= 6 && c.zealousConvictionRank <= 10)
     grants.push({ source: 'Zealous Conviction', value: c.zealousConvictionRank >= 9 ? 18 : 12 })
@@ -1950,7 +1952,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       ? ['Erudite', 'Luminous', ...(highest >= 3 ? ['Medic'] : []), 'Radiant']
       : ['Grasping Tendrils', 'Purify Air', ...(highest >= 2 ? ['Verdant Burst'] : [])]
   }
-  if (name === 'Warrior of Legend Dedication' && c.systems.includes('pf2e')) {
+  if (name.toLowerCase() === 'warrior of legend dedication' && c.systems.includes('pf2e')) {
     return ['Bludgeoning', 'Piercing', 'Slashing']
   }
   if (name === "Storyteller's Mask" && c.systems.includes('pf2e')) {
@@ -2301,12 +2303,13 @@ export function classFeatures(entries: ContentEntry[], c: Character) {
     cache = new Map()
     classFeatureCache.set(entries, cache)
   }
-  const key = `${c.className}\0${c.level}`
+  const key = `${c.className}\0${c.level}\0${isWarriorOfLegend(c)}`
   const cached = cache.get(key)
   if (cached) return cached
   const seen = new Set<string>()
   const features = entries
-    .filter((e) => e.kind === 'classFeature' && e.data.class === c.className && e.level <= c.level && !PLANNER_FEATURE.test(e.name))
+    .filter((e) => e.kind === 'classFeature' && e.data.class === c.className && e.level <= c.level && !PLANNER_FEATURE.test(e.name)
+      && !(isWarriorOfLegend(c) && e.name === 'Shield Block'))
     .filter((e) => !seen.has(`${e.level}:${e.name}`) && seen.add(`${e.level}:${e.name}`))
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
   cache.set(key, features)
@@ -3359,7 +3362,13 @@ export function parryValue(c: Character, entries: ContentEntry[]) {
     return hasParryTrait(entry) || enhanced.runes.some(rune => runeName(rune) === 'Parrying' && weaponRuneApplies(entries, enhanced, rune))
       || installedWeaponUpgrades(c, entries, weapon).some(upgrade => /^Protection Grid(?:\s*\(|$)/i.test(upgrade.name))
   }) ? 2 : 0
-  return Math.max(1, featBonus, raisedHaftBonus, twinParryValue(c, entries), tacticalGrid ? 2 : 0, defensiveGunnerBonus)
+  const legendBonus = ownedWeapons(c, entries).some(weapon => {
+    const entry = weaponEntry(entries, weapon.name, weapon.id)
+    return weaponEquipped(c, entries, weapon) && warriorLegendParry(c, entries, entry)
+      && (hasParryTrait(entry) || effectiveWeapon(c, entries, weapon).runes.some(rune =>
+        runeName(rune) === 'Parrying' && weaponRuneApplies(entries, weapon, rune)))
+  }) ? 2 : 0
+  return Math.max(1, featBonus, raisedHaftBonus, twinParryValue(c, entries), tacticalGrid ? 2 : 0, defensiveGunnerBonus, legendBonus)
 }
 
 export const twinnedDefenseActive = (c: Character, entries: ContentEntry[]) =>
@@ -3493,6 +3502,7 @@ export function characterClassSkills(c: Character, entries: ContentEntry[]) {
   if (barbarianInstinct(c, entries) === 'bloodrager')
     return { fixed: ['Athletics', 'Medicine'], choices: [], additional: 2 }
   const skills = classSkills(byName(entries, 'class', c.className))
+  if (isWarriorOfLegend(c)) return { ...skills, fixed: [...new Set([...skills.fixed, 'Acrobatics', 'Athletics'])], choices: [] }
   if (isVindicator(c, entries)) return { ...skills, fixed: skills.fixed.map(skill => skill === 'Nature' ? 'Religion' : skill) }
   return skills
 }
@@ -3829,6 +3839,16 @@ function isWarriorOfLegend(c: Character) {
   return c.systems.includes('pf2e') && selectedClassArchetype(c)?.name === 'Warrior of Legend'
 }
 
+export function warriorLegendWeakness(c: Character, entries: ContentEntry[]) {
+  if (!isWarriorOfLegend(c)) return undefined
+  const damage = c.feats.filter(feat => featTakenLevel(feat) <= c.level
+    && feat.name.toLowerCase() === 'warrior of legend dedication')
+    .map(feat => feat.choice?.toLowerCase())
+    .find(choice => choice && ['bludgeoning', 'piercing', 'slashing'].includes(choice))
+  if (!damage) return undefined
+  return { damage, value: activeStance(c, entries)?.name === 'Spear of Doom' ? c.level : Math.max(1, Math.floor(c.level / 2)) }
+}
+
 function isWarriorLegendWeapon(entry?: ContentEntry) {
   return /^(?:spears?|polearms?)$/i.test(String(entry?.data.weapon_group ?? '').trim())
 }
@@ -3870,7 +3890,7 @@ export function syncClassArchetypeDedication(c: Character, entries: ContentEntry
     if (!managed) managed = { name: wanted, className: archetype.className, ...(existing ? { previous: existing } : {}) }
     if (inSlot && inSlot !== existing) saved.push({ className: archetype.className, feat: inSlot })
     const entry = entries.find(candidate => candidate.kind === 'feat' && !candidate.deleted
-      && candidate.systems.includes('pf2e') && candidate.name === wanted)
+      && candidate.systems.includes('pf2e') && candidate.name.toLowerCase() === wanted.toLowerCase())
     const required = { ...existing, name: wanted, type: 'Class Feat', level: 2, slot,
       ...(existing?.takenLevel !== undefined ? { takenLevel: 2 } : {}),
       ...(existing?.sourceId || !entry ? {} : { sourceId: entry.id }) }
@@ -4613,7 +4633,8 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
   }
   const shieldBlockFeature = shieldFeatures.find(feature => feature.data.class === c.className && feature.level <= c.level
     && feature.systems.some(system => c.systems.includes(system)))
-  if (shieldBlockFeature && c.className) {
+  if (isWarriorOfLegend(c)) grants.push({ name: 'Diehard', source: 'Warrior of Legend', level: 1 })
+  if (shieldBlockFeature && c.className && !isWarriorOfLegend(c)) {
     grants.push({ name: 'Shield Block', source: c.className, level: shieldBlockFeature.level })
   } else if (c.level >= 1 && c.systems.includes('pf2e') && c.className === 'Cleric'
     && selectedSubclass(c, entries) === 'Warpriest') {
@@ -5345,6 +5366,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
     { label: mysticArmor(c, entries) ? 'Mystic Armor (item)' : armor
       ? `${armorDisplayName({ name: armor.name }, armorEntry(c, entries, armor.name, armor.id))} (resilient or grade)` : 'Item', value: item },
   ]
+  if (isFeatEffectActive(c, 'Heroic Defiance'))
+    parts.push({ label: 'Heroic Defiance (status)', value: 1 })
   if (c.raging && isFeatEffectActive(c, 'Desperate Wrath'))
     parts.push({ label: 'Desperate Wrath', value: -1 })
   const clumsy = name === 'Reflex' ? giantWeaponClumsy(c, entries) : 0
@@ -5517,7 +5540,7 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     c.background ? byName(entries, 'background', c.background) : undefined,
     ...classFeatures(entries, c),
     ...c.feats.filter((feat) => featTakenLevel(feat) <= c.level
-      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating', 'Infernal Bulwark', 'Energy Neutralizer', 'Enhanced Energy Neutralizer', 'Unstoppable Juggernaut', 'Nephilim Resistance', 'Hardened Chassis', 'Magical Resistance'].includes(feat.name))
+      && !['Primal Aegis', 'Harden Flesh', 'Heart of the Kaiju', 'Wasteland Warrior', 'Radiation Resistant', 'Deflective Plating', 'Infernal Bulwark', 'Energy Neutralizer', 'Enhanced Energy Neutralizer', 'Unstoppable Juggernaut', 'Nephilim Resistance', 'Hardened Chassis', 'Magical Resistance', 'Only My Doom May Claim Me'].includes(feat.name))
       .map((feat) => selectedFeatEntry(c, entries, feat.name, feat.sourceId)),
     ...c.equipment.filter(g => !isNamedArmor(g.name)).map((g) => byName(entries, 'item', g.name)),
     wornArmor(c, entries) ? armorEntry(c, entries, wornArmor(c, entries)!.name, wornArmor(c, entries)!.id) : undefined,
@@ -5525,16 +5548,9 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   const half = Math.max(1, Math.floor(c.level / 2))
   const out: { damage: string; value: number; source: string }[] = []
   if (c.systems.includes('pf2e')) {
-    const weakness = activeFeatsNamed(c, 'Warrior of Legend Dedication')
-      .map(feat => feat.choice?.toLowerCase())
-      .find(choice => choice && ['bludgeoning', 'piercing', 'slashing'].includes(choice))
-    if (weakness) {
-      for (const damage of ['bludgeoning', 'piercing', 'slashing']) {
-        if (damage !== weakness) out.push({
-          damage: `${damage} damage from weapon and unarmed attacks`, value: half, source: 'Warrior of Legend Dedication',
-        })
-      }
-    }
+    const weakness = warriorLegendWeakness(c, entries)
+    if (weakness && activeFeatsNamed(c, 'Only My Doom May Claim Me').length)
+      out.push({ damage: `weapon and unarmed attacks except ${weakness.damage}`, value: half, source: 'Only My Doom May Claim Me' })
   }
   if (c.systems.includes('pf2e') && c.activeSpells?.includes('Eat Fire')
     && knowsSpell(c, entries, 'Eat Fire')) out.push({ damage: 'fire', value: 5, source: 'Eat Fire' })

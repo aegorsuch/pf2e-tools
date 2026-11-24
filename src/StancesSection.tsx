@@ -1,4 +1,4 @@
-import { activeStance, availableStances, ELEMENTAL_MEDICINES, intensifiedElementDamage, tenaciousStanceHasArmor, type SectionProps } from './builder'
+import { activeStance, availableStances, conditionValue, ELEMENTAL_MEDICINES, intensifiedElementDamage, tenaciousStanceHasArmor, type SectionProps } from './builder'
 import { EntryDescription } from './EntryDescription'
 import { adoptedAncestryText, featDisplayName } from './featChoices'
 import { DamageRoll } from './SpellDamage'
@@ -19,7 +19,8 @@ export function StancesContent({ c, entries, save }: SectionProps) {
         <input type="radio" name={group} aria-label={`Use ${adoptedAncestryText(c, featDisplayName(entry))}`}
           checked={active?.name === entry.name}
           disabled={active?.name !== entry.name && (entry.name === 'Intensified Element Stance' && (!medicine || !!medicine.used)
-            || entry.name === 'Tenacious Stance' && !tenaciousStanceHasArmor(c, entries))}
+            || entry.name === 'Tenacious Stance' && !tenaciousStanceHasArmor(c, entries)
+            || entry.name === 'Spear of Doom' && conditionValue(c, 'doomed') < 1)}
           onChange={() => save({ activeStance: entry.name,
             ...(entry.name === 'Intensified Element Stance' && medicine
               ? { intensifiedElement: { ...medicine, used: true } } : {}) })} />

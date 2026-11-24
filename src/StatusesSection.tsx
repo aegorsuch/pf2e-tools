@@ -111,6 +111,10 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
     name: 'Purify Air', level: 1, traits: [], description: PURIFY_AIR_DESCRIPTION, data: {}, effects: [], updatedAt: 0 }
   const controls = [
     { name: 'Active stance', element: <StancesContent c={c} entries={entries} save={save} /> },
+    ...(activeFeatsNamed(c, 'Heroic Defiance').length ? [{ name: 'Heroic Defiance', element: <label>
+      <input type="checkbox" aria-label="Heroic Defiance active" checked={isFeatEffectActive(c, 'Heroic Defiance')}
+        onChange={event => save(featEffectChange(c, 'Heroic Defiance', event.target.checked))} /> Heroic Defiance
+    </label> }] : []),
     ...(activeFeatsNamed(c, 'Poison Weapon').length
       ? [{ name: 'Poison Weapon', element: <SimplePoisons c={c} entries={entries} save={save} /> }] : []),
     ...(canDeviseAStratagem(c)

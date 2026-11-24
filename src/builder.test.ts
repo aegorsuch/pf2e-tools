@@ -2,7 +2,7 @@ import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQue
 import { mapAonHit } from './aon'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, characterAncestryLabel, characterSummary, subclassOptions, subclassSkillChoice, subclassSkillGrants, selectedSubclass, investigatorSkillfulLessonSkills, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange, syncClassArchetypeDedication } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, characterAncestryLabel, characterSummary, subclassOptions, subclassSkillChoice, subclassSkillGrants, selectedSubclass, investigatorSkillfulLessonSkills, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange, syncClassArchetypeDedication, warriorLegendWeakness, parryValue, temporaryHpGrant } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
@@ -36,10 +36,11 @@ it('applies Warrior of Legend armor and spear/polearm proficiency rules', () => 
   const sword = entry('weapon', 'Longsword', {
     weapon_category: 'Martial', weapon_group: 'Swords', weapon_type: 'Melee', damage: '1d8 slashing', hands: 1,
   })
+  const shieldBlock = entry('classFeature', 'Shield Block', { class: 'Fighter' })
   const dedication = { name: 'Warrior of Legend Dedication', type: 'Class Feat', level: 2, choice: 'Bludgeoning' }
   const c: Character = { ...base, level: 20, className: 'Fighter', subclass: 'Warrior of Legend',
     conditions: { doomed: 2 }, feats: [dedication] }
-  const entries = [fighter, expertise, mastery, legend, spear, sword]
+  const entries = [fighter, expertise, mastery, legend, spear, sword, shieldBlock]
   const weapon = (name: string) => ({ id: name, name, potency: 0, striking: 0, runes: [] })
 
   expect(armorRanks(c, [fighter]).Heavy).toBe(0)
@@ -53,10 +54,25 @@ it('applies Warrior of Legend armor and spear/polearm proficiency rules', () => 
   } }, entries, weapon('Longspear')).traits).not.toContain('Parry')
   expect(featChoiceOptions(dedication.name, c, entries, 'class:2:0'))
     .toEqual(['Bludgeoning', 'Piercing', 'Slashing'])
-  expect(resistances(c, entries)).toEqual(expect.arrayContaining([
-    { damage: 'Piercing damage from weapon and unarmed attacks', value: 10, source: dedication.name },
-    { damage: 'Slashing damage from weapon and unarmed attacks', value: 10, source: dedication.name },
-  ]))
+  expect(resistances(c, entries).some(resistance => resistance.source === dedication.name)).toBe(false)
+  expect(resistances({ ...c, feats: [...c.feats, { name: 'Only My Doom May Claim Me', type: 'Class Feat', level: 14 }] }, entries))
+    .toContainEqual({ damage: 'Weapon and unarmed attacks except bludgeoning', value: 10, source: 'Only My Doom May Claim Me' })
+  expect(warriorLegendWeakness(c, entries)).toEqual({ damage: 'bludgeoning', value: 10 })
+  const stance = entry('feat', 'Spear of Doom', {}, 10, ['Stance'])
+  const inStance = { ...c, activeStance: stance.name, feats: [...c.feats, { name: stance.name, type: 'Class Feat', level: 10 }] }
+  expect(warriorLegendWeakness(inStance, [...entries, stance])).toEqual({ damage: 'bludgeoning', value: 20 })
+  expect(characterClassSkills(c, entries).fixed).toEqual(expect.arrayContaining(['Acrobatics', 'Athletics']))
+  expect(automaticFeatGrants(c, entries)).toContainEqual(expect.objectContaining({ name: 'Diehard', source: 'Warrior of Legend' }))
+  expect(automaticFeatGrants(c, entries).some(grant => grant.name === 'Shield Block')).toBe(false)
+  expect(classFeatures(entries, c).some(feature => feature.name === 'Shield Block')).toBe(false)
+  const fighterOnly = { ...c, subclass: undefined }
+  expect(automaticFeatGrants(fighterOnly, entries)).toContainEqual(expect.objectContaining({ name: 'Shield Block' }))
+  expect(classFeatures(entries, fighterOnly).some(feature => feature.name === 'Shield Block')).toBe(true)
+  const parrySpear = { ...spear, traits: ['Parry'] }
+  expect(parryValue({ ...c, weapons: [weapon('Longspear')] }, [...entries.filter(item => item !== spear), parrySpear])).toBe(2)
+  const heroic = { ...c, feats: [...c.feats, { name: 'Heroic Defiance', type: 'Class Feat', level: 4 }], activeFeatEffects: ['Heroic Defiance'] }
+  expect(temporaryHpGrant(heroic, entries)?.value).toBe(20)
+  expect(savingThrowBreakdown(heroic, entries, 'Will').total).toBe(savingThrowBreakdown(c, entries, 'Will').total + 1)
 })
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({

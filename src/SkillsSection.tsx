@@ -12,7 +12,7 @@ import { TotalBreakdown } from './TotalBreakdown'
 import { warmaskSource, warmaskItemBonus } from './warmask'
 import { armorModifications, armorOverdriveActive } from './inventorArmor'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
-import { apexSkillBonus, temporaryHpGrant, tenaciousStanceActive, wornArmor } from './builder'
+import { apexSkillBonus, temporaryHpGrant, tenaciousStanceActive, warriorLegendWeakness, wornArmor } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { getSettings } from './settings'
 import { backgroundLoreChoiceOptions, backgroundLoreSlots, backgroundSkillSlots, chosenLoreFeats, normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
@@ -813,6 +813,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const temporaryHp = temporaryHpGrant(c, entries)
     const oaken = oakenResilience(c, entries)
     const divineWeaknesses = divineIntercessionWeaknesses(c)
+    const legendWeakness = warriorLegendWeakness(c, entries)
     const ac = armorClassBreakdown(c, entries)
     const acCircumstance = Math.max(0, ...ac.parts.filter(part => part.label.endsWith('(circumstance)')).map(part => part.value))
     const morphActive = !!form || !!giantStatureSize(c, entries) || !!c.raging && !!c.animalisticBrutality
@@ -1012,6 +1013,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         {divineWeaknesses.length > 0 && <small>Weaknesses: {divineWeaknesses.map((weakness, index) =>
           <span key={`${weakness.damage}:${weakness.source}`}>{index > 0 && ', '}{weakness.damage} {weakness.value}
             <SourceNote source={weakness.source} note="Weaknesses to the same damage type do not stack; apply only the highest." /></span>)}</small>}
+         {legendWeakness && <small>Weakness: {legendWeakness.damage} {legendWeakness.value}
+           <SourceNote source="Cursed Weakness" note="When you take damage of this type, become doomed 2 unless your doomed value is already higher." /></small>}
         {form && 'pest' in form && form.pest && <small>Weakness: Physical 5
           <SourceNote source={form.source} note="Weaknesses to the same damage type do not stack; apply only the highest." /></small>}
         {testSubjectAdaptation(c) === 'Radioactive' && <small>Immunity: sickened from radiation sickness

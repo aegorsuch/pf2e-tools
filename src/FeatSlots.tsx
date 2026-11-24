@@ -6,7 +6,7 @@ import { RUNESMITH_RUNES } from './runesmithRunes'
 import { DamageRoll, rollTreehealerHealing } from './SpellDamage'
 import { PickerDialog } from './PickerDialog'
 import { sortPickerOptions } from './PickerSort'
-import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, matchesSkill, plannedSlots, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, matchesSkill, plannedSlots, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -81,12 +81,13 @@ function FeatVariantGroup({ summary, autoOpen, count, renderOptions }: {
   </details>
 }
 
-const FEAT_ACTION_CONTROLS = new Set(["Giant's Lunge", 'Desperate Wrath', 'Come and Get Me', "Giant's Stature", "Infused with Belkzen's Might"])
+const FEAT_ACTION_CONTROLS = new Set(["Giant's Lunge", 'Desperate Wrath', 'Come and Get Me', "Giant's Stature", "Infused with Belkzen's Might", 'Heroic Defiance'])
 const FEAT_ACTION_TITLES: Record<string, string> = {
   "Giant's Lunge": 'Melee reach becomes at least 10 feet until Rage ends.',
   'Desperate Wrath': 'Activate when your turn starts at half HP or less; ends above half HP or when Rage ends.',
   'Come and Get Me': 'While active, you are off-guard and attacks against you gain +2 circumstance damage.',
   "Infused with Belkzen's Might": 'Expend one use of Living History; lasts until the end of your next turn.',
+  'Heroic Defiance': 'Activate when you gain doomed; lasts 1 minute. Once per 10 minutes.',
 }
 
 function FeatActionControls({ c, entries, save, entry }: SectionProps & { entry?: ContentEntry }) {
@@ -120,7 +121,7 @@ function FeatActionControls({ c, entries, save, entry }: SectionProps & { entry?
         </select>
       </label> : <label title={FEAT_ACTION_TITLES[name]}>
         <input type="checkbox" aria-label={`${name} active`} checked={isFeatEffectActive(c, name)}
-          disabled={name !== "Infused with Belkzen's Might" && !c.raging && !isFeatEffectActive(c, name)}
+          disabled={name !== "Infused with Belkzen's Might" && name !== 'Heroic Defiance' && !c.raging && !isFeatEffectActive(c, name)}
           onChange={event => save(featEffectChange(c, name, event.target.checked))} /> {name} active
       </label>}
       <form method="dialog"><button autoFocus>Close</button></form>
@@ -550,6 +551,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const showWrathRoll = currentEntry?.name === 'Wrath of the Hold' && !!activeFeatsNamed(c, currentEntry.name).length
           const showTreehealerRoll = c.systems.includes('pf2e') && currentEntry?.name === 'Treehealer'
             && !!activeFeatsNamed(c, currentEntry.name).length
+          const showPiercingDoom = c.systems.includes('pf2e') && currentEntry?.name === 'Piercing Doom'
+            && !!activeFeatsNamed(c, currentEntry.name).length
           const showInscribedBlast = c.systems.includes('pf2e') && currentEntry?.name === 'Inscribed Blast' && !!activeFeatsNamed(c, currentEntry.name).length
           const showCoreCannon = c.systems.includes('pf2e') && currentEntry?.name === 'Core Cannon' && !!activeFeatsNamed(c, currentEntry.name).length
           const tattooRune = c.systems.includes('pf2e') && currentEntry?.name === 'Runic Tattoo' && activeFeatsNamed(c, currentEntry.name).length
@@ -712,7 +715,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     prerequisites={arcanaChoiceEntry ? selectedPrerequisites(s, arcanaChoiceEntry) : prerequisites}
                     access={descriptionEntry ? featAccess(c, descriptionEntry) : access}
                     grantSource={arcanaChoiceEntry ? selection?.name : grantSource}
-                    buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showTreehealerRoll || showAcidicSpitRoll || showInscribedBlast || showCoreCannon}
+                    buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showTreehealerRoll || showPiercingDoom || showAcidicSpitRoll || showInscribedBlast || showCoreCannon}
                     descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                       : selection?.choice && DOMAIN_FEATS.includes(selection.name)
                         ? domainSpellDescription(c, entries, selection.name, selection.choice)
@@ -721,6 +724,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   {showWrathRoll && <DamageRoll name="Wrath of the Hold" actions="Two Actions" toggleResult
                     damage={{ label: 'Damage', dice: 4 + Math.floor((c.level - 8) / 2), sides: 6, type: 'spirit' }} />}
                   {showTreehealerRoll && <TreehealerRoll />}
+                  {showPiercingDoom && <DamageRoll name="Piercing Doom" actions="Two Actions" toggleResult
+                    disabled={conditionValue(c, 'doomed') < 2}
+                    damage={{ label: 'Additional damage on a successful melee Strike', dice: 1, sides: 10, type: 'void' }} />}
                   {showInscribedBlast && <>
                     <DamageRoll name="Inscribed Blast" actions="Reaction" disabled={!!c.inscribedBlastUsed}
                       onRoll={() => save({ inscribedBlastUsed: true })}
