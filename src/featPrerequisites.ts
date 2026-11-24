@@ -36,6 +36,7 @@ export interface PrerequisiteFacts {
   hellknightWeapons?: string[]
   deityFavoredWeapons?: string[]
   healingFont?: boolean
+  canCreateOrControlUndead?: boolean
   abilities: Character['abilities']
   senses: string[]
   swimSpeed?: boolean
@@ -295,6 +296,16 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   const atom = (text: string, level: number, trail: Set<string>, inheritedRank?: string, survivalForCrafting = false): PrerequisiteCheck | undefined => {
     const facts = context.facts(level)
     const name = key(text).replace(/\.$/, '')
+    if (name === 'able to create or control undead' || name === 'ability to create or control undead')
+      return facts.canCreateOrControlUndead ? met() : manual(text)
+    if (name === 'cleric with a negative font') {
+      if (facts.className !== 'Cleric') return missing(text)
+      return facts.healingFont === undefined ? manual(text) : resultFor(!facts.healingFont, text)
+    }
+    if (name === 'oracle of bones') return resultFor(facts.className === 'Oracle'
+      && /^(?:bones|bones mystery)$/i.test(facts.subclass ?? ''), text)
+    if (name === 'necromancer wizard') return resultFor(facts.className === 'Wizard'
+      && /^(?:necromancy|necromancer|school of necromancy)$/i.test(facts.subclass ?? ''), text)
     if (name === 'healing font' && trail.has('guiding heal')) {
       return facts.healingFont === undefined ? manual(text) : resultFor(facts.healingFont, text)
     }

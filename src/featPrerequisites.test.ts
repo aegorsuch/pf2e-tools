@@ -103,6 +103,45 @@ it('checks Guiding Heal against known deity font options without guessing a mixe
   expect(featPrerequisiteChecker({ ...c, deity: undefined }, [feat])(feat).manual).toEqual(['healing font'])
 })
 
+it('checks undead creation and legacy class prerequisites separately for Reanimator feats', () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+  const names = ['Undying Conviction', "Necromancer's Visage", 'Sepulchral Sublimation']
+  const feats = names.map(name => mapAonHit(hits.find(hit => hit._source?.name === name)!, 'pf2e')!)
+  const deity = entry('deity', 'Patron', { divine_font: 'Harm' })
+  const entries = [...feats, deity]
+  const wizard: Character = { ...base, className: 'Wizard', subclass: 'Necromancy', rituals: ['Create Undead'] }
+  for (const feat of feats) {
+    const result = (c: Character, content = entries, level = c.level) => featPrerequisiteChecker(c, content, level)(feat)
+    expect(result(wizard), feat.name).toEqual({ missing: [], manual: [] })
+    expect(result({ ...wizard, className: 'Oracle', subclass: 'Bones' })).toEqual({ missing: [], manual: [] })
+    expect(result({ ...wizard, className: 'Cleric', deity: 'Patron' })).toEqual({ missing: [], manual: [] })
+    expect(result({ ...wizard, className: 'Cleric', deity: 'Patron' },
+      [...feats, { ...deity, data: { divine_font: 'Heal, Harm' } }]).manual).toHaveLength(1)
+    expect(result({ ...wizard, className: 'Cleric', deity: 'Patron' },
+      [...feats, { ...deity, data: { divine_font: 'Heal' } }]).missing).toHaveLength(1)
+    expect(result({ ...wizard, className: 'Necromancer', subclass: undefined }).missing).toHaveLength(1)
+    expect(result({ ...wizard, rituals: [] }).manual).toContain(
+      feat.name === 'Undying Conviction' ? 'able to create or control undead' : 'ability to create or control undead')
+    const creator = { ...wizard, rituals: [], feats: [selected('Undead Creator', 8)] }
+    expect(result(creator)).toEqual({ missing: [], manual: [] })
+    expect(result(creator, entries, 4).manual).toHaveLength(1)
+    expect(result({ ...wizard, rituals: [], spells: [{ name: 'Summon Undead', rank: 1, cantrip: false }] }))
+      .toEqual({ missing: [], manual: [] })
+  }
+})
+
+it('grants focus spells from actual legacy and remastered Wizard school records', () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+  const school = (name: string) => mapAonHit(hits.find(hit =>
+    hit._source?.category === 'arcane-school' && hit._source.name === name)!, 'pf2e')!
+  const legacy = school('Necromancy')
+  const remaster = school('School of Ars Grammatica')
+  const wizard: Character = { ...base, className: 'Wizard', subclass: legacy.name, level: 1, feats: [] }
+  expect(focusSpells(wizard, [legacy]).spells[0]?.name.toLowerCase()).toBe('call of the grave')
+  expect(focusSpells({ ...wizard, subclass: remaster.name }, [remaster]).spells[0]?.name.toLowerCase())
+    .toBe('protective wards')
+})
+
 it.each([
   ["Drifter's Juke", 'Drifter', 6],
   ['Phalanx Breaker', 'Vanguard', 6],

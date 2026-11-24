@@ -1320,6 +1320,12 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           if (!font.length || font.includes('heal') && font.includes('harm')) return undefined
           return font.includes('heal')
         })(),
+        get canCreateOrControlUndead() {
+          return character.className === 'Necromancer' && character.level >= 1
+            || character.feats.some(feat => feat.name === 'Undead Creator')
+            || character.rituals?.some(name => name.toLowerCase() === 'create undead')
+            || ['Summon Undead', 'Animate Dead', 'Create Thrall'].some(name => knowsSpell(character, entries, name))
+        },
         weaponRank: name => {
           const weapon = weaponEntry(entries, name) ?? [...entries, ...SUPPLEMENTAL_WEAPONS].find(entry => entry.kind === 'weapon'
             && !entry.deleted && entry.name.toLowerCase() === name.toLowerCase())
@@ -3808,6 +3814,8 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
     if (!out.has(name.toLowerCase())) out.set(name.toLowerCase(), { name, source })
   }
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
+  const school = c.level >= 1 ? wizardSchool(c, entries) : undefined
+  if (typeof school?.data.grants_focus_spells === 'string') add(school.data.grants_focus_spells, `${school.name} school`)
   for (const feat of active) if (feat.name === 'Arcane School Spell' && feat.choice) {
     const school = entries.find(entry => entry.kind === 'subclass' && !entry.deleted
       && entry.data.class === 'Wizard' && entry.name === feat.choice && entry.systems.includes('pf2e'))
@@ -7199,7 +7207,8 @@ export function armorDisplayName(armor: Pick<OwnedArmor, 'name' | 'material'>, e
 }
 
 export function armorEntry(c: Character, entries: ContentEntry[], name: string, armorId?: string) {
-  const resolvedName = name === 'Ancestral Embrace' ? 'Ancestral Embrace Hide Armor' : name
+  const resolvedName = name === 'Ancestral Embrace' ? 'Ancestral Embrace Hide Armor'
+    : name === 'Library Robes' ? 'Library Scroll Robes' : name
   const entry = characterArmorGrants(c, entries).find(entry => entry.name === resolvedName && (!armorId || entry.id === armorId))
     ?? byName(entries, 'armor', resolvedName)
     ?? namedArmorEntries(entries).find(entry => entry.name === resolvedName)
@@ -7321,7 +7330,7 @@ export function effectiveArmor(c: Character, entries: ContentEntry[], armor: Own
     if (families.length) {
       const automatic = automaticArmorFundamentals(c.level, namedEntry)
       const fixed = automaticArmorPropertyRunes(namedEntry)
-      const material = isHighhelmPlate(armor.name) ? 'Keep Stone' : isLibraryRobes(armor.name) ? armor.material : 'Orichalcum'
+      const material = isHighhelmPlate(armor.name) ? 'Keep Stone' : isLibraryRobes(armor.name) ? undefined : 'Orichalcum'
       const remaining = Math.max(0, maxPropertyRunes(automatic.potency, material) - fixed.length)
       return { ...armor, material, ...automatic,
         runes: [...armor.runes.filter(rune => !families.some(family => family === runeBaseName(rune))).slice(0, remaining), ...fixed] }

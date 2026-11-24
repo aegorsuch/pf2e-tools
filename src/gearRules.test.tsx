@@ -1854,7 +1854,7 @@ it('marks one eligible weapon innovation with scaled fundamentals and locked mat
     .toContain('aria-label="Weapon Innovation: Prototype"')
 })
 
-it('shows only selected combination form with shared runes, modifications, and innovation state', () => {
+it('shows both combination forms with shared runes, modifications, and active form', () => {
   const melee = content('weapon', 'Hammer Gun (Melee)', { url: 'same', weapon_category: 'Martial', damage: '1d10 slashing' }, 0, ['Combination', 'Uncommon'])
   const ranged = content('weapon', 'Hammer Gun (Ranged)', { url: 'same', weapon_category: 'Martial', weapon_type: 'Ranged', range: 60, damage: '1d6 piercing' }, 0, ['Combination', 'Uncommon'])
   const impossibleRune = content('item', 'Impossible', { item_subcategory: 'Weapon Property Runes', usage: 'etched onto a ranged weapon' })
@@ -1871,7 +1871,7 @@ it('shows only selected combination form with shared runes, modifications, and i
   expect(eligibleWeaponRunes(entries, { ...weapon, runes: [] }).map(rune => rune.name)).toContain('Vorpal')
   const html = renderToStaticMarkup(<WeaponList c={{ ...character, weapons: [weapon] }} entries={entries} save={() => {}} />)
   expect(html).toContain('Ranged: Attack')
-  expect(html).not.toContain('Hammer Gun Melee attack')
+  expect(html).toContain('Hammer Gun Melee attack')
   expect(html).toContain('aria-label="Combination form: Hammer Gun"')
   expect(html).toContain('Extensible Weapon')
   expect(html).toContain('Omnirange Stabilizers')
@@ -1880,7 +1880,26 @@ it('shows only selected combination form with shared runes, modifications, and i
   const offense = renderToStaticMarkup(<WeaponList c={{ ...character, weapons: [weapon] }} entries={entries} save={() => {}} displayOnly />)
   expect(offense).toContain('>Impossible</button>')
   expect(offense).not.toContain('>Vorpal</button>')
+  expect(offense).toMatch(/Melee: Attack[\s\S]*?\(inactive\)<br\/>Ranged: Attack/)
+  const meleeOffense = renderToStaticMarkup(<WeaponList c={{ ...character, weapons: [{ ...weapon, combinationForm: 'Melee' }] }}
+    entries={entries} save={() => {}} displayOnly />)
+  expect(meleeOffense).toMatch(/Melee: Attack[\s\S]*?<br\/>Ranged: Attack[\s\S]*?\(inactive\)/)
   expect(combinationForms([melee, { ...ranged, data: { ...ranged.data, url: 'different' } }], melee.name)).toEqual([])
+})
+
+it.each([false, true])('keeps a thrown combination melee attack distinct from its ranged form (offense %s)', displayOnly => {
+  const melee = content('weapon', 'Throwing Gun (Melee)', {
+    url: 'throwing-gun', weapon_type: 'Melee', weapon_category: 'Martial', hands: 1, thrown_range: 20, damage: '1d6 slashing',
+  }, 0, ['Combination', 'Thrown 20 feet'])
+  const ranged = content('weapon', 'Throwing Gun (Ranged)', {
+    url: 'throwing-gun', weapon_type: 'Ranged', weapon_category: 'Martial', hands: 1, range: 60, damage: '1d8 piercing',
+  }, 0, ['Combination'])
+  const weapon = { ...main, name: melee.name, combinationForm: 'Ranged' as const }
+  const html = renderToStaticMarkup(<WeaponList c={{ ...base, weapons: [weapon] }} entries={[melee, ranged]}
+    save={() => {}} displayOnly={displayOnly} />)
+  expect(html).toMatch(/Melee: Attack[\s\S]*?\(inactive\)<br\/>Thrown: Attack[\s\S]*?\(inactive\)<br\/>Ranged: Attack/)
+  expect(html).toContain('Throwing Gun Thrown attack')
+  expect(html).toContain('Throwing Gun Ranged attack')
 })
 
 it('adds Hammer Multipistol as a custom copy of both Mace Multipistol forms', () => {

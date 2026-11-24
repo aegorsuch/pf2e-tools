@@ -2588,6 +2588,21 @@ describe('defenses', () => {
     expect(focusSpells({ ...oracle, level: 0 }, [life])).toEqual({ spells: [], points: 0 })
   })
 
+  it('grants the selected Wizard school initial focus spell and focus point', () => {
+    const legacy = entry('subclass', 'Necromancy', { class: 'Wizard', grants_focus_spells: 'call of the grave' })
+    const remaster = entry('subclass', 'School of Ars Grammatica', { class: 'Wizard', grants_focus_spells: 'protective wards' })
+    const wizard: Character = { ...base, className: 'Wizard', subclass: legacy.name, level: 1, feats: [] }
+    expect(focusSpells(wizard, [legacy, remaster])).toEqual({
+      spells: [{ name: 'Call Of The Grave', source: 'Necromancy school' }], points: 1,
+    })
+    expect(focusSpells({ ...wizard, subclass: remaster.name }, [legacy, remaster])).toEqual({
+      spells: [{ name: 'Protective Wards', source: 'School of Ars Grammatica school' }], points: 1,
+    })
+    expect(focusSpells({ ...wizard, subclass: undefined }, [legacy]).spells).toEqual([])
+    expect(focusSpells({ ...wizard, level: 0 }, [legacy]).spells).toEqual([])
+    expect(focusSpells({ ...wizard, className: 'Oracle' }, [legacy]).spells).toEqual([])
+  })
+
   it.each([
     ['Halfling', 'Halfling Lore', 'Acrobatics', 'Stealth', 'Halfling Lore'],
     ['Tengu', 'Tengu Lore', 'Society', 'Survival', 'Tengu Lore'],

@@ -148,7 +148,6 @@ export function scaleAncestralEmbrace(entry: ContentEntry | undefined, level: nu
   if (!entry?.data.named_armor || entry.name !== ANCESTRAL_HIDE || level < 12) return entry
   const runes = String(entry.data.named_armor_runes ?? '').split(';').filter(Boolean)
   return { ...entry, data: { ...entry.data,
-    ...(isScalingPlateVariant(entry.name) ? { named_armor_runes: '' } : {}),
     named_armor_runes: [...runes, level >= 18 ? 'Fortification (Greater)' : 'Fortification'].join(';'),
     bulk: Number(entry.data.bulk) + 1, strength: Number(entry.data.strength) + 1,
   } }
@@ -169,6 +168,7 @@ export function scaleInheritorPlate(entry: ContentEntry | undefined, level: numb
         'Fortification (Greater)'].join(';') } }
   }
   return { ...entry, data: { ...entry.data,
+    ...(isScalingPlateVariant(entry.name) ? { named_armor_runes: '' } : {}),
     ...(highhelm ? { named_armor_runes: '', strength: Number(entry.data.strength) - (fortification ? 0 : 1) } : {}),
     automatic_property_runes: [...automaticArmigerRunes(level).filter(rune => !(highhelm || isIncendiaryArmor(entry.name)) || !rune.startsWith('Advancing')),
       ...(isIncendiaryArmor(entry.name) && level >= 8 ? [`Energy-Resistant${level >= 12 ? ' (Greater)' : ''}: Fire`] : [])].join(';'),

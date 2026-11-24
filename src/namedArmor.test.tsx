@@ -180,8 +180,18 @@ it('offers scaling Rebounding and Mountain armor in each plate profile', () => {
     const early = effectiveArmor({ ...c, level: 9 }, catalog, armor)
     expect(early).toMatchObject({ potency: 1, resilient: 1, runes: ['Moonweave', 'Sunweave', 'Advancing'] })
     expect(armorEntry({ ...c, level: 9 }, catalog, name)?.data.bulk).toBe([2, 4, 5][index % 3])
+    for (const [level, rune] of [[9, undefined], [12, 'Fortification'], [18, 'Fortification (Greater)']] as const) {
+      const saved = { ...armor, runes: ['Fortification (Greater)'] }
+      const atLevel = { ...c, level, armors: [saved] }
+      expect(armorEntry(atLevel, catalog, name)?.data.named_armor_runes).toBe('')
+      expect(effectiveArmor(atLevel, catalog, saved).runes.filter(value => value.startsWith('Fortification')))
+        .toEqual(rune ? [rune] : [])
+      const display = renderToStaticMarkup(<ArmorList c={atLevel} entries={catalog} save={() => {}} part="armor" />)
+      expect((display.match(/>Fortification(?: \(Greater\))?<\/button>/g) ?? []).length).toBe(rune ? 1 : 0)
+    }
     const markup = renderToStaticMarkup(<ArmorList c={c} entries={catalog} save={() => {}} part="armor" />)
     expect(markup).toContain(name)
+    expect(markup.match(/>Fortification \(Greater\)<\/button>/g)).toHaveLength(1)
     expect(markup).not.toContain('Material: Orichalcum')
     expect(markup).not.toContain('aria-label="Potency"')
     expect(markup).not.toContain('aria-label="Remove Fortification (Greater) rune"')
@@ -205,6 +215,7 @@ it('offers scaling Rebounding and Mountain armor in each plate profile', () => {
       if (child.type === NamedArmorAbilities) result = (child.props as ComponentProps<typeof NamedArmorAbilities>).activations
       else visit(child.props.children)
     })
+
     visit(ArmorList({ c, entries: catalog, save: patch => { c = { ...c, ...patch } }, part: 'armor' }))
     return result!['Activation 2']
   }
@@ -213,6 +224,19 @@ it('offers scaling Rebounding and Mountain armor in each plate profile', () => {
   expect(activation().active).toBe(true)
   activation().toggle()
   expect(activation().disabled).toBe(true)
+})
+
+it('shows only level-scaled Fortification for actual Rebounding armor data', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(pf2eSnapshot)
+  const catalog = mapAonHits(hits.filter(hit => ['Rebounding Breastplate', 'Breastplate', 'Full Plate', 'Bastion Plate', 'Fortification']
+    .some(name => hit._source?.name === name)), 'pf2e')
+  for (const name of ['Rebounding Breastplate', 'Rebounding Full Plate', 'Rebounding Bastion Plate']) {
+    const armor = owned(name)
+    const c = { ...character, armors: [armor] }
+    expect(armorEntry(c, catalog, name)?.data.named_armor_runes).toBe('')
+    const html = renderToStaticMarkup(<ArmorList c={c} entries={catalog} save={() => {}} part="armor" />)
+    expect(html.match(/>Fortification \(Greater\)<\/button>/g)).toHaveLength(1)
+  }
 })
 
 it('scales Immortal Bastion fundamentals and grants Orichalcum without changing saved armor', () => {
@@ -717,6 +741,26 @@ it('scales Library Robes fundamentals and Moonweave/Sunweave runes with level', 
   }
   const html = renderToStaticMarkup(<ArmorList c={{ ...character, level: 20, armors: [armor] }} entries={catalog} save={() => {}} part="armor" />)
   expect(html).toContain('up to rank 9')
+  expect(html).not.toContain('aria-label="Armor material"')
+  const savedMaterial = { ...armor, material: 'Orichalcum' as const }
+  const materialCharacter = { ...character, level: 20, armors: [savedMaterial] }
+  expect(effectiveArmor(materialCharacter, catalog, savedMaterial).material).toBeUndefined()
+  expect(renderToStaticMarkup(<ArmorList c={materialCharacter} entries={catalog} save={() => {}} part="armor" />))
+    .not.toContain('Material')
+  expect(savedMaterial.material).toBe('Orichalcum')
+  expect(effectiveArmor({ ...character, level: 20 }, catalog, owned('Library Robes')))
+    .toMatchObject({ potency: 3, resilient: 3, runes: ['Moonweave (Major)', 'Sunweave (Major)'] })
   expect(classExtraSlots({ ...character, level: 20, className: 'Wizard', armors: [armor] }, catalog))
     .toContainEqual({ key: 'library-robes', rank: 9, source: 'Library Scroll Robes' })
+})
+
+it('imports actual Library Robes and Scroll Robes with scaling enhancements', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(pf2eSnapshot)
+  const catalog = mapAonHits(hits.filter(hit => hit._source?.name === 'Library Robes'
+    || hit._source?.name === 'Scroll Robes'), 'pf2e')
+  const armor = owned('Library Scroll Robes')
+  expect(armorEntry(character, catalog, armor.name)?.data.named_armor).toBe(true)
+  expect(effectiveArmor(character, catalog, armor)).toMatchObject({
+    potency: 3, resilient: 3, runes: ['Moonweave (Major)', 'Sunweave (Major)'],
+  })
 })

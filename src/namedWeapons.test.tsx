@@ -859,19 +859,19 @@ it('supports both Blade of Fallen Stars forms and saved unsuffixed names with sh
   }
 })
 
-it('shows one selected Blade of Fallen Stars attack and lets inventory switch its combination form', () => {
+it('shows both Blade of Fallen Stars attacks and lets inventory switch its active form', () => {
   let saved: Character = { ...c, weapons: [owned('Blade of Fallen Stars (Melee)')] }
   const save = (patch: Partial<Character>) => { saved = { ...saved, ...patch } }
   const meleeMarkup = renderToStaticMarkup(<WeaponList c={saved} entries={namedCatalog} save={save} />)
   expect(meleeMarkup).toContain('Melee: Attack')
-  expect(meleeMarkup).not.toContain('Ranged: Attack')
+  expect(meleeMarkup).toMatch(/Melee: Attack[\s\S]*?<br\/>Ranged: Attack[\s\S]*?\(inactive\)/)
   const label = meleeMarkup.match(/aria-label="(Combination form: [^"]+)"/)?.[1]
   expect(label).toBeTruthy()
   changeControl(WeaponList({ c: saved, entries: namedCatalog, save }), label!, 'Ranged')
   expect(saved.weapons?.[0]).toMatchObject({ combinationForm: 'Ranged' })
   const rangedMarkup = renderToStaticMarkup(<WeaponList c={saved} entries={namedCatalog} save={save} />)
   expect(rangedMarkup).toContain('Ranged: Attack')
-  expect(rangedMarkup).not.toContain('Blade of Fallen Stars Melee attack')
+  expect(rangedMarkup).toMatch(/Melee: Attack[\s\S]*?\(inactive\)<br\/>Ranged: Attack/)
 })
 
 it.each([false, true])('shows named weapon properties, action costs, reactions and destruction rules in both views (displayOnly=%s)', displayOnly => {
