@@ -19,6 +19,7 @@ const LASTWALL_MEMBERSHIP = 'Member of the Knights of Lastwall'
 const LASTWALL_TRAINING = 'Trained with the Knights of Lastwall'
 const PATHFINDER_MEMBERSHIP = 'Member of the Pathfinder Society'
 const PATHFINDER_TRAINING = 'Trained with the Pathfinder Society'
+const COBYSLARNI_OR_PATHFINDER = /^affiliation with cobyslarni or the pathfinder society[.!?]?$/i
 const SHACKLES_TRAVEL = 'Traveled through the Shackles'
 const TIAN_ELEMENTALISM = 'Tian Xia origin or exposure to Tian elementalism'
 const TIAN_ELEMENTALISM_TRAINING = 'Trained in Tian Xia elementalism'
@@ -127,6 +128,11 @@ export function achievementOptions(entries: ContentEntry[]) {
     } else options.set(key, { key, requirement: label, feats: [name] })
   }
   for (const entry of entries) {
+    if (!entry.deleted && entry.kind === 'familiar'
+      && COBYSLARNI_OR_PATHFINDER.test(String(entry.data.access ?? '').trim().replace(/\s+/g, ' '))) {
+      add(achievementKey(PATHFINDER_TRAINING), PATHFINDER_TRAINING, entry.name)
+      continue
+    }
     if (entry.deleted || !['feat', 'weapon', 'armor', 'shield'].includes(entry.kind)) continue
     const requirement = narrativeRequirement(entry, String(entry.data.access ?? '').trim().replace(/\s+/g, ' '))
     const key = achievementKey(requirement)
@@ -226,6 +232,7 @@ export function featAccess(c: Character, entry: ContentEntry): FeatAccessCheck |
     : isAchievementRequirement(narrative) && (achievements.has(key)
       || key === DONGUN_HOLD_OR_ALKENSTAR.toLowerCase() && achievements.has(achievementKey(ALKENSTAR))))
     || alternatives.some(alternative => isAchievementRequirement(alternative) && achievements.has(achievementKey(alternative)))
+    || COBYSLARNI_OR_PATHFINDER.test(access) && achievements.has(achievementKey(PATHFINDER_TRAINING))
   return {
     requirement: trainingLabel(key === TIAN_ELEMENTALISM.toLowerCase() ? TIAN_ELEMENTALISM : narrative, key),
     automatic: ethnicity || background || ancestry || !!achievement,

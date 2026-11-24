@@ -315,6 +315,21 @@ it('groups equivalent membership labels without dropping rank requirements', () 
   })
 })
 
+it('accepts Pathfinder Society training for Calligraphy Wyrm affiliation without relaxing other access', () => {
+  const wyrm: ContentEntry = { ...feat, id: 'wyrm', name: 'Calligraphy Wyrm', kind: 'familiar',
+    data: { access: 'affiliation with Cobyslarni or the Pathfinder Society' } }
+  const training = 'Trained with the Pathfinder Society'
+  expect(achievementOptions([wyrm])).toMatchObject([{ requirement: training, feats: ['Calligraphy Wyrm'] }])
+  expect(featAccess(character, wyrm)).toMatchObject({ automatic: false, approved: false })
+  expect(featAccess({ ...character, achievements: [training] }, wyrm))
+    .toMatchObject({ automatic: true, source: 'achievement' })
+  expect(featAccess({ ...character, achievements: ['Member of the Pathfinder Society'] }, wyrm)?.automatic).toBe(true)
+  expect(featAccess({ ...character, achievements: ['Trained with the Knights of Lastwall'] }, wyrm)?.automatic).toBe(false)
+  expect(featAccess({ ...character, achievements: [training] }, {
+    ...wyrm, data: { access: 'affiliation with Cobyslarni or the Pathfinder Society at the rank of second mark or higher' },
+  })?.automatic).toBe(false)
+})
+
 it('offers Shackles travel as shared access while preserving legacy selections and actual prerequisites', () => {
   const label = 'Traveled through the Shackles'
   const entries: ContentEntry[] = ['Cheaters Always Prosper', 'Cannonball Fall', 'Rock the Boat'].map(name => ({

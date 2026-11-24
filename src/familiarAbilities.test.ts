@@ -157,7 +157,10 @@ it('activates specific familiar grants only with access and remaining ability ca
   expect(activeFamiliarAbilities(witch, entries)).toEqual(['Tough'])
   const approved = { ...witch, featAccessOverrides: [specific.id] }
   expect(activeFamiliarAbilities(approved, entries)).toEqual(['Tough', 'Darkvision', 'Flier', 'Skilled'])
+  const trained = { ...witch, achievements: ['Trained with the Pathfinder Society'] }
+  expect(activeFamiliarAbilities(trained, entries)).toEqual(['Tough', 'Darkvision', 'Flier', 'Skilled'])
   expect(activeFamiliarAbilities({ ...approved, level: 1, feats: [] }, entries)).toEqual(['Tough'])
+  expect(activeFamiliarAbilities({ ...trained, level: 1, feats: [] }, entries)).toEqual(['Tough'])
 })
 
 it('offers specific familiars by required abilities, reduced by Improved Familiar', () => {
