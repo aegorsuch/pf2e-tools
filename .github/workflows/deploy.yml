@@ -47,12 +47,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          visible_checks=0
           for attempt in {1..12}; do
             count=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID/artifacts?per_page=100" \
               --jq "[.artifacts[] | select(.name == \"$ARTIFACT_NAME\" and .expired == false)] | length")
             if [ "$count" -eq 1 ]; then
-              echo "Pages artifact visible."
-              exit 0
+              visible_checks=$((visible_checks + 1))
+              if [ "$visible_checks" -ge 2 ]; then
+                echo "Pages artifact visible across consecutive checks."
+                exit 0
+              fi
+            else
+              visible_checks=0
             fi
             if [ "$count" -gt 1 ]; then
               echo "::error::Multiple artifacts named $ARTIFACT_NAME."
