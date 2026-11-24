@@ -439,6 +439,21 @@ it.each([false, true])('shows effective thrown range in traits without a separat
   expect(render(bow)).toContain(displayOnly ? 'Range 60 feet' : 'Range</small><b>60 feet')
 })
 
+it.each([false, true])('puts melee and ranged thrown attacks on separate lines (offense %s)', displayOnly => {
+  const javelin = content('weapon', 'Javelin', { weapon_type: 'Melee', weapon_category: 'Simple', thrown_range: 30, damage: '1d6 piercing' }, 0, ['Thrown'])
+  const dart = content('weapon', 'Dart', { weapon_type: 'Ranged', weapon_category: 'Simple', range: 20, damage: '1d4 piercing' }, 0, ['Thrown'])
+  const render = (entry: ContentEntry) => renderToStaticMarkup(<WeaponList
+    c={{ ...base, abilities: { ...base.abilities, str: 18, dex: 12 }, weapons: [{ ...main, name: entry.name }] }}
+    entries={[entry]} save={() => {}} displayOnly={displayOnly} />)
+  const html = render(javelin)
+  expect(html).toMatch(/Melee: Attack[\s\S]*?<br\/>Ranged: Attack/)
+  expect(html).toContain('Javelin Melee attack')
+  expect(html).toContain('Javelin Ranged attack')
+  expect(render(dart)).not.toContain('Melee: Attack')
+  expect(render({ ...javelin, data: { ...javelin.data, thrown_range: 0 } }))
+    .toMatch(/Melee: Attack[\s\S]*?<br\/>Ranged: Attack/)
+})
+
 it("shows Cavalier's Charge as a conditional attack bonus", () => {
   const c: Character = { ...base, level: 4, feats: [feat("Cavalier's Charge", 4)], weapons: [main] }
   const attack = weaponAttack(c, [sword], main)

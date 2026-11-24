@@ -609,13 +609,13 @@ it.each([false, true])('persists Briar points, rejects invalid inputs, and remov
   changeControl(render(), 'Briar Sharpness Points', '25')
   saved = JSON.parse(JSON.stringify(saved))
   expect(saved.weapons[0].briarSharpness).toBe(20)
-  expect(effectiveWeapon(saved, entries, saved.weapons[0]).runes).toEqual(['Shifting', 'Vorpal', 'Grievous'])
+  expect(effectiveWeapon(saved, entries, saved.weapons[0]).runes).toEqual(['Shifting', 'Vorpal', 'Serrating', 'Grievous'])
   saved.weapons[0].briarSharpness = 25
   expect(findControl(render(), 'Briar Sharpness Points')?.props).toMatchObject({ value: 20, max: 20 })
   changeControl(render(), 'Briar Sharpness Points', '19')
   expect(saved.weapons[0].briarSharpness).toBe(19)
   changeControl(render(), 'Briar Sharpness Points', '0')
-  expect(effectiveWeapon(saved, entries, saved.weapons[0])).toMatchObject({ potency: 3, striking: 2, runes: ['Grievous'] })
+  expect(effectiveWeapon(saved, entries, saved.weapons[0])).toMatchObject({ potency: 3, striking: 2, runes: ['Serrating', 'Grievous'] })
   expect(saved.weapons[0]).toMatchObject({ id: 'bow', potency: 0, striking: 0, runes: [] })
 })
 
@@ -914,8 +914,8 @@ it('implements Blade of the Black Sovereign as a Greatsword or Bastard Sword wit
   expect(found.map(entry => entry.name)).toContain('Blade of the Black Sovereign (Bastard Sword)')
   const entry = found.find(candidate => candidate.name === 'Blade of the Black Sovereign (Greatsword)')!
   const at = (level: number) => withNamedWeaponState(entry, owned(entry.name), level)?.data
-  expect(at(10)).toMatchObject({ named_weapon_runes: 'Shock;Grievous', named_weapon_material: 'Adamantine (Standard-Grade)' })
-  expect(at(17)).toMatchObject({ named_weapon_runes: 'Shock (Greater);Grievous', named_weapon_material: 'Adamantine (High-Grade)' })
+  expect(at(10)).toMatchObject({ named_weapon_runes: 'Shock;Grievous;Serrating', named_weapon_material: 'Adamantine (Standard-Grade)' })
+  expect(at(17)).toMatchObject({ named_weapon_runes: 'Shock (Greater);Grievous;Serrating', named_weapon_material: 'Adamantine (High-Grade)' })
   expect(effectiveWeapon({ ...c, level: 12 }, [...found, sword('Greatsword')], owned(entry.name))).toMatchObject({ potency: 2, striking: 2 })
   const entries = [sword('Greatsword'), sword('Bastard Sword'), item]
   const variants = gearPickerEntries(entries, 'weapon').filter(candidate => candidate.data.named_weapon_source === item.name)
@@ -933,6 +933,30 @@ it('implements Blade of the Black Sovereign as a Greatsword or Bastard Sword wit
       expect(markup).toContain(`>${display}</button>`)
       expect(markup).not.toContain('aria-label="Blade of the Black Sovereign weapon type"')
     }
+  }
+})
+
+it.each([false, true])('includes Serrating damage on Briar and both Black Sovereign blades (%s)', displayOnly => {
+  const briar = specific('Briar', 'Bastard Sword', '+3 greater striking cold iron', [
+    '1 Sharpness Point Briar gains shifting.',
+    '4 Sharpness Points Briar gains major striking.',
+    '8 Sharpness Points Briar gains +4 potency.',
+    '14 Sharpness Points Briar gains conditional vorpal.',
+    '20 Sharpness Points Briar gains vorpal.',
+  ])
+  const blackSovereign: ContentEntry = { ...winter, id: 'black-sovereign', name: 'Blade of the Black Sovereign', level: 15,
+    description: 'Base Weapon Greatsword\n\nThis +2 greater striking shock greatsword is forged from standard-grade adamantine.',
+    data: { item_subcategory: 'Specific Magic Weapons' } }
+  const greatsword = melee('Greatsword', '1d12 slashing')
+  const entries = [...namedCatalog, greatsword, briar, blackSovereign]
+  for (const name of ['Briar', 'Blade of the Black Sovereign (Greatsword)', 'Blade of the Black Sovereign (Bastard Sword)']) {
+    const weapon = { ...owned(name), briarSharpness: 20 }
+    const character = { ...c, weapons: [weapon] }
+    expect(effectiveWeapon(character, entries, weapon).runes.filter(rune => rune === 'Serrating')).toHaveLength(1)
+    expect(effectiveWeapon(character, entries, { ...weapon, runes: ['Serrating'] }).runes.filter(rune => rune === 'Serrating')).toHaveLength(1)
+    const html = renderToStaticMarkup(<WeaponList c={character} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+    expect(html).toContain(' + 1d4 S')
+    expect(html).toContain('>Serrating</button>')
   }
 })
 

@@ -9,6 +9,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { isAncestralEmbrace, isBastionNamedArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
+import { DamageRoll } from './SpellDamage'
 import { ABILITY_LABEL, APEX_AUGMENTATIONS, MOBILITY_ENHANCER_SPEEDS, activeApexAugmentation, armorBulk, armorStrengthMet, installedApexAugmentations } from './builder'
 import { barbarianInstinct, classHandwrapKind, isGiantWeapon } from './builder'
 import { equipmentDisplayName, specificMagicItemName } from './equipmentGroups'
@@ -68,7 +69,8 @@ const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weapon
     && !/^Impossible(?: Alloy)?$/i.test(runeName(rune))).sort((x, y) => x.localeCompare(y))
     .map(rune => {
       const source = runeName(rune)
-      const note = source === 'Anarchic' ? 'Legacy alignment rule: only against lawful targets. A lawful bearer is enfeebled 2. On a critical hit against a lawful target, roll 1d6: 1-2 double minimum damage, 3-4 normal critical damage, 5-6 double maximum damage.'
+      const note = source === 'Serrating' ? 'Only on slashing damage. One action to increase the additional damage to 1d12 on your next slashing hit this turn.'
+        : source === 'Anarchic' ? 'Legacy alignment rule: only against lawful targets. A lawful bearer is enfeebled 2. On a critical hit against a lawful target, roll 1d6: 1-2 double minimum damage, 3-4 normal critical damage, 5-6 double maximum damage.'
         : source === 'Axiomatic' ? 'Legacy alignment rule: only against chaotic targets. A chaotic bearer is enfeebled 2. On a critical hit against a chaotic target, use rounded-up average for each weapon damage die instead of rolling.'
         : source === 'Brilliant' || source === 'Brilliant (Greater)'
         ? `Additional 1d4 spirit against fiends and 1d4 vitality against undead. Critical hit: DC ${source === 'Brilliant' ? 29 : 41} Fortitude or blinded for 1 round.${source === 'Brilliant (Greater)' ? ' Damage ignores fire, spirit, and vitality resistance.' : ''}`
@@ -84,7 +86,8 @@ const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weapon
                     : source === 'Decaying' || source === 'Decaying (Greater)'
                       ? `Critical hit: ${source === 'Decaying (Greater)' ? '4d4' : '2d4'} persistent void damage, also affecting a raised shield. This void damage can damage objects and constructs.${source === 'Decaying (Greater)' ? ' Void damage ignores void resistance and immunity.' : ''}`
                     : undefined
-      const value = source === 'Anarchic' ? '1d6 chaotic vs. lawful targets'
+      const value = source === 'Serrating' ? `1d4 slashing${/\b(?:slashing|s)\b/i.test(attack.damage) ? '' : ' (slashing only)'}`
+        : source === 'Anarchic' ? '1d6 chaotic vs. lawful targets'
         : source === 'Axiomatic' ? '1d6 lawful vs. chaotic targets'
         : source === 'Brilliant' || source === 'Brilliant (Greater)' ? '1d4 fire'
         : source === 'Corrosive' || source === 'Corrosive (Greater)' ? '1d6 acid'
@@ -1316,18 +1319,32 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const untamedPersistent = !a.upgrades.some(upgrade => upgrade.name === 'Merciful')
           && c.level >= 11 && ['Untamed Claws', 'Untamed Jaws'].includes(w.name)
           ? `${c.level >= 19 ? 4 : 2}d6 persistent ${w.name === 'Untamed Claws' ? 'bleed' : 'poison'}` : undefined
-        const meleeAndRanged = a.thrownRange > 0 && !(a.range > 0)
+        const canThrowMelee = (attack: typeof a) => !attack.range
+          && (attack.thrownRange > 0 || attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim())))
+        const oversizedDamage = w.id === OVERSIZED_THROW.id
+          ? /^(\d+)d(\d+)([+-]\d+)?\s+(\w+)$/.exec(a.damage) : null
+        const oversizedAction = oversizedDamage && <span onClick={event => event.stopPropagation()}>
+          <DamageRoll name="Oversized Throw" actions="Two Actions" toggleResult damage={{
+            label: 'Damage', dice: Number(oversizedDamage[1]), sides: Number(oversizedDamage[2]),
+            bonus: Number(oversizedDamage[3] ?? 0), type: oversizedDamage[4],
+          }} />
+        </span>
         const attackSummaries = (namedSource === 'Coldstar Pistols' && (!w.coldstarForm || w.coldstarForm === 'Paired')
           ? (['Flame', 'Frost'] as const).map(coldstarForm => {
             const formWeapon = { ...w, coldstarForm }
             return { form: `${coldstarForm} pistol`, weapon: effectiveWeapon(c, entries, formWeapon), attack: weaponAttack(c, entries, formWeapon) }
           })
           : forms.length
-          ? [activeCombinationForm ?? 'Melee'].map(form => {
+          ? [activeCombinationForm ?? 'Melee'].flatMap(form => {
             const formWeapon = { ...w, combinationForm: form }
-            return { form, weapon: effectiveWeapon(c, entries, formWeapon), attack: weaponAttack(c, entries, formWeapon) }
+            const formAttack = weaponAttack(c, entries, formWeapon)
+            const formEnhanced = effectiveWeapon(c, entries, formWeapon)
+            return canThrowMelee(formAttack)
+              ? [{ form: 'Melee', weapon: formEnhanced, attack: formAttack },
+                { form: 'Ranged', weapon: formEnhanced, attack: weaponAttack(c, entries, formWeapon, { thrown: true }) }]
+              : [{ form, weapon: formEnhanced, attack: formAttack }]
           })
-          : meleeAndRanged
+          : canThrowMelee(a)
           ? [{ form: 'Melee', weapon: enhanced, attack: a },
             { form: 'Ranged', weapon: enhanced, attack: weaponAttack(c, entries, w, { thrown: true }) }]
           : [{ form: undefined, weapon: enhanced, attack: a },
@@ -1341,6 +1358,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             ...(intensified ? [{ source: 'Intensified Element Stance', value: `${intensified.dice}d6 ${intensified.type} (conditional)`,
               note: `Only against ${intensified.targets}.` }] : []),
           ] }))
+        const meleeAndRanged = attackSummaries.length === 2
+          && attackSummaries[0].form === 'Melee' && attackSummaries[1].form === 'Ranged'
         const avengerNote = rogueRackets(c, entries).includes('Avenger') && isFavoredWeapon(c, entries, w.name)
           ? 'Avenger: sneak attack applies to your prey; critical specialization applies on a critical hit against an off-guard target.' : undefined
         const activeRunes = forms.length || card ? enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) : enhanced.runes
@@ -1497,7 +1516,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         if (displayOnly) return <div key={w.id} className="gear-card">
           <div className="weapon-offense-header">
             <strong><EntryDescription name={displayName} entry={witchAttackEntry(c, entries, w.id, a.entry)} className="equipment-name" /></strong>
-            {(w.id === OVERSIZED_THROW.id || a.entry?.name === 'Offensive Defense') && <> <ActionIcon entry={a.entry} /></>}
+            {w.id === OVERSIZED_THROW.id ? oversizedAction : a.entry?.name === 'Offensive Defense' && <> <ActionIcon entry={a.entry} /></>}
             {c.hardpointWeaponId === w.id && hardpointWeaponEligible(c, entries, w) && weaponHeld(c, entries, w)
               && <SourceNote inlineSource={false} source="Hardpoint" note="Integrated weapon: cannot be disarmed, dropped, or stolen until stowed." />}
             {equipControls}
@@ -1506,7 +1525,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           {cannotEquip && (legacyPouchWeapon || hands === undefined || unknownHands)
             && <small>{legacyPouchWeapon ? 'Retrieve this weapon from your cheek pouch first.' : 'Weapon hands unavailable.'}</small>}
           <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
-            {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
+            {index > 0 && (meleeAndRanged ? <br /> : '; ')}{summary.form && `${summary.form}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
             {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.strikeNote && <SourceNote
               source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
               note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
@@ -1541,8 +1560,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             if (event.currentTarget.open === !collapsed.includes(w.id)) return
             save({ collapsedWeaponIds: event.currentTarget.open ? collapsed.filter(id => id !== w.id) : [...collapsed, w.id] })
           }}>
-            <summary><strong><EntryDescription name={displayName} entry={witchAttackEntry(c, entries, w.id, a.entry)} className="equipment-name" /></strong>{w.id === OVERSIZED_THROW.id && <> <ActionIcon entry={a.entry} /></>} <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
-              {index > 0 && '; '}{summary.form && `${summary.form}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
+            <summary><strong><EntryDescription name={displayName} entry={witchAttackEntry(c, entries, w.id, a.entry)} className="equipment-name" /></strong>{oversizedAction} <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
+              {index > 0 && (meleeAndRanged ? <br /> : '; ')}{summary.form && `${summary.form}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
               {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.strikeNote && <SourceNote
                 source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
                 note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>

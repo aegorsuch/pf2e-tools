@@ -7,10 +7,42 @@ import { SpellsSection, SpiritOfTheBeastOptions } from './SpellsSection'
 import { StatusesContent } from './StatusesSection'
 import { SkillsSection } from './SkillsSection'
 import { MinionsSection } from './MinionsSection'
-import { resistances } from './builder'
+import { WeaponList } from './GearSection'
+import { ownedWeapons, resistances, weaponAttack } from './builder'
+import { OVERSIZED_THROW } from './supplemental'
 import { companionStats } from './companions'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
+
+it.each([false, true])('rolls and hides Oversized Throw damage without toggling its card (%s)', async displayOnly => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  vi.spyOn(Math, 'random').mockReturnValue(0.5)
+  const c: Character = { id: 'barbarian', name: 'Test', systems: ['pf2e'], level: 10, className: 'Barbarian',
+    raging: true, abilities: { str: 18, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Oversized Throw', type: 'Class Feat', level: 4 }], weapons: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const weapon = ownedWeapons(c, []).find(item => item.id === OVERSIZED_THROW.id)!
+  const match = /^(\d+)d(\d+)([+-]\d+)?\s+bludgeoning$/.exec(weaponAttack(c, [], weapon).damage)!
+  const expected = Number(match[1]) * (Math.floor(Number(match[2]) * 0.5) + 1) + Number(match[3] ?? 0)
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<WeaponList c={c} entries={[]} save={() => {}} displayOnly={displayOnly} />))
+    const button = container.querySelector<HTMLButtonElement>('[aria-label="Roll Oversized Throw: Damage"]')!
+    const card = button.closest('details')
+    await act(async () => button.click())
+    expect(container.querySelector('[aria-label="Oversized Throw: Damage result"]')?.textContent).toContain(`${expected} bludgeoning`)
+    if (card) expect(card.open).toBe(true)
+    await act(async () => button.click())
+    expect(container.querySelector('[aria-label="Oversized Throw: Damage result"]')).toBeNull()
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  }
+})
 
 it('synchronizes Untamed Shift and Harden Flesh through statuses', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)

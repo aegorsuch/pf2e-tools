@@ -261,7 +261,7 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
     return { ...entry, data: { ...entry.data, named_weapon_material: `Adamantine (${at >= 17 ? 'High' : 'Standard'}-Grade)`,
       named_weapon_runes: [...new Set([...runes.filter(rune => !['Shock', 'Grievous'].includes(runeBase(rune))),
-        at >= 15 ? 'Shock (Greater)' : 'Shock', 'Grievous'])].join(';') } }
+        at >= 15 ? 'Shock (Greater)' : 'Shock', 'Grievous', 'Serrating'])].join(';') } }
   }
   if (source === 'Fungicidal Hatchet') {
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
@@ -321,7 +321,7 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
   return { ...entry, description: [intro, remastered, destruction < 0 ? '' : entry.description.slice(destruction)].join('\n\n'),
     traits: [...entry.traits.filter(trait => trait !== 'Intelligent'), ...(points >= 4 ? ['Intelligent'] : [])],
     data: { ...entry.data, named_weapon_potency: points >= 8 ? 4 : 3, named_weapon_striking: points >= 4 ? 3 : 2,
-      named_weapon_runes: artifactRunes(entry, [points >= 1 ? 'Shifting' : '', points >= 20 ? 'Vorpal' : ''].filter(Boolean).join(';')),
+      named_weapon_runes: artifactRunes(entry, [points >= 1 ? 'Shifting' : '', points >= 20 ? 'Vorpal' : '', 'Serrating'].filter(Boolean).join(';')),
       named_weapon_oaken_rank: oakenRank,
       artifact_activation_actions: ['Single Action', 'Reaction', 'Reaction', 'Reaction'].slice(0,
         points >= 20 ? 4 : points >= 14 ? 3 : points >= 8 ? 2 : points >= 4 ? 1 : 0).join(';'),

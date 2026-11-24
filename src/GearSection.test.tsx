@@ -470,11 +470,12 @@ it.each(['Uncommon', 'Rare', 'Unique'])('allows %s gear without a specific Acces
   expect(c.gearAccessOverrides).toBeUndefined()
 })
 
-it.each([false, true])('shows the Oversized Throw two-action icon in both views (displayOnly=%s)', displayOnly => {
+it.each([false, true])('shows the Oversized Throw damage roll in both views (displayOnly=%s)', displayOnly => {
   const c = { ...character([{ name: 'Oversized Throw', type: 'Class Feat', level: 4 }]), className: 'Barbarian', raging: true }
   const tree = WeaponList({ c, entries: [], save: () => {}, displayOnly })
   const markup = renderToStaticMarkup(tree)
-  expect(markup).toMatch(/<strong><button[^>]*aria-haspopup="dialog"[^>]*>Oversized Throw<\/button>[\s\S]*?<\/strong> <span class="action-cost" aria-label="Two Actions"/)
+  expect(markup).toContain('aria-label="Roll Oversized Throw: Damage"')
+  expect(markup).toContain('title="Two Actions; Damage: 2d10 bludgeoning"')
   expect(weaponAttack(c, [], { id: OVERSIZED_THROW.id, name: OVERSIZED_THROW.name, potency: 0, striking: 0, runes: [] }).damage)
     .toBe('2d10 bludgeoning')
 })
