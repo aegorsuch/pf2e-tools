@@ -1036,7 +1036,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 name: entry?.name ?? ability,
                 entry,
                 after: ability === 'Restorative Familiar' && index < selectableAbilityLimit && !reason
-                  ? <> <DamageRoll name="Restorative Familiar" actions="Two Actions"
+                  ? <> <DamageRoll name="Restorative Familiar" actions="Two Actions" toggleResult
                     damage={{ label: 'Healing', dice: Math.max(1, Math.floor(c.level / 2)), sides: 8, type: 'HP' }} /></>
                   : undefined,
                 inactive: index >= selectableAbilityLimit,
