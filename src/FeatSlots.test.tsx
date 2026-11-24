@@ -102,6 +102,27 @@ it('rolls Acidic Spit damage at the appropriate level', () => {
   expect(render({ ...c, level: 12 })).not.toContain('aria-label="Roll Acidic Spit: Damage"')
 })
 
+it('adds a Treehealer healing roll to the selected feat', () => {
+  const treehealer: ContentEntry = { id: 'treehealer', systems: ['pf2e'], kind: 'feat', source: 'official',
+    name: 'Treehealer', level: 17, traits: ['Elf'], description: 'Heal a plant creature.', data: {},
+    effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), ancestry: 'Elf', level: 17,
+    feats: [{ name: 'Treehealer', type: 'Ancestry Feat', level: 17, slot: 'ancestry:17:0' }] }
+  const html = renderToStaticMarkup(<FeatSlots c={c} entries={[treehealer]} categories={['ancestry']} save={() => {}} />)
+  expect(html).toContain('aria-label="Roll Treehealer: Healing"')
+  expect(html).toContain('10 minutes; Healing: 7d8+56 HP')
+})
+
+it('shows Anchoring Arrow as Anchoring Shot and changes bow Strike to ranged Strike', () => {
+  const arrow: ContentEntry = { id: 'anchoring-arrow', systems: ['pf2e'], kind: 'feat', source: 'official',
+    name: 'Anchoring Arrow', level: 20, traits: ['Elf'], description: 'Make a bow Strike against a demon.',
+    data: {}, effects: [], updatedAt: 0 }
+  const html = renderToStaticMarkup(<EntryDescription name={arrow.name} entry={arrow} />)
+  expect(html).toContain('Anchoring Shot')
+  expect(html).toContain('ranged Strike')
+  expect(html).not.toContain('bow Strike')
+})
+
 it.each([
   ["Pilgrim's Token", 'Trained in Religion; follower of a specific religion'],
   ['Sanctify Water', 'Expert in Religion; you follow a deity with “holy” or “unholy” sanctification'],

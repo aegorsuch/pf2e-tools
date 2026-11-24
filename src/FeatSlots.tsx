@@ -3,7 +3,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { ActionIcon } from './ActionIcon'
 import { RUNESMITH_RUNES } from './runesmithRunes'
-import { DamageRoll } from './SpellDamage'
+import { DamageRoll, rollTreehealerHealing } from './SpellDamage'
 import { PickerDialog } from './PickerDialog'
 import { sortPickerOptions } from './PickerSort'
 import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, matchesSkill, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, type PlannedSlot, type SectionProps } from './builder'
@@ -29,6 +29,18 @@ interface FeatSlotsProps extends SectionProps {
   onSearch?: (key: string, text: string) => void
   pickerEligibility?: (slot: PlannedSlot) => ContentEntry[]
   pickerVariantCache?: Map<string, FeatOption[]>
+}
+
+function TreehealerRoll() {
+  const [result, setResult] = useState<{ target: number; self: number }>()
+  return <span>
+    <button type="button" className="spell-action-button" aria-label="Roll Treehealer: Healing"
+      title="10 minutes; Healing: 7d8+56 HP; you regain half the amount"
+      onClick={() => setResult(rollTreehealerHealing())}>Roll healing</button>
+    {result && <output aria-live="polite" aria-label="Treehealer healing result">
+      Plant creature: {result.target} HP; you: {result.self} HP
+    </output>}
+  </span>
 }
 
 const PAGE = 100
@@ -288,7 +300,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const fixed = fixedLabel(entry.name, entry.id)
     const label = `${actionOptionLabel(displayName(entry.name), entry)}${fixed ? ` (${fixed})` : ''}${unlocks?.length ? ` (Unlocks ${unlocks.map(displayName).join(', ')})` : ''}${pairs?.length ? ` (Pairs with ${pairs.map(displayName).join(', ')})` : ''}${rarity ? ` (${rarity})` : ''}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${accessMissing
       ? ` * Access: ${access.requirement}` : ''}`
-    const allChoices = entry.name === 'Ancestral Magic' || entry.name === 'Ancestral Cantrip' && !fixed
+    const allChoices = ['Ancestral Magic', 'Otherworldly Acumen'].includes(entry.name)
+      || entry.name === 'Ancestral Cantrip' && !fixed
       ? [...new Set((featSpellOptions(c, entries, { name: entry.name, type: 'Ancestry Feat', level: entry.level,
         slot: slot.key, takenLevel: slot.level, sourceId: entry.id }) ?? []).map(spell => spell.name))]
       : ['Free Heart', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity'].includes(entry.name)
@@ -529,6 +542,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const showFeatActionControls = !!currentEntry && FEAT_ACTION_CONTROLS.has(currentEntry.name)
             && !!activeFeatsNamed(c, currentEntry.name).length
           const showWrathRoll = currentEntry?.name === 'Wrath of the Hold' && !!activeFeatsNamed(c, currentEntry.name).length
+          const showTreehealerRoll = c.systems.includes('pf2e') && currentEntry?.name === 'Treehealer'
+            && !!activeFeatsNamed(c, currentEntry.name).length
           const showInscribedBlast = c.systems.includes('pf2e') && currentEntry?.name === 'Inscribed Blast' && !!activeFeatsNamed(c, currentEntry.name).length
           const showCoreCannon = c.systems.includes('pf2e') && currentEntry?.name === 'Core Cannon' && !!activeFeatsNamed(c, currentEntry.name).length
           const tattooRune = c.systems.includes('pf2e') && currentEntry?.name === 'Runic Tattoo' && activeFeatsNamed(c, currentEntry.name).length
@@ -691,7 +706,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     prerequisites={arcanaChoiceEntry ? selectedPrerequisites(s, arcanaChoiceEntry) : prerequisites}
                     access={descriptionEntry ? featAccess(c, descriptionEntry) : access}
                     grantSource={arcanaChoiceEntry ? selection?.name : grantSource}
-                    buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showAcidicSpitRoll || showInscribedBlast || showCoreCannon}
+                    buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showTreehealerRoll || showAcidicSpitRoll || showInscribedBlast || showCoreCannon}
                     descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                       : selection?.choice && DOMAIN_FEATS.includes(selection.name)
                         ? domainSpellDescription(c, entries, selection.name, selection.choice)
@@ -699,6 +714,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   {showFeatActionControls && <FeatActionControls c={c} entries={entries} save={save} entry={currentEntry} />}
                   {showWrathRoll && <DamageRoll name="Wrath of the Hold" actions="Two Actions" toggleResult
                     damage={{ label: 'Damage', dice: 4 + Math.floor((c.level - 8) / 2), sides: 6, type: 'spirit' }} />}
+                  {showTreehealerRoll && <TreehealerRoll />}
                   {showInscribedBlast && <>
                     <DamageRoll name="Inscribed Blast" actions="Reaction" disabled={!!c.inscribedBlastUsed}
                       onRoll={() => save({ inscribedBlastUsed: true })}

@@ -1349,7 +1349,7 @@ it('preserves legacy longevity choices as regular proficiency for prerequisites'
   expect(ranksAt(c, [], 5).Acrobatics).toBeUndefined()
   expect(ranksAt(c, [], 9).Athletics).toBe(1)
   expect(dailyLongevityRanks({ ...c, level: 8 }, []).Athletics).toBe(1)
-  expect(dailyLongevityRanks({ ...c, feats: [c.feats[1]] }, []).Athletics).toBe(1)
+  expect(dailyLongevityRanks({ ...c, feats: [c.feats[1]] }, []).Athletics).toBe(2)
 })
 
 it.each(['Celestial Form', 'Fiendish Form'])('%s grants darkvision even when flight is disabled', name => {
@@ -2133,7 +2133,7 @@ describe('shared prerequisite enforcement', () => {
     expect(check({ ...enshrined, feats: [] }, noMemory).missing).toEqual(['Memories of Valor'])
   })
 
-  it('enforces Wandering Heart environmental heritage requirements without guessing unknown heritages', () => {
+  it('ignores Wandering Heart environmental heritage requirements when selecting the feat', () => {
     const prerequisite = 'Arctic Elf, Cavern Elf, Desert Elf, Woodland Elf, or any other elf heritage based on adapting to an environment'
     for (const heritage of ['Arctic Elf', 'Cavern Elf', 'Desert Elf', 'Woodland Elf', 'Aquatic Elf']) {
       expect(check(prerequisite, { ...base, ancestry: 'Elf', heritage })).toEqual({ missing: [], manual: [] })
@@ -2147,7 +2147,15 @@ describe('shared prerequisite enforcement', () => {
     const slot = { key: 'ancestry:13:0', category: 'ancestry' as const, level: 13 }
     const elf = { ...base, level: 13, ancestry: 'Elf' }
     expect(eligibleFeats([feat], { ...elf, heritage: 'Woodland Elf' }, slot)).toContain(feat)
-    expect(eligibleFeats([feat], { ...elf, heritage: 'Ancient Elf' }, slot)).not.toContain(feat)
+      expect(eligibleFeats([feat], { ...elf, heritage: 'Ancient Elf' }, slot)).toContain(feat)
+      expect(eligibleFeats([feat], { ...elf, ancestry: 'Human', heritage: 'Ancient Elf' }, slot)).not.toContain(feat)
+  })
+
+  it('ignores selected feat prerequisites for Otherworldly Acumen, Expert Longevity, and Universal Longevity', () => {
+    for (const name of ['Otherworldly Acumen', 'Expert Longevity', 'Universal Longevity']) {
+      const feat = entry('feat', name, { prerequisite: 'a prerequisite that is no longer required' }, 9, ['Elf'])
+      expect(featPrerequisiteChecker(base, [feat])(feat)).toEqual({ missing: [], manual: [] })
+    }
   })
 
   it('restricts Otherworldly Magic to Elf ancestry without inventing a prerequisite', () => {

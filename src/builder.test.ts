@@ -2270,6 +2270,18 @@ describe('defenses', () => {
     expect(orphanedArchetypeFeats({ ...base, feats: [feat('Archaeologist Dedication'), feat('Scholastic Identification')] }, data)).toEqual([])
   })
 
+  it('keeps Wizard Spellcasting feats granted by Spellshot Dedication', () => {
+    const spellshot = entry('feat', 'Spellshot Dedication', { archetype: 'Spellshot' }, 2, ['Archetype', 'Dedication'])
+    const expert = entry('feat', 'Expert Wizard Spellcasting', { archetype: 'Wizard' }, 12, ['Archetype'])
+    const master = entry('feat', 'Master Wizard Spellcasting', { archetype: 'Wizard' }, 18, ['Archetype'])
+    const c: Character = { ...base, className: 'Gunslinger', level: 18, feats: [
+      { name: spellshot.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+      { name: expert.name, type: 'Archetype Feat', level: 12, slot: 'archetype:12:0' },
+      { name: master.name, type: 'Archetype Feat', level: 18, slot: 'archetype:18:0' },
+    ] }
+    expect(orphanedArchetypeFeats(c, [spellshot, expert, master])).toEqual([])
+  })
+
   it('uses the selected Current Spell source before removing orphaned archetype feats', () => {
     const archetype = { ...entry('feat', 'Current Spell', { archetype: 'Elementalist' }, 6, ['Archetype']), id: 'archetype-current' }
     const druid = { ...entry('feat', 'Current Spell', { archetype: 'Elementalist' }, 6, ['Druid']), id: 'druid-current' }

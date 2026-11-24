@@ -2724,6 +2724,23 @@ it('requires a valid chosen cantrip and heightens only that choice', () => {
   expect(grantedFeatSpells({ ...c, feats: [taken(grant.name, 1, 'Light')] }, entries)).toMatchObject([{ rank: 3, entry: { name: 'Light' } }])
 })
 
+it('lets Otherworldly Acumen choose a common 2nd-level spell for an innate daily grant', () => {
+  const acumen = feat('Otherworldly Acumen', 'Choose one common 2nd-level spell from a magical tradition.', 9)
+  const arcane = { ...entry('Arcane Choice', 'spell', { tradition: 'Arcane' }), level: 2 }
+  const occult = { ...entry('Occult Choice', 'spell', { tradition: 'Occult' }), level: 2 }
+  const rare = { ...entry('Rare Choice', 'spell', { tradition: 'Arcane', rarity: 'rare' }), level: 2 }
+  const wrongRank = { ...entry('First-Rank Choice', 'spell', { tradition: 'Divine' }), level: 1 }
+  const entries = [acumen, arcane, occult, rare, wrongRank]
+  const selectedFeat = taken(acumen.name, 9, arcane.name)
+  const c: Character = { ...base, level: 9, feats: [selectedFeat] }
+  expect(featSpellOptions(c, entries, selectedFeat)?.map(spell => spell.name)).toEqual(['Arcane Choice', 'Occult Choice'])
+  expect(grantedFeatSpells(c, entries)).toMatchObject([{
+    entry: { name: 'Arcane Choice' },
+    rule: { kind: 'innate', tradition: 'arcane', frequency: 'once per day', fixedRank: true },
+    rank: 2,
+  }])
+})
+
 it('lets Bone Magic select both cantrip and tradition', () => {
   const grant = feat('Bone Magic', 'Choose one cantrip from either the occult spell list or primal spell list.')
   const entries = [grant, entry('Ghost Sound', 'spell', { tradition: 'Occult, Primal' }, ['Cantrip']),

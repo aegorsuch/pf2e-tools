@@ -1679,6 +1679,17 @@ it('adds regular trained and expert selections for longevity feats', () => {
   expect(skillRankBudget({ ...c, level: 8 }, [ranger]).expert).toBe(2)
 })
 
+it('grants Expert Longevity its own expert skill increase without Ancestral Longevity', () => {
+  let c: Character = { ...base, level: 9, ancestry: 'Elf', skillPicks: ['Athletics'],
+    feats: [{ name: 'Expert Longevity', type: 'Ancestry Feat', level: 9, slot: 'ancestry:9:0' }] }
+  const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
+  expect(skillRankBudget(c, [ranger]).expert).toBe(3)
+  ;(findButtons(tree()).get('Society Trained')!.onClick as () => void)()
+  ;(findButtons(tree()).get('Society Expert')!.onClick as () => void)()
+  expect(c.skillIncreases?.[builder.LONGEVITY_EXPERT_SLOT]).toBe('Society')
+  expect(ranksAt(c, [ranger]).Society).toBe(2)
+})
+
 it('preserves legacy longevity choices and migrates them when editing skills', () => {
   let c: Character = { ...base, level: 9, ancestry: 'Elf', skillPicks: ['Athletics'],
     feats: [

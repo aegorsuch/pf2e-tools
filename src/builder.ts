@@ -991,6 +991,9 @@ const archetypesOf = (e?: ContentEntry): string[] => {
   return names
 }
 const isDedication = (e?: ContentEntry) => !!e?.traits.some((t) => t.toLowerCase() === 'dedication')
+const dedicationArchetypes = (e: ContentEntry) => e.name === 'Spellshot Dedication'
+  ? [...new Set([...archetypesOf(e), 'Wizard'])]
+  : archetypesOf(e)
 
 // Archetype rules: other archetype feats need that archetype's Dedication, and a new Dedication needs
 // two other feats from every Dedication already taken
@@ -1006,13 +1009,13 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
   return (e: ContentEntry) => {
     const archetypes = archetypesOf(e)
     if (!archetypes.length || !asArchetype && !e.traits.some((t) => t.toLowerCase() === 'archetype')) return []
-    const shares = (entry: ContentEntry, names = archetypes) => archetypesOf(entry).some((name) => names.includes(name))
+    const shares = (entry: ContentEntry, names = archetypes) =>
+      (isDedication(entry) ? dedicationArchetypes(entry) : archetypesOf(entry)).some((name) => names.includes(name))
     if (!isDedication(e)) {
-      if (dedications.some(({ entry }) => shares(entry)
-        || entry.name === 'Spellshot Dedication' && archetypes.includes('Wizard'))) return []
+      if (dedications.some(({ entry }) => shares(entry))) return []
       availableDedications ??= entries.filter((entry) => entry.kind === 'feat' && !entry.deleted && isDedication(entry))
       dedicationsByArchetype ??= availableDedications.reduce((map, dedication) => {
-        for (const name of archetypesOf(dedication)) map.set(name, [...(map.get(name) ?? []), dedication])
+        for (const name of dedicationArchetypes(dedication)) map.set(name, [...(map.get(name) ?? []), dedication])
         return map
       }, new Map<string, ContentEntry[]>())
       const names = [...new Set(availableDedications.filter((dedication) => archetypes.some(name => dedicationsByArchetype!.get(name)?.includes(dedication)))
@@ -1043,7 +1046,8 @@ export function orphanedArchetypeFeats(c: Character, entries: ContentEntry[]) {
     ...c, name: f.name, category: f.slot?.split(':')[0] ?? f.type.toLowerCase().split(' ')[0],
     ancestryTraits,
   }) }))
-  const dedications = new Set(info.flatMap(({ sources }) => sources.flatMap(e => isDedication(e) ? archetypesOf(e) : [])))
+  const dedications = new Set(info.flatMap(({ sources }) =>
+    sources.flatMap(e => isDedication(e) ? dedicationArchetypes(e) : [])))
   return info.filter(({ f, sources }) => sources.length > 0 && sources.every(e => !isDedication(e) && archetypesOf(e).length
     && (e.traits.some(t => t.toLowerCase() === 'archetype') || f.slot?.startsWith('archetype:'))
     && !archetypesOf(e).some(name => dedications.has(name))))
@@ -3837,7 +3841,6 @@ export function bloodragerSkill(c: Character) {
 
 export const LONGEVITY_EXPERT_SLOT = 'expert-longevity'
 export function longevityExpertLevel(c: Character) {
-  if (!activeFeatsNamed(c, 'Ancestral Longevity').length) return undefined
   const feat = activeFeatsNamed(c, 'Expert Longevity')[0]
   return feat ? featTakenLevel(feat) : undefined
 }

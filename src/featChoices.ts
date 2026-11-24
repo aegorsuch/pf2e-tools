@@ -14,6 +14,7 @@ export const isStanceFeat = (entry: ContentEntry) =>
   entry.kind === 'feat' && entry.traits.some(trait => trait.toLowerCase() === 'stance')
 
 export function featDisplayName(entry: ContentEntry | undefined, name = entry?.name ?? '') {
+  if (name === 'Anchoring Arrow') return 'Anchoring Shot'
   if (name === 'Litany Against Wrath') return 'Litany against Wrath'
   if (name === 'Nimble Hooves' || name.startsWith('Nimble Hooves (')) return `Nimble Feet${name.slice('Nimble Hooves'.length)}`
   if (!entry || !isStanceFeat(entry)) return name

@@ -338,6 +338,11 @@ export function rollSpellDamage({ dice, sides, bonus = 0 }: Damage) {
     .reduce((sum, roll) => sum + roll, bonus)
 }
 
+export function rollTreehealerHealing() {
+  const target = rollSpellDamage({ label: 'Healing', dice: 7, sides: 8, bonus: 56, type: 'HP' })
+  return { target, self: Math.floor(target / 2) }
+}
+
 const WARP_WORLD_EFFECTS = [
   { name: 'Supernova', type: 'fire', persistent: 'electricity', note: 'Critical failure: double damage and dazzled for 1 round.' },
   { name: 'Earthquake', type: 'bludgeoning', note: 'Critical failure: double damage and knocked prone.' },

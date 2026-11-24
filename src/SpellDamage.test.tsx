@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, useState } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { DamageRoll, MultipleDamageRoll, rollSpellDamage, rollWarpWorld, spellActionRolls, spellDamage, SpellActions, SpellDamageRolls, sunBladeDamage, WarpWorldRoll } from './SpellDamage'
+import { DamageRoll, MultipleDamageRoll, rollSpellDamage, rollTreehealerHealing, rollWarpWorld, spellActionRolls, spellDamage, SpellActions, SpellDamageRolls, sunBladeDamage, WarpWorldRoll } from './SpellDamage'
 import { SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
@@ -22,6 +22,11 @@ it('calculates Lay on Hands healing at the actual spell rank', () => {
     expect(markup).toContain('aria-label="Roll Lay on Hands: Healing"')
     expect(markup).toContain(`Healing: ${rank * 6} HP`)
   }
+})
+
+it('rolls Treehealer healing once and gives half the result back to the user', () => {
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rollTreehealerHealing()).toEqual({ target: 63, self: 31 })
 })
 
 it.each([[4, 2], [6, 3], [8, 4], [10, 5]])('rolls Burning Trail damage at rank %i as %id10 fire', (rank, dice) => {

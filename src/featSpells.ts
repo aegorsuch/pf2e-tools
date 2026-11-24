@@ -233,6 +233,15 @@ export function witchLessonOptions(c: Character, entries: ContentEntry[], feat: 
 
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   if (['Fiendish Magic', 'Celestial Magic', 'Summon Nephilim Kin'].includes(feat.name)) return undefined
+  if (feat.name === 'Otherworldly Acumen' && c.systems.includes('pf2e')) {
+    return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e') && spell.level === 2
+      && !spell.traits.some(trait => /^(?:cantrip|focus|uncommon|rare|unique)$/i.test(trait))
+      && !/^(?:uncommon|rare|unique)$/i.test(String(spell.data.rarity ?? ''))
+      && ['arcane', 'divine', 'occult', 'primal'].some(tradition =>
+        String(spell.data.tradition ?? '').toLowerCase().split(/,\s*/).includes(tradition))
+      && spellAccessGranted(c, spell))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
   if (feat.name === 'Loaner Spell' && c.systems.includes('pf2e')) {
     const maxRank = getSettings().innateAutoHeighten ? Math.max(3, Math.min(10, Math.ceil(c.level / 2))) : 3
     return spellIndex(entries).spells.filter(spell => {
@@ -521,6 +530,17 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (feat.name === 'Otherworldly Acumen' && c.systems.includes('pf2e')) {
+      const entry = feat.choice ? featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice) : undefined
+      const traditions = String(entry?.data.tradition ?? '').toLowerCase().split(/,\s*/)
+      const preferredTradition = c.spellcasting?.tradition?.toLowerCase()
+      const tradition = preferredTradition && traditions.includes(preferredTradition)
+        ? preferredTradition : traditions.find(value => ['arcane', 'divine', 'occult', 'primal'].includes(value))
+      if (entry && tradition) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition, frequency: 'once per day', fixedRank: true },
+        rank: 2, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
+      continue
+    }
     if (feat.name === "Storyteller's Mask" && c.systems.includes('pf2e')) {
       const choices = featChoiceOptions(feat.name, c, entries, selection, index) ?? []
       const tradition = (feat.choice ?? (choices.length === 1 ? choices[0] : undefined))?.toLowerCase()
