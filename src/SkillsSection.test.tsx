@@ -2021,7 +2021,7 @@ it('keeps movement terrain synchronized without a redundant feat selector and ap
   expect(c.favoredTerrain).toBeUndefined()
   const beforeMaster = renderToStaticMarkup(<SensesAndSpeed c={{ ...c, level: 7 }} entries={[ranger]} save={() => {}} />)
   expect(beforeMaster).not.toContain('aria-label="Favored Terrain"')
-  expect(beforeMaster).toContain('aria-label="In favored terrain"')
+  expect(beforeMaster).not.toContain('aria-label="In favored terrain"')
   expect(beforeMaster).not.toContain('ignore non-magical difficult terrain')
 })
 

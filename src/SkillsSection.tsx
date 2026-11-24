@@ -43,7 +43,7 @@ const RESISTANCE_NOTES: Record<string, string> = {
 function FeatEffectToggle({ c, save, name, label, title, ariaLabel = label }: Pick<SectionProps, 'c' | 'save'> & {
   name: string; label: string; title: string; ariaLabel?: string
 }) {
-  if (!activeFeatsNamed(c, name).length || name === 'Favored Terrain' && activeFeatsNamed(c, 'Terrain Master').length) return null
+  if (!activeFeatsNamed(c, name).length) return null
   return <label title={title}><input type="checkbox" aria-label={ariaLabel} checked={isFeatEffectActive(c, name)}
     onChange={(event) => save(featEffectChange(c, name, event.target.checked))} /> {label}</label>
 }
@@ -192,8 +192,6 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       {!!activeFeatsNamed(c, 'Forest Passage').length && <SourceNote source="Forest Passage" note="Ignore difficult terrain caused by plants and fungi." />}
       {hasDivineIntercession(c, 'Cayden Cailean', 'major-boon') && <SourceNote inlineSource={false}
       source="Cayden Cailean (Major Boon)" note="At the end of each turn, end one effect making you immobilized as a free action, including grabbing or restraining effects." />}</small>
-    <FeatEffectToggle c={c} save={save} name="Favored Terrain" label="In favored terrain"
-      title="Apply favored terrain benefits only while you are in that terrain." />
     <FeatEffectToggle c={c} save={save} name="Briny Beverage" label="Briny Beverage active"
       title="Once per day for 1 minute; wavesense works only in the body of water you drank from." />
     {c.raging && <FeatEffectToggle c={c} save={save} name="Dragon's Rage Wings" label="Dragon's Rage Wings active"

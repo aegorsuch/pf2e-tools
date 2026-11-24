@@ -2,7 +2,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, onTestFinished } from 'vitest'
 import { activeBattleForm, protectCompanionApplies, protectCompanionTarget, savingThrowBreakdown } from './builder'
-import { DeviseAStratagemToggle, StatusesContent, StatusesSummary } from './StatusesSection'
+import { DeviseAStratagemToggle, HuntPreyToggle, StatusesContent, StatusesSummary } from './StatusesSection'
 import { ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
 import { fulminatingShotBonus } from './fulminatingShot'
 import type { Character, ContentEntry } from './types'
@@ -20,6 +20,24 @@ function findToggle(node: ReactNode, label: string): ((event: { target: { checke
   })
   return result
 }
+
+it.each([['Ranger', undefined], ['Rogue', 'Avenger']] as const)(
+  'shows Hunt Prey rules and retains the status toggle for %s', (className, subclass) => {
+    let c: Character = { id: 'hunt-prey', name: 'Test', systems: ['pf2e'], level: 4, className, subclass,
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+      equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+    const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+    const tree = () => HuntPreyToggle({ c, entries: [], save })
+    const markup = renderToStaticMarkup(tree())
+    expect(markup).toContain('aria-haspopup="dialog">Hunt Prey')
+    expect(markup).toContain('Survival checks to Track it')
+    expect(markup).toContain('until your next daily preparations')
+    findToggle(tree(), 'Hunt Prey active')!({ target: { checked: true } })
+    expect(c.huntPreyActive).toBe(true)
+    expect(renderToStaticMarkup(tree())).toMatch(/aria-label="Hunt Prey active" checked=""/)
+    findToggle(tree(), 'Hunt Prey active')!({ target: { checked: false } })
+    expect(c.huntPreyActive).toBe(false)
+  })
 
 it('synchronizes condition and Zealous Conviction state with character statistics', () => {
   let c: Character = { id: 'statuses', name: 'Test', systems: ['pf2e'], level: 20,

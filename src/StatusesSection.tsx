@@ -14,6 +14,16 @@ import type { ContentEntry } from './types'
 
 const canDeviseAStratagem = (c: SectionProps['c']) => c.systems.includes('pf2e') && c.className === 'Investigator'
 
+const HUNT_PREY: ContentEntry = {
+  id: 'action:hunt-prey', systems: ['pf2e'], kind: 'classFeature', source: 'official', name: 'Hunt Prey',
+  level: 1, traits: ['Concentrate'], effects: [], updatedAt: 0,
+  description: 'Choose one creature you can see or hear, or are tracking during exploration, as your prey. '
+    + 'Gain a +2 circumstance bonus to Perception checks to Seek it and Survival checks to Track it. '
+    + 'Ignore the ranged attack penalty in the second range increment against it. '
+    + 'You can designate only one prey at a time; choosing another replaces it. The designation lasts until your next daily preparations.',
+  data: { url: 'https://2e.aonprd.com/Actions.aspx?ID=2257' },
+}
+
 function entrenchMeleeActive(c: SectionProps['c'], entries: SectionProps['entries']) {
   return ownedArmors(c, entries).some(armor => {
     if (!isBastionNamedArmor(armor.name) || !armor.entrenchMeleeActive || !armor.worn || armor.inheritorCloakRed) return false
@@ -84,11 +94,15 @@ export function DeviseAStratagemToggle({ c, save, summary = false }: Pick<Sectio
 
 export function HuntPreyToggle({ c, entries, save, summary = false }: SectionProps & { summary?: boolean }) {
   if (!hasHuntPrey(c, entries)) return null
-  const toggle = <label><input type="checkbox" aria-label="Hunt Prey active" checked={!!c.huntPreyActive}
-    onChange={event => save({ huntPreyActive: event.target.checked })} /> Hunt Prey</label>
   return summary
-    ? <span className="combat-summary-toggles" onClick={event => event.stopPropagation()}>{toggle}</span>
-    : toggle
+    ? <span className="combat-summary-toggles" onClick={event => event.stopPropagation()}><label>
+      <input type="checkbox" aria-label="Hunt Prey active" checked={!!c.huntPreyActive}
+        onChange={event => save({ huntPreyActive: event.target.checked })} /> Hunt Prey
+    </label></span>
+    : <span><input type="checkbox" aria-label="Hunt Prey active" checked={!!c.huntPreyActive}
+      onChange={event => save({ huntPreyActive: event.target.checked })} />{' '}
+      <EntryDescription name="Hunt Prey" entry={HUNT_PREY} character={c} entries={entries} buttonActions="Single Action" />
+    </span>
 }
 
 export function StatusesContent({ c, entries, save }: SectionProps) {
@@ -281,7 +295,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   return <div className="character-section-content">
     <div className="condition-controls" role="group" aria-label="Statuses">
       {controls.map(control => {
-        const entry = control.name !== 'Heroic Defiance' && !spellControls.some(spell => spell.name === control.name) && entries.find(candidate => (candidate.kind === 'feat' || candidate.kind === 'classFeature')
+        const entry = !['Heroic Defiance', 'Hunt Prey'].includes(control.name) && !spellControls.some(spell => spell.name === control.name) && entries.find(candidate => (candidate.kind === 'feat' || candidate.kind === 'classFeature')
           && !candidate.deleted && candidate.name.toLowerCase() === control.name.toLowerCase()
           && candidate.systems.some(system => c.systems.includes(system))
           && typeof candidate.data.actions === 'string' && /(?:single|one|two|three) action|free action|reaction/i.test(candidate.data.actions))
