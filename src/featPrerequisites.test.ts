@@ -2240,6 +2240,21 @@ describe('shared prerequisite enforcement', () => {
       .toEqual({ missing: [], manual: ['Cleave or a special blessing from your GM'] })
   })
 
+  it('uses Aiuvarin-granted low-light vision for vision prerequisites', () => {
+    const aiuvarin = entry('heritage', 'Aiuvarin', { grants_vision: 'Low-Light Vision' })
+    const feat = entry('feat', 'Nocturnal Senses', { prerequisite: 'low-light vision or scent' }, 6, ['Barbarian'])
+    const c = { ...base, level: 6, className: 'Barbarian', ancestry: 'Human', heritage: 'Aiuvarin' }
+    expect(featPrerequisiteChecker(c, [aiuvarin, feat])(feat).missing).toEqual([])
+  })
+
+  it.each([
+    ['Ancestral Linguistics', 'Ancestral Longevity'],
+    ['Ancestral Longevity', 'at least 100 years old'],
+  ])('does not enforce %s prerequisite %s', (name, prerequisite) => {
+    const feat = entry('feat', name, { prerequisite }, 1, ['Elf'])
+    expect(featPrerequisiteChecker({ ...base, level: 1, ancestry: 'Human' }, [feat])(feat).missing).toEqual([])
+  })
+
   it('reports cyclic dependencies and ambiguous source versions rather than accepting them', () => {
     const a = entry('feat', 'First', { prerequisite: 'Second' })
     const b = entry('feat', 'Second', { prerequisite: 'First' })

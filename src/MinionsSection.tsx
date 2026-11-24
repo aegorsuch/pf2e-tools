@@ -510,6 +510,15 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const highestSlot = Math.max(c.className === 'Druid' ? Math.ceil(c.level / 2) : 0,
     ...Object.entries(classSpellSlots(c) ?? c.spellcasting?.slots ?? {}).filter(([rank, count]) => Number(rank) >= 1 && count > 0).map(([rank]) => Number(rank)), 0)
   const petAbilities = c.pet?.abilities ?? []
+  const grantedPetAbilities = seaFriend ? ['Darkvision', 'Tough'] : []
+  const chosenPetAbilities = petAbilities.map((ability, index) => ({ ability, index }))
+    .filter(({ ability }) => !!ability && !grantedPetAbilities.includes(ability))
+  const petAbilityEntry = (ability: string): ContentEntry | undefined => entries.find(candidate => candidate.kind === 'familiar'
+    && !candidate.deleted && candidate.name.toLowerCase() === ability.toLowerCase()
+    && candidate.systems.some(system => c.systems.includes(system)))
+    ?? (PET_ABILITY_NOTES[ability] ? { id: `pet:${ability}`, name: ability, kind: 'familiar' as const,
+      systems: c.systems, source: 'official' as const, level: 1, traits: [], description: PET_ABILITY_NOTES[ability],
+      data: {}, effects: [], updatedAt: 0 } : undefined)
   const choices = c.feats.map((feat, featIndex) => ({ feat, featIndex }))
     .filter(({ feat }) => featTakenLevel(feat) <= c.level && (isCompanionAdvancement(feat.name) && feat.name !== 'Splendid Companion' || isCompanionSpecialization(feat.name)))
     .sort((a, b) => Number(isCompanionAdvancement(b.feat.name)) - Number(isCompanionAdvancement(a.feat.name))
@@ -1108,37 +1117,32 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           <section className="companion-actions">
             <h5>Special</h5>
             <div className="gear-runes">
-              {petAbilities.map((ability, index) => ability && <div key={`${index}:${ability}`} className="rune">
-                {(() => {
-                  const entry = entries.find(candidate => candidate.kind === 'familiar' && !candidate.deleted
-                    && candidate.name.toLowerCase() === ability.toLowerCase()
-                    && candidate.systems.some(system => c.systems.includes(system)))
-                    ?? (PET_ABILITY_NOTES[ability] ? { id: `pet:${ability}`, name: ability, kind: 'familiar' as const,
-                      systems: c.systems, source: 'official' as const, level: 1, traits: [], description: PET_ABILITY_NOTES[ability],
-                      data: {}, effects: [], updatedAt: 0 } : undefined)
-                  return entry ? <EntryDescription name={ability} entry={entry} entries={entries} character={c} /> : <span>{ability}</span>
-                })()}
+              {chosenPetAbilities.map(({ ability, index }) => <div key={`${index}:${ability}`} className="rune">
+                {petAbilityEntry(ability) ? <EntryDescription name={ability} entry={petAbilityEntry(ability)} entries={entries} character={c} />
+                  : <span>{ability}</span>}
                 <button type="button" aria-label={`Remove Pet ability ${index + 1}`}
                   onClick={() => confirmRemoval(`pet ability "${ability}"`, () =>
                     save({ pet: { ...c.pet, abilities: petAbilities.map((value, i) => i === index ? '' : value) } }))}>×</button>
               </div>)}
-              {seaFriend && ['Darkvision', 'Tough'].map(ability => <span className="rune" key={ability}>{ability}</span>)}
-              {[0, 1].some(index => !petAbilities[index]) && <SearchableSelect aria-label="Pet ability" value=""
+              {grantedPetAbilities.map(ability => <div className="rune" key={ability}>
+                {petAbilityEntry(ability) ? <EntryDescription name={ability} entry={petAbilityEntry(ability)} entries={entries} character={c} />
+                  : <span>{ability}</span>}
+              </div>)}
+              {[0, 1].some(index => !petAbilities[index] || grantedPetAbilities.includes(petAbilities[index])) && <SearchableSelect aria-label="Pet ability" value=""
                 onChange={event => {
                   const value = event.target.value
-                  const index = [0, 1].find(i => !petAbilities[i])
-                  if (index === undefined || !PET_ABILITIES.includes(value) || petAbilities.includes(value)
-                    || seaFriend && ['Darkvision', 'Tough'].includes(value)) return
+                  const index = [0, 1].find(i => !petAbilities[i] || grantedPetAbilities.includes(petAbilities[i]))
+                  if (index === undefined || !PET_ABILITIES.includes(value) || chosenPetAbilities.some(({ ability }) => ability === value)
+                    || grantedPetAbilities.includes(value)) return
                   const abilities = [...petAbilities]
                   abilities[index] = value
                   save({ pet: { ...c.pet, abilities } })
                 }}>
                 <option value="">+</option>
-                {PET_ABILITIES.filter(ability => !petAbilities.includes(ability)
-                  && !(seaFriend && ['Darkvision', 'Tough'].includes(ability))).map(ability => <option key={ability}>{ability}</option>)}
+                {PET_ABILITIES.filter(ability => !chosenPetAbilities.some(chosen => chosen.ability === ability)
+                  && !grantedPetAbilities.includes(ability)).map(ability => <option key={ability}>{ability}</option>)}
               </SearchableSelect>}
             </div>
-            {seaFriend && petAbilities.some(ability => ['Darkvision', 'Tough'].includes(ability)) && <small>Choose a different pet ability; Darkvision and Tough are already granted.</small>}
           </section>
           <section className="companion-actions">
           <h5>Speed</h5><div>{minionMovementSpeeds(petAbilities, c.pet?.fastMovement, !!(seaFriend || c.pet?.aquatic))

@@ -71,7 +71,8 @@ const manual = (text: string): PrerequisiteCheck => ({ missing: [], manual: [tex
 const satisfied = (result: PrerequisiteCheck) => !result.missing.length && !result.manual.length
 export const ignoresFeatPrerequisites = (entry: ContentEntry) =>
   entry.kind === 'feat' && (entry.systems.includes('pf2e')
-    && ["pilgrim's token", 'sanctify water', 'exhort the faithful', 'battle prayer', 'sacred defense'].includes(key(entry.name))
+    && ["pilgrim's token", 'sanctify water', 'exhort the faithful', 'battle prayer', 'sacred defense',
+      'ancestral linguistics', 'ancestral longevity'].includes(key(entry.name))
     || entry.systems.includes('sf2e') && key(entry.name) === 'religious talisman')
 const prerequisiteText = (entry: ContentEntry) => {
   const text = typeof entry.data.prerequisite === 'string' ? entry.data.prerequisite : ''

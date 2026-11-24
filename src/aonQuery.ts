@@ -375,7 +375,8 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           const text = plain(s.markdown)
           const lore = /Additional Lore feat for ([A-Z][\w' -]*? Lore)/.exec(text)?.[1]
           if (lore) s.grants_lore = lore
-          const sight = /\byou(?:[^.]*?)\b(?:gain|have) (darkvision|low-light vision)/i.exec(text)?.[1]
+          const sight = /\byou(?:[^.]*?)\b(?:gain|have)\s+(darkvision|low-light vision)\b/i.exec(text)?.[1]
+            ?? /\byou(?:[^.]*?)\b(?:gain|have)[^.]*,\s*(?:and\s+)?(darkvision|low-light vision)\b/i.exec(text)?.[1]
           if (sight) s.grants_vision = sight.replace(/\b\w/g, (m) => m.toUpperCase())
           const spec = /armor specialization.*?\.(?=\s|<|$)/i.exec(s.markdown)?.[0]
           if (spec || /armor specialization/i.test(plain(s.markdown))) s.grants_armor_specialization = 'yes'

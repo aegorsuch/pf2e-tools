@@ -2699,6 +2699,22 @@ it('keeps Wizard-shared Spellshot archetype feats out of Gunslinger class feats'
   expect(available).toContain(spellshotFeat)
 })
 
+it.each(['Basic Arcana', 'Advanced Arcana'])('shows the selected Wizard feat description for %s', name => {
+  const level = name === 'Basic Arcana' ? 4 : 8
+  const arcana: ContentEntry = { id: name, name, kind: 'feat', source: 'official', systems: ['pf2e'],
+    level, traits: ['Archetype', 'Wizard'], description: `${name} parent description.`,
+    data: { archetype: 'Wizard' }, effects: [], updatedAt: 0 }
+  const chosen: ContentEntry = { ...arcana, id: 'cantrip-expansion', name: 'Cantrip Expansion', level: 2,
+    traits: ['Wizard'], description: 'Selected Wizard feat description.', data: {} }
+  const c: Character = { ...emptyRanger(), className: 'Gunslinger', level,
+    extraSlots: [{ category: 'archetype', level, count: 1 }],
+    feats: [{ name, type: 'Archetype Feat', level, slot: `archetype:${level}:0`, choice: chosen.name }] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[arcana, chosen]} categories={['archetype']} save={() => {}} />)
+  expect(markup).toContain('Selected Wizard feat description.')
+  expect(markup).not.toContain(`${name} parent description.`)
+  expect(markup).toContain('Cantrip Expansion')
+})
+
 it.each([
   ["Giant's Lunge", 14],
   ['Desperate Wrath', 16],

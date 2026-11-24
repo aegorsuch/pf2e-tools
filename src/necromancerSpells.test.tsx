@@ -29,6 +29,12 @@ const renderAtDirgeRank = (c: Character, entries: ContentEntry[], rank: number, 
     vi.mocked(useState).mockReturnValueOnce([value, vi.fn()])
   return render(c, entries)
 }
+const renderAtWizardBookRank = (c: Character, entries: ContentEntry[], rank: number) => {
+  for (const value of ['class', c.spellcasting?.tradition ?? '', undefined, false, 0, '', 'all', 'both',
+    true, rank, undefined, '', 'all', 'both'])
+    vi.mocked(useState).mockReturnValueOnce([value, vi.fn()])
+  return render(c, entries)
+}
 const choices = (html: string, label: string) =>
   new RegExp(`<select aria-label="${label}"[^>]*>([\\s\\S]*?)</select>`).exec(html)?.[1] ?? ''
 const learnOptions = (html: string) => /<ul class="dirge-options">([\s\S]*?)<\/ul>/.exec(html)?.[1] ?? ''
@@ -105,6 +111,73 @@ it('adds familiar spell benefits without adding Dirge choices or overwriting sav
   const advanced = render({ ...c, level: 9 }, entries)
   expect(advanced).toContain('aria-label="Cast spell slot rank 2 slot 3"')
   expect(c.spellcasting?.prepared?.['familiar-spell-battery:1']).toBe('Harm')
+})
+
+it('adds Cantrip Connection to Spellshot Wizard dedication book choices', () => {
+  const guidance = spell('Guidance', 0, 'Arcane', ['Cantrip'])
+  const connection: ContentEntry = { ...spell('Cantrip Connection'), kind: 'familiar',
+    description: 'You must be able to prepare cantrips or add them to your repertoire.',
+    data: { ability_type: 'Master' } }
+  const c: Character = { ...base, className: 'Gunslinger', level: 8,
+    feats: [taken('Spellshot Dedication', 2), taken('Basic Wizard Spellcasting', 4), taken('Familiar', 4)],
+    familiar: { abilities: ['Cantrip Connection'] },
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: {} } }
+  const html = render(c, [guidance, spell('Fear', 1, 'Arcane'), connection])
+  expect(html).toContain('aria-label="Open Wizard spellbook for Wizard cantrip 1"')
+  expect(html).toContain('aria-label="Open Wizard spellbook for Wizard cantrip 2"')
+  expect(html).toContain('aria-label="Open Wizard spellbook for Wizard cantrip 3"')
+})
+
+it('opens Wizard spellbook choices by rank and filters them to Arcane spells', () => {
+  const wizardClass: ContentEntry = { ...spell('Wizard'), kind: 'class', traits: ['Wizard'],
+    data: { tradition: 'Arcane' } }
+  const arcane = spell('Fear', 1, 'Arcane')
+  const occult = spell('Dread Aura', 1, 'Occult')
+  const c: Character = { ...base, className: 'Wizard', level: 1,
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: { 0: 1, 1: 1 } } }
+  const html = renderAtWizardBookRank(c, [wizardClass, arcane, occult], 1)
+  expect(html).toContain('aria-label="Open Wizard rank 1"')
+  expect(html).toContain('aria-label="Learn Fear"')
+  expect(html).not.toContain('aria-label="Learn Dread Aura"')
+})
+
+it('opens Wizard Dedication slot books and avoids duplicate spells across slots', () => {
+  const guidance = spell('Guidance', 0, 'Arcane', ['Cantrip'])
+  const detectMagic = spell('Detect Magic', 0, 'Arcane', ['Cantrip'])
+  const c: Character = { ...base, className: 'Gunslinger', level: 8,
+    feats: [taken('Spellshot Dedication', 2), taken('Basic Wizard Spellcasting', 4)],
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: {} },
+    spells: [{ name: guidance.name, entryId: guidance.id, rank: 0, cantrip: true, bookSlot: 'wizard:0:1' }] }
+  const save = vi.fn()
+  const stateValues = ['class', 'Arcane', undefined, false, 0, '', 'all', 'both',
+    true, 0, 'wizard:0:0', '', 'all', 'both']
+  stateValues.forEach(value => vi.mocked(useState).mockReturnValueOnce([value, vi.fn()]))
+  vi.mocked(useMemo).mockImplementation(fn => fn())
+  vi.mocked(useRef).mockReturnValue({ current: null })
+  vi.mocked(useId).mockReturnValue('wizard')
+  try {
+    const tree = SpellsContent({ c, entries: [guidance, detectMagic], save })
+    let bookOptions: { options: ContentEntry[]; onLearn: (entry: ContentEntry) => void } | undefined
+    const visit = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<{ options: ContentEntry[]; onLearn: (entry: ContentEntry) => void; children?: ReactNode }>(child)) return
+      if (child.type === DirgeLearnOptions) bookOptions = child.props
+      visit(child.props.children)
+    })
+    visit(tree)
+    expect(bookOptions?.options.map(entry => entry.name)).toEqual([detectMagic.name])
+    bookOptions!.onLearn(detectMagic)
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      spells: [
+        expect.objectContaining({ name: guidance.name, bookSlot: 'wizard:0:1' }),
+        expect.objectContaining({ name: detectMagic.name, bookSlot: 'wizard:0:0', rank: 0, cantrip: true }),
+      ],
+    }))
+  } finally {
+    vi.mocked(useMemo).mockReset()
+    vi.mocked(useRef).mockReset()
+    vi.mocked(useId).mockReset()
+    vi.mocked(useState).mockReset()
+  }
 })
 
 it('excludes the Epitaph slot when granting Spell Battery at level 20', () => {
@@ -382,7 +455,9 @@ it('keeps the Dirge editor open when a nested spell description closes', () => {
   vi.mocked(useState).mockReturnValueOnce(['class', vi.fn()]).mockReturnValueOnce(['', vi.fn()])
     .mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce([true, setOpen])
     .mockReturnValueOnce([1, vi.fn()]).mockReturnValueOnce(['fear', vi.fn()]).mockReturnValueOnce(['all', vi.fn()])
-    .mockReturnValueOnce(['both', vi.fn()])
+    .mockReturnValueOnce(['both', vi.fn()]).mockReturnValueOnce([false, vi.fn()])
+    .mockReturnValueOnce([0, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['', vi.fn()])
+    .mockReturnValueOnce(['all', vi.fn()]).mockReturnValueOnce(['both', vi.fn()])
   vi.mocked(useMemo).mockImplementation(fn => fn())
   vi.mocked(useRef).mockReturnValue({ current: null })
   vi.mocked(useId).mockReturnValue('dirge')

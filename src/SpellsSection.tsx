@@ -59,6 +59,16 @@ function uniqueSpellVariants<T extends { name: string }>(spells: T[], systems: (
   })
 }
 
+function wizardSpellOptions(c: Character, spells: ContentEntry[], rank: number) {
+  return spells.filter(entry => entry.systems.includes('pf2e')
+    && (rank === 0 ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
+      : entry.level === rank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
+    && String(entry.data.tradition ?? '').split(/,\s*/).some(tradition => tradition.toLowerCase() === 'arcane')
+    && !entry.traits.some(trait => /^(uncommon|rare|unique)$/i.test(trait))
+    && !/^(uncommon|rare|unique)$/i.test(String(entry.data.rarity))
+    && spellAccessGranted(c, entry))
+}
+
 export function UntamedFormOptions({ c, entries, save }: SectionProps) {
   const active = isSpellActive(c, entries, 'Untamed Form')
   const mutable = !!activeFeatsNamed(c, 'As Mutable as Nature').length
@@ -883,6 +893,14 @@ export function DirgeRankButton({ rank, onOpen }: { rank: number; onOpen: (rank:
     aria-haspopup="dialog" onClick={() => onOpen(rank)}><DirgeIcon /></button>
 }
 
+function SpellbookRankButton({ book, rank, label, onOpen }: {
+  book: string; rank: number; label?: string; onOpen: (rank: number) => void
+}) {
+  const buttonLabel = label ?? (rank === 0 ? `Open ${book} cantrips` : `Open ${book} rank ${rank}`)
+  return <button type="button" className="dirge-rank-button" aria-label={buttonLabel} title={buttonLabel}
+    aria-haspopup="dialog" onClick={() => onOpen(rank)}><DirgeIcon /></button>
+}
+
 function SpellColumns() {
   return <div className="spellbook-columns" aria-hidden="true">
     <span>Spell</span><span>Duration</span><span>Range</span><span>Save</span><span>Area/Targets</span>
@@ -1415,15 +1433,21 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const [dirgeSystem, setDirgeSystem] = useState<GearSystem>('both')
   const dirgeDialog = useRef<HTMLDialogElement>(null)
   const dirgeTitleId = useId()
+  const [wizardBookOpen, setWizardBookOpen] = useState(false)
+  const [wizardBookRank, setWizardBookRank] = useState(0)
+  const [wizardBookSlotKey, setWizardBookSlotKey] = useState<string>()
+  const [wizardBookQuery, setWizardBookQuery] = useState('')
+  const [wizardBookDefense, setWizardBookDefense] = useState<SpellDefense>('all')
+  const [wizardBookSystem, setWizardBookSystem] = useState<GearSystem>('both')
+  const wizardBookDialog = useRef<HTMLDialogElement>(null)
+  const wizardBookTitleId = useId()
   const casting = classSpellcasting(c, entries)
   const intensified = intensifiedElementDamage(c, entries)
   const automaticSlots = classSpellSlots(c)
   const witchwarper = witchwarperParadox(c)
   const druid = c.className === 'Druid' && automaticSlots !== undefined
   const necromancer = c.className === 'Necromancer'
-  const wizardSpellbookSlots = wizardArchetypeSpellbookChoices(c)
-  const preparedClass = ['Animist', 'Cleric', 'Druid', 'Magus', 'Necromancer', 'Technomancer', 'Witch', 'Wizard']
-    .includes(c.className ?? '') || wizardSpellbookSlots.length > 0
+  const wizard = c.className === 'Wizard' && c.systems.includes('pf2e')
   const bard = automaticSlots !== undefined && isSpontaneousClass(c)
   const bloodrager = c.className === 'Barbarian' && c.systems.includes('pf2e')
     && activeFeatsNamed(c, 'Bloodrager Dedication').some(feat => feat.choice === 'Arcane' || feat.choice === 'Divine')
@@ -1439,6 +1463,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     tradition: traditions.length === 1 ? traditions[0] : c.spellcasting?.tradition ?? traditions[0] ?? '',
     rank: casting?.rank ?? c.spellcasting?.rank ?? 1, slots: classRepertoireRows(c) ?? automaticSlots } : c.spellcasting
   const benefits = familiarSpellBenefits(c, entries, automaticSlots ?? sc?.slots ?? {})
+  const wizardSpellbookSlots = wizardArchetypeSpellbookChoices(c, Number(benefits.cantrip))
+  const preparedClass = ['Animist', 'Cleric', 'Druid', 'Magus', 'Necromancer', 'Technomancer', 'Witch', 'Wizard']
+    .includes(c.className ?? '') || wizardSpellbookSlots.length > 0
   const spellIndex = useMemo(() => {
     const spells = entries.filter(entry => entry.kind === 'spell' && !entry.deleted
       && entry.systems.some(system => c.systems.includes(system)))
@@ -1451,18 +1478,18 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     return { spells, byId, byName }
   }, [entries, c.systems])
   const spellEntry = (name: string, id?: string) => id ? spellIndex.byId.get(id) : spellIndex.byName.get(name)
-  const wizardSpellOptions = (rank: number, slot: string) => {
-    const alreadySelected = new Set((c.spells ?? []).filter(spell => spell.bookSlot && spell.bookSlot !== slot)
-      .map(spell => spell.name.toLowerCase()))
-    const options = spellIndex.spells.filter(entry => entry.systems.includes('pf2e')
-      && (rank === 0 ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
-        : entry.level === rank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
-      && String(entry.data.tradition ?? '').split(/,\s*/).some(tradition => tradition.toLowerCase() === 'arcane')
-      && !entry.traits.some(trait => /^(uncommon|rare|unique)$/i.test(trait))
-      && !/^(uncommon|rare|unique)$/i.test(String(entry.data.rarity))
-      && spellAccessGranted(c, entry) && !alreadySelected.has(entry.name.toLowerCase()))
-    return [...new Map(options.map(entry => [entry.name, entry])).values()].sort((a, b) => a.name.localeCompare(b.name))
-  }
+  const wizardBookOptions = useMemo(() => uniqueSpellVariants(
+    wizardSpellOptions(c, spellIndex.spells, wizardBookRank),
+    entry => [...entry.systems].sort().join(',')),
+    [c, spellIndex, wizardBookRank])
+  const knownWizardSpells = new Set((c.spells ?? []).filter(spell => spell.bookSlot !== wizardBookSlotKey)
+    .map(spell => spell.name.toLowerCase()))
+  const rankedWizardOptions = wizardBookOptions.filter(entry => (wizardBookRank === 0
+    ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
+    : entry.level === wizardBookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
+    && entry.name.toLowerCase().includes(wizardBookQuery.trim().toLowerCase())
+    && matchesSpellDefense(entry, wizardBookDefense) && matchesGearSystem(entry, wizardBookSystem, c.systems)
+    && !knownWizardSpells.has(entry.name.toLowerCase()))
   const druidList = useMemo(() => druid ? druidSpellList(c, spellIndex.spells)
     : c.className === 'Witch' ? witchSpellList(c, spellIndex.spells) : undefined,
     [druid, c.className, c.subclass, c.level, c.feats, c.systems, spellIndex])
@@ -1811,6 +1838,38 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     dirgeDialog.current?.showModal()
     dirgeDialog.current?.querySelector('h4')?.focus()
   }
+  const openWizardBook = (rank: number, slotKey?: string) => {
+    setWizardBookRank(rank)
+    setWizardBookSlotKey(slotKey)
+    setWizardBookQuery('')
+    setWizardBookDefense('all')
+    setWizardBookSystem('both')
+    setWizardBookOpen(true)
+    wizardBookDialog.current?.showModal()
+    wizardBookDialog.current?.querySelector('h4')?.focus()
+  }
+  const saveWizardBookSpell = (entry: ContentEntry) => {
+    const slot = wizardSpellbookSlots.find(candidate => candidate.key === wizardBookSlotKey)
+    if (!rankedWizardOptions.some(option => option.id === entry.id)
+      || (c.spells ?? []).some(spell => spell.name.toLowerCase() === entry.name.toLowerCase()
+        && spell.bookSlot !== slot?.key)) return
+    const spells = slot ? (c.spells ?? []).filter(spell => spell.bookSlot !== slot.key) : [...(c.spells ?? [])]
+    spells.push({ name: entry.name, entryId: entry.id, rank: slot?.rank ?? entry.level,
+      cantrip: slot?.cantrip ?? entry.traits.some(trait => trait.toLowerCase() === 'cantrip'),
+      ...(slot ? { bookSlot: slot.key } : {}) })
+    const current = slot && (c.spells ?? []).find(spell => spell.bookSlot === slot.key)
+    const prepared = current && c.spellcasting?.prepared
+      ? Object.fromEntries(Object.entries(c.spellcasting.prepared)
+        .filter(([, preparedSpell]) => preparedSpell !== current.entryId && preparedSpell !== current.name))
+      : undefined
+    const patch = { spells, ...(prepared ? { spellcasting: { ...c.spellcasting!, prepared } } : {}) }
+    const update = () => {
+      save(patch)
+      if (slot) wizardBookDialog.current?.close()
+    }
+    if (current && current.entryId !== entry.id) confirmRemoval(`Wizard spellbook spell "${current.name}"`, update)
+    else update()
+  }
   const renderTricksterAceChoices = () => tricksterAceSlots.map(({ feat, index, options }) => {
     const label = `Trickster's Ace spell${tricksterAceSlots.length > 1 ? ` ${index + 1}` : ''}`
     return <label key={`trickster-ace:${index}`}>{label}{' '}
@@ -1933,6 +1992,23 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           <form method="dialog"><button autoFocus>Close</button></form>
         </dialog>
       </>}
+      {(wizard || wizardSpellbookSlots.length > 0) && c.level >= 1 && <dialog ref={wizardBookDialog} className="entry-dialog dirge-dialog"
+        aria-labelledby={wizardBookTitleId}
+        onClose={event => { if (event.target === event.currentTarget) setWizardBookOpen(false) }}
+        onClick={event => { if (event.target === event.currentTarget) wizardBookDialog.current?.close() }}>
+        <h4 id={wizardBookTitleId} tabIndex={-1}>Wizard Spellbook</h4>
+        <div className="gear-tabs spell-category-tabs" role="group" aria-label="Wizard spell ranks">
+          {Array.from({ length: 11 }, (_, rank) => <button key={rank} type="button"
+            aria-label={rank === 0 ? 'Cantrips' : `Rank ${rank}`} aria-pressed={wizardBookRank === rank}
+            className={wizardBookRank === rank ? 'on' : ''} onClick={() => setWizardBookRank(rank)}>{rank}</button>)}
+        </div>
+        <label>Search spells{' '}<input type="search" aria-label="Search wizard spells" value={wizardBookQuery}
+          onChange={event => setWizardBookQuery(event.target.value)} /></label>
+        <SpellDefenseFilter value={wizardBookDefense} onChange={setWizardBookDefense} />
+        <GearSystemFilter value={wizardBookSystem} onChange={setWizardBookSystem} />
+        {wizardBookOpen && <DirgeLearnOptions options={rankedWizardOptions} onLearn={saveWizardBookSpell} />}
+        <form method="dialog"><button autoFocus>Close</button></form>
+      </dialog>}
       {(casting || avengerTraditionSwitch) && <>
       {(!casting?.ability && !avengerTraditionSwitch && c.className !== 'Witchwarper' || traditions.length > 1) && <div className="row">
         {!casting?.ability && !avengerTraditionSwitch && c.className !== 'Witchwarper' && <label>Casting ability{' '}
@@ -1971,40 +2047,24 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         <ul>{wizardSpellbookSlots.map(slot => {
           const current = (c.spells ?? []).find(spell => spell.bookSlot === slot.key)
           const currentEntry = current && spellEntry(current.name, current.entryId)
-          const value = currentEntry?.id ?? current?.entryId ?? ''
-          const options = wizardSpellOptions(slot.rank, slot.key)
           const label = slot.rank === 0 ? `Wizard cantrip ${slot.index + 1}`
             : `Wizard rank ${slot.rank} spell ${slot.index + 1}`
-          const saveChoice = (nextValue: string) => {
-            const entry = nextValue ? spellIndex.byId.get(nextValue) : undefined
-            if (nextValue && (!entry || !options.some(option => option.id === entry.id))) return
-            const spells = (c.spells ?? []).filter(spell => spell.bookSlot !== slot.key)
-            if (entry) spells.push({ name: entry.name, entryId: entry.id, rank: slot.rank,
-              cantrip: slot.cantrip, bookSlot: slot.key })
-            const oldName = current?.name
-            const prepared = oldName && c.spellcasting?.prepared
-              ? Object.fromEntries(Object.entries(c.spellcasting.prepared)
-                .filter(([, preparedSpell]) => preparedSpell !== current?.entryId && preparedSpell !== oldName))
-              : undefined
-            const patch = { spells, ...(prepared ? { spellcasting: { ...c.spellcasting!, prepared } } : {}) }
-            const update = () => save(patch)
-            if (current && nextValue !== value) confirmRemoval(`Wizard spellbook spell "${current.name}"`, update)
-            else update()
-          }
           return <li key={slot.key}>
-            <SearchableSelect aria-label={label} value={value} alwaysSearchable primaryDetails
-              optionSpell={id => spellIndex.byId.get(id)}
-              renderDetails={id => {
-                const entry = spellIndex.byId.get(id)
-                return entry && <span className="picker-spell-name"><EntryDescription name={entry.name} entry={entry} deferDetails />
-                  {' '}<small>{entry.systems.map(system => system.toUpperCase()).join(' / ')}</small></span>
-              }}
-              onChange={event => saveChoice(event.target.value)}>
-              <option value="">Not Selected</option>
-              {current && !options.some(option => option.id === value)
-                && <option value={value} disabled>{current.name} (unavailable)</option>}
-              {options.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-            </SearchableSelect>
+            {currentEntry
+              ? <EntryDescription className="spellbook-slot-name" name={currentEntry.name} entry={currentEntry} entries={entries} character={c} />
+              : <span className="spellbook-slot-name">{label}: Not Selected</span>}
+            <SpellbookRankButton book="Wizard" rank={slot.rank} label={`Open Wizard spellbook for ${label}`}
+              onOpen={rank => openWizardBook(rank, slot.key)} />
+            {current && <button type="button" className="spell-remove" aria-label={`Remove ${label} spell`}
+              onClick={() => {
+                const spells = (c.spells ?? []).filter(spell => spell.bookSlot !== slot.key)
+                const prepared = c.spellcasting?.prepared
+                  ? Object.fromEntries(Object.entries(c.spellcasting.prepared)
+                    .filter(([, preparedSpell]) => preparedSpell !== current.entryId && preparedSpell !== current.name))
+                  : undefined
+                const patch = { spells, ...(prepared ? { spellcasting: { ...c.spellcasting!, prepared } } : {}) }
+                confirmRemoval(`Wizard spellbook spell "${current.name}"`, () => save(patch))
+              }}>×</button>}
           </li>
         })}</ul>
       </section>}
@@ -2020,7 +2080,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           const { options, choices } = preparedOptions[rank]
           const extras = extraSlots.filter(slot => slot.rank === rank)
           return <section className="spell-slot-group" key={rank}>
-            <h5>{title}{necromancer && <> <DirgeRankButton rank={rank} onOpen={openDirge} /></>}</h5>
+            <h5>{title}{necromancer && <> <DirgeRankButton rank={rank} onOpen={openDirge} /></>}
+              {wizard && <> <SpellbookRankButton book="Wizard" rank={rank} onOpen={openWizardBook} /></>}</h5>
             <SpellColumns />
             <ul>{Array.from({ length: count }, (_, index) => {
               const extra = extras[index - (count - extras.length)]

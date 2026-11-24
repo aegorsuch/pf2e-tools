@@ -28,6 +28,7 @@ interface FeatSlotsProps extends SectionProps {
   search?: Record<string, string>
   onSearch?: (key: string, text: string) => void
   pickerEligibility?: (slot: PlannedSlot) => ContentEntry[]
+  pickerVariantCache?: Map<string, FeatOption[]>
 }
 
 const PAGE = 100
@@ -118,7 +119,13 @@ function FeatActionControls({ c, entries, save, entry }: SectionProps & { entry?
 export function SearchableFeatSlots(props: Omit<FeatSlotsProps, 'search' | 'onSearch' | 'pickerEligibility'>) {
   const [search, setSearch] = useState<Record<string, string>>({})
   const pickerEligibility = useMemo(() => featPickerEligibility(props.c, props.entries), [props.c, props.entries])
-  return <FeatSlots {...props} search={search} pickerEligibility={pickerEligibility}
+  const settings = JSON.stringify(getSettings())
+  const cache = useMemo(() => ({
+    context: [props.c, props.entries, settings] as const,
+    options: new Map<string, FeatOption[]>(),
+  }), [props.c, props.entries, settings])
+  const pickerVariantCache = cache.options
+  return <FeatSlots {...props} search={search} pickerEligibility={pickerEligibility} pickerVariantCache={pickerVariantCache}
     onSearch={(key, text) => setSearch(previous => ({ ...previous, [key]: text }))} />
 }
 
@@ -185,7 +192,8 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
   return { background, backgroundFeats, grants, automaticFeats, memories, grantedType }
 }
 
-export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch, pickerEligibility }: FeatSlotsProps) {
+export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch,
+  pickerEligibility, pickerVariantCache }: FeatSlotsProps) {
   const checks = selectedChecks(c, entries)
   const selectedPrerequisites = (slot: PlannedSlot, entry: ContentEntry) => {
     const key = JSON.stringify([slot, entry])
@@ -317,6 +325,20 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       })
       : [{ entry, value: entry.name, label, disabled: unmet || !!accessMissing }]
   }
+  const cachedOptionsFor = (entry: ContentEntry, slot: PlannedSlot, skill = '') => {
+    if (!pickerVariantCache) return optionsFor(entry, slot, skill)
+    const key = JSON.stringify([slot.key, entry.id, skill, suggestions.get(entry.name) ?? [], synergies.get(entry.name) ?? []])
+    const cached = pickerVariantCache.get(key)
+    if (cached) {
+      pickerVariantCache.delete(key)
+      pickerVariantCache.set(key, cached)
+      return cached
+    }
+    const result = optionsFor(entry, slot, skill)
+    if (pickerVariantCache.size >= 4096) pickerVariantCache.delete(pickerVariantCache.keys().next().value!)
+    pickerVariantCache.set(key, result)
+    return result
+  }
   const saveFeatChanges = (patch: Partial<Character>) => {
     const next = { ...c, ...patch }
     const savedLevel = Math.max(next.level, ...next.feats.map(featTakenLevel))
@@ -343,7 +365,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const slot = allSlots.find((slot) => slot.key === key) ?? { key, category, level }
     if (slot.grantedBy === 'Eldritch Trickster' && name === 'N/A') return
     const wantedName = name.startsWith('[') ? (JSON.parse(name) as string[])[0] : name
-    const option = eligibleFeats(entries, c, slot, { name: wantedName }).filter(entry => entry.name === wantedName).flatMap((entry) => optionsFor(entry, slot))
+    const option = eligibleFeats(entries, c, slot, { name: wantedName }).filter(entry => entry.name === wantedName)
+      .flatMap((entry) => cachedOptionsFor(entry, slot))
       .find((option) => option.value === name && !option.disabled && (!sourceId || option.entry.id === sourceId))
     if (name && name !== 'N/A' && !option) return
     const changedAncestry = slot.grantedBy === 'Social Chameleon' && category === 'general'
@@ -497,6 +520,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             ...c, name: current, category: s.category, ancestryTraits: ancestryFeatTraits({ ...c, level: Math.min(c.level, s.level) }),
           })
           const currentEntry = sources.find(source => source.id === selection?.sourceId) ?? sources[0] ?? featByName(entries).get(current)
+          const arcanaChoiceEntry = selection && ['Basic Arcana', 'Advanced Arcana'].includes(selection.name)
+            && selection.choice ? entries.find(entry => entry.kind === 'feat' && !entry.deleted
+              && entry.name === selection.choice && entry.systems.includes('pf2e')
+              && entry.traits.some(trait => trait.toLowerCase() === 'wizard')) : undefined
+          const descriptionEntry = arcanaChoiceEntry ?? currentEntry
+          const descriptionName = arcanaChoiceEntry ? displayName(arcanaChoiceEntry.name) : selectedName
           const showFeatActionControls = !!currentEntry && FEAT_ACTION_CONTROLS.has(currentEntry.name)
             && !!activeFeatsNamed(c, currentEntry.name).length
           const showWrathRoll = currentEntry?.name === 'Wrath of the Hold' && !!activeFeatsNamed(c, currentEntry.name).length
@@ -530,7 +559,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const variantsFor = (entry: ContentEntry) => {
             let variants = variantCache.get(entry.id)
             if (!variants) {
-              variants = optionsFor(entry, s, skill)
+              variants = cachedOptionsFor(entry, s, skill)
                 .filter(variant => matchesEntry(entry) || variant.label.toLowerCase().includes(slotQuery))
               variantCache.set(entry.id, variants)
             }
@@ -540,7 +569,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             ? pickerEligibility(s) : eligibleFeats(entries, c, s, { includeUnmetPrerequisites: true })).filter((o) =>
             (matchesEntry(o) || variantsFor(o).length > 0)
             && matchesSkill(o, skill, featsByName)
-            && (!skill || o.name !== 'Skill Training' || optionsFor(o, s, skill).length > 0)
+            && (!skill || o.name !== 'Skill Training' || cachedOptionsFor(o, s, skill).length > 0)
             && (!picksType || (type === 'dedication') === isDedication(o)))
           const sortValue = search[`${s.key}:sort`]
           const sort = sortValue === 'name' || sortValue === 'level' ? sortValue : suggestible ? 'suggested' : 'level'
@@ -657,7 +686,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 <EntryDescription character={c} name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} />
               ) : current ? (
                 current === 'N/A' ? <span>N/A</span> : <>
-                  <EntryDescription character={c} name={selectedName} entry={currentEntry} choice={selection?.choice} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} grantSource={grantSource}
+                  <EntryDescription character={c} name={descriptionName} entry={descriptionEntry}
+                    choice={arcanaChoiceEntry ? undefined : selection?.choice} entries={entries} className="feat-name"
+                    prerequisites={arcanaChoiceEntry ? selectedPrerequisites(s, arcanaChoiceEntry) : prerequisites}
+                    access={descriptionEntry ? featAccess(c, descriptionEntry) : access}
+                    grantSource={arcanaChoiceEntry ? selection?.name : grantSource}
                     buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showAcidicSpitRoll || showInscribedBlast || showCoreCannon}
                     descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                       : selection?.choice && DOMAIN_FEATS.includes(selection.name)

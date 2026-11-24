@@ -2262,7 +2262,7 @@ export function wizardArchetypeSpellSlots(c: Character): Record<number, number> 
   const wizardDedication = c.feats.some(feat => ['Wizard Dedication', 'Spellshot Dedication'].includes(feat.name)
     && featTakenLevel(feat) <= c.level)
   if (!c.systems.includes('pf2e') || !wizardDedication || !activeFeatsNamed(c, 'Basic Wizard Spellcasting').length) return undefined
-  const slots: Record<number, number> = { 0: 2 }
+  const slots: Record<number, number> = { 0: 2 + 2 * activeFeatsNamed(c, 'Cantrip Expansion').length }
   const basicRank = Math.min(3, Math.floor((c.level - 2) / 2))
   for (let rank = 1; rank <= basicRank; rank++) slots[rank] = 1
   const expert = activeFeatsNamed(c, 'Expert Wizard Spellcasting').length > 0
@@ -2278,9 +2278,9 @@ export function wizardArchetypeSpellSlots(c: Character): Record<number, number> 
   return slots
 }
 
-export function wizardArchetypeSpellbookChoices(c: Character) {
+export function wizardArchetypeSpellbookChoices(c: Character, extraCantrips = 0) {
   const slots = wizardArchetypeSpellSlots(c)
-  return slots ? Object.keys(slots).map(Number).flatMap(rank => Array.from({ length: 2 }, (_, index) => ({
+  return slots ? Object.keys(slots).map(Number).flatMap(rank => Array.from({ length: rank === 0 ? slots[rank] + extraCantrips : 2 }, (_, index) => ({
     key: `wizard:${rank}:${index}`, rank, cantrip: rank === 0, index,
   }))) : []
 }

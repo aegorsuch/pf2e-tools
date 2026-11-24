@@ -804,13 +804,18 @@ it('gives Spellshot Wizard spellcasting its slots, book choices, and arcana feat
     id: name, systems: ['pf2e'], kind: 'feat', source: 'official', name, level, traits: ['Wizard'],
     description: '', data: {}, effects: [], updatedAt: 1,
   })
-  const catalog = [wizardFeat('Reach Spell', 1), wizardFeat('Counterspell', 2),
+  const catalog = [wizardFeat('Reach Spell', 1), wizardFeat('Counterspell', 2), wizardFeat('Cantrip Expansion', 2),
     wizardFeat('Advanced Counterspell', 4), wizardFeat('Impossible Counterspell', 8)]
-  expect(featChoiceOptions('Basic Arcana', c, catalog, 'archetype:4:1')).toEqual(['Counterspell', 'Reach Spell'])
+  expect(featChoiceOptions('Basic Arcana', c, catalog, 'archetype:4:1'))
+    .toEqual(['Cantrip Expansion', 'Counterspell', 'Reach Spell'])
+  const cantripExpansion: Character = { ...c, feats: [...c.feats,
+    { name: 'Basic Arcana', type: 'Archetype Feat', level: 4, slot: 'archetype:4:1', choice: 'Cantrip Expansion' }] }
+  expect(classSpellSlots(cantripExpansion)).toEqual({ 0: 4, 1: 2, 2: 1, 3: 1 })
+  expect(wizardArchetypeSpellbookChoices(cantripExpansion).filter(slot => slot.rank === 0)).toHaveLength(4)
   const withArcana: Character = { ...c, level: 16, feats: [...c.feats,
     { name: 'Basic Arcana', type: 'Archetype Feat', level: 4, slot: 'archetype:4:1', choice: 'Reach Spell' }] }
   expect(featChoiceOptions('Advanced Arcana', withArcana, catalog, 'archetype:16:0'))
-    .toEqual(['Advanced Counterspell', 'Counterspell', 'Impossible Counterspell'])
+    .toEqual(['Advanced Counterspell', 'Cantrip Expansion', 'Counterspell', 'Impossible Counterspell'])
   expect(activeFeatsNamed(withArcana, 'Reach Spell')).toHaveLength(1)
   const expert = { ...withArcana, feats: [...withArcana.feats,
     { name: 'Expert Wizard Spellcasting', type: 'Archetype Feat', level: 12, slot: 'archetype:12:0' }] }

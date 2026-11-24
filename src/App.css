@@ -773,7 +773,7 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .spellbook-row, .innate-spell-row { padding: 0.35rem 0.5rem; border-top: 1px solid var(--border); }
 .spellbook-slot, .innate-spell-name { min-width: 0; }
 .spellbook-slot { display: flex; align-items: center; gap: 0.25rem; }
-.spellbook-slot select { flex: 1; min-width: 0; }
+.spellbook-slot > .spellbook-slot-name { flex: 1; min-width: 0; text-align: left; overflow-wrap: anywhere; }
 .spellbook-row > span, .innate-spell-row > span { min-width: 0; overflow-wrap: anywhere; }
 .spellbook-row > span small, .innate-spell-row > span small {
   position: absolute;

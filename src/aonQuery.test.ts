@@ -13,6 +13,20 @@ it('extracts Beastmaster Trance and Impaling Briars focus grants from their sour
     .toMatchObject([{ kind: 'focus', spells: ['song of strength'] }])
 })
 
+it('imports low-light vision granted alongside Aiuvarin ancestry traits', async () => {
+  const hit = { _id: 'heritage-aiuvarin', _source: { name: 'Aiuvarin', category: 'heritage',
+    markdown: 'You gain the elf trait, the aiuvarin trait, and low-light vision.' } }
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as {
+      query: { bool: { filter: Array<{ term?: { category?: string } }> } }
+    }
+    const category = body.query.bool.filter.find(condition => condition.term?.category)?.term?.category
+    return new Response(JSON.stringify({ hits: { hits: category === 'heritage' ? [hit] : [] } }), { status: 200 })
+  }
+  const entries = mapAonHits(await fetchAonHits('pf2e', fetchFn), 'pf2e')
+  expect(entries.find(entry => entry.name === 'Aiuvarin')?.data.grants_vision).toBe('Low-Light Vision')
+})
+
 it('imports focus spell grants through the snapshot fetch and mapping pipeline', async () => {
   const feats = [
     { name: "Beastmaster's Trance", spell: 'beastmaster trance', text: 'You gain the focus spell [_beastmaster trance_](/Spells.aspx?ID=1962).' },

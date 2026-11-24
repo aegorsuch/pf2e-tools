@@ -758,10 +758,28 @@ it('shows feat-granted familiar choices and a separate aquatic pet with bonus ab
   expect(html).toContain('Leshy familiar granted ability')
   expect(html).toContain('Aquatic Pet')
   expect(html).toContain('<small>Hit Points</small><b>56</b>')
-  expect(html).toContain('>Darkvision</span>')
-  expect(html).toContain('>Tough</span>')
+  expect(html).toContain('aria-haspopup="dialog">Darkvision</button>')
+  expect(html).toContain('aria-haspopup="dialog">Tough</button>')
+  expect(html).toContain('aria-label="Remove Pet ability 1"')
+  expect(html).not.toContain('Remove Pet ability 2')
+  expect(html).toContain('aria-label="Pet ability"')
   expect(html).toContain('Swim 25 feet, Climb 25 feet')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).not.toContain('Leshy Familiar')
+})
+
+it('treats saved Darkvision and Tough as non-removable Friend of the Sea grants', () => {
+  const c: Character = {
+    id: 'minions', systems: ['pf2e'], name: 'Test', level: 8, className: 'Druid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Friend of the Sea', type: 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    pet: { abilities: ['Darkvision', 'Tough'] },
+  }
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => {}} />)
+  expect(html.match(/aria-haspopup="dialog">Darkvision<\/button>/g)).toHaveLength(1)
+  expect(html.match(/aria-haspopup="dialog">Tough<\/button>/g)).toHaveLength(1)
+  expect(html).not.toContain('Remove Pet ability')
+  expect(html).toContain('aria-label="Pet ability"')
 })
 
 it.each(['Pet', 'Familiar'])('shows %s defenses without the owner’s status penalties', name => {
