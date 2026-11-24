@@ -844,6 +844,7 @@ it('adds Spellshot Wizard spellbook selections to Class Spells', () => {
   ], spells: [{ name: spell.name, rank: 1, cantrip: false, entryId: spell.id, bookSlot: 'wizard:1:0' }] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
   expect(markup).toContain('Wizard Spellbook')
+  expect(markup).toContain('aria-label="Open Wizard rank 1"')
   expect(markup).toContain('Wizard rank 1 spell 1')
   expect(markup).toContain('Mystic Armor')
   expect(markup).toContain('Spell Rank 1')

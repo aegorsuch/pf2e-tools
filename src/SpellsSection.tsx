@@ -2129,7 +2129,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         <h5>Wizard Spellbook</h5>
         <SpellColumns />
         {Array.from(new Set(wizardSpellbookSlots.map(slot => slot.rank))).map(rank => <section className="spell-slot-group" key={rank}>
-          <h6>{rank === 0 ? 'Cantrips' : `Rank ${rank}`} <SpellbookRankButton book="Wizard" rank={rank} onOpen={openWizardBookRank} /></h6>
+          <h6 className="spellbook-rank-heading">
+            <span>{rank === 0 ? 'Cantrips' : `Rank ${rank}`}</span>
+            <SpellbookRankButton book="Wizard" rank={rank} onOpen={openWizardBookRank} />
+          </h6>
           <ul>{wizardSpellbookSlots.filter(slot => slot.rank === rank).map(slot => {
             const current = (c.spells ?? []).find(spell => spell.bookSlot === slot.key)
             const currentEntry = current && spellEntry(current.name, current.entryId)
@@ -2138,8 +2141,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               {currentEntry
                 ? <EntryDescription className="spellbook-slot-name" name={currentEntry.name} entry={currentEntry} entries={entries} character={c} />
                 : <span className="spellbook-slot-name">{label}: Not Selected</span>}
-              <SpellbookRankButton book="Wizard" rank={rank} label={`Open Wizard spellbook for ${label}`}
-                onOpen={rank => openWizardBook(rank, slot.key)} />
               {current && <button type="button" className="spell-remove" aria-label={`Remove ${label} spell`}
                 onClick={() => {
                   const spells = (c.spells ?? []).filter(spell => spell.bookSlot !== slot.key)
@@ -2166,8 +2167,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           const { options, choices } = preparedOptions[rank]
           const extras = extraSlots.filter(slot => slot.rank === rank)
           return <section className="spell-slot-group" key={rank}>
-            <h5>{title}{necromancer && <> <DirgeRankButton rank={rank} onOpen={openDirge} /></>}
-              {wizard && <> <SpellbookRankButton book="Wizard" rank={rank} onOpen={openWizardBook} /></>}</h5>
+            <h5 className={wizard ? 'spellbook-rank-heading' : undefined}>
+              <span>{title}</span>
+              {necromancer && <DirgeRankButton rank={rank} onOpen={openDirge} />}
+              {wizard && <SpellbookRankButton book="Wizard" rank={rank} onOpen={openWizardBook} />}
+            </h5>
             <SpellColumns />
             <ul>{Array.from({ length: count }, (_, index) => {
               const extra = extras[index - (count - extras.length)]

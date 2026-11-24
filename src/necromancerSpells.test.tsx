@@ -123,9 +123,8 @@ it('adds Cantrip Connection to Spellshot Wizard dedication book choices', () => 
     familiar: { abilities: ['Cantrip Connection'] },
     spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: {} } }
   const html = render(c, [guidance, spell('Fear', 1, 'Arcane'), connection])
-  expect(html).toContain('aria-label="Open Wizard spellbook for Wizard cantrip 1"')
-  expect(html).toContain('aria-label="Open Wizard spellbook for Wizard cantrip 2"')
-  expect(html).toContain('aria-label="Open Wizard spellbook for Wizard cantrip 3"')
+  expect(html.match(/aria-label="Open Wizard cantrips"/g)).toHaveLength(1)
+  expect(html).not.toContain('Open Wizard spellbook for Wizard cantrip')
 })
 
 it('opens Wizard spellbook choices by rank and filters them to Arcane spells', () => {

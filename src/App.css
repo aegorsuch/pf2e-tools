@@ -762,6 +762,17 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .spell-slot-group, .innate-spell-group { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .spell-slot-group + .spell-slot-group, .innate-spell-group + .innate-spell-group { margin-top: 0.5rem; }
 .spell-slot-group h5, .innate-spell-group h5 { margin: 0; padding: 0.3rem 0.5rem; text-align: center; border-bottom: 1px solid var(--border); }
+.spell-slot-group > .spellbook-rank-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.spellbook-rank-heading > .dirge-rank-button { flex: none; }
 .spellbook-columns, .spellbook-row, .innate-spell-row {
   display: grid;
   grid-template-columns: minmax(12rem, 2fr) repeat(4, minmax(5rem, 1fr));
