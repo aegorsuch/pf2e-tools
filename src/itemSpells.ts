@@ -155,6 +155,8 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
         }
       }
     }
+    if (source.data.named_weapon_source === 'Blade of the Black Sovereign' && !out.some(spell => spell.source.id === source.id && normalized(spell.name) === 'electric arc'))
+      addSpell('Electric Arc', 8, { actions: 'Two Actions', usageKey: JSON.stringify([source.id, 'activation', 1]) })
     if (staff) for (const list of text.matchAll(/\b(Cantrip|\d+(?:st|nd|rd|th))\s+(.+?)(?=\b(?:Cantrip|\d+(?:st|nd|rd|th))\s+|\n|$)/gi)) {
       if (!/^(?:Source|Price|Bulk)\b/.test(list[2])) for (const match of list[2].matchAll(index.names)) {
         addSpell(match[0], /^cantrip$/i.test(list[1]) ? 0 : parseInt(list[1]), { frequency: 'Staff charges' })
