@@ -286,6 +286,11 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
         additional: { label: 'Void damage to living creatures', dice: rank + 1, sides: 4, type: 'void' } }] : []
     case 'Harm':
       return rank >= 1 ? [{ label: 'Damage', dice: rank, sides: 8, type: 'void' }] : []
+    case 'Eradicate Undeath':
+      return rank >= 4 ? [{ label: 'Damage', dice: rank, sides: 12, type: 'vitality' }] : []
+    case 'Rebuke Death':
+      return rank >= 1 ? ['1-action healing', '2-action healing', '3-action healing']
+        .map(label => ({ label, dice: rank + 2, sides: 6, type: 'HP' })) : []
     case 'Heal':
       return rank >= 1 ? [
         { label: '1-action healing', dice: rank, sides: 8, type: 'HP' },
@@ -417,7 +422,7 @@ export function spellActionRolls(name: string, rank: number, entry?: ContentEntr
   if (name === 'Harm') return rolls.flatMap(damage =>
     ['One Action', 'Two Actions', 'Three Actions'].map((actions, index) =>
       ({ damage: { ...damage, label: `${index + 1}-action damage` }, actions })))
-  if (name === 'Heal' || name === 'Heal Animal' || name === 'Heal Companion') return rolls.map((damage, index) => ({
+  if (name === 'Heal' || name === 'Heal Animal' || name === 'Heal Companion' || name === 'Rebuke Death') return rolls.map((damage, index) => ({
     damage, actions: ['One Action', 'Two Actions', 'Three Actions'][index],
   }))
   const actions = entry?.data.actions
@@ -559,7 +564,7 @@ export function SpellActions({ name, rank, entry, spellcastingModifier, actionOv
       actions={actionOverride ?? (typeof entry?.data.actions === 'string' ? entry.data.actions : undefined)} />
   const allRolls = spellActionRolls(name, rank, entry, spellcastingModifier)
   const action = actionOverride?.replace(/^Single Action$/i, 'One Action')
-  const rolls = name === 'Heal' && action && /^(?:One|Two|Three) Actions?$/i.test(action)
+  const rolls = ['Heal', 'Rebuke Death'].includes(name) && action && /^(?:One|Two|Three) Actions?$/i.test(action)
     ? allRolls.filter(roll => roll.actions.toLowerCase() === action.toLowerCase()) : allRolls
   const groups = new Map<string, Damage[]>()
   for (const { damage, actions } of rolls) groups.set(actions, [...groups.get(actions) ?? [], damage])

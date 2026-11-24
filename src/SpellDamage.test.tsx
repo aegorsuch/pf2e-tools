@@ -513,6 +513,36 @@ it('rolls Heal at the selected action and spell rank', () => {
   expect(markup).not.toContain('3-action healing')
 })
 
+it('rolls Rebuke Death healing for its selected action and heightened rank', () => {
+  expect(spellActionRolls('Rebuke Death', 1).map(roll => [roll.actions, roll.damage.label, roll.damage.dice]))
+    .toEqual([
+      ['One Action', '1-action healing', 3],
+      ['Two Actions', '2-action healing', 3],
+      ['Three Actions', '3-action healing', 3],
+    ])
+  expect(spellDamage('Rebuke Death', 4).map(healing => healing.dice)).toEqual([6, 6, 6])
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(spellActionRolls('Rebuke Death', 1).map(roll => rollSpellDamage(roll.damage))).toEqual([3, 3, 3])
+  const markup = renderToStaticMarkup(<SpellActions name="Rebuke Death" rank={1} actionOverride="Two Actions" />)
+  expect(markup).toContain('aria-label="Roll Rebuke Death: 2-action healing"')
+  expect(markup).toContain('title="Two Actions; 2-action healing: 3d6 HP"')
+  expect(markup).not.toContain('1-action healing')
+  expect(markup).not.toContain('3-action healing')
+})
+
+it('rolls heightened Eradicate Undeath vitality damage', () => {
+  expect(spellDamage('Eradicate Undeath', 3)).toEqual([])
+  expect(spellDamage('Eradicate Undeath', 4)).toEqual([{ label: 'Damage', dice: 4, sides: 12, type: 'vitality' }])
+  expect(spellDamage('Eradicate Undeath', 7)).toEqual([{ label: 'Damage', dice: 7, sides: 12, type: 'vitality' }])
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(rollSpellDamage(spellDamage('Eradicate Undeath', 4)[0])).toBe(4)
+  const entry: ContentEntry = { id: 'eradicate-undeath', name: 'Eradicate Undeath', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 4, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={4} entry={entry} />)
+  expect(markup).toContain('aria-label="Roll Eradicate Undeath: Damage"')
+  expect(markup).toContain('title="Two Actions; Damage: 4d12 vitality"')
+})
+
 it('uses a spell action icon for a supported damage roll and keeps non-rolling spell actions passive', () => {
   const entry: ContentEntry = { id: 'slime', name: 'Slime Spit', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

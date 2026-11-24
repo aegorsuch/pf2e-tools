@@ -172,7 +172,7 @@ export function FocusPointTracker({ c, save, points }: Pick<SectionProps, 'c' | 
   return <span className="focus-tracker" role="group" aria-label={`${capacity - spent.size} of ${capacity} focus points available`}>
     {Array.from({ length: capacity }, (_, index) => {
       const isTemporary = temporary === index || temporary === -1 && index === 0
-      const label = `${spent.has(index) ? 'Restore' : 'Spend'} focus point ${index + 1}${isTemporary ? ' (warden spell only; expires at end of turn)' : ''}`
+      const label = `${spent.has(index) ? 'Restore' : 'Spend'} focus point ${index + 1}`
       return <button key={index} type="button" className="focus-point" aria-label={label}
         title={label} aria-pressed={!spent.has(index)} onClick={() => {
           const next = new Set(spent)
@@ -197,12 +197,6 @@ export function FocusPointTracker({ c, save, points }: Pick<SectionProps, 'c' | 
           save({ spentFocusPoints: [...spent].filter(value => value !== index), desperateWardenFocusPoint: index,
             dailyFeatUses: { ...c.dailyFeatUses, 'Desperate Warden': true } })
         }}>Desperate Warden <ActionIcon actions="Free Action" /></button>
-      <label><input type="checkbox" aria-label="Desperate Warden used" checked={wardenUsed}
-        onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, 'Desperate Warden': event.target.checked },
-          ...(!event.target.checked && temporary !== undefined ? {
-            spentFocusPoints: temporary >= 0 && temporary < normalCapacity ? [...new Set([...spent, temporary])] : [...spent],
-            desperateWardenFocusPoint: undefined,
-          } : {}) })} /> Used</label>
     </>}
   </span>
 }
