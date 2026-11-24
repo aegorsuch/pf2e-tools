@@ -45,11 +45,29 @@ export function originalNephilimLineage(c: Character, entries: ContentEntry[]) {
   })?.name
 }
 
+function nephilimLineages(c: Character, entries: ContentEntry[]) {
+  const original = originalNephilimLineage(c, entries)
+  if (!original) return []
+  const scionActive = c.feats.some(feat => feat.name === 'Scion of Many Planes' && featTakenLevel(feat) <= c.level)
+  if (!scionActive) return [original]
+  const additional = c.feats.filter(feat => featTakenLevel(feat) > 1 && featTakenLevel(feat) <= c.level)
+    .filter(feat => {
+      const source = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
+      return source ? ['nephilim', 'lineage'].every(required => source.traits.some(trait => trait.toLowerCase() === required))
+        : !feat.sourceId && Object.hasOwn(NEPHILIM_SUMMONS, feat.name)
+    })
+    .map(feat => feat.name)
+  return [...new Set([original, ...additional])]
+}
+
 function nephilimFeatSpells(c: Character, entries: ContentEntry[], name: string) {
-  const lineage = originalNephilimLineage(c, entries)
+  const lineages = name === 'Summon Nephilim Kin'
+    ? [originalNephilimLineage(c, entries)].filter((lineage): lineage is string => !!lineage)
+    : nephilimLineages(c, entries)
+  if (name === 'Fiendish Magic') return lineages.flatMap(lineage => FIENDISH_MAGIC_SPELLS[lineage] ?? [])
+  if (name === 'Celestial Magic') return lineages.flatMap(lineage => CELESTIAL_MAGIC_SPELLS[lineage] ?? [])
+  const lineage = lineages[0]
   if (!lineage) return []
-  if (name === 'Fiendish Magic') return FIENDISH_MAGIC_SPELLS[lineage] ?? []
-  if (name === 'Celestial Magic') return CELESTIAL_MAGIC_SPELLS[lineage] ?? []
   return NEPHILIM_SUMMONS[lineage] ? [NEPHILIM_SUMMONS[lineage]] : []
 }
 

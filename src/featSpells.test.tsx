@@ -571,6 +571,23 @@ it('uses only the first-level lineage for Fiendish Magic', () => {
   expect(grantedFeatSpells(customFirst, [source, custom, ...spells])).toEqual([])
 })
 
+it('adds second-lineage spells to Celestial and Fiendish Magic through Scion of Many Planes', () => {
+  const celestial = feat('Celestial Magic', 'Choose two spells.', 9)
+  const fiendish = feat('Fiendish Magic', 'Choose two spells.', 9)
+  const spells = ['Clear Mind', 'Humanoid Form', 'Paranoia', 'Shatter'].map(name => entry(name, 'spell'))
+  const scion = taken('Scion of Many Planes', 5)
+  const celestialCharacter: Character = { ...base, level: 9, feats: [
+    taken('Pitborn'), scion, taken('Angelkin', 5), taken(celestial.name, 9),
+  ] }
+  const fiendishCharacter: Character = { ...base, level: 9, feats: [
+    taken('Angelkin'), scion, taken('Pitborn', 5), taken(fiendish.name, 9),
+  ] }
+  expect(grantedFeatSpells(celestialCharacter, [celestial, ...spells]).map(grant => grant.entry.name))
+    .toEqual(['Clear Mind', 'Humanoid Form'])
+  expect(grantedFeatSpells(fiendishCharacter, [fiendish, ...spells]).map(grant => grant.entry.name))
+    .toEqual(['Paranoia', 'Shatter'])
+})
+
 it('shows Shatter damage for Pitborn Fiendish Magic', () => {
   const spell = { ...entry('Shatter', 'spell', { actions: 'Two Actions' }), level: 2 }
   const c: Character = { ...base, level: 9, feats: [taken('Pitborn'), taken('Fiendish Magic', 9)] }

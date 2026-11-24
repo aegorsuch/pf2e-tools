@@ -91,6 +91,31 @@ it('applies heritage fixed languages and level-based language choices', () => {
     feats: [{ name: 'Multilingual', type: 'General Feat', level: 1, slot: 'general:1:0' }] }, [polyglot]).slots).toBe(6)
 })
 
+it('grants Angelkin its Empyrean language and Multilingual feat', () => {
+  const angelkin = mapAonHit({
+    _id: 'feat-angelkin',
+    _source: {
+      category: 'feat',
+      name: 'Angelkin',
+      level: 1,
+      trait: ['Nephilim', 'Lineage'],
+      markdown: 'You descend from an angel. You gain the trained proficiency rank in Society. You know the [Empyrean](/Languages.aspx?ID=115) language, and you gain the [Multilingual](/Feats.aspx?ID=814) skill feat.',
+    },
+  }, 'pf2e')!
+  const multilingual = { name: 'Angelkin', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', sourceId: angelkin.id }
+  const c = { ...character('pf2e', 'Human', 'Nephilim'), feats: [multilingual] }
+  const empyrean = mapAonHit({ _id: 'language-empyrean', _source: { category: 'language', name: 'Empyrean' } }, 'pf2e')!
+
+  expect(angelkin.data.grants_languages).toBe('Empyrean')
+  expect(automaticFeatGrants(c, [angelkin, empyrean])).toContainEqual({
+    name: 'Multilingual', source: 'Angelkin', level: 1,
+  })
+  expect(languageAllowance(c, [angelkin, empyrean])).toMatchObject({
+    locked: expect.arrayContaining(['Empyrean']),
+    slots: 3,
+  })
+})
+
 it('adds explicit heritage unarmed attacks as locked character weapons', () => {
   const entries = mapAonHits([{
     _id: 'ancestries--1-kitsune--heritages--1-earthly-wilds',

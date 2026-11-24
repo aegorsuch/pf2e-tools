@@ -4541,6 +4541,10 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
     }
   }
   for (const feat of c.feats) {
+    if (entries.length && featTakenLevel(feat) <= c.level) {
+      const grantedFeats = tokens(selectedFeatEntry(c, entries, feat.name, feat.sourceId)?.data.grants_feats)
+      for (const name of grantedFeats) grants.push({ name, source: feat.name, level: featTakenLevel(feat) })
+    }
     const grant = ancestrySkillGrant(c, entries, feat.name)
     if (grant?.feat && featTakenLevel(feat) <= c.level) grants.push({ name: grant.feat, source: feat.name, level: featTakenLevel(feat) })
     const lore = (feat.name === 'Dwarven Lore' ? undefined : ancestryLoreGrant(c, entries, feat.name)?.lore)
@@ -8971,6 +8975,8 @@ export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const grantsMultilingual = heritages.some(heritage =>
     typeof heritage.data.grants_heritage_feats === 'string'
       && heritage.data.grants_heritage_feats.split(';').includes('Multilingual'))
+    || c.feats.some(feat => featTakenLevel(feat) <= c.level
+      && tokens(selectedFeatEntry(c, entries, feat.name, feat.sourceId)?.data.grants_feats).includes('Multilingual'))
   const multilingualCount = Math.max(activeFeatsNamed(c, 'Multilingual').length, grantsMultilingual ? 1 : 0)
   const polyglotBonus = heritages.some(heritage => heritage.name === 'Polyglot Android')
     && multilingualCount > 0 ? 1 : 0

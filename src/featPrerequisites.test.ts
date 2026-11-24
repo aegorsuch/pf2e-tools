@@ -396,21 +396,31 @@ it('checks Summon Nephilim Kin against selected Nephilim lineage feats', () => {
 
 it('checks Celestial Mercy against celestial lineage feats', () => {
   const prerequisite = 'Angelkin, Lawbringer, Musetouched, or another lineage feat associated with celestials'
+  const celestialPrerequisite = 'Angelkin, Lawbringer, Musetouched, or or another lineage feat associated with celestials'
   const mercy = entry('feat', 'Celestial Mercy', { prerequisite }, 13, ['Nephilim'])
+  const celestialMagic = entry('feat', 'Celestial Magic', { prerequisite: celestialPrerequisite }, 9, ['Nephilim'])
   const lineages = ['Angelkin', 'Lawbringer', 'Musetouched', 'Pitborn'].map(name =>
     entry('feat', name, {}, 1, ['Nephilim', 'Lineage']))
   const custom = entry('feat', 'Custom Lineage', {}, 1, ['Nephilim', 'Lineage'])
-  const entries = [mercy, ...lineages, custom]
+  const entries = [mercy, celestialMagic, ...lineages, custom]
   const c: Character = { ...base, level: 13, ancestry: 'Human', heritage: 'Nephilim' }
   const slot = { key: 'ancestry:13:0', category: 'ancestry' as const, level: 13 }
   const result = (character: Character) => featSelectionPrerequisiteChecker(character, entries, slot)(mercy)
+  const celestialResult = (character: Character) => featSelectionPrerequisiteChecker(character, entries,
+    { key: 'ancestry:9:0', category: 'ancestry', level: 9 })(celestialMagic)
   expect(result(c)).toEqual({ missing: [prerequisite], manual: [] })
+  expect(celestialResult(c)).toEqual({ missing: [celestialPrerequisite], manual: [] })
   expect(result({ ...c, feats: [selected('Pitborn')] })).toEqual({ missing: [prerequisite], manual: [] })
+  expect(celestialResult({ ...c, feats: [selected('Pitborn')] }))
+    .toEqual({ missing: [celestialPrerequisite], manual: [] })
   expect(result({ ...c, feats: [selected('Custom Lineage')] })).toEqual({ missing: [], manual: [prerequisite] })
+  expect(celestialResult({ ...c, feats: [selected('Custom Lineage')] }))
+    .toEqual({ missing: [], manual: [celestialPrerequisite] })
   for (const lineage of lineages.slice(0, 3)) {
     const withLineage = { ...c, feats: [selected(lineage.name)] }
     expect(result(withLineage)).toEqual({ missing: [], manual: [] })
     expect(eligibleFeats(entries, withLineage, slot)).toContain(mercy)
+    expect(celestialResult(withLineage)).toEqual({ missing: [], manual: [] })
   }
   const gainedThroughScion = { ...c, feats: [selected('Pitborn'), { ...selected('Angelkin', 5), takenLevel: 5 }] }
   expect(result(gainedThroughScion)).toEqual({ missing: [], manual: [] })

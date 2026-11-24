@@ -406,7 +406,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     }
     if (facts.className === 'Champion' && name === "champion's aura") return resultFor(level >= 1, text)
     if (facts.className === 'Champion' && name === 'devotion spells') return resultFor(level >= 1, text)
-    if (name === 'angelkin, lawbringer, musetouched, or another lineage feat associated with celestials') {
+    if (name.includes('angelkin, lawbringer, musetouched')
+      && name.includes('another lineage feat associated with celestials')) {
       return associatedNephilimLineage(facts, text, ['angelkin', 'lawbringer', 'musetouched'],
         ['aeonbound', 'battleblooded', 'faultspawn', 'proteankin', 'grimspawn', 'hellspawn', 'pitborn'])
     }

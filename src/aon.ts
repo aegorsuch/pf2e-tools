@@ -83,10 +83,11 @@ function heritageSize(markdown: string) {
   return undefined
 }
 
-function heritageLanguageRules(markdown: string) {
+function languageGrantRules(markdown: string) {
   const text = plain(markdown)
   const languages = new Set<string>()
   for (const match of text.matchAll(/\byou\s+(?:can\s+)?speak\s+([A-Z][A-Za-z-]*)\b/gi)) languages.add(match[1])
+  for (const match of text.matchAll(/\byou\s+know\s+(?:the\s+)?([A-Z][A-Za-z-]*)\s+language\b/gi)) languages.add(match[1])
   for (const match of text.matchAll(/\byou\s+learn\s+(?:the\s+)?([A-Z][A-Za-z-]*)\s+(?:language|as an additional language)\b/gi)) {
     languages.add(match[1])
   }
@@ -384,13 +385,18 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     const archetypes = /^\*\*Archetypes?\*\*\s+(.+)$/im.exec(text(s.markdown))?.[1] ?? ''
     const levels = [...archetypes.matchAll(/\[([^\]]+)\]\([^)]*\)\s*\(Level (\d+)\)/gi)]
     if (levels.length) data.archetype_levels = levels.map((match) => `${match[1]}:${match[2]}`).join(', ')
+    if (traits.some(trait => trait.toLowerCase() === 'lineage')) {
+      Object.assign(data, languageGrantRules(text(s.markdown)))
+      const feats = heritageFeatGrants(text(s.markdown))
+      if (feats.length) data.grants_feats = feats.join(';')
+    }
   }
   const land = (s.speed as { land?: unknown } | undefined)?.land
   if (typeof land === 'number') data.speed = land
   if (kind === 'heritage') {
     Object.assign(data, heritageMovementSpeeds(text(s.markdown), s.speed))
     Object.assign(data, heritageAttributeRules(text(s.markdown)))
-    Object.assign(data, heritageLanguageRules(text(s.markdown)))
+    Object.assign(data, languageGrantRules(text(s.markdown)))
     const size = heritageSize(text(s.markdown))
     if (size) data.size = size
     const resistances = heritageResistances(text(s.markdown))
