@@ -279,6 +279,17 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   const resultFor = (yes: boolean, text: string) => yes ? met() : missing(text)
   const snarecrafter = (entry: ContentEntry) =>
     String(entry.data.archetype ?? '').split(',').some(archetype => key(archetype) === 'snarecrafter')
+  const associatedNephilimLineage = (facts: PrerequisiteFacts, text: string, associated: string[], unrelated: string[]) => {
+    if (facts.feats.some(feat => associated.includes(key(feat.name)))) return met()
+    const uncertain = facts.feats.filter(feat => !unrelated.includes(key(feat.name))).some(feat => {
+      const sources = feat.sourceId
+        ? knownEntries(feat.name).filter(entry => entry.kind === 'feat' && entry.id === feat.sourceId)
+        : featPrerequisiteSources(entries, { ...facts, name: feat.name, category: feat.category, entryIds: context.entryIds })
+      return !sources.length || sources.some(entry =>
+        ['nephilim', 'lineage'].every(required => entry.traits.some(trait => key(trait) === required)))
+    })
+    return uncertain ? manual(text) : missing(text)
+  }
 
   const atom = (text: string, level: number, trail: Set<string>, inheritedRank?: string, survivalForCrafting = false): PrerequisiteCheck | undefined => {
     const facts = context.facts(level)
@@ -396,16 +407,18 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (facts.className === 'Champion' && name === "champion's aura") return resultFor(level >= 1, text)
     if (facts.className === 'Champion' && name === 'devotion spells') return resultFor(level >= 1, text)
     if (name === 'angelkin, lawbringer, musetouched, or another lineage feat associated with celestials') {
-      if (facts.feats.some(feat => ['angelkin', 'lawbringer', 'musetouched'].includes(key(feat.name)))) return met()
-      const nonCelestial = ['aeonbound', 'battleblooded', 'faultspawn', 'proteankin', 'grimspawn', 'hellspawn', 'pitborn']
-      const uncertain = facts.feats.filter(feat => !nonCelestial.includes(key(feat.name))).some(feat => {
-        const sources = feat.sourceId
-          ? knownEntries(feat.name).filter(entry => entry.kind === 'feat' && entry.id === feat.sourceId)
-          : featPrerequisiteSources(entries, { ...facts, name: feat.name, category: feat.category, entryIds: context.entryIds })
-        return !sources.length || sources.some(entry =>
-          ['nephilim', 'lineage'].every(required => entry.traits.some(trait => key(trait) === required)))
-      })
-      return uncertain ? manual(text) : missing(text)
+      return associatedNephilimLineage(facts, text, ['angelkin', 'lawbringer', 'musetouched'],
+        ['aeonbound', 'battleblooded', 'faultspawn', 'proteankin', 'grimspawn', 'hellspawn', 'pitborn'])
+    }
+    if (!name.includes('or the maelstrom') && name.includes('another lineage feat associated with fiends')
+      && ['grimspawn', 'hellspawn', 'pitborn'].every(lineage => name.includes(lineage))) {
+      return associatedNephilimLineage(facts, text, ['grimspawn', 'hellspawn', 'pitborn', 'faultspawn'],
+        ['angelkin', 'lawbringer', 'musetouched', 'aeonbound', 'battleblooded', 'proteankin'])
+    }
+    if (name.includes('another lineage feat associated with fiends or the maelstrom')
+      && ['grimspawn', 'hellspawn', 'pitborn'].every(lineage => name.includes(lineage))) {
+      return associatedNephilimLineage(facts, text, ['grimspawn', 'hellspawn', 'pitborn', 'faultspawn', 'proteankin'],
+        ['angelkin', 'lawbringer', 'musetouched', 'aeonbound', 'battleblooded'])
     }
     if (name === 'any nephilim lineage feat') {
       const selectedSources = facts.feats.map(feat => feat.sourceId

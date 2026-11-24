@@ -416,6 +416,47 @@ it('checks Celestial Mercy against celestial lineage feats', () => {
   expect(result(gainedThroughScion)).toEqual({ missing: [], manual: [] })
 })
 
+it('checks Fiendish Magic against fiend-associated lineage feats', () => {
+  const prerequisite = 'Grimspawn, Hellspawn, Pitborn or another lineage feat associated with fiends'
+  const magic = entry('feat', 'Fiendish Magic', { prerequisite }, 9, ['Nephilim'])
+  const lineages = ['Grimspawn', 'Pitborn', 'Hellspawn', 'Faultspawn', 'Angelkin'].map(name =>
+    entry('feat', name, {}, 1, ['Nephilim', 'Lineage']))
+  const custom = entry('feat', 'Custom Lineage', {}, 1, ['Nephilim', 'Lineage'])
+  const entries = [magic, ...lineages, custom]
+  const c: Character = { ...base, level: 9, ancestry: 'Human', heritage: 'Nephilim' }
+  const slot = { key: 'ancestry:9:0', category: 'ancestry' as const, level: 9 }
+  const result = (character: Character) => featSelectionPrerequisiteChecker(character, entries, slot)(magic)
+  expect(result(c)).toEqual({ missing: [prerequisite], manual: [] })
+  expect(result({ ...c, feats: [selected('Angelkin')] })).toEqual({ missing: [prerequisite], manual: [] })
+  expect(result({ ...c, feats: [selected('Custom Lineage')] })).toEqual({ missing: [], manual: [prerequisite] })
+  for (const lineage of lineages.slice(0, 4)) {
+    const withLineage = { ...c, feats: [selected(lineage.name)] }
+    expect(result(withLineage)).toEqual({ missing: [], manual: [] })
+    expect(eligibleFeats(entries, withLineage, slot)).toContain(magic)
+  }
+})
+
+it('checks Slip Sideways against fiend- or Maelstrom-associated lineage feats', () => {
+  const prerequisite = 'Grimspawn, Pitborn, or Hellspawn, or another lineage feat associated with fiends or the Maelstrom'
+  const slipSideways = entry('feat', 'Slip Sideways', { prerequisite }, 13, ['Nephilim'])
+  const lineages = ['Grimspawn', 'Pitborn', 'Hellspawn', 'Faultspawn', 'Proteankin', 'Angelkin', 'Aeonbound'].map(name =>
+    entry('feat', name, {}, 1, ['Nephilim', 'Lineage']))
+  const custom = entry('feat', 'Custom Lineage', {}, 1, ['Nephilim', 'Lineage'])
+  const entries = [slipSideways, ...lineages, custom]
+  const c: Character = { ...base, level: 13, ancestry: 'Human', heritage: 'Nephilim' }
+  const slot = { key: 'ancestry:13:0', category: 'ancestry' as const, level: 13 }
+  const result = (character: Character) => featSelectionPrerequisiteChecker(character, entries, slot)(slipSideways)
+  expect(result(c)).toEqual({ missing: [prerequisite], manual: [] })
+  expect(result({ ...c, feats: [selected('Angelkin')] })).toEqual({ missing: [prerequisite], manual: [] })
+  expect(result({ ...c, feats: [selected('Aeonbound')] })).toEqual({ missing: [prerequisite], manual: [] })
+  expect(result({ ...c, feats: [selected('Custom Lineage')] })).toEqual({ missing: [], manual: [prerequisite] })
+  for (const lineage of lineages.slice(0, 5)) {
+    const withLineage = { ...c, feats: [selected(lineage.name)] }
+    expect(result(withLineage)).toEqual({ missing: [], manual: [] })
+    expect(eligibleFeats(entries, withLineage, slot)).toContain(slipSideways)
+  }
+})
+
 it('grants Celestial Mercy as a fourth-rank divine innate spell twice daily', () => {
   const previous = getSettings().innateAutoHeighten
   updateSettings({ innateAutoHeighten: false })

@@ -610,14 +610,20 @@ it.each([
   expect(unresolvedFeatSpells(c, [source]).map(item => item.name)).toEqual([name])
   expect(featSpellOptions(c, [source, spell], c.feats[2])).toBeUndefined()
   if (name === 'Summon Fiend') {
-    expect(renderToStaticMarkup(<SpellsSection c={c} entries={[source, spell]} save={() => {}} />))
-      .toContain('aria-label="Summon Fiend options"')
+    const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[source, spell]} save={() => {}} />)
+    expect(markup).toContain('aria-label="Summon Fiend options"')
+    expect(markup).toContain('aria-label="Summon Fiend active"')
+  }
+  if (name === 'Summon Celestial') {
+    const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[source, spell]} save={() => {}} />)
+    expect(markup).toContain('aria-label="Summon Celestial options"')
+    expect(markup).toContain('aria-label="Summon Celestial active"')
   }
   expect(grantedFeatSpells({ ...c, level: 12 }, [source, spell])).toEqual([])
   expect(grantedFeatSpells({ ...c, systems: ['sf2e'] }, [source, spell])).toEqual([])
 })
 
-it.each(['Grimspawn', 'Pitborn', 'Hellspawn'])('allows Fiendish Magic with %s prerequisite', lineage => {
+it.each(['Grimspawn', 'Pitborn', 'Hellspawn', 'Faultspawn'])('allows Fiendish Magic with %s prerequisite', lineage => {
   const source: ContentEntry = { ...entry('Fiendish Magic', 'feat'), level: 9, traits: ['Nephilim'],
     data: { prerequisite: 'Grimspawn, Pitborn, Hellspawn, or another lineage feat associated with fiends' } }
   const c: Character = { ...base, level: 9, ancestry: 'Human', heritage: 'Nephilim', feats: [taken(lineage)] }

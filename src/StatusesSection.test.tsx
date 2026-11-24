@@ -7,6 +7,17 @@ import { ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSectio
 import { fulminatingShotBonus } from './fulminatingShot'
 import type { Character, ContentEntry } from './types'
 
+function findToggle(node: ReactNode, label: string): ((event: { target: { checked: boolean } }) => void) | undefined {
+  let result: ((event: { target: { checked: boolean } }) => void) | undefined
+  Children.forEach(node, child => {
+    if (result || !isValidElement<Record<string, unknown>>(child)) return
+    result = child.type === 'input' && child.props['aria-label'] === label
+      ? child.props.onChange as typeof result
+      : findToggle(child.props.children as ReactNode, label)
+  })
+  return result
+}
+
 it('synchronizes condition and Zealous Conviction state with character statistics', () => {
   let c: Character = { id: 'statuses', name: 'Test', systems: ['pf2e'], level: 20,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
@@ -87,6 +98,31 @@ it('tracks Bless in Statuses and summary', () => {
   expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[entry]} save={save} />)).toContain('Bless')
   change({ target: { checked: false } })
   expect(c.activeSpells).not.toContain('Bless')
+})
+
+it('toggles Summon Celestial status and tracks Summon Fiend with its active summon', () => {
+  const lineage: ContentEntry = { id: 'angelkin', name: 'Angelkin', systems: ['pf2e'], kind: 'feat',
+    source: 'official', level: 1, traits: ['Nephilim', 'Lineage'], description: '', data: {}, effects: [], updatedAt: 1 }
+  const feat: ContentEntry = { ...lineage, id: 'summon-nephilim-kin', name: 'Summon Nephilim Kin', level: 13,
+    traits: ['Nephilim'] }
+  const celestial: ContentEntry = { ...lineage, id: 'summon-celestial', name: 'Summon Celestial', kind: 'spell',
+    level: 5, traits: [], data: { actions: 'Three Actions' } }
+  const fiend = { id: 'fiend', name: 'Test Fiend', level: 5, traits: ['Fiend'], url: '',
+    abilities: [10, 10, 10, 10, 10, 10], saves: [0, 0, 0], senses: '', skills: '', speed: '',
+    resistances: '', weaknesses: '', attacks: [] }
+  let c: Character = { id: 'summons', name: 'Test', systems: ['pf2e'], level: 13, ancestry: 'Human', heritage: 'Nephilim',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Angelkin', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', sourceId: lineage.id },
+      { name: 'Summon Nephilim Kin', type: 'Ancestry Feat', level: 13, slot: 'ancestry:13:0', sourceId: feat.id }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0, summonedFiend: fiend }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const entries = [lineage, feat, celestial]
+  const celestialToggle = findToggle(StatusesContent({ c, entries, save }), 'Summon Celestial status')
+  const fiendToggle = findToggle(StatusesContent({ c, entries, save }), 'Summon Fiend status')
+  if (!celestialToggle || !fiendToggle) throw Error('Missing summon status toggle')
+  celestialToggle({ target: { checked: true } })
+  expect(c.activeSpells).toContain('Summon Celestial')
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={entries} save={save} />)).toContain('Summon Fiend')
 })
 
 it('tracks Fulminating Shot element and level-scaled damage in Statuses', () => {

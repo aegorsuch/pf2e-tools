@@ -34,7 +34,7 @@ import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
-const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Bless', 'Cairn Form', 'Eat Fire', 'Enduring Might', 'Fly', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Tailwind']
+const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Bless', 'Cairn Form', 'Eat Fire', 'Enduring Might', 'Fly', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Summon Celestial', 'Tailwind']
 const STATUS_TRACKED_SPELL_EFFECTS = [...AUTOMATED_SPELL_EFFECTS, 'Animal Feature', 'Canopy Crawler', 'Marvelous Mount', 'Speak with Plants', 'Warning Stripes']
 
 function PharasmaSpellBonus({ c, entry, name, rank }: { c: Character; entry?: ContentEntry; name: string; rank: number }) {
@@ -519,7 +519,7 @@ export function SummonFiendActions({ c, entries, save, entry, rank, lineageOnly 
           const value = event.target.value
           const selected = options.find(fiend => fiend.id === value)
           if (value && !selected) return
-          const select = () => save({ summonedFiend: selected })
+          const select = () => save({ summonedFiend: selected, ...spellActiveChange(c, 'Summon Fiend', !!selected) })
           if (c.summonedFiend && c.summonedFiend.id !== value) confirmRemoval(`summoned ${c.summonedFiend.name}`, select)
           else select()
         }}>
@@ -528,6 +528,14 @@ export function SummonFiendActions({ c, entries, save, entry, rank, lineageOnly 
           && <option value={c.summonedFiend.id} disabled>{c.summonedFiend.name} (unavailable)</option>}
         {options.map(fiend => <option key={fiend.id} value={fiend.id}>{fiend.name} (Level {fiend.level})</option>)}
       </SearchableSelect>}
+        <label><input type="checkbox" aria-label="Summon Fiend active" checked={!!c.summonedFiend}
+          disabled={!c.summonedFiend}
+          onChange={event => {
+            if (event.target.checked || !c.summonedFiend) return
+            confirmRemoval(`summoned ${c.summonedFiend.name}`, () => save({
+              summonedFiend: undefined, ...spellActiveChange(c, 'Summon Fiend', false),
+            }))
+          }} /> Summon Fiend{c.summonedFiend ? `: ${c.summonedFiend.name}` : ''}</label>
       <p>{entry?.description || 'Description unavailable. Sync Archives of Nethys content to load it.'}</p>
       <form method="dialog"><button autoFocus>Close</button></form>
     </dialog>

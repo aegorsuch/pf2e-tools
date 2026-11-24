@@ -178,7 +178,7 @@ it('displays and dismisses a saved summoned fiend', () => {
   let c: Character = { id: 'fiend', name: 'Test', systems: ['pf2e'], level: 13,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
-    summonedFiend: JSON.parse(JSON.stringify(fiend)) }
+    summonedFiend: JSON.parse(JSON.stringify(fiend)), activeSpells: ['Bless', 'Summon Fiend'] }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={save} />)
   expect(markup).toContain('Summoned Test Demon')
@@ -188,11 +188,12 @@ it('displays and dismisses a saved summoned fiend', () => {
   expect(renderToStaticMarkup(<MinionsSummary c={c} />)).toContain('Summoned Test Demon')
   const confirm = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true)
   vi.stubGlobal('window', { confirm })
-  const dismiss = findButton(SummonedFiendCard({ fiend, save }), 'Dismiss summoned Test Demon')!
+  const dismiss = findButton(SummonedFiendCard({ fiend, activeSpells: c.activeSpells, save }), 'Dismiss summoned Test Demon')!
   dismiss()
   expect(c.summonedFiend).toBeDefined()
   dismiss()
   expect(c.summonedFiend).toBeUndefined()
+  expect(c.activeSpells).toEqual(['Bless'])
 })
 
 it('displays and dismisses a summoned plant independently from a fiend', () => {

@@ -213,7 +213,7 @@ export function SummonedFiendCard({ fiend, save, plant = false, undead = false, 
     <button type="button" aria-label={`Dismiss summoned ${fiend.name}`} onClick={() => confirmRemoval(`summoned ${fiend.name}`, () => save(plant
       ? { summonedPlant: undefined }
       : undead ? { summonedUndead: undefined, activeSpells: activeSpells?.filter(spell => spell !== 'Summon Undead') }
-        : { summonedFiend: undefined }))}>Dismiss</button>
+        : { summonedFiend: undefined, activeSpells: activeSpells?.filter(spell => spell !== 'Summon Fiend') }))}>Dismiss</button>
   </details>
 }
 
@@ -627,7 +627,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
         {activeShirrenAlly(c) && <SummonedCreature name="Emganat" displayName="Kucharn" />}
         {c.summonedPlant && <SummonedFiendCard fiend={c.summonedPlant} plant save={save} />}
         {c.summonedUndead && <SummonedFiendCard fiend={c.summonedUndead} undead activeSpells={c.activeSpells} save={save} />}
-        {activeSummonedFiend(c) && <SummonedFiendCard fiend={activeSummonedFiend(c)!} save={save} />}
+        {activeSummonedFiend(c) && <SummonedFiendCard fiend={activeSummonedFiend(c)!} activeSpells={c.activeSpells} save={save} />}
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" data-minion-name="Drone" open>
           <summary><h4>Drone</h4></summary>
           <DroneFeatures c={c} entries={entries} save={save} />

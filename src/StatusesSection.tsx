@@ -33,6 +33,7 @@ export function StatusesSummary({ c, entries }: SectionProps) {
     ...(fulminatingShotBonus(c) ? [`Fulminating Shot (${fulminatingShotBonus(c)})`] : []),
     ...c.activeSpells ?? [],
     ...(c.summonedUndead ? ['Summon Undead'] : []),
+    ...(c.summonedFiend ? ['Summon Fiend'] : []),
     ...c.activeFeatEffects ?? [],
     ...(c.zealousConvictionRank !== undefined ? ['Zealous Conviction'] : []),
     ...(activeFeatsNamed(c, 'Favored Terrain').length && isFeatEffectActive(c, 'Favored Terrain') ? ['Favored Terrain'] : []),
@@ -65,6 +66,7 @@ export function HuntPreyToggle({ c, entries, save, summary = false }: SectionPro
 export function StatusesContent({ c, entries, save }: SectionProps) {
   const grant = grantedFeatSpells(c, entries).find(spell => spell.source === 'Heroic Presence')
   const summonedUndead = c.summonedUndead
+  const summonedFiend = c.summonedFiend
   const entrenchArmors = ownedArmors(c, entries).filter(armor => isBastionNamedArmor(armor.name))
   const controls = [
     { name: 'Active stance', element: <StancesContent c={c} entries={entries} save={save} /> },
@@ -146,6 +148,16 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
             summonedUndead: undefined, activeSpells: c.activeSpells?.filter(spell => spell !== 'Summon Undead'),
           }))
         }} /> Summon Undead: {summonedUndead.name}</label>,
+    }] : []),
+    ...(summonedFiend ? [{
+      name: 'Summon Fiend',
+      element: <label><input type="checkbox" aria-label="Summon Fiend status" checked
+        onChange={event => {
+          if (event.target.checked) return
+          confirmRemoval(`summoned ${summonedFiend.name}`, () => save({
+            summonedFiend: undefined, activeSpells: c.activeSpells?.filter(spell => spell !== 'Summon Fiend'),
+          }))
+        }} /> Summon Fiend: {summonedFiend.name}</label>,
     }] : []),
     ...automatedSpellStatusControls({ c, entries, save }),
   ].sort((a, b) => a.name.localeCompare(b.name))
