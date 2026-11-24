@@ -146,6 +146,11 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return rank >= 4 ? [{ label: 'Damage', dice: rank, sides: 10, type: 'cold', components: [
         { dice: rank, sides: 4, type: 'piercing' },
       ] }] : []
+    case 'Force Bolt': {
+      if (rank < 1) return []
+      const dice = 1 + Math.floor((rank - 1) / 2)
+      return [{ label: 'Damage', dice, sides: 4, bonus: dice, type: 'force' }]
+    }
     case 'Shatter':
       return rank >= 2 ? [{ label: 'Damage', dice: rank, sides: 10, type: 'sonic' }] : []
     case 'Breath of Life':

@@ -204,6 +204,13 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
   return { background, backgroundFeats, grants, automaticFeats, memories, grantedType }
 }
 
+function arcanaChoiceCandidates(entries: ContentEntry[], name: string) {
+  const matches = entries.filter(entry => entry.kind === 'feat' && !entry.deleted && entry.name === name && entry.systems.includes('pf2e'))
+  const wizard = matches.filter(entry => entry.traits.some(trait => trait.toLowerCase() === 'wizard'))
+  const pool = wizard.length ? wizard : matches
+  return pool.find(entry => entry.description.trim()) ?? pool[0]
+}
+
 export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch,
   pickerEligibility, pickerVariantCache }: FeatSlotsProps) {
   const checks = selectedChecks(c, entries)
@@ -535,9 +542,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           })
           const currentEntry = sources.find(source => source.id === selection?.sourceId) ?? sources[0] ?? featByName(entries).get(current)
           const arcanaChoiceEntry = selection && ['Basic Arcana', 'Advanced Arcana'].includes(selection.name)
-            && selection.choice ? entries.find(entry => entry.kind === 'feat' && !entry.deleted
-              && entry.name === selection.choice && entry.systems.includes('pf2e')
-              && entry.traits.some(trait => trait.toLowerCase() === 'wizard')) : undefined
+            && selection.choice ? arcanaChoiceCandidates(entries, selection.choice) : undefined
           const descriptionEntry = arcanaChoiceEntry ?? currentEntry
           const descriptionName = arcanaChoiceEntry ? displayName(arcanaChoiceEntry.name) : selectedName
           const showFeatActionControls = !!currentEntry && FEAT_ACTION_CONTROLS.has(currentEntry.name)
