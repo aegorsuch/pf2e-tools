@@ -45,6 +45,15 @@ export function familiarSelection(c: Character) {
   return { leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, spiritFamiliar, dailyAbilityLimit, glyph }
 }
 
+export function purifyAirAvailable(c: Character) {
+  const feat = activeFeatsNamed(c, 'Leshy Familiar Secrets')[0]
+  return familiarSelection(c).leshy && !!feat && (feat.choice ?? c.familiar?.leshySecret) === 'Purify Air'
+}
+
+export function purifyAirActive(c: Character) {
+  return !!c.familiar?.purifyAirActive && purifyAirAvailable(c)
+}
+
 export function witchPatronFamiliarAbility(c: Character, entries: ContentEntry[]) {
   const selected = c.className === 'Witch' ? selectedSubclass(c, entries) : undefined
   if (!selected) return undefined

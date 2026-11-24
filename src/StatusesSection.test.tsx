@@ -1,7 +1,7 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { savingThrowBreakdown } from './builder'
+import { protectCompanionTarget, savingThrowBreakdown } from './builder'
 import { DeviseAStratagemToggle, StatusesContent, StatusesSummary } from './StatusesSection'
 import { ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
 import { fulminatingShotBonus } from './fulminatingShot'
@@ -51,6 +51,33 @@ it('synchronizes condition and Zealous Conviction state with character statistic
   expect(c.zealousConvictionRank).toBeUndefined()
 })
 
+it('tracks Purify Air within the familiar aura without changing ordinary saves', () => {
+  let c: Character = { id: 'purify-air', name: 'Test', systems: ['pf2e'], level: 4, className: 'Druid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 },
+      { name: 'Leshy Familiar Secrets', type: 'Class Feat', level: 4, choice: 'Purify Air' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const baseline = savingThrowBreakdown(c, [], 'Fortitude').total
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).not.toContain('Purify Air')
+  findToggle(StatusesContent({ c, entries: [], save }), 'Purify Air status')!({ target: { checked: true } })
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).toContain('Purify Air')
+  for (const name of ['Fortitude', 'Reflex', 'Will'] as const) {
+    const breakdown = savingThrowBreakdown(c, [], name)
+    expect(breakdown.total).toBe(baseline)
+    expect(breakdown.notes).toContainEqual(expect.stringContaining('Purify Air: +2 circumstance'))
+  }
+  c = { ...c, feats: c.feats.map(feat => feat.name === 'Leshy Familiar Secrets' ? { ...feat, choice: 'Verdant Burst' } : feat) }
+  expect(findToggle(StatusesContent({ c, entries: [], save }), 'Purify Air status')).toBeUndefined()
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).not.toContain('Purify Air')
+  expect(savingThrowBreakdown(c, [], 'Fortitude').notes ?? []).not.toContainEqual(expect.stringContaining('Purify Air'))
+  c = { ...c, feats: c.feats.map(feat => feat.name === 'Leshy Familiar Secrets' ? { ...feat, choice: undefined } : feat),
+    familiar: { ...c.familiar, leshySecret: 'Purify Air' } }
+  expect(findToggle(StatusesContent({ c, entries: [], save }), 'Purify Air status')).toBeTypeOf('function')
+  findToggle(StatusesContent({ c, entries: [], save }), 'Purify Air status')!({ target: { checked: false } })
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).not.toContain('Purify Air')
+})
+
 it('synchronizes Protect Companion target and active state', () => {
   let c: Character = { id: 'c', name: 'Test', systems: ['pf2e'], level: 5,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
@@ -68,6 +95,23 @@ it('synchronizes Protect Companion target and active state', () => {
   expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).toContain('Protect Companion')
   input.props.onChange({ target: { checked: false } })
   expect(c.activeSpells).not.toContain('Protect Companion')
+})
+
+it('allows Protect Companion with only a familiar, including Calistria’s wasp', () => {
+  let c: Character = { id: 'c', name: 'Test', systems: ['pf2e'], level: 5, className: 'Witch',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    spells: [{ name: 'Protect Companion', rank: 0, cantrip: true }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  expect(protectCompanionTarget(c)?.familiar).toBe('primary')
+  findToggle(ProtectCompanionOptions({ c, save }), 'Protect Companion active')!({ target: { checked: true } })
+  expect(c.protectCompanionFamiliar).toBe('primary')
+  expect(c.activeSpells).toContain('Protect Companion')
+  c = { ...c, className: 'Druid', deity: 'Calistria', divineIntercessions: { Calistria: ['moderate-boon'] } }
+  expect(protectCompanionTarget(c)?.familiar).toBe('wasp')
+  findToggle(ProtectCompanionOptions({ c, save, familiarTarget: 'wasp' }), 'Protect Companion on Wasp Familiar')!
+    ({ target: { checked: true } })
+  expect(c.protectCompanionFamiliar).toBe('wasp')
 })
 
 it('shows Protect Companion details and an action control in statuses', () => {

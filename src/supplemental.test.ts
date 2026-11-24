@@ -398,6 +398,19 @@ it('offers Mounted Parry as a Cavalier feat requiring its dedication', () => {
   expect(eligibleFeats([mountedParry, dedication], { ...c, feats: [] }, slot)).not.toContain(mountedParry)
 })
 
+it('offers Spirit of the Alpha to Druids without changing its Beastmaster version', () => {
+  const entries = homebrewCharacterOptions([])
+  const druidFeat = entries.find(entry => entry.id === 'homebrew:spirit-of-the-alpha-druid')!
+  const beastmasterFeat = entries.find(entry => entry.id === 'homebrew:spirit-of-the-alpha')!
+  const c: Character = { ...base, className: 'Druid', level: 20, feats: [] }
+  const slot = { key: 'class:20:0', category: 'class' as const, level: 20 }
+  expect(eligibleFeats(entries, c, slot)).toContain(druidFeat)
+  expect(eligibleFeats(entries, { ...c, level: 19 }, { ...slot, level: 18 })).not.toContain(druidFeat)
+  expect(eligibleFeats(entries, { ...c, className: 'Ranger' }, slot)).not.toContain(druidFeat)
+  expect(beastmasterFeat.data).toMatchObject({ archetype: 'Beastmaster', prerequisite: 'Beastmaster Dedication' })
+  expect(druidFeat.description).toBe(beastmasterFeat.description)
+})
+
 it('offers Persistent Magic Hide through Beastmaster at level ten without opening other Ranger persistent feats', () => {
   const persistent = homebrewCharacterOptions([])
   const hide = persistent.find(entry => entry.name === 'Persistent Magic Hide')!

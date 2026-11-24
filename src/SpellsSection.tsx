@@ -1,7 +1,7 @@
 import { EntryDescription } from './EntryDescription'
 import { confirmRemoval } from './confirmRemoval'
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeBattleForm, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, investigatorMethodologies, isMagicHideActive, isSpellActive, knowsSpell, magicHideChange, proficiencyBonus, rogueRackets, signed, spellActiveChange, spellRemovalChange, untamedShiftChoices, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeBattleForm, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, investigatorMethodologies, isMagicHideActive, isSpellActive, knowsSpell, magicHideChange, proficiencyBonus, protectCompanionTarget, protectCompanionTargets, rogueRackets, signed, spellActiveChange, spellRemovalChange, untamedShiftChoices, type SectionProps } from './builder'
 import { ANIMAL_FEATURES, PERSISTENT_SPELLS } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { featTakenLevel, grantedWardenSpells, selectedFeatEntry, spellWardenLabel } from './featChoices'
@@ -793,27 +793,34 @@ export function CompanionSpellOptions({ c, entries, save, name, companionId, tog
   </div>
 }
 
-export function ProtectCompanionOptions({ c, save, companionId, disabled, entries, showDetails }: Pick<SectionProps, 'c' | 'save'>
-  & { companionId?: string; disabled?: boolean; entries?: ContentEntry[]; showDetails?: boolean }) {
-  const targetId = companionSpellTarget(c, c.protectCompanionId)
+export function ProtectCompanionOptions({ c, save, companionId, familiarTarget, disabled, entries, showDetails }: Pick<SectionProps, 'c' | 'save'>
+  & { companionId?: string; familiarTarget?: 'primary' | 'wasp'; disabled?: boolean; entries?: ContentEntry[]; showDetails?: boolean }) {
+  const targets = protectCompanionTargets(c)
+  const target = protectCompanionTarget(c)
   const active = !!c.activeSpells?.includes('Protect Companion')
-  const target = companionId ?? targetId
-  const companion = c.companions?.find(item => item.id === companionId)
+  const specificTarget = targets.find(item => companionId !== undefined ? item.companionId === companionId
+    : familiarTarget !== undefined && item.familiar === familiarTarget)
+  const selected = companionId !== undefined || familiarTarget !== undefined ? specificTarget : target
   const entry = entries?.find(item => item.kind === 'spell' && !item.deleted && item.name === 'Protect Companion'
     && item.systems.some(system => c.systems.includes(system)))
+  const selectTarget = (item: NonNullable<typeof target>) => ({
+    protectCompanionId: item.companionId, protectCompanionFamiliar: item.familiar,
+  })
   return <div className="row">
-    <label><input type="checkbox" aria-label={companionId ? `Protect Companion on ${companion?.name || companion?.type}` : 'Protect Companion active'}
-      checked={active && (!companionId || companionId === targetId)} disabled={!active && (!target || disabled)}
-      onChange={event => save({ ...spellActiveChange(c, 'Protect Companion', event.target.checked), protectCompanionId: target })} />
+    <label><input type="checkbox" aria-label={specificTarget ? `Protect Companion on ${specificTarget.name}` : 'Protect Companion active'}
+      checked={active && (!specificTarget || specificTarget.key === target?.key)} disabled={!active && (!selected || disabled)}
+      onChange={event => save({ ...spellActiveChange(c, 'Protect Companion', event.target.checked),
+        ...(selected ? selectTarget(selected) : {}) })} />
       {!showDetails && ' Protect Companion'}</label>
     {showDetails && <><EntryDescription name="Protect Companion" entry={entry} entries={entries} character={c} hideButtonActions />
       {' '}<ActiveSpellActions name="Protect Companion" entry={entry} actions="Single Action">
-        <ProtectCompanionOptions c={c} save={save} companionId={companionId} disabled={disabled} />
+        <ProtectCompanionOptions c={c} save={save} companionId={companionId} familiarTarget={familiarTarget} disabled={disabled} />
       </ActiveSpellActions></>}
-    {!companionId && (c.companions?.length ?? 0) > 1 && <label>Companion{' '}
-      <select aria-label="Protect Companion target" value={targetId ?? ''} onChange={event => {
-        if (c.companions?.some(item => item.id === event.target.value)) save({ protectCompanionId: event.target.value })
-      }}>{c.companions?.map(item => <option key={item.id} value={item.id}>{item.name || item.type}</option>)}</select>
+    {!companionId && !familiarTarget && targets.length > 1 && <label>Target{' '}
+      <select aria-label="Protect Companion target" value={target?.key ?? ''} onChange={event => {
+        const selectedTarget = targets.find(item => item.key === event.target.value)
+        if (selectedTarget) save(selectTarget(selectedTarget))
+      }}>{targets.map(item => <option key={item.key} value={item.key}>{item.name}</option>)}</select>
     </label>}
   </div>
 }

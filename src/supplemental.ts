@@ -303,6 +303,7 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     && entry.name === 'Twinned Defense (Fighter)' && entry.traits.includes('Fighter'))
   const twinParry = entries.find(entry => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
     && entry.name === 'Twin Parry' && entry.traits.includes('Ranger'))
+  const spiritOfTheAlphaDescription = 'Your bond with your companions grants them the full might of the wild. Spirit of the Beast gains a new option, Aspect of the Alpha, which lasts until your next daily preparations. It gives a +3 status bonus from all three aspects at once: Might (Fortitude saves, Athletics and Intimidation), Swiftness (Reflex saves, Acrobatics and Stealth) and Insight (Will saves, Perception and Survival).'
   const divineSpellVariants = ['Ignition', 'Tailwind'].flatMap(name => {
     const spell = entries.find(entry => entry.kind === 'spell' && entry.source === 'official' && !entry.deleted
       && entry.name === name && entry.systems.includes('pf2e'))
@@ -320,10 +321,16 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
   ].flatMap(({ sourceId, id, name, classes, oldClasses }) => {
     const original = entries.find(entry => entry.id === sourceId && entry.kind === 'feat' && entry.source === 'official' && !entry.deleted)
     if (!original) return []
+    const data = Object.fromEntries(Object.entries(original.data).filter(([key, value]) =>
+      !['archetype', 'archetype_levels'].includes(key)
+      && !(sourceId === 'aon:pf2e:feat-5418' && key === 'prerequisite' && /^zoophonia muse$/i.test(String(value).trim()))))
+    const description = sourceId === 'aon:pf2e:feat-5418'
+      ? original.description.split('\n\n').filter(part => !/^prerequisites?:?\s+zoophonia muse\.?$/i.test(part.trim())).join('\n\n')
+      : original.description
     return [{ ...original, id, name, source: 'homebrew' as const,
+      description,
       traits: [...new Set([...original.traits.filter(trait => !oldClasses.includes(trait)), ...classes])],
-      data: { ...Object.fromEntries(Object.entries(original.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))),
-        class: classes.join(', '), ...(id === 'homebrew:instinctive-support' ? { prerequisite: 'Animal Companion or Faithful Steed' } : {}) }, updatedAt: 1 }]
+      data: { ...data, class: classes.join(', '), ...(id === 'homebrew:instinctive-support' ? { prerequisite: 'Animal Companion or Faithful Steed' } : {}) }, updatedAt: 1 }]
   })
   const favoredWeaponSymbol = homebrewFeat('favored-weapon-symbol', 'Favored Weapon Symbol', 1, ['Champion', 'Cleric'],
     "You cultivate a divine conduit within your deity's symbol that can manifest into your deity's favored weapon. You spend 10 minutes focusing divine energy into your deity's symbol, imprinting it with the potential of your deity's favored weapon.\n\nWhen holding or wearing the imprinted holy symbol, you can use an Interact action to cause the divine energy to surge outward, immediately growing the weapon directly from the symbol into your hand. A second Interact action causes the divine matter to swiftly retract back into the holy symbol.\n\nThe favored weapon from your icon can be etched with weapon runes or affixed with talismans as normal, which are safely suppressed when the weapon is retracted inside the symbol.", { class: 'Champion, Cleric' })
@@ -406,8 +413,9 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       'While mounted, your mount also gains the circumstance bonus to AC from your active parry.',
       { archetype: 'Cavalier', prerequisite: 'Cavalier Dedication' }),
     homebrewFeat('spirit-of-the-alpha', 'Spirit of the Alpha', 20, ['Archetype'],
-      'Your bond with your companions grants them the full might of the wild. Spirit of the Beast gains a new option, Aspect of the Alpha, which lasts until your next daily preparations. It gives a +3 status bonus from all three aspects at once: Might (Fortitude saves, Athletics and Intimidation), Swiftness (Reflex saves, Acrobatics and Stealth) and Insight (Will saves, Perception and Survival).',
-      { archetype: 'Beastmaster', prerequisite: 'Beastmaster Dedication' }),
+      spiritOfTheAlphaDescription, { archetype: 'Beastmaster', prerequisite: 'Beastmaster Dedication' }),
+    homebrewFeat('spirit-of-the-alpha-druid', 'Spirit of the Alpha', 20, ['Druid'],
+      spiritOfTheAlphaDescription, { class: 'Druid' }),
     homebrewFeat('greywatch-initiate', 'Greywatch Initiate', 4, ['Gunslinger', 'Investigator', 'Ranger', 'Rare'],
       "You've received the basic training developed for all Greywatch recruits. You become an expert in Deception and gain the Face in the Crowd and Lengthy Diversion skill feats.",
       { class: 'Gunslinger, Investigator, Ranger', prerequisite: 'Trained in Deception' }),

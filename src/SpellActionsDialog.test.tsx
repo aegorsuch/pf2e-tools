@@ -5,8 +5,100 @@ import { expect, it, vi } from 'vitest'
 import { SpellActions } from './SpellDamage'
 import { SpellsSection, SpiritOfTheBeastOptions } from './SpellsSection'
 import { StatusesContent } from './StatusesSection'
+import { MinionsSection } from './MinionsSection'
 import { resistances } from './builder'
+import { companionStats } from './companions'
 import type { Character, ContentEntry } from './types'
+
+it('targets a Witch familiar with Protect Companion instead of its animal companion', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const bear: ContentEntry = { id: 'bear', name: 'Bear', systems: ['pf2e'], kind: 'companion', source: 'official',
+    level: 1, traits: [], description: '', data: { size: 'Small', hp: 8, dexterity: 2 },
+    effects: [], updatedAt: 0 }
+  const initial: Character = { id: 'c', name: 'Test', systems: ['pf2e'], level: 5, className: 'Witch',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    spells: [{ name: 'Protect Companion', rank: 0, cantrip: true }],
+    companions: [{ id: 'bear', type: 'Bear', name: '' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  let current = initial
+  function Sheet() {
+    const [c, setC] = useState(initial)
+    current = c
+    const save = (patch: Partial<Character>) => setC(previous => ({ ...previous, ...patch }))
+    return <><StatusesContent c={c} entries={[bear]} save={save} /><MinionsSection c={c} entries={[bear]} save={save} /></>
+  }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<Sheet />))
+    const familiarAc = () => Number(container.querySelector('[data-minion-name="Witch\'s Familiar"] .gear-stats span:nth-child(2) b')?.textContent)
+    const baseAc = familiarAc()
+    const baseBearAc = companionStats(current, [bear], 'Bear', undefined, 'bear')!.ac
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Protect Companion active"]')!.click())
+    expect(companionStats(current, [bear], 'Bear', undefined, 'bear')!.ac).toBe(baseBearAc + 1)
+    expect(familiarAc()).toBe(baseAc)
+    const target = container.querySelector<HTMLSelectElement>('[aria-label="Protect Companion target"]')!
+    await act(async () => { target.value = 'familiar:primary'; target.dispatchEvent(new Event('change', { bubbles: true })) })
+    expect(current.protectCompanionFamiliar).toBe('primary')
+    expect(companionStats(current, [bear], 'Bear', undefined, 'bear')!.ac).toBe(baseBearAc)
+    expect(familiarAc()).toBe(baseAc + 1)
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Protect Companion on Familiar"]')!.checked).toBe(true)
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Protect Companion on Familiar"]')!.click())
+    expect(familiarAc()).toBe(baseAc)
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('rolls and hides familiar and companion ability results', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  const cat: ContentEntry = { id: 'cat', name: 'Cat', systems: ['pf2e'], kind: 'companion', source: 'official',
+    level: 1, traits: [], description: '', data: { size: 'Medium', companion_attacks: 'Claw|1d6 slashing|agile' },
+    effects: [], updatedAt: 0 }
+  const base: Character = { id: 'c', name: 'Test', systems: ['pf2e'], level: 10,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const druid: Character = { ...base, className: 'Druid',
+    feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 },
+      { name: 'Leshy Familiar Secrets', type: 'Class Feat', level: 4, choice: 'Verdant Burst' },
+      { name: 'Vicious Rend', type: 'Archetype Feat', level: 10 }],
+    companions: [{ id: 'cat', type: 'Cat', name: '' }] }
+  const witch: Character = { ...base, className: 'Witch',
+    feats: [{ name: 'Spirit Familiar (Witch)', type: 'Class Feat', level: 8 }] }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<MinionsSection c={druid} entries={[cat]} save={() => {}} />))
+    for (const [label, resultLabel, expected] of [
+      ['Roll Verdant Burst: Healing and Additional plant healing', 'Verdant Burst: Healing result', 'Healing: 4 HP; Additional plant healing: 8 HP'],
+      ['Roll Vicious Rend: Persistent bleed', 'Vicious Rend: Persistent bleed result', '1 bleed'],
+    ]) {
+      const button = container.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!
+      expect(button).toBeTruthy()
+      await act(async () => button.click())
+      expect(container.querySelector(`[aria-label="${resultLabel}"]`)?.textContent).toContain(expected)
+      await act(async () => button.click())
+      expect(container.querySelector(`[aria-label="${resultLabel}"]`)).toBeNull()
+    }
+    await act(async () => root.render(<MinionsSection c={witch} entries={[]} save={() => {}} />))
+    const shed = container.querySelector<HTMLButtonElement>('[aria-label="Roll Shed Spirit: Damage"]')!
+    expect(shed).toBeTruthy()
+    await act(async () => shed.click())
+    expect(container.querySelector('[aria-label="Shed Spirit: Damage result"]')?.textContent).toContain('8 spirit')
+    await act(async () => shed.click())
+    expect(container.querySelector('[aria-label="Shed Spirit: Damage result"]')).toBeNull()
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  }
+})
 
 it('rolls Sun Blade with selected sunlight and target damage, and Lay on Hands healing', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)

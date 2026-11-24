@@ -1780,6 +1780,8 @@ it('heightens Grown of Oak automatically for the character and leshy familiar', 
   expect(defenses(c)).toContain('bludgeoning 4, piercing 4')
   expect(defenses(c)).toContain('fire 6')
   expect(defenses(c)).toContain('(Oaken Resilience)')
+  expect(defenses(c)).not.toContain('aria-label="Oaken Resilience note"')
+  expect(minions(c)).not.toContain('aria-label="Grown of Oak note"')
   expect(defenses({ ...c, level: 18 })).toContain('bludgeoning 8, piercing 8')
   expect(defenses({ ...c, level: 18 })).toContain('fire 12')
   expect(defenses({ ...c, activeSpells: [] })).not.toContain('Oaken Resilience')

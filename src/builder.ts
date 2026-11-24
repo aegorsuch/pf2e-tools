@@ -25,7 +25,7 @@ import { minorMagicSpells } from './minorMagic'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 import { eruditeWarrior, isSoldier, soldierStyle } from './soldier'
 import { isWitchwarper, witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellcasting, witchwarperSpellOptions, witchwarperSpellSlots } from './witchwarper'
-import { familiarSpellBenefits } from './familiarAbilities'
+import { familiarSelection, familiarSpellBenefits, purifyAirActive } from './familiarAbilities'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
 import { boostingTheBasics } from './mechanicMods'
@@ -5390,6 +5390,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
       ? ['Timeless Nature: +2 status against diseases and primal magic; status bonuses do not stack.'] : []),
     ...(activeFeatsNamed(c, 'Breath Control').length || isFeatEffectActive(c, 'Fisheye')
       ? [`${isFeatEffectActive(c, 'Fisheye') ? 'Fisheye' : 'Breath Control'}: +1 circumstance against inhaled${isFeatEffectActive(c, 'Fisheye') ? ' or olfactory' : ''} effects; a success becomes a critical success. Circumstance bonuses do not stack.`] : []),
+    ...(purifyAirActive(c)
+      ? ['Purify Air: +2 circumstance against inhaled poison, olfactory, and other breathing-dependent effects within 15 feet of the familiar, at the GM’s discretion. Circumstance bonuses do not stack.'] : []),
     ...(activeFeatsNamed(c, 'Current Spell').length && c.currentSpell
       ? [`Current Spell: +1 circumstance against ${c.currentSpell === 'air and water' ? 'air or water' : c.currentSpell} effects; circumstance bonuses do not stack.`] : []),
     ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Fire Resistance').length
@@ -6746,6 +6748,25 @@ export function magicHideTarget(c: Character) {
 
 export function companionSpellTarget(c: Character, savedId?: string) {
   return c.companions?.find((companion) => companion.id === savedId)?.id ?? c.companions?.[0]?.id
+}
+
+export function protectCompanionTargets(c: Character) {
+  const { familiar, wasp } = familiarSelection(c)
+  return [
+    ...(c.companions ?? []).map(companion => ({ key: `companion:${companion.id}`, name: companion.name || companion.type,
+      companionId: companion.id, familiar: undefined })),
+    ...(familiar ? [{ key: 'familiar:primary', name: c.familiar?.name || 'Familiar',
+      companionId: undefined, familiar: 'primary' as const }] : []),
+    ...(wasp ? [{ key: 'familiar:wasp', name: c.waspFamiliar?.name || 'Wasp Familiar',
+      companionId: undefined, familiar: 'wasp' as const }] : []),
+  ]
+}
+
+export function protectCompanionTarget(c: Character) {
+  const targets = protectCompanionTargets(c)
+  return targets.find(target => c.protectCompanionFamiliar
+    ? target.familiar === c.protectCompanionFamiliar : target.companionId !== undefined && target.companionId === c.protectCompanionId)
+    ?? targets[0]
 }
 
 export function spellActiveChange(c: Character, name: string, active: boolean): Pick<Character, 'activeSpells'> & Partial<Pick<Character, 'activeFeatEffects' | 'giantStature' | 'dragonTransformation' | 'animalRageForm' | 'creatureShape'>> {

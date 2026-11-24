@@ -45,7 +45,8 @@ export function beastmasterRequirementMissing(c: Character, entries: ContentEntr
   return met ? undefined : feat.requirement
 }
 
-export type BeastmasterManeuver = { name: string; actions: string; traits?: string; requirements?: string; description: string }
+export type BeastmasterManeuver = { name: string; actions: string; traits?: string; requirements?: string; description: string
+  damage?: { label: string; dice: number; sides: number; type: string } }
 
 // Activities and passive abilities the companion gains from Beastmaster feats it qualifies for
 export function beastmasterAbilities(c: Character, level: number, strength: number, specialized: boolean, companion: CompanionShape) {
@@ -60,6 +61,7 @@ export function beastmasterAbilities(c: Character, level: number, strength: numb
   if (has('Running Kick')) maneuvers.push({ name: 'Running Kick', actions: 'Two Actions',
     description: "This companion Strides up to twice its Speed and makes a hoof, foot, or talon Strike at any point during the movement. This movement doesn't provoke reactions from a creature damaged by the Strike." })
   if (has('Vicious Rend')) maneuvers.push({ name: 'Vicious Rend', actions: 'Two Actions',
+    damage: { label: 'Persistent bleed', dice: specialized ? 2 : 1, sides: 6, type: 'bleed' },
     description: `Make two claw, fist, pincer, or talon Strikes against the same target, applying the multiple attack penalty as normal. If both Strikes hit, the target takes an additional ${specialized ? '2d6' : '1d6'} persistent bleed damage.` })
   if (has('Ferocious Charge')) maneuvers.push({ name: 'Ferocious Charge', actions: 'Two Actions',
     description: `The companion Strides up to twice its Speed in a straight line and makes an antlers, head, or horn Strike. If it moved at least 20 feet, it deals an additional ${specialized ? '2d8' : '1d8'} damage. The companion can use Ferocious Charge while Burrowing, Climbing, Flying, or Swimming instead of Striding if it has the corresponding movement type.` })

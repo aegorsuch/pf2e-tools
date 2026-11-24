@@ -83,7 +83,7 @@ it('lists copied class feats as homebrew without changing official feats', () =>
     _id: 'feat-5418',
     _source: {
       name: 'Ears of the Forest', category: 'feat', level: 8, trait: ['Bard', 'Auditory'],
-      prerequisite: 'Zoophonia Muse', markdown: 'Ears of the Forest rules.',
+      prerequisite: 'Zoophonia Muse', markdown: '**Prerequisites**\n[zoophonia muse](/Muses.aspx?ID=9)\n\nEars of the Forest rules.',
     },
   }, { _id: 'feat-4602', _source: {
     name: 'Steady Spellcasting', category: 'feat', level: 6, trait: ['Bard', 'Druid', 'Wizard'],
@@ -98,10 +98,14 @@ it('lists copied class feats as homebrew without changing official feats', () =>
   expect(entries[2].traits).toEqual(['Bard', 'Druid', 'Wizard'])
   expect(copies[0]).toMatchObject({ name: 'Deimatic Display (Ranger)', source: 'homebrew', level: 8,
     description: entries[0].description, traits: ['Visual', 'Ranger'], data: { prerequisite: 'Trained in Intimidation', class: 'Ranger' } })
-  expect(copies[1]).toMatchObject({ name: 'Ears of the Forest (Druid)', description: entries[1].description,
-    traits: ['Auditory', 'Druid'], data: { prerequisite: 'Zoophonia Muse', class: 'Druid' } })
-  expect(copies[2]).toMatchObject({ name: 'Ears of the Forest (Ranger)', description: entries[1].description,
-    traits: ['Auditory', 'Ranger'], data: { prerequisite: 'Zoophonia Muse', class: 'Ranger' } })
+  expect(entries[1].data.prerequisite).toBe('Zoophonia Muse')
+  expect(entries[1].description).toContain('Prerequisites zoophonia muse')
+  expect(copies[1]).toMatchObject({ name: 'Ears of the Forest (Druid)', description: 'Ears of the Forest rules.',
+    traits: ['Auditory', 'Druid'], data: { class: 'Druid' } })
+  expect(copies[2]).toMatchObject({ name: 'Ears of the Forest (Ranger)', description: 'Ears of the Forest rules.',
+    traits: ['Auditory', 'Ranger'], data: { class: 'Ranger' } })
+  expect(copies[1].data.prerequisite).toBeUndefined()
+  expect(copies[2].data.prerequisite).toBeUndefined()
   const steady = copies[3]
   expect(steady).toMatchObject({ name: 'Steady Spellcasting', level: 6, traits: ['Ranger', 'Champion'],
     description: entries[2].description, data: { class: 'Ranger, Champion' } })
@@ -123,6 +127,10 @@ it('lists copied class feats as homebrew without changing official feats', () =>
   }
   expect(eligibleFeats([steady], { ...base, className: 'Fighter' },
     { key: 'class:6:0', category: 'class', level: 6 })).not.toContain(steady)
+  for (const [index, className] of [[1, 'Druid'], [2, 'Ranger']] as const) {
+    expect(eligibleFeats([...entries, ...copies], { ...base, level: 8, className },
+      { key: 'class:8:0', category: 'class', level: 8 })).toContain(copies[index])
+  }
 })
 
 it('copies Instinctive Support to Ranger, Champion, and Bard without changing the Druid original', () => {

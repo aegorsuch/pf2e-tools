@@ -8,6 +8,7 @@ import { SimplePoisons } from './GearSection'
 import { isBastionNamedArmor } from './namedArmor'
 import { FULMINATING_SHOT_ELEMENTS, fulminatingShotBonus } from './fulminatingShot'
 import { confirmRemoval } from './confirmRemoval'
+import { purifyAirActive, purifyAirAvailable } from './familiarAbilities'
 
 const canDeviseAStratagem = (c: SectionProps['c']) => c.systems.includes('pf2e') && c.className === 'Investigator'
 
@@ -51,6 +52,7 @@ export function StatusesSummary({ c, entries }: SectionProps) {
       ? [`Poison Weapon ${poisonTotal - poisonSpent}/${poisonTotal}${c.poisonWeaponActive ? ' (active)' : ''}`] : []),
     ...(entrenchMeleeActive(c, entries) ? ['Entrench Melee'] : []),
     ...(fulminatingShotBonus(c) ? [`Fulminating Shot (${fulminatingShotBonus(c)})`] : []),
+    ...(purifyAirActive(c) ? ['Purify Air'] : []),
     ...c.activeSpells ?? [],
     ...(c.summonedUndead ? ['Summon Undead'] : []),
     ...(c.summonedFiend ? ['Summon Fiend'] : []),
@@ -98,6 +100,10 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       ? [{ name: 'Devise a Stratagem', element: <DeviseAStratagemToggle c={c} save={save} /> }] : []),
     ...(hasHuntPrey(c, entries)
       ? [{ name: 'Hunt Prey', element: <HuntPreyToggle c={c} entries={entries} save={save} /> }] : []),
+    ...(purifyAirAvailable(c) ? [{ name: 'Purify Air', element: <label>
+      <input type="checkbox" aria-label="Purify Air status" checked={purifyAirActive(c)}
+        onChange={event => save({ familiar: { ...c.familiar, purifyAirActive: event.target.checked } })} /> Purify Air
+    </label> }] : []),
     ...(entrenchArmors.length ? [{ name: 'Entrench Melee', element: <div>{entrenchArmors.map(armor => {
       const entry = armorEntry(c, entries, armor.name, armor.id)
       const disabled = !armor.worn || !entry || !armorProficiencyRank(c, entries, entry) || !!armor.inheritorCloakRed

@@ -786,7 +786,7 @@ it('shows feat-granted familiar choices and a separate aquatic pet with bonus ab
   const html = renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => {}} />)
   expect(html).toContain('Leshy Familiar')
   expect(html).toContain('</h4> (2/5)')
-  expect(html).toContain('aria-haspopup="dialog">Fungus</button>')
+  expect(html).toContain('aria-haspopup="dialog">Leshy Familiar (Fungus)</button>')
   expect(html).toContain('Aquatic Pet')
   expect(html).toContain('<small>Hit Points</small><b>56</b>')
   expect(html).toContain('aria-haspopup="dialog">Darkvision</button>')
@@ -922,7 +922,8 @@ it('selects, details, removes, and applies familiar abilities without exposing s
   const spell = { id: 'cm', systems: ['pf2e'], kind: 'spell', source: 'official', name: 'Cursed Metamorphosis', level: 6, traits: [], description: 'Polymorph.', data: {}, effects: [], updatedAt: 0 } as unknown as ContentEntry
   html = renderToStaticMarkup(MinionsContent({ c, entries: [...familiarEntries, spell], save: () => {} }))
   expect(html).toContain('<h5>Spells</h5>')
-  expect(html).toContain('Cursed Metamorphosis')
+  expect(html).toContain('aria-haspopup="dialog">Cursed Metamorphosis</button>')
+  expect(html).toContain('<p class="companion-description">Polymorph.</p>')
   c = saved
   html = renderToStaticMarkup(tree())
   expect(html).toContain('<small>Hit Points</small><b>56</b>')
@@ -1138,22 +1139,22 @@ it('shows Leshy Familiar variants chosen on the feat without duplicate picker ch
   }
   const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
   let html = renderToStaticMarkup(tree())
-  expect(html).toContain('<h4>Leshy Familiar (Fungus)</h4> (3/3)')
-  expect(renderToStaticMarkup(<MinionsSummary c={c} entries={familiarEntries} />)).toContain('Leshy Familiar (Fungus) (3/3)')
+  expect(html).toContain('<h4>Leshy Familiar</h4> (3/3)')
+  expect(renderToStaticMarkup(<MinionsSummary c={c} entries={familiarEntries} />)).toContain('Leshy Familiar (3/3)')
   expect(html).not.toContain('aria-label="Specific familiar"')
-  expect(html).toContain('aria-haspopup="dialog">Fungus</button>')
+  expect(html).toContain('aria-haspopup="dialog">Leshy Familiar (Fungus)</button>')
   expect(findSelect(tree(), 'Leshy familiar ability')).toBeUndefined()
   c = { ...c, feats: [{ ...c.feats[0], choice: 'Plant' }] }
   expect(c.familiar?.leshyAbility).toBe('Fungus')
   html = renderToStaticMarkup(tree())
-  expect(html).toContain('<h4>Leshy Familiar (Plant)</h4> (3/3)')
-  expect(renderToStaticMarkup(<MinionsSummary c={c} entries={familiarEntries} />)).toContain('Leshy Familiar (Plant) (3/3)')
-  expect(html).toContain('aria-haspopup="dialog">Plant</button>')
-  expect(html).not.toContain('aria-haspopup="dialog">Fungus</button>')
+  expect(html).toContain('<h4>Leshy Familiar</h4> (3/3)')
+  expect(renderToStaticMarkup(<MinionsSummary c={c} entries={familiarEntries} />)).toContain('Leshy Familiar (3/3)')
+  expect(html).toContain('aria-haspopup="dialog">Leshy Familiar (Plant)</button>')
+  expect(html).not.toContain('aria-haspopup="dialog">Leshy Familiar (Fungus)</button>')
   expect(html.match(/aria-label="Remove Leshy familiar ability \d+"/g)).toHaveLength(2)
 })
 
-it('switches Divine Emissary variants in the familiar picker without using ordinary slots', () => {
+it('keeps Divine Emissary choices on the feat without a duplicate familiar picker', () => {
   let c: Character = {
     id: 'emissary-switch', systems: ['pf2e'], name: 'Test', level: 6, className: 'Witch',
     abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
@@ -1163,8 +1164,14 @@ it('switches Divine Emissary variants in the familiar picker without using ordin
   }
   const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
   expect(renderToStaticMarkup(tree())).toContain('aria-haspopup="dialog">Luminous</button>')
+  expect(findSelect(tree(), 'Familiar ability')).toBeUndefined()
+  c = { ...c, familiar: { abilities: [] } }
+  expect(hasOption(tree(), 'familiar:Flier')).toBe(true)
+  expect(hasOption(tree(), 'divine-emissary:radiant')).toBe(false)
   findSelect(tree(), 'Familiar ability')!({ target: { value: 'divine-emissary:radiant' } })
-  expect(c.feats[0].choice).toBe('Radiant')
+  expect(c.feats[0].choice).toBeUndefined()
+  c = { ...c, familiar: { abilities: ['Tough', 'Flier', 'Climber', 'Amphibious', 'Scent', 'Luminous'] } }
+  c = { ...c, feats: [{ ...c.feats[0], choice: 'Radiant' }] }
   expect(c.familiar?.abilities).toContain('Luminous')
   const html = renderToStaticMarkup(tree())
   expect(html).toContain('aria-haspopup="dialog">Radiant</button>')
@@ -1331,10 +1338,10 @@ it('keeps one familiar while preserving dormant Calistria wasp choices', () => {
   const before = JSON.stringify(c.familiar)
   let html = markup()
   expect(saves).toBe(0)
-  expect(html).toContain('<h4>Leshy Familiar (Fungus)</h4>')
+  expect(html).toContain('<h4>Leshy Familiar</h4>')
   expect(html).not.toContain('Wasp Familiar')
   expect(html).not.toContain('Burrower')
-  expect(html).toContain('aria-haspopup="dialog">Fungus</button>')
+  expect(html).toContain('aria-haspopup="dialog">Leshy Familiar (Fungus)</button>')
   expect(html).toContain('<small>Hit Points</small><b>56</b>')
   expect(html).not.toContain('(includes Tough)')
   c = { ...c, feats: [] }
@@ -1585,8 +1592,13 @@ it('provides one extra Leshy Familiar Secrets ability and requires second-rank s
   expect(c.familiar?.abilities).toEqual(['Flier'])
   c = { ...c, feats: c.feats.map(feat => feat.name === 'Leshy Familiar Secrets' ? { ...feat, choice: 'Verdant Burst' } : feat) }
   expect(renderToStaticMarkup(tree())).toContain('three-action Heal at rank 1')
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="Roll Verdant Burst: Healing and Additional plant healing"')
+  expect(renderToStaticMarkup(tree())).toContain('Healing: 1d8 HP; Additional plant healing: 2 HP')
+  expect(renderToStaticMarkup(MinionsContent({ c: { ...c, level: 10 }, entries: familiarEntries, save: () => {} })))
+    .toContain('Healing: 4d8 HP; Additional plant healing: 8 HP')
   c = { ...c, className: 'Ranger' }
   expect(renderToStaticMarkup(tree())).toContain('Verdant Burst requires a 2nd-rank spell slot')
+  expect(renderToStaticMarkup(tree())).not.toContain('Roll Verdant Burst')
   c = { ...c, feats: c.feats.map(feat => feat.name === 'Leshy Familiar Secrets' ? { ...feat, choice: 'Purify Air' } : feat) }
   expect(renderToStaticMarkup(tree())).toContain('+2 circumstance to saves against inhaled effects')
   c = { ...c, feats: c.feats.slice(0, 1) }
@@ -2042,6 +2054,23 @@ it('adds Beastmaster specialization slots beside existing companion specializati
   const earlier = MinionsContent({ c: { ...c, level: 15 }, entries: [wolf], save })
   expect(findSelect(earlier, 'Companion specialization 3')).toBeTypeOf('function')
   expect(findSelect(earlier, 'Companion specialization 4')).toBeUndefined()
+})
+
+it('rolls Vicious Rend bleed for qualifying companions, scaling with specialization', () => {
+  const cat: ContentEntry = { id: 'cat', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Cat', level: 1,
+    traits: [], description: '', data: { size: 'Medium', companion_attacks: 'Claw|1d6 slashing|agile' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'rend', systems: ['pf2e'], name: 'Test', level: 16, className: 'Druid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Vicious Rend', type: 'Archetype Feat', level: 10 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'cat', type: 'Cat', name: '' }] }
+  const render = (character: Character, companion = cat) => renderToStaticMarkup(<MinionsSection c={character} entries={[companion]} save={() => {}} />)
+  expect(render(c)).toContain('aria-label="Roll Vicious Rend: Persistent bleed"')
+  expect(render(c)).toContain('Persistent bleed: 1d6 bleed')
+  const specialized: Character = { ...c, feats: [...c.feats,
+    { name: 'Specialized Companion', type: 'Class Feat', level: 14, choice: 'Ambusher' }] }
+  expect(render(specialized)).toContain('Persistent bleed: 2d6 bleed')
+  expect(render(c, { ...cat, data: { ...cat.data, companion_attacks: 'Jaws|1d8 piercing|' } })).not.toContain('Roll Vicious Rend')
 })
 
 it('alphabetizes companion advancement, size, specializations, and traits together', () => {
