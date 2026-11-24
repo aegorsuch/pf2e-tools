@@ -723,7 +723,7 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
     expect(poisons).toContain('Black Adder Venom')
     expect(poisons).toContain('Poison Weapon')
     expect(poisons.indexOf('Black Adder Venom')).toBeLessThan(poisons.indexOf('Poison Weapon'))
-    expect(poisons).toContain('aria-label="Spend poison use 1"')
+    expect(poisons).toContain('aria-label="Poison Weapon uses remaining">1/1</output>')
     const withoutFeat = renderToStaticMarkup(<CharacterBuilder character={{ ...c, feats: [] }} onClose={() => {}} />)
     const poisonItems = withoutFeat.slice(withoutFeat.indexOf('<h4>Poisons</h4>'), withoutFeat.indexOf('<h4>Shield</h4>'))
     expect(poisonItems).toContain('Black Adder Venom')

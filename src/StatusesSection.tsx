@@ -20,12 +20,15 @@ function entrenchMeleeActive(c: SectionProps['c'], entries: SectionProps['entrie
 
 export function StatusesSummary({ c, entries }: SectionProps) {
   const stance = activeStance(c, entries)
+  const poisonTotal = Math.max(0, Math.floor(c.level))
+  const poisonSpent = Math.max(0, Math.min(poisonTotal, Math.floor(c.simplePoisonsSpent ?? 0)))
   const active = [
     ...(canDeviseAStratagem(c) && c.deviseAStratagemActive ? ['Devise a Stratagem'] : []),
     ...(hasHuntPrey(c, entries) && c.huntPreyActive ? ['Hunt Prey'] : []),
     ...(c.raging ? ['Rage'] : []),
     ...(stance ? [stance.name] : []),
-    ...(c.poisonWeaponActive && activeFeatsNamed(c, 'Poison Weapon').length ? ['Poison Weapon'] : []),
+    ...(activeFeatsNamed(c, 'Poison Weapon').length
+      ? [`Poison Weapon ${poisonTotal - poisonSpent}/${poisonTotal}${c.poisonWeaponActive ? ' (active)' : ''}`] : []),
     ...(entrenchMeleeActive(c, entries) ? ['Entrench Melee'] : []),
     ...(fulminatingShotBonus(c) ? [`Fulminating Shot (${fulminatingShotBonus(c)})`] : []),
     ...c.activeSpells ?? [],

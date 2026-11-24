@@ -1453,7 +1453,8 @@ export function spellCategoryAvailability(c: Character, entries: ContentEntry[],
   const heritage = c.heritage?.toLowerCase() ?? ''
   const hasMinorMagic = activeFeatsNamed(c, 'Minor Magic').length > 0
   const hasLoanerSpell = loanerSpellSlots(c, entries).length > 0
-  const class_ = classSpellSlots(c) !== undefined || !!witchwarperParadox(c) || manualSpells.length > 0 || hasMinorMagic
+  const class_ = hasLoanerSpell || classSpellSlots(c) !== undefined || !!witchwarperParadox(c)
+    || manualSpells.length > 0 || hasMinorMagic
     || !focusOnlyClass && (!!casting?.traditions.length
       || Object.values(c.spellcasting?.slots ?? {}).some(count => count > 0))
   const focusAvailable = focus.length > 0 || granted.length > 0 || focusPoints > 0
@@ -2049,6 +2050,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         </section></div>}
       {renderTricksterAceChoices()}
       {renderSpecialGroups(tricksterAceSpells)}
+      {renderSpecialGroups(loanerSpells)}
       {necromancer && c.level >= 1 && <>
         <dialog ref={dirgeDialog} className="entry-dialog dirge-dialog" aria-labelledby={dirgeTitleId}
           onClose={event => { if (event.target === event.currentTarget) setDirgeOpen(false) }}

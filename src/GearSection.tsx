@@ -723,25 +723,23 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
 
 export function SimplePoisons({ c, save }: SectionProps) {
   if (!activeFeatsNamed(c, 'Poison Weapon').length) return null
-  const spent = Math.max(0, Math.min(c.level, Math.floor(c.simplePoisonsSpent ?? 0)))
+  const total = Math.max(0, Math.floor(c.level))
+  const spent = Math.max(0, Math.min(total, Math.floor(c.simplePoisonsSpent ?? 0)))
+  const remaining = total - spent
   const active = !!c.poisonWeaponActive
   return <div className="col">
     <strong>Poison Weapon</strong>
     <label><input type="checkbox" aria-label="Poison Weapon active" checked={active}
-      disabled={!active && spent >= c.level} onChange={event => {
+      disabled={!active && remaining === 0} onChange={event => {
         if (event.target.checked) {
-          if (spent < c.level) save({ simplePoisonsSpent: spent + 1, poisonWeaponActive: true })
+          if (remaining > 0) save({ simplePoisonsSpent: spent + 1, poisonWeaponActive: true })
         } else save({ poisonWeaponActive: false })
       }} /> Poison Weapon active</label>
     <div className="row">
-      {Array.from({ length: c.level }, (_, index) => {
-        const used = index < spent
-        const label = `${used ? 'Restore' : 'Spend'} poison use ${index + 1}`
-        return <button key={index} type="button" className="focus-point" aria-label={label}
-          title={label} aria-pressed={!used} onClick={() => {
-            save({ simplePoisonsSpent: Math.max(0, Math.min(c.level, spent + (used ? -1 : 1))) })
-          }} />
-      })}
+      <output aria-label="Poison Weapon uses remaining">{remaining}/{total}</output>
+      <button type="button" disabled={spent === 0} onClick={() => save({ simplePoisonsSpent: spent - 1 })}>
+        Restore one use
+      </button>
       <button type="button" disabled={spent === 0 && !active} onClick={() => save({
         simplePoisonsSpent: 0, poisonWeaponActive: false,
       })}>Daily preparations</button>

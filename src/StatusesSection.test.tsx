@@ -221,14 +221,14 @@ it.each([
     ], simplePoisonsSpent: 3, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const content = renderToStaticMarkup(<StatusesContent c={c} entries={[]} save={() => {}} />)
   expect(content).toContain('Poison Weapon')
-  expect(content).toContain('aria-label="Restore poison use 1"')
+  expect(content).toContain('aria-label="Poison Weapon uses remaining">5/8</output>')
+  expect(content).not.toContain('Spend poison use')
   expect(content).not.toContain('poison damage')
-  expect(content).not.toContain('remaining')
   const summary = renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={() => {}} />)
   expect(summary).not.toContain('Simple poisons')
-  expect(summary).not.toContain('Poison Weapon')
+  expect(summary).toContain('Poison Weapon 5/8')
   expect(renderToStaticMarkup(<StatusesSummary c={{ ...c, poisonWeaponActive: true }} entries={[]} save={() => {}} />))
-    .toContain('Poison Weapon')
+    .toContain('Poison Weapon 5/8 (active)')
 })
 
 it('renders each available status in its own alphabetical row', () => {

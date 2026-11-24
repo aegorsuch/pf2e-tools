@@ -427,8 +427,9 @@ it('adds Loaner Spell in its own once-daily category through rank 3 by default',
     rule: { kind: 'feat', frequency: 'once per day', fixedRank: true, dc: 'class' } })
   expect(dailyInnateUses(c, grant)?.limit).toBe(1)
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
-  expect(markup).toContain('aria-pressed="true">Loaner Spell</button>')
-  expect(markup).not.toContain('Class Spells')
+  expect(markup).toContain('aria-pressed="true">Class Spells</button>')
+  expect(markup).toContain('aria-pressed="false">Loaner Spell</button>')
+  expect(markup.match(/Loaner Spell · Spell Rank 2/g)).toHaveLength(2)
   expect(markup).not.toContain('>Feat Spells</button>')
   expect(markup).toContain('aria-label="Loaner Spell"')
   expect(markup).toContain('Loaner Spell · Spell Rank 2')
@@ -440,7 +441,7 @@ it('adds Loaner Spell in its own once-daily category through rank 3 by default',
 
   const emptySlot = renderToStaticMarkup(<SpellsSection c={{ ...c, feats: [taken('Loaner Spell')] }} entries={spells} save={() => {}} />)
   expect(emptySlot).toContain('aria-label="Loaner Spell"')
-  expect(emptySlot).toContain('aria-pressed="true">Loaner Spell</button>')
+  expect(emptySlot).toContain('aria-pressed="true">Class Spells</button>')
 })
 
 it('auto-heightens Loaner Spell to half character level, up to rank 10, when enabled', () => {

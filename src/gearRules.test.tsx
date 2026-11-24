@@ -1729,8 +1729,10 @@ it('tracks Poison Weapon doses and adds its damage while active', () => {
   const c: Character = { ...base, level: 8, feats: [feat('Poison Weapon', 4), feat('Improved Poison Weapon', 8)], simplePoisonsSpent: 3 }
   const html = renderToStaticMarkup(<SimplePoisons c={c} entries={[]} save={() => {}} />)
   expect(html).toContain('Poison Weapon')
-  expect(html).toContain('aria-label="Restore poison use 1"')
-  expect(html).toContain('aria-label="Spend poison use 4"')
+  expect(html).toContain('aria-label="Poison Weapon uses remaining">5/8</output>')
+  expect(html).toContain('Restore one use')
+  expect(html).not.toContain('Spend poison use')
+  expect(html).not.toContain('Restore poison use')
   expect(html).not.toContain('critically failed attack does not waste')
   const sword = content('weapon', 'Longsword', { weapon_category: 'Martial', weapon_type: 'Melee', damage: '1d8 slashing' })
   expect(weaponAttack(c, [sword], { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }).additionalDamage)
@@ -1740,16 +1742,15 @@ it('tracks Poison Weapon doses and adds its damage while active', () => {
     .toContainEqual({ source: 'Poison Weapon', value: '2d4 poison', note: 'While Poison Weapon is active.' })
   const deadly = { ...c, level: 12, feats: [...c.feats, feat('Deadly Poison Weapon', 12)] }
   const deadlyHtml = renderToStaticMarkup(<SimplePoisons c={deadly} entries={[]} save={() => {}} />)
-  expect(deadlyHtml).toContain('aria-label="Restore poison use 1"')
-  expect(deadlyHtml).toContain('aria-label="Spend poison use 4"')
+  expect(deadlyHtml).toContain('aria-label="Poison Weapon uses remaining">9/12</output>')
   expect(weaponAttack({ ...deadly, poisonWeaponActive: true }, [sword],
     { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }).additionalDamage)
     .toContainEqual({ source: 'Poison Weapon', value: '4d4 poison', note: 'While Poison Weapon is active.' })
   expect(deadlyHtml).not.toContain('up to your class DC')
   expect(renderToStaticMarkup(<SimplePoisons c={{ ...deadly, level: 11 }} entries={[]} save={() => {}} />))
-    .toContain('aria-label="Spend poison use 11"')
+    .toContain('aria-label="Poison Weapon uses remaining">8/11</output>')
   expect(renderToStaticMarkup(<SimplePoisons c={{ ...c, level: 7 }} entries={[]} save={() => {}} />))
-    .toContain('aria-label="Spend poison use 7"')
+    .toContain('aria-label="Poison Weapon uses remaining">4/7</output>')
   expect(renderToStaticMarkup(<SimplePoisons c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).toBe('')
 })
 
