@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vitest'
 import { parseCompanion } from './aonQuery'
 import { companionItemName } from './companions'
 import { eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker } from './builder'
@@ -23,6 +23,9 @@ const feat = (name: string, choice?: string, slot?: string) => ({ name, type: 'C
 
 describe('animal companions', () => {
   it('applies Protect Companion to its target without stacking circumstance bonuses', () => {
+    const previous = getSettings().protectCompanionAll
+    onTestFinished(() => updateSettings({ protectCompanionAll: previous }))
+    updateSettings({ protectCompanionAll: false })
     const c: Character = { ...base, className: 'Ranger', level: 8,
       feats: [{ ...feat('Primal Warrior'), level: 1 }, { ...feat('Mounted Shield'), level: 6 }],
       companions: [{ id: 'bear', type: 'Bear', name: '' }, { id: 'other', type: 'Bear', name: '' }],
@@ -34,6 +37,9 @@ describe('animal companions', () => {
     expect(stats({ ...c, shield: undefined }, 'other').ac).toBe(stats(baseline, 'other').ac + 1)
     expect(stats(c, 'other').ac).toBe(stats(baseline, 'other').ac + 2)
     expect(stats({ ...c, feats: [] }, 'other').protectCompanion).toBe(0)
+    updateSettings({ protectCompanionAll: true })
+    expect(stats(c, 'bear').ac).toBe(stats(baseline, 'bear').ac + 1)
+    expect(stats(c, 'other').ac).toBe(stats(baseline, 'other').ac + 2)
   })
 
   it('limits shared Beastmaster advancement to earned feats and per-companion choices', () => {

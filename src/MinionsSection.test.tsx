@@ -206,6 +206,35 @@ it('displays and dismisses a saved summoned fiend', () => {
   expect(c.activeSpells).toEqual(['Bless'])
 })
 
+it('protects companions, familiars, pets, followers and summons together', () => {
+  const previous = getSettings().protectCompanionAll
+  onTestFinished(() => updateSettings({ protectCompanionAll: previous }))
+  updateSettings({ protectCompanionAll: true })
+  const [summon] = normalizeFiends([{ _id: 'creature-1', _source: {
+    name: 'Test Demon', url: '/Monsters.aspx?ID=1', level: 4, rarity: 'common', trait: ['Fiend'], hp: 40, ac: 20,
+  } }])
+  const bear: ContentEntry = { id: 'bear', name: 'Bear', systems: ['pf2e'], kind: 'companion', source: 'official',
+    level: 1, traits: [], description: '', data: { size: 'Small', hp: 8, dexterity: 2 }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'c', name: 'Test', systems: ['pf2e'], level: 5, className: 'Witch',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Captain Dedication', type: 'Archetype Feat', level: 2 },
+      { name: 'Beast Trainer', type: 'Ancestry Feat', level: 1, choice: 'Pet' }],
+    spells: [{ name: 'Protect Companion', rank: 0, cantrip: true }],
+    companions: [{ id: 'bear', type: 'Bear', name: '' }],
+    followers: [{ type: 'Scout' }], pet: { abilities: [] }, summonedFiend: summon,
+    summonedPlant: { ...summon, name: 'Unknown AC', ac: undefined },
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const render = (character: Character) => renderToStaticMarkup(<MinionsContent c={character} entries={[bear]} save={() => {}} />)
+  const armorClasses = (markup: string) => [...markup.matchAll(/<small>Armor Class<\/small><b>(\d+|—)/g)].map(match => match[1])
+  const baseline = armorClasses(render(c))
+  const protectedClasses = armorClasses(render({ ...c, activeSpells: ['Protect Companion'] }))
+  expect(baseline).toHaveLength(6)
+  expect(protectedClasses).toEqual(baseline.map(value => value === '—' ? '—' : String(Number(value) + 1)))
+  updateSettings({ protectCompanionAll: false })
+  const single = armorClasses(render({ ...c, activeSpells: ['Protect Companion'], protectCompanionId: 'bear' }))
+  expect(single.filter((value, index) => value !== baseline[index])).toHaveLength(1)
+})
+
 it('displays and dismisses a summoned plant independently from a fiend', () => {
   const [creature] = normalizeFiends([{ _id: 'creature-1', _source: {
     name: 'Test Plant', url: '/Monsters.aspx?ID=1', level: 4, rarity: 'common', trait: ['Fiend', 'Plant'], hp: 40,

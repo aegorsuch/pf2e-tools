@@ -797,6 +797,7 @@ export function ProtectCompanionOptions({ c, save, companionId, familiarTarget, 
   & { companionId?: string; familiarTarget?: 'primary' | 'wasp'; disabled?: boolean; entries?: ContentEntry[]; showDetails?: boolean }) {
   const targets = protectCompanionTargets(c)
   const target = protectCompanionTarget(c)
+  const allTargets = getSettings().protectCompanionAll
   const active = !!c.activeSpells?.includes('Protect Companion')
   const specificTarget = targets.find(item => companionId !== undefined ? item.companionId === companionId
     : familiarTarget !== undefined && item.familiar === familiarTarget)
@@ -808,15 +809,15 @@ export function ProtectCompanionOptions({ c, save, companionId, familiarTarget, 
   })
   return <div className="row">
     <label><input type="checkbox" aria-label={specificTarget ? `Protect Companion on ${specificTarget.name}` : 'Protect Companion active'}
-      checked={active && (!specificTarget || specificTarget.key === target?.key)} disabled={!active && (!selected || disabled)}
+      checked={active && (allTargets || !specificTarget || specificTarget.key === target?.key)} disabled={!active && (disabled || !allTargets && !selected)}
       onChange={event => save({ ...spellActiveChange(c, 'Protect Companion', event.target.checked),
-        ...(selected ? selectTarget(selected) : {}) })} />
+        ...(!allTargets && selected ? selectTarget(selected) : {}) })} />
       {!showDetails && ' Protect Companion'}</label>
     {showDetails && <><EntryDescription name="Protect Companion" entry={entry} entries={entries} character={c} hideButtonActions />
       {' '}<ActiveSpellActions name="Protect Companion" entry={entry} actions="Single Action">
         <ProtectCompanionOptions c={c} save={save} companionId={companionId} familiarTarget={familiarTarget} disabled={disabled} />
       </ActiveSpellActions></>}
-    {!companionId && !familiarTarget && targets.length > 1 && <label>Target{' '}
+    {!allTargets && !companionId && !familiarTarget && targets.length > 1 && <label>Target{' '}
       <select aria-label="Protect Companion target" value={target?.key ?? ''} onChange={event => {
         const selectedTarget = targets.find(item => item.key === event.target.value)
         if (selectedTarget) save(selectTarget(selectedTarget))

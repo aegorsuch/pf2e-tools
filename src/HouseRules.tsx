@@ -51,6 +51,8 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'orderExplorerSkills', label: 'Druid Order Explorer Grants Skills' },
   { key: 'planSkillPrerequisites', label: 'Plan Feats Using Final Skill Ranks',
     description: "Feat skill prerequisites use actual skill ranks at your character's selected build level, even for earlier feat slots. Unassigned ranks do not qualify. Other prerequisites are unchanged." },
+  { key: 'protectCompanionAll', label: 'Protect Companion Targets All Minions',
+    description: 'Protect Companion applies to all your minions and companions instead of one target.' },
   { key: 'rangerBeastmaster', label: 'Ranger Beastmaster Dedication' },
   { key: 'orcTattooedHistorian', label: 'Orc Tattooed Historian Dedication' },
   { key: 'rangerCavalier', label: 'Ranger Cavalier Dedication' },

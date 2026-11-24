@@ -1,11 +1,13 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { expect, it } from 'vitest'
-import { protectCompanionTarget, savingThrowBreakdown } from './builder'
+import { expect, it, onTestFinished } from 'vitest'
+import { activeBattleForm, protectCompanionApplies, protectCompanionTarget, savingThrowBreakdown } from './builder'
 import { DeviseAStratagemToggle, StatusesContent, StatusesSummary } from './StatusesSection'
 import { ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
 import { fulminatingShotBonus } from './fulminatingShot'
 import type { Character, ContentEntry } from './types'
+import { getSettings, updateSettings } from './settings'
+import { ANCESTRAL_AVATAR } from './battleForms'
 
 function findToggle(node: ReactNode, label: string): ((event: { target: { checked: boolean } }) => void) | undefined {
   let result: ((event: { target: { checked: boolean } }) => void) | undefined
@@ -91,7 +93,28 @@ it('includes Harden Flesh in the active summary only while the feat is active', 
   expect(renderToStaticMarkup(<StatusesSummary c={{ ...c, hardenFleshActive: false }} entries={[]} save={() => {}} />)).not.toContain('Harden Flesh')
 })
 
+it('toggles Ancestral Embrace Avatar in statuses and reports its active form', () => {
+  let c: Character = { id: 'avatar', name: 'Test', systems: ['pf2e'], level: 20,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    armors: [{ id: 'armor', name: 'Ancestral Embrace Hide Armor', worn: true, potency: 0, resilient: 0, runes: [] }] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const content = () => StatusesContent({ c, entries: [], save })
+  expect(renderToStaticMarkup(content())).toContain('aria-label="Avatar status"')
+  findToggle(content(), 'Avatar status')!({ target: { checked: true } })
+  expect(activeBattleForm(c, [])).toMatchObject({ source: ANCESTRAL_AVATAR, speed: 70, ac: 45, attack: 33 })
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).toContain('>Avatar</span>')
+  findToggle(content(), 'Avatar status')!({ target: { checked: false } })
+  expect(activeBattleForm(c, [])).toBeUndefined()
+  c = { ...c, activeSpells: [ANCESTRAL_AVATAR], armors: [{ ...c.armors![0], worn: false }] }
+  expect(renderToStaticMarkup(content())).not.toContain('aria-label="Avatar status"')
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).not.toContain('Avatar')
+})
+
 it('synchronizes Protect Companion target and active state', () => {
+  const previous = getSettings().protectCompanionAll
+  onTestFinished(() => updateSettings({ protectCompanionAll: previous }))
+  updateSettings({ protectCompanionAll: false })
   let c: Character = { id: 'c', name: 'Test', systems: ['pf2e'], level: 5,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
@@ -111,6 +134,9 @@ it('synchronizes Protect Companion target and active state', () => {
 })
 
 it('allows Protect Companion with only a familiar, including Calistria’s wasp', () => {
+  const previous = getSettings().protectCompanionAll
+  onTestFinished(() => updateSettings({ protectCompanionAll: previous }))
+  updateSettings({ protectCompanionAll: false })
   let c: Character = { id: 'c', name: 'Test', systems: ['pf2e'], level: 5, className: 'Witch',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
     spells: [{ name: 'Protect Companion', rank: 0, cantrip: true }],
@@ -125,6 +151,33 @@ it('allows Protect Companion with only a familiar, including Calistria’s wasp'
   findToggle(ProtectCompanionOptions({ c, save, familiarTarget: 'wasp' }), 'Protect Companion on Wasp Familiar')!
     ({ target: { checked: true } })
   expect(c.protectCompanionFamiliar).toBe('wasp')
+})
+
+it('activates Protect Companion without a selectable target and preserves its saved target', () => {
+  const previous = getSettings().protectCompanionAll
+  onTestFinished(() => updateSettings({ protectCompanionAll: previous }))
+  updateSettings({ protectCompanionAll: true })
+  let c: Character = { id: 'c', name: 'Test', systems: ['pf2e'], level: 5,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    spells: [{ name: 'Protect Companion', rank: 0, cantrip: true }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    protectCompanionId: 'bear' }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  expect(renderToStaticMarkup(<ProtectCompanionOptions c={c} save={save} />)).not.toContain('disabled=""')
+  findToggle(ProtectCompanionOptions({ c, save }), 'Protect Companion active')!({ target: { checked: true } })
+  expect(c.protectCompanionId).toBe('bear')
+  expect(protectCompanionApplies(c, [])).toBe(true)
+  c = { ...c, companions: [{ id: 'bear', name: 'Bear', type: 'Bear' }, { id: 'wolf', name: 'Wolf', type: 'Wolf' }] }
+  expect(renderToStaticMarkup(<ProtectCompanionOptions c={c} save={save} />)).not.toContain('Protect Companion target')
+  expect(protectCompanionApplies(c, [], { companionId: 'wolf' })).toBe(true)
+  updateSettings({ protectCompanionAll: false })
+  expect(protectCompanionApplies(c, [], { companionId: 'bear' })).toBe(true)
+  expect(protectCompanionApplies(c, [], { companionId: 'wolf' })).toBe(false)
+  expect(protectCompanionApplies(c, [])).toBe(false)
+  expect(renderToStaticMarkup(<ProtectCompanionOptions c={c} save={save} />)).toContain('Protect Companion target')
+  updateSettings({ protectCompanionAll: true })
+  expect(protectCompanionApplies(c, [], { companionId: 'wolf' })).toBe(true)
+  expect(protectCompanionApplies({ ...c, spells: [] }, [])).toBe(false)
 })
 
 it('shows Protect Companion details and an action control in statuses', () => {

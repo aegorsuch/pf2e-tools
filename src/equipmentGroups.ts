@@ -11,6 +11,8 @@ export function specificMagicItemName(entry: ContentEntry | undefined, name = en
   const sourceName = String(entry?.data.named_weapon_source ?? name)
   if (sourceName === 'Coldstar Pistols')
     return `Coldstar ${entry?.data.named_weapon_base ?? 'Dueling Pistol'}${Number(entry?.data.hands) === 1 ? '' : 's'}`
+  if (sourceName === 'Blade of the Black Sovereign' && entry?.data.named_weapon_base)
+    return `${entry.data.named_weapon_base} of the Black Sovereign`
   if (sourceName === 'Axe of the Dwarven Lords') return sourceName
   if (/^(?:Scalding|Corroding|Freezing|Shocking) Gauntlet$/.test(sourceName)) return `${sourceName.split(' ')[0]} ${entry?.data.named_weapon_base ?? 'Gauntlet'}`
   const rawBase = String(entry?.data.named_armor_base ?? entry?.data.named_weapon_base

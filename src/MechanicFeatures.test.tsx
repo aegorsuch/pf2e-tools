@@ -19,12 +19,27 @@ import { HighTechMedic } from './HighTechMedic'
 import { setEnduringMod } from './mechanicEnduring'
 import { mapAonHit } from './aon'
 import { featPrerequisiteChecker } from './builder'
+import { getSettings, updateSettings } from './settings'
 
 const mechanic: Character = {
   id: 'm', systems: ['sf2e'], name: 'Mechanic', level: 10, className: 'Mechanic', subclass: 'Mine',
   abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it('applies Protect Companion to the drone only under the all-minions rule', () => {
+  const previous = getSettings().protectCompanionAll
+  try {
+    updateSettings({ protectCompanionAll: true })
+    const drone: Character = { ...mechanic, subclass: 'Drone', mechanicDroneChassis: 'Agile',
+      spells: [{ name: 'Protect Companion', rank: 0, cantrip: true }], activeSpells: ['Protect Companion'] }
+    const base = droneStats({ ...drone, activeSpells: [] })!.ac
+    expect(droneStats(drone)!.ac).toBe(base + 1)
+    expect(renderToStaticMarkup(<DroneFeatures c={drone} entries={[]} save={() => {}} />)).toContain('Protect Companion')
+    updateSettings({ protectCompanionAll: false })
+    expect(droneStats(drone)!.ac).toBe(base)
+  } finally { updateSettings({ protectCompanionAll: previous }) }
+})
 
 // Tech Core and Galactic Ancestries selection prerequisites; action Requirements are not feat prerequisites.
 const mechanicFeatRules = [

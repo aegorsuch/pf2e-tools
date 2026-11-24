@@ -9,6 +9,17 @@ type DamageResult = number | number[] | { primary: number; additional: number }
 
 export function spellDamage(name: string, rank: number, spellcastingModifier?: number): Damage[] {
   switch (name) {
+    case 'Animal Allies':
+      return rank >= 1 ? [{ label: 'Damage', dice: 3 * rank, sides: 4, type: 'piercing' }] : []
+    case 'Armor of Thorn and Claw': {
+      if (rank < 1) return []
+      const heightened = Math.floor((rank - 1) / 2)
+      return [{ label: 'Persistent bleed', dice: 1 + heightened, sides: 4, type: 'persistent bleed',
+        note: `When held in a creature's grasp; separately deals ${1 + 2 * heightened} piercing when touched or hit by a melee unarmed attack` }]
+    }
+    case 'Avenging Wildwood':
+      return rank >= 2 ? [{ label: 'Branches Strike', dice: 2 + Math.floor((rank - 2) / 2), sides: 8,
+        type: 'bludgeoning, piercing, or slashing', note: 'Choose damage type for each Strike; available on casting and each Sustain' }] : []
     case "Vindicator's Mark": {
       if (rank < 1) return []
       const heightened = Math.floor((rank - 1) / 2)

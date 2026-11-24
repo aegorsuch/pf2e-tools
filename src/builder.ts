@@ -6769,6 +6769,15 @@ export function protectCompanionTarget(c: Character) {
     ?? targets[0]
 }
 
+export function protectCompanionApplies(c: Character, entries: ContentEntry[],
+  target?: { companionId?: string; familiar?: 'primary' | 'wasp' }) {
+  if (!isSpellActive(c, entries, 'Protect Companion')) return false
+  if (getSettings().protectCompanionAll) return true
+  const selected = protectCompanionTarget(c)
+  return !!target && (target.companionId !== undefined && target.companionId === selected?.companionId
+    || target.familiar !== undefined && target.familiar === selected?.familiar)
+}
+
 export function spellActiveChange(c: Character, name: string, active: boolean): Pick<Character, 'activeSpells'> & Partial<Pick<Character, 'activeFeatEffects' | 'giantStature' | 'dragonTransformation' | 'animalRageForm' | 'creatureShape'>> {
   return { activeSpells: [...(c.activeSpells ?? []).filter(spell => spell !== name
     && !(active && BATTLE_FORM_SPELLS.has(name) && BATTLE_FORM_SPELLS.has(spell))), ...(active ? [name] : [])],

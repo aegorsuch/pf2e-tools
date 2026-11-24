@@ -1,4 +1,4 @@
-import { activeFeatsNamed, byName, canopyCrawlerAffects, companionSpellTarget, deitySanctification, enlargeCompanionSize, featTakenLevel, isMagicHideActive, isSpellActive, knowsSpell, parryBonus, proficiencyBonus, protectCompanionTarget, raisedShieldBonus, shieldRaised, signed, type Ability } from './builder'
+import { activeFeatsNamed, byName, canopyCrawlerAffects, companionSpellTarget, deitySanctification, enlargeCompanionSize, featTakenLevel, isMagicHideActive, isSpellActive, knowsSpell, parryBonus, proficiencyBonus, protectCompanionApplies, raisedShieldBonus, shieldRaised, signed, type Ability } from './builder'
 import { beastmasterAbilities } from './beastmasterFeats'
 import { companionProgressionStage, isCompanionAdvancement, isCompanionSpecialization } from './featChoices'
 import { characterSize } from './heritages'
@@ -443,8 +443,7 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
       noteSource: [skill.noteSource, companionItemName(type, shoesEntry.name)].filter(Boolean).join(', ') } : skill)
 
   const magicHide = companionId !== undefined && isMagicHideActive(c, entries, companionId) ? 1 : 0
-  const protectCompanion = companionId !== undefined && companionId === protectCompanionTarget(c)?.companionId
-    && isSpellActive(c, entries, 'Protect Companion') ? 1 : 0
+  const protectCompanion = companionId !== undefined && protectCompanionApplies(c, entries, { companionId }) ? 1 : 0
   const mountedParry = companion && companionId === c.mountedCompanionId && activeFeatsNamed(c, 'Mounted Parry').length
     ? parryBonus(c, entries) : 0
   const mountedShield = companion && companionId === c.mountedCompanionId && activeFeatsNamed(c, 'Mounted Shield').length

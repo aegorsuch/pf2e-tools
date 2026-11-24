@@ -1,4 +1,4 @@
-import { activeFeatsNamed, proficiencyBonus } from './builder'
+import { activeFeatsNamed, proficiencyBonus, protectCompanionApplies } from './builder'
 import { energyNeutralizerResistances } from './mechanicEnergy'
 import { boostingTheBasics } from './mechanicMods'
 import type { Character, ContentEntry, DroneCustomizationGrade } from './types'
@@ -174,7 +174,9 @@ export function droneCustomizationSlots(c: Character) {
       if (has('Speedster') || specs.includes('Racer') && c.mechanicDroneRacerSpeed === name) speed[name] += 10
     }
     const hp = chassis.hp + (6 + mods.con + (has('Hardened Chassis') ? 2 : 0)) * c.level
+    const protectCompanion = protectCompanionApplies(c, entries)
     const ac = 10 + mods.dex + proficiencyBonus(unarmored, c.level) + (has('Armored Plates') ? superior ? 2 : 1 : 0)
+      + Number(protectCompanion)
     const attacks = chassis.attacks.map((attack, index) => {
       const ranged = 'ranged' in attack && attack.ranged
       const mod = ranged || attack.finesse && mods.dex > mods.str ? mods.dex : mods.str
@@ -222,7 +224,7 @@ export function droneCustomizationSlots(c: Character) {
       addResistance('acid, cold, electricity, and fire area damage', 2, armorUpgrade.name)
     const sensorSuite = armorUpgrade?.name === 'Full-spectrum Sensor Suite (Advanced)' ? 2
       : armorUpgrade?.name === 'Full-spectrum Sensor Suite (Tactical)' ? 1 : 0
-    return { chassis, mods, ranks, speed, hp, ac, attacks, specs, superior, resistances: [...resistances.values()],
+    return { chassis, mods, ranks, speed, hp, ac, protectCompanion, attacks, specs, superior, resistances: [...resistances.values()],
       perception: mods.wis + proficiencyBonus(saveRank, c.level),
       fortitude: mods.con + proficiencyBonus(specs.includes('Racer') ? 4 : saveRank, c.level),
       reflex: mods.dex + proficiencyBonus(saveRank, c.level), will: mods.wis + proficiencyBonus(saveRank, c.level),

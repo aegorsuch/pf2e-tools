@@ -154,6 +154,7 @@ it('includes every saved rule in its own searchable category even without homebr
   expect(render('Commander Cavalier Dedication')).toContain('checked=""')
   expect(render('Auto-Heighten Innate and Item Spells')).toContain('checked=""')
   expect(render('Auto-Heighten Innate and Item Spells')).toContain('Auto-Heighten Innate and Item Spells')
+  expect(render('Protect Companion Targets All Minions')).toContain('checked=""')
   expect(render('highest mental')).toContain('open=""')
   expect(render('highest mental')).toContain('Innate Spells Use Highest Mental Attribute')
   expect(render('highest mental')).not.toContain('Free Archetype')

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { expect, it, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vitest'
 import { SpellActions } from './SpellDamage'
 import { SpellsSection, SpiritOfTheBeastOptions } from './SpellsSection'
 import { StatusesContent } from './StatusesSection'
@@ -10,6 +10,7 @@ import { MinionsSection } from './MinionsSection'
 import { resistances } from './builder'
 import { companionStats } from './companions'
 import type { Character, ContentEntry } from './types'
+import { getSettings, updateSettings } from './settings'
 
 it('synchronizes Untamed Shift and Harden Flesh through statuses', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -99,6 +100,9 @@ it('opens Purify Air details from statuses', async () => {
 })
 
 it('targets a Witch familiar with Protect Companion instead of its animal companion', async () => {
+  const previous = getSettings().protectCompanionAll
+  onTestFinished(() => updateSettings({ protectCompanionAll: previous }))
+  updateSettings({ protectCompanionAll: false })
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   const bear: ContentEntry = { id: 'bear', name: 'Bear', systems: ['pf2e'], kind: 'companion', source: 'official',
     level: 1, traits: [], description: '', data: { size: 'Small', hp: 8, dexterity: 2 },
@@ -137,6 +141,73 @@ it('targets a Witch familiar with Protect Companion instead of its animal compan
   } finally {
     await act(async () => root.unmount())
     container.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('synchronizes all-minion Protect Companion toggles', async () => {
+  const previous = getSettings().protectCompanionAll
+  onTestFinished(() => updateSettings({ protectCompanionAll: previous }))
+  updateSettings({ protectCompanionAll: true })
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const bear: ContentEntry = { id: 'bear', name: 'Bear', systems: ['pf2e'], kind: 'companion', source: 'official',
+    level: 1, traits: [], description: '', data: { size: 'Small', hp: 8, dexterity: 2 }, effects: [], updatedAt: 0 }
+  const initial: Character = { id: 'c', name: 'Test', systems: ['pf2e'], level: 5, className: 'Witch',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    spells: [{ name: 'Protect Companion', rank: 0, cantrip: true }],
+    companions: [{ id: 'bear', type: 'Bear', name: '' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  function Sheet() {
+    const [c, setC] = useState(initial)
+    const save = (patch: Partial<Character>) => setC(previous => ({ ...previous, ...patch }))
+    return <><StatusesContent c={c} entries={[bear]} save={save} /><MinionsSection c={c} entries={[bear]} save={save} /></>
+  }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<Sheet />))
+    const toggles = () => [...container.querySelectorAll<HTMLInputElement>('input[aria-label^="Protect Companion"]')]
+    expect(container.querySelector('[aria-label="Protect Companion target"]')).toBeNull()
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Protect Companion on Familiar"]')!.click())
+    expect(toggles().length).toBeGreaterThan(2)
+    expect(toggles().every(toggle => toggle.checked)).toBe(true)
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Protect Companion active"]')!.click())
+    expect(toggles().every(toggle => !toggle.checked)).toBe(true)
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('rolls and hides requested spell damage', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  const spells = [
+    { name: 'Animal Allies', rank: 3, actions: 'Two Actions', label: 'Damage', expected: '9 piercing' },
+    { name: 'Armor of Thorn and Claw', rank: 3, actions: 'Two Actions', label: 'Persistent bleed', expected: '2 persistent bleed' },
+    { name: 'Avenging Wildwood', rank: 4, actions: 'Three Actions', label: 'Branches Strike', expected: '3 bludgeoning, piercing, or slashing' },
+  ]
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    for (const spell of spells) {
+      const entry: ContentEntry = { id: spell.name, name: spell.name, systems: ['pf2e'], kind: 'spell',
+        source: 'official', level: 1, traits: [], description: '', data: { actions: spell.actions }, effects: [], updatedAt: 0 }
+      await act(async () => root.render(<SpellActions name={spell.name} rank={spell.rank} entry={entry} />))
+      const button = container.querySelector<HTMLButtonElement>(`[aria-label="Roll ${spell.name}: ${spell.label}"]`)!
+      expect(button).toBeTruthy()
+      await act(async () => button.click())
+      expect(container.querySelector(`[aria-label="${spell.name}: ${spell.label} result"]`)?.textContent).toContain(spell.expected)
+      await act(async () => button.click())
+      expect(container.querySelector(`[aria-label="${spell.name}: ${spell.label} result"]`)).toBeNull()
+    }
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
   }
 })

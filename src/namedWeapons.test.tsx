@@ -917,6 +917,23 @@ it('implements Blade of the Black Sovereign as a Greatsword or Bastard Sword wit
   expect(at(10)).toMatchObject({ named_weapon_runes: 'Shock;Grievous', named_weapon_material: 'Adamantine (Standard-Grade)' })
   expect(at(17)).toMatchObject({ named_weapon_runes: 'Shock (Greater);Grievous', named_weapon_material: 'Adamantine (High-Grade)' })
   expect(effectiveWeapon({ ...c, level: 12 }, [...found, sword('Greatsword')], owned(entry.name))).toMatchObject({ potency: 2, striking: 2 })
+  const entries = [sword('Greatsword'), sword('Bastard Sword'), item]
+  const variants = gearPickerEntries(entries, 'weapon').filter(candidate => candidate.data.named_weapon_source === item.name)
+  expect(variants.map(variant => specificMagicItemName(variant)).sort()).toEqual([
+    'Bastard Sword of the Black Sovereign', 'Greatsword of the Black Sovereign',
+  ])
+  for (const [saved, display] of [
+    ['Blade of the Black Sovereign', 'Greatsword of the Black Sovereign'],
+    ['Blade of the Black Sovereign (Greatsword)', 'Greatsword of the Black Sovereign'],
+    ['Blade of the Black Sovereign (Bastard Sword)', 'Bastard Sword of the Black Sovereign'],
+  ]) {
+    for (const displayOnly of [false, true]) {
+      const markup = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [owned(saved)] }} entries={entries}
+        save={() => {}} displayOnly={displayOnly} />)
+      expect(markup).toContain(`>${display}</button>`)
+      expect(markup).not.toContain('aria-label="Blade of the Black Sovereign weapon type"')
+    }
+  }
 })
 
 it('scales Scalding Gauntlets potency, striking and Flaming with level and hides graded duplicates', () => {

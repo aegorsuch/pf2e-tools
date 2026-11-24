@@ -1071,9 +1071,11 @@ export function dailyInnateUses(c: Character, grant: ReturnType<typeof grantedFe
 }
 
 export function limitedSpellUses(frequencyText?: string, saved: number | number[] = 0) {
-  const frequency = /^(once|twice|(\d+) times) per (?:minute|hour|day|week|month)(?: each)?$/i.exec(frequencyText ?? '')
+  const frequency = /^(once|twice|(\d+|three|four|five|six|seven|eight|nine|ten) times) per (?:minute|hour|day|week|month)(?: each)?$/i.exec(frequencyText ?? '')
   if (!frequency) return undefined
-  const limit = frequency[1].toLowerCase() === 'once' ? 1 : frequency[1].toLowerCase() === 'twice' ? 2 : Number(frequency[2])
+  const words: Record<string, number> = { three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 }
+  const limit = frequency[1].toLowerCase() === 'once' ? 1 : frequency[1].toLowerCase() === 'twice' ? 2
+    : words[frequency[2].toLowerCase()] ?? Number(frequency[2])
   if (!Number.isSafeInteger(limit) || limit < 1) return undefined
   const savedIndices = Array.isArray(saved) ? [...new Set(saved.filter(index => Number.isInteger(index) && index >= 0))] : undefined
   const spent = savedIndices

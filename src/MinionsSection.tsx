@@ -3,7 +3,7 @@ import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, companionItemName, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, isSpellActive, knowsSpell, languageAllowance, languageGroups, magicHideChange, migrateAncestralLinguistics, oakenResilience, protectCompanionTarget, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
+import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, languageGroups, magicHideChange, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
 import { CompanionSpellOptions, ProtectCompanionOptions, SpiritOfTheBeastOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
@@ -199,7 +199,9 @@ const SUMMONED_CREATURES = {
   specials: { name: string; actions?: string; description: string }[]; url: string
 }>
 
-function SummonedCreature({ name, displayName = name }: { name: keyof typeof SUMMONED_CREATURES; displayName?: string }) {
+function SummonedCreature({ name, displayName = name, protectedByCompanion = false }: {
+  name: keyof typeof SUMMONED_CREATURES; displayName?: string; protectedByCompanion?: boolean
+}) {
   const creature: (typeof SUMMONED_CREATURES)[keyof typeof SUMMONED_CREATURES] & { languages?: string; resistances?: string } = SUMMONED_CREATURES[name]
   return <details className="character-subsection" open>
     <summary><h4>Summoned {displayName}</h4></summary>
@@ -213,7 +215,8 @@ function SummonedCreature({ name, displayName = name }: { name: keyof typeof SUM
       </div>)}
     </section>
     <section className="companion-actions"><h5>Defenses</h5><div className="gear-stats">
-      <span><small>Hit Points</small><b>{creature.hp}</b></span><span><small>Armor Class</small><b>{creature.ac}</b></span>
+      <span><small>Hit Points</small><b>{creature.hp}</b></span><span><small>Armor Class</small><b>{creature.ac + Number(protectedByCompanion)}</b>
+        {protectedByCompanion && <SourceNote source="Protect Companion" note="+1 Circumstance (Protect Companion)" inlineSource />}</span>
       {['Fortitude', 'Reflex', 'Will'].map((save, index) => <span key={save}><small>{save}</small>{signed(creature.saves[index])}</span>)}
     </div>{creature.resistances && <div>Resistances {creature.resistances}</div>}</section>
     <section className="companion-actions"><h5>Senses</h5><div><small>Perception</small> <b>{signed(creature.perception)}</b> · {creature.senses}</div></section>
@@ -229,8 +232,8 @@ function SummonedCreature({ name, displayName = name }: { name: keyof typeof SUM
   </details>
 }
 
-export function SummonedFiendCard({ fiend, save, plant = false, undead = false, activeSpells }: {
-  fiend: SummonedFiend; save: SectionProps['save']; plant?: boolean; undead?: boolean; activeSpells?: Character['activeSpells']
+export function SummonedFiendCard({ fiend, save, plant = false, undead = false, activeSpells, protectedByCompanion = false }: {
+  fiend: SummonedFiend; save: SectionProps['save']; plant?: boolean; undead?: boolean; activeSpells?: Character['activeSpells']; protectedByCompanion?: boolean
 }) {
   const bonus = (value: number | null | undefined) => value == null ? '—' : signed(value)
   return <details className="character-subsection" open>
@@ -241,7 +244,8 @@ export function SummonedFiendCard({ fiend, save, plant = false, undead = false, 
     <section className="companion-actions"><h5>Attacks</h5>{fiend.attacks.map((attack, index) =>
       <div key={index} className="companion-action"><ActionIcon actions="Single Action" /> {attack}</div>)}</section>
     <section className="companion-actions"><h5>Defenses</h5><div className="gear-stats">
-      <span><small>Hit Points</small><b>{fiend.hp ?? '—'}</b></span><span><small>Armor Class</small><b>{fiend.ac ?? '—'}</b></span>
+      <span><small>Hit Points</small><b>{fiend.hp ?? '—'}</b></span><span><small>Armor Class</small><b>{fiend.ac == null ? '—' : fiend.ac + Number(protectedByCompanion)}</b>
+        {protectedByCompanion && <SourceNote source="Protect Companion" note="+1 Circumstance (Protect Companion)" inlineSource />}</span>
       {['Fortitude', 'Reflex', 'Will'].map((name, index) => <span key={name}><small>{name}</small>{bonus(fiend.saves[index])}</span>)}
     </div>{fiend.resistances && <div>Resistances {fiend.resistances}</div>}
       {fiend.weaknesses && <div>Weaknesses {fiend.weaknesses}</div>}</section>
@@ -479,6 +483,7 @@ export function MinionsSection(props: SectionProps) {
 }
 
 export function FollowerCards({ c, entries, save }: SectionProps) {
+  const protectedByCompanion = protectCompanionApplies(c, entries)
   const ancestries = [...new Set(entries.filter(entry => entry.kind === 'ancestry' && !entry.deleted
     && entry.systems.includes('pf2e')).map(entry => entry.name))].sort((a, b) => a.localeCompare(b))
   const update = (index: number, patch: Partial<NonNullable<Character['followers']>[number]>) => {
@@ -564,7 +569,8 @@ export function FollowerCards({ c, entries, save }: SectionProps) {
               follower?.energyTypes?.slice(0, stage >= 2 ? 3 : 2).filter(Boolean).join(' / ').toLowerCase() || 'chosen energy')}</span>
           </div>{stage >= 2 && <small>Magical for overcoming resistances</small>}</div>)}</section>
         <section className="companion-actions"><h5>Defenses</h5><div className="gear-stats">
-          <span><small>Hit Points</small><b>{stats.hp}</b></span><span><small>Armor Class</small><b>{stats.ac}</b></span>
+          <span><small>Hit Points</small><b>{stats.hp}</b></span><span><small>Armor Class</small><b>{stats.ac + Number(protectedByCompanion)}</b>
+            {protectedByCompanion && <SourceNote source="Protect Companion" note="+1 Circumstance (Protect Companion)" inlineSource />}</span>
           {['Fortitude', 'Reflex', 'Will'].map((name, i) => <span key={name}><small>{name}</small>{signed(stats.saves[i])}</span>)}
         </div><div>Kit armor +{stats.armor}, Dexterity cap +{stats.dexCap}</div></section>
         <section className="companion-actions"><h5>Senses</h5><div>Perception {signed(stats.perception)}</div></section>
@@ -586,6 +592,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const lashuntaAlly = activeLashuntaAlly(c)
   const ferocity = minionFerocity(c)
   const magicHideKnown = knowsSpell(c, entries, 'Magic Hide')
+  const protectedByCompanion = protectCompanionApplies(c, entries)
   const needsConstructEntry = hasConstructInnovation(c) || companions.some(comp => comp.type === CONSTRUCT_COMPANION_NAME)
   const companionEntries = companionEntriesFor(entries, needsConstructEntry)
   const faithfulSteed = activeFeatsNamed(c, 'Faithful Steed').length > 0
@@ -664,12 +671,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   return (
       <div className="character-section-content minions-section-content">
         <SortedMinionSections>
-        {activeCaypinAlly(c) && <SummonedCreature name="Caypin" />}
-        {lashuntaAlly && <SummonedCreature name={lashuntaAlly} />}
-        {activeShirrenAlly(c) && <SummonedCreature name="Emganat" displayName="Kucharn" />}
-        {c.summonedPlant && <SummonedFiendCard fiend={c.summonedPlant} plant save={save} />}
-        {c.summonedUndead && <SummonedFiendCard fiend={c.summonedUndead} undead activeSpells={c.activeSpells} save={save} />}
-        {activeSummonedFiend(c) && <SummonedFiendCard fiend={activeSummonedFiend(c)!} activeSpells={c.activeSpells} save={save} />}
+        {activeCaypinAlly(c) && <SummonedCreature name="Caypin" protectedByCompanion={protectedByCompanion} />}
+        {lashuntaAlly && <SummonedCreature name={lashuntaAlly} protectedByCompanion={protectedByCompanion} />}
+        {activeShirrenAlly(c) && <SummonedCreature name="Emganat" displayName="Kucharn" protectedByCompanion={protectedByCompanion} />}
+        {c.summonedPlant && <SummonedFiendCard fiend={c.summonedPlant} plant save={save} protectedByCompanion={protectedByCompanion} />}
+        {c.summonedUndead && <SummonedFiendCard fiend={c.summonedUndead} undead activeSpells={c.activeSpells} save={save} protectedByCompanion={protectedByCompanion} />}
+        {activeSummonedFiend(c) && <SummonedFiendCard fiend={activeSummonedFiend(c)!} activeSpells={c.activeSpells} save={save} protectedByCompanion={protectedByCompanion} />}
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" data-minion-name="Drone" open>
           <summary><h4>Drone</h4></summary>
           <DroneFeatures c={c} entries={entries} save={save} />
@@ -1016,8 +1023,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           const familiarType = spiritFamiliar ? 'Spirit familiar' : isUndead ? 'Undead familiar' : isLeshy ? 'Leshy familiar'
             : isCrocodile ? 'Crocodile familiar' : glyph ? 'Glyph familiar' : 'Familiar'
           const familiarLabel = isWasp ? 'Wasp familiar' : familiarType
-          const protectedFamiliar = protectCompanionTarget(c)?.familiar === (isWasp ? 'wasp' : 'primary')
-            && isSpellActive(c, entries, 'Protect Companion')
+          const protectedFamiliar = protectCompanionApplies(c, entries, { familiar: isWasp ? 'wasp' : 'primary' })
           const abilityStatus = (ability: string, index: number) => {
             const entry = familiarAbilityEntry(ability, familiarAbilityCatalog, c)
             if (!entry) return { entry, reason: 'Ability rules are unavailable.' }
@@ -1333,7 +1339,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             <h5>Defenses</h5>
             <div className="gear-stats"><span><small>Hit Points</small><b>{c.level * (petAbilities.includes('Tough') || seaFriend ? 7 : 5)}</b></span>
               {minionDefense && <>
-                <span><small>Armor Class</small><b>{minionDefense.ac}</b></span>
+                <span><small>Armor Class</small><b>{minionDefense.ac + Number(protectedByCompanion)}</b>
+                  {protectedByCompanion && <SourceNote source="Protect Companion" note="+1 Circumstance (Protect Companion)" inlineSource />}</span>
                 <span><small>Fortitude</small>{signed(minionDefense.fortitude)}</span>
                 <span><small>Reflex</small>{signed(minionDefense.reflex)}</span>
                 <span><small>Will</small>{signed(minionDefense.will)}</span>

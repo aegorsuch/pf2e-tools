@@ -12,6 +12,50 @@ vi.mock('react', async importOriginal => {
 
 afterEach(() => vi.restoreAllMocks())
 
+it('rolls Animal Allies damage at the cast rank', () => {
+  const entry: ContentEntry = { id: 'allies', name: 'Animal Allies', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 0)).toEqual([])
+  for (const rank of [1, 5, 10]) {
+    const [damage] = spellDamage(entry.name, rank)
+    expect(damage).toMatchObject({ dice: rank * 3, sides: 4, type: 'piercing' })
+    expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+      .toContain(`title="Two Actions; Damage: ${rank * 3}d4 piercing"`)
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    expect(rollSpellDamage(damage)).toBe(rank * 3)
+  }
+})
+
+it('rolls Armor of Thorn and Claw persistent bleed with its separate piercing trigger', () => {
+  const entry: ContentEntry = { id: 'armor', name: 'Armor of Thorn and Claw', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 0)).toEqual([])
+  for (const [rank, dice, piercing] of [[1, 1, 1], [2, 1, 1], [3, 2, 3], [10, 5, 9]]) {
+    const [damage] = spellDamage(entry.name, rank)
+    expect(damage).toMatchObject({ label: 'Persistent bleed', dice, sides: 4, type: 'persistent bleed' })
+    expect(damage.note).toContain(`separately deals ${piercing} piercing`)
+    expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+      .toContain(`${dice}d4 persistent bleed`)
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    expect(rollSpellDamage(damage)).toBe(dice)
+  }
+})
+
+it('rolls Avenging Wildwood branches damage at the cast rank', () => {
+  const entry: ContentEntry = { id: 'wildwood', name: 'Avenging Wildwood', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 2, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 1)).toEqual([])
+  for (const [rank, dice] of [[2, 2], [3, 2], [4, 3], [10, 6]]) {
+    const [damage] = spellDamage(entry.name, rank)
+    expect(damage).toMatchObject({ label: 'Branches Strike', dice, sides: 8, type: 'bludgeoning, piercing, or slashing' })
+    expect(damage.note).toContain('each Sustain')
+    expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+      .toContain(`${dice}d8 bludgeoning, piercing, or slashing`)
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    expect(rollSpellDamage(damage)).toBe(dice)
+  }
+})
+
 it('calculates Lay on Hands healing at the actual spell rank', () => {
   const entry: ContentEntry = { id: 'lay-on-hands', name: 'Lay on Hands', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: [], description: '', data: { actions: 'Single Action' }, effects: [], updatedAt: 1 }

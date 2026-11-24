@@ -11,7 +11,7 @@ import { MechanicWeaponMods } from './GearSection'
 import { setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
 import type { DroneCustomization, DroneCustomizationGrade } from './types'
-import { Info } from './Info'
+import { Info, SourceNote } from './Info'
 
 const GRADES: DroneCustomizationGrade[] = ['Commercial', 'Tactical', 'Advanced', 'Superior']
 
@@ -93,7 +93,8 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
       At 0 HP, the drone shuts down and reboots to 1 HP after one minute.</small>
     {slots.Tactical > 0 && <small>Without a Command, the tactical drone can Stride or Strike once on your turn.</small>}
     {stats && <>
-      <small>Size: {droneSize ?? stats.chassis.size}. AC {stats.ac}; HP {stats.hp}.
+      <small>Size: {droneSize ?? stats.chassis.size}. AC {stats.ac}
+        {stats.protectCompanion && <SourceNote source="Protect Companion" note="+1 Circumstance (Protect Companion)" inlineSource />}; HP {stats.hp}.
         Perception {signed(stats.perception)}; Fortitude {signed(stats.fortitude)}, Reflex {signed(stats.reflex)}, Will {signed(stats.will)}.</small>
       <small>Attributes: Str {signed(stats.mods.str)}, Dex {signed(stats.mods.dex)}, Con {signed(stats.mods.con)},
         Int {signed(stats.mods.int)}, Wis {signed(stats.mods.wis)}, Cha {signed(stats.mods.cha)}.</small>

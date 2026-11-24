@@ -162,13 +162,23 @@ it.each([['Staff of Healing', 1], ['Staff of Healing (Greater)', 3]] as const)(
     expect(result.every(spell => spell.frequency === 'Staff charges' && spell.usesSpellcasting)).toBe(true)
   })
 
-it('uses current Briar sharpness instead of granting spells from future artifact tiers', () => {
+it('tracks Briar Oaken Resilience uses at its current sharpness', () => {
   const entries = [official('Briar'), official('Bastard Sword'), official('Oaken Resilience'), official('Breath of Life')]
-  const c: Character = { ...base, equipment: [{ name: 'Briar', qty: 1 }],
+  let c: Character = { ...base, equipment: [{ name: 'Briar', qty: 1 }],
     weapons: [{ id: 'briar', name: 'Briar', potency: 0, striking: 0, runes: [], briarSharpness: 4 }] }
   const result = itemSpells(c, entries)
   expect(result).toHaveLength(1)
-  expect(result[0]).toMatchObject({ name: 'Oaken Resilience', rank: 2 })
+  expect(result[0]).toMatchObject({ name: 'Oaken Resilience', rank: 2, frequency: 'three times per day' })
+  expect(itemSpellUses(c, result[0])).toMatchObject({ limit: 3, remaining: 3 })
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const markup = () => renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)
+  expect(markup()).toContain('aria-label="3 of 3 uses remaining"')
+  expect(markup()).not.toContain('three times per day')
+  findUseButton(ItemSpellUses({ c, save, spell: result[0] }), 'Spend Oaken Resilience (Briar Bastard Sword) use 2')!()
+  expect(itemSpellUses(c, result[0])).toMatchObject({ remaining: 2, spent: [1] })
+  expect(markup()).toContain('aria-label="2 of 3 uses remaining"')
+  findUseButton(ItemSpellUses({ c, save, spell: result[0] }), 'Restore Oaken Resilience (Briar Bastard Sword) use 2')!()
+  expect(itemSpellUses(c, result[0])).toMatchObject({ remaining: 3, spent: [] })
   expect(itemSpells({ ...c, weapons: [{ ...c.weapons![0], briarSharpness: 0 }] }, entries)).toEqual([])
 })
 

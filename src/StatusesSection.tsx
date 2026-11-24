@@ -1,11 +1,12 @@
-import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, type SectionProps } from './builder'
+import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, wornArmor, type SectionProps } from './builder'
 import { grantedFeatSpells } from './featSpells'
 import { HardenFleshToggle, RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
 import { ActiveSpellActions, automatedSpellStatusControls, ProtectCompanionOptions, SpellEffectActions, ZealousConvictionToggle } from './SpellsSection'
 import { EntryDescription } from './EntryDescription'
 import { SimplePoisons } from './GearSection'
-import { isBastionNamedArmor } from './namedArmor'
+import { isAncestralEmbrace, isBastionNamedArmor } from './namedArmor'
+import { ANCESTRAL_AVATAR } from './battleForms'
 import { FULMINATING_SHOT_ELEMENTS, fulminatingShotBonus } from './fulminatingShot'
 import { confirmRemoval } from './confirmRemoval'
 import { PURIFY_AIR_DESCRIPTION, purifyAirActive, purifyAirAvailable } from './familiarAbilities'
@@ -55,7 +56,9 @@ export function StatusesSummary({ c, entries }: SectionProps) {
     ...(fulminatingShotBonus(c) ? [`Fulminating Shot (${fulminatingShotBonus(c)})`] : []),
     ...(purifyAirActive(c) ? ['Purify Air'] : []),
     ...(c.hardenFleshActive && activeFeatsNamed(c, 'Harden Flesh').length ? ['Harden Flesh'] : []),
-    ...c.activeSpells ?? [],
+    ...(c.activeSpells ?? []).flatMap(name => name === ANCESTRAL_AVATAR
+      ? isAncestralEmbrace(wornArmor(c, entries)?.name) ? ['Avatar'] : []
+      : [name]),
     ...(c.summonedUndead ? ['Summon Undead'] : []),
     ...(c.summonedFiend ? ['Summon Fiend'] : []),
     ...c.activeFeatEffects ?? [],
@@ -93,6 +96,10 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   const summonedUndead = c.summonedUndead
   const summonedFiend = c.summonedFiend
   const entrenchArmors = ownedArmors(c, entries).filter(armor => isBastionNamedArmor(armor.name))
+  const ancestralAvatarAvailable = isAncestralEmbrace(wornArmor(c, entries)?.name)
+  const avatarEntry = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Avatar'
+    && entry.systems.some(system => c.systems.includes(system)))
+  const ancestralAvatarActive = ancestralAvatarAvailable && !!c.activeSpells?.includes(ANCESTRAL_AVATAR)
   const spellControls = automatedSpellStatusControls({ c, entries, save })
   const untamedShift = knowsSpell(c, entries, 'Untamed Shift')
   const shiftEntry = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Untamed Shift'
@@ -117,6 +124,15 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
     </> }] : []),
     ...(activeFeatsNamed(c, 'Harden Flesh').length
       ? [{ name: 'Harden Flesh', element: <HardenFleshToggle c={c} save={save} /> }] : []),
+    ...(ancestralAvatarAvailable ? [{ name: 'Avatar', element: <>
+      <input type="checkbox" aria-label="Avatar status" checked={ancestralAvatarActive}
+        onChange={event => save(spellActiveChange(c, ANCESTRAL_AVATAR, event.target.checked))} />{' '}
+      <EntryDescription name="Avatar" entry={avatarEntry} entries={entries} character={c} hideButtonActions />{' '}
+      <ActiveSpellActions name="Avatar" entry={avatarEntry} actions="Two Actions">
+        <label><input type="checkbox" aria-label="Avatar active" checked={ancestralAvatarActive}
+          onChange={event => save(spellActiveChange(c, ANCESTRAL_AVATAR, event.target.checked))} /> Active</label>
+      </ActiveSpellActions>
+    </> }] : []),
     ...(untamedShift ? [{ name: 'Untamed Shift', element: <>
       <input type="checkbox" aria-label="Untamed Shift status" checked={shiftActive} disabled={!shiftActive && !shiftCanRestore}
         onChange={event => save(spellActiveChange(c, 'Untamed Shift', event.target.checked))} />{' '}
