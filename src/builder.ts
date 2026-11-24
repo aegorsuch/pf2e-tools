@@ -2158,6 +2158,12 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       && entry.systems.some((system) => c.systems.includes(system)) && !used.has(entry.name.toLowerCase())).map((entry) => entry.name))]
       .sort((a, b) => a.localeCompare(b))
   }
+  if (name === 'Advanced Weapon Training' && c.systems.includes('pf2e')) {
+    const used = new Set(c.feats.flatMap((feat, i) => i !== index && feat.name === name && feat.choice ? [feat.choice.toLowerCase()] : []))
+    return [...new Set(entries.filter(entry => entry.kind === 'weapon' && !entry.deleted && weaponCategory(entry) === 'Advanced'
+      && entry.systems.some(system => c.systems.includes(system))).map(entry => String(entry.data.weapon_group ?? '').trim())
+      .filter(group => group && !used.has(group.toLowerCase())))].sort((a, b) => a.localeCompare(b))
+  }
   if (name === 'Order Explorer') return availableOrders(c, index)
   if (name === 'Mercy') {
     const used = new Set(c.feats.flatMap((feat, i) => i !== index && feat.name === name && feat.choice ? [feat.choice] : []))
@@ -5088,6 +5094,8 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
   const category = weaponCategory(entry)
   const advancedTraining = category === 'Advanced' && weaponProficiencyGrants(c, entries)
     .some((grant) => !grant.martial && grant.feat.choice?.trim().toLowerCase() === entry?.name.toLowerCase())
+  const groupTraining = category === 'Advanced' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Advanced Weapon Training')
+    .some(feat => feat.choice?.trim().toLowerCase() === String(entry?.data.weapon_group ?? '').trim().toLowerCase())
   const familiarity = entry ? weaponFamiliarity(c, entry, category, entries) : undefined
   const unconventional = entry && unconventionalWeapon(c, entries, entry)
   const familiarCategory = familiarity?.proficiency
@@ -5126,7 +5134,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
   const rank = Math.max(category === 'Unarmed' ? 1 : 0, ranks[category], familiarCategory ? ranks[familiarCategory] : 0,
     unconventionalCategory ? ranks[unconventionalCategory] : 0, innovationCategory ? ranks[innovationCategory] : 0,
     familiarity?.trained ? 1 : 0, expertise ? Math.max(...Object.values(baseWeaponRanks(c, entries))) : 0,
-    advancedTraining ? c.level >= 11 ? 2 : 1 : 0, avengerRank, vindicatorRank, operativeRank, gunslingerFirearmRank, professionalRank,
+    advancedTraining ? c.level >= 11 ? 2 : 1 : 0, groupTraining ? ranks.Martial : 0, avengerRank, vindicatorRank, operativeRank, gunslingerFirearmRank, professionalRank,
     warriorLegendRank,
     highestRank ? Math.max(...Object.values(ranks)) : 0)
   const proficiencySources = [
@@ -5137,6 +5145,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     ...(familiarity?.trained ? [{ name: 'Weapon familiarity training', rank: 1 }] : []),
     ...(expertise ? [{ name: 'Weapon expertise', rank: Math.max(...Object.values(baseWeaponRanks(c, entries))) }] : []),
     ...(advancedTraining ? [{ name: 'Weapon Proficiency feat', rank: c.level >= 11 ? 2 : 1 }] : []),
+    ...(groupTraining ? [{ name: 'Advanced Weapon Training', rank: ranks.Martial }] : []),
     ...(avengerRank ? [{ name: 'Avenger favored weapon', rank: avengerRank }] : []),
     ...(vindicatorRank ? [{ name: 'Vindicator favored weapon', rank: vindicatorRank }] : []),
     ...(operativeRank ? [{ name: strikerWeapon ? 'Striker' : 'Operative', rank: operativeRank }] : []),

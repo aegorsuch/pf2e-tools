@@ -1730,6 +1730,16 @@ describe('official passive feat mechanics', () => {
     expect(featChoiceOptions('Weapon Proficiency', base, data, 'general:1:0')).toBeUndefined()
   })
 
+  it('offers Advanced Weapon Training weapon groups and trains that group\'s advanced weapons as martial', () => {
+    const grouped = (name: string, group: string) => ({ ...weapon(name, 'Advanced'), data: { ...weapon(name, 'Advanced').data, weapon_group: group } })
+    const data = [wizard, ranger, grouped('Falcata', 'Sword'), grouped('Dueling Sword', 'Sword'), grouped('Orc Knuckle Dagger', 'Knife'), weapon('Longsword', 'Martial')]
+    const fighter = { ...base, className: 'Ranger', level: 6, feats: [selected('Advanced Weapon Training', 6, 'Sword')] }
+    expect(featChoiceOptions('Advanced Weapon Training', { ...fighter, feats: [] }, data, 'class:6:0')).toEqual(['Knife', 'Sword'])
+    expect(featChoiceOptions('Advanced Weapon Training', fighter, data, 'class:8:0')).toEqual(['Knife'])
+    expect(attack(fighter, 'Falcata', data).rank).toBe(attack(fighter, 'Longsword', data).rank)
+    expect(attack(fighter, 'Orc Knuckle Dagger', data).rank).toBe(0)
+  })
+
   it('keeps the original martial grant when the class later gains martial weapon proficiency', () => {
     const expertise = { ...entry('classFeature', 'Martial Expertise', { class: 'Wizard' }, 7),
       description: 'Your proficiency rank for martial weapons increases to expert.' }
