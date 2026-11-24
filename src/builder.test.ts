@@ -2801,6 +2801,12 @@ describe('languageAllowance', () => {
     expect(automaticFeatGrants({ ...c, level: 1 }, []).some(grant => grant.name === 'Magical Shorthand')).toBe(false)
   })
 
+  it('ranks up Wizard spell proficiency at levels 7, 15 and 19 without class feature data', () => {
+    const ranks = [1, 6, 7, 14, 15, 18, 19].map(level =>
+      classSpellcasting({ ...base, className: 'Wizard', level }, [entry('class', 'Wizard', { tradition: 'Arcane' })])?.rank)
+    expect(ranks).toEqual([1, 1, 2, 2, 3, 3, 4])
+  })
+
   it('adds a school curriculum spell restriction to each Wizard spell rank', () => {
     const school = entry('subclass', 'School of Ars Grammatica', { class: 'Wizard' })
     school.description = 'Curriculum\n\ncantrips: message, sigil; 1st: command, runic weapon; 2nd: dispel magic, translate\n\nSchool Spells\n\ninitial: protective wards'

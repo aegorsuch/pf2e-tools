@@ -2381,7 +2381,7 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
     'legendary spellcasting': 4,
   }
   const features = classFeatures(entries, c)
-  const hasLevelBasedRank = ['Druid', 'Necromancer'].includes(c.className ?? '')
+  const hasLevelBasedRank = ['Druid', 'Necromancer'].includes(c.className ?? '') || c.className === 'Wizard' && c.systems.includes('pf2e')
     || c.systems.includes('sf2e') && ['Mystic', 'Technomancer'].includes(c.className ?? '')
   const rank = features.reduce((best, feature) => {
     let rank = progression[feature.name.toLowerCase()] ?? 0
