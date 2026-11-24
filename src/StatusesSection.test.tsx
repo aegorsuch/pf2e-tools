@@ -283,3 +283,19 @@ it('renders each available status in its own alphabetical row', () => {
   const summary = renderToStaticMarkup(<StatusesSummary c={{ ...c, raging: true, conditions: { frightened: 2, enfeebled: 1 } }} entries={[]} save={() => {}} />)
   expect(summary).toContain('Enduring Might, Enfeebled 1, Frightened 2, Protect Companion, Rage, Tailwind, Zealous Conviction')
 })
+
+it('lists raised shield, Shield cantrip, Bone Shield and Parry in Statuses', () => {
+  const spell = (name: string, traits: string[] = []): ContentEntry => ({ id: name, systems: ['pf2e'], kind: 'spell', source: 'official',
+    name, level: 1, traits, description: '', data: {}, effects: [], updatedAt: 0 })
+  const c: Character = { id: 'def', name: 'Test', systems: ['pf2e'], level: 1, className: 'Necromancer',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [], equipment: [], lores: [], languages: [],
+    entryIds: [], extraSlots: [], updatedAt: 0, spells: [{ name: 'Shield', rank: 1, cantrip: true }] }
+  const entries = [spell('Shield', ['Cantrip'])]
+  const save = () => {}
+  expect(findToggle(StatusesContent({ c, entries, save }), 'Raise Shield Cantrip status')).toBeTypeOf('function')
+  const active = { ...c, activeSpells: ['Shield'] }
+  expect(renderToStaticMarkup(StatusesSummary({ c: active, entries, save }))).toContain('Raise Shield Cantrip')
+  const bone = { ...c, activeSpells: ['Bone Shield'], boneShieldRaised: true }
+  expect(findToggle(StatusesContent({ c: bone, entries, save }), 'Raise Bone Shield status')).toBeTypeOf('function')
+  expect(renderToStaticMarkup(StatusesSummary({ c: bone, entries, save }))).toContain('Raise Bone Shield')
+})
