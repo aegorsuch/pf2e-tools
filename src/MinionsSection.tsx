@@ -19,7 +19,7 @@ import { activeSummonedFiend, type SummonedFiend } from './summonedFiends'
 import { DroneFeatures } from './DroneFeatures'
 import { FOLLOWER_STAGES, FOLLOWER_TYPES, followerStage, followerStats } from './followers'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
-  familiarAbilityEntry, familiarAbilityUnavailableReason, GLYPH_FAMILIAR_ABILITIES, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds, specificFamiliarGrants, specificFamiliarOptions } from './familiarAbilities'
+  familiarAbilityEntry, familiarAbilityUnavailableReason, GLYPH_FAMILIAR_ABILITIES, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds, specificFamiliarGrants, specificFamiliarOptions, specificFamiliarSections } from './familiarAbilities'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
@@ -1048,7 +1048,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               }
             })
           return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" data-minion-name={isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'} open>
-          <summary><h4>{isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
+          <summary><h4>{!isWasp && data?.specificFamiliar ? `${data.specificFamiliar} (Specific Familiar)` : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
             : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'}</h4> ({activeAbilityChoices.length + Number(!!patronAbility)}/{dailyAbilityLimit})</summary>
           <article className="gear-card">
           {isCrocodile && <small>Tiny crocodile familiar granted by Crocodile's Twin.</small>}
@@ -1122,6 +1122,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 {option.entry.name}{option.required ? ` (${option.required} abilities)` : ''}</option>)}
             </select>
           </label>}
+          {!isWasp && specificFamiliarSections(specificFamiliars.find(option => option.entry.name === data?.specificFamiliar)?.entry).summary.map(text =>
+            <p key={text}><small>{text}</small></p>)}
+          {!isWasp && specificFamiliarSections(specificFamiliars.find(option => option.entry.name === data?.specificFamiliar)?.entry).abilities.length > 0
+            && <section className="companion-actions"><h5>Actions and abilities</h5>
+              {specificFamiliarSections(specificFamiliars.find(option => option.entry.name === data?.specificFamiliar)?.entry).abilities.map(text =>
+                <p key={text}><small>{text}</small></p>)}</section>}
           {!isWasp && specificFamiliars.some(option => option.entry.name === data?.specificFamiliar) && <div className="gear-traits">
             <EntryDescription name={data!.specificFamiliar!} entry={specificFamiliars.find(option => option.entry.name === data?.specificFamiliar)!.entry}
               entries={entries} character={c} buttonLabel="Specific familiar" /></div>}

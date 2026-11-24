@@ -291,3 +291,15 @@ export function selectedSpecificFamiliar(c: Character, entries: ContentEntry[]) 
   const name = c.familiar?.specificFamiliar
   return name ? specificFamiliarOptions(c, entries).find(option => option.entry.name === name)?.entry : undefined
 }
+
+export function specificFamiliarSections(entry?: ContentEntry) {
+  const paragraphs = (entry?.description ?? '').split(/\n\s*\n/).map(part => part.trim()).filter(Boolean)
+  const boundary = paragraphs.findIndex(part => /\bGranted Abilities\b/i.test(part))
+  const clean = (parts: string[]) => parts.filter(part => !/^(?:Source|Required Number of Abilities)\b/i.test(part))
+  const grantedLine = boundary >= 0 ? paragraphs[boundary] : ''
+  const tail = grantedLine.replace(/^[\s\S]*?\bGranted Abilities\W+[^\n]*?(?:\)|[a-z])(?=\s+[A-Z][a-z]+ [A-Z])/, '').trim()
+  return {
+    summary: clean(boundary >= 0 ? paragraphs.slice(0, boundary) : paragraphs.slice(0, 1)),
+    abilities: clean([...(tail && tail !== grantedLine ? [tail] : []), ...(boundary >= 0 ? paragraphs.slice(boundary + 1) : [])]),
+  }
+}

@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import { activeFamiliarAbilities, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
-  familiarAbilityUnavailableReason, familiarSelection, familiarSpellBenefits, specificFamiliarGrants, specificFamiliarOptions } from './familiarAbilities'
+  familiarAbilityUnavailableReason, familiarSelection, familiarSpellBenefits, specificFamiliarGrants, specificFamiliarOptions, specificFamiliarSections } from './familiarAbilities'
 import type { Character, ContentEntry } from './types'
 
 const character: Character = {
@@ -162,6 +162,12 @@ it('applies granted abilities of the selected specific familiar without using da
   const wizard: Character = { ...character, className: 'Wizard', familiar: { specificFamiliar: 'Calligraphy Wyrm' },
     feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }] }
   expect(activeFamiliarAbilities(wizard, [wyrm])).toEqual(['Darkvision', 'Flier', 'Manual Dexterity', 'Scent', 'Skilled', 'Speech'])
+})
+
+it('splits a specific familiar into summary and unique actions', () => {
+  const wyrm = ability('Calligraphy Wyrm', 'Calligraphy wyrms are curious dragons.\n\nGranted Abilities darkvision, flier, speech\n\nInk Spray Arcane Frequency once per 10 minutes; Effect The wyrm splatters ink.\n\nStylus Claws The wyrm has stylus-shaped claws.')
+  expect(specificFamiliarSections(wyrm)).toEqual({ summary: ['Calligraphy wyrms are curious dragons.'],
+    abilities: ['Ink Spray Arcane Frequency once per 10 minutes; Effect The wyrm splatters ink.', 'Stylus Claws The wyrm has stylus-shaped claws.'] })
 })
 
 it('gives Improved Familiar Attunement a familiar with extra abilities at 6th, 12th and 18th level', () => {
