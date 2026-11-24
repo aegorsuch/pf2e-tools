@@ -153,7 +153,34 @@ it('uses the rank book editor for Wizard spells and filters its source to Arcane
   expect(book).toContain('Magic Missile')
   expect(html).toContain('aria-label="Open Wizard rank 1"')
   expect(html).toContain('aria-label="Learn Fear"')
+  expect(learnOptions(html)).not.toContain('aria-label="Learn Magic Missile"')
   expect(html).not.toContain('aria-label="Learn Dread Aura"')
+})
+
+it.each(['Wizard', 'Magus'])('hides already learned %s spells from book choices', className => {
+  const klass: ContentEntry = { ...spell(className), kind: 'class', data: { tradition: 'Arcane' } }
+  const learned = spell('Fear', 1, 'Arcane')
+  const available = spell('Magic Missile', 1, 'Arcane')
+  const c: Character = { ...base, className, spells: [{ name: learned.name, entryId: learned.id, rank: 1, cantrip: false }] }
+  const html = className === 'Wizard' ? renderAtWizardBookRank(c, [klass, learned, available], 1)
+    : renderAtMagusBookRank(c, [klass, learned, available], 1)
+  expect(learnOptions(html)).not.toContain('aria-label="Learn Fear"')
+  expect(learnOptions(html)).toContain('aria-label="Learn Magic Missile"')
+})
+
+it('opens action controls for prepared Shield and Eat Fire', () => {
+  const shield = { ...spell('Shield', 1, 'Occult', ['Cantrip']), data: { tradition: 'Occult', actions: 'Single Action' } }
+  const eatFire = { ...spell('Eat Fire', 1, 'Occult'), data: { tradition: 'Occult', actions: 'Reaction' } }
+  const c: Character = { ...base,
+    spells: [{ name: shield.name, entryId: shield.id, rank: 1, cantrip: true },
+      { name: eatFire.name, entryId: eatFire.id, rank: 1, cantrip: false }],
+    spellcasting: { ability: 'int', tradition: 'Occult', rank: 1, slots: {},
+      prepared: { '0:0': shield.id, '1:0': eatFire.id } } }
+  const html = render(c, [shield, eatFire, spell('Harm')])
+  expect(html).toContain('aria-label="Shield options"')
+  expect(html).toContain('aria-label="Raise Shield Cantrip (+1 AC)"')
+  expect(html).toContain('aria-label="Eat Fire options"')
+  expect(html).toContain('aria-label="Eat Fire active"')
 })
 
 it('uses the shared rank book editor for Magus spells and filters its source to common Arcane', () => {

@@ -451,6 +451,13 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   if (kind === 'familiar') {
     const type = /\*\*Ability Type\*\*\s+([^\n]+)/i.exec(markdown)?.[1]
     if (type) data.ability_type = plain(type)
+    if (text(s.category).toLowerCase() === 'familiar-specific') {
+      data.ability_type = 'Specific Familiar'
+      const required = /\*\*Required Number of Abilities\*\*\s*(\d+)/i.exec(markdown)?.[1]
+      if (required) data.required_abilities = Number(required)
+      const granted = /\*\*Granted Abilities\*\*[ \t]*([^\r\n]*)/i.exec(markdown)?.[1]
+      if (granted !== undefined) data.granted_abilities = plain(granted)
+    }
   }
   if (text(s.category).toLowerCase() === 'fatal-method') data.subclass_type = 'fatal-method'
   if (text(s.category).toLowerCase() === 'grim-fascination') {

@@ -145,3 +145,17 @@ it('gives Glyph Familiar one daily ability plus fixed Construct, Flier and Tough
   expect(familiarAbilityCapacity({ ...glyph, feats: [...glyph.feats, feat('Enhanced Glyph Familiar')] }, []).dailyAbilityLimit).toBe(2)
   expect(activeFamiliarAbilities(glyph, [])).toEqual(['Construct', 'Flier', 'Tough'])
 })
+
+it('activates specific familiar grants only with access and remaining ability capacity', () => {
+  const specific = { ...ability('Calligraphy Wyrm', ''), data: { ability_type: 'Specific Familiar',
+    required_abilities: 6, access: 'affiliation with Cobyslarni or the Pathfinder Society',
+    granted_abilities: 'Darkvision, Flier, Skilled (Arcana, Society)' } }
+  const witch: Character = { ...character, className: 'Witch', level: 12,
+    feats: [{ name: 'Incredible Familiar', type: 'Class Feat', level: 1 }],
+    familiar: { specificFamiliar: specific.name, abilities: ['Tough'] } }
+  const entries = [specific, ability('Tough', '')]
+  expect(activeFamiliarAbilities(witch, entries)).toEqual(['Tough'])
+  const approved = { ...witch, featAccessOverrides: [specific.id] }
+  expect(activeFamiliarAbilities(approved, entries)).toEqual(['Tough', 'Darkvision', 'Flier', 'Skilled'])
+  expect(activeFamiliarAbilities({ ...approved, level: 1, feats: [] }, entries)).toEqual(['Tough'])
+})

@@ -92,12 +92,29 @@ it('tracks Bless in Statuses and summary', () => {
   }
   const change = findBlessChange(StatusesContent({ c, entries: [entry], save }))
   if (!change) throw Error('Missing Bless status toggle')
+  const html = renderToStaticMarkup(<StatusesContent c={c} entries={[entry]} save={save} />)
+  expect(html).toContain('aria-haspopup="dialog">Bless</button>')
+  expect(html).toContain('aria-label="Bless options"')
   expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[entry]} save={save} />)).not.toContain('Bless')
   change({ target: { checked: true } })
   expect(c.activeSpells).toContain('Bless')
   expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[entry]} save={save} />)).toContain('Bless')
   change({ target: { checked: false } })
   expect(c.activeSpells).not.toContain('Bless')
+})
+
+it('opens feat status details and action controls', () => {
+  const feat: ContentEntry = { id: 'stratagem', name: 'Devise a Stratagem', systems: ['pf2e'], kind: 'classFeature',
+    source: 'official', level: 1, traits: [], description: 'Plan an attack.', data: { actions: 'Single Action' },
+    effects: [], updatedAt: 1 }
+  const c: Character = { id: 'investigator', name: 'Test', systems: ['pf2e'], level: 1, className: 'Investigator',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const html = renderToStaticMarkup(<StatusesContent c={c} entries={[feat]} save={() => {}} />)
+  expect(html).toContain('aria-haspopup="dialog">Devise a Stratagem</button>')
+  expect(html).toContain('aria-label="Devise a Stratagem options"')
+  expect(html).toContain('aria-label="Devise a Stratagem active"')
+  expect(html).toContain('Plan an attack.')
 })
 
 it('toggles Summon Celestial status and tracks Summon Fiend with its active summon', () => {

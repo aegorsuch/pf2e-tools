@@ -72,6 +72,22 @@ it('imports full familiar and master ability rules from the familiar-ability sou
   ])
 })
 
+it('imports specific familiar requirements and granted ability text', async () => {
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body))
+    const category = body.query.bool.filter.find((filter: { term?: { category?: string } }) => filter.term)?.term?.category
+    const hits = category === 'familiar-specific' ? [{
+      _id: 'wyrm', _source: { category, name: 'Calligraphy Wyrm', markdown:
+        '**Required Number of Abilities** 6\n\n**Granted Abilities** [Darkvision](/f), [Skilled (Arcana, Society)](/s), [Speech](/s)' },
+    }] : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const entries = mapAonHits(await fetchAonHits('pf2e', fetchFn), 'pf2e')
+  expect(entries).toMatchObject([{ name: 'Calligraphy Wyrm', data: {
+    ability_type: 'Specific Familiar', required_abilities: 6, granted_abilities: 'Darkvision, Skilled (Arcana, Society), Speech',
+  } }])
+})
+
 it('fetches and imports all four grim fascinations with their starting focus spells and thrall rules', async () => {
   const choices = [['Blood', 'Blood Infusion'], ['Bone', 'Bone Spear'], ['Flesh', 'Dead Weight'], ['Spirit', 'Life Tap']]
   const fetchFn: typeof fetch = async (_input, init) => {

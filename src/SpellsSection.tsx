@@ -1,7 +1,7 @@
 import { EntryDescription } from './EntryDescription'
 import { confirmRemoval } from './confirmRemoval'
 import { useId, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeBattleForm, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, investigatorMethodologies, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, rogueRackets, signed, spellActiveChange, spellRemovalChange, untamedShiftChoices, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeBattleForm, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, investigatorMethodologies, isMagicHideActive, isSpellActive, knowsSpell, magicHideChange, proficiencyBonus, rogueRackets, signed, spellActiveChange, spellRemovalChange, untamedShiftChoices, type SectionProps } from './builder'
 import { ANIMAL_FEATURES, PERSISTENT_SPELLS } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { featTakenLevel, grantedWardenSpells, selectedFeatEntry, spellWardenLabel } from './featChoices'
@@ -830,7 +830,7 @@ export function SpiritOfTheBeastOptions({ c, save, companionId, disabled }: Pick
   </label>)}</div>
 }
 
-function ActiveSpellActions({ name, entry, rank, actions: actionOverride, children }: {
+export function ActiveSpellActions({ name, entry, rank, actions: actionOverride, children }: {
   name: string; entry?: ContentEntry; rank?: number; actions?: string; children: ReactNode
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
@@ -885,6 +885,27 @@ export function BoneShieldActions({ c, save, entry, rank, actions, disabled }: P
   return <ActiveSpellActions name="Bone Shield" entry={entry} rank={rank} actions={actions}>
     <label><input type="checkbox" aria-label="Bone Shield active" checked={active}
       disabled={!active && disabled} onChange={event => save(boneShieldChange(c, event.target.checked))} /> Active</label>
+  </ActiveSpellActions>
+}
+
+function ShieldActions({ c, entries, save, entry, rank, disabled }: SectionProps & {
+  entry?: ContentEntry; rank: number; disabled?: boolean
+}) {
+  const active = isSpellActive(c, entries, 'Shield')
+  return <ActiveSpellActions name="Shield" entry={entry} rank={rank} actions={typeof entry?.data.actions === 'string' ? entry.data.actions : 'Single Action'}>
+    <label><input type="checkbox" aria-label="Raise Shield Cantrip (+1 AC)" checked={active}
+      disabled={!active && (disabled || boneShieldActive(c))}
+      onChange={event => save(spellActiveChange(c, 'Shield', event.target.checked))} /> Raise Shield Cantrip (+1 AC)</label>
+  </ActiveSpellActions>
+}
+
+function EatFireActions({ c, save, entry, rank, disabled }: Pick<SectionProps, 'c' | 'save'> & {
+  entry?: ContentEntry; rank: number; disabled?: boolean
+}) {
+  const active = !!c.activeSpells?.includes('Eat Fire')
+  return <ActiveSpellActions name="Eat Fire" entry={entry} rank={rank} actions={typeof entry?.data.actions === 'string' ? entry.data.actions : 'Reaction'}>
+    <label><input type="checkbox" aria-label="Eat Fire active" checked={active} disabled={!active && disabled}
+      onChange={event => save(spellActiveChange(c, 'Eat Fire', event.target.checked))} /> Active</label>
   </ActiveSpellActions>
 }
 
@@ -1268,7 +1289,11 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
                 onChange={event => setCastRanks({ ...castRanks, [slot.key]: Number(event.target.value) })}>
                 {allowedRanks.map(value => <option key={value} value={value}>Rank {value}</option>)}
               </select>}
-              {slot.entry && (slot.entry.name === 'Bone Shield'
+              {slot.entry && (slot.entry.name === 'Shield'
+                ? <ShieldActions c={c} entries={entries} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
+                : slot.entry.name === 'Eat Fire'
+                ? <EatFireActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
+                : slot.entry.name === 'Bone Shield'
                 ? <BoneShieldActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
                 : slot.entry.name === 'Summon Undead'
                 ? <SummonUndeadActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
@@ -1338,14 +1363,31 @@ export function automatedSpellStatusControls({ c, entries, save }: SectionProps)
     ...data.items.map(spell => spell.name),
     ...c.activeSpells ?? [],
   ])
-  const controls = STATUS_TRACKED_SPELL_EFFECTS.filter(name => names.has(name)).map(name => ({ name, element: <label>
+  const spellStatusName = (name: string) => {
+    const entry = entries.find(candidate => candidate.kind === 'spell' && !candidate.deleted
+      && candidate.name.toLowerCase() === name.toLowerCase() && candidate.systems.some(system => c.systems.includes(system)))
+    return entry ? <EntryDescription name={name} entry={entry} entries={entries} character={c} /> : name
+  }
+  const statusElement = (name: string, toggle: ReactNode) => {
+    const entry = entries.find(candidate => candidate.kind === 'spell' && !candidate.deleted
+      && candidate.name.toLowerCase() === name.toLowerCase() && candidate.systems.some(system => c.systems.includes(system)))
+    const actions = typeof entry?.data.actions === 'string' ? entry.data.actions : ''
+    return <>{toggle}{' '}{spellStatusName(name)}
+      {actions && <> <ActiveSpellActions name={name} entry={entry} actions={actions}>{toggle}</ActiveSpellActions></>}
+    </>
+  }
+  const controls = STATUS_TRACKED_SPELL_EFFECTS.filter(name => names.has(name)).map(name => ({ name, element: statusElement(name,
     <input type="checkbox" aria-label={`${name} status`} checked={name === 'Magic Hide' ? isMagicHideActive(c, entries) : !!c.activeSpells?.includes(name)}
-      onChange={event => save(name === 'Magic Hide' ? magicHideChange(c, event.target.checked) : spellActiveChange(c, name, event.target.checked))} /> {name}
-  </label> }))
-  if (names.has('Bone Shield')) controls.push({ name: 'Bone Shield', element: <label>
+      onChange={event => save(name === 'Magic Hide' ? magicHideChange(c, event.target.checked) : spellActiveChange(c, name, event.target.checked))} />) }))
+  if (knowsSpell(c, entries, 'Shield') || c.activeSpells?.includes('Shield')) {
+    const active = isSpellActive(c, entries, 'Shield')
+    controls.push({ name: 'Shield', element: statusElement('Shield',
+      <input type="checkbox" aria-label="Shield status" checked={active} disabled={!active && boneShieldActive(c)}
+        onChange={event => save(spellActiveChange(c, 'Shield', event.target.checked))} />) })
+  }
+  if (names.has('Bone Shield')) controls.push({ name: 'Bone Shield', element: statusElement('Bone Shield',
     <input type="checkbox" aria-label="Bone Shield status" checked={boneShieldActive(c)}
-      onChange={event => save(boneShieldChange(c, event.target.checked))} /> Bone Shield
-  </label> })
+      onChange={event => save(boneShieldChange(c, event.target.checked))} />) })
   if (names.has('False Vitality')) {
     const availableRanks = [
       ...data.spells.filter(spell => spell.name === 'False Vitality').map(spell => spell.rank),
@@ -1355,14 +1397,13 @@ export function automatedSpellStatusControls({ c, entries, save }: SectionProps)
     const rank = c.falseVitalityRank ?? Math.max(0, ...availableRanks)
     const active = c.activeSpells?.includes('False Vitality') ?? false
     const valid = Number.isInteger(rank) && rank >= 2 && rank <= 10
-    controls.push({ name: 'False Vitality', element: <label>
+    controls.push({ name: 'False Vitality', element: statusElement('False Vitality',
       <input type="checkbox" aria-label="False Vitality status" checked={active} disabled={!active && !valid}
         onChange={event => {
           const next = event.target.checked
           if (next && !valid) return
           save({ ...spellActiveChange(c, 'False Vitality', next), falseVitalityRank: next ? rank : undefined })
-        }} /> False Vitality
-    </label> })
+        }} />) })
   }
   return controls
 }
@@ -1687,8 +1728,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     arcaneSpellbookOptions(c, spellIndex.spells, bookRank),
     entry => [...entry.systems].sort().join(',')),
     [c, spellIndex, bookRank])
-  const knownArcaneSpells = new Set((c.spells ?? []).filter(spell => spell.bookSlot !== bookSlotKey)
-    .map(spell => spell.name.toLowerCase()))
+  const knownArcaneSpells = new Set((c.spells ?? []).map(spell => spell.name.toLowerCase()))
   const rankedArcaneBookOptions = arcaneBookOptions.filter(entry => (bookRank === 0
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
     : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
@@ -1820,11 +1860,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     : name === 'Spirit of the Beast'
     ? <ActiveSpellActions name={name} entry={spellEntry(name)} rank={rank}><SpiritOfTheBeastOptions c={c} save={save} /></ActiveSpellActions>
     : name === 'Shield'
-    ? <ActiveSpellActions name={name} entry={spellEntry(name)} rank={rank}><label title="Raise the Shield cantrip for a +1 circumstance bonus to AC until your next turn.">
-      <input type="checkbox" aria-label="Raise Shield Cantrip (+1 AC)" checked={isSpellActive(c, entries, 'Shield')}
-        disabled={boneShieldActive(c) && !isSpellActive(c, entries, 'Shield')}
-        onChange={event => save(spellActiveChange(c, 'Shield', event.target.checked))} /> Raise Shield Cantrip (+1 AC)
-    </label></ActiveSpellActions>
+    ? <ShieldActions c={c} entries={entries} save={save} entry={spellEntry(name)} rank={rank} />
     : name === 'Canopy Crawler' || name === 'Enlarge Companion' || name === 'Apex Companion'
       ? <ActiveSpellActions name={name} entry={spellEntry(name)} rank={rank}>
         <CompanionSpellOptions c={c} entries={entries} save={save} name={name} />
@@ -2421,7 +2457,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                       {!cantrip && rank > spell.baseRank ? `+${rank - spell.baseRank} ` : ''}{spell.name}
                     </option>)}
                   </SearchableSelect>}
-                  {selectedEntry && (selectedEntry.name === 'Oaken Resilience'
+                  {selectedEntry && (selectedEntry.name === 'Shield'
+                    ? <ShieldActions c={c} entries={entries} save={save} entry={selectedEntry} rank={cantrip ? Math.ceil(c.level / 2) : rank} disabled={!valid} />
+                    : selectedEntry.name === 'Eat Fire'
+                    ? <EatFireActions c={c} save={save} entry={selectedEntry} rank={cantrip ? Math.ceil(c.level / 2) : rank} disabled={!valid} />
+                    : selectedEntry.name === 'Oaken Resilience'
                     ? <ActiveSpellActions name={selectedEntry.name} entry={selectedEntry} rank={rank}>
                       <label><input type="checkbox" aria-label={`Oaken Resilience active at rank ${rank}`}
                         checked={isSpellActive(c, entries, selectedEntry.name)} disabled={!valid}

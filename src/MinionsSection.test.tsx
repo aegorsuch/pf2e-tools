@@ -929,6 +929,46 @@ it('groups familiar and master options without showing pet abilities', () => {
   expect(html).toContain('<option value="" selected="">+</option>')
 })
 
+it('shows specific familiar grants alongside choices without removal controls and counts repeated Skilled grants', () => {
+  let c: Character = {
+    id: 'specific-familiar', systems: ['pf2e'], name: 'Test', level: 12, className: 'Witch',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [{ name: 'Incredible Familiar', type: 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { abilities: ['Tough', 'Climber', 'Amphibious', 'Echolocation', 'Wavesense'] },
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 9, slots: { 9: 1 } },
+  }
+  const wyrm: ContentEntry = { ...familiarAbility('Calligraphy Wyrm', 'Curious dragons seek lore.\n\nThey can be know-it-alls.'), data: {
+    ability_type: 'Specific Familiar', required_abilities: 6, access: 'affiliation with Cobyslarni or the Pathfinder Society',
+    granted_abilities: 'Darkvision, Flier, Manual Dexterity, Scent, Skilled (Arcana, Society), Speech',
+  } }
+  const ink: ContentEntry = { ...familiarAbility('Ink Spray', 'Splatter ink. Critical Success The creature is unaffected. Failure It is blinded.',
+    'Specific Familiar - Calligraphy Wyrm'), data: { ability_type: 'Specific Familiar - Calligraphy Wyrm', actions: 'Single Action', sourceBook: 'Rival Academies' } }
+  const entries = [...familiarEntries, familiarAbility('Manual Dexterity', ''), familiarAbility('Speech', ''), wyrm, ink]
+  const tree = () => MinionsContent({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  findSelect(tree(), 'Specific familiar')!({ target: { value: 'Calligraphy Wyrm' } })
+  expect(renderToStaticMarkup(tree())).not.toContain('<h4>Calligraphy Wyrm</h4>')
+  findToggle(tree(), 'GM approved access: Calligraphy Wyrm')!({ target: { checked: true } })
+  let html = renderToStaticMarkup(tree())
+  expect(html).toContain('<h4>Calligraphy Wyrm</h4> (11/11)')
+  expect(html).toContain('Skilled (Arcana, Society)')
+  expect(html).toContain('Curious dragons seek lore.')
+  expect(html).toContain('They can be know-it-alls.')
+  expect(html).toContain('Ink Spray')
+  expect(html).toContain('aria-label="Single Action"')
+  expect(html).toContain('<b>Critical Success</b>')
+  expect(html).toContain('Rival Academies')
+  expect(html).toContain('Arcana +16, Society +16')
+  expect(html).toContain('Scent (imprecise, 30 feet)')
+  expect(html).toContain('Fly 25 feet')
+  expect(html.match(/aria-label="Remove Familiar ability \d+"/g)).toHaveLength(5)
+  expect(html).toContain('(inactive)')
+  findSelect(tree(), 'Specific familiar')!({ target: { value: '' } })
+  html = renderToStaticMarkup(tree())
+  expect(html).toContain('<h4>Familiar</h4> (5/10)')
+  expect(c.familiar?.abilities).toHaveLength(5)
+})
+
 it('shows the selected Witch patron ability as granted and reserves its familiar slot', () => {
   const c: Character = {
     id: 'witch-patron', systems: ['pf2e'], name: 'Test', level: 1, className: 'Witch', subclass: 'Wilding Steward',
@@ -1125,7 +1165,7 @@ it('keeps one familiar while preserving dormant Calistria wasp choices', () => {
   expect(JSON.stringify(c.familiar)).toBe(before)
   html = markup()
   expect(html).toContain('</h4> (2/2)')
-  expect(html.match(/fly Speed of 25 feet/g)).toHaveLength(2)
+  expect(html.match(/fly Speed of 25 feet/g)).toHaveLength(3)
 
   c = { ...c, feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 }] }
   expect(markup()).not.toContain('Wasp Familiar')

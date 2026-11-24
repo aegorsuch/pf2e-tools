@@ -1,6 +1,7 @@
 import type { Character, ContentEntry } from './types'
 import { activeFeatsNamed, classSpellcasting, classSpellSlots, selectedSubclass } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
+import { contentAccessGranted } from './featAccess'
 
 export const FAMILIAR_RESISTANCE_TYPES = ['acid', 'cold', 'electricity', 'fire', 'poison', 'sonic'] as const
 export const FAMILIAR_SKILLS = [
@@ -75,20 +76,42 @@ export function familiarAbilityCapacity(c: Character, entries: ContentEntry[]) {
   }
 }
 
+export function specificFamiliar(c: Character, entries: ContentEntry[]) {
+  const name = c.familiar?.specificFamiliar
+  if (!name) return undefined
+  return familiarAbilityEntries(entries, c).find(entry => entry.data.ability_type === 'Specific Familiar'
+    && key(entry.name) === key(name))
+}
+
+export function specificFamiliarGrants(entry: ContentEntry | undefined) {
+  if (!entry || typeof entry.data.granted_abilities !== 'string') return []
+  return entry.data.granted_abilities.split(/,\s*(?![^()]*\))/).map(value => value.trim()).filter(Boolean)
+}
+
+export function specificFamiliarAbilityName(grant: string) {
+  return grant.replace(/\s*\(.*\)$/, '').trim()
+}
+
 export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
   const state = familiarSelection(c)
   if (!state.familiar && !state.wasp) return []
   const data = state.wasp ? c.waspFamiliar : c.familiar
   if (state.spiritFamiliar && (!data?.spiritManifested || data.spiritDestroyed)) return []
-  const choices = (data?.abilities ?? []).slice(0, familiarAbilityCapacity(c, entries).selectableAbilityLimit)
+  const capacity = familiarAbilityCapacity(c, entries)
+  const specific = !state.wasp ? specificFamiliar(c, entries) : undefined
+  const cost = Number(specific?.data.required_abilities ?? 0)
+  const activeSpecific = !!specific && contentAccessGranted(c, specific) && cost > 0 && cost <= capacity.selectableAbilityLimit
+  const grants = activeSpecific
+    ? specificFamiliarGrants(specific).map(specificFamiliarAbilityName) : []
+  const choices = (data?.abilities ?? []).slice(0, capacity.selectableAbilityLimit - (activeSpecific ? cost : 0))
   const catalog = familiarAbilityEntries(entries, c)
   const granted = state.glyph && !state.wasp ? GLYPH_FAMILIAR_ABILITIES : []
   return [...choices.flatMap((name, index) => {
     const entry = familiarAbilityEntry(name, catalog, c)
     if (!entry || /^specific familiar\b/i.test(String(entry.data.ability_type ?? ''))) return []
-    const others = choices.filter((_, otherIndex) => otherIndex !== index)
+    const others = [...grants, ...choices.filter((_, otherIndex) => otherIndex !== index)]
     return familiarAbilityUnavailableReason(entry, c, others, state.undeadFamiliar, entries) ? [] : [entry.name]
-  }), ...granted]
+  }), ...granted, ...grants]
 }
 
 export function familiarSpellBenefits(c: Character, entries: ContentEntry[], slots: Record<number, number>) {
@@ -246,7 +269,7 @@ export function familiarAbilityEffects(abilities: string[], level: number,
       ...(has('Wavesense') ? ['Wavesense (imprecise, 30 feet)'] : []),
     ],
     resistances: resistanceTypes.map(type => ({ damage: type, value: resistanceRank })),
-    skilled: (options?.skilled ?? []).filter(skill => FAMILIAR_SKILLS.includes(skill))
+    skilled: (options?.skilled ?? []).filter(skill => [...FAMILIAR_SKILLS, 'Perception'].includes(skill))
       .map(skill => ({ skill, modifier: skillModifier })),
   }
 }

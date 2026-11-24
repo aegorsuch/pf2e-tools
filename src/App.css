@@ -621,6 +621,11 @@
 .companion-action-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
 .companion-description, .companion-action-description, .companion-action-requirements { margin: 0; text-align: left; }
 .companion-description { white-space: pre-line; }
+.familiar-abilities { display: grid; gap: 0.75rem; min-width: 0; }
+.familiar-abilities > select { justify-self: start; max-width: 100%; }
+.familiar-ability { display: grid; gap: 0.25rem; min-width: 0; overflow-wrap: anywhere; }
+.familiar-ability-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; padding: 0.2rem 0.4rem; background: var(--border); }
+.familiar-ability-title > button:first-child { font-weight: 700; }
 .gear-damage { font-size: 1.1rem; font-weight: 600; }
 .gear-runes { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
 .gear-runes .spell-action-button[aria-pressed='true'] { background: var(--accent, #7c6cf0); color: #fff; }

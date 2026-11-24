@@ -2,7 +2,8 @@ import { activeFeatsNamed, activeStance, armorEntry, armorProficiencyRank, condi
 import { grantedFeatSpells } from './featSpells'
 import { RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
-import { automatedSpellStatusControls, ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
+import { ActiveSpellActions, automatedSpellStatusControls, ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
+import { EntryDescription } from './EntryDescription'
 import { SimplePoisons } from './GearSection'
 import { isBastionNamedArmor } from './namedArmor'
 import { FULMINATING_SHOT_ELEMENTS, fulminatingShotBonus } from './fulminatingShot'
@@ -68,6 +69,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   const summonedUndead = c.summonedUndead
   const summonedFiend = c.summonedFiend
   const entrenchArmors = ownedArmors(c, entries).filter(armor => isBastionNamedArmor(armor.name))
+  const spellControls = automatedSpellStatusControls({ c, entries, save })
   const controls = [
     { name: 'Active stance', element: <StancesContent c={c} entries={entries} save={save} /> },
     ...(activeFeatsNamed(c, 'Poison Weapon').length
@@ -159,11 +161,20 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
           }))
         }} /> Summon Fiend: {summonedFiend.name}</label>,
     }] : []),
-    ...automatedSpellStatusControls({ c, entries, save }),
+    ...spellControls,
   ].sort((a, b) => a.name.localeCompare(b.name))
   return <div className="character-section-content">
     <div className="condition-controls" role="group" aria-label="Statuses">
-      {controls.map(control => <div className="status-row" key={control.name}>{control.element}</div>)}
+      {controls.map(control => {
+        const entry = !spellControls.some(spell => spell.name === control.name) && entries.find(candidate => (candidate.kind === 'feat' || candidate.kind === 'classFeature')
+          && !candidate.deleted && candidate.name.toLowerCase() === control.name.toLowerCase()
+          && candidate.systems.some(system => c.systems.includes(system))
+          && typeof candidate.data.actions === 'string' && /(?:single|one|two|three) action|free action|reaction/i.test(candidate.data.actions))
+        return <div className="status-row" key={control.name}>{entry ? <>
+          <EntryDescription name={control.name} entry={entry} entries={entries} character={c} hideButtonActions />{' '}
+          <ActiveSpellActions name={control.name} entry={entry}>{control.element}</ActiveSpellActions>
+        </> : control.element}</div>
+      })}
     </div>
   </div>
 }

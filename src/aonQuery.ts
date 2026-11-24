@@ -74,6 +74,7 @@ export const CATEGORY_TO_KIND: Record<string, EntryKind> = {
   'animal-companion-specialization': 'companionSpec',
   'animal-companion-advanced': 'companionAdv',
   'familiar-ability': 'familiar',
+  'familiar-specific': 'familiar',
   ...Object.fromEntries(Object.keys(SUBCLASS_CLASSES).map((category) => [category, 'subclass' as const])),
 }
 
@@ -409,7 +410,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
           if (comp.maneuver) s.companion_maneuver = comp.maneuver
           if (comp.maneuverActionUrl) s.companion_maneuver_action_url = comp.maneuverActionUrl
         }
-        if (!['feat', 'heritage', 'background', 'spell', 'trait', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced', 'familiar-ability'].includes(category) && !SUBCLASS_CLASSES[category]
+        if (!['feat', 'heritage', 'background', 'spell', 'trait', 'class-feature', 'armor-group', 'animal-companion-specialization', 'animal-companion-advanced', 'familiar-ability', 'familiar-specific'].includes(category) && !SUBCLASS_CLASSES[category]
           && !usesFullItemRules(s)) delete s.markdown
       }
       hits.push(hit)
