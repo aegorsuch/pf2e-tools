@@ -82,3 +82,42 @@ it('updates equipment groups when inventory or catalog changes', async () => {
     vi.unstubAllGlobals()
   }
 })
+
+it('updates class feat slots and progress when a blank slot is added and filled', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const c: Character = {
+    id: 'class-slots', systems: ['pf2e'], name: 'Test', level: 2, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const catalog: ContentEntry[] = []
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const render = async (character: Character) => act(async () => root.render(
+    <CharacterBuilder character={character} catalog={catalog} onClose={() => {}} />,
+  ))
+  try {
+    await render(c)
+    const section = [...container.querySelectorAll('details')].find(details =>
+      details.querySelector('summary strong')?.textContent === 'Class')!
+    await act(async () => { section.open = true; section.dispatchEvent(new Event('toggle')) })
+    const count = () => [...section.querySelectorAll('.character-subsection > summary h4')]
+      .find(heading => heading.textContent?.startsWith('Class Feats'))?.textContent
+    const initial = plannedSlots(c, catalog).filter(slot => slot.category === 'class').length
+    expect(count()).toBe(`Class Feats 0/${initial}`)
+    const added: Character = { ...c, extraSlots: [{ category: 'class', level: 2, count: 1 }] }
+    await render(added)
+    expect(count()).toBe(`Class Feats 0/${initial + 1}`)
+    expect(section.querySelectorAll('[aria-label="L02 Class feat"]')).toHaveLength(2)
+    await render({ ...added, feats: [{ name: 'Test feat', type: 'Class Feat', level: 2, slot: 'class:2:1' }] })
+    expect(count()).toBe(`Class Feats 1/${initial + 1}`)
+    expect(section.textContent).toContain('Test feat')
+    await render(c)
+    expect(count()).toBe(`Class Feats 0/${initial}`)
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})

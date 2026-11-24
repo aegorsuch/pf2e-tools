@@ -282,6 +282,18 @@ it('computes feat equivalence only for eligible candidates and reuses it across 
   expect(readRules).toHaveBeenCalledTimes(reads)
 })
 
+it('refreshes cached automatic grants when house rules change', () => {
+  const previous = getSettings().cyborgTestSubject
+  const c: Character = { ...base, systems: ['sf2e'], heritage: 'Cyborg', level: 1 }
+  const entries: ContentEntry[] = []
+  try {
+    updateSettings({ cyborgTestSubject: true })
+    expect(automaticFeatGrants(c, entries)).toContainEqual(expect.objectContaining({ name: 'Assurance', choice: 'Computers' }))
+    updateSettings({ cyborgTestSubject: false })
+    expect(automaticFeatGrants(c, entries)).not.toContainEqual(expect.objectContaining({ name: 'Assurance', choice: 'Computers' }))
+  } finally { updateSettings({ cyborgTestSubject: previous }) }
+})
+
 it('merges equivalent skill feats without losing clarifications, different rules, homebrew, or saved sources', () => {
   const rules = "Choose a skill you're trained in. You can receive a result of 10 + your proficiency bonus."
   const clarification = '<details class="clarification"><summary>Paizo Clarification</summary>This still counts as a roll.</details>'

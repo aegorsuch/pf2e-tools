@@ -29,6 +29,7 @@ interface FeatSlotsProps extends SectionProps {
   onSearch?: (key: string, text: string) => void
   pickerEligibility?: (slot: PlannedSlot) => ContentEntry[]
   pickerVariantCache?: Map<string, FeatOption[]>
+  plannedFeatSlots?: PlannedSlot[]
 }
 
 function TreehealerRoll() {
@@ -171,7 +172,7 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
     const entry = featsByName.get(name)
     return entry ? featType(entry, c) : ['Untrained Improvisation', 'Shield Block'].includes(name) ? 'General Feat' : 'Skill Feat'
   }
-  const background = entries.find((entry) => entry.kind === 'background' && entry.name === c.background)
+  const background = c.background ? entries.find((entry) => entry.kind === 'background' && entry.name === c.background) : undefined
   const backgroundFeats = typeof background?.data.feat === 'string'
     ? background.data.feat.split(',').flatMap((name) => {
       const feat = entries.find((entry) => entry.kind === 'feat' && entry.name === name.trim())
@@ -220,7 +221,7 @@ export function classArchetypeSlotViews(c: Character, entries: ContentEntry[], s
 }
 
 export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch,
-  pickerEligibility, pickerVariantCache }: FeatSlotsProps) {
+  pickerEligibility, pickerVariantCache, plannedFeatSlots }: FeatSlotsProps) {
   const checks = selectedChecks(c, entries)
   const selectedPrerequisites = (slot: PlannedSlot, entry: ContentEntry) => {
     const key = JSON.stringify([slot, entry])
@@ -231,7 +232,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     }
     return result
   }
-  const allSlots = plannedSlots(c, entries)
+  const allSlots = plannedFeatSlots ?? plannedSlots(c, entries)
   const featsByName = featByName(entries)
   const { background, backgroundFeats, grants, automaticFeats, memories, grantedType } = featSectionGrants(c, entries, categories, allSlots)
   const slots = [...allSlots, ...(categories?.includes('archetype') ? classArchetypeSlotViews(c, entries, allSlots) : [])]

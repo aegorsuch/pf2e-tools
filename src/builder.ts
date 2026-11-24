@@ -95,8 +95,8 @@ const LEVEL_HP_FEATS = ['Fey Skin', 'Golem Grafter Dedication', 'Gremlin Hide', 
   'Stonebound Dedication', 'Strength of Eight Legions', 'Thick Skin', 'Toughness']
 
 export function maxHp(c: Character, entries: ContentEntry[]) {
-  const heritage = entries.find(entry => entry.kind === 'heritage' && entry.name === c.heritage
-    && !entry.deleted && entry.systems.some(system => c.systems.includes(system)))
+  const heritage = c.heritage ? entries.find(entry => entry.kind === 'heritage' && entry.name === c.heritage
+    && !entry.deleted && entry.systems.some(system => c.systems.includes(system))) : undefined
   const heritageHp = c.heritage
     ? heritage?.data.hp !== undefined ? num(heritage.data.hp) : HERITAGE_HP[c.heritage]
     : undefined
@@ -978,9 +978,10 @@ export function hasRemainingFeatSelections(c: Character, entries: ContentEntry[]
 function redundantFeatSlots(c: Character, entries: ContentEntry[], slots: PlannedSlot[]): PlannedSlot[] {
   if (!entries.length) return []
   // Replacement selections grant their normal benefits, but cannot create more replacement slots.
-  const character = { ...c, feats: c.feats.filter(feat => !feat.slot?.includes(':redundant:')) }
-  const background = entries.find(entry => entry.kind === 'background' && !entry.deleted && entry.name === c.background
-    && entry.systems.some(system => c.systems.includes(system)))
+  const feats = c.feats.filter(feat => !feat.slot?.includes(':redundant:'))
+  const character = feats.length === c.feats.length ? c : { ...c, feats }
+  const background = c.background ? entries.find(entry => entry.kind === 'background' && !entry.deleted && entry.name === c.background
+    && entry.systems.some(system => c.systems.includes(system))) : undefined
   const fixedSlots = new Set(slots.filter(slot => slot.grantedFeat).map(slot => slot.key))
   const counts = new Map<string, number>()
   const grants = automaticFeatGrants(character, entries).map(grant => {
@@ -1000,11 +1001,11 @@ function redundantFeatSlots(c: Character, entries: ContentEntry[], slots: Planne
     ...grants,
   ].filter(feat => feat.level <= c.level)
     .sort((a, b) => a.level - b.level || Number(a.granted) - Number(b.granted) || a.identity.localeCompare(b.identity))
-  const feats = featByName(entries)
+  const featsByName = featByName(entries)
   const seen = new Set<string>()
   const replacements: PlannedSlot[] = []
   for (const occurrence of occurrences) {
-    const feat = feats.get(occurrence.name)
+    const feat = featsByName.get(occurrence.name)
     if (!feat || feat.deleted || !feat.systems.some(system => c.systems.includes(system)) || feat.data.repeatable === true) continue
     const type = featType(feat, c)
     const category = type === 'Skill Feat' ? 'skill' : type === 'General Feat' ? 'general' : undefined
@@ -4604,12 +4605,19 @@ export function senses(c: Character, entries: ContentEntry[]) {
 }
 
 const shieldFeaturesCache = new WeakMap<ContentEntry[], ContentEntry[]>()
-const automaticGrantCache = new WeakMap<ContentEntry[], WeakMap<Character, ReturnType<typeof computeAutomaticFeatGrants>>>()
+const automaticGrantCache = new WeakMap<ContentEntry[], {
+  settings: ReturnType<typeof getSettings>
+  characters: WeakMap<Character, ReturnType<typeof computeAutomaticFeatGrants>>
+}>()
 export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
-  let byCharacter = automaticGrantCache.get(entries)
-  if (!byCharacter) automaticGrantCache.set(entries, byCharacter = new WeakMap())
-  let grants = byCharacter.get(c)
-  if (!grants) byCharacter.set(c, grants = computeAutomaticFeatGrants(c, entries))
+  const settings = getSettings()
+  let cache = automaticGrantCache.get(entries)
+  if (!cache || cache.settings !== settings) {
+    cache = { settings, characters: new WeakMap() }
+    automaticGrantCache.set(entries, cache)
+  }
+  let grants = cache.characters.get(c)
+  if (!grants) cache.characters.set(c, grants = computeAutomaticFeatGrants(c, entries))
   return grants
 }
 

@@ -585,7 +585,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <span>{filled + granted}/{slots.length + granted}</span>
         </summary>
         <div className="character-section-content">
-          <SearchableFeatSlots {...section} categories={[category]} title={title} bare />
+          <SearchableFeatSlots {...section} categories={[category]} title={title} bare plannedFeatSlots={featSlots} />
           {category === 'archetype' && slots.length === 0 && (
             <button type="button" onClick={() => save({ extraSlots: [...c.extraSlots, { category: 'archetype', level: Math.max(2, c.level), count: 1 }] })}>
               Add Dedication feat slot
@@ -675,7 +675,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           </Info>}
           <PioneerHumanOptions {...section} />
           {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((a) => a.toUpperCase()).join(', ')}</small>}
-          <SearchableFeatSlots {...section} categories={['ancestry']} title="Ancestry Feats" />
+          <SearchableFeatSlots {...section} categories={['ancestry']} title="Ancestry Feats" plannedFeatSlots={featSlots} />
         </div>
       </DeferredDetails>
 
@@ -825,7 +825,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           })()}
           <AbilityBoostChoices {...section} groups={['class']} />
           <ClassFeatures {...section} />
-          <SearchableFeatSlots {...section} categories={['class']} title="Class Feats" />
+          <SearchableFeatSlots {...section} categories={['class']} title="Class Feats" plannedFeatSlots={featSlots} />
         </div>
       </DeferredDetails>
 
