@@ -1,6 +1,6 @@
 import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, wornArmor, type SectionProps } from './builder'
 import { grantedFeatSpells } from './featSpells'
-import { HardenFleshToggle, RageToggle } from './SkillsSection'
+import { FavoredTerrainSelector, HardenFleshToggle, RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
 import { ActiveSpellActions, automatedSpellStatusControls, ProtectCompanionOptions, SpellEffectActions, ZealousConvictionToggle } from './SpellsSection'
 import { EntryDescription } from './EntryDescription'
@@ -94,15 +94,11 @@ export function DeviseAStratagemToggle({ c, save, summary = false }: Pick<Sectio
 
 export function HuntPreyToggle({ c, entries, save, summary = false }: SectionProps & { summary?: boolean }) {
   if (!hasHuntPrey(c, entries)) return null
-  return summary
-    ? <span className="combat-summary-toggles" onClick={event => event.stopPropagation()}><label>
-      <input type="checkbox" aria-label="Hunt Prey active" checked={!!c.huntPreyActive}
-        onChange={event => save({ huntPreyActive: event.target.checked })} /> Hunt Prey
-    </label></span>
-    : <span><input type="checkbox" aria-label="Hunt Prey active" checked={!!c.huntPreyActive}
+  const content = <><input type="checkbox" aria-label="Hunt Prey active" checked={!!c.huntPreyActive}
       onChange={event => save({ huntPreyActive: event.target.checked })} />{' '}
-      <EntryDescription name="Hunt Prey" entry={HUNT_PREY} character={c} entries={entries} buttonActions="Single Action" />
-    </span>
+    <EntryDescription name="Hunt Prey" entry={HUNT_PREY} character={c} entries={entries} buttonActions="Single Action" /></>
+  return <span className={summary ? 'combat-summary-toggles' : undefined}
+    onClick={summary ? event => event.stopPropagation() : undefined}>{content}</span>
 }
 
 export function StatusesContent({ c, entries, save }: SectionProps) {
@@ -265,9 +261,10 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       </ActiveSpellActions>}
     </> }] : []),
     ...(activeFeatsNamed(c, 'Favored Terrain').length
-      ? [{ name: 'Favored Terrain', element: <label><input type="checkbox" aria-label="Favored Terrain status"
+      ? [{ name: 'Favored Terrain', element: <span><label><input type="checkbox" aria-label="Favored Terrain status"
         checked={isFeatEffectActive(c, 'Favored Terrain')} disabled={activeFeatsNamed(c, 'Terrain Master').length > 0}
-        onChange={event => save(featEffectChange(c, 'Favored Terrain', event.target.checked))} /> Favored Terrain</label> }] : []),
+        onChange={event => save(featEffectChange(c, 'Favored Terrain', event.target.checked))} /> Favored Terrain</label>{' '}
+        <FavoredTerrainSelector c={c} save={save} status /></span> }] : []),
     ...(knowsSpell(c, entries, 'Protect Companion') || c.activeSpells?.includes('Protect Companion')
       ? [{ name: 'Protect Companion', element: <ProtectCompanionOptions c={c} save={save} entries={entries} showDetails /> }] : []),
     ...(summonedUndead ? [{

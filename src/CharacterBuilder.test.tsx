@@ -194,6 +194,11 @@ it('filters equipment by skill item bonuses without treating other bonuses as it
     level: 1, traits: [], description: 'Gain a +1 item bonus to Acrobatics and Stealth checks while sneaking.',
     data: { usage: 'worn boots' }, effects: [], updatedAt: 0 }
   expect([...equipmentGroups.equipmentBonusSkills(item)]).toEqual(['Acrobatics', 'Stealth'])
+  expect(equipmentGroups.equipmentSkillBonuses(item, 'Acrobatics')).toEqual([1])
+  expect(equipmentGroups.equipmentSkillBonuses({ ...item,
+    description: 'Gain a +1 item bonus to Acrobatics and a +3 item bonus to Stealth.' }, 'Stealth')).toEqual([3])
+  expect(equipmentGroups.equipmentSkillBonuses({ ...item,
+    description: 'Gain a +1 circumstance bonus to Stealth checks.' }, 'Stealth')).toEqual([])
   expect([...equipmentGroups.equipmentBonusSkills({ ...item, description: 'Gain a +1 circumstance bonus to Stealth checks.' })]).toEqual([])
   expect([...equipmentGroups.equipmentBonusSkills({ ...item, description: 'Gain a +1 item bonus to Reflex saves, and use Stealth checks.' })]).toEqual([])
   expect([...equipmentGroups.equipmentBonusSkills({ ...item, description: 'Gain a +2 item bonus to Acrobatics and Stealth and a +2 circumstance bonus to AC.' })])
@@ -222,7 +227,21 @@ it('filters equipment by skill item bonuses without treating other bonuses as it
   }
   const markup = renderToStaticMarkup(<InspectSearch />)
   expect(markup).toContain('Add Boots')
+  expect(markup).toContain('(item 1) (+1)')
   expect(markup).not.toContain('Add Other Boots')
+})
+
+it('shows skill bonuses for official equipment variants', () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+  for (const [name, skill, bonus] of [
+    ['Daredevil Boots', 'Acrobatics', 2], ['Daredevil Boots (Greater)', 'Acrobatics', 3],
+    ['Armbands of Athleticism', 'Athletics', 2], ['Armbands of Athleticism (Greater)', 'Athletics', 3],
+    ["Voyager's Pack", 'Survival', 3],
+    ['Marvelous Medicines', 'Medicine', 2], ['Marvelous Medicines (Greater)', 'Medicine', 3],
+  ] as const) {
+    const item = mapAonHit(hits.find(hit => hit._source?.name === name)!, 'pf2e')!
+    expect(equipmentGroups.equipmentSkillBonuses(item, skill), name).toEqual([bonus])
+  }
 })
 
 it('offers only skill bonuses present in the equipment section and selected system', () => {

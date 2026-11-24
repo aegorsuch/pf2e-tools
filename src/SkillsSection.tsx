@@ -25,7 +25,7 @@ import { ERUDITE_LORE_KEY, eruditeWarrior, isSoldier, soldierStyle } from './sol
 import { isWitchwarper } from './witchwarper'
 import { hellknightBenefitActive, hellknightSkillNotes, hellknightTrainingBenefits } from './hellknight'
 import { mountainPoisonImmunities } from './namedArmor'
-import { armbandsOfAthleticismBonus, daredevilBootsBonus } from './builder'
+import { armbandsOfAthleticismBonus, daredevilBootsBonus, marvelousMedicinesBonus } from './builder'
 import { SkillItemPicker } from './SkillItemPicker'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
@@ -106,6 +106,20 @@ export function RageToggle({ c, save, summary = false }: Pick<SectionProps, 'c' 
   return summary
     ? <span className="combat-summary-toggles" onClick={(event) => event.stopPropagation()}>{toggle}</span>
     : toggle
+}
+
+export function FavoredTerrainSelector({ c, save, status = false }: Pick<SectionProps, 'c' | 'save'> & { status?: boolean }) {
+  if (!activeFeatsNamed(c, 'Terrain Master').length || !activeFeatsNamed(c, 'Favored Terrain').length) return null
+  const selected = selectedFavoredTerrain(c)
+  const terrain = selected && FAVORED_TERRAINS.includes(selected) ? selected : ''
+  return <label>Favored Terrain{' '}
+    <select aria-label={status ? 'Favored Terrain status terrain' : 'Favored Terrain'} value={terrain} onChange={event => {
+      if (FAVORED_TERRAINS.includes(event.target.value)) save(favoredTerrainChange(c, event.target.value))
+    }}>
+      {!terrain && <option value="">Choose terrain</option>}
+      {FAVORED_TERRAINS.map(name => <option key={name}>{name}</option>)}
+    </select>
+  </label>
 }
 
 export function SensesAndSpeed({ c, entries, save }: SectionProps) {
@@ -208,14 +222,7 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       title="Fly while holding your implement." />}
     {isFeatEffectActive(c, 'Favored Terrain') && !terrain
       && <small role="status">Choose a Favored Terrain in your class feats before applying its benefits.</small>}
-    {!!activeFeatsNamed(c, 'Terrain Master').length && !!activeFeatsNamed(c, 'Favored Terrain').length && <label>Favored Terrain{' '}
-      <select aria-label="Favored Terrain" value={selectedFavoredTerrain(c) ?? ''} onChange={event => {
-        if (!FAVORED_TERRAINS.includes(event.target.value)) return
-        save(favoredTerrainChange(c, event.target.value))
-      }}>
-        {FAVORED_TERRAINS.map(name => <option key={name}>{name}</option>)}
-      </select>
-    </label>}
+    <FavoredTerrainSelector c={c} save={save} />
     {terrain && <SourceNote source={`Favored Terrain (${terrain.terrain})`} note={`ignore non-magical difficult terrain.${
       terrain.enhanced ? (['Arctic', 'Desert'].includes(terrain.terrain)
         ? ` Eat and drink one-tenth as much; ignore severe/extreme ${terrain.terrain === 'Arctic' ? 'cold' : 'heat'}; cross ${terrain.terrain === 'Arctic' ? 'ice and snow' : 'sand'} at full Speed without Balance.`
@@ -460,7 +467,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const arrowhead = s.name === 'Survival' ? hunterArrowheadBonus(c, entries) : undefined
     const pack = s.name === 'Survival' ? voyagerPackBonus(c, entries) : undefined
     const skillGear = s.name === 'Acrobatics' ? daredevilBootsBonus(c, entries)
-      : s.name === 'Athletics' ? armbandsOfAthleticismBonus(c, entries) : undefined
+      : s.name === 'Athletics' ? armbandsOfAthleticismBonus(c, entries)
+        : s.name === 'Medicine' ? marvelousMedicinesBonus(c, entries) : undefined
     const item = s.name === 'Perception' ? perceptionItemBonus(c, entries)
       : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0, pack?.value ?? 0, skillGear?.value ?? 0, apexSkillBonus(c, s.name))
     const athleticRush = s.name === 'Athletics' && isSpellActive(c, entries, 'Athletic Rush')
@@ -558,6 +566,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {ink && <SourceNote inlineSource={false} source={ink.source}
             note={`Stealth ${signed(total + forestIncrease)} in forests`} />}
           {artifact && <SourceNote inlineSource={false} source={artifact.source} note={`+${artifact.value} item bonus while carried; item bonuses do not stack.`} />}
+          {s.name === 'Medicine' && skillGear && <SourceNote inlineSource={false} source={skillGear.source}
+            note={`+${skillGear.value} item bonus when using the toolkit; item bonuses do not stack.`} />}
           {professionalTools.filter(tool => tool.skills.includes(s.name)).map(tool =>
             <SourceNote key={tool.name} source={tool.name}
               note={`${itemTotal(tool.bonus)} when used as a toolkit (+${tool.bonus} item; item bonuses do not stack).`} />)}

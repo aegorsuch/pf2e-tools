@@ -3,7 +3,7 @@ import { ActionIcon } from './ActionIcon'
 import { activeFeatsNamed, ringCapacity, ringCount, type SectionProps } from './builder'
 import { isCompanionEquipmentItem } from './companions'
 import { EntryDescription } from './EntryDescription'
-import { EQUIPMENT_BONUS_SKILLS, equipmentBonusSkills, equipmentDisplayName, equipmentFitsGroup, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
+import { EQUIPMENT_BONUS_SKILLS, equipmentBonusSkills, equipmentDisplayName, equipmentFitsGroup, equipmentGroupName, equipmentSkillBonuses, type EquipmentGroupName } from './equipmentGroups'
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
@@ -72,7 +72,9 @@ export function EquipmentSearch({ c, entries, save, category, onClose, fixedSkil
     </div>
     <ul className="gear-results">
       {matches.map(g => <li key={g.id}>
-        <EntryDescription name={g.name} entry={g} className="equipment-name" /> <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''}){' '}
+        <EntryDescription name={g.name} entry={g} className="equipment-name" /> <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''})
+        {selectedSkill && equipmentSkillBonuses(g, selectedSkill).length > 0
+          && <> {'('}{equipmentSkillBonuses(g, selectedSkill).map(value => `+${value}`).join('/')}{')'}</>}{' '}
         <button aria-label={`Add ${equipmentDisplayName(g.name)}`} disabled={equipmentGroupName(g) === 'Rings' && ringsFull
           || g.name === 'Storied Skin' && (c.equipment.some(item => item.name === g.name && item.qty > 0)
             || c.systems.includes('pf2e') && activeFeatsNamed(c, 'Tattooed Historian Dedication').length > 0)}

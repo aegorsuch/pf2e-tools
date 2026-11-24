@@ -4,7 +4,8 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
-import type { ContentEntry } from './types'
+import { HuntPreyToggle } from './StatusesSection'
+import type { Character, ContentEntry } from './types'
 
 afterEach(() => {
   Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
@@ -13,6 +14,36 @@ afterEach(() => {
   vi.unstubAllGlobals()
   document.body.replaceChildren()
 })
+
+it.each([['Ranger', undefined], ['Ranger', 'Vindication'], ['Rogue', 'Avenger']] as const)(
+  'opens Hunt Prey from the %s class header without toggling the section', async (className, subclass) => {
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+      this.setAttribute('open', '')
+    } })
+    const c: Character = { id: 'hunt-prey-header', name: 'Test', systems: ['pf2e'], level: 4, className, subclass,
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+      feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+    const save = vi.fn()
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    try {
+      await act(async () => root.render(<details><summary>Class <HuntPreyToggle c={c} entries={[]} save={save} summary /></summary></details>))
+      const section = container.querySelector('details')!
+      await act(async () => container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!.click())
+      expect(section.open).toBe(false)
+      expect(container.querySelector('dialog')?.open).toBe(true)
+      expect(container.querySelector('dialog')?.textContent).toContain('Survival checks to Track it')
+      expect(save).not.toHaveBeenCalled()
+      await act(async () => container.querySelector<HTMLInputElement>('input[aria-label="Hunt Prey active"]')!.click())
+      expect(section.open).toBe(false)
+      expect(save).toHaveBeenCalledWith({ huntPreyActive: true })
+    } finally {
+      await act(async () => root.unmount())
+    }
+  },
+)
 
 it('opens deferred details with focus, follows links, and resets on close', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)

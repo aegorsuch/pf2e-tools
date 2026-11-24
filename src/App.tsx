@@ -131,21 +131,21 @@ export default function App() {
   const entries = catalog?.entries
 
   const homebrew = useMemo(() => entries?.filter((e) => e.source === 'homebrew') ?? [], [entries])
-  const basicRemaining = useMemo(() => new Set((characters ?? [])
+  const basicRemaining = useMemo(() => new Set((editingId ? [] : characters ?? [])
     .filter(character => hasRemainingFeatSelections(character))
-    .map(character => character.id)), [characters, settings])
+    .map(character => character.id)), [characters, settings, editingId])
   const needsFeatCatalog = !editingId && (characters ?? []).some(character => !basicRemaining.has(character.id))
   const featCatalog = useLiveQuery(async () => needsFeatCatalog ? await db.content.toArray() : undefined, [needsFeatCatalog])
   const remainingFeats = useMemo(() => {
     const remaining = new Set(basicRemaining)
-    if (featCatalog) for (const character of characters ?? []) {
+    if (!editingId && featCatalog) for (const character of characters ?? []) {
       if (!remaining.has(character.id) && hasRemainingFeatSelections(character, featCatalog)) remaining.add(character.id)
     }
     return remaining
-  }, [basicRemaining, characters, featCatalog, settings])
-  const sortedCharacters = useMemo(() => filterCharacters(characters ?? [], characterFilters)
+  }, [basicRemaining, characters, featCatalog, settings, editingId])
+  const sortedCharacters = useMemo(() => filterCharacters(editingId ? [] : characters ?? [], characterFilters)
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
-  [characters, characterFilters])
+  [characters, characterFilters, editingId])
 
   const newCharacter = async () => {
     const name = window.prompt('Character name?')?.trim()

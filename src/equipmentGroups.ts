@@ -5,7 +5,9 @@ export const EQUIPMENT_BONUS_SKILLS = ['Acrobatics', 'Arcana', 'Athletics', 'Com
   'Diplomacy', 'Intimidation', 'Lore', 'Medicine', 'Nature', 'Occultism', 'Performance', 'Piloting',
   'Religion', 'Society', 'Stealth', 'Survival', 'Thievery'] as const
 
-const bonusSkillCache = new WeakMap<ContentEntry, { description: string; indexed: unknown; skills: Set<string> }>()
+const bonusSkillCache = new WeakMap<ContentEntry, {
+  description: string; indexed: unknown; name: string; skills: Set<string>; bonuses: Map<string, Set<number>>
+}>()
 const bonusSkillPatterns = EQUIPMENT_BONUS_SKILLS.map(skill => [skill, new RegExp(`\\b${skill}\\b`, 'i')] as const)
 const bonusSkillActions: [string, RegExp][] = [
   ['Athletics', /\b(?:climb|grapple|high jump|long jump|shove|swim|trip)\b/i],
@@ -22,20 +24,50 @@ const bonusSkillActions: [string, RegExp][] = [
 
 export function equipmentBonusSkills(entry: ContentEntry) {
   const cached = bonusSkillCache.get(entry)
-  if (cached?.description === entry.description && cached.indexed === entry.data.skill) return cached.skills
+  if (cached?.description === entry.description && cached.indexed === entry.data.skill && cached.name === entry.name) return cached.skills
   const skills = new Set<string>()
-  for (const match of entry.description.matchAll(/(?:\bitem bonus|\+\d+\s+bonus)\s+(?:to|on|when)\s+([^.;\n]{0,180})/gi)) {
-    const target = match[1].split(/\b(?:while|when|if|unless|against|and (?:a|an|you|it|your|use|gain|can|must|attempt|make)\b)/i, 1)[0]
-    for (const [skill, pattern] of bonusSkillPatterns) if (pattern.test(target)) skills.add(skill)
-    for (const [skill, pattern] of bonusSkillActions) if (pattern.test(target)) skills.add(skill)
+  const bonuses = new Map<string, Set<number>>()
+  for (const match of entry.description.matchAll(/(?:\+(\d+)\s+(?:item\s+)?bonus|\bitem bonus)\s+(?:to|on|when)\s+((?:(?!\band (?:a|an) \+\d+\s+(?:(?:item|circumstance|status)\s+)?bonus\b)[^.;\n]){0,180})/gi)) {
+    const target = match[2].split(/\b(?:while|when|if|unless|against|and (?:a|an|you|it|your|use|gain|can|must|attempt|make)\b)/i, 1)[0]
+    const matched = new Set<string>()
+    for (const [skill, pattern] of bonusSkillPatterns) if (pattern.test(target)) matched.add(skill)
+    for (const [skill, pattern] of bonusSkillActions) if (pattern.test(target)) matched.add(skill)
     if (/^(?:the|that|this) check\b/i.test(target.trim())) {
       const indexed = String(entry.data.skill ?? '').split(',').map(name => name.trim())
       const distinct = [...new Set(indexed)]
-      if (distinct.length === 1 && EQUIPMENT_BONUS_SKILLS.some(skill => skill === distinct[0])) skills.add(distinct[0])
+      if (distinct.length === 1 && EQUIPMENT_BONUS_SKILLS.some(skill => skill === distinct[0])) matched.add(distinct[0])
+    }
+    for (const skill of matched) {
+      skills.add(skill)
+      if (match[1]) {
+        const values = bonuses.get(skill) ?? new Set<number>()
+        values.add(Number(match[1]))
+        bonuses.set(skill, values)
+      }
     }
   }
-  bonusSkillCache.set(entry, { description: entry.description, indexed: entry.data.skill, skills })
+  const heading = `\n\n${entry.name}\n\n`
+  const variantStart = entry.description.lastIndexOf(heading)
+  if (variantStart >= 0) {
+    const variant = entry.description.slice(variantStart + heading.length)
+    const separator = variant.indexOf('\n\n---\n\n')
+    if (separator >= 0 && variant.slice(0, separator).split('\n\n')
+      .every(part => /^(?:Source|Price|Usage|Bulk)\b/i.test(part.trim()))) {
+      const paragraph = variant.slice(separator + 7).split('\n\n', 1)[0]
+      const match = /the bonus to ([^.]{0,100}?) checks? is \+(\d+)/i.exec(paragraph)
+      if (match) for (const [skill, pattern] of bonusSkillPatterns)
+        if (pattern.test(match[1]) && skills.has(skill)) bonuses.set(skill, new Set([Number(match[2])]))
+      const implicit = /\b(?:tools|item|it)\s+grant(?:s)?\s+(?:a|an)\s+\+(\d+)\s+item bonus\b/i.exec(paragraph)
+      if (implicit && skills.size === 1) bonuses.set([...skills][0], new Set([Number(implicit[1])]))
+    }
+  }
+  bonusSkillCache.set(entry, { description: entry.description, indexed: entry.data.skill, name: entry.name, skills, bonuses })
   return skills
+}
+
+export function equipmentSkillBonuses(entry: ContentEntry, skill: string) {
+  equipmentBonusSkills(entry)
+  return [...(bonusSkillCache.get(entry)?.bonuses.get(skill) ?? [])].sort((a, b) => a - b)
 }
 
 export const equipmentDisplayName = (name: string) => name.replace(/[\u2018\u2019]/g, "'")

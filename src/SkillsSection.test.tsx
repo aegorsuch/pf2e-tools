@@ -1120,6 +1120,23 @@ it('applies the Voyager pack Survival item bonus without a source label or stack
   expect(builder.voyagerPackBonus(c, [{ ...pack, systems: ['sf2e'] }])).toBeUndefined()
 })
 
+it('applies the highest Marvelous Medicines bonus to Medicine when using the toolkit', () => {
+  const medicines: ContentEntry = { ...KILLERS_BELT_MAJOR, id: 'medicines', name: 'Marvelous Medicines', source: 'official', effects: [] }
+  const greater: ContentEntry = { ...medicines, id: 'greater-medicines', name: 'Marvelous Medicines (Greater)' }
+  const entries = [ranger, medicines, greater]
+  const row = (character: Character, catalog = entries) => renderToStaticMarkup(
+    <SkillsSection c={character} entries={catalog} save={() => {}} />,
+  ).split('class="skill-name">Medicine')[1].split('class="skill-name">')[0]
+  const total = Number(/<b>\+?(-?\d+)/.exec(row(base))![1])
+  const c: Character = { ...base, equipment: [{ name: medicines.name, qty: 2 }, { name: greater.name, qty: 1 }] }
+  expect(row(c)).toContain(`<b>+${total + 3}`)
+  expect(row(c)).toContain('+3 item bonus when using the toolkit')
+  expect(row({ ...c, equipment: [{ name: medicines.name, qty: 1 }] })).toContain(`<b>+${total + 2}`)
+  expect(row({ ...c, equipment: [{ name: greater.name, qty: 0 }] })).toContain(`<b>+${total}`)
+  expect(builder.marvelousMedicinesBonus(c, [ranger, { ...greater, deleted: true }])?.value).toBeUndefined()
+  expect(builder.marvelousMedicinesBonus({ ...c, systems: ['sf2e'] }, entries)).toBeUndefined()
+})
+
 it('shows Rider as a conditional Nature bonus without increasing ordinary Nature checks', () => {
   const c: Character = { ...base, feats: [{ name: 'Rider', type: 'Class Feat', level: 1 }] }
   const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[ranger]} save={() => {}} />)
@@ -1985,7 +2002,7 @@ it('keeps movement terrain synchronized without a redundant feat selector and ap
   const walk = (node: ReactNode) => {
     Children.forEach(node, child => {
       if (!isValidElement<Record<string, unknown>>(child)) return
-      if (typeof child.type === 'function' && child.type.name === 'FeatEffectToggle') {
+      if (typeof child.type === 'function' && ['FeatEffectToggle', 'FavoredTerrainSelector'].includes(child.type.name)) {
         walk((child.type as (props: Record<string, unknown>) => ReactNode)(child.props))
         return
       }

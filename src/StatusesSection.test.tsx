@@ -1,14 +1,14 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, onTestFinished } from 'vitest'
-import { activeBattleForm, protectCompanionApplies, protectCompanionTarget, savingThrowBreakdown } from './builder'
+import { activeBattleForm, favoredTerrainBenefits, protectCompanionApplies, protectCompanionTarget, savingThrowBreakdown } from './builder'
 import { DeviseAStratagemToggle, HuntPreyToggle, StatusesContent, StatusesSummary } from './StatusesSection'
 import { ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
 import { fulminatingShotBonus } from './fulminatingShot'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
 import { ANCESTRAL_AVATAR } from './battleForms'
-import { SkillsSection } from './SkillsSection'
+import { FavoredTerrainSelector, SkillsSection } from './SkillsSection'
 
 function findToggle(node: ReactNode, label: string): ((event: { target: { checked: boolean } }) => void) | undefined {
   let result: ((event: { target: { checked: boolean } }) => void) | undefined
@@ -21,7 +21,37 @@ function findToggle(node: ReactNode, label: string): ((event: { target: { checke
   return result
 }
 
-it.each([['Ranger', undefined], ['Rogue', 'Avenger']] as const)(
+it('changes favored terrain from statuses only after gaining Terrain Master', () => {
+  let c: Character = { id: 'terrain-status', name: 'Test', systems: ['pf2e'], level: 11, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Favored Terrain', type: 'Class Feat', level: 2, choice: 'Plains' },
+      { name: 'Terrain Master', type: 'Class Feat', level: 8 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const render = () => renderToStaticMarkup(<StatusesContent c={c} entries={[]} save={save} />)
+  expect(render()).toContain('aria-label="Favored Terrain status terrain"')
+  expect(render()).toMatch(/aria-label="Favored Terrain status" disabled="" checked=""/)
+  const selector = FavoredTerrainSelector({ c, save, status: true })!
+  const select = Children.toArray(selector.props.children).find(child => isValidElement(child) && child.type === 'select')
+  if (!isValidElement<{ onChange: (event: { target: { value: string } }) => void }>(select)) throw Error('Missing terrain selector')
+  select.props.onChange({ target: { value: 'Aquatic' } })
+  expect(favoredTerrainBenefits(c, [])?.terrain).toBe('Aquatic')
+  expect(render()).toContain('<option selected="">Aquatic</option>')
+  c = { ...c, favoredTerrain: 'Forest' }
+  expect(render()).toContain('<option selected="">Forest</option>')
+  c = { ...c, favoredTerrain: undefined, feats: c.feats.map(feat =>
+    feat.name === 'Favored Terrain' ? { ...feat, choice: 'Invalid' } : feat) }
+  expect(render()).toContain('<option value="" selected="">Choose terrain</option>')
+  c = { ...c, feats: c.feats.map(feat => feat.name === 'Favored Terrain' ? { ...feat, choice: undefined } : feat) }
+  expect(render()).toContain('<option value="" selected="">Choose terrain</option>')
+  c = { ...c, level: 7 }
+  expect(render()).not.toContain('aria-label="Favored Terrain status terrain"')
+  expect(render()).not.toMatch(/aria-label="Favored Terrain status"[^>]*disabled/)
+  c = { ...c, level: 11, feats: c.feats.filter(feat => feat.name !== 'Favored Terrain') }
+  expect(render()).not.toContain('aria-label="Favored Terrain status terrain"')
+})
+
+it.each([['Ranger', undefined], ['Ranger', 'Vindication'], ['Rogue', 'Avenger']] as const)(
   'shows Hunt Prey rules and retains the status toggle for %s', (className, subclass) => {
     let c: Character = { id: 'hunt-prey', name: 'Test', systems: ['pf2e'], level: 4, className, subclass,
       abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
@@ -32,6 +62,9 @@ it.each([['Ranger', undefined], ['Rogue', 'Avenger']] as const)(
     expect(markup).toContain('aria-haspopup="dialog">Hunt Prey')
     expect(markup).toContain('Survival checks to Track it')
     expect(markup).toContain('until your next daily preparations')
+    const header = renderToStaticMarkup(<HuntPreyToggle c={c} entries={[]} save={save} summary />)
+    expect(header).toContain('aria-haspopup="dialog">Hunt Prey')
+    expect(header).toContain('Survival checks to Track it')
     findToggle(tree(), 'Hunt Prey active')!({ target: { checked: true } })
     expect(c.huntPreyActive).toBe(true)
     expect(renderToStaticMarkup(tree())).toMatch(/aria-label="Hunt Prey active" checked=""/)

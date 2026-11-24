@@ -19,7 +19,7 @@ it('opens a skill-filtered picker, adds equipment, and closes', async () => {
   } })
   Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: function (this: HTMLDialogElement) {
     this.removeAttribute('open')
-    this.dispatchEvent(new Event('close'))
+    this.dispatchEvent(new Event('close', { bubbles: true }))
   } })
   const c: Character = { id: 'picker', systems: ['pf2e'], name: 'Test', level: 1,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -38,9 +38,19 @@ it('opens a skill-filtered picker, adds equipment, and closes', async () => {
   await act(async () => trigger.click())
   expect(dialog.open).toBe(true)
   expect(dialog.querySelector('[aria-label="Add Boots"]')).not.toBeNull()
+  expect(dialog.querySelector('.gear-results li')?.textContent).toContain('(+2)')
   expect(dialog.querySelector('[aria-label="Add Armbands"]')).toBeNull()
+  await act(async () => dialog.querySelector<HTMLButtonElement>('.equipment-name')!.click())
+  const details = dialog.querySelector<HTMLDialogElement>('.entry-dialog')!
+  expect(details.open).toBe(true)
+  await act(async () => details.close())
+  expect(dialog.open).toBe(true)
+  expect(dialog.querySelector('[aria-label="Add Boots"]')).not.toBeNull()
   await act(async () => dialog.querySelector<HTMLButtonElement>('[aria-label="Add Boots"]')!.click())
   expect(save).toHaveBeenCalledWith({ equipment: [{ name: 'Boots', qty: 1 }] })
+  expect(dialog.open).toBe(false)
+  await act(async () => trigger.click())
+  await act(async () => [...dialog.querySelectorAll('button')].find(button => button.textContent === 'Cancel')!.click())
   expect(dialog.open).toBe(false)
   await act(async () => root.unmount())
 })
