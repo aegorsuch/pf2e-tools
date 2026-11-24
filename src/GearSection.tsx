@@ -742,13 +742,12 @@ export function SimplePoisons({ c, save }: SectionProps) {
   const remaining = total - spent
   const active = !!c.poisonWeaponActive
   return <div className="row">
-    <strong>Poison Weapon</strong>
-    <input type="checkbox" aria-label="Poison Weapon active" checked={active}
+    <label><input type="checkbox" aria-label="Poison Weapon active" checked={active}
       disabled={!active && remaining === 0} onChange={event => {
         if (event.target.checked) {
           if (remaining > 0) save({ simplePoisonsSpent: spent + 1, poisonWeaponActive: true })
         } else save({ poisonWeaponActive: false })
-      }} />
+      }} /> <strong>Poison Weapon</strong></label>
     <output aria-label="Poison Weapon uses remaining">{remaining}/{total}</output>
     <button type="button" className="icon-button" aria-label="Reset Poison Weapon uses"
       title="Daily preparations" disabled={spent === 0 && !active} onClick={() => save({
@@ -1662,17 +1661,18 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 </SearchableSelect>
               </span>}
             </>}
-            {shieldSource ? null : fixed ? enhanced.material ? <div className="gear-runes"><span>Material</span>
+            {shieldSource ? null : fixed ? enhanced.material && enhanced.material !== 'Orichalcum' ? <div className="gear-runes"><span>Material</span>
               <Material name={enhanced.material} entries={entries} equipment="Weapon"
                 source={`Built into ${namedSource || w.name.split(' (')[0]}`} />
-            </div> : null : haft ? null : linkedSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {linkedSource.name})</small>
+            </div> : null : haft ? null : linkedSource ? enhanced.material === 'Orichalcum' ? null
+              : <small>Material: {enhanced.material ?? 'Standard'} (from {linkedSource.name})</small>
               : unarmed ? alloyMaterial : <div className="row">
               {osteoArmament ? null : card ? <small>Material: playing cards</small> : <>
               {grantedClanWeapon ? (enhanced.material ?? 'Orichalcum') === 'Orichalcum' ? null : <div className="gear-runes"><span>Material</span>
                 <Material name={enhanced.material ?? 'Orichalcum'} entries={entries} equipment="Weapon" source="Granted Dwarf clan weapon" />
               </div>               : enhanced.material ? enhanced.material === 'Orichalcum' && (livingWeapon || plate || innovation || giantWeapon
                 || w.verdantWeapon && canUseVerdantWeapon
-                || builtIn?.material === enhanced.material && !['Serithtial', 'Coldstar Pistols'].includes(namedSource)) ? null : <div className="gear-runes"><span>Material{pristineSource && pristineNote
+                || builtIn?.material === enhanced.material) ? null : <div className="gear-runes"><span>Material{pristineSource && pristineNote
                 && <SourceNote source={pristineSource} note={pristineNote} />}</span>
                 <Material name={enhanced.material} entries={entries} equipment={plate ? 'Armor' : 'Weapon'}
                   source={plate ? `Inherited from ${plate.name}` : giantWeapon ? 'Granted by Giant Instinct' : innovation ? 'Granted by Weapon Innovation' : livingWeapon ? 'Granted by Living Weapon'
@@ -2106,7 +2106,10 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             <div className="row">
               {entry?.data.named_armor_material === 'Keep Stone' ? <div className="gear-runes"><span>Material:</span>
                 <Material name="Keep Stone" entries={entries} equipment="Armor" source="Built into armor" />
-              </div> : entry?.data.named_armor_material ? <span>Material: {String(entry.data.named_armor_material)}</span> : a.material ? <div className="gear-runes"><span>Material</span>
+              </div> : entry?.data.named_armor_material === 'Orichalcum' ? null
+                : entry?.data.named_armor_material ? <span>Material: {String(entry.data.named_armor_material)}</span>
+                : a.material === 'Orichalcum' && (body || !!entry?.data.fixed_material || isWoodArmor(entries, a)) ? null
+                : a.material ? <div className="gear-runes"><span>Material</span>
                 <Material name={a.material} entries={entries} equipment="Armor" source={body ? 'Attached to character'
                   : typeof entry?.data.granted_by === 'string' ? entry.data.granted_by : 'Locked by Wood armor group'}
                   onRemove={body || !!entry?.data.fixed_material || isWoodArmor(entries, a) ? undefined : () =>

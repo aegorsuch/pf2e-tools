@@ -442,6 +442,7 @@ it('adds Loaner Spell to Class Spells with a once-daily limit through rank 3 by 
 
   const emptySlot = renderToStaticMarkup(<SpellsSection c={{ ...c, feats: [taken('Loaner Spell')] }} entries={spells} save={() => {}} />)
   expect(emptySlot).toContain('aria-label="Loaner Spell"')
+  expect(emptySlot).not.toContain('>Loaner Spell ')
   expect(emptySlot).toContain('aria-pressed="true">Class Spells</button>')
   expect(emptySlot).not.toContain('>Loaner Spell</button>')
 })

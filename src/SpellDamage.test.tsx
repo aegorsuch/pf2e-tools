@@ -12,6 +12,22 @@ vi.mock('react', async importOriginal => {
 
 afterEach(() => vi.restoreAllMocks())
 
+it.each([[2, 2, 4], [3, 3, 6], [10, 10, 20]])(
+  'rolls Blazing Bolt damage per target at rank %i for each action cost', (rank, single, multiple) => {
+    const rolls = spellActionRolls('Blazing Bolt', rank)
+    expect(rolls.map(({ actions, damage }) => [actions, damage.dice, damage.sides, damage.type])).toEqual([
+      ['One Action', single, 6, 'fire'], ['Two Actions', multiple, 6, 'fire'], ['Three Actions', multiple, 6, 'fire'],
+    ])
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    expect(rolls.map(({ damage }) => rollSpellDamage(damage))).toEqual([single, multiple, multiple])
+    const markup = renderToStaticMarkup(<SpellActions name="Blazing Bolt" rank={rank} />)
+    expect(markup).toContain(`1-action damage per target: ${single}d6 fire`)
+    expect(markup).toContain(`2-action damage per target: ${multiple}d6 fire`)
+    expect(markup).toContain(`3-action damage per target: ${multiple}d6 fire`)
+    expect(spellDamage('Blazing Bolt', 1)).toEqual([])
+  },
+)
+
 it('rolls Animal Allies damage at the cast rank', () => {
   const entry: ContentEntry = { id: 'allies', name: 'Animal Allies', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

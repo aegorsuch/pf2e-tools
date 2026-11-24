@@ -4,6 +4,10 @@ const DeferredBody = memo(function DeferredBody({ children }: { open: boolean; c
   return children
 }, (_previous, next) => !next.open)
 
+export function DeferredContent({ children }: { children: () => ReactNode }) {
+  return children()
+}
+
 export function DeferredDetails({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const [opened, setOpened] = useState(false)

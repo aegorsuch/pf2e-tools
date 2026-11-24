@@ -1756,6 +1756,7 @@ it('tracks Poison Weapon doses and adds its damage while active', () => {
   const c: Character = { ...base, level: 8, feats: [feat('Poison Weapon', 4), feat('Improved Poison Weapon', 8)], simplePoisonsSpent: 3 }
   const html = renderToStaticMarkup(<SimplePoisons c={c} entries={[]} save={() => {}} />)
   expect(html).toContain('Poison Weapon')
+  expect(html).toMatch(/<label><input type="checkbox" aria-label="Poison Weapon active"[^>]*\/> <strong>Poison Weapon<\/strong><\/label>/)
   expect(html).toContain('aria-label="Poison Weapon uses remaining">5/8</output>')
   expect(html).toContain('aria-label="Reset Poison Weapon uses"')
   expect(html).toContain('↻</button>')
@@ -1780,6 +1781,29 @@ it('tracks Poison Weapon doses and adds its damage while active', () => {
   expect(renderToStaticMarkup(<SimplePoisons c={{ ...c, level: 7 }} entries={[]} save={() => {}} />))
     .toContain('aria-label="Poison Weapon uses remaining">4/7</output>')
   expect(renderToStaticMarkup(<SimplePoisons c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).toBe('')
+})
+
+it('spends a poison dose on activation and disables activation when exhausted', () => {
+  let c: Character = { ...base, level: 2, feats: [feat('Poison Weapon', 1)], simplePoisonsSpent: 1 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const checkbox = () => {
+    let input: { disabled?: boolean; onChange: (event: { target: { checked: boolean } }) => void } | undefined
+    const visit = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<Record<string, unknown>>(child)) return
+      if (child.type === 'input' && child.props['aria-label'] === 'Poison Weapon active')
+        input = child.props as typeof input
+      else visit(child.props.children as ReactNode)
+    })
+    visit(SimplePoisons({ c, entries: [], save }))
+    if (!input) throw new Error('Missing Poison Weapon checkbox')
+    return input
+  }
+  checkbox().onChange({ target: { checked: true } })
+  expect(c).toMatchObject({ simplePoisonsSpent: 2, poisonWeaponActive: true })
+  expect(checkbox().disabled).toBe(false)
+  checkbox().onChange({ target: { checked: false } })
+  expect(c).toMatchObject({ simplePoisonsSpent: 2, poisonWeaponActive: false })
+  expect(checkbox().disabled).toBe(true)
 })
 
 it('shows Untamed Shift jaws as Jaws in the weapon list', () => {

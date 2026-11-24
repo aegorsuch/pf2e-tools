@@ -678,7 +678,7 @@ it('searches adopted Orc Tusks as Teeth while saving and reloading canonical fea
   c = JSON.parse(JSON.stringify(c))
   const markup = renderToStaticMarkup(tree())
   expect(markup).toContain('>Teeth<')
-  expect(markup).toContain('Your teeth deal 1d6 piercing damage. Each tooth has finesse and unarmed traits.')
+  expect(detailsMarkup(tree(), 'Teeth')).toContain('Your teeth deal 1d6 piercing damage. Each tooth has finesse and unarmed traits.')
   expect(JSON.stringify(tusks)).toBe(source)
 })
 
@@ -1046,7 +1046,7 @@ it('shows and searches distinct Versatile Rogue racket options', () => {
   expect(markup).not.toContain('L10 Class: Versatile Rogue (Scoundrel)')
   findButton(tree(), 'L10 Class: Versatile Rogue (Ruffian)')!()
   expect(c.feats[0]).toMatchObject({ name: 'Versatile Rogue', choice: 'Ruffian', slot: 'class:10:0' })
-  expect(renderToStaticMarkup(tree())).toContain('Ruffian racket benefits.')
+  expect(detailsMarkup(tree(), 'Versatile Rogue (Ruffian)')).toContain('Ruffian racket benefits.')
 })
 
 it('offers a level-14 Versatile Gunslinger way and its selected trained skill', () => {
@@ -1134,7 +1134,7 @@ it('offers Mastermind skill variants and saves the chosen skill with its racket'
       expect(plannedSlots(c)).toContainEqual(expect.objectContaining({ category: 'skill', level: 10, key: 'skill:10:0' }))
       expect(plannedSlots(c).some(slot => slot.grantedBy === 'Versatile Rogue')).toBe(false)
       expect(renderToStaticMarkup(tree())).toContain(`Versatile Rogue (Mastermind - ${skill})`)
-      expect(renderToStaticMarkup(tree())).toContain('Mastermind racket benefits.')
+      expect(detailsMarkup(tree(), `Versatile Rogue (Mastermind - ${skill})`)).toContain('Mastermind racket benefits.')
       expect(featPrerequisiteChecker(c, entries)({ ...feat, data: { prerequisite: 'mastermind racket' } }).missing).toEqual([])
     }
     const legacy = { ...c, rogueRacketSkills: undefined }
@@ -2494,7 +2494,7 @@ it('lists each domain spell in its picker and selected feat descriptions', () =>
   const selected: Character = { ...c, feats: [{ name: domain.name, type: 'Class Feat', level: 1, slot: 'class:1:0', choice: 'Water' }] }
   const nextTree = popup(selected, 'class:8:0')
   const next = renderToStaticMarkup(nextTree)
-  expect(next).toContain('Water domain grants focus spell: Tidal Surge: You unleash a surge of water that pushes your foe.')
+  expect(detailsMarkup(nextTree, "Deity's Domain (Water)")).toContain('Water domain grants focus spell: Tidal Surge: You unleash a surge of water that pushes your foe.')
   expect(next).toContain('Details: Advanced Deity&#x27;s Domain (Water)')
   expect(detailsMarkup(nextTree, "Advanced Deity's Domain (Water)")).toContain('Water domain grants focus spell: Downpour: A rainstorm drenches an area.')
 })

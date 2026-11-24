@@ -28,7 +28,7 @@ import { equippedHands, totalHandCapacity } from './builder'
 import { ethnicityLabel, ethnicityOptions } from './featAccess'
 import { db } from './db'
 import { TotalBreakdown } from './TotalBreakdown'
-import { DeferredDetails } from './DeferredDetails'
+import { DeferredContent, DeferredDetails } from './DeferredDetails'
 import { CheekPouches } from './CheekPouches'
 import { HighTechMedic } from './HighTechMedic'
 import { clearItemGlitching, setEnduringMod } from './mechanicEnduring'
@@ -624,7 +624,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <span>{characterAncestryLabel(c, entries) || 'Choose ancestry'}
             {ancestrySlots.length + ancestryGranted > 0 && ` (${ancestryFilled}/${ancestrySlots.length + ancestryGranted})`}</span>
         </summary>
-        <div className="character-section-content">
+        <DeferredContent>{() => <div className="character-section-content">
           <div className="row">
             <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined, ethnicity: undefined })} />
             <Pick label="Heritage" kind="heritage" ancestry={c.ancestry} value={c.heritage}
@@ -676,7 +676,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <PioneerHumanOptions {...section} />
           {flaws.length > 0 && <small>Ancestry flaw: {flaws.map((a) => a.toUpperCase()).join(', ')}</small>}
           <SearchableFeatSlots {...section} categories={['ancestry']} title="Ancestry Feats" plannedFeatSlots={featSlots} />
-        </div>
+        </div>}</DeferredContent>
       </DeferredDetails>
 
       <DeferredDetails>
@@ -710,7 +710,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <HuntPreyToggle {...section} summary />
           <DeviseAStratagemToggle {...section} summary />
         </summary>
-        <div className="character-section-content">
+        <DeferredContent>{() => <div className="character-section-content">
           <div className="row">
             <ClassPick c={c} entries={entries} save={save} options={of('class')} />
             <label>Level <input key={`${c.id}:${c.level}`} aria-label="Character level" type="number" min={1} max={20}
@@ -826,7 +826,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <AbilityBoostChoices {...section} groups={['class']} />
           <ClassFeatures {...section} />
           <SearchableFeatSlots {...section} categories={['class']} title="Class Feats" plannedFeatSlots={featSlots} />
-        </div>
+        </div>}</DeferredContent>
       </DeferredDetails>
 
       {featSection('archetype')}
@@ -870,7 +870,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <strong>Equipment</strong>
           <span>{c.equipment.length + (effectiveHandwraps(c, entries) ? 1 : 0) + (c.augmentations?.length ?? 0) + pairedEmpathyBracelets.length} Items, {handsUsed}/{handLimit} Hands</span>
         </summary>
-        <div className="character-section-content">
+        <DeferredContent>{() => <div className="character-section-content">
           <BulkLimits {...section} />
           <ArmorProficiency c={c} entries={entries} />
           <h4>Armor</h4>
@@ -925,7 +925,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <WeaponList {...section} />
           <EquipmentGroup {...section} group="Wrists" rows={equipmentGroups.Wrists} />
           <EquipmentSearch {...section} />
-        </div>
+        </div>}</DeferredContent>
       </DeferredDetails>
 
       <DeferredDetails>

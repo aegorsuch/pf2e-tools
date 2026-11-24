@@ -516,21 +516,26 @@ it.each(['Incendiary Breastplate', 'Incendiary Full Plate', 'Incendiary Bastion 
     expect(c.armors?.[0]).toMatchObject({ livingFlameActive: true, livingFlameUsed: true, runes: ['Custom Rune'] })
     expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).toContain('Living Flame')
     const html = renderToStaticMarkup(content())
-    expect(html).toContain(`aria-label="Living Flame: ${name} options"`)
+    expect(html).toContain('aria-label="Living Flame options"')
+    expect(html).toContain('>Living Flame</button>')
+    expect(html).not.toContain(`>Living Flame: ${name}</button>`)
     expect(html).toContain('aria-label="Roll Living Flame: Damage"')
-    findToggle(content(), label)!({ target: { checked: false } })
-    expect(renderToStaticMarkup(content())).toContain(`aria-label="${label}" disabled=""`)
+    expect(html).toContain(`aria-label="Restore ${name} Living Flame use 1"`)
+    expect(html).not.toContain('Daily preparations')
     let reset: (() => void) | undefined
     const visit = (node: ReactNode) => Children.forEach(node, child => {
       if (!isValidElement<Record<string, unknown>>(child)) return
-      if (child.type === 'button' && child.props['aria-label'] === `Reset ${name} Living Flame`)
+      if (child.type === 'button' && child.props['aria-label'] === `Restore ${name} Living Flame use 1`)
         reset = child.props.onClick as () => void
       else visit(child.props.children as ReactNode)
     })
     visit(content())
     expect(reset).toBeTypeOf('function')
     reset!()
+    expect(c.armors?.[0]).toMatchObject({ livingFlameUsed: false, livingFlameActive: true })
+    findToggle(content(), label)!({ target: { checked: false } })
     expect(c.armors?.[0]).toMatchObject({ livingFlameUsed: false, livingFlameActive: false })
+    expect(renderToStaticMarkup(content())).toContain(`aria-label="Spend ${name} Living Flame use 1"`)
   })
 
 it('toggles Devise a Stratagem from the class summary and Statuses', () => {

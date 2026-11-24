@@ -2217,8 +2217,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   })
   const renderLoanerSpellChoices = () => loanerSpellSlotsForCharacter.map(({ feat, index, options }, slotIndex) => {
     const label = `Loaner Spell${loanerSpellSlotsForCharacter.length > 1 ? ` ${slotIndex + 1}` : ''}`
-    return <label key={`loaner-spell:${index}`}>{label}{' '}
-      <SearchableSelect aria-label={label} value={feat.choice ?? ''} alwaysSearchable
+    return <SearchableSelect key={`loaner-spell:${index}`} aria-label={label} value={feat.choice ?? ''} alwaysSearchable
         optionSpell={value => options.find(entry => entry.name === value)}
         onChange={event => {
           const value = event.target.value
@@ -2233,7 +2232,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
         {[...new Set(options.map(entry => entry.name))].map(name => <option key={name}>{name}</option>)}
       </SearchableSelect>
-    </label>
   })
   const renderSpecialGroups = (grants: typeof special) => [...new Set(grants.map(grant => grant.source))]
     .map(source => <section className="innate-spell-group" key={source}>

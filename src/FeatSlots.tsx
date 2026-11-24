@@ -531,7 +531,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             {heading}
             <li className={`feat-slot-row automatic-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
               <EntryDescription character={c} name="Assurance" entry={featsByName.get('Assurance')} entries={entries}
-                className="feat-name" grantSource="Carry Their Memories (temporary)" />
+                className="feat-name" grantSource="Carry Their Memories (temporary)" deferDetails={!!onSearch} />
               <CarryTheirMemoriesChoice c={c} entries={entries} save={save} index={row.index} />
               <button type="button" aria-label={`Add L${String(row.level).padStart(2, '0')} Skill feat slot`}
                 onClick={() => addSlot('skill', row.level)}>+</button>
@@ -549,7 +549,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 {background && grantedType(feat.name) !== 'Skill Feat' && multi && <span>L{String(row.level).padStart(2, '0')} Background {grantedType(feat.name)}</span>}
                 {!(row.kind === 'automatic' && feat.name === 'Additional Lore' && row.feat.source === 'Nephilim Lore') && <EntryDescription character={c} name={`${displayName(feat.name)}${row.kind === 'automatic' && row.feat.choice ? ` (${row.feat.choice})` : ''}`}
                   entry={entry} choice={row.kind === 'automatic' ? row.feat.choice : undefined} entries={entries} className="feat-name" access={entry ? featAccess(c, entry) : undefined}
-                  grantSource={row.kind === 'automatic' ? row.feat.source : c.background} />}
+                  grantSource={row.kind === 'automatic' ? row.feat.source : c.background} deferDetails={!!onSearch} />}
                 {row.kind === 'automatic' && !row.feat.fixedLore && <AutomaticFeatChoice c={c} entries={entries} save={save}
                   name={feat.name} source={row.feat.source} choice={row.feat.choice}
                   choiceKey={row.feat.choiceKey} choiceIndex={row.feat.choiceIndex} />}
@@ -751,7 +751,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             <li className={`feat-slot-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
               {multi && <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>}
               {homebrewDedication(s.key) ? (
-                <EntryDescription character={c} name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} />
+                <EntryDescription character={c} name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} deferDetails={!!onSearch} />
               ) : current ? (
                 current === 'N/A' ? <span>N/A</span> : <>
                   <EntryDescription character={c} name={descriptionName} entry={descriptionEntry}
@@ -759,6 +759,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     prerequisites={arcanaChoiceEntry ? selectedPrerequisites(s, arcanaChoiceEntry) : prerequisites}
                     access={descriptionEntry ? featAccess(c, descriptionEntry) : access}
                     grantSource={arcanaChoiceEntry ? selection?.name : grantSource}
+                    deferDetails={!!onSearch}
                     buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showTreehealerRoll || showBattlePrayerRoll || showPiercingDoom || showAcidicSpitRoll || showInscribedBlast || showCoreCannon}
                     descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                       : selection?.choice && DOMAIN_FEATS.includes(selection.name)

@@ -389,7 +389,7 @@ it.each([
   expect(wornArmor(c)).toMatchObject({ material: 'Orichalcum', potency, resilient })
   expect(grantedArmorEntries(c)[0].data.ac).toBe(ac)
   const markup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)
-  expect(markup).toContain('>Orichalcum</button>')
+  expect(markup).not.toContain('>Orichalcum</button>')
   expect(markup).not.toContain('Remove Orichalcum material')
 })
 

@@ -231,18 +231,21 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
         .map(current => current.id === armor.id ? { ...current, ...patch } : current) })
       const toggle = (checked: boolean) => update({ livingFlameActive: checked, ...(checked ? { livingFlameUsed: true } : {}) })
       const disabled = !active && (!armor.worn || !!armor.livingFlameUsed)
+      const useLabel = `${armor.livingFlameUsed ? 'Restore' : 'Spend'} ${armor.name} Living Flame use 1`
       return <div key={armor.id}>
         <input type="checkbox" aria-label={`Living Flame: ${armor.name} status`} checked={active} disabled={disabled}
           onChange={event => toggle(event.target.checked)} />{' '}
-        <EntryDescription name={`Living Flame: ${armor.name}`} entry={LIVING_FLAME} hideButtonActions />{' '}
-        <ActiveSpellActions name={`Living Flame: ${armor.name}`} entry={LIVING_FLAME} actions="Two Actions">
+        <EntryDescription name="Living Flame" entry={LIVING_FLAME} hideButtonActions />{' '}
+        <ActiveSpellActions name="Living Flame" entry={LIVING_FLAME} actions="Two Actions">
           <label><input type="checkbox" aria-label={`Living Flame: ${armor.name} active`} checked={active} disabled={disabled}
             onChange={event => toggle(event.target.checked)} /> Active</label>{' '}
           <DamageRoll name="Living Flame" damage={{ label: 'Damage', dice: 10, sides: 6, type: 'fire',
             note: 'DC 40 basic Reflex save' }} disabled={!active} />
         </ActiveSpellActions>
-        {armor.livingFlameUsed && <button type="button" aria-label={`Reset ${armor.name} Living Flame`}
-          onClick={() => update({ livingFlameUsed: false, livingFlameActive: false })}>Daily preparations</button>}
+        <span className="focus-tracker" role="group" aria-label={`${armor.livingFlameUsed ? 0 : 1} of 1 uses remaining`}>
+          <button type="button" className="focus-point" aria-label={useLabel} title={useLabel}
+            aria-pressed={!armor.livingFlameUsed} onClick={() => update({ livingFlameUsed: !armor.livingFlameUsed })} />
+        </span>
       </div>
     })}</div> }] : []),
     ...(cursedWeakness ? [{ name: 'Cursed Weakness', element: <button type="button" aria-label={`Took ${cursedWeakness.damage} damage`}

@@ -87,6 +87,33 @@ it('opens deferred details with focus, follows links, and resets on close', asyn
   await act(async () => root.unmount())
 })
 
+it('opens selected feat details after an unrelated slot update', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  } })
+  const feat: ContentEntry = { id: 'selected', name: 'Selected Feat', kind: 'feat', source: 'official', systems: ['pf2e'],
+    level: 1, traits: ['Human'], description: 'Selected feat rules.', data: {}, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'c', name: 'Test', systems: ['pf2e'], level: 1, ancestry: 'Human',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: feat.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const render = (character: Character) => <FeatSlots c={character} entries={[feat]} categories={['ancestry']}
+    save={() => {}} search={{}} onSearch={() => {}} />
+  try {
+    await act(async () => root.render(render(c)))
+    expect(container.textContent).not.toContain('Selected feat rules.')
+    await act(async () => root.render(render({ ...c, extraSlots: [{ category: 'ancestry', level: 1, count: 1 }] })))
+    const button = [...container.querySelectorAll<HTMLButtonElement>('button')].find(item => item.textContent === feat.name)!
+    await act(async () => button.click())
+    expect(button.parentElement?.querySelector('dialog')?.open).toBe(true)
+    expect(button.parentElement?.querySelector('dialog')?.textContent).toContain('Selected feat rules.')
+  } finally { await act(async () => root.unmount()) }
+})
+
 it.each([false, true])('shows the chosen spell in %s feat details', async (deferred) => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {

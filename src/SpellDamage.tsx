@@ -34,6 +34,10 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return rank >= 2 ? [{ label: 'Damage', dice: 2, sides: 6, type: 'piercing' }] : []
     case 'Wall of Fire':
       return rank >= 4 ? [{ label: 'Damage', dice: rank, sides: 6, type: 'fire' }] : []
+    case 'Blazing Bolt':
+      return rank >= 2 ? [1, 2, 3].map(actions => ({
+        label: `${actions}-action damage per target`, dice: actions === 1 ? rank : 2 * rank, sides: 6, type: 'fire',
+      })) : []
     case 'Burning Trail':
       return rank >= 4 ? [{ label: 'Damage', dice: 2 + Math.floor((rank - 4) / 2), sides: 10, type: 'fire' }] : []
     case 'Calcium Rain': {
@@ -446,7 +450,7 @@ export function spellActionRolls(name: string, rank: number, entry?: ContentEntr
   if (name === 'Harm') return rolls.flatMap(damage =>
     ['One Action', 'Two Actions', 'Three Actions'].map((actions, index) =>
       ({ damage: { ...damage, label: `${index + 1}-action damage` }, actions })))
-  if (name === 'Heal' || name === 'Heal Animal' || name === 'Heal Companion' || name === 'Rebuke Death') return rolls.map((damage, index) => ({
+  if (name === 'Heal' || name === 'Heal Animal' || name === 'Heal Companion' || name === 'Rebuke Death' || name === 'Blazing Bolt') return rolls.map((damage, index) => ({
     damage, actions: ['One Action', 'Two Actions', 'Three Actions'][index],
   }))
   const actions = entry?.data.actions
