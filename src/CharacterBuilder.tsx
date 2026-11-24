@@ -568,13 +568,16 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       || (c.backgroundTerrainLore?.[name] ? `${c.backgroundTerrainLore[name]} Lore` : '')
     return lore ? `${name} (${lore})` : name
   }
-  const equipmentGroups = useMemo(() => {
+  const equipmentEntries = useMemo(() => {
     const items = new Map<string, ContentEntry>()
     const fallback = new Map<string, ContentEntry>()
     for (const entry of entries) {
       if (entry.kind === 'item' && !items.has(entry.name)) items.set(entry.name, entry)
       else if ((entry.kind === 'weapon' || entry.kind === 'armor') && !fallback.has(entry.name)) fallback.set(entry.name, entry)
     }
+    return { items, fallback }
+  }, [entries])
+  const equipmentGroups = useMemo(() => {
     const groups: Record<EquipmentGroupName, EquipmentRow[]> = {
       Arrows: [], Bolts: [], Bullets: [], Grafts: [], 'Other equipment': [], Poisons: [], Tattoos: [], Toolkits: [],
       Arms: [], Backpacks: [], Belt: [], Body: [], Boots: [], Bracelets: [], Chest: [], Cloaks: [], Clothing: [],
@@ -582,14 +585,14 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       Mask: [], Neck: [], Necklaces: [], Rings: [], Shoulders: [], Throat: [], Torso: [], Wrists: [], 'Other Worn Items': [],
     }
     c.equipment.forEach((item, index) => {
-      const entry = items.get(item.name) ?? fallback.get(item.name)
+      const entry = equipmentEntries.items.get(item.name) ?? equipmentEntries.fallback.get(item.name)
       const group = item.name === 'Storied Skin' && c.systems.includes('pf2e')
         && activeFeatsNamed(c, 'Tattooed Historian Dedication').length ? 'Tattoos' : equipmentGroupName(entry, item.name, item.group)
       groups[group].push({ item, index, entry })
     })
     Object.values(groups).forEach(rows => rows.sort((a, b) => a.item.name.localeCompare(b.item.name)))
     return groups
-  }, [c.equipment, c.feats, c.level, c.systems, entries])
+  }, [c.equipment, c.feats, c.level, c.systems, equipmentEntries])
   const freeHeart = activeFeatsNamed(c, 'Free Heart')[0]
   const freeHeartOptions = freeHeart ? new Set(featChoiceOptions('Free Heart', c, entries, freeHeart.slot ?? '') ?? []) : undefined
   const extraBackground = freeHeartBackground(c, entries)
