@@ -11,7 +11,8 @@ import * as equipmentGroups from './equipmentGroups'
 import { FeatSlots } from './FeatSlots'
 import { SearchableSelect } from './SearchableSelect'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
-import { armorClass, classLabel, isSpellActive, spellActiveChange, subclassOptions, syncClassArchetypeDedication, warriorLegendWeakness } from './builder'
+import { armorClass, classDifficultyClass, classLabel, isSpellActive, plannedSlots, spellActiveChange, subclassOptions, syncClassArchetypeDedication, warriorLegendWeakness } from './builder'
+import snapshot from '../public/data/aon-pf2e.json?raw'
 import { GearSystemFilter } from './GearSystemFilter'
 import type { GearSystem } from './gearSystem'
 
@@ -107,6 +108,89 @@ it('selects and changes Warrior of Legend weakness through class variants', () =
   const markup = renderToStaticMarkup(<CharacterBuilder character={unchosen} onClose={() => {}} />)
   expect(markup).not.toContain('aria-label="Cursed Weakness"')
   expect(markup).not.toContain('aria-label="Warrior of Legend Dedication choice"')
+})
+
+it('uses the chosen Fighter key attribute for Warrior of Legend class DC', () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+  const entries = ['Fighter', 'Fighter Expertise', 'Versatile Legend'].map(name =>
+    mapAonHit(hits.find(hit => hit._source?.name === name
+      && ['class', 'class-feature'].includes(String(hit._source?.category)))!, 'pf2e')!)
+  const c: Character = { id: 'warrior-dc', name: 'Test', systems: ['pf2e'], level: 20,
+    className: 'Fighter', subclass: 'Warrior of Legend', boosts: { class: 'str' },
+    abilities: { str: 24, dex: 16, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(classDifficultyClass(c, entries)).toBe(43)
+  expect(classDifficultyClass({ ...c, boosts: { class: 'dex' } }, entries)).toBe(39)
+  expect(classDifficultyClass({ ...c, boosts: {} }, entries)).toBeUndefined()
+  const manual = { ...c, boosts: undefined, classKeyAbility: 'str' as const }
+  expect(classDifficultyClass(manual, entries)).toBe(43)
+  expect(classDifficultyClass({ ...manual, classKeyAbility: 'dex' }, entries)).toBe(39)
+  expect(classDifficultyClass({ ...manual, classKeyAbility: 'wis' }, entries)).toBeUndefined()
+  content.entries = entries
+  const markup = renderToStaticMarkup(<CharacterBuilder character={manual} onClose={() => {}} />)
+  expect(markup).toContain('aria-label="Class key attribute"')
+  expect(markup).toContain('<option value="str" selected="">Strength</option>')
+  content.entries = []
+})
+
+it('offers Warrior of Legend archetype feats only in Dedications while using class slots', () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+  const entries = ['Warrior Of Legend Dedication', 'Clear the Way'].map(name =>
+    mapAonHit(hits.find(hit => hit._source?.name === name)!, 'pf2e')!)
+  const initial: Character = { id: 'warrior-feats', name: 'Test', systems: ['pf2e'], level: 6,
+    className: 'Fighter', subclass: 'Warrior of Legend',
+    abilities: { str: 18, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const c = { ...initial, ...syncClassArchetypeDedication(initial, entries) }
+  const previous = getSettings().warriorLegendClearTheWay
+  try {
+    updateSettings({ warriorLegendClearTheWay: true })
+    const render = (category: 'class' | 'archetype', character = c) =>
+      renderToStaticMarkup(<FeatSlots c={character} entries={entries} save={() => {}} categories={[category]}
+        search={{ 'class:6:0:open': '1' }} onSearch={() => {}} />)
+    expect(render('class')).not.toContain('L06 Class: Clear the Way')
+    expect(render('archetype')).toContain('L06 Dedication: Clear the Way')
+    const selected = { ...c, feats: [...c.feats, { name: 'Clear the Way', type: 'Class Feat', level: 6, slot: 'class:6:0' }] }
+    expect(plannedSlots(selected, entries).find(slot => slot.key === 'class:6:0')?.displayCategory).toBe('archetype')
+    expect(render('class', selected)).not.toContain('Clear the Way')
+    expect(render('archetype', selected)).toContain('Clear the Way')
+  } finally { updateSettings({ warriorLegendClearTheWay: previous }) }
+})
+
+it('filters equipment by skill item bonuses without treating other bonuses as item bonuses', () => {
+  const item: ContentEntry = { id: 'item', name: 'Boots', kind: 'item', systems: ['pf2e'], source: 'official',
+    level: 1, traits: [], description: 'Gain a +1 item bonus to Acrobatics and Stealth checks while sneaking.',
+    data: { usage: 'worn boots' }, effects: [], updatedAt: 0 }
+  expect([...equipmentGroups.equipmentBonusSkills(item)]).toEqual(['Acrobatics', 'Stealth'])
+  expect([...equipmentGroups.equipmentBonusSkills({ ...item, description: 'Gain a +1 circumstance bonus to Stealth checks.' })]).toEqual([])
+  expect([...equipmentGroups.equipmentBonusSkills({ ...item, description: 'Gain a +1 item bonus to Reflex saves, and use Stealth checks.' })]).toEqual([])
+  expect([...equipmentGroups.equipmentBonusSkills({ ...item, description: 'Gain a +2 item bonus to Acrobatics and Stealth and a +2 circumstance bonus to AC.' })])
+    .toEqual(['Acrobatics', 'Stealth'])
+  expect([...equipmentGroups.equipmentBonusSkills({ ...item, description: 'Gain a +1 item bonus to Make an Impression.' })]).toEqual(['Diplomacy'])
+  expect([...equipmentGroups.equipmentBonusSkills({ ...item, data: { skill: 'Crafting' },
+    description: 'Gain a +1 item bonus to the check.' })]).toEqual(['Crafting'])
+  const c: Character = { id: 'equipment-skill', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  function InspectSearch() {
+    const tree = EquipmentSearch({ c, entries: [item, { ...item, id: 'other', name: 'Other Boots',
+      description: 'Gain a +1 circumstance bonus to Stealth checks.' }], save: () => {} })
+    Children.forEach(tree.props.children, row => {
+      if (!isValidElement<{ children?: ReactNode }>(row)) return
+      Children.forEach(row.props.children, child => {
+        if (!isValidElement<{ children?: ReactNode }>(child) || child.type !== 'label') return
+        Children.forEach(child.props.children, select => {
+          if (isValidElement<{ 'aria-label'?: string; value?: string; onChange?: (event: unknown) => void }>(select)
+            && select.props['aria-label'] === 'Skill item bonus' && select.props.value !== 'Stealth')
+            select.props.onChange?.({ target: { value: 'Stealth' } })
+        })
+      })
+    })
+    return tree
+  }
+  const markup = renderToStaticMarkup(<InspectSearch />)
+  expect(markup).toContain('Add Boots')
+  expect(markup).not.toContain('Add Other Boots')
 })
 
 it.each([

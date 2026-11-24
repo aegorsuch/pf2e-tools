@@ -6,7 +6,7 @@ import { RUNESMITH_RUNES } from './runesmithRunes'
 import { DamageRoll, rollTreehealerHealing } from './SpellDamage'
 import { PickerDialog } from './PickerDialog'
 import { sortPickerOptions } from './PickerSort'
-import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, matchesSkill, plannedSlots, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, matchesSkill, plannedSlots, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -212,6 +212,13 @@ function arcanaChoiceCandidates(entries: ContentEntry[], name: string) {
   return pool.find(entry => entry.description.trim()) ?? pool[0]
 }
 
+export function classArchetypeSlotViews(c: Character, entries: ContentEntry[], slots: PlannedSlot[]) {
+  if (!selectedClassArchetype(c, entries)) return []
+  return slots.filter(slot => slot.category === 'class' && !slot.displayCategory && !slot.grantedBy
+    && !c.feats.some(feat => feat.slot === slot.key) && !c.skippedFeatSlots?.includes(slot.key))
+    .map(slot => ({ ...slot, displayCategory: 'archetype' as const }))
+}
+
 export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch,
   pickerEligibility, pickerVariantCache }: FeatSlotsProps) {
   const checks = selectedChecks(c, entries)
@@ -227,7 +234,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const allSlots = plannedSlots(c, entries)
   const featsByName = featByName(entries)
   const { background, backgroundFeats, grants, automaticFeats, memories, grantedType } = featSectionGrants(c, entries, categories, allSlots)
-  const slots = allSlots.filter((slot) => !categories || categories.includes(slot.displayCategory ?? slot.category))
+  const slots = [...allSlots, ...(categories?.includes('archetype') ? classArchetypeSlotViews(c, entries, allSlots) : [])]
+    .filter((slot) => !categories || categories.includes(slot.displayCategory ?? slot.category))
     .sort((a, b) => {
       if (a.level !== b.level) return a.level - b.level
       const aFeat = c.feats.find((feat) => feat.slot === a.key)
@@ -248,6 +256,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const matches = (o: ContentEntry, query: string, unlocks: string[] = []) => !query
     || [o.name, adoptedAncestryText(c, featDisplayName(o)), String(o.data.archetype ?? ''), ...o.traits, ...unlocks].some((t) => t.toLowerCase().includes(query))
   const isDedication = (o?: ContentEntry) => !!o?.traits.some((t) => /^dedication$/i.test(t))
+  const classArchetype = selectedClassArchetype(c, entries)?.name
+  const isClassArchetypeFeat = (entry: ContentEntry) => !!classArchetype
+    && entry.traits.some(trait => /^archetype$/i.test(trait)) && archetypesOf(entry).includes(classArchetype)
   const standardKeys = new Set(plannedSlots({ ...c, extraSlots: [] }).map((slot) => slot.key))
   const aboveLevel = c.feats.filter((f) => {
     if (!f.slot) return false
@@ -594,6 +605,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             (matchesEntry(o) || variantsFor(o).length > 0)
             && matchesSkill(o, skill, featsByName)
             && (!skill || o.name !== 'Skill Training' || cachedOptionsFor(o, s, skill).length > 0)
+            && (s.category !== 'class' || s.grantedFeat || (s.displayCategory === 'archetype'
+              ? isClassArchetypeFeat(o) : !isClassArchetypeFeat(o)))
             && (!picksType || (type === 'dedication') === isDedication(o)))
           const sortValue = search[`${s.key}:sort`]
           const sort = sortValue === 'name' || sortValue === 'level' ? sortValue : suggestible ? 'suggested' : 'level'
@@ -851,7 +864,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                       : c.featAccessOverrides?.filter(id => id !== currentEntry.id) })} /> Approve access
                 </label>}
               </div>}
-              {!automaticOrderFeat && <button type="button" aria-label={classDedication
+              {!automaticOrderFeat && !(s.category === 'class' && s.displayCategory === 'archetype' && !current && !s.grantedFeat) && <button type="button" aria-label={classDedication
                 ? `${label}${s.displayCategory === 'archetype' ? '' : ' dedication'} required by class archetype`
                 : locked ? `${label} slot is granted by a house rule`
                 : lastSlot || requiredGrant ? `Clear ${label} feat selection`
@@ -859,8 +872,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 title={classDedication ? 'Required by class archetype' : locked ? 'Granted by a house rule' : lastSlot || requiredGrant ? 'Clear selection' : 'Remove slot'}
                 disabled={locked || !current && !extra && (lastSlot || requiredGrant)}
                 onClick={() => removeSlot(s, extra)}>−</button>}
-              <button type="button" aria-label={`Add ${label} feat slot`}
+              {!(s.category === 'class' && s.displayCategory === 'archetype' && !current && !s.grantedFeat) && <button type="button" aria-label={`Add ${label} feat slot`}
                 onClick={() => addSlot(s.category, s.level)}>+</button>
+              }
             </li>
             </Fragment>
           )

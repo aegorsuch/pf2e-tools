@@ -10,9 +10,9 @@ import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSor
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
-import { WARRIOR_LEGEND_DAMAGE_TYPES, warriorLegendWeakness } from './builder'
+import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, boostSlots, deityLabel, warriorLegendWeakness } from './builder'
 import { ClassFeatures } from './ClassFeatures'
-import { featSectionGrants, SearchableFeatSlots } from './FeatSlots'
+import { classArchetypeSlotViews, featSectionGrants, SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
 import { adoptedAncestryText } from './featChoices'
 import { ActionIcon } from './ActionIcon'
@@ -36,7 +36,7 @@ import { clearItemGlitching, setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
 import { isGrenade } from './formulas'
 import type { Character, ContentEntry, EntryKind } from './types'
-import { WORN_EQUIPMENT_GROUPS, equipmentDisplayName, equipmentFitsGroup, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
+import { EQUIPMENT_BONUS_SKILLS, WORN_EQUIPMENT_GROUPS, equipmentBonusSkills, equipmentDisplayName, equipmentFitsGroup, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
 import { DivineIntercessions } from './intercessionPicker'
 import { syncDivineBoonFeats } from './divineIntercessions'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
@@ -60,13 +60,6 @@ function SelectedSubclassRules({ entry, label = entry.name }: { entry: ContentEn
         {' '}</>}{label ? paragraph.slice(label[0].length) : paragraph}</p>
     })}
   </section>
-}
-
-const deityLabel = (deity: ContentEntry) => {
-  const epithet = deity.name === 'Lao Shu Po' && deity.source === 'official' ? 'Grandmother Rat' : deity.data.epithet
-  return typeof epithet === 'string' && epithet.trim()
-    ? `${deity.name}, ${epithet.trim().replace(/^The /, 'the ')}`
-    : deity.name
 }
 
 function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, backgroundLores, deityLores, disabled }: {
@@ -168,6 +161,7 @@ export function ClassPick({ c, entries, save, options }: SectionProps & { option
       const option = available.find(item => item.entry.name === value)
       const archetype = option?.archetype
       save({ className: archetype?.className ?? value, subclass: archetype?.subclass ?? '', fatalMethod: undefined, arcaneThesis: undefined,
+        ...(c.classKeyAbility && (archetype?.className ?? value) !== c.className ? { classKeyAbility: undefined } : {}),
         ...(option?.damageType ? { warriorLegendDamageType: option.damageType,
           feats: c.feats.map(feat => feat.name.toLowerCase() === 'warrior of legend dedication'
             ? { ...feat, choice: option.damageType } : feat) } : {}) })
@@ -242,8 +236,9 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<PickerSortOrder>('name')
   const [system, setSystem] = useState<GearSystem>('both')
+  const [skill, setSkill] = useState('')
   const ringsFull = ringCount(c, entries) >= ringCapacity(c)
-  const active = !!query.trim() || !!category
+  const active = !!query.trim() || !!category || !!skill
   const candidates = useMemo(() => active ? entries.filter(entry => entry.kind === 'item'
     && !isCompanionEquipmentItem(entry) && (!category || equipmentFitsGroup(entry, category))).map(entry => {
     const displayName = equipmentDisplayName(entry.name)
@@ -264,19 +259,24 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
       const { entry, key, searchName, searchDisplay } = candidate
       if (q && !searchName.includes(q) && !searchDisplay.includes(q)) continue
       if (!matchesGearSystem(entry, system, c.systems)) continue
+      if (skill && !equipmentBonusSkills(entry).has(skill)) continue
       const previous = unique.get(key)?.entry
       if (!previous || owned.has(entry.name) || !owned.has(previous.name)
         && entry.data.price !== undefined && previous.data.price === undefined) unique.set(key, candidate)
     }
     return sortPickerOptions([...unique.values()], sort, candidate => candidate.displayName, candidate => candidate.entry.level)
       .map(candidate => candidate.entry)
-  }, [candidates, query, c.equipment, c.systems, sort, system])
+  }, [candidates, query, c.equipment, c.systems, sort, system, skill])
   return <div className="equipment-search">
     <div className="row">
       <input type="search" aria-label={`Search ${category?.toLowerCase() ?? 'equipment'}`} placeholder={`Search ${category?.toLowerCase() ?? 'equipment'}`}
         autoFocus={!!onClose} value={query} onChange={event => setQuery(event.target.value)} />
       <GearSystemFilter value={system} onChange={setSystem} />
       <PickerSort label={`Sort ${category?.toLowerCase() ?? 'equipment'} by`} value={sort} onChange={setSort} />
+      <label>Skill item bonus <select aria-label="Skill item bonus" value={skill} onChange={event => setSkill(event.target.value)}>
+        <option value="">All skills</option>
+        {EQUIPMENT_BONUS_SKILLS.map(name => <option key={name}>{name}</option>)}
+      </select></label>
       {onClose && <button type="button" onClick={onClose}>Cancel</button>}
     </div>
     <ul className="gear-results">
@@ -293,7 +293,7 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
           onClose?.()
         }}>Add</button>
       </li>)}
-      {(query.trim() || category) && !matches.length && <li><small>No matching {category?.toLowerCase() ?? 'equipment'}.</small></li>}
+      {active && !matches.length && <li><small>No matching {category?.toLowerCase() ?? 'equipment'}.</small></li>}
     </ul>
   </div>
 }
@@ -638,7 +638,8 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
 
   const featSection = (category: 'general' | 'skill' | 'archetype') => {
     const title = { general: 'General Feats', skill: 'Skill Feats', archetype: 'Dedications' }[category]
-    const slots = featSlots.filter((slot) => (slot.displayCategory ?? slot.category) === category)
+    const slots = [...featSlots, ...(category === 'archetype' ? classArchetypeSlotViews(c, entries, featSlots) : [])]
+      .filter((slot) => (slot.displayCategory ?? slot.category) === category)
     const filled = slots.filter((slot) => c.feats.some((f) => f.slot === slot.key) || c.skippedFeatSlots?.includes(slot.key)).length
     const granted = category === 'archetype' ? 0
       : [...featGrants.backgroundFeats, ...featGrants.automaticFeats]
@@ -878,6 +879,17 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           )}
           {c.className === 'Druid' && subclass && <SelectedSubclassRules entry={subclass} />}
           {klass && <Info label={klass.name}>{detail(klass)}</Info>}
+          {!c.boosts && (() => {
+            const choices = boostSlots(c, entries).find(slot => slot.key === 'class')?.options
+            return choices && <label>Class key attribute <select aria-label="Class key attribute"
+              value={c.classKeyAbility ?? ''} onChange={event => {
+                const ability = choices.find(option => option === event.target.value)
+                save({ classKeyAbility: ability })
+              }}>
+              <option value="">Choose attribute</option>
+              {choices.map(ability => <option key={ability} value={ability}>{ABILITY_LABEL[ability]}</option>)}
+            </select></label>
+          })()}
           <AbilityBoostChoices {...section} groups={['class']} />
           <ClassFeatures {...section} />
           <SearchableFeatSlots {...section} categories={['class']} title="Class Feats" />

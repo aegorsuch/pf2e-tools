@@ -1021,7 +1021,7 @@ function redundantFeatSlots(c: Character, entries: ContentEntry[], slots: Planne
 const archetypeCache = new WeakMap<ContentEntry, { source: unknown; names: string[] }>()
 const NO_ARCHETYPES: string[] = []
 // Memoized per entry; callers treat the result as read-only
-const archetypesOf = (e?: ContentEntry): string[] => {
+export const archetypesOf = (e?: ContentEntry): string[] => {
   const a = e?.data.archetype
   if (a === undefined || a === '') return NO_ARCHETYPES
   const cached = archetypeCache.get(e!)
@@ -2326,9 +2326,9 @@ export function classFeatures(entries: ContentEntry[], c: Character) {
 export function classDifficultyClass(c: Character, entries: ContentEntry[]) {
   const klass = byName(entries, 'class', c.className)
   if (!klass || c.level < 1) return undefined
-  const attributes = parseAbilities(klass.data.attribute)
-  const ability = attributes.length === 1 ? attributes[0] : c.boosts?.class
-  if (!ability || attributes.length > 0 && !attributes.includes(ability)) return undefined
+  const slot = boostSlots(c, entries).find(candidate => candidate.key === 'class')
+  const ability = slot?.fixed ?? (c.boosts ? c.boosts.class : c.classKeyAbility)
+  if (!ability || slot?.options && !slot.options.includes(ability)) return undefined
   const rank = classFeatures(entries, c).reduce((best, feature) => {
     for (const match of feature.description.matchAll(/proficiency(?: ranks?)? (?:for|in) ([^.]*?) increases? to (expert|master|legendary)/gi)) {
       if (/\bclass DCs?\b/i.test(match[1])) best = Math.max(best, rankFromText(match[2]))
@@ -4294,6 +4294,13 @@ function ancestralSkillLores(c: Character, entries: ContentEntry[], selections =
 export function deityGrantedLores(c: Character) {
   const deity = c.deity?.trim()
   return getSettings().deityLore && deity ? [`${deity} Lore`] : []
+}
+
+export function deityLabel(deity: ContentEntry) {
+  const epithet = deity.name === 'Lao Shu Po' && deity.source === 'official' ? 'Grandmother Rat' : deity.data.epithet
+  return typeof epithet === 'string' && epithet.trim()
+    ? `${deity.name}, ${epithet.trim().replace(/^The /, 'the ')}`
+    : deity.name
 }
 
 export function trainedFeatLores(c: Character) {
@@ -8812,10 +8819,10 @@ function calculateSkillTokenState(c: Character, entries: ContentEntry[]) {
   for (const { purchase, index } of (c.skillTokenUpgrades ?? []).map((purchase, index) => ({ purchase, index }))
     .sort((a, b) => a.purchase.level - b.purchase.level || a.purchase.rank - b.purchase.rank)) {
     let reason = !enabled ? 'House rule disabled; purchase preserved.'
-      : !Number.isInteger(purchase.level) || purchase.level < 1 || ![2, 3, 4].includes(purchase.rank)
+      : !Number.isInteger(purchase.level) || purchase.level < 1 || ![1, 2, 3, 4].includes(purchase.rank)
         ? 'Invalid purchase level or rank.'
         : purchase.level > c.level ? `Available at level ${purchase.level}.`
-          : purchase.level < (purchase.rank === 4 ? 15 : purchase.rank === 3 ? 7 : 3)
+          : purchase.level < (purchase.rank === 4 ? 15 : purchase.rank === 3 ? 7 : purchase.rank === 2 ? 3 : 1)
             ? 'Purchase is below the minimum proficiency level.'
             : !names.has(purchase.skill) && !/^.+ lore$/i.test(purchase.skill)
               ? 'Only skills and Lore can be upgraded.' : ''
@@ -8847,14 +8854,14 @@ export function skillTokenPurchase(c: Character, entries: ContentEntry[], skill:
   convertOnly = false, state = skillTokenState(c, entries), canSpendAt?: (level: number) => boolean) {
   c = normalizeGrantedSkillSpending(c, entries)
   if (!getSettings().skillTokenConversion || !Number.isInteger(target)
-    || target < 2 || target > (c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1)) return undefined
+    || target < 1 || target > (c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1)) return undefined
   const current = state.ranks[skill] ?? 0
-  if (current < 1 || target <= current || !statDefs(c).some(stat => stat.kind === 'skill' && stat.name === skill)
+  if (current < 1 && target !== 1 || target <= current || !statDefs(c).some(stat => stat.kind === 'skill' && stat.name === skill)
     && !/^.+ lore$/i.test(skill)) return undefined
   const available = state.available.filter(token => (!token.skills || token.skills.includes(skill))
-    && (token.rank === 1 || !canSpendAt || canSpendAt(token.level)))
+    && (token.key.startsWith('trained:') || !canSpendAt || canSpendAt(token.level)))
   const purchases: SkillTokenUpgrade[] = []
-  for (const rank of [2, 3, 4] as const) {
+  for (const rank of [1, 2, 3, 4] as const) {
     if (rank <= current || rank > target) continue
     const eligible = available.filter(token => !convertOnly || token.rank < rank)
     const eligibleKeys = new Set(eligible.map(token => token.key))

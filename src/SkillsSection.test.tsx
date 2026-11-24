@@ -856,6 +856,61 @@ it('returns usable change when a Legendary token buys Expert and preserves indep
   }
 })
 
+it.each<{ level: number; increases: Record<string, string>; payment: string[]; change: { trained: number; expert: number; master: number; legendary: number } }>([
+  { level: 7, increases: { 3: 'Nature', 5: 'Nature' }, payment: ['7~0~0'], change: { trained: 1, expert: 1, master: 0, legendary: 0 } },
+  { level: 15, increases: { 3: 'Nature', 5: 'Nature', 7: 'Nature', 9: 'Nature', 11: 'Nature', 13: 'Nature' },
+    payment: ['15~0~0~0'], change: { trained: 1, expert: 1, master: 1, legendary: 0 } },
+])('splits a higher token to train an untrained skill at level $level', ({ level, increases, payment, change }) => {
+  const previous = getSettings().skillTokenConversion
+  updateSettings({ skillTokenConversion: true })
+  const confirm = vi.fn(() => true)
+  vi.stubGlobal('window', { confirm })
+  try {
+    let c: Character = { ...base, level, skillPicks: ['Athletics', 'Acrobatics', 'Stealth', 'Medicine'], skillIncreases: increases }
+    const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } } })
+    const click = (name: string) => {
+      const button = findButtons(tree()).get(name)!
+      expect(button.disabled).toBeFalsy()
+      ;(button.onClick as () => void)()
+    }
+    click('Arcana Trained')
+    expect(c.skillTokenUpgrades?.[0]).toMatchObject({ skill: 'Arcana', rank: 1, level, payment })
+    expect(ranksAt(c, [ranger]).Arcana).toBe(1)
+    expect(ranksAt(c, [ranger], level).Arcana ?? 0).toBe(0)
+    expect(skillRankBudget(c, [ranger])).toMatchObject(change)
+    click('Religion Trained')
+    expect(ranksAt(c, [ranger]).Religion).toBe(1)
+    expect(skillRankBudget(c, [ranger]).trained).toBe(0)
+    click('Arcana Trained')
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(ranksAt(c, [ranger]).Arcana ?? 0).toBe(0)
+    expect(ranksAt(c, [ranger]).Religion).toBe(1)
+    expect(skillRankBudget(c, [ranger]).trained).toBe(1)
+    expect(builder.skillTokenState(c, [ranger]).inactive).toEqual([])
+    updateSettings({ skillTokenConversion: false })
+    expect(ranksAt(c, [ranger]).Religion ?? 0).toBe(0)
+    expect(findButtons(tree()).get('Arcana Trained')?.disabled).toBe(true)
+    updateSettings({ skillTokenConversion: true })
+    expect(ranksAt(c, [ranger]).Religion).toBe(1)
+  } finally {
+    vi.unstubAllGlobals()
+    updateSettings({ skillTokenConversion: previous })
+  }
+})
+
+it('keeps split trained tokens restricted to their source skills', () => {
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', level: 15,
+    skillIncreases: { 3: 'Computers', 5: 'Computers', 7: 'Computers', 9: 'Computers', 11: 'Computers',
+      13: 'Computers', 15: 'Computers', 'mechanic-ingenuity:3': 'Computers', 'mechanic-ingenuity:7': 'Computers' } }
+  const purchase = builder.skillTokenPurchase(c, [mechanic], 'Crafting', 1)
+  expect(purchase?.[0].payment).toEqual(['mechanic-ingenuity:15~0~0~0'])
+  expect(builder.skillTokenPurchase(c, [mechanic], 'Athletics', 1)).toBeUndefined()
+  expect(builder.skillTokenPurchase(c, [mechanic], 'Crafting', 1, false, undefined, () => false)).toBeUndefined()
+  const next = { ...c, skillTokenUpgrades: purchase }
+  expect(ranksAt(next, [mechanic]).Crafting).toBe(1)
+  expect(builder.skillTokenPurchase(next, [mechanic], 'Athletics', 1)).toBeUndefined()
+})
+
 it('keeps split Mechanic token change restricted to Computers and Crafting', () => {
   const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', level: 15,
     rankOverrides: { Computers: 1, Crafting: 1, Athletics: 1 },
@@ -1147,6 +1202,20 @@ it('grants current deity Lore without spending training and removes only its aut
     expect(ranksAt(manual, entries)['Iomedae Lore']).toBe(2)
     expect(findButtons(SkillsSection({ c, entries, save: () => {} })).has('Iomedae Lore Trained')).toBe(false)
   } finally { updateSettings(previous) }
+})
+
+it('shows deity epithets in Lore labels without changing saved proficiency', () => {
+  const previous = getSettings().deityLore
+  try {
+    updateSettings({ deityLore: true })
+    const deity: ContentEntry = { ...ranger, id: 'belech', kind: 'deity', name: 'Belech', data: { epithet: 'Brother Bold' } }
+    const c: Character = { ...base, level: 3, deity: 'Belech', skillIncreases: { 3: 'Belech Lore' } }
+    const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[ranger, deity]} save={() => {}} />)
+    expect(markup).toContain('Belech, Brother Bold Lore')
+    expect(markup).toContain('aria-label="Belech, Brother Bold Lore Expert"')
+    expect(ranksAt(c, [ranger, deity])['Belech Lore']).toBe(2)
+    expect(c.skillIncreases?.[3]).toBe('Belech Lore')
+  } finally { updateSettings({ deityLore: previous }) }
 })
 
 it('grants Underworld Investigator free trained Lore without Additional Lore progression', () => {

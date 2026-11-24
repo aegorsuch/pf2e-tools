@@ -1,6 +1,43 @@
 import type { ContentEntry, EquipmentGroupName, WORN_EQUIPMENT_GROUPS } from './types'
 export { WORN_EQUIPMENT_GROUPS, EQUIPMENT_GROUPS, type EquipmentGroupName } from './types'
 
+export const EQUIPMENT_BONUS_SKILLS = ['Acrobatics', 'Arcana', 'Athletics', 'Computers', 'Crafting', 'Deception',
+  'Diplomacy', 'Intimidation', 'Lore', 'Medicine', 'Nature', 'Occultism', 'Performance', 'Piloting',
+  'Religion', 'Society', 'Stealth', 'Survival', 'Thievery'] as const
+
+const bonusSkillCache = new WeakMap<ContentEntry, { description: string; indexed: unknown; skills: Set<string> }>()
+const bonusSkillPatterns = EQUIPMENT_BONUS_SKILLS.map(skill => [skill, new RegExp(`\\b${skill}\\b`, 'i')] as const)
+const bonusSkillActions: [string, RegExp][] = [
+  ['Athletics', /\b(?:climb|grapple|high jump|long jump|shove|swim|trip)\b/i],
+  ['Crafting', /\b(?:craft|repair)\b/i],
+  ['Deception', /\b(?:create a diversion|impersonate|lie)\b/i],
+  ['Diplomacy', /\b(?:gather information|make an impression|make a request|request)\b/i],
+  ['Intimidation', /\b(?:coerce|demoralize)\b/i],
+  ['Medicine', /\b(?:administer first aid|treat wounds|treat disease|treat poison)\b/i],
+  ['Nature', /\bcommand an animal\b/i],
+  ['Stealth', /\b(?:conceal an object|hide|sneak)\b/i],
+  ['Survival', /\b(?:subsist|track)\b/i],
+  ['Thievery', /\b(?:disable a device|palm an object|pick a lock|steal)\b/i],
+]
+
+export function equipmentBonusSkills(entry: ContentEntry) {
+  const cached = bonusSkillCache.get(entry)
+  if (cached?.description === entry.description && cached.indexed === entry.data.skill) return cached.skills
+  const skills = new Set<string>()
+  for (const match of entry.description.matchAll(/\bitem bonus\s+(?:to|on|when)\s+([^.;\n]{0,180})/gi)) {
+    const target = match[1].split(/\b(?:while|when|if|unless|against|and (?:a|an|you|it|your|use|gain|can|must|attempt|make)\b)/i, 1)[0]
+    for (const [skill, pattern] of bonusSkillPatterns) if (pattern.test(target)) skills.add(skill)
+    for (const [skill, pattern] of bonusSkillActions) if (pattern.test(target)) skills.add(skill)
+    if (/^(?:the|that|this) check\b/i.test(target.trim())) {
+      const indexed = String(entry.data.skill ?? '').split(',').map(name => name.trim())
+      const distinct = [...new Set(indexed)]
+      if (distinct.length === 1 && EQUIPMENT_BONUS_SKILLS.some(skill => skill === distinct[0])) skills.add(distinct[0])
+    }
+  }
+  bonusSkillCache.set(entry, { description: entry.description, indexed: entry.data.skill, skills })
+  return skills
+}
+
 export const equipmentDisplayName = (name: string) => name.replace(/[\u2018\u2019]/g, "'")
   .replace(/^Orc Necksplitter$/, 'Orc Necksplitter Axe')
   .replace(/\bStarday Night Special \(Gyrojet Pistol\)$/, 'Starday Night Special Gyrojet Pistol')

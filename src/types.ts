@@ -287,6 +287,7 @@ export interface Character {
   focusPointsSpentSinceRefocus?: number
   desperateWardenFocusPoint?: number
   abilities: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number>
+  classKeyAbility?: keyof Character['abilities']
   // Imported/picked feats by name; entryIds links to ContentEntry once matched
   // slot is set when the feat fills a slot from the slot planner (e.g. 'class:2:0')
   feats: { name: string; type: string; level: number; choice?: string; sourceId?: string; replacements?: string[]; culturalWeapon?: boolean; rareWeaponOverride?: boolean; slot?: string; takenLevel?: number }[]
@@ -405,7 +406,7 @@ export interface Character {
   // Trained skill picks and skill increases keyed by level
   skillPicks?: string[]
   skillIncreases?: Record<string, string>
-  skillTokenUpgrades?: { skill: string; rank: 2 | 3 | 4; level: number; payment: string[] }[]
+  skillTokenUpgrades?: { skill: string; rank: 1 | 2 | 3 | 4; level: number; payment: string[] }[]
   // Legacy skill-rank overrides; saves and Perception are always derived from class/features
   rankOverrides?: Record<string, number>
   spellcasting?: {

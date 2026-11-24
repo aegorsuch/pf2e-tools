@@ -61,7 +61,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'singleAnimalCompanion', label: 'Disable Multiple Animal Companions',
     description: 'Beastmaster Dedication and Additional Companion do not add more companions. Your single companion gains their advancement, maneuvers and spells instead.' },
   { key: 'skillTokenConversion', label: 'Skill Token Conversion',
-    description: 'Choose a higher skill rank to combine unused choices automatically. Two Trained choices buy Expert, two Expert tokens buy Master, and two Master tokens buy Legendary. Higher tokens can be split into two of the next lower rank. From Trained: 2 / 6 / 14 Trained choices total. Expert requires level 3, Master 7, Legendary 15. Existing proficiencies and source restrictions remain. Click a purchased rank again to refund it. Disabling preserves purchases.' },
+    description: 'Choose a skill rank to combine unused choices automatically. Two Trained choices buy Expert, two Expert tokens buy Master, and two Master tokens buy Legendary. Higher tokens can be split into two of the next lower rank, including Trained. From Trained: 2 / 6 / 14 Trained choices total. Expert requires level 3, Master 7, Legendary 15. Existing proficiencies and source restrictions remain. Click a purchased rank again to refund it. Disabling preserves purchases.' },
   { key: 'unarmedCountsAsWeapons', label: 'Unarmed attacks count as weapons',
     description: 'For Twin Parry, a worn free-hand weapon can pair with a separate unarmed attack even while both hands hold another weapon, such as a bow in its shooting grip.' },
   { key: 'warmaskScaling', label: 'Orc Warmask Item Bonus Scaling',

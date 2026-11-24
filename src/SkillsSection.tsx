@@ -12,7 +12,7 @@ import { TotalBreakdown } from './TotalBreakdown'
 import { warmaskSource, warmaskItemBonus } from './warmask'
 import { armorModifications, armorOverdriveActive } from './inventorArmor'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
-import { apexSkillBonus, temporaryHpGrant, tenaciousStanceActive, warriorLegendWeakness, wornArmor } from './builder'
+import { apexSkillBonus, deityLabel, temporaryHpGrant, tenaciousStanceActive, warriorLegendWeakness, wornArmor } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { getSettings } from './settings'
 import { backgroundLoreChoiceOptions, backgroundLoreSlots, backgroundSkillSlots, chosenLoreFeats, normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
@@ -268,7 +268,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     ...stats.filter((stat) => stat.kind === 'skill'),
     ...lores.map((name) => ({ name, ability: 'int' as const, kind: 'skill' as const })),
   ].sort((a, b) => a.name.localeCompare(b.name))
-  const divineSkill = byName(entries, 'deity', c.deity)?.data.skill
+  const deityEntry = byName(entries, 'deity', c.deity)
+  const divineSkill = deityEntry?.data.skill
   const certitudeSkills = new Set(['religion', ...(typeof divineSkill === 'string'
     ? divineSkill.split(/,\s*|\s+or\s+/i).map(skill => skill.trim().toLowerCase()).filter(Boolean) : [])])
   const skillNames = new Set(skills.map((stat) => stat.name))
@@ -339,6 +340,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   }
   const canReachRank = (name: string, target: number) => !!assignRank(name, target)
     || !!tokenState && !!skillTokenPurchase(c, entries, name, target, false, tokenState, level => canSpendAt(name, level))
+  const canPickTraining = () => {
+    if (!tokenState || !getSettings().skillTokenConversion) return remaining > 0
+    const native = tokenState.split.filter(token => /^trained:\d+$/.test(token.key))
+    return native.length > 0 && tokenState.available.some(token => token.key === `trained:${native.length - 1}`)
+  }
   const setRank = (name: string, r: number) => {
     if (!skillNames.has(name)) return
     if (r === 1 && eruditeChoice(name)) {
@@ -369,11 +375,16 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       return
     }
     if (r === 1 && currentRank === 0) {
-      if (remaining > 0) save({ skillPicks: [...picks, name] })
+      if (canPickTraining()) save({ skillPicks: [...picks, name] })
+      else {
+        const purchases = tokenState && skillTokenPurchase(c, entries, name, 1, false, tokenState, level => canSpendAt(name, level))
+        if (purchases) save({ skillTokenUpgrades: purchases })
+      }
       return
     }
     if (r === 1 && currentRank === 1) {
       if (picks.includes(name)) save({ skillPicks: picks.filter((pick) => pick !== name) })
+      else if (canRefundTokens(name, 0)) refundTokens(name, 1)
       return
     }
     const target = currentRank === r ? r - 1 : r
@@ -478,10 +489,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const conditionalTotal = (bonus: number) => signed(total + Math.max(circumstance?.value ?? 0, bonus) - (circumstance?.value ?? 0))
     const itemTotal = (bonus: number) => signed(total + Math.max(0, bonus - item))
     const forestIncrease = ink ? Math.max(item, ink.value + 1) - item : 0
+    const skillLabel = s.name === `${c.deity} Lore` && deityEntry ? `${deityLabel(deityEntry)} Lore` : s.name
     return (
       <div key={s.name} className={`skill-row${rank > 0 ? ' trained' : ''} with-item`} role="row">
-        <span className="skill-name">{s.name} {editingSkills && c.lores.some(lore => lore.name === s.name)
-          && <button type="button" className="lore-remove" aria-label={`Remove ${s.name}`} onClick={() => confirmRemoval(`"${s.name}"`, () => {
+        <span className="skill-name">{skillLabel} {editingSkills && c.lores.some(lore => lore.name === s.name)
+          && <button type="button" className="lore-remove" aria-label={`Remove ${skillLabel}`} onClick={() => confirmRemoval(`"${skillLabel}"`, () => {
             const skillIncreases = Object.fromEntries(Object.entries(c.skillIncreases ?? {}).filter(([, skill]) => skill !== s.name))
             const rankOverrides = { ...c.rankOverrides }
             delete rankOverrides[s.name]
@@ -709,7 +721,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
                 if (selected) confirmRemoval(`Core Memories Assurance (${s.name})`, select)
                 else select()
               }}>Assurance</button>}</span>
-        <span className="rank-dots" role="group" aria-label={`${s.name} proficiency`}>
+        <span className="rank-dots" role="group" aria-label={`${skillLabel} proficiency`}>
           {RANK_LETTERS.map((letter, i) => {
             const target = permanentRank === i + 1 ? i : i + 1
             const temporary = temporaryTrainings.find(training => training.skill === s.name
@@ -721,8 +733,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
                 || ['cha', 'int', 'wis'].includes(s.ability ?? (/ lore$/i.test(s.name) ? 'int' : ''))))
             const backgroundChoice = i === 0 ? trainingChoice(s.name) : undefined
             const trainedDisabled = i === 0 && !backgroundChoice && !eruditeChoice(s.name) && (
-              permanentRank === 0 ? remaining <= 0
-                : permanentRank === 1 ? !picks.includes(s.name)
+              permanentRank === 0 ? !canPickTraining() && !canReachRank(s.name, 1)
+                : permanentRank === 1 ? !picks.includes(s.name) && !canRefundTokens(s.name, 0)
                   : baseRank > 1
             )
             const disabled = s.kind !== 'skill' || i + 1 > maxRank || (!downloadAvailable && (i === 0
@@ -736,7 +748,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
                 type="button"
                 className={rank >= i + 1 ? 'on' : ''}
                 aria-pressed={rank === i + 1}
-                aria-label={`${s.name} ${RANKS[i + 1]}`}
+                aria-label={`${skillLabel} ${RANKS[i + 1]}`}
                 disabled={disabled}
                 title={temporary ? `${temporary.feat.name}: temporary proficiency` : s.kind !== 'skill' ? 'Set by class and features' : i === 0 && grantedTraining.includes(s.name)
                   ? picks.includes(s.name) ? `Refund redundant training choice; ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'} keeps this skill trained`
