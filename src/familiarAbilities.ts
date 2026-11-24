@@ -1,5 +1,6 @@
 import type { Character, ContentEntry } from './types'
 import { activeFeatsNamed, classSpellcasting, classSpellSlots, selectedSubclass } from './builder'
+import { attunementFamiliarAbilities, selectedArcaneThesis } from './arcaneTheses'
 import { hasDivineIntercession } from './divineIntercessions'
 
 export const FAMILIAR_RESISTANCE_TYPES = ['acid', 'cold', 'electricity', 'fire', 'poison', 'sonic'] as const
@@ -28,6 +29,7 @@ export function familiarSelection(c: Character) {
   const crocodileFamiliar = !classFamiliar && activeFeatsNamed(c, "Crocodile's Twin").length > 0
   const familiar = !!classFamiliar || crocodileFamiliar
     || ['Animal Accomplice', 'Familiar', 'Glyph Familiar'].some(name => activeFeatsNamed(c, name).length > 0)
+    || selectedArcaneThesis(c) === 'Improved Familiar Attunement'
   const wasp = !familiar && hasDivineIntercession(c, 'Calistria', 'moderate-boon')
   const divineEmissary = activeFeatsNamed(c, 'Divine Emissary').length > 0 ? 1 : 0
   const glyph = !classFamiliar && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Glyph Familiar').length > 0
@@ -37,7 +39,7 @@ export function familiarSelection(c: Character) {
       ? c.level >= 10 && activeFeatsNamed(c, 'Incredible Undead Familiar').length ? 5 : 3 : 1
     : glyph ? (activeFeatsNamed(c, 'Enhanced Glyph Familiar').length ? 2 : 1)
     : activeFeatsNamed(c, 'Incredible Familiar').length ? 6 : activeFeatsNamed(c, 'Enhanced Familiar').length ? 4 : 2)
-    + witchAbilities + divineEmissary
+    + witchAbilities + divineEmissary + attunementFamiliarAbilities(c)
   return { leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, spiritFamiliar, dailyAbilityLimit, glyph }
 }
 
@@ -249,4 +251,20 @@ export function familiarAbilityEffects(abilities: string[], level: number,
     skilled: (options?.skilled ?? []).filter(skill => FAMILIAR_SKILLS.includes(skill))
       .map(skill => ({ skill, modifier: skillModifier })),
   }
+}
+
+const isSpecificFamiliar = (entry: ContentEntry) => /^specific familiar\b/i.test(String(entry.data.ability_type ?? ''))
+
+export function specificFamiliarRequirement(entry: ContentEntry) {
+  const text = `${entry.data.required_abilities ?? entry.data.required_number_of_abilities ?? ''} ${entry.description}`
+  return Number(/required number of abilities\W*(\d+)/i.exec(text)?.[1] ?? /^\s*(\d+)\s*$/.exec(String(entry.data.required_abilities ?? entry.data.required_number_of_abilities ?? ''))?.[1] ?? 0)
+}
+
+export function specificFamiliarOptions(c: Character, entries: ContentEntry[]) {
+  const reduction = activeFeatsNamed(c, 'Improved Familiar').length ? 2 : 0
+  const abilities = familiarSelection(c).dailyAbilityLimit
+  return familiarAbilityEntries(entries, c).filter(isSpecificFamiliar).map(entry => {
+    const required = Math.max(0, specificFamiliarRequirement(entry) - reduction)
+    return { entry, required, available: abilities >= required }
+  })
 }

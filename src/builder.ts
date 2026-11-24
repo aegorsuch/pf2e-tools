@@ -33,6 +33,7 @@ import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoice
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
 import { divineAttackDamage, hasDivineIntercession, TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
 import { characterHeritages, characterSize, elfAtavismOptions, isVersatileHeritage } from './heritages'
+import { selectedArcaneThesis } from './arcaneTheses'
 import { fatalMethodGrants, selectedFatalMethod } from './fatalMethods'
 import { ELEMENTAL_GAUNTLET_SOURCES, makeNamedWeaponEntries, namedWeaponBaseName, namedWeaponDamage, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
 export { heritagesFor, isVersatileHeritage } from './heritages'
@@ -734,6 +735,7 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     ...(getSettings().freeArchetype ? [{ category: 'archetype' as const, levels: range(2, 20, 2) }].flatMap((r) => r.levels.map((level) => ({ category: r.category, level, count: level === 2 && activeHomebrewDedications(c).some(rule => rule.replacesFreeArchetype) ? 0 : 1 }))) : []),
     ...c.extraSlots,
     ...(isWarriorOfLegend(c) ? [{ category: 'class' as const, level: 2, count: 1 }] : []),
+    ...(selectedArcaneThesis(c) === 'Metamagical Experimentation' ? [{ category: 'class' as const, level: 1, count: 1 }] : []),
   ]
   const slots: PlannedSlot[] = []
   const counters = new Map<string, number>()
@@ -1356,6 +1358,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         familiar: character.className === 'Witch'
           || (character.className === 'Animist' && character.systems.includes('pf2e')
             && activeFeatsNamed(character, 'Spirit Familiar (Animist)').length > 0)
+          || selectedArcaneThesis(character) === 'Improved Familiar Attunement'
           || character.feats.some(feat => ['Familiar', 'Leshy Familiar', 'Animal Accomplice', 'Glyph Familiar'].includes(feat.name))
           || hasDivineIntercession(character, 'Calistria', 'moderate-boon'),
         get primalInnateSpell() { return getInnateGrants().some(grant => grant.rule.tradition?.toLowerCase() === 'primal') },

@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import { activeFamiliarAbilities, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
-  familiarAbilityUnavailableReason, familiarSelection, familiarSpellBenefits } from './familiarAbilities'
+  familiarAbilityUnavailableReason, familiarSelection, familiarSpellBenefits, specificFamiliarOptions } from './familiarAbilities'
 import type { Character, ContentEntry } from './types'
 
 const character: Character = {
@@ -144,4 +144,19 @@ it('gives Glyph Familiar one daily ability plus fixed Construct, Flier and Tough
   expect(familiarAbilityCapacity(glyph, []).dailyAbilityLimit).toBe(1)
   expect(familiarAbilityCapacity({ ...glyph, feats: [...glyph.feats, feat('Enhanced Glyph Familiar')] }, []).dailyAbilityLimit).toBe(2)
   expect(activeFamiliarAbilities(glyph, [])).toEqual(['Construct', 'Flier', 'Tough'])
+})
+
+it('offers specific familiars by required abilities, reduced by Improved Familiar', () => {
+  const specific = { ...ability('Imp', 'Required Number of Abilities 6'), data: { ability_type: 'Specific Familiar' } }
+  const wizard: Character = { ...character, className: 'Wizard',
+    feats: [{ name: 'Enhanced Familiar', type: 'Class Feat', level: 2 }, { name: 'Familiar', type: 'Class Feat', level: 1 }] }
+  expect(specificFamiliarOptions(wizard, [specific]).map(o => [o.required, o.available])).toEqual([[6, false]])
+  const improved = { ...wizard, feats: [...wizard.feats, { name: 'Improved Familiar', type: 'Archetype Feat', level: 4 }] }
+  expect(specificFamiliarOptions(improved, [specific]).map(o => [o.required, o.available])).toEqual([[4, true]])
+})
+
+it('gives Improved Familiar Attunement a familiar with extra abilities at 6th, 12th and 18th level', () => {
+  const wizard: Character = { ...character, className: 'Wizard', arcaneThesis: 'Improved Familiar Attunement' }
+  expect([1, 6, 12, 18].map(level => familiarSelection({ ...wizard, level }).dailyAbilityLimit)).toEqual([3, 4, 5, 6])
+  expect(familiarSelection(wizard).familiar).toBe(true)
 })

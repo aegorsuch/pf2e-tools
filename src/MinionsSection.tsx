@@ -19,7 +19,7 @@ import { activeSummonedFiend, type SummonedFiend } from './summonedFiends'
 import { DroneFeatures } from './DroneFeatures'
 import { FOLLOWER_STAGES, FOLLOWER_TYPES, followerStage, followerStats } from './followers'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
-  familiarAbilityEntry, familiarAbilityUnavailableReason, GLYPH_FAMILIAR_ABILITIES, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds } from './familiarAbilities'
+  familiarAbilityEntry, familiarAbilityUnavailableReason, GLYPH_FAMILIAR_ABILITIES, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds, specificFamiliarOptions } from './familiarAbilities'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
@@ -1010,6 +1010,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             abilities[slot] = ability.name
             saveFamiliar({ abilities })
           }
+          const specificFamiliars = specificFamiliarOptions(c, entries)
           const abilityOptions = familiarAbilityCatalog.filter(entry => {
             const alreadySelected = savedAbilities.some(item => item.ability.toLowerCase() === entry.name.toLowerCase())
             return !/^specific familiar\b/i.test(String(entry.data.ability_type ?? ''))
@@ -1104,6 +1105,18 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           {familiarEffects.skilled.length > 0 && <section className="companion-actions">
             <h5>Skills</h5><div>{familiarEffects.skilled.map(skill => `${skill.skill} ${signed(skill.modifier)}`).join(', ')}</div>
           </section>}
+          {!isWasp && specificFamiliars.length > 0 && <label>Specific familiar{' '}
+            <select aria-label="Specific familiar" value={data?.specificFamiliar ?? ''}
+              onChange={event => saveFamiliar({ specificFamiliar: event.target.value || undefined })}>
+              <option value="">None</option>
+              {specificFamiliars.map(option => <option key={option.entry.id} value={option.entry.name}
+                disabled={!option.available && option.entry.name !== data?.specificFamiliar}>
+                {option.entry.name}{option.required ? ` (${option.required} abilities)` : ''}</option>)}
+            </select>
+          </label>}
+          {!isWasp && specificFamiliars.some(option => option.entry.name === data?.specificFamiliar) && <div className="gear-traits">
+            <EntryDescription name={data!.specificFamiliar!} entry={specificFamiliars.find(option => option.entry.name === data?.specificFamiliar)!.entry}
+              entries={entries} character={c} buttonLabel="Specific familiar" /></div>}
           {isLeshy && <label>Granted ability{' '}
             <select aria-label="Leshy familiar granted ability" value={data?.leshyAbility ?? ''} onChange={event => {
               const value = event.target.value

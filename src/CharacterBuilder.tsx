@@ -43,6 +43,7 @@ import { backgroundVariants, type BackgroundVariant } from './builder'
 import { hasMagicWarriorMask, SHADOWED_SCALE_MASK } from './magicWarriorMasks'
 import { characterDeityLores, normalizeAcolyte } from './backgrounds'
 import { getSettings } from './settings'
+import { arcaneThesisOptions, selectedArcaneThesis, type ArcaneThesis } from './arcaneTheses'
 import { fatalMethodOptions, selectedFatalMethod, type FatalMethod } from './fatalMethods'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
 
@@ -156,7 +157,7 @@ export function ClassPick({ c, entries, save, options }: SectionProps & { option
   return <Pick label="Class" kind="class" value={selected ? `${selected.className} (${selected.name})` : c.className}
     options={[...options, ...available]} onChange={value => {
       const archetype = archetypes.find(item => `${item.className} (${item.name})` === value)
-      save({ className: archetype?.className ?? value, subclass: archetype?.subclass ?? '', fatalMethod: undefined })
+      save({ className: archetype?.className ?? value, subclass: archetype?.subclass ?? '', fatalMethod: undefined, arcaneThesis: undefined })
     }} />
 }
 
@@ -553,6 +554,9 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
     }) : []
   const fatalMethods = fatalMethodOptions(entries)
   const fatalMethod = selectedFatalMethod(c)
+  const arcaneTheses = arcaneThesisOptions(entries)
+  const arcaneThesis = selectedArcaneThesis(c)
+  const arcaneThesisEntry = arcaneTheses.find(entry => entry.name === arcaneThesis)
   const fatalMethodEntry = fatalMethods.find(entry => entry.name === fatalMethod)
   const subclassChoice = subclassSkillChoice(c, entries)
   const choiceValue = subclassChoice ? c.subclassSkillChoices?.[subclassChoice.key] ?? '' : ''
@@ -795,6 +799,11 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
             <Pick label="Fatal Method" kind="fatal method" value={fatalMethod} options={fatalMethods}
               onChange={value => save({ fatalMethod: value as FatalMethod | undefined })} />
             {fatalMethodEntry && <SelectedSubclassRules entry={fatalMethodEntry} />}
+          </>}
+          {c.className === 'Wizard' && c.systems.includes('pf2e') && <>
+            <Pick label="Arcane Thesis" kind="arcane thesis" value={arcaneThesis} options={arcaneTheses}
+              onChange={value => save({ arcaneThesis: value as ArcaneThesis | undefined })} />
+            {arcaneThesisEntry && <SelectedSubclassRules entry={arcaneThesisEntry} />}
           </>}
           {rogueRackets(c, entries).filter(racket => racket !== subclassName).map(racket => {
             const entry = subclasses.find(candidate => candidate.name === racket)
