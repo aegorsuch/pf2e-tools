@@ -1062,7 +1062,9 @@ it('shows Nine-Tailed Fox and its locked Scent alongside selected abilities', ()
     familiar: { specificFamiliar: 'Nine-Tailed Fox', abilities: ['Tough'] },
   }
   const html = renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => {}} />)
-  expect(html).toContain('<h4>Nine-Tailed Fox</h4> (2/2)')
+  expect(html).toContain('Nine-Tailed Fox Familiar (2/2)')
+  expect(html).toContain('<h4>Nine-Tailed Fox Familiar</h4> (2/2)')
+  expect(c.familiar?.specificFamiliar).toBe('Nine-Tailed Fox')
   expect(html).toContain('aria-haspopup="dialog">Scent</button>')
   expect(html).toContain('Scent (imprecise, 30 feet)')
   expect(html.match(/aria-label="Remove Familiar ability \d+"/g)).toHaveLength(1)

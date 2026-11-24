@@ -137,6 +137,8 @@ function familiarDisplayState(c: Character, entries: ContentEntry[], isWasp = fa
     activeSpecific, grants, selectableAbilityLimit, savedAbilities, activeAbilityChoices, skillNames, selectedCount, totalCount, emissaryAbility, leshySecret, leshyAbility }
 }
 
+const specificFamiliarHeader = (name: string) => name === 'Nine-Tailed Fox' ? 'Nine-Tailed Fox Familiar' : name
+
 const SUMMONED_CREATURES = {
   Emganat: {
     level: 3, traits: ['Medium', 'Kucharn'],
@@ -447,7 +449,7 @@ export function MinionsSummary({ c, entries = [] }: Pick<SectionProps, 'c'> & Pa
   const lashuntaAlly = activeLashuntaAlly(c)
   const familiarState = familiar ? familiarDisplayState(c, entries) : undefined
   const waspState = wasp ? familiarDisplayState(c, entries, true) : undefined
-  const familiarName = familiarState?.activeSpecific ? familiarState.activeSpecific.name
+  const familiarName = familiarState?.activeSpecific ? specificFamiliarHeader(familiarState.activeSpecific.name)
     : spiritFamiliar ? 'Spirit Familiar' : leshy ? 'Leshy Familiar' : undeadFamiliar ? 'Undead Familiar'
       : crocodileFamiliar ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : c.className === 'Witch' ? "Witch's Familiar" : 'Familiar'
   return <summary className="character-section-summary">
@@ -1171,8 +1173,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           const specificSections = specificFamiliarSections(activeSpecific ? selectedSpecific : undefined)
           const specificSummary = selectedSpecific?.data.granted_abilities && !/\bGranted Abilities\b/i.test(selectedSpecific.description)
             ? selectedSpecific.description.split(/\n\s*\n/).filter(Boolean) : specificSections.summary
-          return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" data-minion-name={activeSpecific ? activeSpecific.name : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : c.className === 'Witch' ? "Witch's Familiar" : 'Familiar'} open>
-          <summary><h4>{activeSpecific ? activeSpecific.name : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
+          return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" data-minion-name={activeSpecific ? specificFamiliarHeader(activeSpecific.name) : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : c.className === 'Witch' ? "Witch's Familiar" : 'Familiar'} open>
+          <summary><h4>{activeSpecific ? specificFamiliarHeader(activeSpecific.name) : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
             : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : c.className === 'Witch' ? "Witch's Familiar" : 'Familiar'}</h4> ({selectedCount}/{totalCount})</summary>
           <article className="gear-card">
           {!isWasp && specificFamiliars.length > 0 && <header className="row">
