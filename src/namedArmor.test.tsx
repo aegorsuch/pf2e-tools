@@ -110,6 +110,59 @@ const plateGroup: ContentEntry = { ...hide, id: 'plate-group', kind: 'armorGroup
 const armorExpertise: ContentEntry = { ...hide, id: 'armor-expertise', kind: 'classFeature', name: 'Armor Expertise',
   level: 1, data: { class: 'Fighter' }, description: 'Gain armor specialization.' }
 
+it('offers scaling Rebounding and Mountain armor in each plate profile', () => {
+  const breastplate: ContentEntry = { ...hide, id: 'breastplate', name: 'Breastplate', traits: [],
+    data: { ...hide.data, ac: 4, dex_cap: 1, strength: 3, armor_category: 'Medium', armor_group: 'Plate', bulk: 2 } }
+  const fullPlate: ContentEntry = { ...bastionPlate, id: 'full-plate', name: 'Full Plate', traits: ['Bulwark'],
+    data: { ...bastionPlate.data, ac: 6, strength: 4, bulk: 4 } }
+  const rebounding = item('Rebounding Breastplate', [
+    '**Base Armor** Breastplate', '---',
+    'This +3 greater resilient greater fortification breastplate grants resistance.',
+    '**Activate—Kinetic Pulse** <actions string="Single Action" /> **Effect** Force damage.',
+  ].join('\n\n'), { bulk: 2 })
+  const mountain = item('Breastplate of the Mountain', [
+    '**Base Armor** Breastplate', '---',
+    'This breastplate functions as a +3 greater resilient breastplate.',
+    '**Activate** <actions string="Two Actions" /> **Effect** Regeneration.',
+    '**Activate** <actions string="Single Action" /> **Effect** Poison immunity.',
+    '**Activate** <actions string="Reaction" /> **Effect** Improve a Fortitude save.',
+  ].join('\n\n'), { bulk: 2 })
+  const catalog = [breastplate, fullPlate, bastionPlate, rebounding, mountain, fortification]
+  const names = ['Rebounding Breastplate', 'Rebounding Full Plate', 'Rebounding Bastion Plate',
+    'Breastplate of the Mountain', 'Full Plate of the Mountain', 'Bastion Plate of the Mountain']
+  const generated = makeNamedArmorEntries(catalog, [])
+  expect(generated.map(entry => entry.name)).toEqual(names)
+  expect(gearPickerEntries(catalog, 'armor').map(entry => entry.name)).toEqual(expect.arrayContaining(names))
+  for (const [index, name] of names.entries()) {
+    const armor = owned(name)
+    const c = { ...character, level: 20, armors: [armor] }
+    const entry = armorEntry(c, catalog, name)!
+    expect(entry.data).toMatchObject({ named_armor_base: [breastplate, fullPlate, bastionPlate][index % 3].name,
+      ac: [4, 6, 6][index % 3], bulk: [3, 5, 6][index % 3], strength: [4, 5, 5][index % 3],
+      named_armor_material: 'Orichalcum' })
+    expect(effectiveArmor(c, catalog, armor)).toMatchObject({ potency: 3, resilient: 3, material: 'Orichalcum',
+      runes: ['Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)', 'Advancing (Greater)'] })
+    const early = effectiveArmor({ ...c, level: 9 }, catalog, armor)
+    expect(early).toMatchObject({ potency: 1, resilient: 1, runes: ['Moonweave', 'Sunweave', 'Advancing'] })
+    expect(armorEntry({ ...c, level: 9 }, catalog, name)?.data.bulk).toBe([2, 4, 5][index % 3])
+    const markup = renderToStaticMarkup(<ArmorList c={c} entries={catalog} save={() => {}} part="armor" />)
+    expect(markup).toContain(name)
+    expect(markup).toContain('Material: Orichalcum')
+    expect(markup).not.toContain('aria-label="Potency"')
+    expect(markup).not.toContain('aria-label="Remove Fortification (Greater) rune"')
+    if (index % 3 === 2) expect(markup).toContain('Entrench Melee')
+    const resistance = resistances(c, catalog).filter(value => value.source === name)
+    expect(resistance).toEqual(index < 3 ? [
+      { damage: 'Bludgeoning', value: 5, source: name }, { damage: 'Piercing', value: 5, source: name },
+      { damage: 'Slashing', value: 5, source: name }, { damage: 'Force', value: 10, source: name },
+    ] : [])
+    expect(resistances({ ...c, armors: [{ ...armor, worn: false }] }, catalog).filter(value => value.source === name)).toEqual([])
+  }
+  expect(namedArmorAbilities(armorEntry({ ...character, level: 20 }, catalog, names[0])).find(ability => ability.name === 'Kinetic Pulse')?.actions).toBe('Single Action')
+  expect(namedArmorAbilities(armorEntry({ ...character, level: 20 }, catalog, names[3])).filter(ability => ability.name.startsWith('Activation')).map(ability => ability.actions))
+    .toEqual(['Two Actions', 'Single Action', 'Reaction'])
+})
+
 it('scales Immortal Bastion fundamentals and grants Orichalcum without changing saved armor', () => {
   const armor = { ...owned('Immortal Bastion Plate'), potency: 3, resilient: 2, material: 'Duskwood' as const }
   const original = JSON.stringify(armor)
