@@ -1050,7 +1050,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           const specificSections = specificFamiliarSections(isWasp ? undefined
             : specificFamiliars.find(option => option.entry.name === data?.specificFamiliar)?.entry)
           return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" data-minion-name={isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'} open>
-          <summary><h4>{!isWasp && data?.specificFamiliar ? `${data.specificFamiliar} Familiar` : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
+          <summary><h4>{!isWasp && data?.specificFamiliar ? `${data.specificFamiliar} ${c.level}` : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
             : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'}</h4> ({activeAbilityChoices.length + Number(!!patronAbility)}/{dailyAbilityLimit})</summary>
           <article className="gear-card">
           {!isWasp && specificFamiliars.length > 0 && <header className="row">
