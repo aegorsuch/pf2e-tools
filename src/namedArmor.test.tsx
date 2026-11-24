@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ComponentProps, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
-import { activeBattleForm, armorClass, armorClassBreakdown, armorEntry, armorSaveBonus, effectiveArmor, gearPickerEntries, movementSpeeds, ownedArmors, ownedWeapons, perceptionItemBonus, resistances, savingThrowBreakdown, shieldAcBonus, shieldEntry, shieldMaterialOptions, shieldStats, speedBonuses, spellActiveChange, temporaryHpGrant, weaponAttack, wornArmor } from './builder'
+import { activeBattleForm, armorClass, armorClassBreakdown, armorEntry, armorSaveBonus, classExtraSlots, effectiveArmor, gearPickerEntries, movementSpeeds, ownedArmors, ownedWeapons, perceptionItemBonus, resistances, savingThrowBreakdown, shieldAcBonus, shieldEntry, shieldMaterialOptions, shieldStats, speedBonuses, spellActiveChange, temporaryHpGrant, weaponAttack, wornArmor } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
 import { ANCESTRAL_AVATAR } from './battleForms'
 import { makeNamedArmorEntries, makeNamedShieldEntry, namedArmorAbilities, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
@@ -610,4 +610,8 @@ it('scales Library Robes fundamentals and Moonweave/Sunweave runes with level', 
     expect(effectiveArmor({ ...character, level, armors: [armor] }, catalog, armor))
       .toMatchObject({ potency, resilient, runes: [...runes] })
   }
+  const html = renderToStaticMarkup(<ArmorList c={{ ...character, level: 20, armors: [armor] }} entries={catalog} save={() => {}} part="armor" />)
+  expect(html).toContain('up to rank 9')
+  expect(classExtraSlots({ ...character, level: 20, className: 'Wizard', armors: [armor] }, catalog))
+    .toContainEqual({ key: 'library-robes', rank: 9, source: 'Library Scroll Robes' })
 })

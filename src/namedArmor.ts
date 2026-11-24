@@ -16,6 +16,7 @@ export const INHERITOR_RUNE_FAMILIES = ['Advancing', 'Fortification', 'Moonweave
 export const isInheritorPlate = (name?: string) => name === 'Bastion Plate of the Inheritor' || name === 'Bastion of the Inheritor'
 export const isHighhelmPlate = (name?: string) => name === 'Highhelm Stronghold Bastion Plate' || name === 'Highhelm Stronghold Plate'
 export const isLibraryRobes = (name?: string) => name === 'Library Robes' || name === 'Library Scroll Robes'
+export const libraryRobesRank = (level: number) => level >= 19 ? 9 : level >= 15 ? 8 : level >= 12 ? 6 : 5
 export const isImmortalBastion = (name?: string) => name === 'Immortal Bastion Plate' || name === 'Immortal Bastion'
 export const scalingBastionRuneFamilies = (name?: string): readonly string[] =>
   isInheritorPlate(name) ? INHERITOR_RUNE_FAMILIES : isImmortalBastion(name) ? INHERITOR_RUNE_FAMILIES : isHighhelmPlate(name) ? ['Fortification', 'Moonweave', 'Sunweave']
@@ -110,6 +111,7 @@ export function namedArmorEnhancements(entry?: ContentEntry) {
 export function scaledNamedArmorDescription(entry: ContentEntry, armor: OwnedArmor) {
   if (!entry.data.named_armor || entry.data.automatic_fundamentals !== true) return entry.description
   const resilient = ['', 'resilient', 'greater resilient', 'major resilient'][armor.resilient]
+  if (entry.data.library_spell_rank) return `Stores one spell of up to rank ${entry.data.library_spell_rank}. ${entry.description}`
   const runes = armor.runes.map(rune => rune.replace(/^(.+) \((Lesser|Greater|Major|True)\)$/, '$2 $1').toLowerCase())
   const enhancements = [armor.potency ? `+${armor.potency}` : '', resilient, ...runes].filter(Boolean).join(' ')
   return entry.description.replace(/\+[1-4]\s+[^.!?\n]{0,100}?\bbastion plate\b/i,
@@ -131,7 +133,7 @@ export function scaleInheritorPlate(entry: ContentEntry | undefined, level: numb
   const highhelm = isHighhelmPlate(entry.name)
   const immortal = isImmortalBastion(entry.name)
   if (isLibraryRobes(entry.name)) {
-    return { ...entry, data: { ...entry.data, named_armor_runes: '',
+    return { ...entry, data: { ...entry.data, named_armor_runes: '', library_spell_rank: libraryRobesRank(level),
       automatic_property_runes: automaticArmigerRunes(level).filter(rune => /^(Moonweave|Sunweave)/.test(rune)).join(';') } }
   }
   if (immortal) {

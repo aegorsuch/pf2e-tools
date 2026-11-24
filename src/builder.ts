@@ -18,7 +18,7 @@ import { RUNESMITH_RUNES } from './runesmithRunes'
 import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, FIRST_WORLD_ARMAMENTS, AUTOMATON_CLAW, AUTOMATON_PINCER, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ENERGY_BLAST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
-import { isAncestralEmbrace, isHighhelmPlate, isLibraryRobes, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { isAncestralEmbrace, isHighhelmPlate, isLibraryRobes, libraryRobesRank, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
@@ -2537,6 +2537,9 @@ export function classExtraSlots(c: Character, entries: ContentEntry[] = []) {
   if (c.systems.includes('pf2e') && c.className === 'Ranger' && activeFeatsNamed(c, 'Primal Warrior').length)
     extras.push({ key: 'primal-warrior:bramble-bush', rank: 0, spell: 'Bramble Bush', source: 'Primal Warrior' },
       { key: 'primal-warrior:protect-companion', rank: 0, spell: 'Protect Companion', source: 'Primal Warrior' })
+  const robes = c.systems.includes('pf2e') ? wornArmor(c, entries) : undefined
+  if (robes && isLibraryRobes(robes.name))
+    extras.push({ key: 'library-robes', rank: libraryRobesRank(c.level), source: 'Library Scroll Robes' })
   if (c.className === 'Cleric' && c.systems.includes('pf2e') && c.level >= 1) {
     const rank = Math.min(9, Math.ceil(c.level / 2))
     extras.push(...Array.from({ length: clericDivineFontSlotCount(c) }, (_, index) => ({
