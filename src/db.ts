@@ -61,7 +61,7 @@ export async function ensureSupplementalContent() {
         'homebrew:avenger-twin-parry', 'homebrew:avenger-twinned-defense-stance',
         'homebrew:ignition-divine', 'homebrew:tailwind-divine',
         'homebrew:persistent-magic-hide', 'homebrew:mobile-hunter', 'homebrew:divine-warrior', 'homebrew:primal-warrior', 'homebrew:instinctive-support',
-        'homebrew:ears-of-the-forest-druid', 'homebrew:ears-of-the-forest-ranger'].includes(entry.id))
+        'homebrew:ears-of-the-forest-druid', 'homebrew:ears-of-the-forest-ranger', 'homebrew:opening-stance-ranger'].includes(entry.id))
         && existing.updatedAt === 1 && !existing.deleted) await db.content.put(entry)
     }
   })

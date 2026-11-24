@@ -31,6 +31,33 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it('offers the copied Opening Stance to Rangers at level 14 while the house rule is enabled', () => {
+  const [original] = mapAonHits([{ _id: 'feat-4845', _source: {
+    name: 'Opening Stance (Fighter)', category: 'feat', level: 14, trait: ['Fighter'], actions: 'Free Action',
+    markdown: '<title level="1" right="Feat 14"><actions string="Free Action" /></title>\n**Trigger** You roll initiative.\n\nUse a stance action.',
+  } }], 'pf2e')
+  const copy = homebrewCharacterOptions([original]).find(entry => entry.id === 'homebrew:opening-stance-ranger')!
+  const entries = [original, copy]
+  const slot = { category: 'class' as const, level: 14, key: 'class:14:0' }
+  const ranger = { ...base, level: 14 }
+  const previous = getSettings().rangerOpeningStance
+  try {
+    updateSettings({ rangerOpeningStance: true })
+    expect(copy).toMatchObject({ name: 'Opening Stance (Ranger)', level: 14, source: 'homebrew', traits: ['Ranger'] })
+    expect(copy.description).toBe(original.description)
+    expect(copy.data.actions).toBe('Free Action')
+    expect(eligibleFeats(entries, ranger, slot)).toContain(copy)
+    expect(eligibleFeats(entries, ranger, { ...slot, level: 12 })).not.toContain(copy)
+    expect(eligibleFeats(entries, { ...ranger, className: 'Fighter' }, slot)).toContain(original)
+    expect(eligibleFeats(entries, { ...ranger, className: 'Fighter' }, slot)).not.toContain(copy)
+    updateSettings({ rangerOpeningStance: false })
+    expect(eligibleFeats(entries, ranger, slot)).not.toContain(copy)
+    expect(eligibleFeats(entries, { ...ranger, className: 'Fighter' }, slot)).toContain(original)
+  } finally {
+    updateSettings({ rangerOpeningStance: previous })
+  }
+})
+
 it('marks homebrew Watch Initiate feats rare', () => {
   const entries = homebrewCharacterOptions([])
   for (const name of ['Blackwatch Initiate', 'Greywatch Initiate', 'Magewatch Initiate', 'Palewatch Initiate']) {

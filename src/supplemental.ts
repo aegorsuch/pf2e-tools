@@ -316,6 +316,7 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       source: 'homebrew' as const, data: { ...spell.data, tradition: 'Divine' }, updatedAt: 1 }] : []
   })
   const copiedClassFeats = [
+    { sourceId: 'aon:pf2e:feat-4845', id: 'homebrew:opening-stance-ranger', name: 'Opening Stance (Ranger)', classes: ['Ranger'], oldClasses: ['Fighter'] },
     { sourceId: 'aon:pf2e:feat-4733', id: 'homebrew:deimatic-display-ranger', name: 'Deimatic Display (Ranger)', classes: ['Ranger'], oldClasses: ['Druid'] },
     { sourceId: 'aon:pf2e:feat-5418', id: 'homebrew:ears-of-the-forest-druid', name: 'Ears of the Forest (Druid)', classes: ['Druid'], oldClasses: ['Bard'] },
     { sourceId: 'aon:pf2e:feat-5418', id: 'homebrew:ears-of-the-forest-ranger', name: 'Ears of the Forest (Ranger)', classes: ['Ranger'], oldClasses: ['Bard'] },

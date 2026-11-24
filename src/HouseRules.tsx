@@ -56,6 +56,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'rangerBeastmaster', label: 'Ranger Beastmaster Dedication' },
   { key: 'orcTattooedHistorian', label: 'Orc Tattooed Historian Dedication' },
   { key: 'rangerCavalier', label: 'Ranger Cavalier Dedication' },
+  { key: 'rangerOpeningStance', label: 'Ranger Opening Stance Feat' },
   { key: 'rangerSnarecrafter', label: 'Ranger Snarecrafter Dedication' },
   { key: 'singleAnimalCompanion', label: 'Disable Multiple Animal Companions',
     description: 'Beastmaster Dedication and Additional Companion do not add more companions. Your single companion gains their advancement, maneuvers and spells instead.' },

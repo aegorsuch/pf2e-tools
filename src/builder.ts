@@ -1653,6 +1653,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       : featSelectionLevel(e, c, entries, slot.category, slot)) <= (slot.grantedBy === 'Eldritch Trickster'
       ? slot.maxFeatLevel ?? 2 : Math.min(slot.level, slot.maxFeatLevel ?? slot.level))
       && !(generalOnly && traits.has('skill'))
+      && !(e.id === 'homebrew:opening-stance-ranger' && !getSettings().rangerOpeningStance)
       && !(getSettings().disableAdoptedAncestry && ['Adopted Ancestry', 'Cultural Adaptability', 'Orc Kinship', 'Social Chameleon'].includes(e.name))
       && !(getSettings().disableAncientElfMultitalented && ['Ancient Elf', 'Multitalented'].includes(e.name))
       && !(slot.category === 'archetype' && e.source === 'official' && e.name === 'Heal Animal'
