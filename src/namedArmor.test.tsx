@@ -596,3 +596,18 @@ it("orders Slithermaw's Bane artifact sections as senses, summary, then alphabet
   expect(abilities.map(ability => ability.name)).toEqual(['Senses', 'Summary', 'Adaptation', "Calistria’s Sting", 'Purge Toxins'])
   expect(abilities[0].paragraphs).toEqual(['Perception +34; precise low-light vision and hearing within 30 feet', 'Will +34'])
 })
+
+it('scales Library Robes fundamentals and Moonweave/Sunweave runes with level', () => {
+  const scrollRobes: ContentEntry = { ...hide, id: 'scroll-robes', name: 'Scroll Robes', traits: [],
+    data: { ...hide.data, ac: 0, dex_cap: 5, strength: 0, armor_category: 'Unarmored', bulk: 0 } }
+  const robes = item('Library Robes', ['**Base Armor** [Scroll Robes](/Armor.aspx?ID=1)', '---',
+    'These +1 resilient scroll robes magically store a spell for you.'].join('\n\n'), { bulk: 0 })
+  const catalog = [scrollRobes, robes]
+  expect(makeNamedArmorEntries(catalog, []).map(entry => entry.name)).toEqual(['Library Robes'])
+  const armor = owned('Library Robes')
+  for (const [level, potency, resilient, runes] of [[1, 0, 0, []], [5, 1, 0, ['Moonweave']], [8, 1, 1, ['Moonweave', 'Sunweave']],
+    [13, 2, 1, ['Moonweave (Greater)', 'Sunweave (Greater)']], [18, 3, 2, ['Moonweave (Major)', 'Sunweave (Major)']]] as const) {
+    expect(effectiveArmor({ ...character, level, armors: [armor] }, catalog, armor))
+      .toMatchObject({ potency, resilient, runes: [...runes] })
+  }
+})
