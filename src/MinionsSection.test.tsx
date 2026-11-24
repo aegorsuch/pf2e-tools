@@ -767,19 +767,26 @@ it('shows feat-granted familiar choices and a separate aquatic pet with bonus ab
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).not.toContain('Leshy Familiar')
 })
 
-it('treats saved Darkvision and Tough as non-removable Friend of the Sea grants', () => {
+it('alphabetizes chosen Pet abilities with non-removable Friend of the Sea grants', () => {
   const c: Character = {
     id: 'minions', systems: ['pf2e'], name: 'Test', level: 8, className: 'Druid',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [{ name: 'Friend of the Sea', type: 'Class Feat', level: 1 }],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
-    pet: { abilities: ['Darkvision', 'Tough'] },
+    pet: { abilities: ['Fast Movement', 'Amphibious', 'Darkvision', 'Tough'] },
   }
   const html = renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => {}} />)
   expect(html.match(/aria-haspopup="dialog">Darkvision<\/button>/g)).toHaveLength(1)
   expect(html.match(/aria-haspopup="dialog">Tough<\/button>/g)).toHaveLength(1)
-  expect(html).not.toContain('Remove Pet ability')
-  expect(html).toContain('aria-label="Pet ability"')
+  const special = html.slice(html.indexOf('<h5>Special</h5>'), html.indexOf('<h5>Speed</h5>'))
+  const positions = ['Amphibious', 'Darkvision', 'Fast Movement', 'Tough']
+    .map(ability => special.indexOf(`>${ability}</button>`))
+  expect(positions.every(position => position >= 0)).toBe(true)
+  expect(positions).toEqual([...positions].sort((a, b) => a - b))
+  expect(html).toContain('aria-label="Remove Pet ability 1"')
+  expect(html).toContain('aria-label="Remove Pet ability 2"')
+  expect(html).not.toContain('Remove Pet ability 3')
+  expect(html).not.toContain('Remove Pet ability 4')
 })
 
 it.each(['Pet', 'Familiar'])('shows %s defenses without the owner’s status penalties', name => {

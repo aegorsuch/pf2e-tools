@@ -513,6 +513,10 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const grantedPetAbilities = seaFriend ? ['Darkvision', 'Tough'] : []
   const chosenPetAbilities = petAbilities.map((ability, index) => ({ ability, index }))
     .filter(({ ability }) => !!ability && !grantedPetAbilities.includes(ability))
+  const displayedPetAbilities = [
+    ...chosenPetAbilities.map(item => ({ ...item, granted: false as const })),
+    ...grantedPetAbilities.map(ability => ({ ability, index: undefined, granted: true as const })),
+  ].sort((a, b) => a.ability.localeCompare(b.ability, undefined, { sensitivity: 'base' }))
   const petAbilityEntry = (ability: string): ContentEntry | undefined => entries.find(candidate => candidate.kind === 'familiar'
     && !candidate.deleted && candidate.name.toLowerCase() === ability.toLowerCase()
     && candidate.systems.some(system => c.systems.includes(system)))
@@ -1117,16 +1121,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           <section className="companion-actions">
             <h5>Special</h5>
             <div className="gear-runes">
-              {chosenPetAbilities.map(({ ability, index }) => <div key={`${index}:${ability}`} className="rune">
+             {displayedPetAbilities.map(({ ability, index, granted }) => <div key={`${granted ? 'granted' : index}:${ability}`} className="rune">
                 {petAbilityEntry(ability) ? <EntryDescription name={ability} entry={petAbilityEntry(ability)} entries={entries} character={c} />
                   : <span>{ability}</span>}
-                <button type="button" aria-label={`Remove Pet ability ${index + 1}`}
-                  onClick={() => confirmRemoval(`pet ability "${ability}"`, () =>
-                    save({ pet: { ...c.pet, abilities: petAbilities.map((value, i) => i === index ? '' : value) } }))}>×</button>
-              </div>)}
-              {grantedPetAbilities.map(ability => <div className="rune" key={ability}>
-                {petAbilityEntry(ability) ? <EntryDescription name={ability} entry={petAbilityEntry(ability)} entries={entries} character={c} />
-                  : <span>{ability}</span>}
+               {!granted && index !== undefined && <button type="button" aria-label={`Remove Pet ability ${index + 1}`}
+                 onClick={() => confirmRemoval(`pet ability "${ability}"`, () =>
+                   save({ pet: { ...c.pet, abilities: petAbilities.map((value, i) => i === index ? '' : value) } }))}>×</button>}
               </div>)}
               {[0, 1].some(index => !petAbilities[index] || grantedPetAbilities.includes(petAbilities[index])) && <SearchableSelect aria-label="Pet ability" value=""
                 onChange={event => {
