@@ -1157,6 +1157,7 @@ function featEquivalence(entry: ContentEntry, ancestries: Set<string>) {
 }
 
 const featIndexCache = new WeakMap<ContentEntry[], { entry: ContentEntry; traits: Set<string>; equivalence: string }[]>()
+const featTraitIndexCache = new WeakMap<ContentEntry[], Map<string, ReturnType<typeof featIndex>>>()
 function featIndex(entries: ContentEntry[]) {
   let index = featIndexCache.get(entries)
   if (!index) {
@@ -1169,6 +1170,21 @@ function featIndex(entries: ContentEntry[]) {
     featIndexCache.set(entries, index)
   }
   return index
+}
+
+function featsWithTrait(entries: ContentEntry[], trait: string) {
+  let traits = featTraitIndexCache.get(entries)
+  if (!traits) {
+    traits = new Map()
+    featTraitIndexCache.set(entries, traits)
+  }
+  let matches = traits.get(trait)
+  if (!matches) {
+    matches = featIndex(entries).filter(feat => feat.traits.has(trait))
+    if (traits.size >= 64) traits.delete(traits.keys().next().value!)
+    traits.set(trait, matches)
+  }
+  return matches
 }
 
 export function featSelectionLevel(entry: ContentEntry, c: Character, entries: ContentEntry[], category: FeatSlotCategory,
@@ -1649,8 +1665,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     ? featByName(entries) : undefined
   const classCompanionStages = new Set<string>()
   if (getSettings().singleAnimalCompanion && classTrait) {
-    for (const { entry, traits } of featIndex(entries)) {
-      if (!traits.has(classTrait) || traits.has('archetype') || !entry.systems.some(system => c.systems.includes(system))) continue
+    for (const { entry, traits } of featsWithTrait(entries, classTrait)) {
+      if (traits.has('archetype') || !entry.systems.some(system => c.systems.includes(system))) continue
       const stage = companionProgressionStage(entry.name)
       if (stage && (stage !== 'specialized' || entry.data.repeatable === true
         || isRepeatableCompanionSpecialization(entry.name))) classCompanionStages.add(stage)
@@ -1674,7 +1690,10 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const ownedArchetype = slot.category === 'archetype' ? archetypePrerequisites({
     ...c, feats: c.feats.filter(feat => featTakenLevel(feat) <= Math.min(c.level, slot.level)),
   }, entries, slot.key, true) : undefined
-  const candidates = featIndex(entries)
+  const candidateTraits = [...new Set([trait, ...ancestryTraits].filter((value): value is string => !!value))]
+  const searchable = slot.category !== 'bonus' && slot.category !== 'archetype' && !classArchetype && candidateTraits.length === 1
+    ? featsWithTrait(entries, candidateTraits[0]) : featIndex(entries)
+  const candidates = searchable
     .filter(({ entry: e, traits }) => (!options.name || e.name === options.name)
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0
@@ -1784,9 +1803,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || ['Iruxi Armaments', 'Brutal Anatomy', 'Predatory', 'Ancestral Resistance', "Witch's Armaments", 'Energized Spark'].includes(e.name) && !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || (e.data.repeatable === true || isRepeatableCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key,
             slot.category === 'archetype' && archetypesOf(e).includes('Beastmaster'))))
-  const takenLineage = entries.some(entry => entry.kind === 'feat' && !entry.deleted
-    && entry.systems.some(system => c.systems.includes(system))
-    && entry.traits.some(trait => trait.toLowerCase() === 'lineage') && taken.has(entry.name))
+  const takenLineage = featsWithTrait(entries, 'lineage').some(({ entry }) =>
+    entry.systems.some(system => c.systems.includes(system)) && taken.has(entry.name))
   const primaryAncestry = c.ancestry?.trim().toLowerCase()
   if (slot.category === 'ancestry' && primaryAncestry) {
     candidates.sort((a, b) => Number(!a.traits.has(primaryAncestry)) - Number(!b.traits.has(primaryAncestry)))

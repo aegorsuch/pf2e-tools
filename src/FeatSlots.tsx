@@ -6,7 +6,7 @@ import { RUNESMITH_RUNES } from './runesmithRunes'
 import { DamageRoll, rollSpellDamage, rollTreehealerHealing } from './SpellDamage'
 import { PickerDialog } from './PickerDialog'
 import { sortPickerOptions } from './PickerSort'
-import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, knownSpellNames, matchesSkill, plannedSlots, ranksAt, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, temporarySkillTrainings, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, byName, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, knownSpellNames, matchesSkill, plannedSlots, ranksAt, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, temporarySkillTrainings, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -193,10 +193,10 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
     const entry = featsByName.get(name)
     return entry ? featType(entry, c) : ['Untrained Improvisation', 'Shield Block'].includes(name) ? 'General Feat' : 'Skill Feat'
   }
-  const background = c.background ? entries.find((entry) => entry.kind === 'background' && entry.name === c.background) : undefined
+  const background = byName(entries, 'background', c.background)
   const backgroundFeats = typeof background?.data.feat === 'string'
     ? background.data.feat.split(',').flatMap((name) => {
-      const feat = entries.find((entry) => entry.kind === 'feat' && entry.name === name.trim())
+      const feat = byName(entries, 'feat', name.trim())
       return feat && !allSlots.some(slot => slot.grantedBy === background?.name && slot.grantedFeat === feat.name)
         && (!categories || categories.some((category) => featType(feat, c) === `${LABEL[category]} Feat`))
         ? [feat] : []

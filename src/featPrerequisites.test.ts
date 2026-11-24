@@ -23,6 +23,41 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it('keeps feat eligibility specific to the current class and adopted ancestry after warming the trait index', () => {
+  const entries: ContentEntry[] = [
+    entry('feat', 'Fighter Choice', {}, 1, ['Fighter']),
+    entry('feat', 'Ranger Choice', {}, 1, ['Ranger']),
+    entry('feat', 'Human Choice', {}, 1, ['Human']),
+    entry('feat', 'Elf Choice', {}, 1, ['Elf']),
+    { ...entry('feat', 'Deleted Choice', {}, 1, ['Fighter']), deleted: true },
+  ]
+  const character: Character = { ...base, className: 'Fighter', ancestry: 'Human', level: 1 }
+  const classSlot = { key: 'class:1:0', category: 'class' as const, level: 1 }
+  const ancestrySlot = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
+  const names = (c: Character, slot: typeof classSlot | typeof ancestrySlot) =>
+    eligibleFeats(entries, c, slot, { includeUnmetPrerequisites: true }).map(feat => feat.name)
+  expect(names(character, classSlot)).toEqual(['Fighter Choice'])
+  expect(names({ ...character, className: 'Ranger' }, classSlot)).toEqual(['Ranger Choice'])
+  expect(names(character, ancestrySlot)).toEqual(['Human Choice'])
+  const adopted = { ...character, feats: [{ name: 'Adopted Ancestry', type: 'General Feat', level: 1, choice: 'Elf' }] }
+  expect(names(adopted, ancestrySlot)).toEqual(['Human Choice', 'Elf Choice'])
+  expect(names(character, ancestrySlot)).toEqual(['Human Choice'])
+})
+
+it('checks lineage availability against the current system when a trait index is reused', () => {
+  const entries: ContentEntry[] = [
+    entry('feat', 'Human Lineage', {}, 1, ['Human', 'Lineage']),
+    { ...entry('feat', 'Other Lineage', {}, 1, ['Human', 'Lineage']), systems: ['sf2e'] },
+  ]
+  const character: Character = { ...base, ancestry: 'Human', level: 1,
+    feats: [{ name: 'Other Lineage', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:1' }] }
+  const slot = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
+  const names = (c: Character) => eligibleFeats(entries, c, slot, { includeUnmetPrerequisites: true }).map(feat => feat.name)
+  expect(names(character)).toContain('Human Lineage')
+  expect(names({ ...character, systems: ['sf2e'] })).not.toContain('Human Lineage')
+  expect(names(character)).toContain('Human Lineage')
+})
+
 it('checks Warrior of Legend feat chains and the Clear the Way house rule', () => {
   const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
   const names = ['Warrior Of Legend Dedication', 'Mauler Dedication', 'Clear the Way', 'Heroic Defiance',
