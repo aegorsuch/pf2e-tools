@@ -34,6 +34,11 @@ const renderAtWizardBookRank = (c: Character, entries: ContentEntry[], rank: num
     vi.mocked(useState).mockReturnValueOnce([value, vi.fn()])
   return render(c, entries)
 }
+const renderAtMagusBookRank = (c: Character, entries: ContentEntry[], rank: number) => {
+  for (const value of ['class', c.spellcasting?.tradition ?? '', undefined, true, 'Magus', rank, undefined, '', 'all', 'both'])
+    vi.mocked(useState).mockReturnValueOnce([value, vi.fn()])
+  return render(c, entries)
+}
 const choices = (html: string, label: string) =>
   new RegExp(`<select aria-label="${label}"[^>]*>([\\s\\S]*?)</select>`).exec(html)?.[1] ?? ''
 const learnOptions = (html: string) => /<ul class="dirge-options">([\s\S]*?)<\/ul>/.exec(html)?.[1] ?? ''
@@ -144,6 +149,25 @@ it('uses the rank book editor for Wizard spells and filters its source to Arcane
   expect(html).toContain('aria-label="Open Wizard rank 1"')
   expect(html).toContain('aria-label="Learn Fear"')
   expect(html).not.toContain('aria-label="Learn Dread Aura"')
+})
+
+it('uses the shared rank book editor for Magus spells and filters its source to common Arcane', () => {
+  const magusClass: ContentEntry = { ...spell('Magus'), kind: 'class', traits: ['Magus'],
+    data: { tradition: 'Arcane' } }
+  const arcane = spell('Fear', 1, 'Arcane')
+  const occult = spell('Dread Aura', 1, 'Occult')
+  const rareArcane = spell('Rare Spell', 1, 'Arcane', ['Rare'])
+  const c: Character = { ...base, className: 'Magus', level: 1,
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: { 0: 1, 1: 1 } } }
+  const html = renderAtMagusBookRank(c, [magusClass, arcane, occult, rareArcane], 1)
+  const book = html.slice(html.indexOf('class="entry-dialog dirge-dialog"'))
+  expect(book).toContain('>Magus Spellbook</h4>')
+  expect(book).toContain('aria-label="Magus spell ranks"')
+  expect(book).toContain('aria-label="Search magus spells"')
+  expect(html).toContain('aria-label="Open Magus rank 1"')
+  expect(html).toContain('aria-label="Learn Fear"')
+  expect(html).not.toContain('aria-label="Learn Dread Aura"')
+  expect(html).not.toContain('aria-label="Learn Rare Spell"')
 })
 
 it('opens Wizard Dedication slot books and avoids duplicate spells across slots', () => {
