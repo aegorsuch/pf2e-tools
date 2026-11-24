@@ -142,6 +142,10 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return rank >= 6 ? [{ label: 'Damage', dice: rank + 2, sides: 12, type: 'electricity' }] : []
     case 'Howling Blizzard':
       return rank >= 5 ? [{ label: 'Damage', dice: 10 + 2 * (rank - 5), sides: 6, type: 'cold' }] : []
+    case 'Glacial Skewer':
+      return rank >= 4 ? [{ label: 'Damage', dice: rank, sides: 10, type: 'cold', components: [
+        { dice: rank, sides: 4, type: 'piercing' },
+      ] }] : []
     case 'Shatter':
       return rank >= 2 ? [{ label: 'Damage', dice: rank, sides: 10, type: 'sonic' }] : []
     case 'Breath of Life':
