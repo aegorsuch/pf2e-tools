@@ -193,6 +193,43 @@ it('filters equipment by skill item bonuses without treating other bonuses as it
   expect(markup).not.toContain('Add Other Boots')
 })
 
+it('offers only skill bonuses present in the equipment section and selected system', () => {
+  const boots: ContentEntry = { id: 'boots', name: 'Boots', kind: 'item', systems: ['pf2e'], source: 'official',
+    level: 1, traits: [], description: 'Gain a +1 item bonus to Stealth checks.',
+    data: { usage: 'worn boots' }, effects: [], updatedAt: 0 }
+  const entries: ContentEntry[] = [
+    boots,
+    { ...boots, id: 'boots-sf', name: 'Starfinder Boots', systems: ['sf2e'], description: 'Gain a +1 item bonus to Piloting checks.' },
+    { ...boots, id: 'hat', name: 'Hat', data: { usage: 'worn headwear' }, description: 'Gain a +1 item bonus to Arcana checks.' },
+    { ...boots, id: 'gloves', name: 'Gloves', data: { usage: 'worn gloves' }, description: 'Gain a +1 circumstance bonus to Acrobatics checks.' },
+  ]
+  const c: Character = { id: 'equipment-options', systems: ['pf2e', 'sf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const options = (markup: string) => markup.match(/<select aria-label="Skill item bonus"[\s\S]*?<\/select>/)?.[0] ?? ''
+  const both = options(renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} category="Boots" />))
+  expect(both).toContain('>Stealth</option>')
+  expect(both).toContain('>Piloting</option>')
+  expect(both).not.toContain('>Arcana</option>')
+  expect(both).not.toContain('>Acrobatics</option>')
+  expect(options(renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} category="Gloves" />))).toBe('')
+  expect(options(renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} />))).toContain('>Arcana</option>')
+  function PathfinderSearch() {
+    const tree = EquipmentSearch({ c, entries, save: () => {}, category: 'Boots' })
+    Children.forEach(tree.props.children, row => {
+      if (!isValidElement<{ children?: ReactNode }>(row)) return
+      Children.forEach(row.props.children, child => {
+        if (isValidElement<{ value: GearSystem; onChange: (value: GearSystem) => void }>(child)
+          && child.type === GearSystemFilter && child.props.value !== 'pf2e') child.props.onChange('pf2e')
+      })
+    })
+    return tree
+  }
+  const pathfinder = options(renderToStaticMarkup(<PathfinderSearch />))
+  expect(pathfinder).toContain('>Stealth</option>')
+  expect(pathfinder).not.toContain('>Piloting</option>')
+})
+
 it.each([
   ['Barbarian', 'Bloodrager', 'Bloodrager'],
   ['Ranger', 'Vindicator', 'Vindication'],

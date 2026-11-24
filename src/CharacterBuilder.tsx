@@ -238,8 +238,7 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
   const [system, setSystem] = useState<GearSystem>('both')
   const [skill, setSkill] = useState('')
   const ringsFull = ringCount(c, entries) >= ringCapacity(c)
-  const active = !!query.trim() || !!category || !!skill
-  const candidates = useMemo(() => active ? entries.filter(entry => entry.kind === 'item'
+  const candidates = useMemo(() => entries.filter(entry => entry.kind === 'item'
     && !isCompanionEquipmentItem(entry) && (!category || equipmentFitsGroup(entry, category))).map(entry => {
     const displayName = equipmentDisplayName(entry.name)
     return {
@@ -250,8 +249,22 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
       key: entry.source === 'official' && entry.data.url
         ? `${entry.systems.join(',')}:${entry.data.url}:${entry.level}:${displayName}` : entry.id,
     }
-  }) : [], [active, category, entries])
+  }), [category, entries])
+  const availableSkills = useMemo(() => {
+    const found = new Set<string>()
+    for (const { entry } of candidates) {
+      if (matchesGearSystem(entry, system, c.systems))
+        for (const name of equipmentBonusSkills(entry)) found.add(name)
+    }
+    return EQUIPMENT_BONUS_SKILLS.filter(name => found.has(name))
+  }, [candidates, system, c.systems])
+  const selectedSkill = availableSkills.find(name => name === skill) ?? ''
+  useEffect(() => {
+    if (skill && !selectedSkill) setSkill('')
+  }, [skill, selectedSkill])
+  const active = !!query.trim() || !!category || !!selectedSkill
   const matches = useMemo(() => {
+    if (!active) return []
     const q = query.trim().replace(/[\u2018\u2019]/g, "'").toLowerCase()
     const owned = new Set(c.equipment.map(item => item.name))
     const unique = new Map<string, typeof candidates[number]>()
@@ -259,24 +272,24 @@ export function EquipmentSearch({ c, entries, save, category, onClose }: Section
       const { entry, key, searchName, searchDisplay } = candidate
       if (q && !searchName.includes(q) && !searchDisplay.includes(q)) continue
       if (!matchesGearSystem(entry, system, c.systems)) continue
-      if (skill && !equipmentBonusSkills(entry).has(skill)) continue
+      if (selectedSkill && !equipmentBonusSkills(entry).has(selectedSkill)) continue
       const previous = unique.get(key)?.entry
       if (!previous || owned.has(entry.name) || !owned.has(previous.name)
         && entry.data.price !== undefined && previous.data.price === undefined) unique.set(key, candidate)
     }
     return sortPickerOptions([...unique.values()], sort, candidate => candidate.displayName, candidate => candidate.entry.level)
       .map(candidate => candidate.entry)
-  }, [candidates, query, c.equipment, c.systems, sort, system, skill])
+  }, [active, candidates, query, c.equipment, c.systems, sort, system, selectedSkill])
   return <div className="equipment-search">
     <div className="row">
       <input type="search" aria-label={`Search ${category?.toLowerCase() ?? 'equipment'}`} placeholder={`Search ${category?.toLowerCase() ?? 'equipment'}`}
         autoFocus={!!onClose} value={query} onChange={event => setQuery(event.target.value)} />
       <GearSystemFilter value={system} onChange={setSystem} />
       <PickerSort label={`Sort ${category?.toLowerCase() ?? 'equipment'} by`} value={sort} onChange={setSort} />
-      <label>Skill item bonus <select aria-label="Skill item bonus" value={skill} onChange={event => setSkill(event.target.value)}>
+      {availableSkills.length > 0 && <label>Skill item bonus <select aria-label="Skill item bonus" value={selectedSkill} onChange={event => setSkill(event.target.value)}>
         <option value="">All skills</option>
-        {EQUIPMENT_BONUS_SKILLS.map(name => <option key={name}>{name}</option>)}
-      </select></label>
+        {availableSkills.map(name => <option key={name}>{name}</option>)}
+      </select></label>}
       {onClose && <button type="button" onClick={onClose}>Cancel</button>}
     </div>
     <ul className="gear-results">
