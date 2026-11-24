@@ -3585,7 +3585,11 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
     if (typeof school?.data.grants_focus_spells === 'string')
       add(school.data.grants_focus_spells, `${school.name} school`)
   }
-  if (isVindicator(c, entries)) add("Vindicator's Mark", 'Vindication')
+  if (isVindicator(c, entries)) {
+    add("Vindicator's Mark", 'Vindication')
+    if (active.some(feat => feat.name === "Vindicator's Judgement"))
+      add("Vindicator's Judgement", "Vindicator's Judgement")
+  }
   if (c.level >= 1 && c.systems.includes('pf2e') && ['Bard', 'Oracle', 'Witch'].includes(c.className ?? '')) {
     const subclass = selectedSubclass(c, entries)
     const subclasses = [subclass, ...(c.className === 'Bard' ? active

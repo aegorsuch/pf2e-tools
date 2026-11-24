@@ -159,6 +159,19 @@ it('grants Vindication starting skills and divine warden spell at level 1', () =
   expect(focusSpells({ ...c, systems: ['sf2e'] }, [ranger]).spells).toEqual([])
 })
 
+it("adds Vindicator's Judgement as a focus spell when its feat is active", () => {
+  const judgment = entry('spell', "Vindicator's Judgement", {}, 5, ['Focus'])
+  const feat = entry('feat', "Vindicator's Judgement", { archetype: 'Vindicator' }, 10, ['Archetype'])
+  const c: Character = { ...base, className: 'Ranger', subclass: 'Vindication', level: 10,
+    feats: [{ name: feat.name, type: 'Class Feat', level: 10, slot: 'class:10:0' }] }
+  expect(focusSpells(c, [feat, judgment])).toMatchObject({
+    spells: expect.arrayContaining([{ name: judgment.name, source: feat.name }]),
+    points: 2,
+  })
+  expect(focusSpells({ ...c, level: 9 }, [feat, judgment]).spells.map(spell => spell.name))
+    .not.toContain(judgment.name)
+})
+
 it('detects unfilled current feat slots while respecting filled and skipped slots', () => {
   const c: Character = { id: 'remaining', name: 'Remaining', systems: ['pf2e'], level: 2,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
