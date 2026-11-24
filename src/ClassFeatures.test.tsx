@@ -33,13 +33,14 @@ function findButton(node: ReactNode, label: string): { disabled?: boolean; onCli
   }
 }
 
-it('chooses cursed weakness at level one and preserves it when the dedication is granted', () => {
+it('preserves cursed weakness when the dedication is granted', () => {
   let c: Character = { id: 'warrior', systems: ['pf2e'], name: 'Test', level: 1, className: 'Fighter',
     subclass: 'Warrior of Legend', abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const tree = () => ClassFeatures({ c, entries: [], save: patch => { c = { ...c, ...patch } } })
   expect(warriorLegendWeakness(c, [])).toBeUndefined()
-  findControl(tree(), 'Cursed Weakness')!.onChange!({ target: { value: 'slashing' } })
+  expect(findControl(tree(), 'Cursed Weakness')).toBeUndefined()
+  c = { ...c, warriorLegendDamageType: 'Slashing' }
   expect(warriorLegendWeakness(c, [])).toEqual({ damage: 'slashing', value: 1 })
   c = { ...c, level: 2 }
   c = { ...c, ...syncClassArchetypeDedication(c, []) }

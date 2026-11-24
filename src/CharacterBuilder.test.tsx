@@ -11,7 +11,7 @@ import * as equipmentGroups from './equipmentGroups'
 import { FeatSlots } from './FeatSlots'
 import { SearchableSelect } from './SearchableSelect'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
-import { armorClass, classLabel, isSpellActive, spellActiveChange, subclassOptions } from './builder'
+import { armorClass, classLabel, isSpellActive, spellActiveChange, subclassOptions, syncClassArchetypeDedication, warriorLegendWeakness } from './builder'
 import { GearSystemFilter } from './GearSystemFilter'
 import type { GearSystem } from './gearSystem'
 
@@ -66,6 +66,47 @@ it.each([
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
   expect(markup.match(/aria-label="Hunt Prey active"[^>]*checked=""/g)).toHaveLength(2)
   expect(markup).toContain('Hunt Prey')
+})
+
+it('selects and changes Warrior of Legend weakness through class variants', () => {
+  const fighter: ContentEntry = { id: 'fighter', name: 'Fighter', systems: ['pf2e'], kind: 'class',
+    source: 'official', level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 0 }
+  let c: Character = { id: 'warrior', name: 'Test', systems: ['pf2e'], level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const picker = () => ClassPick({ c, entries: [fighter], options: [fighter], save })
+  expect(picker().props.options.map((option: ContentEntry) => option.name)).toEqual(expect.arrayContaining([
+    'Fighter (Warrior of Legend (Bludgeoning))', 'Fighter (Warrior of Legend (Piercing))',
+    'Fighter (Warrior of Legend (Slashing))',
+  ]))
+  expect(picker().props.options.map((option: ContentEntry) => option.name)).not.toContain('Fighter (Warrior of Legend)')
+  for (const type of ['Bludgeoning', 'Piercing', 'Slashing']) {
+    picker().props.onChange(`Fighter (Warrior of Legend (${type}))`)
+    expect(warriorLegendWeakness(c, [])?.damage).toBe(type.toLowerCase())
+    expect(picker().props.value).toBe(`Fighter (Warrior of Legend (${type}))`)
+  }
+  picker().props.onChange('Fighter (Warrior of Legend (Piercing))')
+  expect(c).toMatchObject({ className: 'Fighter', subclass: 'Warrior of Legend', warriorLegendDamageType: 'Piercing' })
+  expect(picker().props.value).toBe('Fighter (Warrior of Legend (Piercing))')
+  expect(classLabel(c)).toBe('Warrior of Legend (Piercing)')
+  expect(warriorLegendWeakness(c, [])).toEqual({ damage: 'piercing', value: 1 })
+  c = { ...c, level: 2, ...syncClassArchetypeDedication({ ...c, level: 2 }, []) }
+  expect(c.feats).toContainEqual(expect.objectContaining({ name: 'Warrior of Legend Dedication', choice: 'Piercing' }))
+  picker().props.onChange('Fighter (Warrior of Legend (Slashing))')
+  expect(c.feats).toContainEqual(expect.objectContaining({ name: 'Warrior of Legend Dedication', choice: 'Slashing' }))
+  expect(warriorLegendWeakness(c, [])?.damage).toBe('slashing')
+  const legacy = { ...c, warriorLegendDamageType: undefined, feats: c.feats.map(feat => ({ ...feat, choice: 'Bludgeoning' })) }
+  expect(ClassPick({ c: legacy, entries: [fighter], options: [fighter], save }).props.value)
+    .toBe('Fighter (Warrior of Legend (Bludgeoning))')
+  const unchosen = { ...legacy, feats: legacy.feats.map(feat => ({ ...feat, choice: undefined })) }
+  expect(ClassPick({ c: unchosen, entries: [fighter], options: [fighter], save }).props.value)
+    .toBe('Fighter (Warrior of Legend)')
+  content.entries = [fighter, { ...fighter, id: 'dedication', kind: 'feat', name: 'Warrior Of Legend Dedication',
+    level: 2, data: { archetype: 'Warrior Of Legend' } }]
+  const markup = renderToStaticMarkup(<CharacterBuilder character={unchosen} onClose={() => {}} />)
+  expect(markup).not.toContain('aria-label="Cursed Weakness"')
+  expect(markup).not.toContain('aria-label="Warrior of Legend Dedication choice"')
 })
 
 it.each([

@@ -829,7 +829,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     )}
                 </PickerDialog>
               )}
-              {featIndex >= 0 && (classDedication && selection.name === 'Bloodrager Dedication' || !selection.choice || selectedChoices === undefined || selection.name === 'Favored Terrain'
+              {featIndex >= 0 && !(classDedication && selection.name.toLowerCase() === 'warrior of legend dedication')
+                && (classDedication && selection.name === 'Bloodrager Dedication' || !selection.choice || selectedChoices === undefined || selection.name === 'Favored Terrain'
                 || ['Bone Magic', 'Reinforced Skeleton'].includes(selection.name)
                 || selection.name === 'Lizardfolk Lore' && !selectedChoices.includes(selection.choice)
                 || DOMAIN_FEATS.includes(selection.name) && !selectedChoices.some(choice => choice.toLowerCase() === selection.choice?.trim().toLowerCase())

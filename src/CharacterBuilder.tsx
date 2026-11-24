@@ -10,6 +10,7 @@ import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSor
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
+import { WARRIOR_LEGEND_DAMAGE_TYPES, warriorLegendWeakness } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { featSectionGrants, SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
@@ -151,13 +152,25 @@ export function ClassPick({ c, entries, save, options }: SectionProps & { option
   const archetypes = c.systems.includes('pf2e') ? CLASS_ARCHETYPES : []
   const available = archetypes.flatMap(archetype => {
     const base = options.find(option => option.name === archetype.className && option.systems.includes('pf2e'))
-    return base ? [{ ...base, name: `${archetype.className} (${archetype.name})` }] : []
+    if (!base) return []
+    const types = archetype.name === 'Warrior of Legend' ? WARRIOR_LEGEND_DAMAGE_TYPES : [undefined]
+    return types.map(damageType => ({
+      archetype, damageType,
+      entry: { ...base, name: `${archetype.className} (${archetype.name}${damageType ? ` (${damageType})` : ''})` },
+    }))
   })
   const selected = selectedClassArchetype(c, entries)
-  return <Pick label="Class" kind="class" value={selected ? `${selected.className} (${selected.name})` : c.className}
-    options={[...options, ...available]} onChange={value => {
-      const archetype = archetypes.find(item => `${item.className} (${item.name})` === value)
-      save({ className: archetype?.className ?? value, subclass: archetype?.subclass ?? '', fatalMethod: undefined, arcaneThesis: undefined })
+  const weakness = warriorLegendWeakness(c, entries)
+  const damageType = WARRIOR_LEGEND_DAMAGE_TYPES.find(type => type.toLowerCase() === weakness?.damage)
+  const selectedName = selected && `${selected.className} (${selected.name}${damageType ? ` (${damageType})` : ''})`
+  return <Pick label="Class" kind="class" value={selectedName ?? c.className}
+    options={[...options, ...available.map(option => option.entry)]} onChange={value => {
+      const option = available.find(item => item.entry.name === value)
+      const archetype = option?.archetype
+      save({ className: archetype?.className ?? value, subclass: archetype?.subclass ?? '', fatalMethod: undefined, arcaneThesis: undefined,
+        ...(option?.damageType ? { warriorLegendDamageType: option.damageType,
+          feats: c.feats.map(feat => feat.name.toLowerCase() === 'warrior of legend dedication'
+            ? { ...feat, choice: option.damageType } : feat) } : {}) })
     }} />
 }
 

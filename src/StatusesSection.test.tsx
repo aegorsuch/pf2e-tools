@@ -81,6 +81,36 @@ it('applies cursed weakness doomed only when its damage is reported', () => {
   expect(button()).toBeUndefined()
 })
 
+it('shows clickable Heroic Defiance and Zealous Conviction with status checkboxes', () => {
+  const entry = (kind: 'feat' | 'spell', name: string): ContentEntry => ({
+    id: name, name, kind, systems: ['pf2e'], source: 'official', level: 1, traits: [],
+    description: `${name} rules`, data: { actions: kind === 'feat' ? 'Reaction' : 'Two Actions' }, effects: [], updatedAt: 0,
+  })
+  const entries = [entry('feat', 'Heroic Defiance'), entry('feat', 'Heroic Presence'), entry('spell', 'Zealous Conviction')]
+  let c: Character = { id: 'heroic-status', name: 'Test', systems: ['pf2e'], level: 20, className: 'Fighter',
+    subclass: 'Warrior of Legend', abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Heroic Defiance', type: 'Class Feat', level: 4 },
+      { name: 'Heroic Presence', type: 'Class Feat', level: 12 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => StatusesContent({ c, entries, save })
+  const markup = renderToStaticMarkup(tree())
+  for (const name of ['Heroic Defiance', 'Zealous Conviction']) {
+    expect(markup).toContain(`aria-haspopup="dialog">${name}</button>`)
+    expect(markup).toContain(`aria-label="${name} options"`)
+  }
+  findToggle(tree(), 'Heroic Defiance active')!({ target: { checked: true } })
+  findToggle(tree(), 'Zealous Conviction active on self')!({ target: { checked: true } })
+  expect(c.activeFeatEffects).toContain('Heroic Defiance')
+  expect(c.zealousConvictionRank).toBe(10)
+  expect(renderToStaticMarkup(tree())).toMatch(/aria-label="Heroic Defiance active" checked=""/)
+  expect(renderToStaticMarkup(tree())).toMatch(/aria-label="Zealous Conviction active on self" checked=""/)
+  findToggle(tree(), 'Heroic Defiance active')!({ target: { checked: false } })
+  findToggle(tree(), 'Zealous Conviction active on self')!({ target: { checked: false } })
+  expect(c.activeFeatEffects).not.toContain('Heroic Defiance')
+  expect(c.zealousConvictionRank).toBeUndefined()
+})
+
 it('tracks Purify Air within the familiar aura without changing ordinary saves', () => {
   let c: Character = { id: 'purify-air', name: 'Test', systems: ['pf2e'], level: 4, className: 'Druid',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },

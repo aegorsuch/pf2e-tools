@@ -1960,7 +1960,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       : ['Grasping Tendrils', 'Purify Air', ...(highest >= 2 ? ['Verdant Burst'] : [])]
   }
   if (name.toLowerCase() === 'warrior of legend dedication' && c.systems.includes('pf2e')) {
-    return ['Bludgeoning', 'Piercing', 'Slashing']
+    return [...WARRIOR_LEGEND_DAMAGE_TYPES]
   }
   if (name === "Storyteller's Mask" && c.systems.includes('pf2e')) {
     const traditions = [
@@ -3930,6 +3930,11 @@ export function classLabel(c: Character, entries: ContentEntry[] = []) {
     ? activeFeatsNamed(c, 'Bloodrager Dedication').find(feat => feat.choice === 'Arcane' || feat.choice === 'Divine')?.choice
     : undefined
   if (bloodragerTradition) return `${bloodragerTradition} Bloodrager`
+  if (archetype?.name === 'Warrior of Legend') {
+    const damage = warriorLegendWeakness(c, entries)?.damage
+    const type = WARRIOR_LEGEND_DAMAGE_TYPES.find(option => option.toLowerCase() === damage)
+    if (type) return `${archetype.name} (${type})`
+  }
   if (archetype) return archetype.name
   const subclass = selectedSubclass(c, entries)
   if (!subclass) return c.className

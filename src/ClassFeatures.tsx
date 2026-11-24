@@ -8,7 +8,7 @@ import { championCauseTenets } from './featPrerequisites'
 import { MechanicFeatures } from './MechanicFeatures'
 import { RunesmithFeatures } from './RunesmithFeatures'
 import { WitchwarperFeatures } from './WitchwarperFeatures'
-import { abilityMod, animalRageFormChange, classDifficultyClass, conditionPenalty, dragonTransformationChange, elementalRageType, isFeatEffectActive, proficiencyBonus, selectedClassArchetype, signed, thrashDamage, warriorLegendWeakness, WARRIOR_LEGEND_DAMAGE_TYPES, weaponRanks, withoutBattleForm } from './builder'
+import { abilityMod, animalRageFormChange, classDifficultyClass, conditionPenalty, dragonTransformationChange, elementalRageType, isFeatEffectActive, proficiencyBonus, signed, thrashDamage, weaponRanks, withoutBattleForm } from './builder'
 import { animalBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS, type DragonInstinct, type ElementalInstinct } from './barbarian'
 import { DamageRoll } from './SpellDamage'
@@ -75,18 +75,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
     <details className="character-subsection">
       <summary><h4>Class Features ({features.length})</h4></summary>
       {!imported && <p>Class feature data is still loading.</p>}
-      {c.level === 1 && selectedClassArchetype(c, entries)?.name === 'Warrior of Legend' && <label>Cursed Weakness{' '}
-        <select aria-label="Cursed Weakness" value={warriorLegendWeakness(c, entries)?.damage ?? ''}
-          onChange={event => {
-            const type = WARRIOR_LEGEND_DAMAGE_TYPES.find(value => value.toLowerCase() === event.target.value)
-            const feats = c.feats.map(feat => feat.name.toLowerCase() === 'warrior of legend dedication'
-              ? { ...feat, choice: type } : feat)
-            save({ warriorLegendDamageType: type, feats })
-          }}>
-          <option value="">Choose damage type</option>
-          {WARRIOR_LEGEND_DAMAGE_TYPES.map(type => <option key={type} value={type.toLowerCase()}>{type}</option>)}
-        </select>
-      </label>}
       <MechanicFeatures c={c} save={save} />
       <WitchwarperFeatures c={c} save={save} />
       {(c.className === 'Solarian' || activeFeatsNamed(c, 'Solarian Dedication').length > 0) && <div className="col" aria-label="Solarian manifestations">

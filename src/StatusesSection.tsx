@@ -112,12 +112,22 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
     && activeUntamedShiftEffects({ ...c, ...spellActiveChange(c, 'Untamed Shift', true) }, entries).length > 0
   const purifyAirEntry: ContentEntry = { id: 'leshy-secret:Purify Air', systems: c.systems, kind: 'familiar', source: 'official',
     name: 'Purify Air', level: 1, traits: [], description: PURIFY_AIR_DESCRIPTION, data: {}, effects: [], updatedAt: 0 }
+  const heroicDefianceEntry = entries.find(entry => entry.kind === 'feat' && !entry.deleted
+    && entry.name === 'Heroic Defiance' && entry.systems.some(system => c.systems.includes(system)))
+  const zealousEntry = grant?.entry ?? entries.find(entry => entry.kind === 'spell' && !entry.deleted
+    && entry.name === 'Zealous Conviction' && entry.systems.some(system => c.systems.includes(system)))
+  const zealousRank = grant?.rank ?? c.zealousConvictionRank
   const controls = [
     { name: 'Active stance', element: <StancesContent c={c} entries={entries} save={save} /> },
-    ...(activeFeatsNamed(c, 'Heroic Defiance').length ? [{ name: 'Heroic Defiance', element: <label>
+    ...(activeFeatsNamed(c, 'Heroic Defiance').length ? [{ name: 'Heroic Defiance', element: <>
       <input type="checkbox" aria-label="Heroic Defiance active" checked={isFeatEffectActive(c, 'Heroic Defiance')}
-        onChange={event => save(featEffectChange(c, 'Heroic Defiance', event.target.checked))} /> Heroic Defiance
-    </label> }] : []),
+        onChange={event => save(featEffectChange(c, 'Heroic Defiance', event.target.checked))} />{' '}
+      <EntryDescription name="Heroic Defiance" entry={heroicDefianceEntry} entries={entries} character={c} hideButtonActions />{' '}
+      {heroicDefianceEntry && <ActiveSpellActions name="Heroic Defiance" entry={heroicDefianceEntry}>
+        <label><input type="checkbox" aria-label="Heroic Defiance active in options" checked={isFeatEffectActive(c, 'Heroic Defiance')}
+          onChange={event => save(featEffectChange(c, 'Heroic Defiance', event.target.checked))} /> Heroic Defiance</label>
+      </ActiveSpellActions>}
+    </> }] : []),
     ...(activeFeatsNamed(c, 'Poison Weapon').length
       ? [{ name: 'Poison Weapon', element: <SimplePoisons c={c} entries={entries} save={save} /> }] : []),
     ...(canDeviseAStratagem(c)
@@ -231,8 +241,15 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
     })),
     ...(c.className === 'Barbarian' || activeFeatsNamed(c, 'Barbarian Dedication').length
       ? [{ name: 'Rage', element: <RageToggle c={c} save={save} /> }] : []),
-    ...(grant || c.zealousConvictionRank !== undefined
-      ? [{ name: 'Zealous Conviction', element: <ZealousConvictionToggle c={c} save={save} rank={grant?.rank ?? c.zealousConvictionRank!} /> }] : []),
+    ...(zealousRank !== undefined ? [{ name: 'Zealous Conviction', element: <>
+      <input type="checkbox" aria-label="Zealous Conviction active on self" checked={c.zealousConvictionRank !== undefined}
+        onChange={event => save({ zealousConvictionRank: event.target.checked ? zealousRank : undefined })} />{' '}
+      <EntryDescription name="Zealous Conviction" entry={zealousEntry} entries={entries} character={c} />{' '}
+      {zealousEntry && <ActiveSpellActions name="Zealous Conviction" entry={zealousEntry} rank={zealousRank}
+        actions={grant?.source === 'Heroic Presence' ? 'Single Action' : undefined}>
+        <ZealousConvictionToggle c={c} save={save} rank={zealousRank} />
+      </ActiveSpellActions>}
+    </> }] : []),
     ...(activeFeatsNamed(c, 'Favored Terrain').length
       ? [{ name: 'Favored Terrain', element: <label><input type="checkbox" aria-label="Favored Terrain status"
         checked={isFeatEffectActive(c, 'Favored Terrain')} disabled={activeFeatsNamed(c, 'Terrain Master').length > 0}
@@ -264,7 +281,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   return <div className="character-section-content">
     <div className="condition-controls" role="group" aria-label="Statuses">
       {controls.map(control => {
-        const entry = !spellControls.some(spell => spell.name === control.name) && entries.find(candidate => (candidate.kind === 'feat' || candidate.kind === 'classFeature')
+        const entry = control.name !== 'Heroic Defiance' && !spellControls.some(spell => spell.name === control.name) && entries.find(candidate => (candidate.kind === 'feat' || candidate.kind === 'classFeature')
           && !candidate.deleted && candidate.name.toLowerCase() === control.name.toLowerCase()
           && candidate.systems.some(system => c.systems.includes(system))
           && typeof candidate.data.actions === 'string' && /(?:single|one|two|three) action|free action|reaction/i.test(candidate.data.actions))
