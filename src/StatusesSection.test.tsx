@@ -70,6 +70,22 @@ it('synchronizes Protect Companion target and active state', () => {
   expect(c.activeSpells).not.toContain('Protect Companion')
 })
 
+it('shows Protect Companion details and an action control in statuses', () => {
+  const c: Character = { id: 'protect', name: 'Test', systems: ['pf2e'], level: 5,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    activeSpells: ['Protect Companion'], companions: [{ id: 'one', type: 'Bear', name: '' }] }
+  const spell: ContentEntry = { id: 'protect', name: 'Protect Companion', kind: 'spell', systems: ['pf2e'], source: 'official',
+    level: 1, traits: ['Cantrip'], description: 'The target gains a circumstance bonus to AC.',
+    data: { actions: 'Single Action' }, effects: [], updatedAt: 0 }
+  const html = renderToStaticMarkup(<StatusesContent c={c} entries={[spell]} save={() => {}} />)
+  expect(html).toContain('aria-haspopup="dialog">Protect Companion</button>')
+  expect(html).toContain('The target gains a circumstance bonus to AC.')
+  expect(html).toContain('aria-label="Protect Companion options"')
+  expect(html).toContain('aria-label="Single Action"')
+  expect(html).toContain('aria-label="Protect Companion active"')
+})
+
 it('tracks Bless in Statuses and summary', () => {
   const entry: ContentEntry = { id: 'bless', name: 'Bless', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions', tradition: 'Divine' },

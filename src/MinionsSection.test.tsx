@@ -7,6 +7,7 @@ import { CaypinAllyToggle, CompanionSpellOptions, CreatureShapeOptions, Lashunta
 import { activeBattleForm, armorClass, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, movementSpeeds, ownedWeapons, spellActiveChange } from './builder'
 import { familiarAbilityEffects, familiarAbilityUnavailableReason } from './familiarAbilities'
 import { EntryDescription } from './EntryDescription'
+import { DamageRoll } from './SpellDamage'
 import { companionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME } from './companions'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
@@ -775,8 +776,8 @@ it('shows feat-granted familiar choices and a separate aquatic pet with bonus ab
   }
   const html = renderToStaticMarkup(<MinionsSection c={c} entries={familiarEntries} save={() => {}} />)
   expect(html).toContain('Leshy Familiar')
-  expect(html).toContain('</h4> (1/4)')
-  expect(html).toContain('Leshy familiar granted ability')
+  expect(html).toContain('</h4> (2/5)')
+  expect(html).toContain('aria-haspopup="dialog">Fungus</button>')
   expect(html).toContain('Aquatic Pet')
   expect(html).toContain('<small>Hit Points</small><b>56</b>')
   expect(html).toContain('aria-haspopup="dialog">Darkvision</button>')
@@ -1086,6 +1087,28 @@ it('locks Glyph Familiar and shows its granted abilities in the familiar list', 
   expect(c.familiar?.specificFamiliar).toBe('Nine-Tailed Fox')
 })
 
+it('locks Leshy Familiar and switches its granted form through familiar variants', () => {
+  let c: Character = {
+    id: 'leshy-form', systems: ['pf2e'], name: 'Test', level: 1, className: 'Druid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 18, cha: 10 },
+    feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { specificFamiliar: 'Nine-Tailed Fox', leshyAbility: 'Fungus', abilities: ['Tough', 'Flier'] },
+  }
+  const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
+  let html = renderToStaticMarkup(tree())
+  expect(html).toContain('<h4>Leshy Familiar</h4> (3/3)')
+  expect(html).not.toContain('aria-label="Specific familiar"')
+  expect(html).toContain('aria-haspopup="dialog">Fungus</button>')
+  findSelect(tree(), 'Leshy familiar ability')!({ target: { value: 'leshy-familiar:plant' } })
+  expect(c.feats[0].choice).toBe('Plant')
+  expect(c.familiar?.leshyAbility).toBe('Fungus')
+  html = renderToStaticMarkup(tree())
+  expect(html).toContain('aria-haspopup="dialog">Plant</button>')
+  expect(html).not.toContain('aria-haspopup="dialog">Fungus</button>')
+  expect(html.match(/aria-label="Remove Leshy familiar ability \d+"/g)).toHaveLength(2)
+})
+
 it('switches Divine Emissary variants in the familiar picker without using ordinary slots', () => {
   let c: Character = {
     id: 'emissary-switch', systems: ['pf2e'], name: 'Test', level: 6, className: 'Witch',
@@ -1197,7 +1220,7 @@ it.each([
   ['Necromancer', 'Undead Familiar', 'Undead Familiar', 1],
   ['Witch', undefined, 'Witch&#x27;s Familiar', 4],
   ['Wizard', 'Familiar', 'Familiar', 2],
-  ['Druid', 'Leshy Familiar', 'Leshy Familiar', 2],
+  ['Druid', 'Leshy Familiar', 'Leshy Familiar', 3],
 ] as const)('prioritizes %s class familiar over Crocodile’s Twin without duplicating familiars or changing saved choices', (className, classFeat, label, abilities) => {
   const c: Character = {
     id: 'class-familiar', systems: ['pf2e'], name: 'Test', level: 1, className,
@@ -1267,7 +1290,7 @@ it('keeps one familiar while preserving dormant Calistria wasp choices', () => {
   expect(html).toContain('<h4>Leshy Familiar</h4>')
   expect(html).not.toContain('Wasp Familiar')
   expect(html).not.toContain('Burrower')
-  expect(html).toContain('aria-label="Leshy familiar granted ability"')
+  expect(html).toContain('aria-haspopup="dialog">Fungus</button>')
   expect(html).toContain('<small>Hit Points</small><b>56</b>')
   expect(html).not.toContain('(includes Tough)')
   c = { ...c, feats: [] }
@@ -1647,6 +1670,10 @@ it.each([
   expect(html).toContain('aria-label="Roll Primal Howl: Damage"')
   expect(html).toContain(`title="Two Actions; Damage: ${dice}d6 sonic"`)
   expect(html.match(/aria-label="Roll Primal Howl: Damage"/g)).toHaveLength(1)
+  const findHowl = (node: ReactNode): boolean => Children.toArray(node).some(child =>
+    isValidElement<Record<string, unknown>>(child) && (child.type === DamageRoll && child.props.name === 'Primal Howl'
+      ? child.props.toggleResult === true : findHowl(child.props.children as ReactNode)))
+  expect(findHowl(MinionsContent({ c, entries, save: () => {} }))).toBe(true)
   expect(html).not.toContain('Roll Test Maneuver')
   const details = renderToStaticMarkup(<EntryDescription character={c} entries={entries} name={cat.name} entry={cat} />)
   expect(details).toContain(`Uses DC ${dc}.`)

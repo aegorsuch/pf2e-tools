@@ -486,6 +486,19 @@ it('rolls and rerolls all ten Primal Howl dice when its two-action button is cli
   expect(html).toContain('<output aria-live="polite" aria-label="Primal Howl: Damage result"> 10 sonic</output>')
 })
 
+it('hides a displayed Primal Howl result on the next action click', () => {
+  const setResult = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([10, setResult])
+  const tree = DamageRoll({ name: 'Primal Howl', damage: { label: 'Damage', dice: 10, sides: 6, type: 'sonic' },
+    actions: 'Two Actions', toggleResult: true })
+  const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw new Error('Missing damage roll button')
+  const random = vi.spyOn(Math, 'random')
+  button.props.onClick()
+  expect(setResult).toHaveBeenCalledWith(undefined)
+  expect(random).not.toHaveBeenCalled()
+})
+
 it.each([['Heal Companion', 10], ['Heal Animal', 8]] as const)('maps %s action icons to their own heightened healing formulas', (name, sides) => {
   const rolls = spellActionRolls(name, 5)
   expect(rolls.map(roll => roll.actions)).toEqual(['One Action', 'Two Actions'])

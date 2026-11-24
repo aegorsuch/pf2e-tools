@@ -90,10 +90,13 @@ export function familiarAbilitySlots(c: Character, entries: ContentEntry[], isWa
   const emissaryAbility = emissaryChoice && isDivineEmissaryAbility(emissaryChoice) ? emissaryChoice : undefined
   const leshySecret = !isWasp && state.leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0
     ? activeFeatsNamed(c, 'Leshy Familiar Secrets')[0]?.choice ?? c.familiar?.leshySecret : undefined
+  const leshyChoice = !isWasp && state.leshy
+    ? activeFeatsNamed(c, 'Leshy Familiar')[0]?.choice ?? c.familiar?.leshyAbility : undefined
+  const leshyAbility = leshyChoice === 'Plant' || leshyChoice === 'Fungus' ? leshyChoice : undefined
   const patronAbility = isWasp ? undefined : capacity.patronAbility
   const baseSelectableLimit = patronAbility ? capacity.selectableAbilityLimit : capacity.dailyAbilityLimit
-  const specificFamiliars = isWasp || state.glyph ? [] : specificFamiliarOptions(c, entries)
-  const name = isWasp || state.glyph ? undefined : c.familiar?.specificFamiliar
+  const specificFamiliars = isWasp || state.glyph || state.leshy ? [] : specificFamiliarOptions(c, entries)
+  const name = isWasp || state.glyph || state.leshy ? undefined : c.familiar?.specificFamiliar
   const selectedSpecificOption = specificFamiliars.find(option => key(option.entry.name) === key(name ?? ''))
   const selectedSpecific = selectedSpecificOption?.entry
   const activeSpecific = selectedSpecific && contentAccessGranted(c, selectedSpecific)
@@ -101,7 +104,7 @@ export function familiarAbilitySlots(c: Character, entries: ContentEntry[], isWa
   const selectableAbilityLimit = baseSelectableLimit - (activeSpecific ? selectedSpecificOption?.required ?? 0 : 0)
     - Number(!!emissaryAbility) - Number(!isWasp && state.leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0)
   return { patronAbility, dailyAbilityLimit: capacity.dailyAbilityLimit, specificFamiliars, selectedSpecific,
-    activeSpecific, selectableAbilityLimit, emissaryAbility, leshySecret }
+    activeSpecific, selectableAbilityLimit, emissaryAbility, leshySecret, leshyAbility }
 }
 
 export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
@@ -109,9 +112,10 @@ export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
   if (!state.familiar && !state.wasp) return []
   const data = state.wasp ? c.waspFamiliar : c.familiar
   if (state.spiritFamiliar && (!data?.spiritManifested || data.spiritDestroyed)) return []
-  const { activeSpecific, selectableAbilityLimit, emissaryAbility, leshySecret } = familiarAbilitySlots(c, entries, state.wasp)
+  const { activeSpecific, selectableAbilityLimit, emissaryAbility, leshySecret, leshyAbility } = familiarAbilitySlots(c, entries, state.wasp)
   const grants = activeSpecific
-    ? specificFamiliarGrants(activeSpecific).abilities : state.glyph && !state.wasp ? GLYPH_FAMILIAR_ABILITIES : []
+    ? specificFamiliarGrants(activeSpecific).abilities : state.glyph && !state.wasp ? GLYPH_FAMILIAR_ABILITIES
+      : leshyAbility ? [leshyAbility] : []
   const choices = (data?.abilities ?? []).filter(name => !emissaryAbility || !isDivineEmissaryAbility(name))
     .slice(0, selectableAbilityLimit)
   const catalog = familiarAbilityEntries(entries, c)
@@ -166,7 +170,12 @@ export function familiarAbilityEntries(entries: ContentEntry[], c: Character) {
       id: `leshy-secret:${key(name)}`, systems: c.systems, kind: 'familiar', source: 'official', name, level: 1,
       traits: [], description: '', data: { ability_type: 'Leshy Familiar Secrets' }, effects: [], updatedAt: 0,
     })) : []
-  return emissary.length || leshy.length ? [...base, ...emissary, ...leshy] : base
+  const leshyForms = familiarSelection(c).leshy ? ['Plant', 'Fungus'].map((name): ContentEntry => ({
+    id: `leshy-familiar:${key(name)}`, systems: c.systems, kind: 'familiar', source: 'official', name, level: 1,
+    traits: [], description: `Your familiar has the ${name.toLowerCase()} trait instead of the animal trait.`,
+    data: { ability_type: 'Leshy Familiar' }, effects: [], updatedAt: 0,
+  })) : []
+  return emissary.length || leshy.length || leshyForms.length ? [...base, ...emissary, ...leshy, ...leshyForms] : base
 }
 
 function baseFamiliarAbilityEntries(entries: ContentEntry[], c: Character) {
@@ -209,6 +218,10 @@ export function familiarAbilityUnavailableReason(entry: ContentEntry, c: Charact
   const slots = classSpellSlots(c) ?? c.spellcasting?.slots
   if (undead && (/^(?:constructed?|dragon)$/i.test(entry.name) || changesCreatureTrait(entry))) {
     return 'An undead familiar cannot select an ability that changes its trait.'
+  }
+  if ((familiarSelection(c).leshy || familiarSelection(c).glyph)
+    && (/^(?:constructed?|dragon|plant|fungus)$/i.test(entry.name) || changesCreatureTrait(entry))) {
+    return 'This familiar already has an ability that changes its trait.'
   }
   if (selected.some(name => key(name) === key(entry.name)) && !isFamiliarAbilityRepeatable(entry)) {
     return 'This ability has already been selected.'

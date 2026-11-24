@@ -793,16 +793,23 @@ export function CompanionSpellOptions({ c, entries, save, name, companionId, tog
   </div>
 }
 
-export function ProtectCompanionOptions({ c, save, companionId, disabled }: Pick<SectionProps, 'c' | 'save'> & { companionId?: string; disabled?: boolean }) {
+export function ProtectCompanionOptions({ c, save, companionId, disabled, entries, showDetails }: Pick<SectionProps, 'c' | 'save'>
+  & { companionId?: string; disabled?: boolean; entries?: ContentEntry[]; showDetails?: boolean }) {
   const targetId = companionSpellTarget(c, c.protectCompanionId)
   const active = !!c.activeSpells?.includes('Protect Companion')
   const target = companionId ?? targetId
   const companion = c.companions?.find(item => item.id === companionId)
+  const entry = entries?.find(item => item.kind === 'spell' && !item.deleted && item.name === 'Protect Companion'
+    && item.systems.some(system => c.systems.includes(system)))
   return <div className="row">
     <label><input type="checkbox" aria-label={companionId ? `Protect Companion on ${companion?.name || companion?.type}` : 'Protect Companion active'}
       checked={active && (!companionId || companionId === targetId)} disabled={!active && (!target || disabled)}
       onChange={event => save({ ...spellActiveChange(c, 'Protect Companion', event.target.checked), protectCompanionId: target })} />
-      Protect Companion</label>
+      {!showDetails && ' Protect Companion'}</label>
+    {showDetails && <><EntryDescription name="Protect Companion" entry={entry} entries={entries} character={c} hideButtonActions />
+      {' '}<ActiveSpellActions name="Protect Companion" entry={entry} actions="Single Action">
+        <ProtectCompanionOptions c={c} save={save} companionId={companionId} disabled={disabled} />
+      </ActiveSpellActions></>}
     {!companionId && (c.companions?.length ?? 0) > 1 && <label>Companion{' '}
       <select aria-label="Protect Companion target" value={targetId ?? ''} onChange={event => {
         if (c.companions?.some(item => item.id === event.target.value)) save({ protectCompanionId: event.target.value })

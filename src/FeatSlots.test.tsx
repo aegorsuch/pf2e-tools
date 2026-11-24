@@ -56,6 +56,7 @@ it('reuses feat eligibility across slots, but recomputes for another character o
 
 it.each([
   ['Divine Emissary', 'Witch', 6, 'Radiant'],
+  ['Leshy Familiar', 'Druid', 1, 'Plant'],
   ['Leshy Familiar Secrets', 'Druid', 4, 'Purify Air'],
 ] as const)('selects %s familiar ability variants in the feat picker', (name, className, level, choice) => {
   let c: Character = { ...emptyRanger(), className, level }
