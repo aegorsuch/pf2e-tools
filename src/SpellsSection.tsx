@@ -2333,6 +2333,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     || !!entry && spellResolution(entry).attack)
                 })
               }
+              if (cantrip && preparedClass) {
+                const taken = new Set(Object.entries(sc.prepared ?? {})
+                  .filter(([key, value]) => (key.startsWith('0:') || key === 'curriculum:0') && key !== slotKey && value).map(([, value]) => value))
+                slotOptions = slotOptions.filter(option => !taken.has(option.entryId ?? option.name)
+                  && !taken.has(option.name))
+              }
               let optionIndex: Map<string, typeof slotOptions[number]> | undefined
               const spellOption = (value: string) => {
                 optionIndex ??= new Map(slotOptions.map(spell => [spell.entryId ?? spell.name, spell]))
