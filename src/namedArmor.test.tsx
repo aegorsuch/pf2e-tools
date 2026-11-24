@@ -603,8 +603,8 @@ it('scales Library Robes fundamentals and Moonweave/Sunweave runes with level', 
   const robes = item('Library Robes', ['**Base Armor** [Scroll Robes](/Armor.aspx?ID=1)', '---',
     'These +1 resilient scroll robes magically store a spell for you.'].join('\n\n'), { bulk: 0 })
   const catalog = [scrollRobes, robes]
-  expect(makeNamedArmorEntries(catalog, []).map(entry => entry.name)).toEqual(['Library Robes'])
-  const armor = owned('Library Robes')
+  expect(makeNamedArmorEntries(catalog, []).map(entry => entry.name)).toEqual(['Library Scroll Robes'])
+  const armor = owned('Library Scroll Robes')
   for (const [level, potency, resilient, runes] of [[1, 0, 0, []], [5, 1, 0, ['Moonweave']], [8, 1, 1, ['Moonweave', 'Sunweave']],
     [13, 2, 1, ['Moonweave (Greater)', 'Sunweave (Greater)']], [18, 3, 2, ['Moonweave (Major)', 'Sunweave (Major)']]] as const) {
     expect(effectiveArmor({ ...character, level, armors: [armor] }, catalog, armor))

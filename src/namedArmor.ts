@@ -15,7 +15,7 @@ export const isBastionNamedArmor = (name?: string) =>
 export const INHERITOR_RUNE_FAMILIES = ['Advancing', 'Fortification', 'Moonweave', 'Sunweave'] as const
 export const isInheritorPlate = (name?: string) => name === 'Bastion Plate of the Inheritor' || name === 'Bastion of the Inheritor'
 export const isHighhelmPlate = (name?: string) => name === 'Highhelm Stronghold Bastion Plate' || name === 'Highhelm Stronghold Plate'
-export const isLibraryRobes = (name?: string) => name === 'Library Robes'
+export const isLibraryRobes = (name?: string) => name === 'Library Robes' || name === 'Library Scroll Robes'
 export const isImmortalBastion = (name?: string) => name === 'Immortal Bastion Plate' || name === 'Immortal Bastion'
 export const scalingBastionRuneFamilies = (name?: string): readonly string[] =>
   isInheritorPlate(name) ? INHERITOR_RUNE_FAMILIES : isImmortalBastion(name) ? INHERITOR_RUNE_FAMILIES : isHighhelmPlate(name) ? ['Fortification', 'Moonweave', 'Sunweave']
@@ -75,7 +75,7 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
       const fortifiedBastion = isBastionNamedArmor(item.name) && fixed.some(rune => /^Fortification(?: \(Greater\))?$/.test(rune))
       const traits = [...new Set([...base.traits.filter(trait => !notNoisy || trait.toLowerCase() !== 'noisy'), ...item.traits])]
       return [{
-        ...item, name: BASTION_NAMES[item.name] ?? item.name, kind: 'armor' as const, traits,
+        ...item, name: item.name === 'Library Robes' ? 'Library Scroll Robes' : BASTION_NAMES[item.name] ?? item.name, kind: 'armor' as const, traits,
         data: {
           ...base.data, ...item.data, price: item.data.price ?? '', item_subcategory: 'Specific Magic Armor',
           named_armor: true, named_armor_base: base.name,
