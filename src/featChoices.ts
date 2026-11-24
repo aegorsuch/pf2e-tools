@@ -90,7 +90,8 @@ export function selectedFeatEntry(c: Character, entries: ContentEntry[], name: s
     }
     selectedFeatCache.set(entries, names)
   }
-  const sources = (names.get(name) ?? []).filter(entry => entry.systems.some(system => c.systems.includes(system)))
+  const lookup = name === 'Warrior of Legend Dedication' && !names.has(name) ? 'Warrior Of Legend Dedication' : name
+  const sources = (names.get(lookup) ?? []).filter(entry => entry.systems.some(system => c.systems.includes(system)))
   if (!sources.length) return undefined
   const id = sourceId ?? c.feats.find(feat => feat.name === name && featTakenLevel(feat) <= c.level)?.sourceId
   if (id) return sources.find(entry => entry.id === id)

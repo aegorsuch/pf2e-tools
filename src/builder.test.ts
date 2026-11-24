@@ -2147,6 +2147,26 @@ describe('ancestryLabel', () => {
       })
     })
 
+    it('offers imported Warrior of Legend feats despite source capitalization', () => {
+      const dedication = { ...entry('feat', 'Warrior Of Legend Dedication', { archetype: 'Warrior Of Legend', prerequisite: 'Warrior of legend' }, 2, ['Archetype', 'Dedication']), id: 'aon:pf2e:feat-7261' }
+      const heroic = entry('feat', 'Heroic Defiance', { archetype: 'Warrior Of Legend', prerequisite: 'Warrior Of Legend Dedication' }, 4, ['Archetype'])
+      const sweep = entry('feat', 'Unbalancing Sweep', { archetype: 'Mauler, Warrior Of Legend',
+        archetype_levels: 'Mauler:14, Warrior Of Legend:14' }, 12, ['Barbarian', 'Flourish'])
+      const entries = [dedication, heroic, sweep]
+      const initial: Character = { ...base, level: 20, className: 'Fighter', subclass: 'Warrior of Legend', feats: [] }
+      const c = { ...initial, ...syncClassArchetypeDedication(initial, entries) }
+      const classSlot = (level: number) => ({ key: `class:${level}:0`, category: 'class' as const, level })
+      const archetypeSlot = (level: number) => ({ key: `archetype:${level}:0`, category: 'archetype' as const, level })
+      expect(featChoices.selectedFeatEntry(c, entries, 'Warrior of Legend Dedication', dedication.id)).toBe(dedication)
+      expect(eligibleFeats(entries, c, classSlot(4))).toContain(heroic)
+      expect(eligibleFeats(entries, c, archetypeSlot(4))).toContain(heroic)
+      expect(eligibleFeats(entries, c, classSlot(12))).not.toContain(sweep)
+      expect(eligibleFeats(entries, c, classSlot(14))).toContain(sweep)
+      expect(eligibleFeats(entries, { ...c, feats: [] }, classSlot(14))).not.toContain(heroic)
+      const selected = { ...c, feats: [...c.feats, { name: heroic.name, type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
+      expect(plannedSlots(selected, entries).find(slot => slot.key === 'class:4:0')).toMatchObject({ displayCategory: 'archetype' })
+    })
+
     it('places Vindicator Dedication in the archetype section', () => {
       const ranger = { ...base, level: 2, className: 'Ranger', subclass: 'Vindication' }
       expect(plannedSlots(ranger).find(slot => slot.grantedBy === 'Vindicator'))

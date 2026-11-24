@@ -79,7 +79,8 @@ export const byName = (entries: ContentEntry[], kind: ContentEntry['kind'], name
     for (const e of entries) { const k = `${e.kind}\0${e.name}`; if (!map.has(k)) map.set(k, e) }
     nameCache.set(entries, map)
   }
-  return map.get(`${kind}\0${name}`)
+  return map.get(`${kind}\0${name}`) ?? (kind === 'feat' && name === 'Warrior of Legend Dedication'
+    ? map.get(`${kind}\0Warrior Of Legend Dedication`) : undefined)
 }
 
 // Level 1 HP = ancestry HP + class HP + Con; each later level adds class HP + Con
@@ -1026,7 +1027,8 @@ const archetypesOf = (e?: ContentEntry): string[] => {
   const cached = archetypeCache.get(e!)
   if (cached && cached.source === a) return cached.names
   const names = (Array.isArray(a) ? a : typeof a === 'string' ? a.split(',') : [])
-    .flatMap((name) => typeof name === 'string' && name.trim() ? [name.trim()] : [])
+    .flatMap((name) => typeof name === 'string' && name.trim()
+      ? [name.trim().toLowerCase() === 'warrior of legend' ? 'Warrior of Legend' : name.trim()] : [])
   archetypeCache.set(e!, { source: a, names })
   return names
 }
@@ -1103,6 +1105,8 @@ export function featByName(entries: ContentEntry[]) {
     for (const e of entries) if (e.kind === 'feat' && !map.has(e.name)) map.set(e.name, e)
     const jousting = map.get('Living Weapon Jousting')
     if (jousting && !map.has('Living Weapon Joust')) map.set('Living Weapon Joust', jousting)
+    const warrior = map.get('Warrior Of Legend Dedication')
+    if (warrior && !map.has('Warrior of Legend Dedication')) map.set('Warrior of Legend Dedication', warrior)
     featNameCache.set(entries, map)
   }
   return map
@@ -1181,7 +1185,8 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
   }))
   const levels = new Map(entry.data.archetype_levels.split(', ').map((pair) => {
     const colon = pair.lastIndexOf(':')
-    return [pair.slice(0, colon), Number(pair.slice(colon + 1))] as const
+    const name = pair.slice(0, colon)
+    return [name.toLowerCase() === 'warrior of legend' ? 'Warrior of Legend' : name, Number(pair.slice(colon + 1))] as const
   }))
   const available = archetypesOf(entry).filter((name) => dedications.has(name) && (!classArchetype || name === classArchetype))
     .map((name) => levels.get(name) ?? entry.level)
@@ -1448,7 +1453,7 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
   }
   return (entry: ContentEntry) => {
     if (activeHomebrewDedications(c).some(rule => rule.slot === slot.key && rule.name === entry.name)
-      || slot.key === 'class:2:0' && slot.grantedFeat === entry.name) {
+      || slot.key === 'class:2:0' && slot.grantedFeat?.toLowerCase() === entry.name.toLowerCase()) {
       return { missing: [], manual: [] }
     }
     const result = check(entry)
@@ -1664,7 +1669,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && !(classCompanionStages.has(companionProgressionStage(e.name) ?? '') && !traits.has(classTrait ?? '')
         && (traits.has('archetype') || archetypesOf(e).length > 0)
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === e.name && (!feat.sourceId || feat.sourceId === e.id)))
-      && (!slot.grantedFeat || e.name === slot.grantedFeat)
+      && (!slot.grantedFeat || e.name.toLowerCase() === slot.grantedFeat.toLowerCase())
       && (!ownedArchetype || isDedication(e) || ownedArchetype(e).length === 0)
       && (slot.grantedBy !== 'Multitalented' || e.level === 2 && traits.has('multiclass') && traits.has('dedication'))
       && (!spellcastingDedications || spellcastingDedications.has(e.name))
