@@ -24,7 +24,7 @@ export function equipmentBonusSkills(entry: ContentEntry) {
   const cached = bonusSkillCache.get(entry)
   if (cached?.description === entry.description && cached.indexed === entry.data.skill) return cached.skills
   const skills = new Set<string>()
-  for (const match of entry.description.matchAll(/\bitem bonus\s+(?:to|on|when)\s+([^.;\n]{0,180})/gi)) {
+  for (const match of entry.description.matchAll(/(?:\bitem bonus|\+\d+\s+bonus)\s+(?:to|on|when)\s+([^.;\n]{0,180})/gi)) {
     const target = match[1].split(/\b(?:while|when|if|unless|against|and (?:a|an|you|it|your|use|gain|can|must|attempt|make)\b)/i, 1)[0]
     for (const [skill, pattern] of bonusSkillPatterns) if (pattern.test(target)) skills.add(skill)
     for (const [skill, pattern] of bonusSkillActions) if (pattern.test(target)) skills.add(skill)

@@ -230,6 +230,34 @@ it('offers only skill bonuses present in the equipment section and selected syst
   expect(pathfinder).not.toContain('>Piloting</option>')
 })
 
+it("offers Survival for Voyager's Pack in the backpacks picker", () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+  const pack = mapAonHit(hits.find(hit => hit._source?.name === "Voyager's Pack")!, 'pf2e')!
+  const c: Character = { id: 'backpack-options', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(equipmentGroupName(pack)).toBe('Backpacks')
+  expect([...equipmentGroups.equipmentBonusSkills(pack)]).toContain('Survival')
+  function SurvivalSearch() {
+    const tree = EquipmentSearch({ c, entries: [pack], save: () => {}, category: 'Backpacks' })
+    Children.forEach(tree.props.children, row => {
+      if (!isValidElement<{ children?: ReactNode }>(row)) return
+      Children.forEach(row.props.children, child => {
+        if (!isValidElement<{ children?: ReactNode }>(child) || child.type !== 'label') return
+        Children.forEach(child.props.children, select => {
+          if (isValidElement<{ 'aria-label'?: string; value?: string; onChange?: (event: unknown) => void }>(select)
+            && select.props['aria-label'] === 'Skill item bonus' && select.props.value !== 'Survival')
+            select.props.onChange?.({ target: { value: 'Survival' } })
+        })
+      })
+    })
+    return tree
+  }
+  const markup = renderToStaticMarkup(<SurvivalSearch />)
+  expect(markup).toContain('>Survival</option>')
+  expect(markup).toContain(`Add Voyager&#x27;s Pack`)
+})
+
 it.each([
   ['Barbarian', 'Bloodrager', 'Bloodrager'],
   ['Ranger', 'Vindicator', 'Vindication'],
