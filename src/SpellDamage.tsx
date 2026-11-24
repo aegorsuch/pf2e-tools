@@ -138,6 +138,8 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       ], note: 'Treat resistances as 10 lower' }] : []
     case 'Fireball':
       return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
+    case 'Chain Lightning':
+      return rank >= 6 ? [{ label: 'Damage', dice: rank + 2, sides: 12, type: 'electricity' }] : []
     case 'Shatter':
       return rank >= 2 ? [{ label: 'Damage', dice: rank, sides: 10, type: 'sonic' }] : []
     case 'Breath of Life':
