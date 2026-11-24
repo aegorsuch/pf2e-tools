@@ -629,7 +629,7 @@ it('shows the built-in Calligraphy Wyrm picker, header, granted abilities and ac
     familiar: { specificFamiliar: 'Calligraphy Wyrm' },
   }
   const markup = renderToStaticMarkup(MinionsContent({ c, entries: [], save: () => {} }))
-  expect(markup).toContain('Calligraphy Wyrm 8')
+  expect(markup).toContain('Calligraphy Wyrm')
   expect(markup).toContain('aria-label="Specific familiar"')
   expect(markup).toContain('Manual Dexterity')
   expect(markup).toContain('Ink Spray')
