@@ -1110,8 +1110,7 @@ it('provides Barbarian impact damage actions at their earned levels', () => {
       feat('Overpowering Charge', 10), feat('Impressive Landing', 10), feat('Quaking Stomp', 20),
     ] }
   const html = (character: Character) => renderToStaticMarkup(<ClassFeatures c={character} entries={[]} save={() => {}} />)
-  expect(html(c)).toContain('Roll Overpowering Charge')
-  expect(html(c)).toContain('5 bludgeoning')
+  expect(html(c)).not.toContain('Roll Overpowering Charge')
   expect(html(c)).toContain('Roll Impressive Landing')
   expect(html(c)).toContain('11d6 bludgeoning')
   expect(html(c)).toContain('60-foot burst within 500 feet')

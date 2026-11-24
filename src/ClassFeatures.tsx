@@ -241,11 +241,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           dice: 0, sides: 0, bonus: Math.max(0, abilityMod(c.abilities.str)), type: 'bludgeoning' }} />
         <SourceNote source="Brutal Bully" note="On a successful Disarm, Grapple, Reposition, Shove, or Trip, deal this damage to the enemy; add it to damage from a critical Trip." />
       </span>}
-      {!!activeFeatsNamed(c, 'Overpowering Charge').length && <span>
-        Overpowering Charge{' '}<DamageRoll name="Overpowering Charge" damage={{ label: 'Damage',
-          dice: 0, sides: 0, bonus: Math.max(0, abilityMod(c.abilities.str)), type: 'bludgeoning' }} />
-        <SourceNote source="Overpowering Charge" note="During Barreling Charge, damage each creature whose space you move through; double damage and make it off-guard until the end of your next turn on a critical success." />
-      </span>}
       {!!activeFeatsNamed(c, 'Impressive Landing').length && <span>
         Impressive Landing{' '}<DamageRoll name="Impressive Landing" actions="Reaction"
           damage={{ label: 'Damage', dice: 0, sides: 0, bonus: 5, type: 'bludgeoning' }} />

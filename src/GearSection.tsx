@@ -2044,7 +2044,11 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             <EnergyNeutralizer c={c} save={save} id={a.id} label={labelName} />
             <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={labelName} />
             {entry?.description && !entry.data.named_armor && <small>{entry.description}</small>}
-            <NamedArmorAbilities entry={displayEntry} inlineSummary activations={activations} avatar={isAncestralEmbrace(entry?.name) ? {
+            <NamedArmorAbilities entry={displayEntry} inlineSummary activations={activations}
+              damageRolls={['Rebounding Breastplate', 'Rebounding Full Plate', 'Rebounding Bastion Plate'].includes(a.name) ? {
+                'Kinetic Pulse': { name: 'Kinetic Pulse', damage: { label: 'Damage', dice: 12, sides: 6, type: 'force' },
+                  disabled: !a.worn, toggleResult: true },
+              } : undefined} avatar={isAncestralEmbrace(entry?.name) ? {
               active: !!c.activeSpells?.includes(ANCESTRAL_AVATAR) && a.worn,
               disabled: !a.worn,
               toggle: () => save(spellActiveChange(c, ANCESTRAL_AVATAR, !c.activeSpells?.includes(ANCESTRAL_AVATAR))),
