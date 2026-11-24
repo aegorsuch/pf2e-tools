@@ -1157,8 +1157,11 @@ function featIndex(entries: ContentEntry[]) {
   let index = featIndexCache.get(entries)
   if (!index) {
     const ancestries = new Set(entries.filter(entry => ['ancestry', 'heritage'].includes(entry.kind)).map(entry => entry.name.toLowerCase()))
-    index = entries.filter((e) => e.kind === 'feat' && !e.deleted).sort((a, b) => a.level - b.level || featDisplayName(a).localeCompare(featDisplayName(b))).map((entry) =>
-      ({ entry, traits: new Set(entry.traits.map((t) => t.toLowerCase())), equivalence: featEquivalence(entry, ancestries) }))
+    index = entries.filter((e) => e.kind === 'feat' && !e.deleted).sort((a, b) => a.level - b.level || featDisplayName(a).localeCompare(featDisplayName(b))).map((entry) => {
+      let equivalence: string | undefined
+      return { entry, traits: new Set(entry.traits.map((t) => t.toLowerCase())),
+        get equivalence() { return equivalence ??= featEquivalence(entry, ancestries) } }
+    })
     featIndexCache.set(entries, index)
   }
   return index

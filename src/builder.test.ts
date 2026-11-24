@@ -265,6 +265,23 @@ it('merges equivalent cross-system ancestry feats after eligibility filtering bu
   expect(options.map(option => option.id)).toEqual([original.id, different.id, restricted.id])
 })
 
+it('computes feat equivalence only for eligible candidates and reuses it across pickers', () => {
+  const fighter = entry('feat', 'Fighter Training', {}, 1, ['Fighter', 'Skill'])
+  const readRules = vi.fn(() => 'Fighter training rules.')
+  Object.defineProperty(fighter, 'comparisonRules', { get: readRules })
+  const ranger = entry('feat', 'Ranger Training', {}, 1, ['Ranger'])
+  const entries = [fighter, ranger]
+  const slot = { key: 'class:1:0', category: 'class' as const, level: 1 }
+  const c: Character = { ...base, className: 'Ranger', level: 1 }
+  expect(eligibleFeats(entries, c, slot)).toContain(ranger)
+  expect(readRules).not.toHaveBeenCalled()
+  expect(eligibleFeats(entries, { ...c, className: 'Fighter' }, slot)).toContain(fighter)
+  expect(readRules).toHaveBeenCalled()
+  const reads = readRules.mock.calls.length
+  eligibleFeats(entries, { ...c, className: 'Fighter' }, slot)
+  expect(readRules).toHaveBeenCalledTimes(reads)
+})
+
 it('merges equivalent skill feats without losing clarifications, different rules, homebrew, or saved sources', () => {
   const rules = "Choose a skill you're trained in. You can receive a result of 10 + your proficiency bonus."
   const clarification = '<details class="clarification"><summary>Paizo Clarification</summary>This still counts as a roll.</details>'
