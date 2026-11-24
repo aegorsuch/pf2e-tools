@@ -2660,7 +2660,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             : spell.name === 'Summon Plant or Fungus'
             ? <SummonPlantActions c={c} save={save} entry={spell.entry} rank={spell.rank} actions={spell.actions}
               slainCreatureRank={/^Shadowed Scale, the Jungle Secret$/i.test(spell.source.name)} />
-            : spell.name === 'Heal' ? <SpellActions name={spell.name} entry={spell.entry} rank={spell.rank} actionOverride={spell.actions} />
+            : spell.name === 'Heal' || spell.name === 'Electric Arc' ? <SpellActions name={spell.name} entry={spell.entry} rank={spell.rank} actionOverride={spell.actions} />
             : spell.actions ? <ActionIcon actions={spell.actions}
             showOther={!/^10 minutes$/i.test(spell.actions.trim()) && !(spell.name === 'Creation' && /^1 minute$/i.test(spell.actions.trim()))} />
             : <SpellActions name={spell.name} entry={spell.entry} rank={spell.rank}
