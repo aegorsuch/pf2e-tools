@@ -56,7 +56,7 @@ export const ABILITY_LABEL: Record<Ability, string> = {
 export const abilityMod = (score: number) => Math.floor((score - 10) / 2)
 export const signed = (n: number) => (n >= 0 ? `+${n}` : String(n))
 
-export function conditionValue(c: Character, name: 'frightened' | 'sickened' | 'enfeebled') {
+export function conditionValue(c: Character, name: 'frightened' | 'sickened' | 'enfeebled' | 'doomed') {
   const value = c.conditions?.[name]
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : 0
 }
@@ -163,10 +163,17 @@ const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(
 
 export function ancestryLabel(ancestry?: string, heritage?: string, lineage?: string) {
   if (!ancestry) return heritage ?? ''
-  if (lineage && heritage?.toLowerCase() === 'nephilim') heritage = lineage
+  if (lineage && ['nephilim', 'fadrim'].includes(heritage?.trim().toLowerCase() ?? '')) heritage = lineage
   if (!heritage) return ancestry
   const includesAncestry = `-${slug(heritage)}-`.includes(`-${slug(ancestry)}-`)
   return includesAncestry ? heritage : `${heritage} ${ancestry}`
+}
+
+const FADRIM_LINEAGES = new Set(['Auf Fadrim', 'Trickster Fadrim', 'Warrior Fadrim'])
+
+function fadrimLineage(c: Character) {
+  if (!c.systems.includes('pf2e') || c.heritage?.trim().toLowerCase() !== 'fadrim') return undefined
+  return c.feats.find(feat => FADRIM_LINEAGES.has(feat.name) && featTakenLevel(feat) <= c.level)?.name
 }
 
 export function nephilimLineage(c: Character, entries: ContentEntry[]) {
@@ -185,7 +192,7 @@ export function nephilimLineageLore(c: Character, entries: ContentEntry[]) {
 }
 
 export function characterAncestryLabel(c: Character, entries: ContentEntry[]) {
-  return ancestryLabel(c.ancestry, c.heritage, nephilimLineage(c, entries))
+  return ancestryLabel(c.ancestry, c.heritage, nephilimLineage(c, entries) ?? fadrimLineage(c))
 }
 
 export const characterSummary = (c: Character, entries: ContentEntry[]) =>
@@ -740,9 +747,17 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
       if (!groupOrder.has(id)) groupOrder.set(id, groupOrder.size)
       const n = counters.get(id) ?? 0
       counters.set(id, n + 1)
+      const key = `${id}:${n}`
       const archetype = s.category === 'class' && s.level === 2 && n === 0 ? selectedClassArchetype(c, entries) : undefined
-      slots.push({ key: `${id}:${n}`, category: s.category, level: s.level,
-        ...(archetype && ['Avenger', 'Spellshot'].includes(archetype.name) ? { displayCategory: 'archetype' as const } : {}),
+      const classArchetype = s.category === 'class' ? selectedClassArchetype(c, entries) : undefined
+      const selection = c.feats.find(feat => feat.slot === key)
+      const selectedEntry = selection ? selectedFeatEntry(c, entries, selection.name, selection.sourceId) : undefined
+      const selectedClassArchetypeFeat = !!classArchetype && !!selectedEntry
+        && archetypesOf(selectedEntry).includes(classArchetype.name)
+      slots.push({ key, category: s.category, level: s.level,
+        ...(archetype && ['Avenger', 'Spellshot', 'Vindicator', 'Warrior of Legend'].includes(archetype.name)
+          || selectedClassArchetypeFeat
+          ? { displayCategory: 'archetype' as const } : {}),
         ...(archetype ? { grantedBy: archetype.name, grantedFeat: `${archetype.name} Dedication` } : {}) })
     }
     if (barbarianInstinct(c, entries) === 'fury') {
@@ -1922,6 +1937,9 @@ const NEPHILIM_RESISTANCE_TYPES = ['Acid', 'Cold', 'Electricity', 'Fire', 'Sonic
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number,
   category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === 'Warrior of Legend Dedication' && c.systems.includes('pf2e')) {
+    return ['Bludgeoning', 'Piercing', 'Slashing']
+  }
   if (name === "Storyteller's Mask" && c.systems.includes('pf2e')) {
     const traditions = [
       ...(activeFeatsNamed(c, 'Wizard Dedication').length || activeFeatsNamed(c, 'Spellshot Dedication').length ? ['Arcane'] : []),
@@ -2190,6 +2208,13 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Terrain Expertise') return terrainExpertiseOptions(c, index)
   if (DOMAIN_FEATS.includes(name)) {
     const domains = deityDomains(c, entries)
+    if (name === 'Domain Initiate') {
+      const level = Math.min(c.level, c.feats[index] ? featTakenLevel(c.feats[index]) : Number(slotKey.split(':')[1]) || c.level)
+      const used = new Set(c.feats.flatMap((feat, featIndex) => featIndex !== index
+        && featTakenLevel(feat) <= level && feat.name === name && feat.choice
+        ? [feat.choice.trim().toLowerCase()] : []))
+      return domains.filter(domain => !used.has(domain.toLowerCase()))
+    }
     if (!name.startsWith('Advanced')) return domains
     const level = Math.min(c.level, c.feats[index] ? featTakenLevel(c.feats[index]) : Number(slotKey.split(':')[1]) || c.level)
     const initialNames = name === "Advanced Deity's Domain" ? ["Deity's Domain"] : ['Domain Initiate', "Deity's Domain"]
@@ -3139,7 +3164,7 @@ function weaponHasParry(c: Character, entries: ContentEntry[], weapon: OwnedWeap
   return hasParryTrait(entry) || isFistWeapon(entry, weapon) && inheritedGauntletTraits(c, entries).some(trait => /^parry$/i.test(trait))
     || isTailblade(entry) && tailbladeInheritance(c, entries, weapon).traits.some(trait => /^parry$/i.test(trait))
     || isHandCoverWeapon(entry) && inheritedHandWeaponTraits(c, entries, weapon).some(trait => /^parry$/i.test(trait))
-    || defensiveGunnerParry(c, entry) || (activeFeatsNamed(c, 'Raise Haft').length > 0
+    || warriorLegendParry(c, entries, entry) || defensiveGunnerParry(c, entry) || (activeFeatsNamed(c, 'Raise Haft').length > 0
     && weaponHands(entries, enhanced, c) === 2) || defensiveArmamentsParry(c, enhanced, entry)
     || enhanced.runes.some(rune => runeName(rune) === 'Parrying'
       && weaponRuneApplies(entries, enhanced, rune)) && weaponAttack(c, entries, weapon).rank > 0
@@ -3703,6 +3728,7 @@ export function precisionEdgeDamageDice(c: Character, entries: ContentEntry[] = 
 
 export const CLASS_ARCHETYPES = [
   { className: 'Barbarian', name: 'Bloodrager', subclass: 'Bloodrager' },
+  { className: 'Fighter', name: 'Warrior of Legend', subclass: 'Warrior of Legend' },
   { className: 'Ranger', name: 'Vindicator', subclass: 'Vindication' },
   { className: 'Rogue', name: 'Avenger', subclass: 'Avenger' },
   { className: 'Gunslinger', name: 'Spellshot', subclass: 'Way of the Spellshot' },
@@ -3713,6 +3739,21 @@ export function selectedClassArchetype(c: Character, entries: ContentEntry[] = [
   if (!c.systems.includes('pf2e')) return undefined
   const subclass = selectedSubclass(c, entries)
   return CLASS_ARCHETYPES.find(archetype => archetype.className === c.className && archetype.subclass === subclass)
+}
+
+function isWarriorOfLegend(c: Character) {
+  return c.systems.includes('pf2e') && selectedClassArchetype(c)?.name === 'Warrior of Legend'
+}
+
+function isWarriorLegendWeapon(entry?: ContentEntry) {
+  return /^(?:spears?|polearms?)$/i.test(String(entry?.data.weapon_group ?? '').trim())
+}
+
+function warriorLegendParry(c: Character, entries: ContentEntry[], entry?: ContentEntry) {
+  const armor = wornArmor(c, entries)
+  const armorCategory = armor ? armorEntry(c, entries, armor.name, armor.id)?.data.armor_category : undefined
+  return isWarriorOfLegend(c) && isWarriorLegendWeapon(entry) && !equippedShield(c)
+    && String(armorCategory ?? '').toLowerCase() !== 'heavy'
 }
 
 export function syncClassArchetypeDedication(c: Character, entries: ContentEntry[]): Partial<Character> | undefined {
@@ -3764,6 +3805,11 @@ export function syncClassArchetypeDedication(c: Character, entries: ContentEntry
 export function classLabel(c: Character, entries: ContentEntry[] = []) {
   if (!c.className) return ''
   const archetype = selectedClassArchetype(c, entries)
+  const bloodragerTradition = c.className === 'Barbarian'
+    && (archetype?.name === 'Bloodrager' || selectedSubclass(c, entries) === 'Bloodrager')
+    ? activeFeatsNamed(c, 'Bloodrager Dedication').find(feat => feat.choice === 'Arcane' || feat.choice === 'Divine')?.choice
+    : undefined
+  if (bloodragerTradition) return `${bloodragerTradition} Bloodrager`
   if (archetype) return archetype.name
   const subclass = selectedSubclass(c, entries)
   if (!subclass) return c.className
@@ -3777,6 +3823,7 @@ export function classLabel(c: Character, entries: ContentEntry[] = []) {
   if (c.className === 'Oracle') return `Oracle of the ${subclass.replace(/^The\s+/i, '')}`
   if (c.className === 'Investigator') return `Investigator of the ${subclass.replace(/^The\s+/i, '').replace(/\s+Methodology$/i, '')} Methodology`
   if (c.className === 'Sorcerer') return `Sorcerer of the ${subclass.replace(/^The\s+/i, '').replace(/\s+Bloodline$/i, '')} Bloodline`
+  if (subclass.toLowerCase().split(/\s+/).includes(c.className.toLowerCase())) return subclass
   return `${subclass} ${c.className}`
 }
 
@@ -4916,6 +4963,7 @@ export const ARMOR_GROUPS = ['Light', 'Medium', 'Heavy', 'Unarmored'] as const
 // "Your proficiency ranks for light armor and unarmored defense increase to expert"
 function groupRanks<G extends string>(c: Character, entries: ContentEntry[], groups: readonly G[], field: string, applies: (text: string) => boolean) {
   const ranks = Object.fromEntries(groups.map((g) => [g, 0])) as Record<G, number>
+  const restrictWarriorLegendMastery = field === 'attack_proficiency' && isWarriorOfLegend(c)
   const mentioned = (text: string) => groups.filter((g) =>
     (new RegExp(`\\b${g}\\b`, 'i').test(text)
       && !(field === 'attack_proficiency' && g === 'Advanced'
@@ -4926,17 +4974,23 @@ function groupRanks<G extends string>(c: Character, entries: ContentEntry[], gro
   if (typeof base === 'string') {
     for (const m of base.matchAll(/(untrained|trained|expert|master|legendary) in ([^,]+)/gi)) {
       if (!applies(m[2])) continue
-      for (const g of mentioned(m[2])) ranks[g] = Math.max(ranks[g], rankFromText(m[1]))
+      const rank = rankFromText(m[1])
+      if (restrictWarriorLegendMastery && rank > 2) continue
+      for (const g of mentioned(m[2])) ranks[g] = Math.max(ranks[g], rank)
     }
   }
   for (const f of classFeatures(entries, c)) {
     for (const m of f.description.matchAll(/proficiency ranks? for ([^.]*?) increases? to (expert|master|legendary)/gi)) {
       if (!applies(m[1])) continue
-      for (const g of mentioned(m[1])) ranks[g] = Math.max(ranks[g], rankFromText(m[2]))
+      const rank = rankFromText(m[2])
+      if (restrictWarriorLegendMastery && rank > 2) continue
+      for (const g of mentioned(m[1])) ranks[g] = Math.max(ranks[g], rank)
     }
     for (const m of f.description.matchAll(/(?:gain (expert|master|legendary) proficiency in|proficiency ranks? increases? to (expert|master|legendary) for) ([^.]+)/gi)) {
       if (!applies(m[3])) continue
-      for (const g of mentioned(m[3])) ranks[g] = Math.max(ranks[g], rankFromText(m[1] || m[2]))
+      const rank = rankFromText(m[1] || m[2])
+      if (restrictWarriorLegendMastery && rank > 2) continue
+      for (const g of mentioned(m[3])) ranks[g] = Math.max(ranks[g], rank)
     }
   }
   return ranks
@@ -5062,10 +5116,13 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     ? Math.max(favoredWeaponRank, category === 'Advanced' ? ranks.Martial : 0) : 0
   const martialExperience = activeFeatsNamed(c, 'Martial Experience').length > 0
   const expertise = familiarity?.expertise || unconventional && activeFeatsNamed(c, 'Unconventional Expertise').length > 0
+  const warriorLegendRank = isWarriorOfLegend(c) && isWarriorLegendWeapon(entry)
+    ? c.level >= 19 ? 4 : c.level >= 13 ? 3 : 0 : 0
   const rank = Math.max(category === 'Unarmed' ? 1 : 0, ranks[category], familiarCategory ? ranks[familiarCategory] : 0,
     unconventionalCategory ? ranks[unconventionalCategory] : 0, innovationCategory ? ranks[innovationCategory] : 0,
     familiarity?.trained ? 1 : 0, expertise ? Math.max(...Object.values(baseWeaponRanks(c, entries))) : 0,
     advancedTraining ? c.level >= 11 ? 2 : 1 : 0, avengerRank, vindicatorRank, operativeRank, gunslingerFirearmRank, professionalRank,
+    warriorLegendRank,
     highestRank ? Math.max(...Object.values(ranks)) : 0)
   const proficiencySources = [
     { name: category, rank: Math.max(category === 'Unarmed' ? 1 : 0, ranks[category]) },
@@ -5080,6 +5137,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     ...(operativeRank ? [{ name: strikerWeapon ? 'Striker' : 'Operative', rank: operativeRank }] : []),
     ...(gunslingerFirearmRank ? [{ name: 'Gunslinger firearm and crossbow proficiency', rank: gunslingerFirearmRank }] : []),
     ...(professionalRank ? [{ name: 'Professional', rank: professionalRank }] : []),
+    ...(warriorLegendRank ? [{ name: 'Warrior of Legend', rank: warriorLegendRank }] : []),
     ...(highestRank ? [{ name: 'Cairn Form: highest weapon proficiency', rank: Math.max(...Object.values(ranks)) }] : []),
     ...(martialExperience ? [{ name: 'Martial Experience', rank: c.level >= 11 ? 1 : 0 }] : []),
   ].filter(source => source.rank === rank).map(source => source.name)
@@ -5099,6 +5157,7 @@ function baseArmorRanks(c: Character, entries: ContentEntry[]) {
     const key = group === 'Unarmored' ? 'unarmored' : `${group.toLowerCase()}_armor`
     ranks[group] = Math.max(ranks[group], rankFromText(klass?.data[`${key}_proficiency`]))
   }
+  if (isWarriorOfLegend(c)) ranks.Heavy = 0
   return ranks
 }
 
@@ -5371,6 +5430,18 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   ].filter((e): e is ContentEntry => !!e)
   const half = Math.max(1, Math.floor(c.level / 2))
   const out: { damage: string; value: number; source: string }[] = []
+  if (c.systems.includes('pf2e')) {
+    const weakness = activeFeatsNamed(c, 'Warrior of Legend Dedication')
+      .map(feat => feat.choice?.toLowerCase())
+      .find(choice => choice && ['bludgeoning', 'piercing', 'slashing'].includes(choice))
+    if (weakness) {
+      for (const damage of ['bludgeoning', 'piercing', 'slashing']) {
+        if (damage !== weakness) out.push({
+          damage: `${damage} damage from weapon and unarmed attacks`, value: half, source: 'Warrior of Legend Dedication',
+        })
+      }
+    }
+  }
   if (c.systems.includes('pf2e') && c.activeSpells?.includes('Eat Fire')
     && knowsSpell(c, entries, 'Eat Fire')) out.push({ damage: 'fire', value: 5, source: 'Eat Fire' })
   const juggernaut = activeFeatsNamed(c, 'Unstoppable Juggernaut').length > 0
@@ -7869,6 +7940,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       }).length >= 2 && weaponEquipped(c, entries, w)
     const added = [
       ...(defensiveArmamentsParry(c, w, entry) || defensiveGunnerParry(c, entry)
+        || warriorLegendParry(c, entries, entry)
         || upgrades.some(upgrade => /^Protection Grid(?:\s*\(|$)/i.test(upgrade.name)) ? ['Parry'] : []),
       ...(twinShooter ? ['Agile'] : []),
       ...(upgrades.some(upgrade => upgrade.name === 'Merciful') ? ['Nonlethal'] : []),
@@ -7994,9 +8066,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ? DRAGON_INSTINCTS[c.barbarianDragon]?.damage : undefined
   const elementalDamage = rageDamage && c.raging ? elementalRageType(c, entries) : undefined
   const spiritDamage = rageDamage && c.raging && c.spiritRage && barbarianInstinct(c, entries) === 'spirit'
+  const warriorLegendDamage = !formAttack && isWarriorOfLegend(c) && isWarriorLegendWeapon(entry)
+    ? conditionValue(c, 'doomed') : 0
   const damageBonus = (formAttack && form ? (formAttack.data.form_damage_bonus === undefined ? form.damageBonus : num(formAttack.data.form_damage_bonus)) + (dragonFormAttack && !dragonDamage && !elementalDamage && !spiritDamage ? rageDamage : 0) : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + (dragonDamage || elementalDamage || spiritDamage ? 0 : rageDamage)
     + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
-  ) + (scionTransformation && !ranged ? 2 : 0) - damagePenalty
+  ) + (scionTransformation && !ranged ? 2 : 0) + warriorLegendDamage - damagePenalty
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
     c.level >= 4 && hasActiveFeatVariant(c, 'Favored Weapon Jousting') && isFavoredWeapon(c, entries, livingSource?.name ?? w.name)

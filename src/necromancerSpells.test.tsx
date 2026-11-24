@@ -39,6 +39,11 @@ const renderAtMagusBookRank = (c: Character, entries: ContentEntry[], rank: numb
     vi.mocked(useState).mockReturnValueOnce([value, vi.fn()])
   return render(c, entries)
 }
+const renderAtWitchBookRank = (c: Character, entries: ContentEntry[], rank: number) => {
+  for (const value of ['class', c.spellcasting?.tradition ?? '', undefined, true, 'Witch', rank, undefined, '', 'all', 'both'])
+    vi.mocked(useState).mockReturnValueOnce([value, vi.fn()])
+  return render(c, entries)
+}
 const choices = (html: string, label: string) =>
   new RegExp(`<select aria-label="${label}"[^>]*>([\\s\\S]*?)</select>`).exec(html)?.[1] ?? ''
 const learnOptions = (html: string) => /<ul class="dirge-options">([\s\S]*?)<\/ul>/.exec(html)?.[1] ?? ''
@@ -170,11 +175,32 @@ it('uses the shared rank book editor for Magus spells and filters its source to 
   expect(html).not.toContain('aria-label="Learn Rare Spell"')
 })
 
-it('opens Wizard Dedication slot books and avoids duplicate spells across slots', () => {
+it('uses the shared rank book editor for Witch familiar spells and prepares only learned spells', () => {
+  const patron: ContentEntry = { ...spell('The Resentment'), kind: 'subclass',
+    data: { class: 'Witch', tradition: 'Occult' } }
+  const known = spell('Fear', 1, 'Occult')
+  const occult = spell('Grim Tendrils', 1, 'Occult')
+  const arcane = spell('Magic Missile', 1, 'Arcane')
+  const c: Character = { ...base, className: 'Witch', subclass: patron.name, level: 1,
+    spellcasting: { ability: 'int', tradition: 'Occult', rank: 1, slots: { 0: 1, 1: 1 } },
+    spells: [{ name: known.name, entryId: known.id, rank: 1, cantrip: false }] }
+  const html = renderAtWitchBookRank(c, [patron, known, occult, arcane], 1)
+  const book = html.slice(html.indexOf('class="entry-dialog dirge-dialog"'))
+  expect(book).toContain('>Witch Familiar</h4>')
+  expect(book).toContain('aria-label="Witch spell ranks"')
+  expect(html).toContain('aria-label="Open Witch rank 1"')
+  expect(html).toContain('aria-label="Learn Grim Tendrils"')
+  expect(html).not.toContain('aria-label="Learn Fear"')
+  expect(html).not.toContain('aria-label="Learn Magic Missile"')
+  expect(choices(html, 'Spell Rank 1 slot 1')).toContain('Fear')
+  expect(choices(html, 'Spell Rank 1 slot 1')).not.toContain('Grim Tendrils')
+})
+
+it.each(['Wizard Dedication', 'Spellshot Dedication'])('opens %s slot books and avoids duplicate spells across slots', dedication => {
   const guidance = spell('Guidance', 0, 'Arcane', ['Cantrip'])
   const detectMagic = spell('Detect Magic', 0, 'Arcane', ['Cantrip'])
   const c: Character = { ...base, className: 'Gunslinger', level: 8,
-    feats: [taken('Spellshot Dedication', 2), taken('Basic Wizard Spellcasting', 4)],
+    feats: [taken(dedication, 2), taken('Basic Wizard Spellcasting', 4)],
     spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: {} },
     spells: [{ name: guidance.name, entryId: guidance.id, rank: 0, cantrip: true, bookSlot: 'wizard:0:1' }] }
   const save = vi.fn()

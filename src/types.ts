@@ -277,7 +277,7 @@ export interface Character {
   activeFeatEffects?: string[]
   fulminatingShotActive?: boolean
   fulminatingShotElement?: import('./fulminatingShot.js').FulminatingShotElement
-  conditions?: { frightened?: number; sickened?: number; enfeebled?: number }
+  conditions?: { frightened?: number; sickened?: number; enfeebled?: number; doomed?: number }
   currentSpell?: 'air' | 'water' | 'air and water'
   hardenFleshActive?: boolean
   focusPointsSpentSinceRefocus?: number

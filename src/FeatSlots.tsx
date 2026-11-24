@@ -6,7 +6,7 @@ import { RUNESMITH_RUNES } from './runesmithRunes'
 import { DamageRoll, rollTreehealerHealing } from './SpellDamage'
 import { PickerDialog } from './PickerDialog'
 import { sortPickerOptions } from './PickerSort'
-import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, matchesSkill, plannedSlots, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, matchesSkill, plannedSlots, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -247,7 +247,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     return (!categories || categories.includes(allSlots.find(slot => slot.key === f.slot)?.displayCategory ?? category))
       && !allSlots.some((slot) => slot.key === f.slot)
   })
-  const classNames = new Set([c.className, ...entries.filter((entry) => entry.kind === 'class').map((entry) => entry.name)])
+  const classNames = new Set([c.className, selectedClassArchetype(c, entries)?.name,
+    ...entries.filter((entry) => entry.kind === 'class').map((entry) => entry.name)])
   const displayName = (name: string) => adoptedAncestryText(c, featDisplayName(featsByName.get(name), name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : name))
     .replace(/ \(([^)]+)\)$/, (suffix, label: string) => classNames.has(label) ? '' : suffix)
   const fixedLabel = (name: string, sourceId?: string) => {
@@ -838,7 +839,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                       : c.featAccessOverrides?.filter(id => id !== currentEntry.id) })} /> Approve access
                 </label>}
               </div>}
-              {!automaticOrderFeat && <button type="button" aria-label={classDedication ? `${label} dedication required by class archetype`
+              {!automaticOrderFeat && <button type="button" aria-label={classDedication
+                ? `${label}${s.displayCategory === 'archetype' ? '' : ' dedication'} required by class archetype`
                 : locked ? `${label} slot is granted by a house rule`
                 : lastSlot || requiredGrant ? `Clear ${label} feat selection`
                 : `Remove ${label}${extra ? ' extra' : ''} feat slot ${s.key.split(':')[2]}`}

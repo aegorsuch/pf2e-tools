@@ -1639,8 +1639,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
   const [preparedSlot, setPreparedSlot] = useState<string>()
   const [bookOpen, setBookOpen] = useState(false)
-  const [bookSource, setBookSource] = useState<'Dirge' | 'Wizard' | 'Magus'>(
-    c.className === 'Necromancer' ? 'Dirge' : c.className === 'Magus' ? 'Magus' : 'Wizard')
+  const [bookSource, setBookSource] = useState<'Dirge' | 'Wizard' | 'Magus' | 'Witch'>(
+    c.className === 'Necromancer' ? 'Dirge' : c.className === 'Magus' ? 'Magus'
+      : c.className === 'Witch' ? 'Witch' : 'Wizard')
   const [bookRank, setBookRank] = useState(0)
   const [bookSlotKey, setBookSlotKey] = useState<string>()
   const [bookQuery, setBookQuery] = useState('')
@@ -1656,6 +1657,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const necromancer = c.className === 'Necromancer'
   const wizard = c.className === 'Wizard' && c.systems.includes('pf2e')
   const magus = c.className === 'Magus' && c.systems.includes('pf2e')
+  const witch = c.className === 'Witch' && c.systems.includes('pf2e')
   const bard = automaticSlots !== undefined && isSpontaneousClass(c)
   const bloodrager = c.className === 'Barbarian' && c.systems.includes('pf2e')
     && activeFeatsNamed(c, 'Bloodrager Dedication').some(feat => feat.choice === 'Arcane' || feat.choice === 'Divine')
@@ -1699,10 +1701,25 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     && matchesSpellDefense(entry, bookDefense) && matchesGearSystem(entry, bookSystem, c.systems)
     && !knownArcaneSpells.has(entry.name.toLowerCase()))
   const druidList = useMemo(() => druid ? druidSpellList(c, spellIndex.spells)
-    : c.className === 'Witch' ? witchSpellList(c, spellIndex.spells) : undefined,
-    [druid, c.className, c.subclass, c.level, c.feats, c.systems, spellIndex])
-  const druidAvailable = useMemo(() => druidList?.filter(entry => spellAccessGranted(c, entry)),
+    : witch ? witchSpellList(c, entries) : undefined,
+    [druid, witch, c.className, c.subclass, c.level, c.feats, c.systems, spellIndex, entries])
+  const druidAvailable = useMemo(() => druid ? druidList?.filter(entry => spellAccessGranted(c, entry)) : undefined,
     [druidList, c.spells, c.ancestry, c.ethnicity, c.background, c.achievements, c.featAccessOverrides])
+  const witchBookOptions = useMemo(() => witch
+    ? uniqueSpellVariants((druidList ?? []).filter(entry => spellAccessGranted(c, entry)),
+      entry => [...entry.systems].sort().join(','))
+    : [], [witch, druidList, c])
+  const knownWitchSpells = useMemo(() => {
+    const known = new Set((c.spells ?? []).map(spell => spell.name.toLowerCase()))
+    for (const value of Object.values(c.spellcasting?.prepared ?? {})) {
+      const entry = spellIndex.byId.get(value) ?? spellIndex.byName.get(value)
+      if (entry) known.add(entry.name.toLowerCase())
+    }
+    return known
+  }, [c.spells, c.spellcasting?.prepared, spellIndex])
+  const witchAvailable = useMemo(() => witch
+    ? witchBookOptions.filter(entry => knownWitchSpells.has(entry.name.toLowerCase()))
+    : undefined, [witch, witchBookOptions, knownWitchSpells])
   const dirge = useMemo(() => necromancer ? necromancerDirge(c, spellIndex.spells) : undefined,
     [necromancer, c, spellIndex])
   const dirgeOptions = useMemo(() => necromancer ? uniqueSpellVariants(necromancerSpellList(c, spellIndex.spells)
@@ -1714,7 +1731,13 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
     && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase()) && matchesSpellDefense(entry, bookDefense)
     && matchesGearSystem(entry, bookSystem, c.systems))
-  const rankedBookOptions = bookSource === 'Dirge' ? rankedDirgeOptions : rankedArcaneBookOptions
+  const rankedWitchBookOptions = witchBookOptions.filter(entry => (bookRank === 0
+    ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
+    : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
+    && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase()) && matchesSpellDefense(entry, bookDefense)
+    && matchesGearSystem(entry, bookSystem, c.systems) && !knownWitchSpells.has(entry.name.toLowerCase()))
+  const rankedBookOptions = bookSource === 'Dirge' ? rankedDirgeOptions
+    : bookSource === 'Witch' ? rankedWitchBookOptions : rankedArcaneBookOptions
   const { spells, granted, featSpells, innate, special, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
   const available = spellCategoryAvailability(c, entries, data ?? spellSummaryData(c, entries))
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
@@ -1970,7 +1993,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     }) : []
     const bloodragerSpells = bloodrager ? spellIndex.spells.filter(entry => spellAccessGranted(c, entry)) : undefined
     const warriorSpells = warrior ? featSpellOptions(c, entries, warrior) : undefined
-    const available = [...((warriorSpells ?? bloodragerSpells ?? druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
+    const available = [...((warriorSpells ?? bloodragerSpells ?? witchAvailable ?? druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
       rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: false })) ?? (c.spells ?? [])
       .filter(spell => !forced.some(extra => extra.name === spell.name)).map(spell => ({ ...spell, forced: false }))), ...forced]
       .map(spell => {
@@ -1994,7 +2017,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         return [...entry?.systems ?? []].sort().join(',')
       }) : options }
     })
-  }, [druidAvailable, dirge, c, entries, warrior, preparedClass, selectedTradition, spellIndex, bard, bloodrager])
+  }, [druidAvailable, witchAvailable, dirge, c, entries, warrior, preparedClass, selectedTradition, spellIndex, bard, bloodrager])
   const classSlotRanks = Array.from({ length: 11 }, (_, rank) => ({
     rank,
     count: Math.max(0, Math.min(20, Math.trunc(Number(sc?.slots[rank]) || 0)))
@@ -2044,7 +2067,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       {castAbility && spellPenalty(castAbility) > 0 && <span className="skill-part"><small>Status</small>{signed(-spellPenalty(castAbility))}</span>}
     </div>
   )
-  const openSpellbook = (source: 'Dirge' | 'Wizard' | 'Magus', rank: number, slotKey?: string) => {
+  const openSpellbook = (source: 'Dirge' | 'Wizard' | 'Magus' | 'Witch', rank: number, slotKey?: string) => {
     setBookSource(source)
     setBookRank(rank)
     setBookSlotKey(slotKey)
@@ -2192,11 +2215,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       {renderSpecialGroups(tricksterAceSpells)}
       {renderLoanerSpellChoices()}
       {renderSpecialGroups(loanerSpells)}
-      {(necromancer || wizard || magus || wizardSpellbookSlots.length > 0) && c.level >= 1 && <dialog ref={bookDialog}
+      {(necromancer || wizard || magus || witch || wizardSpellbookSlots.length > 0) && c.level >= 1 && <dialog ref={bookDialog}
         className="entry-dialog dirge-dialog" aria-labelledby={bookTitleId}
         onClose={event => { if (event.target === event.currentTarget) setBookOpen(false) }}
         onClick={event => { if (event.target === event.currentTarget) bookDialog.current?.close() }}>
-        <h4 id={bookTitleId} tabIndex={-1}>{bookSource === 'Dirge' ? 'Dirge' : `${bookSource} Spellbook`}</h4>
+        <h4 id={bookTitleId} tabIndex={-1}>{bookSource === 'Dirge' ? 'Dirge'
+          : bookSource === 'Witch' ? 'Witch Familiar' : `${bookSource} Spellbook`}</h4>
         <div className="gear-tabs spell-category-tabs" role="group" aria-label={`${bookSource} spell ranks`}>
           {Array.from({ length: 11 }, (_, rank) => <button key={rank} type="button"
             aria-label={rank === 0 ? 'Cantrips' : `Rank ${rank}`} aria-pressed={bookRank === rank}
@@ -2245,35 +2269,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         Flexible Spellcaster preparation is not automated; your manual spell-slot settings are retained.
       </small>}
       {witchwarper && <WitchwarperRepertoire c={c} entries={entries} save={save} />}
-      {wizardSpellbookSlots.length > 0 && <section className="class-spell-slots">
-        <h5>Wizard Spellbook</h5>
-        <SpellColumns />
-        {Array.from(new Set(wizardSpellbookSlots.map(slot => slot.rank))).map(rank => <section className="spell-slot-group" key={rank}>
-          <h6>{rank === 0 ? 'Cantrips' : `Rank ${rank}`}
-            {' '}<SpellbookRankButton book="Wizard" rank={rank} onOpen={openWizardBookRank} />
-          </h6>
-          <ul>{wizardSpellbookSlots.filter(slot => slot.rank === rank).map(slot => {
-            const current = (c.spells ?? []).find(spell => spell.bookSlot === slot.key)
-            const currentEntry = current && spellEntry(current.name, current.entryId)
-            const label = rank === 0 ? `Wizard cantrip ${slot.index + 1}` : `Wizard rank ${rank} spell ${slot.index + 1}`
-            return <li key={slot.key}>
-              {currentEntry
-                ? <EntryDescription className="spellbook-slot-name" name={currentEntry.name} entry={currentEntry} entries={entries} character={c} />
-                : <span className="spellbook-slot-name">{label}: Not Selected</span>}
-              {current && <button type="button" className="spell-remove" aria-label={`Remove ${label} spell`}
-                onClick={() => {
-                  const spells = (c.spells ?? []).filter(spell => spell.bookSlot !== slot.key)
-                  const prepared = c.spellcasting?.prepared
-                    ? Object.fromEntries(Object.entries(c.spellcasting.prepared)
-                      .filter(([, preparedSpell]) => preparedSpell !== current.entryId && preparedSpell !== current.name))
-                    : undefined
-                  const patch = { spells, ...(prepared ? { spellcasting: { ...c.spellcasting!, prepared } } : {}) }
-                  confirmRemoval(`Wizard spellbook spell "${current.name}"`, () => save(patch))
-                }}>×</button>}
-            </li>
-          })}</ul>
-        </section>)}
-      </section>}
       {!witchwarper && sc && traditions.length > 0 && classSlotRanks.length > 0 && <div className="class-spell-slots">
         {(sc.spentSlots?.length ?? 0) > 0 && <div className="row">
           <button type="button" aria-label="Reset class spell slots"
@@ -2287,9 +2282,35 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           const extras = extraSlots.filter(slot => slot.rank === rank)
           return <section className="spell-slot-group" key={rank}>
             <h5>{title}{necromancer && <> <DirgeRankButton rank={rank} onOpen={openDirge} /></>}
-              {wizard && <> <SpellbookRankButton book="Wizard" rank={rank} onOpen={rank => openSpellbook('Wizard', rank)} /></>}
-              {magus && <> <SpellbookRankButton book="Magus" rank={rank} onOpen={rank => openSpellbook('Magus', rank)} /></>}</h5>
+              {(wizard || wizardSpellbookSlots.some(slot => slot.rank === rank)) && <>
+                <SpellbookRankButton book="Wizard" rank={rank}
+                  onOpen={wizardSpellbookSlots.length > 0 && !wizard ? openWizardBookRank : rank => openSpellbook('Wizard', rank)} />
+              </>}
+              {magus && <> <SpellbookRankButton book="Magus" rank={rank} onOpen={rank => openSpellbook('Magus', rank)} /></>}
+              {witch && <> <SpellbookRankButton book="Witch" rank={rank} onOpen={rank => openSpellbook('Witch', rank)} /></>}</h5>
             <SpellColumns />
+            {wizardSpellbookSlots.some(slot => slot.rank === rank) && <ul aria-label={`Wizard rank ${rank} spellbook`}>
+              {wizardSpellbookSlots.filter(slot => slot.rank === rank).map(slot => {
+                const current = (c.spells ?? []).find(spell => spell.bookSlot === slot.key)
+                const currentEntry = current && spellEntry(current.name, current.entryId)
+                const label = rank === 0 ? `Wizard cantrip ${slot.index + 1}` : `Wizard rank ${rank} spell ${slot.index + 1}`
+                return <li className="spellbook-row" key={slot.key}>
+                  {currentEntry
+                    ? <EntryDescription className="spellbook-slot-name" name={currentEntry.name} entry={currentEntry} entries={entries} character={c} />
+                    : <span className="spellbook-slot-name">{label}: Not Selected</span>}
+                  {current && <button type="button" className="spell-remove" aria-label={`Remove ${label} spell`}
+                    onClick={() => {
+                      const spells = (c.spells ?? []).filter(spell => spell.bookSlot !== slot.key)
+                      const prepared = c.spellcasting?.prepared
+                        ? Object.fromEntries(Object.entries(c.spellcasting.prepared)
+                          .filter(([, preparedSpell]) => preparedSpell !== current.entryId && preparedSpell !== current.name))
+                        : undefined
+                      const patch = { spells, ...(prepared ? { spellcasting: { ...c.spellcasting!, prepared } } : {}) }
+                      confirmRemoval(`Wizard spellbook spell "${current.name}"`, () => save(patch))
+                    }}>×</button>}
+                </li>
+              })}
+            </ul>}
             <ul>{Array.from({ length: count }, (_, index) => {
               const extra = extras[index - (count - extras.length)]
               const normalCount = Math.max(0, Math.min(20, Math.trunc(Number(sc.slots[rank]) || 0)))

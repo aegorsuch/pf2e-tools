@@ -557,6 +557,24 @@ it('rolls verified Fireball, Void Warp, and Deathly Scream formulas at heightene
   expect(spellActionRolls('Fireball', 2, fireball)).toEqual([])
 })
 
+it('rolls Curse of Death damage for the selected stage and heightened rank', () => {
+  expect(spellDamage('Curse of Death', 4)).toEqual([])
+  expect(spellDamage('Curse of Death', 5)).toEqual([
+    { label: 'Stage 1 damage', dice: 4, sides: 6, type: 'void' },
+    { label: 'Stage 2 damage', dice: 8, sides: 6, type: 'void' },
+    { label: 'Stage 3 damage', dice: 12, sides: 6, type: 'void' },
+  ])
+  expect(spellDamage('Curse of Death', 8).map(damage => damage.dice)).toEqual([7, 11, 15])
+  const entry: ContentEntry = { id: 'curse-of-death', name: 'Curse of Death', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 5, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  const markup = renderToStaticMarkup(<SpellActions name="Curse of Death" rank={6} entry={entry} />)
+  expect(markup).toContain('aria-label="Curse of Death stage"')
+  expect(markup).toContain('aria-label="Roll Curse of Death: Stage 1 damage"')
+  expect(markup).toContain('title="Two Actions; Stage 1 damage: 5d6 void"')
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  expect(spellDamage('Curse of Death', 6).map(damage => rollSpellDamage(damage))).toEqual([5, 9, 13])
+})
+
 it.each([
   ['Eldritch Wrath', 4, 3, 10, 9, 12, 'mental', 'Two Actions'],
   ['Slice Reality', 6, 7, 10, 11, 8, 'void', 'Three Actions'],

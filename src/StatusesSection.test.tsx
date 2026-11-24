@@ -274,8 +274,8 @@ it('renders each available status in its own alphabetical row', () => {
     activeSpells: ['Tailwind', 'Protect Companion', 'Enduring Might'], zealousConvictionRank: 9,
     companions: [{ id: 'bear', name: 'Bear', type: 'Bear' }] }
   const markup = renderToStaticMarkup(<StatusesContent c={c} entries={[]} save={() => {}} />)
-  expect(markup.match(/class="status-row"/g)).toHaveLength(9)
-  const labels = ['Active stance', 'Enduring Might status', 'Enfeebled status', 'Frightened status',
+  expect(markup.match(/class="status-row"/g)).toHaveLength(10)
+  const labels = ['Active stance', 'Doomed status', 'Enduring Might status', 'Enfeebled status', 'Frightened status',
     'Protect Companion active', 'Rage active (defense)', 'Sickened status', 'Tailwind status', 'Zealous Conviction active on self']
   const positions = labels.map(label => markup.indexOf(label))
   expect(positions.every(position => position >= 0)).toBe(true)

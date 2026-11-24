@@ -158,9 +158,18 @@ const HALFLING_ETHNICITIES: Record<string, string[]> = {
   'Uhlam (Forest)': ['Uhlam', 'Forest Halfling'],
 }
 
+const ELF_ETHNICITIES: Record<string, string[]> = {
+  Aiudeen: [],
+  'Ekujae (Woodland)': ['Ekujae'],
+  'Ilverani (Arctic)': ['Ilverani'],
+  'Mualijae (Woodland)': ['Mualijae'],
+  'Spiresworn (Arctic)': ['Spiresworn'],
+  'Vourinoi (Desert)': ['Vourinoi'],
+}
+
 export function ethnicityLabel(name: string) {
   const key = name.trim().toLowerCase()
-  return Object.entries({ ...DWARF_ETHNICITIES, ...HALFLING_ETHNICITIES }).find(([label, aliases]) =>
+  return Object.entries({ ...DWARF_ETHNICITIES, ...HALFLING_ETHNICITIES, ...ELF_ETHNICITIES }).find(([label, aliases]) =>
     [label, ...aliases].some(alias => alias.toLowerCase() === key))?.[0] ?? name
 }
 
@@ -177,9 +186,10 @@ export function ethnicityOptions(entries: ContentEntry[], ancestry?: string) {
   const target = ancestry?.trim().toLowerCase()
   if (target === 'dwarf') return Object.keys(DWARF_ETHNICITIES)
   if (target === 'halfling') return Object.keys(HALFLING_ETHNICITIES)
+  if (target === 'elf') return Object.keys(ELF_ETHNICITIES)
   const additional = target === 'human' ? [
     'Chelaxian', 'Erutaki', 'Garundi', 'Keleshite', 'Lirgeni', 'Mauxi', 'Nidalese', 'Olehala', 'Shoanti', 'Taldan', 'Tian-Dan', 'Tian-Yae', 'Ulfen', 'Varki', 'Varisian', 'Vudrani',
-  ] : target === 'elf' ? ['Ekujae', 'Spiresworn'] : target === 'orc' ? ['Belkzen'] : []
+  ] : target === 'orc' ? ['Belkzen'] : []
   const names = [...additional, ...entries.filter(entry => !entry.deleted && entry.kind === 'feat'
     && (!target || entry.traits.some(trait => trait.toLowerCase() === target)))
     .flatMap(entry => [entry.data.access, entry.data.prerequisite]

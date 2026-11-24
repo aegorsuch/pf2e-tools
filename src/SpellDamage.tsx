@@ -160,6 +160,13 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return rank >= 4 ? [{ label: 'Damage', dice: rank - 1, sides: 12, type: 'mental' }] : []
     case 'Slice Reality':
       return rank >= 6 ? [{ label: 'Damage', dice: rank + 1, sides: 8, type: 'void' }] : []
+    case 'Curse of Death': {
+      if (rank < 5) return []
+      const heightened = rank - 5
+      return [4, 8, 12].map((dice, index) => ({
+        label: `Stage ${index + 1} damage`, dice: dice + heightened, sides: 6, type: 'void',
+      }))
+    }
     case 'Death Sentence':
       return rank >= 7 ? [{ label: 'Damage', dice: rank + 4, sides: 10, type: 'spirit' }] : []
     case 'Call Cosmos': {
@@ -529,10 +536,27 @@ function DreadMosquitoStormActions() {
   </span>
 }
 
+function CurseOfDeathActions({ rank, actions }: { rank: number; actions?: string }) {
+  const [stage, setStage] = useState(1)
+  const damage = spellDamage('Curse of Death', rank)[stage - 1]
+  return <span>
+    <label>Curse of Death stage <select aria-label="Curse of Death stage" value={stage}
+      onChange={event => setStage(Number(event.target.value))}>
+      <option value={1}>Stage 1</option>
+      <option value={2}>Stage 2</option>
+      <option value={3}>Stage 3</option>
+    </select></label>
+    {damage && <DamageRoll key={stage} name="Curse of Death" damage={damage} actions={actions} toggleResult />}
+  </span>
+}
+
 export function SpellActions({ name, rank, entry, spellcastingModifier, actionOverride }: { name: string; rank: number; entry?: ContentEntry; spellcastingModifier?: number; actionOverride?: string }) {
   if (name === 'Warp World' && rank >= 4) return <WarpWorldRoll rank={rank} />
   if (name === 'Sun Blade' && rank >= 2) return <SunBladeActions rank={rank} />
   if (name === 'Dread Mosquito Storm') return <DreadMosquitoStormActions />
+  if (name === 'Curse of Death' && rank >= 5)
+    return <CurseOfDeathActions rank={rank}
+      actions={actionOverride ?? (typeof entry?.data.actions === 'string' ? entry.data.actions : undefined)} />
   const allRolls = spellActionRolls(name, rank, entry, spellcastingModifier)
   const action = actionOverride?.replace(/^Single Action$/i, 'One Action')
   const rolls = name === 'Heal' && action && /^(?:One|Two|Three) Actions?$/i.test(action)
@@ -547,6 +571,7 @@ export function SpellActions({ name, rank, entry, spellcastingModifier, actionOv
 }
 
 export function SpellDamageRolls({ name, rank, spellcastingModifier }: { name: string; rank: number; spellcastingModifier?: number }) {
+  if (name === 'Curse of Death' && rank >= 5) return <CurseOfDeathActions rank={rank} />
   return <>{spellDamage(name, rank, spellcastingModifier).map((damage) =>
     <DamageRoll key={`${damage.label}:${damage.dice}`} name={name} damage={damage} />)}</>
 }

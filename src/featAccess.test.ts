@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { achievementKey, achievementOptions, ethnicityOptions, featAccess, featRarity } from './featAccess'
+import { achievementKey, achievementOptions, ethnicityLabel, ethnicityOptions, featAccess, featRarity } from './featAccess'
 import { eligibleFeats, featSelectionPrerequisiteChecker } from './builder'
 import type { Character, ContentEntry } from './types'
 
@@ -377,7 +377,9 @@ it('offers only ethnicities associated with the selected ancestry', () => {
     'Chelaxian', 'Erutaki', 'Garundi', 'Keleshite', 'Kellid', 'Lirgeni', 'Mauxi', 'Nidalese', 'Olehala', 'Shoanti', 'Taldan', 'Tian-Dan', 'Tian-Yae', 'Ulfen', 'Varisian', 'Varki', 'Vudrani',
   ])
   expect(ethnicityOptions(entries, 'dwarf')).toEqual(['Ergaksen (Surface)', 'Grondaksen (Underground)', 'Holtaksen (Mountain)'])
-  expect(ethnicityOptions(entries, 'Elf')).toEqual(['Ekujae', 'Ilverani', 'Mualijae', 'Spiresworn', 'Vourinoi'])
+  expect(ethnicityOptions(entries, 'Elf')).toEqual([
+    'Aiudeen', 'Ekujae (Woodland)', 'Ilverani (Arctic)', 'Mualijae (Woodland)', 'Spiresworn (Arctic)', 'Vourinoi (Desert)',
+  ])
   expect(ethnicityOptions(entries, 'Orc')).toEqual(['Belkzen', 'Matanji'])
   expect(ethnicityOptions(entries, 'Halfling')).toEqual(['Isgeri', 'Jaric (Mountain)', 'Mihrini', "Song'o (Jungle)", 'Uhlam (Forest)'])
   expect(ethnicityOptions(entries, 'Android')).toEqual([])
@@ -406,6 +408,22 @@ it.each([
   expect(featAccess({ ...character, ethnicity: other }, access)?.automatic).toBe(false)
   if (name === 'Ergaksen') {
     expect(featAccess({ ...character, ethnicity: label }, { ...access, data: { access: 'any surface dwarf ethnicity' } })?.automatic).toBe(true)
+  }
+})
+
+it.each([
+  ['Aiudeen', 'Aiudeen'],
+  ['Ekujae (Woodland)', 'Ekujae'],
+  ['Ilverani (Arctic)', 'Ilverani'],
+  ['Mualijae (Woodland)', 'Mualijae'],
+  ['Spiresworn (Arctic)', 'Spiresworn'],
+  ['Vourinoi (Desert)', 'Vourinoi'],
+])('normalizes Elf ethnicity %s and keeps legacy access matching', (label, alias) => {
+  expect(ethnicityLabel(alias)).toBe(label)
+  const access = { ...feat, traits: ['Elf'], data: { access: `${alias} ethnicity` } }
+  for (const ethnicity of [label, alias, label.toLowerCase()]) {
+    expect(featAccess({ ...character, ancestry: 'Elf', ethnicity }, access))
+      .toMatchObject({ automatic: true, source: 'ethnicity' })
   }
 })
 

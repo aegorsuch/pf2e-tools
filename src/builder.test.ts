@@ -2,7 +2,7 @@ import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQue
 import { mapAonHit } from './aon'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, characterAncestryLabel, characterSummary, subclassOptions, subclassSkillChoice, subclassSkillGrants, selectedSubclass, investigatorSkillfulLessonSkills, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, characterAncestryLabel, characterSummary, subclassOptions, subclassSkillChoice, subclassSkillGrants, selectedSubclass, investigatorSkillfulLessonSkills, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange, syncClassArchetypeDedication } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
@@ -17,6 +17,46 @@ it('clears Bone Shield activation and raised state when removed', () => {
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     activeSpells: ['Bone Shield', 'Shield'], boneShieldRaised: true }
   expect(spellRemovalChange(c, 'Bone Shield')).toEqual({ activeSpells: ['Shield'], boneShieldRaised: false })
+})
+
+it('applies Warrior of Legend armor and spear/polearm proficiency rules', () => {
+  const fighter = entry('class', 'Fighter', {
+    attack_proficiency: 'Trained in simple weapons, Trained in martial weapons',
+    defense_proficiency: 'Trained in all armor, Trained in unarmored defense',
+  })
+  const expertise = { ...entry('classFeature', 'Fighter Weapon Expertise', { class: 'Fighter' }, 5),
+    description: 'Your proficiency rank for simple and martial weapons increases to expert.' }
+  const mastery = { ...entry('classFeature', 'Weapon Mastery', { class: 'Fighter' }, 13),
+    description: 'Your proficiency rank for simple and martial weapons increases to master.' }
+  const legend = { ...entry('classFeature', 'Weapon Legend', { class: 'Fighter' }, 19),
+    description: 'Your proficiency rank for simple and martial weapons increases to legendary.' }
+  const spear = entry('weapon', 'Longspear', {
+    weapon_category: 'Martial', weapon_group: 'Polearm', weapon_type: 'Melee', damage: '1d8 piercing', hands: 2,
+  })
+  const sword = entry('weapon', 'Longsword', {
+    weapon_category: 'Martial', weapon_group: 'Swords', weapon_type: 'Melee', damage: '1d8 slashing', hands: 1,
+  })
+  const dedication = { name: 'Warrior of Legend Dedication', type: 'Class Feat', level: 2, choice: 'Bludgeoning' }
+  const c: Character = { ...base, level: 20, className: 'Fighter', subclass: 'Warrior of Legend',
+    conditions: { doomed: 2 }, feats: [dedication] }
+  const entries = [fighter, expertise, mastery, legend, spear, sword]
+  const weapon = (name: string) => ({ id: name, name, potency: 0, striking: 0, runes: [] })
+
+  expect(armorRanks(c, [fighter]).Heavy).toBe(0)
+  expect(weaponRanks(c, entries).Martial).toBe(2)
+  expect(weaponAttack(c, entries, weapon('Longspear'))).toMatchObject({
+    rank: 4, damage: expect.stringContaining('+2 piercing'), traits: expect.arrayContaining(['Parry']),
+  })
+  expect(weaponAttack(c, entries, weapon('Longsword')).rank).toBe(2)
+  expect(weaponAttack({ ...c, shield: {
+    id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false, equipped: true,
+  } }, entries, weapon('Longspear')).traits).not.toContain('Parry')
+  expect(featChoiceOptions(dedication.name, c, entries, 'class:2:0'))
+    .toEqual(['Bludgeoning', 'Piercing', 'Slashing'])
+  expect(resistances(c, entries)).toEqual(expect.arrayContaining([
+    { damage: 'Piercing damage from weapon and unarmed attacks', value: 10, source: dedication.name },
+    { damage: 'Slashing damage from weapon and unarmed attacks', value: 10, source: dedication.name },
+  ]))
 })
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -1258,6 +1298,18 @@ it('limits advanced domains to eligible initial choices available at the feat le
   expect(featChoiceOptions("Advanced Deity's Domain", { ...c, deity: undefined }, [deity], 'class:8:0')).toEqual([])
 })
 
+it('prevents duplicate Domain Initiate domain choices', () => {
+  const deity = entry('deity', 'Pharasma', { domain_primary: 'Death, Repose, Truth' })
+  const c: Character = { ...base, level: 10, deity: 'Pharasma', feats: [
+    { name: 'Domain Initiate', type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Death' },
+    { name: 'Domain Initiate', type: 'Class Feat', level: 8, slot: 'class:8:0', choice: 'Repose' },
+  ] }
+  const options = featChoiceOptions('Domain Initiate', c, [deity], 'class:4:0')
+  expect(options).not.toContain('Death')
+  expect(options).toContain('Repose')
+  expect(featChoiceOptions('Domain Initiate', c, [deity], 'class:2:0')).toContain('Death')
+})
+
 describe('official passive feat mechanics', () => {
   it('grants Dwarven Lore and Clan Lore skills and lore, adding a trained token for already-trained skills', () => {
     const dwarvenLore = { name: 'Dwarven Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }
@@ -2013,6 +2065,14 @@ describe('ancestryLabel', () => {
     expect(characterSummary(c, [pitborn])).toContain('Pitborn Human')
   })
 
+  it('uses selected Fadrim lineage in the character label', () => {
+    const c: Character = { ...base, ancestry: 'Elf', heritage: 'Fadrim',
+      feats: [{ name: 'Trickster Fadrim', type: 'Ancestry Feat', level: 1 }] }
+    expect(characterAncestryLabel(c, [])).toBe('Trickster Fadrim Elf')
+    expect(ancestryLabel('Fadrim', 'Fadrim', 'Trickster Fadrim')).toBe('Trickster Fadrim')
+    expect(characterAncestryLabel({ ...c, level: 0 }, [])).toBe('Fadrim Elf')
+  })
+
   describe('class labels', () => {
     it.each([
       ['Ranger', 'Outwit', 'Outwit Edge Ranger'],
@@ -2030,6 +2090,42 @@ describe('ancestryLabel', () => {
     ])('labels %s with selected %s specialization', (className, subclass, expected) => {
       expect(classLabel({ ...base, className, subclass, ...(className === 'Druid' ? { order: subclass } : {}) })).toBe(expected)
       expect(classLabel({ ...base, className })).toBe(className)
+    })
+
+    it('does not repeat class names in selected subclasses', () => {
+      expect(classLabel({ ...base, className: 'Cleric', subclass: 'Cloistered Cleric' })).toBe('Cloistered Cleric')
+    })
+
+    it('recognizes Warrior of Legend as a Fighter class archetype and reserves its dedication', () => {
+      const character = { ...base, level: 2, className: 'Fighter', subclass: 'Warrior of Legend', feats: [] }
+      expect(classLabel(character)).toBe('Warrior of Legend')
+      expect(plannedSlots(character).find(slot => slot.grantedBy === 'Warrior of Legend'))
+        .toMatchObject({ displayCategory: 'archetype', grantedFeat: 'Warrior of Legend Dedication' })
+      expect(syncClassArchetypeDedication(character, [])?.feats).toContainEqual({
+        name: 'Warrior of Legend Dedication', type: 'Class Feat', level: 2, slot: 'class:2:0',
+      })
+    })
+
+    it('places Vindicator Dedication in the archetype section', () => {
+      const ranger = { ...base, level: 2, className: 'Ranger', subclass: 'Vindication' }
+      expect(plannedSlots(ranger).find(slot => slot.grantedBy === 'Vindicator'))
+        .toMatchObject({ displayCategory: 'archetype', grantedFeat: 'Vindicator Dedication' })
+    })
+
+    it('shows selected Vindicator archetype feats in the archetype section without changing their class slot', () => {
+      const domainInitiate = entry('feat', 'Domain Initiate', { archetype: 'Vindicator' }, 4, ['Archetype'])
+      const ranger = { ...base, level: 4, className: 'Ranger', subclass: 'Vindication',
+        feats: [{ name: domainInitiate.name, type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
+      const slot = plannedSlots(ranger, [domainInitiate]).find(item => item.key === 'class:4:0')
+      expect(slot).toMatchObject({ category: 'class', displayCategory: 'archetype' })
+      expect(plannedSlots({ ...ranger, feats: [] }, [domainInitiate]).find(item => item.key === 'class:4:0'))
+        .toMatchObject({ category: 'class' })
+    })
+
+    it.each(['Arcane', 'Divine'])('labels Bloodrager by its selected tradition: %s', tradition => {
+      const c: Character = { ...base, level: 2, className: 'Barbarian', subclass: 'Bloodrager',
+        feats: [{ name: 'Bloodrager Dedication', type: 'Class Feat', level: 2, choice: tradition }] }
+      expect(classLabel(c)).toBe(`${tradition} Bloodrager`)
     })
 
     it('recognizes imported subclass choices while allowing explicit changes and clearing', () => {

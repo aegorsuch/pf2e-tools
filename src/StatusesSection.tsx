@@ -118,7 +118,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
         onChange={event => save(featEffectChange(c, 'Thick Hide Mask', event.target.checked))} />
         {' '}Thick Hide Mask resistance</label>,
     }] : []),
-    ...(['enfeebled', 'frightened', 'sickened'] as const).map(name => ({
+    ...(['enfeebled', 'frightened', 'sickened', 'doomed'] as const).map(name => ({
       name, element: <label>
         {name[0].toUpperCase() + name.slice(1)}{' '}
         <input type="number" min="0" step="1" aria-label={`${name[0].toUpperCase() + name.slice(1)} status`}

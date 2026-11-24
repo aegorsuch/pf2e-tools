@@ -863,7 +863,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         </div>
         {(['Inner Strength', 'Shake It Off', 'Creature Comforts'].some(name => activeFeatsNamed(c, name).length > 0)
           || !!c.conditions && Object.values(c.conditions).some(value => typeof value === 'number' && value > 0)) && <div className="condition-controls" role="group" aria-label="Conditions">
-          {(['frightened', 'sickened', 'enfeebled'] as const).map(name => <label key={name}>
+          {(['frightened', 'sickened', 'enfeebled', 'doomed'] as const).map(name => <label key={name}>
             {name[0].toUpperCase() + name.slice(1)}{' '}
             <input type="number" min="0" step="1" aria-label={`${name[0].toUpperCase() + name.slice(1)} condition`}
               value={conditionValue(c, name)} onChange={event => {

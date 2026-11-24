@@ -176,6 +176,16 @@ it('shows cross-training action cost inside the feat button for the chosen order
   expect(render(torrent)).toMatch(/<button[^>]*class="feat-name"[^>]*>Order Cross-Training[^<]* <span class="action-cost" aria-label="Reaction"/)
 })
 
+it('omits the selected class archetype from feat names in parentheses', () => {
+  const feat: ContentEntry = { id: 'favored-weapon-symbol', name: 'Favored Weapon Symbol (Vindicator)', level: 4,
+    systems: ['pf2e'], kind: 'feat', source: 'official', traits: ['Archetype'], data: {}, description: '', effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), subclass: 'Vindication', level: 4,
+    feats: [{ name: feat.name, type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feat]} categories={['class']} save={() => {}} />)
+  expect(markup).toContain('>Favored Weapon Symbol<')
+  expect(markup).not.toContain('Favored Weapon Symbol (Vindicator)')
+})
+
 it('counts a fixed background feat once and includes temporary granted skill feats', () => {
   const assurance: ContentEntry = { id: 'assurance-count', systems: ['pf2e', 'sf2e'], kind: 'feat', source: 'official',
     name: 'Assurance', level: 1, traits: ['General', 'Skill'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }
@@ -2529,8 +2539,8 @@ it('locks Bloodrager Dedication while allowing its tradition to change', () => {
   let c: Character = { ...emptyRanger(), className: 'Barbarian', subclass: 'Bloodrager', level: 2,
     feats: [{ name: dedication.name, type: 'Class Feat', level: 2, slot: 'class:2:0', choice: 'Arcane' }] }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
-  const html = renderToStaticMarkup(<FeatSlots c={c} entries={[dedication]} save={save} categories={['class']} />)
-  expect(html).toMatch(/aria-label="L02 Class dedication required by class archetype"[^>]*disabled/)
+  const html = renderToStaticMarkup(<FeatSlots c={c} entries={[dedication]} save={save} categories={['archetype']} />)
+  expect(html).toMatch(/aria-label="L02 Dedication required by class archetype"[^>]*disabled/)
   expect(html).toContain('aria-label="Bloodrager Dedication tradition"')
   expect(html).not.toContain('check prerequisites')
   const choice = FeatChoice({ c, entries: [dedication], save, index: 0 })
