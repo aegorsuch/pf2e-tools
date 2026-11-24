@@ -450,8 +450,8 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   }
   if (kind === 'familiar') {
     const type = /\*\*Ability Type\*\*\s+([^\n]+)/i.exec(markdown)?.[1]
-    if (type) data.ability_type = plain(type)
-    else if (text(s.category) === 'familiar-specific') data.ability_type = 'Specific Familiar'
+    if (text(s.category) === 'familiar-specific') data.ability_type = 'Specific Familiar'
+    else if (type) data.ability_type = plain(type)
   }
   if (text(s.category).toLowerCase() === 'fatal-method') data.subclass_type = 'fatal-method'
   if (text(s.category).toLowerCase() === 'grim-fascination') {
