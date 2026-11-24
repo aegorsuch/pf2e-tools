@@ -228,6 +228,8 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
           && candidate.systems.some(system => c.systems.includes(system))
           && typeof candidate.data.actions === 'string' && /(?:single|one|two|three) action|free action|reaction/i.test(candidate.data.actions))
         return <div className="status-row" key={control.name}>{entry ? <>
+          {control.name === 'Harden Flesh' && <><input type="checkbox" aria-label="Harden Flesh status"
+            checked={!!c.hardenFleshActive} onChange={event => save({ hardenFleshActive: event.target.checked })} />{' '}</>}
           <EntryDescription name={control.name} entry={entry} entries={entries} character={c} hideButtonActions />{' '}
           <ActiveSpellActions name={control.name} entry={entry}>{control.element}</ActiveSpellActions>
         </> : control.element}</div>
