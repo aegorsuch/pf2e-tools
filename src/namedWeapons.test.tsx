@@ -71,11 +71,14 @@ it('implements Debilitating Dart as a returning dart with its conditional saving
     const level19 = { ...c, level: 19 }
     const level20 = { ...c, level: 20 }
     expect(effectiveWeapon({ ...c, level: 9 }, entries, owned(item.name)).runes).toEqual(['Returning'])
-    expect(effectiveWeapon({ ...c, level: 10 }, entries, owned(item.name)).runes).toEqual(['Returning', 'Cunning'])
-    expect(effectiveWeapon(level19, entries, owned(item.name)).runes).toEqual(['Returning', 'Cunning'])
-    expect(effectiveWeapon(level20, entries, owned(item.name))).toMatchObject({ material: 'Orichalcum', runes: ['Returning', 'Cunning', 'Impossible'] })
+    expect(effectiveWeapon({ ...c, level: 10 }, entries, owned(item.name)).runes).toEqual(['Returning', 'Cunning', 'Impactful'])
+    expect(effectiveWeapon({ ...c, level: 16 }, entries, owned(item.name)).runes).toEqual(['Returning', 'Cunning', 'Impactful'])
+    expect(effectiveWeapon(level19, entries, owned(item.name)).runes).toEqual(['Returning', 'Cunning', 'Impactful (Greater)'])
+    expect(effectiveWeapon(level20, entries, owned(item.name))).toMatchObject({ material: 'Orichalcum', runes: ['Returning', 'Cunning', 'Impactful (Greater)', 'Impossible'] })
     expect(weaponAttack(level20, entries, owned(item.name)).range).toBe(40)
-    expect(effectiveWeapon(level20, entries, { ...owned(item.name), runes: ['Cunning', 'Impossible'] }).runes).toEqual(['Returning', 'Cunning', 'Impossible'])
+    expect(effectiveWeapon(level20, entries, { ...owned(item.name), runes: ['Cunning', 'Impossible'] }).runes).toEqual(['Returning', 'Cunning', 'Impactful (Greater)', 'Impossible'])
+    expect(effectiveWeapon({ ...c, level: 10 }, entries, { ...owned(item.name), runes: ['Greater Impactful'] }).runes)
+      .toEqual(['Returning', 'Cunning', 'Impactful (Greater)'])
     for (const displayOnly of [false, true]) {
       const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [owned(item.name)] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)
       expect(html).toContain('>Returning</button>')
@@ -89,6 +92,8 @@ it('implements Debilitating Dart as a returning dart with its conditional saving
       const maxLevel = renderToStaticMarkup(<WeaponList c={{ ...level20, weapons: [owned(item.name)] }} entries={entries} save={() => {}} displayOnly={displayOnly} />)
       expect(maxLevel).toContain('>Impossible</button>')
       expect(maxLevel).toContain('>Cunning</button>')
+      expect(maxLevel).toContain('>Impactful (Greater)</button>')
+      expect(maxLevel).toContain('1d6 force')
       expect(maxLevel).not.toContain(' + Cunning')
       expect(maxLevel).toContain('>Thrown 40</button>')
       expect(maxLevel).not.toContain('>Orichalcum</button>')
@@ -757,14 +762,14 @@ it('does not duplicate Grievous when already present in an artifact source or sa
     description: shadowpiercer.description.replace('+4 major striking ghost touch', '+4 major striking grievous ghost touch') }
   const entries = [...namedCatalog.filter(entry => entry !== shadowpiercer), source, rune('Grievous')]
   const weapon = { ...owned('Shadowpiercer'), runes: ['Grievous', 'Flaming'] }
-  expect(effectiveWeapon(c, entries, weapon).runes).toEqual(['Ghost Touch', 'Grievous', 'Flaming'])
+  expect(effectiveWeapon(c, entries, weapon).runes).toEqual(['Grievous', 'Astral', 'Parrying', 'Throwing', 'Returning', 'Flaming'])
   expect(weapon.runes).toEqual(['Grievous', 'Flaming'])
 })
 
 it('offers Shadowpiercer as a spear or Dancer\'s spear and applies each base weapon', () => {
   for (const name of ['Shadowpiercer (Spear)', 'Shadowpiercer']) {
     const weapon = owned(name)
-    expect(effectiveWeapon(c, namedCatalog, weapon)).toMatchObject({ potency: 4, striking: 3, runes: ['Ghost Touch', 'Grievous'] })
+    expect(effectiveWeapon(c, namedCatalog, weapon)).toMatchObject({ potency: 4, striking: 3, material: 'Orichalcum', runes: ['Grievous', 'Astral', 'Parrying', 'Throwing', 'Returning'] })
     const attack = weaponAttack(c, namedCatalog, weapon)
     expect(attack.damage).toBe('4d6+2 piercing')
     expect(attack.additionalDamage[0].value).toBe('2d6 precision vs. incorporeal or shadow creatures')
@@ -775,8 +780,35 @@ it('offers Shadowpiercer as a spear or Dancer\'s spear and applies each base wea
   const dancer = owned("Shadowpiercer (Dancer's Spear)")
   expect(weaponHands(namedCatalog, dancer)).toBe(2)
   expect(weaponAttack(c, namedCatalog, dancer).traits).toContain('Reach')
+  expect(weaponAttack(c, namedCatalog, dancer).thrownRange).toBe(10)
+  expect(weaponAttack(c, namedCatalog, dancer, { thrown: true }).range).toBe(10)
   const enhanced = effectiveWeapon(c, namedCatalog, { ...owned('Shadowpiercer'), striking: 3, runes: ['Flaming'] })
-  expect(enhanced.runes).toEqual(['Ghost Touch', 'Grievous', 'Flaming'])
+  expect(enhanced.runes).toEqual(['Grievous', 'Astral', 'Parrying', 'Throwing', 'Returning', 'Flaming'])
+})
+
+it('keeps Shadowpiercer variants fixed after purchase and scales Astral', () => {
+  const entries = [...namedCatalog, melee('Broad Spear', '1d10 piercing')]
+  const choices = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === 'Shadowpiercer')
+  expect(choices.map(entry => entry.data.named_weapon_base)).toEqual(['Spear', "Dancer's Spear", 'Broadspear'])
+  const weapon = owned('Shadowpiercer (Broadspear)')
+  expect(weaponEntry(entries, 'Shadowpiercer (Broad Spear)')?.data.named_weapon_base).toBe('Broadspear')
+  for (const [level, astral] of [[14, 'Astral'], [15, 'Astral (Greater)']] as const) {
+    const character = { ...c, level, weapons: [weapon] }
+    expect(effectiveWeapon(character, entries, weapon)).toMatchObject({
+      material: 'Orichalcum', runes: ['Grievous', astral, 'Parrying', 'Throwing', 'Returning'],
+    })
+    for (const displayOnly of [false, true]) {
+      const markup = renderToStaticMarkup(<WeaponList c={character} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+      expect(markup).not.toContain('aria-label="Shadowpiercer weapon type"')
+      expect(markup).toContain(`>${astral}</button>`)
+      expect(markup).toContain('>Parrying</button>')
+      expect(markup).toContain('>Throwing</button>')
+      expect(markup).toContain('>Returning</button>')
+      expect(markup).toMatch(/Melee: Attack[\s\S]*?<br\/>Ranged: Attack/)
+    }
+  }
+  expect(effectiveWeapon({ ...c, level: 14 }, entries, { ...weapon, runes: ['Greater Astral'] }).runes)
+    .toEqual(['Grievous', 'Astral (Greater)', 'Parrying', 'Throwing', 'Returning'])
 })
 
 it('uses Callooh Callay base dice, finesse and two-hand traits, preserves Vorpal, and applies matching deity boons', () => {
@@ -820,7 +852,7 @@ it('shows one selected Blade of Fallen Stars attack and lets inventory switch it
   expect(saved.weapons?.[0]).toMatchObject({ combinationForm: 'Ranged' })
   const rangedMarkup = renderToStaticMarkup(<WeaponList c={saved} entries={namedCatalog} save={save} />)
   expect(rangedMarkup).toContain('Ranged: Attack')
-  expect(rangedMarkup).not.toContain('Melee: Attack')
+  expect(rangedMarkup).not.toContain('Blade of Fallen Stars Melee attack')
 })
 
 it.each([false, true])('shows named weapon properties, action costs, reactions and destruction rules in both views (displayOnly=%s)', displayOnly => {
@@ -858,7 +890,7 @@ it.each([false, true])('shows named weapon properties, action costs, reactions a
     expect(sword).not.toContain('aria-label="Remove Vorpal"')
   }
   if (displayOnly) {
-    expect(shadow).toContain('>Ghost Touch</button>')
+    expect(shadow).toContain('>Astral</button>')
     expect(sword).toContain('>Vorpal</button>')
   }
 })

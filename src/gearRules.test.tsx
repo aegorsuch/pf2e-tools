@@ -449,9 +449,22 @@ it.each([false, true])('puts melee and ranged thrown attacks on separate lines (
   expect(html).toMatch(/Melee: Attack[\s\S]*?<br\/>Ranged: Attack/)
   expect(html).toContain('Javelin Melee attack')
   expect(html).toContain('Javelin Ranged attack')
-  expect(render(dart)).not.toContain('Melee: Attack')
+  expect(render(dart)).toContain('Ranged: Attack')
+  expect(render(sword)).toContain('Melee: Attack')
   expect(render({ ...javelin, data: { ...javelin.data, thrown_range: 0 } }))
     .toMatch(/Melee: Attack[\s\S]*?<br\/>Ranged: Attack/)
+})
+
+it('gives Throwing rune a range based on hands without reducing an existing range', () => {
+  const oneHanded = content('weapon', 'One-handed sword', { weapon_type: 'Melee', weapon_category: 'Martial', hands: 1, damage: '1d8 slashing' })
+  const twoHanded = content('weapon', 'Two-handed sword', { weapon_type: 'Melee', weapon_category: 'Martial', hands: 2, damage: '1d12 slashing' })
+  const spear = content('weapon', 'Long-range spear', { weapon_type: 'Melee', weapon_category: 'Simple', hands: 1, thrown_range: 30, damage: '1d6 piercing' }, 0, ['Thrown 30 ft.'])
+  const entries = [oneHanded, twoHanded, spear]
+  for (const [entry, expected] of [[oneHanded, 20], [twoHanded, 10], [spear, 30]] as const) {
+    const weapon = { ...main, name: entry.name, runes: ['Throwing', 'Returning'] }
+    expect(weaponAttack(base, entries, weapon).thrownRange).toBe(expected)
+    expect(weaponAttack(base, entries, weapon, { thrown: true }).range).toBe(expected)
+  }
 })
 
 it("shows Cavalier's Charge as a conditional attack bonus", () => {
@@ -1835,7 +1848,7 @@ it('shows only selected combination form with shared runes, modifications, and i
   expect(eligibleWeaponRunes(entries, { ...weapon, runes: [] }).map(rune => rune.name)).toContain('Vorpal')
   const html = renderToStaticMarkup(<WeaponList c={{ ...character, weapons: [weapon] }} entries={entries} save={() => {}} />)
   expect(html).toContain('Ranged: Attack')
-  expect(html).not.toContain('Melee: Attack')
+  expect(html).not.toContain('Hammer Gun Melee attack')
   expect(html).toContain('aria-label="Combination form: Hammer Gun"')
   expect(html).toContain('Extensible Weapon')
   expect(html).toContain('Omnirange Stabilizers')

@@ -14,7 +14,7 @@ const BASES: Record<string, string[]> = {
   'Splithead Bow': ['Composite Longbow'],
   "Hunter's Anthem": ['Composite Longbow'],
   'Mammoth Bow': ['Composite Longbow'],
-  Shadowpiercer: ['Spear', "Dancer's Spear", 'Broadspear', 'Broad Spear'],
+  Shadowpiercer: ['Spear', "Dancer's Spear", 'Broadspear'],
   'Callooh Callay': ['Longsword'],
   'Blade of Fallen Stars': ['Gun Sword (Melee)', 'Gun Sword (Ranged)'],
   'Final Stand': ['Rapier'],
@@ -66,7 +66,7 @@ const MATERIALS: Record<string, string> = {
   Briar: 'Cold Iron', Blackaxe: 'Adamantine', Ridill: 'Adamantine', Serithtial: 'Orichalcum',
   'Axe of the Dwarven Lords': 'Orichalcum', 'Wintershot (Artifact)': 'Orichalcum', "Clear Cutter's Axe": 'Orichalcum',
   'Blade of Fallen Stars': 'Cold Siccatite (High-Grade)',
-  'Debilitating Dart': 'Orichalcum',
+  'Debilitating Dart': 'Orichalcum', Shadowpiercer: 'Orichalcum',
   'Phoenix Fighting Fan': 'Silver', "Sorshen's Sinuous Guisarme": 'Dawnsilver (High-Grade)',
 }
 
@@ -168,6 +168,9 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
         && entry.systems.some(system => item.systems.includes(system)))
       if (!base) return []
       const replaceDawnRunes = (text: string) => {
+        if (item.name === 'Shadowpiercer') return text
+          .replace(/\[ghost touch\]\([^)]+\)/gi, '[Astral](/Equipment.aspx?ID=2832)')
+          .replace(/\bghost touch\b/gi, 'Astral')
         if (item.name !== "Hunter's Dawn") return text
         const astral = text.replace(/\[speed\]\(\/Equipment\.aspx\?ID=\d+\)/i, '[Astral](/Equipment.aspx?ID=2832)')
         return base.name === 'Club' ? astral : astral.replace(/\[ghost touch\]\([^)]+\)/i, 'Returning')
@@ -256,6 +259,15 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
       named_weapon_runes: [...new Set([...runes.filter(rune => runeBase(rune) !== 'Flaming' && runeBase(rune) !== element),
         at >= 18 ? `${element} (Greater)` : element, 'Hooked', 'Grappling', 'Grievous'])].join(';') } }
   }
+  if (source === 'Shadowpiercer') {
+    const at = level ?? entry.level
+    const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
+    const greaterAstral = at >= 15 || weapon.runes.some(rune => /^(?:Greater Astral|Astral \(Greater\))$/i.test(rune))
+    return { ...entry, data: { ...entry.data, named_weapon_runes: [...new Set([
+      ...runes.filter(rune => !/^(?:Ghost Touch|Greater Astral|Astral(?: \(Greater\))?)$/i.test(rune)),
+      greaterAstral ? 'Astral (Greater)' : 'Astral', 'Parrying', 'Throwing', 'Returning',
+    ])].join(';') } }
+  }
   if (source === 'Blade of the Black Sovereign') {
     const at = level ?? entry.level
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
@@ -278,8 +290,11 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
   }
   if (source === 'Debilitating Dart' && (level ?? entry.level) >= 10) {
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
+    const greaterImpactful = (level ?? entry.level) >= 17
+      || weapon.runes.some(rune => /^(?:Greater Impactful|Impactful \(Greater\))$/i.test(rune))
     return { ...entry, data: { ...entry.data, named_weapon_runes: [...new Set([
-      ...runes, 'Cunning', ...((level ?? entry.level) >= 20 ? ['Impossible'] : []),
+      ...runes.filter(rune => !/^(?:Greater Impactful|Impactful(?: \(Greater\))?)$/i.test(rune)),
+      'Cunning', greaterImpactful ? 'Impactful (Greater)' : 'Impactful', ...((level ?? entry.level) >= 20 ? ['Impossible'] : []),
     ])].join(';') } }
   }
   if (source === "Clear Cutter's Hatchet") {

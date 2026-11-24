@@ -65,7 +65,7 @@ const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weapon
   const damageDice = /^(\d+)d/.exec(attack.damage)?.[1]
   return weapon.runes.filter(rune => (!formSpecific || weaponRuneApplies(entries, weapon, rune))
     && !/^(?:Bloodthirsty|Cunning)$/i.test(runeBaseName(rune))
-    && !['Animated', 'Disarming', 'Parrying', 'Fearsome', 'Fearsome (Greater)', 'Ghost Touch', 'Grappling', 'Grievous', 'Hooked', 'Keen', 'Returning', 'Shifting', 'Shoving', 'Crushing', 'Crushing (Greater)', 'Vorpal', 'Speed', 'Quickstrike', 'Spell Reservoir', 'Bane'].includes(runeName(rune))
+    && !['Animated', 'Disarming', 'Parrying', 'Throwing', 'Fearsome', 'Fearsome (Greater)', 'Ghost Touch', 'Grappling', 'Grievous', 'Hooked', 'Keen', 'Returning', 'Shifting', 'Shoving', 'Crushing', 'Crushing (Greater)', 'Vorpal', 'Speed', 'Quickstrike', 'Spell Reservoir', 'Bane'].includes(runeName(rune))
     && !/^Impossible(?: Alloy)?$/i.test(runeName(rune))).sort((x, y) => x.localeCompare(y))
     .map(rune => {
       const source = runeName(rune)
@@ -1350,7 +1350,9 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           : [{ form: undefined, weapon: enhanced, attack: a },
             ...(c.raging && activeFeatsNamed(c, 'Raging Thrower').length && a.thrownRange > 0
               ? [{ form: 'Thrown', weapon: enhanced, attack: weaponAttack(c, entries, w, { thrown: true }) }] : [])])
-          .map(summary => ({ ...summary, fulminatingShot: fulminatingShotDamage(c, summary.attack.entry),
+          .map(summary => ({ ...summary, attackForm: summary.form ?? (summary.attack.entry
+            ? isRanged(summary.attack.entry) ? 'Ranged' : 'Melee' : undefined),
+            fulminatingShot: fulminatingShotDamage(c, summary.attack.entry),
             strikeNote: namedWeaponStrikeNote(summary.attack.entry), damageRunes: [
             ...damageRuneSummary(summary.weapon, summary.attack, entries, !!forms.length || card),
             ...upgradeDamageSummary(summary.attack),
@@ -1423,7 +1425,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                   disabled={form !== activeCombinationForm && !canUseCombinationForm(form)}>{form}</option>)}
               </select>
             </label>}
-            {namedBases.length > 1 && namedSource !== 'Blade of the Black Sovereign' && (!displayOnly || namedSource !== 'Serithtial') && <label>{namedSource === 'Serithtial' ? 'Blade form' : 'Weapon type'}{' '}
+            {namedBases.length > 1 && (namedSource === "Hunter's Dawn" || namedSource === 'Serithtial' && !displayOnly) && <label>{namedSource === 'Serithtial' ? 'Blade form' : 'Weapon type'}{' '}
               <select aria-label={`${namedSource} weapon type`} value={String(a.entry?.data.named_weapon_base)}
                 onChange={event => {
                   const base = event.target.value
@@ -1525,7 +1527,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           {cannotEquip && (legacyPouchWeapon || hands === undefined || unknownHands)
             && <small>{legacyPouchWeapon ? 'Retrieve this weapon from your cheek pouch first.' : 'Weapon hands unavailable.'}</small>}
           <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
-            {index > 0 && (meleeAndRanged ? <br /> : '; ')}{summary.form && `${summary.form}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
+            {index > 0 && (meleeAndRanged ? <br /> : '; ')}{summary.attackForm && `${summary.attackForm}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
             {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.strikeNote && <SourceNote
               source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
               note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
@@ -1561,7 +1563,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             save({ collapsedWeaponIds: event.currentTarget.open ? collapsed.filter(id => id !== w.id) : [...collapsed, w.id] })
           }}>
             <summary><strong><EntryDescription name={displayName} entry={witchAttackEntry(c, entries, w.id, a.entry)} className="equipment-name" /></strong>{oversizedAction} <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
-              {index > 0 && (meleeAndRanged ? <br /> : '; ')}{summary.form && `${summary.form}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
+              {index > 0 && (meleeAndRanged ? <br /> : '; ')}{summary.attackForm && `${summary.attackForm}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
               {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.strikeNote && <SourceNote
                 source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
                 note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
@@ -1705,6 +1707,10 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               source={strengthSource ? `Animal Strength: ${strengthSource.name}` : linkedSource ? `Inherited from ${linkedSource.name}` : inherited ? `Inherited from ${handwrapItem.name}` : undefined}
               onChange={unarmed || linkedSource ? undefined : (runes) => update(w.id, { runes: [
                 ...runes, ...w.runes.filter(rune => grantedWeaponRunes.some(grant => runeBaseName(grant) === runeBaseName(rune))),
+                ...w.runes.filter(rune => namedSource === 'Debilitating Dart' && runeBaseName(rune) === 'Impactful'
+                  && builtIn?.runes.some(built => runeBaseName(built) === 'Impactful')),
+                ...w.runes.filter(rune => namedSource === 'Shadowpiercer' && runeBaseName(rune) === 'Astral'
+                  && builtIn?.runes.some(built => runeBaseName(built) === 'Astral')),
               ] })} />}
             <div className="row">
               {canUseInnovation && <label><input type="checkbox" aria-label={`Weapon Innovation: ${w.name}`} checked={!!w.inventorInnovation}

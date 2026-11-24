@@ -31,6 +31,11 @@ export const PARRYING_RUNE: ContentEntry = {
   description: 'Defensive markings guide this weapon into a guarding position. Price 140 gp. Usage: etched onto a melee weapon.\n\nThe weapon gains the parry trait. If you are trained or better with this weapon, you can spend one action while wielding it to gain a +1 circumstance bonus to AC until the start of your next turn. This bonus does not stack with other circumstance bonuses to AC.',
 }
 
+export const THROWING_RUNE: ContentEntry = {
+  ...GRAPPLING_RUNE, id: 'homebrew:throwing-rune', name: 'Throwing',
+  description: 'Usage: etched onto a melee weapon. The weapon gains thrown 20 feet when wielded in one hand, or thrown 10 feet when wielded in two hands. A longer existing thrown range is unchanged. This rune does not return the weapon.',
+}
+
 export const GRAPPLING_MODULE: ContentEntry = {
   id: 'homebrew:grappling-module', systems: ['sf2e'], kind: 'item', source: 'homebrew',
   name: 'Grappling Module', level: 8, traits: ['Tech'],

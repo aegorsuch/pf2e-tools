@@ -6944,10 +6944,11 @@ function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) 
   const base = card && byName(entries, 'weapon', card.base)
   if (card && base) return { ...base, id: card.id, name: card.name }
   const namedWeapons = namedWeaponEntries(entries)
+  const resolvedName = name === 'Shadowpiercer (Broad Spear)' ? 'Shadowpiercer (Broadspear)' : name
   const legacyNamedName = name === 'Wintershot' || /^Wintershot \((?:Shortbow|Longbow)\)$/.test(name)
     ? 'Wintershot (Artifact)' : name.replace(/\s+\([^()]+\)$/, '')
   return SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name && (isAutomaticUnarmed(name) || name === HAFT_STRIKER_WEAPON.name))
-    ?? byName(entries, 'weapon', name) ?? namedWeapons.find(entry => entry.name === name)
+    ?? byName(entries, 'weapon', name) ?? namedWeapons.find(entry => entry.name === resolvedName)
     ?? namedWeapons.find(entry => entry.name === legacyNamedName)
     ?? SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name)
     ?? [...ATTACHED_WEAPONS, SHIELD_BASH].find(entry => entry.name === name)
@@ -7140,7 +7141,7 @@ export function armorGauntlet(c: Character, entries: ContentEntry[]) {
 export const STRIKING_LABEL = ['', 'Striking', 'Greater Striking', 'Major Striking', 'Mythic Striking']
 export const WEAPON_PROPERTY_RUNES = [
   'Ancestral Echoing', 'Anarchic', 'Axiomatic', 'Bane', 'Corrosive', 'Disarming', 'Disrupting', 'Flaming', 'Frost', 'Ghost Touch',
-  'Grappling', 'Grievous', 'Holy', 'Hopeful', 'Impactful', 'Parrying', 'Quickstrike', 'Returning', 'Shifting', 'Shock', 'Shoving', 'Speed', 'Thundering',
+  'Grappling', 'Grievous', 'Holy', 'Hopeful', 'Impactful', 'Parrying', 'Quickstrike', 'Returning', 'Shifting', 'Shock', 'Shoving', 'Speed', 'Thundering', 'Throwing',
   'Unholy', 'Vorpal', 'Wounding',
 ]
 export const ARMOR_PROPERTY_RUNES = [
@@ -7198,6 +7199,7 @@ function computePropertyRunes(entries: ContentEntry[], kind: 'Armor' | 'Weapon')
 const FALLBACK_RUNE_USAGE: Record<string, string> = {
   Disarming: 'etched onto a melee weapon',
   Parrying: 'etched onto a melee weapon',
+  Throwing: 'etched onto a melee weapon',
   Grappling: 'etched onto a melee weapon',
   Shoving: 'etched onto a melee weapon',
   Wounding: 'etched onto a piercing or slashing melee weapon',
@@ -7219,10 +7221,12 @@ export function weaponRuneApplies(entries: ContentEntry[], weapon: OwnedWeapon, 
   const name = runeBaseName(rune)
   const content = runeContent(entries, rune, 'Weapon')
   const usage = String(content?.data.usage ?? FALLBACK_RUNE_USAGE[name] ?? 'etched onto a weapon').toLowerCase().replace(/\s+/g, ' ')
-  if (name === 'Shifting' && weaponCategory(entry) === 'Unarmed') return false
+  if ((name === 'Shifting' || name === 'Throwing') && weaponCategory(entry) === 'Unarmed') return false
   if (/\bmelee\b/.test(usage) && (!entry || isRanged(entry))) return false
   if (/\branged\b/.test(usage) && !isRanged(entry)) return false
-  if (/\bthrown\b/.test(usage) && !traits.some((trait) => /^thrown\b/.test(trait))) return false
+  if (/\bthrown\b/.test(usage) && !traits.some((trait) => /^thrown\b/.test(trait))
+    && !(entry && !isRanged(entry) && weaponCategory(entry) !== 'Unarmed'
+      && weapon.runes.some(existing => runeBaseName(existing) === 'Throwing'))) return false
   const damageTypes = [...usage.matchAll(/\b(bludgeoning|piercing|slashing)\b/g)].map((match) => match[1])
   if (damageTypes.length && !damageTypes.some((type) =>
     new RegExp(`\\b(?:${type}|${type[0]})\\b`, 'i').test(damage))) return false
@@ -7782,7 +7786,11 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
     if (isGiantWeapon(c, entries, weapon)) enhanced = { ...enhanced, size: giantWeaponSize(c, entries), material: 'Orichalcum' }
     if (plate) enhanced = { ...enhanced, material: plate.material, potency: weapon.potency, striking: weapon.striking }
     if (builtIn) enhanced = { ...enhanced, potency: Math.max(enhanced.potency, builtIn.potency),
-      striking: Math.max(enhanced.striking, builtIn.striking), runes: [...new Set([...builtIn.runes, ...enhanced.runes])] }
+      striking: Math.max(enhanced.striking, builtIn.striking), runes: [...new Set([...builtIn.runes,
+        ...enhanced.runes.filter(rune => !(
+          entry?.data.named_weapon_source === 'Debilitating Dart' && runeBaseName(rune) === 'Impactful'
+          || entry?.data.named_weapon_source === 'Shadowpiercer' && runeBaseName(rune) === 'Astral'
+        ) || !builtIn.runes.some(built => runeBaseName(built) === runeBaseName(rune)))])] }
     if (weapon.osteoArmament && canBeOsteoArmament(c, entries, weapon)) {
       const decaying = osteoArmamentRune(c, entries, weapon)
       enhanced = { ...enhanced, material: undefined, runes: decaying
@@ -8046,6 +8054,16 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ...(hydraulicFist ? ['Boost d4', 'Tech'] : []),
     ].filter(trait => !existingTraits.includes(trait.toLowerCase()))
     if (added.length) entry = { ...entry, traits: [...entry.traits, ...added] }
+  }
+  if (entry && !isRanged(entry) && w.runes.some(rune => runeName(rune) === 'Throwing')
+    && weaponRuneApplies(entries, w, 'Throwing')) {
+    const hands = weaponHands(entries, w, c)
+    const minimum = hands === 1 ? 20 : 10
+    const currentRange = num(entry.data.thrown_range)
+      || Number(entry.traits.map(trait => /^thrown\s+(\d+)/i.exec(trait.trim())?.[1]).find(Boolean) ?? 0)
+    if (currentRange < minimum) entry = { ...entry,
+      traits: [...entry.traits.filter(trait => !/^thrown\b/i.test(trait.trim())), `Thrown ${minimum} ft.`],
+      data: { ...entry.data, thrown_range: minimum } }
   }
   if (entry && getSettings().freeHandFinesse && weaponCategory(entry) !== 'Unarmed'
     && entry.traits.some(trait => /^free[- ]hand$/i.test(trait.trim()))
