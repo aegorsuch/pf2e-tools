@@ -33,6 +33,7 @@ export function familiarSelection(c: Character) {
     || selectedArcaneThesis(c) === 'Improved Familiar Attunement'
   const wasp = !familiar && hasDivineIntercession(c, 'Calistria', 'moderate-boon')
   const divineEmissary = activeFeatsNamed(c, 'Divine Emissary').length > 0 ? 1 : 0
+  const leshySecret = leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0 ? 1 : 0
   const glyph = !classFamiliar && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Glyph Familiar').length > 0
   const witchAbilities = c.className === 'Witch' ? 2 + [6, 12, 18].filter(level => c.level >= level).length : 0
   const dailyAbilityLimit = (undeadFamiliar
@@ -40,7 +41,7 @@ export function familiarSelection(c: Character) {
       ? c.level >= 10 && activeFeatsNamed(c, 'Incredible Undead Familiar').length ? 5 : 3 : 1
     : glyph ? (activeFeatsNamed(c, 'Enhanced Glyph Familiar').length ? 2 : 1)
     : activeFeatsNamed(c, 'Incredible Familiar').length ? 6 : activeFeatsNamed(c, 'Enhanced Familiar').length ? 4 : 2)
-    + witchAbilities + divineEmissary + attunementFamiliarAbilities(c)
+    + witchAbilities + divineEmissary + leshySecret + attunementFamiliarAbilities(c)
   return { leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, spiritFamiliar, dailyAbilityLimit, glyph }
 }
 
@@ -82,28 +83,45 @@ export function specificFamiliarAbilityName(grant: string) {
   return grant.replace(/\s*\(.*\)$/, '').trim()
 }
 
+export function familiarAbilitySlots(c: Character, entries: ContentEntry[], isWasp = false) {
+  const capacity = familiarAbilityCapacity(c, entries)
+  const state = familiarSelection(c)
+  const emissaryChoice = !isWasp ? activeFeatsNamed(c, 'Divine Emissary')[0]?.choice : undefined
+  const emissaryAbility = emissaryChoice && isDivineEmissaryAbility(emissaryChoice) ? emissaryChoice : undefined
+  const leshySecret = !isWasp && state.leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0
+    ? activeFeatsNamed(c, 'Leshy Familiar Secrets')[0]?.choice ?? c.familiar?.leshySecret : undefined
+  const patronAbility = isWasp ? undefined : capacity.patronAbility
+  const baseSelectableLimit = patronAbility ? capacity.selectableAbilityLimit : capacity.dailyAbilityLimit
+  const specificFamiliars = isWasp || state.glyph ? [] : specificFamiliarOptions(c, entries)
+  const name = isWasp || state.glyph ? undefined : c.familiar?.specificFamiliar
+  const selectedSpecificOption = specificFamiliars.find(option => key(option.entry.name) === key(name ?? ''))
+  const selectedSpecific = selectedSpecificOption?.entry
+  const activeSpecific = selectedSpecific && contentAccessGranted(c, selectedSpecific)
+    && specificFamiliarRequirement(selectedSpecific) > 0 && selectedSpecificOption?.available ? selectedSpecific : undefined
+  const selectableAbilityLimit = baseSelectableLimit - (activeSpecific ? selectedSpecificOption?.required ?? 0 : 0)
+    - Number(!!emissaryAbility) - Number(!isWasp && state.leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0)
+  return { patronAbility, dailyAbilityLimit: capacity.dailyAbilityLimit, specificFamiliars, selectedSpecific,
+    activeSpecific, selectableAbilityLimit, emissaryAbility, leshySecret }
+}
+
 export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
   const state = familiarSelection(c)
   if (!state.familiar && !state.wasp) return []
   const data = state.wasp ? c.waspFamiliar : c.familiar
   if (state.spiritFamiliar && (!data?.spiritManifested || data.spiritDestroyed)) return []
-  const capacity = familiarAbilityCapacity(c, entries)
-  const option = !state.wasp ? specificFamiliarOptions(c, entries).find(item => key(item.entry.name) === key(data?.specificFamiliar ?? '')) : undefined
-  const specific = option?.entry
-  const cost = option?.required ?? 0
-  const activeSpecific = !!specific && contentAccessGranted(c, specific)
-    && specificFamiliarRequirement(specific) > 0 && !!option?.available
+  const { activeSpecific, selectableAbilityLimit, emissaryAbility, leshySecret } = familiarAbilitySlots(c, entries, state.wasp)
   const grants = activeSpecific
-    ? specificFamiliarGrants(specific).abilities : []
-  const choices = (data?.abilities ?? []).slice(0, capacity.selectableAbilityLimit - (activeSpecific ? cost : 0))
+    ? specificFamiliarGrants(activeSpecific).abilities : state.glyph && !state.wasp ? GLYPH_FAMILIAR_ABILITIES : []
+  const choices = (data?.abilities ?? []).filter(name => !emissaryAbility || !isDivineEmissaryAbility(name))
+    .slice(0, selectableAbilityLimit)
   const catalog = familiarAbilityEntries(entries, c)
-  const granted = [...state.glyph && !state.wasp ? GLYPH_FAMILIAR_ABILITIES : []]
   return [...choices.flatMap((name, index) => {
     const entry = familiarAbilityEntry(name, catalog, c)
     if (!entry || /^specific familiar\b/i.test(String(entry.data.ability_type ?? ''))) return []
-    const others = [...grants, ...choices.filter((_, otherIndex) => otherIndex !== index)]
-    return familiarAbilityUnavailableReason(entry, c, others, state.undeadFamiliar, entries) ? [] : [entry.name]
-  }), ...granted, ...grants]
+    const others = [...grants, ...(emissaryAbility ? [emissaryAbility] : []), ...choices.filter((_, otherIndex) => otherIndex !== index)]
+    return familiarAbilityUnavailableReason(entry, c, others, state.undeadFamiliar, entries, choices.slice(0, index)) ? [] : [entry.name]
+  }), ...(emissaryAbility && (key(emissaryAbility) !== 'medic' || familiarMedicRank(c) !== undefined) ? [emissaryAbility] : []),
+  ...(leshySecret ? [leshySecret] : []), ...grants]
 }
 
 export function familiarSpellBenefits(c: Character, entries: ContentEntry[], slots: Record<number, number>) {
@@ -125,14 +143,30 @@ const EMISSARY_ABILITIES: Record<string, string> = {
   Radiant: 'Your familiar gains resistance to evil and negative damage equal to half your level.',
 }
 const emissaryNames = new Set(Object.keys(EMISSARY_ABILITIES).map(key))
+export const isDivineEmissaryAbility = (name: string) => emissaryNames.has(key(name))
+export const LESHY_SECRET_ABILITIES = ['Grasping Tendrils', 'Purify Air', 'Verdant Burst'] as const
+
+export function familiarMedicRank(c: Character) {
+  const slots = classSpellSlots(c) ?? c.spellcasting?.slots
+  const highest = Math.max(0, ...Object.entries(slots ?? {})
+    .filter(([rank, count]) => Number(rank) > 0 && count > 0).map(([rank]) => Number(rank)))
+  return highest >= 3 ? highest - 2 : undefined
+}
 
 export function familiarAbilityEntries(entries: ContentEntry[], c: Character) {
   const base = baseFamiliarAbilityEntries(entries, c)
-  if (!activeFeatsNamed(c, 'Divine Emissary').length) return base
-  return [...base, ...Object.entries(EMISSARY_ABILITIES).map(([name, description]): ContentEntry => ({
+  const emissary = activeFeatsNamed(c, 'Divine Emissary').length ? Object.entries(EMISSARY_ABILITIES).map(([name, description]): ContentEntry => ({
     id: `divine-emissary:${key(name)}`, systems: c.systems, kind: 'familiar', source: 'official', name, level: 1,
-    traits: [], description, data: { ability_type: 'Divine Emissary' }, effects: [], updatedAt: 0,
-  }))]
+    traits: [], description, data: { ability_type: 'Divine Emissary',
+      ...(name === 'Erudite' ? { actions: 'Reaction' } : name === 'Luminous' ? { actions: 'Single Action' } : {}) },
+    effects: [], updatedAt: 0,
+  })) : []
+  const leshy = familiarSelection(c).leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length
+    ? LESHY_SECRET_ABILITIES.map((name): ContentEntry => ({
+      id: `leshy-secret:${key(name)}`, systems: c.systems, kind: 'familiar', source: 'official', name, level: 1,
+      traits: [], description: '', data: { ability_type: 'Leshy Familiar Secrets' }, effects: [], updatedAt: 0,
+    })) : []
+  return emissary.length || leshy.length ? [...base, ...emissary, ...leshy] : base
 }
 
 function baseFamiliarAbilityEntries(entries: ContentEntry[], c: Character) {
@@ -170,7 +204,7 @@ function changesCreatureTrait(entry: ContentEntry) {
 }
 
 export function familiarAbilityUnavailableReason(entry: ContentEntry, c: Character, selected: string[], undead = false,
-  entries: ContentEntry[] = []) {
+  entries: ContentEntry[] = [], selectedChoices = selected) {
   const spellcasting = classSpellcasting(c, entries) ?? c.spellcasting
   const slots = classSpellSlots(c) ?? c.spellcasting?.slots
   if (undead && (/^(?:constructed?|dragon)$/i.test(entry.name) || changesCreatureTrait(entry))) {
@@ -186,8 +220,11 @@ export function familiarAbilityUnavailableReason(entry: ContentEntry, c: Charact
     if (selected.some(name => emissaryNames.has(key(name)))) {
       return 'Only one divine emissary familiar ability can be selected at a time.'
     }
-  } else if (emissary && selected.filter(name => !emissaryNames.has(key(name))).length
-    >= familiarAbilityCapacity(c, entries).selectableAbilityLimit - 1) {
+    if (key(entry.name) === 'medic' && familiarMedicRank(c) === undefined) {
+      return 'Requires spell slots of rank 3 or higher.'
+    }
+  } else if (emissary && selectedChoices.filter(name => !isDivineEmissaryAbility(name)).length
+    >= familiarAbilitySlots(c, entries).selectableAbilityLimit - Number(!familiarAbilitySlots(c, entries).emissaryAbility)) {
     return 'The extra slot from Divine Emissary can only hold a divine emissary familiar ability.'
   }
   const abilityPrerequisites = [...entry.description.matchAll(/(?:familiar|it) must have (?:the )?\[?([a-z][a-z -]*?)\]?(?:\([^)]*\))? ability/gi)]
@@ -260,7 +297,8 @@ export function familiarAbilityEffects(abilities: string[], level: number,
       ...(has('Tremorsense') ? ['Tremorsense (imprecise, 30 feet)'] : []),
       ...(has('Wavesense') ? ['Wavesense (imprecise, 30 feet)'] : []),
     ],
-    resistances: resistanceTypes.map(type => ({ damage: type, value: resistanceRank })),
+    resistances: [...resistanceTypes.map(type => ({ damage: type, value: resistanceRank })),
+      ...(has('Radiant') ? ['evil', 'negative'].map(damage => ({ damage, value: Math.floor(level / 2) })) : [])],
     skilled: (options?.skilled ?? []).filter(skill => [...FAMILIAR_SKILLS, 'Perception'].includes(skill))
       .map(skill => ({ skill, modifier: skillModifier })),
   }
@@ -282,11 +320,17 @@ const FALLBACK_SPECIFIC_FAMILIARS: ContentEntry[] = [{
   traits: ['Uncommon', 'Dragon'],
   description: 'Required Number of Abilities 6\n\nCalligraphy wyrms are curious dragons constantly in search of new lore and writing. They make natural allies for academics of all stripes, whether remaining in the towers of Cobyslarni or heading into fieldwork like the Pathfinder Society, but are also found working with witches contracted to draconic powers or wizards who\u2019ve somehow managed to impress the tiny creatures.\n\nWhile knowledgeable, calligraphy wyrms can also be know-it-alls. Their chirpy, high-pitched voices make this attitude humorous to some and insufferable to others.\n\nGranted Abilities darkvision, flier, manual dexterity, scent, skilled (arcana, society), speech\n\nInk Spray (one action, Arcane) Frequency once per 10 minutes; Effect The wyrm splatters ink in a 10-foot cone. Each creature in the area must attempt a Reflex save with a DC equal to its master\u2019s spell DC or class DC, whichever is higher. Critical Success The creature is unaffected. Success If the creature was invisible, it is concealed instead for 2 rounds. Failure As success, but for 1 minute. Critical Failure As success, but for 10 minutes. The creature is also blinded for 1 round or until it wipes the ink from its eyes using an Interact action.\n\nStylus Claws The wyrm has stylus-shaped claws that it can fill with its natural ink, using its claw as a pen without having to purchase ink.',
   data: { ability_type: 'Specific Familiar', required_abilities: 6, access: 'affiliation with Cobyslarni or the Pathfinder Society' }, effects: [], updatedAt: 0,
+}, {
+  id: 'homebrew:specific-familiar:nine-tailed-fox', name: 'Nine-Tailed Fox', kind: 'familiar', systems: ['pf2e'], source: 'homebrew', level: 0,
+  traits: [], description: '', data: { ability_type: 'Specific Familiar', required_abilities: 1, granted_abilities: 'Scent' },
+  effects: [], updatedAt: 0,
 }]
 
 export function specificFamiliarOptions(c: Character, entries: ContentEntry[]) {
   const reduction = activeFeatsNamed(c, 'Improved Familiar').length ? 2 : 0
-  const abilities = familiarAbilityCapacity(c, entries).selectableAbilityLimit
+  const state = familiarSelection(c)
+  const abilities = familiarAbilityCapacity(c, entries).selectableAbilityLimit - Number(activeFeatsNamed(c, 'Divine Emissary').length > 0)
+    - Number(state.leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0)
   const official = familiarAbilityEntries(entries, c).filter(isSpecificFamiliar)
   const known = new Set(official.map(entry => key(entry.name)))
   return [...official, ...FALLBACK_SPECIFIC_FAMILIARS.filter(entry => c.systems.includes('pf2e') && !known.has(key(entry.name)))].map(entry => {

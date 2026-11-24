@@ -1942,6 +1942,13 @@ const NEPHILIM_RESISTANCE_TYPES = ['Acid', 'Cold', 'Electricity', 'Fire', 'Sonic
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number,
   category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (c.systems.includes('pf2e') && ['Divine Emissary', 'Leshy Familiar Secrets'].includes(name)) {
+    const highest = Math.max(0, ...Object.entries(classSpellSlots(c) ?? c.spellcasting?.slots ?? {})
+      .filter(([rank, count]) => Number(rank) > 0 && count > 0).map(([rank]) => Number(rank)))
+    return name === 'Divine Emissary'
+      ? ['Erudite', 'Luminous', ...(highest >= 3 ? ['Medic'] : []), 'Radiant']
+      : ['Grasping Tendrils', 'Purify Air', ...(highest >= 2 ? ['Verdant Burst'] : [])]
+  }
   if (name === 'Warrior of Legend Dedication' && c.systems.includes('pf2e')) {
     return ['Bludgeoning', 'Piercing', 'Slashing']
   }

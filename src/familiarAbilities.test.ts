@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
-import { activeFamiliarAbilities, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
+import { activeFamiliarAbilities, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries, familiarMedicRank,
   familiarAbilityUnavailableReason, familiarSelection, familiarSpellBenefits, specificFamiliarGrants, specificFamiliarOptions, specificFamiliarSections } from './familiarAbilities'
+import { featChoiceOptions } from './builder'
 import type { Character, ContentEntry } from './types'
 
 const character: Character = {
@@ -138,6 +139,38 @@ it('reserves the Divine Emissary slot for divine emissary abilities', () => {
   expect(familiarAbilityUnavailableReason(get('Erudite'), { ...witch, feats: [] }, [], false, [])).toMatch(/requires/i)
 })
 
+it('reserves restricted feat slots separately from specific familiar requirements and choices', () => {
+  const patron: ContentEntry = { ...ability('Patron', ''), kind: 'subclass',
+    data: { class: 'Witch', grants_familiar_ability: 'Patron Gift', familiar_ability_description: 'Gift.' } }
+  const imp = { ...ability('Imp', ''), data: { ability_type: 'Specific Familiar',
+    required_abilities: 4, granted_abilities: 'Darkvision, Flier' } }
+  const witch: Character = { ...character, className: 'Witch', subclass: 'Patron', level: 12,
+    feats: [{ name: 'Divine Emissary', type: 'Class Feat', level: 6, choice: 'Radiant' }],
+    familiar: { specificFamiliar: 'Imp', abilities: ['Tough', 'Radiant'] } }
+  const entries = [patron, imp, ability('Tough', '')]
+  expect(specificFamiliarOptions(witch, entries).find(option => option.entry.name === 'Imp')?.available).toBe(true)
+  expect(activeFamiliarAbilities(witch, entries)).toEqual(['Tough', 'Radiant', 'Darkvision', 'Flier'])
+  const tooExpensive = { ...imp, data: { ...imp.data, required_abilities: 6 } }
+  expect(specificFamiliarOptions(witch, [patron, tooExpensive]).find(option => option.entry.name === 'Imp')?.available).toBe(false)
+  const noVariant = { ...witch, level: 8, familiar: { abilities: ['Tough', 'Climber', 'Speech', 'Scent', 'Flier'] },
+    feats: [{ name: 'Divine Emissary', type: 'Class Feat', level: 6 }] }
+  expect(activeFamiliarAbilities(noVariant, [patron, ...['Tough', 'Climber', 'Speech', 'Scent', 'Flier'].map(name => ability(name, ''))]))
+    .toEqual(['Tough', 'Climber', 'Speech', 'Scent'])
+})
+
+it('offers feat variants with spell-slot prerequisites and applies Radiant resistance', () => {
+  const witch: Character = { ...character, className: 'Witch', level: 6 }
+  expect(featChoiceOptions('Divine Emissary', witch, [], '')).toEqual(['Erudite', 'Luminous', 'Medic', 'Radiant'])
+  expect(featChoiceOptions('Divine Emissary', { ...witch, level: 3 }, [], '')).not.toContain('Medic')
+  expect(familiarMedicRank({ ...witch, level: 3 })).toBeUndefined()
+  expect(familiarMedicRank(witch)).toBe(1)
+  expect(familiarAbilityEffects(['Radiant'], 7, {}, 0).resistances)
+    .toEqual([{ damage: 'evil', value: 3 }, { damage: 'negative', value: 3 }])
+  const druid: Character = { ...witch, className: 'Druid', level: 3 }
+  expect(featChoiceOptions('Leshy Familiar Secrets', druid, [], '')).toEqual(['Grasping Tendrils', 'Purify Air', 'Verdant Burst'])
+  expect(featChoiceOptions('Leshy Familiar Secrets', { ...druid, level: 1 }, [], '')).not.toContain('Verdant Burst')
+})
+
 it('gives Glyph Familiar one daily ability plus fixed Construct, Flier and Tough', () => {
   const feat = (name: string) => ({ name, type: 'Class Feat', level: 1 })
   const glyph = { ...character, feats: [feat('Glyph Familiar')] }
@@ -196,6 +229,15 @@ it('offers Calligraphy Wyrm with granted abilities and unique actions without sy
   expect(sections.summary[0]).toMatch(/^Calligraphy wyrms are curious dragons/)
   expect(sections.summary[1]).toContain('know-it-alls')
   expect(sections.abilities.map(text => text.split(' ')[0])).toEqual(['Ink', 'Stylus'])
+})
+
+it('offers the homebrew Nine-Tailed Fox with one required ability and granted Scent', () => {
+  const wizard: Character = { ...character, className: 'Wizard', familiar: { specificFamiliar: 'Nine-Tailed Fox', abilities: ['Tough'] },
+    feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }] }
+  const fox = specificFamiliarOptions(wizard, []).find(option => option.entry.name === 'Nine-Tailed Fox')!
+  expect(fox).toMatchObject({ required: 1, available: true, entry: { source: 'homebrew' } })
+  expect(specificFamiliarGrants(fox.entry).abilities).toEqual(['Scent'])
+  expect(activeFamiliarAbilities(wizard, [ability('Tough', '')])).toEqual(['Tough', 'Scent'])
 })
 
 it('splits a specific familiar into summary and unique actions', () => {

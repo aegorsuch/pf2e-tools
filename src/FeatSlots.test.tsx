@@ -54,6 +54,19 @@ it('reuses feat eligibility across slots, but recomputes for another character o
   }
 })
 
+it.each([
+  ['Divine Emissary', 'Witch', 6, 'Radiant'],
+  ['Leshy Familiar Secrets', 'Druid', 4, 'Purify Air'],
+] as const)('selects %s familiar ability variants in the feat picker', (name, className, level, choice) => {
+  let c: Character = { ...emptyRanger(), className, level }
+  const feat: ContentEntry = { id: name, systems: ['pf2e'], kind: 'feat', source: 'official', name, level,
+    traits: [className], description: '', data: {}, effects: [], updatedAt: 0 }
+  const tree = () => FeatSlots({ c, entries: [feat], categories: ['class'], save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree())).toContain(`${name} (${choice})`)
+  findSelect(tree(), `L${String(level).padStart(2, '0')} Class feat`)!({ target: { value: JSON.stringify([name, choice]) } })
+  expect(c.feats).toContainEqual(expect.objectContaining({ name, choice }))
+})
+
 it('bounds cached slot eligibility and retains recently used slots', () => {
   const c = emptyRanger()
   const entries: ContentEntry[] = []
