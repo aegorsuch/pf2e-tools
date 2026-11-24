@@ -1,4 +1,4 @@
-export type PickerSortOrder = 'name' | 'level' | 'level-desc'
+export type PickerSortOrder = 'name' | 'level' | 'level-desc' | 'item-bonus'
 
 const pickerNameCollator = new Intl.Collator(undefined, { sensitivity: 'base' })
 
@@ -21,17 +21,18 @@ export function sortPickerOptions<T>(items: readonly T[], order: PickerSortOrder
   })
 }
 
-export function PickerSort({ value, onChange, label = 'Sort by', includeHighestLevel = false }: {
-  value: PickerSortOrder; onChange: (value: PickerSortOrder) => void; label?: string; includeHighestLevel?: boolean
+export function PickerSort({ value, onChange, label = 'Sort by', includeHighestLevel = false, includeItemBonus = false }: {
+  value: PickerSortOrder; onChange: (value: PickerSortOrder) => void; label?: string; includeHighestLevel?: boolean; includeItemBonus?: boolean
 }) {
   return <label>Sort by{' '}
     <select aria-label={label} value={value}     onChange={event => {
       const next = event.target.value
-      if (next === 'name' || next === 'level' || next === 'level-desc') onChange(next)
+      if (next === 'name' || next === 'level' || next === 'level-desc' || next === 'item-bonus' && includeItemBonus) onChange(next)
     }}>
       <option value="name">Alphabetical</option>
       <option value="level">Level</option>
       {includeHighestLevel && <option value="level-desc">Highest level</option>}
+      {includeItemBonus && <option value="item-bonus">Item bonus</option>}
     </select>
   </label>
 }

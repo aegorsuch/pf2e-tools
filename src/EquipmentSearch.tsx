@@ -40,6 +40,9 @@ export function EquipmentSearch({ c, entries, save, category, onClose, fixedSkil
   useEffect(() => {
     if (skill && !selectedSkill) setSkill('')
   }, [skill, selectedSkill])
+  useEffect(() => {
+    if (!selectedSkill && sort === 'item-bonus') setSort('name')
+  }, [selectedSkill, sort])
   const active = !!query.trim() || !!category || !!selectedSkill
   const matches = useMemo(() => {
     if (!active) return []
@@ -55,7 +58,16 @@ export function EquipmentSearch({ c, entries, save, category, onClose, fixedSkil
       if (!previous || owned.has(entry.name) || !owned.has(previous.name)
         && entry.data.price !== undefined && previous.data.price === undefined) unique.set(key, candidate)
     }
-    return sortPickerOptions([...unique.values()], sort, candidate => candidate.displayName, candidate => candidate.entry.level)
+    const sorted = sortPickerOptions([...unique.values()], sort === 'item-bonus' ? 'name' : sort,
+      candidate => candidate.displayName, candidate => candidate.entry.level)
+    if (sort === 'item-bonus' && selectedSkill) sorted.sort((a, b) => {
+      const aBonus = equipmentSkillBonuses(a.entry, selectedSkill).at(-1)
+      const bBonus = equipmentSkillBonuses(b.entry, selectedSkill).at(-1)
+      if (aBonus === undefined) return bBonus === undefined ? 0 : 1
+      if (bBonus === undefined) return -1
+      return bBonus - aBonus
+    })
+    return sorted
       .map(candidate => candidate.entry)
   }, [active, candidates, query, c.equipment, c.systems, sort, system, selectedSkill])
   return <div className="equipment-search">
@@ -63,7 +75,8 @@ export function EquipmentSearch({ c, entries, save, category, onClose, fixedSkil
       <input type="search" aria-label={`Search ${category?.toLowerCase() ?? 'equipment'}`} placeholder={`Search ${category?.toLowerCase() ?? 'equipment'}`}
         autoFocus={!!onClose} value={query} onChange={event => setQuery(event.target.value)} />
       <GearSystemFilter value={system} onChange={setSystem} />
-      <PickerSort label={`Sort ${category?.toLowerCase() ?? 'equipment'} by`} value={sort} onChange={setSort} />
+      <PickerSort label={`Sort ${category?.toLowerCase() ?? 'equipment'} by`}
+        value={!selectedSkill && sort === 'item-bonus' ? 'name' : sort} onChange={setSort} includeItemBonus={!!selectedSkill} />
       {!fixedSkill && availableSkills.length > 0 && <label>Skill item bonus <select aria-label="Skill item bonus" value={selectedSkill} onChange={event => setSkill(event.target.value)}>
         <option value="">All skills</option>
         {availableSkills.map(name => <option key={name}>{name}</option>)}
