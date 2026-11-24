@@ -1409,7 +1409,7 @@ export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'en
   const benefits = familiarSpellBenefits(c, entries, baseSlots ?? c.spellcasting?.slots ?? {})
   const witchwarper = witchwarperParadox(c)
   const slots = classRepertoireRows(c) ?? (classSpellcasting(c, entries)?.traditions.length ? c.spellcasting?.slots : undefined)
-  const extraSlots = baseSlots ? classExtraSlots(c) : []
+  const extraSlots = baseSlots ? classExtraSlots(c, entries) : []
   const choices = witchwarper ? witchwarperRepertoireSlots(c, benefits.cantrip).map(slot => !!(slot.granted || slot.value))
     : slots ? Array.from({ length: 11 }, (_, rank) => {
       const baseCount = Math.max(0, Math.min(20, Math.trunc(Number(slots[rank]) || 0)))
@@ -1657,7 +1657,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     && activeFeatsNamed(c, 'Bloodrager Dedication').some(feat => feat.choice === 'Arcane' || feat.choice === 'Divine')
   const warrior = c.className === 'Champion' ? activeFeatsNamed(c, 'Divine Warrior')[0]
     : c.className === 'Ranger' ? activeFeatsNamed(c, 'Primal Warrior')[0] : undefined
-  const extraSlots = automaticSlots ? classExtraSlots(c) : []
+  const extraSlots = automaticSlots ? classExtraSlots(c, entries) : []
   const avengerTraditionSwitch = !!c.spellcasting && rogueRackets(c, entries).includes('Avenger')
     && /^(occult|divine)$/i.test(c.spellcasting.tradition)
   const traditions = warrior ? [warrior.name === 'Divine Warrior' ? 'Divine' : 'Primal']

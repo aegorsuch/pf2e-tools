@@ -2495,9 +2495,37 @@ export function classRepertoireRows(c: Character) {
   return c.className === 'Bard' && c.systems.includes('pf2e') ? bardRepertoire(c).rows : classSpellSlots(c)
 }
 
-export function classExtraSlots(c: Character) {
+export function wizardCurriculum(school?: ContentEntry) {
+  const text = school?.description ?? ''
+  const start = text.search(/curriculum/i)
+  if (start < 0) return {} as Record<number, string[]>
+  const end = text.slice(start).search(/school spells/i)
+  const section = text.slice(start, end < 0 ? undefined : start + end)
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[*_]/g, '')
+  const curriculum: Record<number, string[]> = {}
+  for (const [, label, list] of section.matchAll(/\b(cantrips?|\d+(?:st|nd|rd|th))\s*:\s*([^;\n]*)/gi)) {
+    const rank = /^cantrip/i.test(label) ? 0 : parseInt(label)
+    curriculum[rank] = list.split(',').map(name => name.replace(/\s+U$/, '').replace(/[\u1D3E\u1D41\u1D2C]/g, '').trim())
+      .filter(Boolean)
+  }
+  return curriculum
+}
+
+function wizardCurriculumExtras(c: Character, entries: ContentEntry[]): ClassSpellSlotExtra[] {
+  if (c.className !== 'Wizard' || !c.systems.includes('pf2e') || c.level < 1) return []
+  const school = entries.find(entry => entry.kind === 'subclass' && !entry.deleted && entry.data.class === 'Wizard'
+    && entry.systems.includes('pf2e') && entry.name === c.subclass)
+  const curriculum = wizardCurriculum(school)
+  return Object.entries(curriculum).filter(([rank, names]) => names.length
+    && Number(rank) <= Math.min(9, Math.ceil(c.level / 2))).map(([rank, allowedSpells]) => ({
+    key: `curriculum:${rank}`, rank: Number(rank), source: `${school!.name} curriculum`,
+    allowedSpells: allowedSpells.map(name => spellName(entries, name)) }))
+}
+
+export function classExtraSlots(c: Character, entries: ContentEntry[] = []) {
   const extras: ClassSpellSlotExtra[] = c.className === 'Bard' && c.systems.includes('pf2e')
     ? bardRepertoire(c).extras : necromancerExtraSlots(c)
+  extras.push(...wizardCurriculumExtras(c, entries))
   if (c.systems.includes('pf2e') && c.className === 'Champion' && activeFeatsNamed(c, 'Divine Warrior').length)
     extras.push({ key: 'divine-warrior:divine-lance', rank: 0, spell: 'Divine Lance', source: 'Divine Warrior' },
       { key: 'divine-warrior:protect-companion', rank: 0, spell: 'Protect Companion', source: 'Divine Warrior' })
@@ -4611,6 +4639,11 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
     if (lore && featTakenLevel(feat) <= c.level) grants.push({
       name: 'Additional Lore', choice: lore.replace(/ Lore$/, ''), source: feat.name, level: featTakenLevel(feat),
     })
+  }
+  if (c.systems.includes('pf2e')) for (const feat of [...activeFeatsNamed(c, 'Spellbook Prodigy'),
+    ...c.feats.filter(feat => ['Basic Arcana', 'Advanced Arcana'].includes(feat.name) && feat.choice === 'Spellbook Prodigy'
+      && featTakenLevel(feat) <= c.level)]) {
+    grants.push({ name: 'Magical Shorthand', source: 'Spellbook Prodigy', level: featTakenLevel(feat) })
   }
   for (const feat of activeFeatsNamed(c, 'Knowledge Of The Realm Before')) {
     if (feat.choice) grants.push({ name: 'Additional Lore', choice: feat.choice.replace(/ Lore$/, ''), source: feat.name, level: featTakenLevel(feat) })

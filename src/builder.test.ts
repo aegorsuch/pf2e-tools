@@ -2794,6 +2794,21 @@ describe('languageAllowance', () => {
       .not.toEqual(expect.arrayContaining([{ name: 'Assurance', choice: 'Circus Lore', source: 'Gnome Obsession', level: 5 }]))
   })
 
+  it('grants Magical Shorthand from the Spellbook Prodigy arcana choice', () => {
+    const arcana = { name: 'Basic Arcana', type: 'Class Feat', level: 2, slot: 'class:2:1', choice: 'Spellbook Prodigy' }
+    const c: Character = { ...base, className: 'Wizard', level: 2, feats: [arcana] }
+    expect(automaticFeatGrants(c, [])).toContainEqual({ name: 'Magical Shorthand', source: 'Spellbook Prodigy', level: 2 })
+    expect(automaticFeatGrants({ ...c, level: 1 }, []).some(grant => grant.name === 'Magical Shorthand')).toBe(false)
+  })
+
+  it('adds a school curriculum spell restriction to each Wizard spell rank', () => {
+    const school = entry('subclass', 'School of Ars Grammatica', { class: 'Wizard' })
+    school.description = 'Curriculum\n\ncantrips: message, sigil; 1st: command, runic weapon; 2nd: dispel magic, translate\n\nSchool Spells\n\ninitial: protective wards'
+    const c: Character = { ...base, className: 'Wizard', level: 3, subclass: school.name }
+    expect(classExtraSlots(c, [school]).map(extra => [extra.rank, extra.allowedSpells])).toEqual([
+      [0, ['message', 'sigil']], [1, ['command', 'runic weapon']], [2, ['dispel magic', 'translate']]])
+  })
+
   it('adds Gnome Polyglot languages and improves each active Multilingual grant', () => {
     const multilingual = [
       { name: 'Multilingual', type: 'Skill Feat', level: 1, slot: 'skill:2:0' },
