@@ -40,13 +40,15 @@ export { heritagesFor, isVersatileHeritage } from './heritages'
 
 export type Ability = keyof Character['abilities']
 
-export function innateSpellAbility(c: Character, normal: Ability = 'cha'): Ability {
-  if (!getSettings().innateHighestMental) return normal
+function highestMentalAbility(c: Character, normal: Ability): Ability {
   let best: Ability = ['int', 'wis', 'cha'].includes(normal) ? normal : 'cha'
   for (const ability of ['int', 'wis', 'cha'] as const) {
     if (c.abilities[ability] > c.abilities[best]) best = ability
   }
   return best
+}
+export function innateSpellAbility(c: Character, normal: Ability = 'cha'): Ability {
+  return getSettings().innateHighestMental ? highestMentalAbility(c, normal) : normal
 }
 export const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
 
@@ -1221,7 +1223,7 @@ function mechanicExocortexes(c: Character) {
 }
 
 export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], level = c.level, excludedIndex = -1,
-  options: { ignoreAttributePrerequisites?: boolean; planSkillPrerequisites?: boolean; captainIntelligence?: boolean } = {}) {
+  options: { ignoreAttributePrerequisites?: boolean; planSkillPrerequisites?: boolean; captainIntelligence?: boolean; substituteMentalAbility?: Ability } = {}) {
   const facts = new Map<number, PrerequisiteFacts>()
   let buildSkillRanks: PrerequisiteFacts['ranks'] | undefined
   const check = createFeatPrerequisiteChecker(entries, {
@@ -1324,7 +1326,9 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           return weapon ? weaponAttack(character, entries,
             { id: 'prerequisite', name: weapon.name, potency: 0, striking: 0, runes: [] }).rank : undefined
         },
-        abilities: options.captainIntelligence && character.className === 'Commander'
+        abilities: options.substituteMentalAbility
+          ? { ...character.abilities, [options.substituteMentalAbility]: character.abilities[highestMentalAbility(character, options.substituteMentalAbility)] }
+          : options.captainIntelligence && character.className === 'Commander'
           && character.feats.some(feat => feat.name === 'Captain Dedication')
           ? { ...character.abilities, cha: Math.max(character.abilities.cha, character.abilities.int) }
           : character.abilities,
@@ -1462,9 +1466,20 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
       || slot.key === 'class:2:0' && slot.grantedFeat?.toLowerCase() === entry.name.toLowerCase()) {
       return { missing: [], manual: [] }
     }
-    const result = check(entry)
-    const planned = result.missing.length ? plannedCheck?.(entry) : undefined
-    const unplanned = planned && !planned.manual.length ? unplannedCheck?.(entry) : undefined
+    const dedicationClass = entry.name.replace(/ Dedication$/, '')
+    const dedicationAbility = CASTING_ABILITY[dedicationClass]
+    const useBestMental = getSettings().avengerEldritchHighestMental && avengerEldritchSlot(character, entries, slot.key)
+      && entry.name.endsWith(' Dedication') && entry.traits.some(trait => trait.toLowerCase() === 'multiclass')
+      && dedicationAbility && ['int', 'wis', 'cha'].includes(dedicationAbility)
+    const result = useBestMental
+      ? featPrerequisiteChecker(c, entries, level, excludedIndex, { ...options, substituteMentalAbility: dedicationAbility })(entry)
+      : check(entry)
+    const planned = result.missing.length ? useBestMental && futureFeats
+      ? featPrerequisiteChecker(c, entries, buildLevel, excludedIndex, { ...options, substituteMentalAbility: dedicationAbility })(entry)
+      : plannedCheck?.(entry) : undefined
+    const unplanned = planned && !planned.manual.length ? useBestMental
+      ? featPrerequisiteChecker({ ...c, feats: character.feats }, entries, buildLevel, -1,
+        { ...options, substituteMentalAbility: dedicationAbility })(entry) : unplannedCheck?.(entry) : undefined
     // Future feats can satisfy requirements; unrelated level progression cannot.
     const missing = [...result.missing.filter(requirement => !planned || !unplanned
       || planned.missing.includes(requirement) || !unplanned.missing.includes(requirement)), ...archetype(entry),
@@ -1882,6 +1897,26 @@ export function rogueRackets(c: Character, entries: ContentEntry[]) {
   return [...new Set(taken.filter((name): name is string => !!name && ROGUE_RACKETS.some(racket => racket === name)))]
 }
 
+function avengerEldritchSlot(c: Character, entries: ContentEntry[], slot: string) {
+  return c.systems.includes('pf2e') && rogueRackets(c, entries).includes('Avenger')
+    && c.feats.some(feat => feat.name === 'Versatile Rogue' && feat.choice === 'Eldritch Trickster'
+      && featTakenLevel(feat) <= c.level
+      && slot === `archetype:1:eldritch-trickster:${feat.slot ?? `unslotted-${c.feats.indexOf(feat)}`}`)
+}
+
+export function avengerEldritchDedication(c: Character, entries: ContentEntry[], name: string) {
+  return c.feats.some(feat => feat.name === `${name} Dedication` && !!feat.slot
+    && featTakenLevel(feat) <= c.level && avengerEldritchSlot(c, entries, feat.slot))
+}
+
+export function avengerEldritchCastingClass(c: Character, entries: ContentEntry[]) {
+  const feat = c.feats.find(item => {
+    const name = item.name.replace(/ Dedication$/, '')
+    return item.name === `${name} Dedication` && !!CASTING_ABILITY[name] && avengerEldritchDedication(c, entries, name)
+  })
+  return feat?.name.replace(/ Dedication$/, '')
+}
+
 export function hasHuntPrey(c: Character, entries: ContentEntry[]) {
   return c.systems.includes('pf2e') && (c.className === 'Ranger' || rogueRackets(c, entries).includes('Avenger'))
 }
@@ -2225,7 +2260,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     const used = new Set([selectedSubclass(c, entries), ...c.feats.flatMap((feat, i) =>
       i !== index && feat.name === name && featTakenLevel(feat) <= c.level && feat.choice ? [feat.choice] : [])])
     return ROGUE_RACKETS.filter(racket => !used.has(racket)
-      && (racket !== 'Eldritch Trickster' || eldritchTricksterDedications(entries).size > 0))
+      && (racket !== 'Eldritch Trickster' || eldritchTricksterDedications(entries).size > 0)).sort((a, b) => a.localeCompare(b))
   }
   if (name === 'Versatile Investigator') {
     const used = new Set([selectedSubclass(c, entries), ...c.feats.flatMap((feat, featIndex) =>
@@ -2355,8 +2390,10 @@ export function classDifficultyClass(c: Character, entries: ContentEntry[]) {
 export function wizardArchetypeSpellSlots(c: Character): Record<number, number> | undefined {
   const wizardDedication = c.feats.some(feat => ['Wizard Dedication', 'Spellshot Dedication'].includes(feat.name)
     && featTakenLevel(feat) <= c.level)
-  if (!c.systems.includes('pf2e') || !wizardDedication || !activeFeatsNamed(c, 'Basic Wizard Spellcasting').length) return undefined
+  if (!c.systems.includes('pf2e') || !wizardDedication || !activeFeatsNamed(c, 'Basic Wizard Spellcasting').length
+    && !avengerEldritchDedication(c, [], 'Wizard')) return undefined
   const slots: Record<number, number> = { 0: 2 + 2 * activeFeatsNamed(c, 'Cantrip Expansion').length }
+  if (!activeFeatsNamed(c, 'Basic Wizard Spellcasting').length) return slots
   const basicRank = Math.min(3, Math.floor((c.level - 2) / 2))
   for (let rank = 1; rank <= basicRank; rank++) slots[rank] = 1
   const expert = activeFeatsNamed(c, 'Expert Wizard Spellcasting').length > 0
@@ -2374,9 +2411,29 @@ export function wizardArchetypeSpellSlots(c: Character): Record<number, number> 
 
 export function wizardArchetypeSpellbookChoices(c: Character, extraCantrips = 0) {
   const slots = wizardArchetypeSpellSlots(c)
-  return slots ? Object.keys(slots).map(Number).flatMap(rank => Array.from({ length: rank === 0 ? slots[rank] + extraCantrips : 2 }, (_, index) => ({
+  const dedicationCantrips = avengerEldritchDedication(c, [], 'Wizard') ? 2 : 0
+  return slots ? Object.keys(slots).map(Number).flatMap(rank => Array.from({ length: rank === 0 ? slots[rank] + dedicationCantrips + extraCantrips : 2 }, (_, index) => ({
     key: `wizard:${rank}:${index}`, rank, cantrip: rank === 0, index,
   }))) : []
+}
+
+export function avengerClericSpellSlots(c: Character, entries: ContentEntry[]) {
+  if (!avengerEldritchDedication(c, entries, 'Cleric')) return undefined
+  const slots: Record<number, number> = { 0: 2 }
+  if (!activeFeatsNamed(c, 'Basic Cleric Spellcasting').length) return slots
+  const basicRank = Math.min(3, Math.floor((c.level - 2) / 2))
+  for (let rank = 1; rank <= basicRank; rank++) slots[rank] = 1
+  const expert = activeFeatsNamed(c, 'Expert Cleric Spellcasting').length > 0
+  const expertRank = expert ? Math.min(6, Math.floor((c.level - 4) / 2)) : 0
+  for (let rank = 4; rank <= expertRank; rank++) slots[rank] = 1
+  const masterRank = expert && activeFeatsNamed(c, 'Master Cleric Spellcasting').length
+    ? Math.min(8, Math.floor((c.level - 4) / 2)) : 0
+  for (let rank = 7; rank <= masterRank; rank++) slots[rank] = 1
+  if (activeFeatsNamed(c, 'Divine Breadth').length) {
+    const ranks = Object.keys(slots).map(Number).filter(rank => rank > 0)
+    for (const rank of ranks.slice(0, -2)) slots[rank]++
+  }
+  return slots
 }
 
 export function classSpellcasting(c: Character, entries: ContentEntry[]) {
@@ -2402,7 +2459,24 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
   const wizardSlots = wizardArchetypeSpellSlots(c)
   if (!traditions.length && wizardSlots) return {
     traditions: ['Arcane'], rank: activeFeatsNamed(c, 'Master Wizard Spellcasting').length ? 3
-      : activeFeatsNamed(c, 'Expert Wizard Spellcasting').length ? 2 : 1, ability: 'int' as Ability,
+      : activeFeatsNamed(c, 'Expert Wizard Spellcasting').length ? 2 : 1,
+    ability: getSettings().avengerEldritchHighestMental && avengerEldritchDedication(c, entries, 'Wizard')
+      ? highestMentalAbility(c, 'int') : 'int' as Ability,
+  }
+  if (!traditions.length && avengerClericSpellSlots(c, entries)) return {
+    traditions: ['Divine'], rank: activeFeatsNamed(c, 'Master Cleric Spellcasting').length ? 3
+      : activeFeatsNamed(c, 'Expert Cleric Spellcasting').length ? 2 : 1,
+    ability: getSettings().avengerEldritchHighestMental ? highestMentalAbility(c, 'wis') : 'wis' as Ability,
+  }
+  const manualClass = !traditions.length && avengerEldritchCastingClass(c, entries)
+  if (manualClass) {
+    const normal = manualClass === 'Psychic' && (c.spellcasting?.ability === 'cha' || c.spellcasting?.ability === 'int')
+      ? c.spellcasting.ability : CASTING_ABILITY[manualClass]
+    const available = tokens(byName(entries, 'class', manualClass)?.data.tradition)
+    const rank = activeFeatsNamed(c, `Master ${manualClass} Spellcasting`).length ? 3
+      : activeFeatsNamed(c, `Expert ${manualClass} Spellcasting`).length ? 2 : 1
+    return { traditions: available.length ? available : c.spellcasting?.tradition ? [c.spellcasting.tradition] : [], rank,
+      ability: getSettings().avengerEldritchHighestMental ? highestMentalAbility(c, normal) : normal }
   }
   if (!traditions.length && !focusOnlyCaster) return undefined
 
@@ -2638,6 +2712,8 @@ export function classSpellSlots(c: Character): Record<number, number> | undefine
   }
   const wizardSlots = wizardArchetypeSpellSlots(c)
   if (wizardSlots) return wizardSlots
+  const clericSlots = avengerClericSpellSlots(c, [])
+  if (clericSlots) return clericSlots
   if (!['Druid', 'Necromancer'].includes(c.className ?? '')) return undefined
   const necromancer = c.className === 'Necromancer'
   const slots: Record<number, number> = {}

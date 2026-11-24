@@ -1,9 +1,10 @@
 import { expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { armorRanks, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, plannedSlots, ranksAt, weaponAttack, weaponRanks } from './builder'
+import { armorRanks, classSpellcasting, classSpellSlots, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, featSelectionPrerequisiteChecker, plannedSlots, ranksAt, spellDifficultyClass, weaponAttack, weaponRanks } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { WeaponList } from './GearSection'
+import { SpellsSection } from './SpellsSection'
 import { homebrewCharacterOptions } from './supplemental'
 import type { Character, ContentEntry } from './types'
 
@@ -88,14 +89,14 @@ it('offers a different repeatable racket and its benefits without an extra skill
   const versatile = { name: 'Versatile Rogue', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Ruffian' }
   const c: Character = { ...base, feats: [versatile] }
   expect(homebrewCharacterOptions([]).find(entry => entry.name === versatile.name)?.data.repeatable).toBe(true)
-  expect(featChoiceOptions(versatile.name, c, [rogue], 'class:10:0')).toEqual(['Ruffian', 'Scoundrel', 'Mastermind', 'Avenger'])
+  expect(featChoiceOptions(versatile.name, c, [rogue], 'class:10:0')).toEqual(['Avenger', 'Mastermind', 'Ruffian', 'Scoundrel'])
   expect(ranksAt(c, [rogue]).Intimidation).toBe(1)
   expect(armorRanks(c, [rogue]).Medium).toBe(2)
   expect(plannedSlots(c).filter(slot => slot.category === 'skill').map(slot => slot.level))
     .toEqual(Array.from({ length: c.level }, (_, index) => index + 1))
   expect(plannedSlots(c).some(slot => slot.grantedBy === 'Versatile Rogue')).toBe(false)
   expect(featChoiceOptions(versatile.name, { ...c, feats: [versatile, { ...versatile, slot: 'class:12:0', choice: 'Scoundrel' }] },
-    [rogue], 'class:12:0')).toEqual(['Scoundrel', 'Mastermind', 'Avenger'])
+    [rogue], 'class:12:0')).toEqual(['Avenger', 'Mastermind', 'Scoundrel'])
   const duplicates = { ...base, level: 20, feats: [
     { ...versatile, choice: 'Thief' }, { ...versatile, slot: 'class:12:0' }, { ...versatile, slot: 'class:14:0' },
   ] }
@@ -170,6 +171,8 @@ it('offers Eldritch Trickster with its spellcasting multiclass dedication slot',
   const fighter: ContentEntry = { ...wizard, id: 'fighter', name: 'Fighter Dedication', data: { archetype: 'Fighter' } }
   const entries = [rogue, wizard, fighter, ...casting]
   expect(featChoiceOptions('Versatile Rogue', base, entries, 'class:10:0')).toContain('Eldritch Trickster')
+  expect(featChoiceOptions('Versatile Rogue', base, entries, 'class:10:0'))
+    .toEqual(['Avenger', 'Eldritch Trickster', 'Mastermind', 'Ruffian', 'Scoundrel'])
   const c: Character = { ...base, feats: [{ name: 'Versatile Rogue', type: 'Class Feat', level: 10,
     slot: 'class:10:0', choice: 'Eldritch Trickster' }] }
   const slot = plannedSlots(c).find(candidate => candidate.grantedBy === 'Eldritch Trickster')!
@@ -182,4 +185,58 @@ it('offers Eldritch Trickster with its spellcasting multiclass dedication slot',
   const magical: ContentEntry = { ...wizard, id: 'magical', name: 'Magical Trickster', level: 4, traits: ['Rogue'], data: {} }
   expect(eligibleFeats([magical], { ...primary, level: 2 }, { key: 'class:2:0', category: 'class', level: 2 }))
     .toContain(magical)
+})
+
+it('uses the highest mental attribute for an Avenger’s Versatile Rogue dedication and cleric spells', () => {
+  const settings = getSettings()
+  const cleric: ContentEntry = { ...rogue, id: 'cleric', kind: 'feat', name: 'Cleric Dedication', level: 2,
+    traits: ['Archetype', 'Dedication', 'Multiclass'], data: { archetype: 'Cleric', prerequisite: 'Wisdom +2' } }
+  const clericCasting = ['Basic', 'Expert', 'Master'].map(tier => ({ ...cleric, id: tier,
+    name: `${tier} Cleric Spellcasting`, traits: ['Archetype'], data: { archetype: 'Cleric' } }))
+  const divineLance: ContentEntry = { ...rogue, id: 'divine-lance', kind: 'spell', name: 'Divine Lance', level: 1,
+    traits: ['Cantrip', 'Attack'], data: { tradition: 'Divine', actions: 'Two Actions' } }
+  const druidClass: ContentEntry = { ...rogue, id: 'druid-class', name: 'Druid', data: { tradition: 'Primal' } }
+  const entries = [rogue, cleric, divineLance, druidClass, ...clericCasting]
+  const versatile = { name: 'Versatile Rogue', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Eldritch Trickster' }
+  const c: Character = { ...base, subclass: 'Avenger', deity: 'Sarenrae', abilities: { ...base.abilities, int: 14, wis: 10, cha: 18 },
+    feats: [versatile] }
+  const slot = plannedSlots(c).find(candidate => candidate.grantedBy === 'Eldritch Trickster')!
+  const chosen: Character = { ...c, feats: [...c.feats, { name: cleric.name, type: 'Archetype Feat', level: 2,
+    takenLevel: 10, slot: slot.key }], spellcasting: { ability: 'wis', tradition: 'Divine', rank: 1, slots: {},
+    prepared: { '0:0': divineLance.id } } }
+  try {
+    updateSettings({ avengerEldritchHighestMental: true })
+    expect(featSelectionPrerequisiteChecker(c, entries, slot)(cleric).missing).toEqual([])
+    expect(featSelectionPrerequisiteChecker({ ...c, abilities: { ...c.abilities, int: 10, cha: 12 } }, entries, slot)(cleric).missing)
+      .toContain('Wisdom +2')
+    expect(featSelectionPrerequisiteChecker({ ...c, subclass: 'Thief' }, entries, slot)(cleric).missing).toContain('Wisdom +2')
+    expect(classSpellSlots(chosen)).toEqual({ 0: 2 })
+    expect(classSpellcasting(chosen, entries)).toEqual({ traditions: ['Divine'], ability: 'cha', rank: 1 })
+    expect(spellDifficultyClass(chosen, entries)).toBe(26)
+    const wizard: Character = { ...chosen, feats: [versatile, { ...chosen.feats[1], name: 'Wizard Dedication' }] }
+    expect(classSpellSlots(wizard)).toEqual({ 0: 2 })
+    expect(classSpellcasting(wizard, entries)).toEqual({ traditions: ['Arcane'], ability: 'cha', rank: 1 })
+    const druid: Character = { ...chosen, feats: [versatile, { ...chosen.feats[1], name: 'Druid Dedication' }],
+      spellcasting: { ...chosen.spellcasting!, tradition: 'Primal' } }
+    expect(classSpellcasting(druid, entries)).toEqual({ traditions: ['Primal'], ability: 'cha', rank: 1 })
+    const newDruid = { ...druid, spellcasting: undefined }
+    expect(classSpellcasting(newDruid, entries)).toEqual({ traditions: ['Primal'], ability: 'cha', rank: 1 })
+    expect(renderToStaticMarkup(createElement(SpellsSection, { c: newDruid, entries, save: () => {} })))
+      .toContain('Spell slots:')
+    const markup = renderToStaticMarkup(createElement(SpellsSection, { c: chosen, entries, save: () => {} }))
+    expect(markup).toContain('Divine Lance')
+    expect(markup).toContain('aria-label="Cantrip slot 2"')
+    expect(markup).toContain('<small>Charisma</small>+4')
+    const progressed: Character = { ...chosen, level: 12, feats: [...chosen.feats,
+      { name: 'Basic Cleric Spellcasting', type: 'Archetype Feat', level: 4, takenLevel: 10 },
+      { name: 'Expert Cleric Spellcasting', type: 'Archetype Feat', level: 12 }] }
+    expect(classSpellSlots(progressed)).toEqual({ 0: 2, 1: 1, 2: 1, 3: 1, 4: 1 })
+    expect(classSpellcasting(progressed, entries)?.rank).toBe(2)
+    updateSettings({ avengerEldritchHighestMental: false })
+    expect(featSelectionPrerequisiteChecker(c, entries, slot)(cleric).missing).toContain('Wisdom +2')
+    expect(classSpellcasting(chosen, entries)?.ability).toBe('wis')
+    expect(classSpellcasting(wizard, entries)?.ability).toBe('int')
+    expect(classSpellcasting(druid, entries)?.ability).toBe('wis')
+    expect(spellDifficultyClass(chosen, entries)).toBe(22)
+  } finally { updateSettings(settings) }
 })

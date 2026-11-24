@@ -138,7 +138,7 @@ function familiarDisplayState(c: Character, entries: ContentEntry[], isWasp = fa
     activeSpecific, grants, selectableAbilityLimit, savedAbilities, activeAbilityChoices, skillNames, selectedCount, totalCount, emissaryAbility, leshySecret, leshyAbility }
 }
 
-const specificFamiliarHeader = (name: string) => name === 'Nine-Tailed Fox' ? 'Nine-Tailed Fox Familiar' : name
+const specificFamiliarHeader = (name: string) => /\bfamiliar$/i.test(name) ? name : `${name} Familiar`
 
 const SUMMONED_CREATURES = {
   Emganat: {

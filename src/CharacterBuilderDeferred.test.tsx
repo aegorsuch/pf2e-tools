@@ -46,6 +46,43 @@ it('shows ancestry feat progress beside the ancestry name', () => {
   expect(render(filled)).toContain(`Sensate Gnome (${slots.length}/${slots.length})`)
 })
 
+it('opens Parry rules from Defense and Statuses summaries without toggling either section', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  } })
+  const c: Character = { id: 'parry', systems: ['pf2e'], name: 'Test', level: 8, className: 'Ranger', parrying: true,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    weapons: [{ id: 'weapon', name: 'Parry Sword', potency: 0, striking: 0, runes: [] }] }
+  const weapon: ContentEntry = { id: 'weapon', name: 'Parry Sword', kind: 'weapon', source: 'official', systems: ['pf2e'],
+    level: 1, traits: ['Parry'], description: '', data: { weapon_category: 'Martial', hands: 1 }, effects: [], updatedAt: 0 }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<CharacterBuilder character={c} catalog={[weapon]} onClose={() => {}} />))
+    for (const sectionName of ['Defense', 'Statuses']) {
+      const section = [...container.querySelectorAll('details')].find(details =>
+        details.querySelector(':scope > summary > strong')?.textContent === sectionName)!
+      const summary = section.querySelector(':scope > summary')!
+      const button = [...summary.querySelectorAll('button')].find(item => item.textContent === 'Parry')!
+      expect(button).toBeTruthy()
+      await act(async () => button.click())
+      expect(section.open).toBe(false)
+      const dialog = summary.querySelector('dialog[open]')!
+      expect(dialog.textContent).toContain('While wielding a parry weapon')
+      dialog.removeAttribute('open')
+    }
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Parry active (summary)"]')?.checked).toBe(true)
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
+    vi.unstubAllGlobals()
+  }
+})
+
 it('updates equipment groups when inventory or catalog changes', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   const c: Character = {

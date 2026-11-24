@@ -15,7 +15,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { animistApparitionSlots, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, knownSpellNames, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
+import { animistApparitionSlots, avengerClericSpellSlots, avengerEldritchCastingClass, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, knownSpellNames, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
@@ -1729,9 +1729,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const intensified = intensifiedElementDamage(c, entries)
   const automaticSlots = classSpellSlots(c)
   const witchwarper = witchwarperParadox(c)
+  const avengerCastingClass = avengerEldritchCastingClass(c, entries)
   const druid = c.className === 'Druid' && automaticSlots !== undefined
   const necromancer = c.className === 'Necromancer'
   const wizard = c.className === 'Wizard' && c.systems.includes('pf2e')
+  const avengerCleric = !!avengerClericSpellSlots(c, entries)
   const magus = c.className === 'Magus' && c.systems.includes('pf2e')
   const witch = c.className === 'Witch' && c.systems.includes('pf2e')
   const technomancer = c.className === 'Technomancer' && c.systems.includes('sf2e')
@@ -1741,19 +1743,22 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const warrior = c.className === 'Champion' ? activeFeatsNamed(c, 'Divine Warrior')[0]
     : c.className === 'Ranger' ? activeFeatsNamed(c, 'Primal Warrior')[0] : undefined
   const extraSlots = automaticSlots ? classExtraSlots(c, entries) : []
-  const avengerTraditionSwitch = !!c.spellcasting && rogueRackets(c, entries).includes('Avenger')
+  const avengerTraditionSwitch = !avengerCastingClass && !!c.spellcasting && rogueRackets(c, entries).includes('Avenger')
     && /^(occult|divine)$/i.test(c.spellcasting.tradition)
   const traditions = warrior ? [warrior.name === 'Divine Warrior' ? 'Divine' : 'Primal']
     : avengerTraditionSwitch ? ['Occult', 'Divine'] : casting?.traditions ?? []
   const sc: Character['spellcasting'] = automaticSlots ? { ...c.spellcasting,
     ability: casting?.ability ?? c.spellcasting?.ability ?? 'int',
     tradition: traditions.length === 1 ? traditions[0] : c.spellcasting?.tradition ?? traditions[0] ?? '',
-    rank: casting?.rank ?? c.spellcasting?.rank ?? 1, slots: classRepertoireRows(c) ?? automaticSlots } : c.spellcasting
+    rank: casting?.rank ?? c.spellcasting?.rank ?? 1, slots: classRepertoireRows(c) ?? automaticSlots }
+    : c.spellcasting ?? (casting && avengerCastingClass ? {
+      ability: casting.ability ?? 'int', tradition: traditions.length === 1 ? traditions[0] : '', rank: casting.rank, slots: {},
+    } : undefined)
   const benefits = familiarSpellBenefits(c, entries, automaticSlots ?? sc?.slots ?? {})
   const wizardSpellbookSlots = wizardArchetypeSpellbookChoices(c, Number(benefits.cantrip))
   const wizardBookUser = wizard || technomancer || wizardSpellbookSlots.length > 0
   const preparedClass = ['Animist', 'Cleric', 'Druid', 'Magus', 'Necromancer', 'Technomancer', 'Witch', 'Wizard']
-    .includes(c.className ?? '') || wizardSpellbookSlots.length > 0
+    .includes(c.className ?? '') || wizardSpellbookSlots.length > 0 || avengerCleric
   const spellIndex = useMemo(() => {
     const spells = entries.filter(entry => entry.kind === 'spell' && !entry.deleted
       && entry.systems.some(system => c.systems.includes(system)))
@@ -1916,7 +1921,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const setSc = (patch: Partial<NonNullable<Character['spellcasting']>>) => {
     if (!casting && !avengerTraditionSwitch) return
     save({ spellcasting: { ability: 'int', tradition: traditions[0] ?? '', slots: {}, ...sc, ...patch,
-      rank: casting?.rank ?? patch.rank ?? sc?.rank ?? 1, ...(casting?.ability ? { ability: casting.ability } : {}) } })
+      rank: casting?.rank ?? patch.rank ?? sc?.rank ?? 1, ...(casting?.ability
+        ? { ability: avengerCastingClass === 'Psychic' ? c.spellcasting?.ability ?? 'int' : casting.ability } : {}) } })
   }
   const selectedTradition = traditions.length === 1
     ? traditions[0]
@@ -2076,7 +2082,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     }) : []
     const bloodragerSpells = bloodrager ? spellIndex.spells.filter(entry => spellAccessGranted(c, entry)) : undefined
     const warriorSpells = warrior ? featSpellOptions(c, entries, warrior) : undefined
-    const available = [...((warriorSpells ?? bloodragerSpells ?? witchAvailable ?? druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
+    const clericSpells = avengerCleric ? spellIndex.spells.filter(entry => spellAccessGranted(c, entry)
+      && !entry.traits.some(trait => trait.toLowerCase() === 'focus')
+      && String(entry.data.tradition ?? '').split(',').some(tradition => tradition.trim().toLowerCase() === 'divine')) : undefined
+    const available = [...((warriorSpells ?? bloodragerSpells ?? clericSpells ?? witchAvailable ?? druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
       rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: false })) ?? (c.spells ?? [])
       .filter(spell => !forced.some(extra => extra.name === spell.name)).map(spell => ({ ...spell, forced: false }))), ...forced]
       .map(spell => {
@@ -2100,7 +2109,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         return [...entry?.systems ?? []].sort().join(',')
       }) : options }
     })
-  }, [druidAvailable, witchAvailable, dirge, c, entries, warrior, preparedClass, selectedTradition, spellIndex, bard, bloodrager])
+  }, [druidAvailable, witchAvailable, dirge, c, entries, warrior, preparedClass, selectedTradition, spellIndex, bard, bloodrager, avengerCleric])
   const classSlotRanks = Array.from({ length: 11 }, (_, rank) => ({
     rank,
     count: Math.max(0, Math.min(20, Math.trunc(Number(sc?.slots[rank]) || 0)))

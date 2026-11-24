@@ -11,6 +11,7 @@ import { ANCESTRAL_AVATAR } from './battleForms'
 import { FULMINATING_SHOT_ELEMENTS, fulminatingShotBonus } from './fulminatingShot'
 import { confirmRemoval } from './confirmRemoval'
 import { PURIFY_AIR_DESCRIPTION, purifyAirActive, purifyAirAvailable } from './familiarAbilities'
+import { Fragment } from 'react'
 import type { ContentEntry } from './types'
 
 const canDeviseAStratagem = (c: SectionProps['c']) => c.systems.includes('pf2e') && c.className === 'Investigator'
@@ -30,6 +31,11 @@ const PARRY: ContentEntry = {
   level: 0, traits: [], effects: [], updatedAt: 0,
   description: 'While wielding a parry weapon with trained or better proficiency, spend one action to gain a +1 circumstance bonus to AC until the start of your next turn.',
   data: { url: 'https://2e.aonprd.com/Traits.aspx?ID=667' },
+}
+
+export function parryTrait(c: SectionProps['c'], entries: SectionProps['entries']) {
+  return entries.find(entry => entry.kind === 'trait' && !entry.deleted && entry.name === 'Parry'
+    && entry.systems.some(system => c.systems.includes(system))) ?? PARRY
 }
 
 const FAVORED_TERRAIN: ContentEntry = {
@@ -104,8 +110,12 @@ export function StatusesSummary({ c, entries }: SectionProps) {
     ...(['frightened', 'sickened', 'enfeebled'] as const).flatMap(name =>
       conditionValue(c, name) ? [`${name[0].toUpperCase() + name.slice(1)} ${conditionValue(c, name)}`] : []),
   ]
+  const sorted = [...new Set(active)].sort((a, b) => a.localeCompare(b))
   return <summary className="character-section-summary"><strong>Statuses</strong>
-    <span>{[...new Set(active)].sort((a, b) => a.localeCompare(b)).join(', ') || 'None active'}</span>
+    <span>{sorted.length ? sorted.map((name, index) => <Fragment key={name}>{index > 0 && ', '}
+      {name === 'Parry' ? <span onClick={event => event.stopPropagation()}>
+        <EntryDescription name="Parry" entry={parryTrait(c, entries)} entries={entries} character={c} deferDetails />
+      </span> : name}</Fragment>) : 'None active'}</span>
   </summary>
 }
 
@@ -158,8 +168,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   const zealousEntry = grant?.entry ?? entries.find(entry => entry.kind === 'spell' && !entry.deleted
     && entry.name === 'Zealous Conviction' && entry.systems.some(system => c.systems.includes(system)))
   const zealousRank = grant?.rank ?? c.zealousConvictionRank
-  const parryEntry = entries.find(entry => entry.kind === 'trait' && !entry.deleted && entry.name === 'Parry'
-    && entry.systems.some(system => c.systems.includes(system))) ?? PARRY
+  const parryEntry = parryTrait(c, entries)
   const terrainEntry = selectedFeatEntry(c, entries, 'Favored Terrain') ?? FAVORED_TERRAIN
   const terrainActive = isFeatEffectActive(c, 'Favored Terrain')
   const terrainLocked = activeFeatsNamed(c, 'Terrain Master').length > 0

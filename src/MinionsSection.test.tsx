@@ -1047,15 +1047,15 @@ it('shows specific familiar grants alongside choices without removal controls an
   expect(renderToStaticMarkup(<MinionsSummary c={c} entries={entries} />)).toContain('Familiar (5/10)')
   c = { ...c, achievements: ['Trained with the Pathfinder Society'] }
   let html = renderToStaticMarkup(tree())
-  expect(html).toContain('<h4>Calligraphy Wyrm</h4> (11/11)')
+  expect(html).toContain('<h4>Calligraphy Wyrm Familiar</h4> (11/11)')
   expect(html).not.toContain('GM approved access: Calligraphy Wyrm')
-  expect(renderToStaticMarkup(<MinionsSummary c={c} entries={entries} />)).toContain('Calligraphy Wyrm (11/11)')
+  expect(renderToStaticMarkup(<MinionsSummary c={c} entries={entries} />)).toContain('Calligraphy Wyrm Familiar (11/11)')
   const reduced = { ...c, level: 1, familiar: { ...c.familiar, abilities: ['Tough', 'Climber'] } }
-  expect(renderToStaticMarkup(<MinionsSummary c={reduced} entries={entries} />)).toContain('Calligraphy Wyrm (9/9)')
+  expect(renderToStaticMarkup(<MinionsSummary c={reduced} entries={entries} />)).toContain('Calligraphy Wyrm Familiar (9/9)')
   c = { ...c, achievements: [] }
   findToggle(tree(), 'GM approved access: Calligraphy Wyrm')!({ target: { checked: true } })
   html = renderToStaticMarkup(tree())
-  expect(html).toContain('<h4>Calligraphy Wyrm</h4> (11/11)')
+  expect(html).toContain('<h4>Calligraphy Wyrm Familiar</h4> (11/11)')
   expect(html).toContain('Skilled (Arcana, Society)')
   for (const grant of ['Darkvision', 'Flier', 'Manual Dexterity', 'Scent', 'Skilled (Arcana, Society)', 'Speech']) {
     const card = html.split('<div class="familiar-ability">').find(part => part.includes(`>${grant}<`))

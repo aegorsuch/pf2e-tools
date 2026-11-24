@@ -19,7 +19,7 @@ import { DamageRoll } from './SpellDamage'
 import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, WeaponProficiency, RageToggle, SensesAndSpeed, SensesAndSpeedSummary, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsPanel } from './SpellsSection'
-import { DeviseAStratagemToggle, HuntPreyToggle, StatusesContent, StatusesSummary } from './StatusesSection'
+import { DeviseAStratagemToggle, HuntPreyToggle, StatusesContent, StatusesSummary, parryTrait } from './StatusesSection'
 import { boneShieldActive, canUseGiantStature, effectiveHandwraps, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, temporaryHpGrant, twinnedDefenseActive } from './builder'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
@@ -844,8 +844,9 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
             : shieldCantrip && <label><input type="checkbox" aria-label="Raise Shield Cantrip (summary)"
               checked={isSpellActive(c, entries, 'Shield')}
               onChange={event => save(spellActiveChange(c, 'Shield', event.target.checked))} /> Raise Shield Cantrip (+1 AC)</label>}
-            {parryWeapon && parry > 0 && <label><input type="checkbox" aria-label="Parry active (summary)" checked={!!c.parrying || stanceParry}
-              disabled={stanceParry} onChange={(event) => { if (!stanceParry) save({ parrying: event.target.checked }) }} /> Parry (+{parry} AC)</label>}
+            {parryWeapon && parry > 0 && <span><input type="checkbox" aria-label="Parry active (summary)" checked={!!c.parrying || stanceParry}
+              disabled={stanceParry} onChange={(event) => { if (!stanceParry) save({ parrying: event.target.checked }) }} />{' '}
+              <EntryDescription name="Parry" entry={parryTrait(c, entries)} character={c} entries={entries} deferDetails /> (+{parry} AC)</span>}
           </span>}
         </summary>
         <div className="character-section-content">

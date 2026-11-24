@@ -7,6 +7,8 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'adoptedDwarfClanDagger', label: 'Adopted Ancestry (Dwarf) Grants Clan Dagger' },
   { key: 'autoClassSkills', label: 'Auto-Advance Class-Specific Skills' },
   { key: 'autoLores', label: 'Auto-Advance Lores' },
+  { key: 'avengerEldritchHighestMental', label: 'Avenger Eldritch Trickster Uses Highest Mental Attribute',
+    description: 'For an Avenger gaining Eldritch Trickster through Versatile Rogue, the granted multiclass dedication uses the highest mental attribute for its spellcasting attribute and corresponding prerequisite.' },
   { key: 'sf2eDeitySkills', label: 'SF2e Deities Grant Skills',
     description: "Non-Champions and non-Avengers gain training in their deity's divine skill. If already trained, gain another trained skill choice." },
   { key: 'consolidateInnateTraditions', label: 'Consolidate Innate Spell Traditions' },
