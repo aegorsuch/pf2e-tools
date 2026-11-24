@@ -2511,10 +2511,15 @@ export function wizardCurriculum(school?: ContentEntry) {
   return curriculum
 }
 
+export function wizardSchool(c: Character, entries: ContentEntry[]) {
+  return c.className !== 'Wizard' || !c.systems.includes('pf2e') ? undefined
+    : entries.find(entry => entry.kind === 'subclass' && !entry.deleted && entry.data.class === 'Wizard'
+      && entry.systems.includes('pf2e') && entry.name === c.subclass)
+}
+
 function wizardCurriculumExtras(c: Character, entries: ContentEntry[]): ClassSpellSlotExtra[] {
-  if (c.className !== 'Wizard' || !c.systems.includes('pf2e') || c.level < 1) return []
-  const school = entries.find(entry => entry.kind === 'subclass' && !entry.deleted && entry.data.class === 'Wizard'
-    && entry.systems.includes('pf2e') && entry.name === c.subclass)
+  if (c.level < 1) return []
+  const school = wizardSchool(c, entries)
   const curriculum = wizardCurriculum(school)
   return Object.entries(curriculum).filter(([rank, names]) => names.length
     && Number(rank) <= Math.min(9, Math.ceil(c.level / 2))).map(([rank, allowedSpells]) => ({
@@ -3596,7 +3601,7 @@ export const orderMagicOptions = (c: Character, exceptIndex = -1) => {
 }
 
 const spellNameCache = new WeakMap<ContentEntry[], Map<string, string>>()
-const spellName = (entries: ContentEntry[], name: string) => {
+export const spellName = (entries: ContentEntry[], name: string) => {
   if (name.toLowerCase() === 'goodberry') name = 'Cornucopia'
   let map = spellNameCache.get(entries)
   if (!map) {

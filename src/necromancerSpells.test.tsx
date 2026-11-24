@@ -482,6 +482,13 @@ it('filters learnable Dirge spells by defense and search', () => {
   expect(results).not.toContain('aria-label="Learn Flame Bolt"')
 })
 
+it('marks Wizard school spells in the learn list', () => {
+  const html = renderToStaticMarkup(DirgeLearnOptions({ options: [spell('Bane'), spell('Fear')], onLearn: () => {},
+    marked: new Set(['fear']) }))
+  expect(html.match(/<strong>School<\/strong>/g)).toHaveLength(1)
+  expect(html.indexOf('School')).toBeGreaterThan(html.indexOf('Fear'))
+})
+
 it('adds spells with inline plus buttons without opening another picker', () => {
   const fear = spell('Fear')
   const bane = spell('Bane')

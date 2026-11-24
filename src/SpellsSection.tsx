@@ -15,7 +15,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { animistApparitionSlots, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, wizardArchetypeSpellbookChoices, type Ability } from './builder'
+import { animistApparitionSlots, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, type Ability } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
@@ -918,12 +918,13 @@ export function PyreResistEnergyActions({ c, save, entry, rank }: Pick<SectionPr
   </ActiveSpellActions>
 }
 
-export function DirgeLearnOptions({ options, onLearn }: { options: ContentEntry[]; onLearn: (entry: ContentEntry) => void }) {
+export function DirgeLearnOptions({ options, onLearn, marked }: { options: ContentEntry[]; onLearn: (entry: ContentEntry) => void; marked?: Set<string> }) {
   return <ul className="dirge-options">
     {options.map(entry => <li key={entry.id}>
       <button type="button" aria-label={`Learn ${entry.name}`} onClick={() => onLearn(entry)}>+</button>
       <EntryDescription name={entry.name} entry={entry} />
       {' '}<small>{entry.systems.map(system => system.toUpperCase()).join(' / ')}</small>
+      {marked?.has(entry.name.toLowerCase()) && <> <strong>School</strong></>}
     </li>)}
   </ul>
 }
@@ -1731,8 +1732,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
     && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase()) && matchesSpellDefense(entry, bookDefense)
     && matchesGearSystem(entry, bookSystem, c.systems) && !knownWitchSpells.has(entry.name.toLowerCase()))
+  const schoolSpells = useMemo(() => new Set((wizardCurriculum(wizardSchool(c, entries))[bookRank] ?? [])
+    .map(name => spellName(entries, name).toLowerCase())), [c, entries, bookRank])
+  const schoolFirst = (list: ContentEntry[]) => bookSource === 'Wizard' && schoolSpells.size
+    ? [...list].sort((a, b) => Number(schoolSpells.has(b.name.toLowerCase())) - Number(schoolSpells.has(a.name.toLowerCase()))) : list
   const rankedBookOptions = bookSource === 'Dirge' ? rankedDirgeOptions
-    : bookSource === 'Witch' ? rankedWitchBookOptions : rankedArcaneBookOptions
+    : bookSource === 'Witch' ? rankedWitchBookOptions : schoolFirst(rankedArcaneBookOptions)
   const { spells, granted, featSpells, innate, special, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
   const available = spellCategoryAvailability(c, entries, data ?? spellSummaryData(c, entries))
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
@@ -2229,7 +2234,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           onChange={event => setBookQuery(event.target.value)} /></label>
         <SpellDefenseFilter value={bookDefense} onChange={setBookDefense} />
         <GearSystemFilter value={bookSystem} onChange={setBookSystem} />
-        {bookOpen && <DirgeLearnOptions options={rankedBookOptions} onLearn={learnSpellbookSpell} />}
+        {bookOpen && <DirgeLearnOptions options={rankedBookOptions} onLearn={learnSpellbookSpell}
+          marked={bookSource === 'Wizard' ? schoolSpells : undefined} />}
         <form method="dialog"><button autoFocus>Close</button></form>
       </dialog>}
       {(casting || avengerTraditionSwitch) && <>
