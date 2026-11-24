@@ -700,7 +700,7 @@ export function RapidShapeActions({ c, save }: SectionProps) {
   </div>
 }
 
-function SpellEffectActions({ c, entries, save, entry, name, rank = Math.ceil(c.level / 2) }: SectionProps & {
+export function SpellEffectActions({ c, entries, save, entry, name, rank = Math.ceil(c.level / 2) }: SectionProps & {
   entry?: ContentEntry
   name: 'Animal Feature' | 'Untamed Shift' | 'Untamed Form' | 'Dinosaur Form'
   rank?: number

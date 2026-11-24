@@ -1600,9 +1600,9 @@ it('provides one extra Leshy Familiar Secrets ability and requires second-rank s
   expect(renderToStaticMarkup(tree())).toContain('Verdant Burst requires a 2nd-rank spell slot')
   expect(renderToStaticMarkup(tree())).not.toContain('Roll Verdant Burst')
   c = { ...c, feats: c.feats.map(feat => feat.name === 'Leshy Familiar Secrets' ? { ...feat, choice: 'Purify Air' } : feat) }
-  expect(renderToStaticMarkup(tree())).toContain('+2 circumstance to saves against inhaled effects')
+  expect(renderToStaticMarkup(tree())).toContain('+2 circumstance to saves against inhaled poison')
   c = { ...c, feats: c.feats.slice(0, 1) }
-  expect(renderToStaticMarkup(tree())).not.toContain('+2 circumstance to saves against inhaled effects')
+  expect(renderToStaticMarkup(tree())).not.toContain('+2 circumstance to saves against inhaled poison')
 })
 
 it('uses full companion stat names, omits redundant level, and keeps AC adjustment sources inside its popover', () => {

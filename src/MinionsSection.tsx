@@ -21,7 +21,7 @@ import { DroneFeatures } from './DroneFeatures'
 import { FOLLOWER_STAGES, FOLLOWER_TYPES, followerStage, followerStats } from './followers'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityEffects, familiarAbilityEntries, familiarAbilitySlots, familiarMedicRank,
   familiarAbilityEntry, familiarAbilityUnavailableReason, GLYPH_FAMILIAR_ABILITIES, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds,
-  isDivineEmissaryAbility, specificFamiliarAbilityName, specificFamiliarGrantedLabels, specificFamiliarSections } from './familiarAbilities'
+  isDivineEmissaryAbility, PURIFY_AIR_DESCRIPTION, specificFamiliarAbilityName, specificFamiliarGrantedLabels, specificFamiliarSections } from './familiarAbilities'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
@@ -1137,7 +1137,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           if (leshySecret) {
             const descriptions: Record<string, string> = {
               'Grasping Tendrils': 'Familiar reach 15 feet.',
-              'Purify Air': 'Recycles air for one Medium creature; +2 circumstance to saves against inhaled effects within 15 feet, at GM discretion.',
+              'Purify Air': PURIFY_AIR_DESCRIPTION,
               'Verdant Burst': highestSlot >= 2
                 ? `On familiar death, three-action Heal at rank ${highestSlot - 1}; plants regain an additional ${2 * (highestSlot - 1)} HP.`
                 : 'Verdant Burst requires a 2nd-rank spell slot.',

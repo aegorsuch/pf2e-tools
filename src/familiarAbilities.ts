@@ -158,6 +158,7 @@ const EMISSARY_ABILITIES: Record<string, string> = {
 const emissaryNames = new Set(Object.keys(EMISSARY_ABILITIES).map(key))
 export const isDivineEmissaryAbility = (name: string) => emissaryNames.has(key(name))
 export const LESHY_SECRET_ABILITIES = ['Grasping Tendrils', 'Purify Air', 'Verdant Burst'] as const
+export const PURIFY_AIR_DESCRIPTION = 'Recycles air for one Medium creature in stale air; creatures within 15 feet gain +2 circumstance to saves against inhaled poison, olfactory, and other breathing-dependent effects, at GM discretion.'
 
 export function familiarMedicRank(c: Character) {
   const slots = classSpellSlots(c) ?? c.spellcasting?.slots

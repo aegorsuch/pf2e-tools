@@ -88,6 +88,14 @@ export function SensesAndSpeedSummary({ c, entries }: Pick<SectionProps, 'c' | '
   </summary>
 }
 
+export function HardenFleshToggle({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
+  if (!activeFeatsNamed(c, 'Harden Flesh').length) return null
+  return <label title="Requires earthen or stone ground; ends at the beginning of your next turn.">
+    <input type="checkbox" aria-label="Harden Flesh active" checked={!!c.hardenFleshActive}
+      onChange={event => save({ hardenFleshActive: event.target.checked })} /> Harden Flesh active
+  </label>
+}
+
 export function RageToggle({ c, save, summary = false }: Pick<SectionProps, 'c' | 'save'> & { summary?: boolean }) {
   if (c.className !== 'Barbarian' && !activeFeatsNamed(c, 'Barbarian Dedication').length) return null
   const toggle = <label><input type="checkbox" aria-label={summary ? 'Rage active' : 'Rage active (defense)'} checked={!!c.raging}
@@ -921,10 +929,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {isFeatEffectActive(c, 'Verdant Metamorphosis') && <SourceNote source="Verdant Rest"
             note={`Cannot move or affect anything outside the plant. In natural sunlight, 10 minutes restores ${Math.floor(maxHp(c, entries) / 2)} Hit Points. Daily rest restores full Hit Points and removes non-permanent drained, enfeebled, clumsy and stupefied conditions, and poisons and diseases of level 19 or lower.`} />}
         </>}
-        {!!activeFeatsNamed(c, 'Harden Flesh').length && <label title="Requires earthen or stone ground; ends at the beginning of your next turn.">
-          <input type="checkbox" aria-label="Harden Flesh active" checked={!!c.hardenFleshActive}
-            onChange={event => save({ hardenFleshActive: event.target.checked })} /> Harden Flesh active
-        </label>}
+        <HardenFleshToggle c={c} save={save} />
         {form && <div className="defense-summary">
           <span><small>Size</small><b>{form.size}
             <SourceNote source={form.source} note={form.source === 'Dragon Transformation'

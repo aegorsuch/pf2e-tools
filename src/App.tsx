@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { db, ensureSupplementalContent, newId, removeEntry, saveEntry } from './db'
 import { characterSummary, hasRemainingFeatSelections } from './builder'
@@ -31,6 +31,7 @@ const toggle = (list: GameSystem[], s: GameSystem) =>
 
 const ALL_SYSTEMS = SYSTEMS.map((s) => s.id)
 const NO_ENTRIES: ContentEntry[] = []
+const OPEN_CHARACTER_KEY = 'pf2e-tools:open-character'
 
 const blank = (systems: GameSystem[]): ContentEntry => ({
   id: newId(), systems, kind: 'feat', source: 'homebrew', name: '', level: 1,
@@ -59,7 +60,27 @@ export default function App() {
   const [rulesOpen, setRulesOpen] = useState(false)
   const [showAccount, setShowAccount] = useState(false)
   const [draft, setDraft] = useState<ContentEntry | null>(null)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [restoredCharacter] = useState(() => {
+    try {
+      return { id: window.sessionStorage.getItem(OPEN_CHARACTER_KEY), error: '' }
+    } catch (error) {
+      return { id: null, error: `Could not restore the open character: ${error instanceof Error ? error.message : String(error)}` }
+    }
+  })
+  const [editingId, setEditingId] = useState<string | null>(restoredCharacter.id)
+  const [navigationError, setNavigationError] = useState(restoredCharacter.error)
+  const openCharacter = useCallback((id: string | null) => {
+    setEditingId(id)
+    try {
+      if (id) window.sessionStorage.setItem(OPEN_CHARACTER_KEY, id)
+      else window.sessionStorage.removeItem(OPEN_CHARACTER_KEY)
+      setNavigationError('')
+      return true
+    } catch (error) {
+      setNavigationError(`Could not save the open character for refresh: ${error instanceof Error ? error.message : String(error)}`)
+      return false
+    }
+  }, [])
   const [status, setStatus] = useState('')
   const [user, setUser] = useState<User | null>(null)
   const [authError, setAuthError] = useState('')
@@ -82,6 +103,11 @@ export default function App() {
   const characters = useLiveQuery(() => db.characters.filter((c) => !c.deleted).toArray(), [])
   const deityLores = useMemo(() => characterDeityLores(characters ?? []), [characters])
   const editingCharacter = characters?.find((c) => c.id === editingId)
+  useEffect(() => {
+    if (editingId && editingId === restoredCharacter.id && characters && !editingCharacter) {
+      if (openCharacter(null)) setNavigationError('The previously opened character is no longer available.')
+    }
+  }, [characters, editingCharacter, editingId, openCharacter, restoredCharacter.id])
   const neededSystems = editingCharacter?.systems ?? draft?.systems
   const neededKey = neededSystems?.slice().sort().join(',') ?? ''
   const requestKey = neededKey ? `${editingId ?? 'draft'}:${neededKey}:${catalogRetry}` : ''
@@ -132,7 +158,7 @@ export default function App() {
       updatedAt: Date.now(),
     })
     setCatalogRetry(value => value + 1)
-    setEditingId(id)
+    openCharacter(id)
   }
 
   return (
@@ -152,7 +178,7 @@ export default function App() {
           }}>{refreshing ? 'Refreshing...' : 'Refresh'}</button>
           <button type="button" className="gear-button" title="House rules" aria-label="Rules" aria-controls="homebrew-rules"
             aria-expanded={!editingId && rulesOpen} onClick={() => {
-              setEditingId(null)
+              openCharacter(null)
               setHomebrewSearch('')
               setRulesOpen(true)
               requestAnimationFrame(() => document.getElementById('homebrew-rules')?.scrollIntoView({ block: 'start' }))
@@ -189,6 +215,7 @@ export default function App() {
       </header>
       {authError && <p role="alert">Sign-in error: {authError}</p>}
       {refreshError && <p role="alert">{refreshError}</p>}
+      {navigationError && <p role="alert">{navigationError}</p>}
       {(status || !supabase) && <small>{status || 'Set VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY to enable sync'}</small>}
       {draft && catalogError && <p role="alert">{catalogError} <button type="button" onClick={() => setCatalogRetry(value => value + 1)}>Retry</button></p>}
 
@@ -237,12 +264,13 @@ export default function App() {
       )}
 
       {editingCharacter && ((!neededKey || catalogReady === requestKey) && catalog?.key === catalogReady && catalog.full
-        ? <Suspense fallback={null}><CharacterBuilder character={editingCharacter} catalog={entries ?? NO_ENTRIES} deityLores={deityLores} onClose={() => setEditingId(null)} /></Suspense>
+        ? <Suspense fallback={null}><CharacterBuilder character={editingCharacter} catalog={entries ?? NO_ENTRIES} deityLores={deityLores} onClose={() => openCharacter(null)} /></Suspense>
         : <div role="status">
           {catalogError ? <><p>{catalogError}</p><button type="button" onClick={() => setCatalogRetry(value => value + 1)}>Retry</button></>
             : <p>Loading character content...</p>}
-          <button type="button" onClick={() => setEditingId(null)}>Back to characters</button>
+          <button type="button" onClick={() => openCharacter(null)}>Back to characters</button>
         </div>)}
+      {editingId && !characters && <p role="status">Loading character...</p>}
 
       {!editingId && <>
       <div className="home-section-heading">
@@ -259,7 +287,7 @@ export default function App() {
             <span className="character-actions">
               <button type="button" className="icon-button" title="Edit character" aria-label={`Edit ${c.name}`}
                 onPointerEnter={() => void loadCharacterBuilder()} onFocus={() => void loadCharacterBuilder()}
-                onClick={() => { setCatalogRetry(value => value + 1); setEditingId(c.id) }}><EditIcon /></button>
+                onClick={() => { setCatalogRetry(value => value + 1); openCharacter(c.id) }}><EditIcon /></button>
               <button type="button" className="icon-button" title="Delete character" aria-label={`Delete ${c.name}`}
                 onClick={() => confirmRemoval(`character "${c.name}" and all its saved options`, () => {
                   void db.characters.put({ ...c, deleted: true, updatedAt: Date.now() }).catch((error: unknown) =>

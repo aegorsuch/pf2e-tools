@@ -5,10 +5,93 @@ import { expect, it, vi } from 'vitest'
 import { SpellActions } from './SpellDamage'
 import { SpellsSection, SpiritOfTheBeastOptions } from './SpellsSection'
 import { StatusesContent } from './StatusesSection'
+import { SkillsSection } from './SkillsSection'
 import { MinionsSection } from './MinionsSection'
 import { resistances } from './builder'
 import { companionStats } from './companions'
 import type { Character, ContentEntry } from './types'
+
+it('synchronizes Untamed Shift and Harden Flesh through statuses', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  } })
+  const initial: Character = { id: 'druid', name: 'Test', systems: ['pf2e'], level: 10, className: 'Druid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Untamed Form', type: 'Class Feat', level: 1 }, { name: 'Harden Flesh', type: 'Class Feat', level: 10 }],
+    spells: [{ name: 'Untamed Shift', rank: 1, cantrip: false }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const entries: ContentEntry[] = [
+    { id: 'shift', name: 'Untamed Shift', systems: ['pf2e'], kind: 'spell', source: 'official', level: 1,
+      traits: [], description: 'Change your shape.', data: { actions: 'Single Action to Two Actions' }, effects: [], updatedAt: 0 },
+    { id: 'harden', name: 'Harden Flesh', systems: ['pf2e'], kind: 'feat', source: 'official', level: 10,
+      traits: ['Druid'], description: 'Harden your flesh.', data: { actions: 'Single Action' }, effects: [], updatedAt: 0 },
+  ]
+  let current = initial
+  function Sheet() {
+    const [c, setC] = useState(initial)
+    current = c
+    const save = (patch: Partial<Character>) => setC(previous => ({ ...previous, ...patch }))
+    return <><StatusesContent c={c} entries={entries} save={save} /><SkillsSection c={c} entries={entries} save={save} part="defense" /></>
+  }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<Sheet />))
+    const shift = container.querySelector<HTMLInputElement>('[aria-label="Untamed Shift status"]')!
+    expect(shift.disabled).toBe(true)
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Choose Untamed Shift effects"]')!.click())
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Untamed Shift: Claws"]')!.click())
+    expect(current.activeSpells).toContain('Untamed Shift')
+    expect(current.untamedShiftEffects).toEqual(['Claws'])
+    expect(shift.checked).toBe(true)
+    await act(async () => shift.click())
+    expect(current.activeSpells).not.toContain('Untamed Shift')
+    expect(current.untamedShiftEffects).toEqual(['Claws'])
+    await act(async () => shift.click())
+    expect(current.activeSpells).toContain('Untamed Shift')
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Harden Flesh options"]')!.click())
+    const harden = container.querySelectorAll<HTMLInputElement>('[aria-label="Harden Flesh active"]')
+    expect(harden).toHaveLength(2)
+    await act(async () => harden[0].click())
+    expect([...harden].every(input => input.checked)).toBe(true)
+    expect(resistances(current, [])).toContainEqual({ damage: 'Physical (except adamantine)', value: 3, source: 'Harden Flesh' })
+    await act(async () => harden[1].click())
+    expect(resistances(current, [])).toEqual([])
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
+    vi.unstubAllGlobals()
+  }
+})
+
+it('opens Purify Air details from statuses', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  } })
+  const c: Character = { id: 'druid', name: 'Test', systems: ['pf2e'], level: 4, className: 'Druid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 },
+      { name: 'Leshy Familiar Secrets', type: 'Class Feat', level: 4, choice: 'Purify Air' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<StatusesContent c={c} entries={[]} save={() => {}} />))
+    const button = [...container.querySelectorAll('button')].find(item => item.textContent === 'Purify Air')!
+    await act(async () => button.click())
+    expect(container.querySelector('dialog[open]')?.textContent).toContain('Recycles air for one Medium creature')
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
+    vi.unstubAllGlobals()
+  }
+})
 
 it('targets a Witch familiar with Protect Companion instead of its animal companion', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)

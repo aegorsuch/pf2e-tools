@@ -1,14 +1,15 @@
-import { activeFeatsNamed, activeStance, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, type SectionProps } from './builder'
+import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, type SectionProps } from './builder'
 import { grantedFeatSpells } from './featSpells'
-import { RageToggle } from './SkillsSection'
+import { HardenFleshToggle, RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
-import { ActiveSpellActions, automatedSpellStatusControls, ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
+import { ActiveSpellActions, automatedSpellStatusControls, ProtectCompanionOptions, SpellEffectActions, ZealousConvictionToggle } from './SpellsSection'
 import { EntryDescription } from './EntryDescription'
 import { SimplePoisons } from './GearSection'
 import { isBastionNamedArmor } from './namedArmor'
 import { FULMINATING_SHOT_ELEMENTS, fulminatingShotBonus } from './fulminatingShot'
 import { confirmRemoval } from './confirmRemoval'
-import { purifyAirActive, purifyAirAvailable } from './familiarAbilities'
+import { PURIFY_AIR_DESCRIPTION, purifyAirActive, purifyAirAvailable } from './familiarAbilities'
+import type { ContentEntry } from './types'
 
 const canDeviseAStratagem = (c: SectionProps['c']) => c.systems.includes('pf2e') && c.className === 'Investigator'
 
@@ -53,6 +54,7 @@ export function StatusesSummary({ c, entries }: SectionProps) {
     ...(entrenchMeleeActive(c, entries) ? ['Entrench Melee'] : []),
     ...(fulminatingShotBonus(c) ? [`Fulminating Shot (${fulminatingShotBonus(c)})`] : []),
     ...(purifyAirActive(c) ? ['Purify Air'] : []),
+    ...(c.hardenFleshActive && activeFeatsNamed(c, 'Harden Flesh').length ? ['Harden Flesh'] : []),
     ...c.activeSpells ?? [],
     ...(c.summonedUndead ? ['Summon Undead'] : []),
     ...(c.summonedFiend ? ['Summon Fiend'] : []),
@@ -92,6 +94,14 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   const summonedFiend = c.summonedFiend
   const entrenchArmors = ownedArmors(c, entries).filter(armor => isBastionNamedArmor(armor.name))
   const spellControls = automatedSpellStatusControls({ c, entries, save })
+  const untamedShift = knowsSpell(c, entries, 'Untamed Shift')
+  const shiftEntry = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Untamed Shift'
+    && entry.systems.some(system => c.systems.includes(system)))
+  const shiftActive = isSpellActive(c, entries, 'Untamed Shift')
+  const shiftCanRestore = untamedShift && !!c.untamedShiftEffects?.length
+    && activeUntamedShiftEffects({ ...c, ...spellActiveChange(c, 'Untamed Shift', true) }, entries).length > 0
+  const purifyAirEntry: ContentEntry = { id: 'leshy-secret:Purify Air', systems: c.systems, kind: 'familiar', source: 'official',
+    name: 'Purify Air', level: 1, traits: [], description: PURIFY_AIR_DESCRIPTION, data: {}, effects: [], updatedAt: 0 }
   const controls = [
     { name: 'Active stance', element: <StancesContent c={c} entries={entries} save={save} /> },
     ...(activeFeatsNamed(c, 'Poison Weapon').length
@@ -100,10 +110,19 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       ? [{ name: 'Devise a Stratagem', element: <DeviseAStratagemToggle c={c} save={save} /> }] : []),
     ...(hasHuntPrey(c, entries)
       ? [{ name: 'Hunt Prey', element: <HuntPreyToggle c={c} entries={entries} save={save} /> }] : []),
-    ...(purifyAirAvailable(c) ? [{ name: 'Purify Air', element: <label>
+    ...(purifyAirAvailable(c) ? [{ name: 'Purify Air', element: <>
       <input type="checkbox" aria-label="Purify Air status" checked={purifyAirActive(c)}
-        onChange={event => save({ familiar: { ...c.familiar, purifyAirActive: event.target.checked } })} /> Purify Air
-    </label> }] : []),
+        onChange={event => save({ familiar: { ...c.familiar, purifyAirActive: event.target.checked } })} />{' '}
+      <EntryDescription name="Purify Air" entry={purifyAirEntry} entries={entries} character={c} />
+    </> }] : []),
+    ...(activeFeatsNamed(c, 'Harden Flesh').length
+      ? [{ name: 'Harden Flesh', element: <HardenFleshToggle c={c} save={save} /> }] : []),
+    ...(untamedShift ? [{ name: 'Untamed Shift', element: <>
+      <input type="checkbox" aria-label="Untamed Shift status" checked={shiftActive} disabled={!shiftActive && !shiftCanRestore}
+        onChange={event => save(spellActiveChange(c, 'Untamed Shift', event.target.checked))} />{' '}
+      <EntryDescription name="Untamed Shift" entry={shiftEntry} entries={entries} character={c} />{' '}
+      <SpellEffectActions c={c} entries={entries} save={save} entry={shiftEntry} name="Untamed Shift" />
+    </> }] : []),
     ...(entrenchArmors.length ? [{ name: 'Entrench Melee', element: <div>{entrenchArmors.map(armor => {
       const entry = armorEntry(c, entries, armor.name, armor.id)
       const disabled = !armor.worn || !entry || !armorProficiencyRank(c, entries, entry) || !!armor.inheritorCloakRed

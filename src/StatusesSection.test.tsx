@@ -59,6 +59,9 @@ it('tracks Purify Air within the familiar aura without changing ordinary saves',
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const baseline = savingThrowBreakdown(c, [], 'Fortitude').total
+  const html = renderToStaticMarkup(<StatusesContent c={c} entries={[]} save={save} />)
+  expect(html).toContain('aria-haspopup="dialog">Purify Air</button>')
+  expect(html).toContain('Recycles air for one Medium creature')
   expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).not.toContain('Purify Air')
   findToggle(StatusesContent({ c, entries: [], save }), 'Purify Air status')!({ target: { checked: true } })
   expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).toContain('Purify Air')
@@ -76,6 +79,16 @@ it('tracks Purify Air within the familiar aura without changing ordinary saves',
   expect(findToggle(StatusesContent({ c, entries: [], save }), 'Purify Air status')).toBeTypeOf('function')
   findToggle(StatusesContent({ c, entries: [], save }), 'Purify Air status')!({ target: { checked: false } })
   expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).not.toContain('Purify Air')
+})
+
+it('includes Harden Flesh in the active summary only while the feat is active', () => {
+  const c: Character = { id: 'druid', name: 'Test', systems: ['pf2e'], level: 10, className: 'Druid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Harden Flesh', type: 'Class Feat', level: 10 }], hardenFleshActive: true,
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={() => {}} />)).toContain('Harden Flesh')
+  expect(renderToStaticMarkup(<StatusesSummary c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).not.toContain('Harden Flesh')
+  expect(renderToStaticMarkup(<StatusesSummary c={{ ...c, hardenFleshActive: false }} entries={[]} save={() => {}} />)).not.toContain('Harden Flesh')
 })
 
 it('synchronizes Protect Companion target and active state', () => {
