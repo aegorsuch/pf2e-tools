@@ -1220,7 +1220,8 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
   const facts = new Map<number, PrerequisiteFacts>()
   let buildSkillRanks: PrerequisiteFacts['ranks'] | undefined
   const check = createFeatPrerequisiteChecker(entries, {
-    level, entryIds: c.entryIds, knownOrders: Object.keys(DRUID_ORDERS), ...options,
+    level, entryIds: c.entryIds, knownOrders: Object.keys(DRUID_ORDERS),
+    warriorLegendClearTheWay: getSettings().warriorLegendClearTheWay, ...options,
     facts: (atLevel) => {
       const cached = facts.get(atLevel)
       if (cached) return cached
@@ -3845,12 +3846,14 @@ function isWarriorOfLegend(c: Character) {
   return c.systems.includes('pf2e') && selectedClassArchetype(c)?.name === 'Warrior of Legend'
 }
 
+export const WARRIOR_LEGEND_DAMAGE_TYPES = ['Bludgeoning', 'Piercing', 'Slashing'] as const
+
 export function warriorLegendWeakness(c: Character, entries: ContentEntry[]) {
   if (!isWarriorOfLegend(c)) return undefined
-  const damage = c.feats.filter(feat => featTakenLevel(feat) <= c.level
-    && feat.name.toLowerCase() === 'warrior of legend dedication')
+  const damage = c.feats.filter(feat => feat.name.toLowerCase() === 'warrior of legend dedication')
     .map(feat => feat.choice?.toLowerCase())
-    .find(choice => choice && ['bludgeoning', 'piercing', 'slashing'].includes(choice))
+    .find(choice => choice && WARRIOR_LEGEND_DAMAGE_TYPES.some(type => type.toLowerCase() === choice))
+    ?? c.warriorLegendDamageType?.toLowerCase()
   if (!damage) return undefined
   return { damage, value: activeStance(c, entries)?.name === 'Spear of Doom' ? c.level : Math.max(1, Math.floor(c.level / 2)) }
 }
@@ -3874,6 +3877,7 @@ export function syncClassArchetypeDedication(c: Character, entries: ContentEntry
   let feats = [...c.feats]
   let saved = [...c.classArchetypeDisplacedFeats ?? []]
   let entryIds = [...c.entryIds]
+  let warriorLegendDamageType = c.warriorLegendDamageType
   if (managed && managed.name !== wanted) {
     const current = feats.find(feat => feat.slot === slot && feat.name === managed!.name)
     if (current) feats = feats.filter(feat => feat !== current)
@@ -3898,18 +3902,24 @@ export function syncClassArchetypeDedication(c: Character, entries: ContentEntry
     const entry = entries.find(candidate => candidate.kind === 'feat' && !candidate.deleted
       && candidate.systems.includes('pf2e') && candidate.name.toLowerCase() === wanted.toLowerCase())
     const required = { ...existing, name: wanted, type: 'Class Feat', level: 2, slot,
+      ...(wanted === 'Warrior of Legend Dedication' && !existing?.choice && c.warriorLegendDamageType
+        ? { choice: c.warriorLegendDamageType } : {}),
       ...(existing?.takenLevel !== undefined ? { takenLevel: 2 } : {}),
       ...(existing?.sourceId || !entry ? {} : { sourceId: entry.id }) }
+    if (wanted === 'Warrior of Legend Dedication') {
+      warriorLegendDamageType = WARRIOR_LEGEND_DAMAGE_TYPES.find(type => type.toLowerCase() === required.choice?.toLowerCase())
+    }
     feats = [...feats.filter(feat => feat !== inSlot && feat !== existing), required]
     if (entry && !entryIds.includes(entry.id)) {
       entryIds.push(entry.id)
       managed = { ...managed, addedEntryId: entry.id }
     }
   }
-  if (JSON.stringify([feats, managed, saved, entryIds]) === JSON.stringify([
-    c.feats, c.classArchetypeDedication, c.classArchetypeDisplacedFeats ?? [], c.entryIds,
+  if (JSON.stringify([feats, managed, saved, entryIds, warriorLegendDamageType]) === JSON.stringify([
+    c.feats, c.classArchetypeDedication, c.classArchetypeDisplacedFeats ?? [], c.entryIds, c.warriorLegendDamageType,
   ])) return undefined
-  return { feats, classArchetypeDedication: managed, classArchetypeDisplacedFeats: saved.length ? saved : undefined, entryIds }
+  return { feats, classArchetypeDedication: managed, classArchetypeDisplacedFeats: saved.length ? saved : undefined, entryIds,
+    warriorLegendDamageType }
 }
 
 export function classLabel(c: Character, entries: ContentEntry[] = []) {

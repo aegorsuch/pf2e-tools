@@ -66,6 +66,8 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
     description: 'For Twin Parry, a worn free-hand weapon can pair with a separate unarmed attack even while both hands hold another weapon, such as a bow in its shooting grip.' },
   { key: 'warmaskScaling', label: 'Orc Warmask Item Bonus Scaling',
     description: 'Warmask grants a +1 item bonus to its associated skill, increasing to +2 at level 9 and +3 at level 17. Does not change proficiency or stack with other item bonuses.' },
+  { key: 'warriorLegendClearTheWay', label: 'Warrior of Legend: Clear the Way',
+    description: 'Warrior of Legend Dedication satisfies the Mauler Dedication prerequisite for Clear the Way.' },
 ]
 RULES.sort((a, b) => a.label.localeCompare(b.label))
 

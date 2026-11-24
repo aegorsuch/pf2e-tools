@@ -1,4 +1,4 @@
-import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, wornArmor, type SectionProps } from './builder'
+import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, wornArmor, type SectionProps } from './builder'
 import { grantedFeatSpells } from './featSpells'
 import { HardenFleshToggle, RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
@@ -98,6 +98,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   const summonedFiend = c.summonedFiend
   const entrenchArmors = ownedArmors(c, entries).filter(armor => isBastionNamedArmor(armor.name))
   const mountainArmors = ownedArmors(c, entries).filter(armor => isMountainArmor(armor.name))
+  const cursedWeakness = warriorLegendWeakness(c, entries)
   const ancestralAvatarAvailable = isAncestralEmbrace(wornArmor(c, entries)?.name)
   const avatarEntry = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Avatar'
     && entry.systems.some(system => c.systems.includes(system)))
@@ -168,6 +169,10 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
           onClick={() => update({ mountainPoisonImmunityUsed: false, mountainPoisonImmunityActive: false })}>Daily preparations</button>}
       </div>
     })}</div> }] : []),
+    ...(cursedWeakness ? [{ name: 'Cursed Weakness', element: <button type="button" aria-label={`Took ${cursedWeakness.damage} damage`}
+      disabled={conditionValue(c, 'doomed') >= 2}
+      onClick={() => save({ conditions: { ...c.conditions, doomed: Math.max(2, conditionValue(c, 'doomed')) } })}>
+      Took {cursedWeakness.damage} damage</button> }] : []),
     ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Fulminating Shot').length ? [{
       name: 'Fulminating Shot',
       element: <div>

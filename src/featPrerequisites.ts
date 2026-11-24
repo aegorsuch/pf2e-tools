@@ -272,6 +272,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   entryIds: string[]
   knownOrders: string[]
   ignoreAttributePrerequisites?: boolean
+  warriorLegendClearTheWay?: boolean
   facts: (level: number) => PrerequisiteFacts
 }) {
   const index = contentIndex(entries)
@@ -305,7 +306,11 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       && facts.stalwartDefenderGranted) return met()
     if (trail.has('stalwart standard') && ["cavalier's banner", 'knight vigilant'].includes(name)
       && (facts.cavalierGranted || facts.feats.some(feat => key(feat.name) === 'cavalier dedication'))) return met()
-    if (['bloodrager', 'vindicator', 'avenger', 'runelord'].includes(name)
+    if (name === 'mauler dedication' && trail.has('clear the way') && context.warriorLegendClearTheWay
+      && key(facts.classArchetype ?? '') === 'warrior of legend'
+      && facts.feats.some(feat => key(feat.name) === 'warrior of legend dedication'))
+      return evaluate('Warrior of Legend Dedication', level, trail)
+    if (['bloodrager', 'vindicator', 'avenger', 'runelord', 'warrior of legend'].includes(name)
       && trail.has(`${name} dedication`)) return resultFor(key(facts.classArchetype ?? '') === name, text)
     const bloodragerSkill = /^(master|legendary) in arcana or religion, depending on your chosen tradition$/.exec(name)
     if (bloodragerSkill && (trail.has('surging blood magic') || trail.has('exultant blood magic'))) {

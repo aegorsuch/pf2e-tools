@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, movementSpeeds, plannedSlots, ranksAt, resistances, senses, syncClassArchetypeDedication, syncOrderExplorerFeats } from './builder'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, featPrerequisiteSuggestions, type PrerequisiteFacts } from './featPrerequisites'
 import { mapAonHit } from './aon'
+import snapshot from '../public/data/aon-pf2e.json?raw'
 import { getSettings, updateSettings } from './settings'
 import * as featChoices from './featChoices'
 import * as featSpells from './featSpells'
@@ -21,6 +22,45 @@ const selected = (name: string, level = 1) => ({ name, type: 'Class Feat', level
 const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite }, 1, ['Barbarian'])
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
+
+it('checks Warrior of Legend feat chains and the Clear the Way house rule', () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+  const names = ['Warrior Of Legend Dedication', 'Mauler Dedication', 'Clear the Way', 'Heroic Defiance',
+    "Hero-God's Bond", "Martyr's Parry", 'Spear of Doom', "Razor's Edge", 'Piercing Doom',
+    'Know thy Doom', 'Only My Doom May Claim Me']
+  const entries = names.map(name => mapAonHit(hits.find(hit => hit._source?.name === name)!, 'pf2e')!)
+  const byName = (name: string) => entries.find(entry => entry.name === name)!
+  const initial: Character = { ...base, level: 20, className: 'Fighter', subclass: 'Warrior of Legend', feats: [] }
+  const c = { ...initial, ...syncClassArchetypeDedication(initial, entries) }
+  const selectedAt = (name: string, level: number) => ({ name, type: 'Class Feat', level, slot: `class:${level}:0` })
+  const slot = (level: number) => ({ key: `class:${level}:0`, category: 'class' as const, level })
+  const clear = byName('Clear the Way')
+  const previous = getSettings().warriorLegendClearTheWay
+  try {
+    updateSettings({ warriorLegendClearTheWay: true })
+    for (const name of ['Heroic Defiance', "Hero-God's Bond", 'Spear of Doom', 'Piercing Doom',
+      'Know thy Doom', 'Only My Doom May Claim Me']) {
+      expect(featPrerequisiteChecker(c, entries)(byName(name)), name).toEqual({ missing: [], manual: [] })
+      expect(featPrerequisiteChecker({ ...c, feats: [] }, entries)(byName(name)).missing, name)
+        .toContain('Warrior Of Legend Dedication')
+    }
+    const chained = { ...c, feats: [...c.feats, selectedAt("Hero-God's Bond", 6), selectedAt('Spear of Doom', 10)] }
+    for (const name of ["Martyr's Parry", "Razor's Edge"]) {
+      expect(featPrerequisiteChecker(chained, entries)(byName(name)), name).toEqual({ missing: [], manual: [] })
+      expect(featPrerequisiteChecker(c, entries)(byName(name)).missing.length, name).toBeGreaterThan(0)
+    }
+    expect(featSelectionPrerequisiteChecker(c, entries, slot(6))(clear)).toEqual({ missing: [], manual: [] })
+    expect(eligibleFeats(entries, c, slot(6))).toContain(clear)
+    expect(eligibleFeats(entries, c, slot(4))).not.toContain(clear)
+    expect(eligibleFeats(entries, { ...c, feats: [] }, slot(6))).not.toContain(clear)
+    expect(featPrerequisiteChecker({ ...c, subclass: undefined }, entries)(clear).missing).toContain('Mauler Dedication')
+    updateSettings({ warriorLegendClearTheWay: false })
+    expect(featSelectionPrerequisiteChecker(c, entries, slot(6))(clear).missing).toContain('Mauler Dedication')
+    expect(eligibleFeats(entries, c, slot(6))).not.toContain(clear)
+    const mauler = { ...initial, subclass: undefined, feats: [selectedAt('Mauler Dedication', 2)] }
+    expect(featPrerequisiteChecker(mauler, entries)(clear)).toEqual({ missing: [], manual: [] })
+  } finally { updateSettings({ warriorLegendClearTheWay: previous }) }
+})
 
 it('checks Divine Strike against its prerequisite feat and deity favored weapon rank', () => {
   const strike = homebrewCharacterOptions([]).find(feat => feat.name === 'Divine Strike')!

@@ -54,6 +54,33 @@ it('synchronizes condition and Zealous Conviction state with character statistic
   expect(c.zealousConvictionRank).toBeUndefined()
 })
 
+it('applies cursed weakness doomed only when its damage is reported', () => {
+  let c: Character = { id: 'warrior', name: 'Test', systems: ['pf2e'], level: 1, className: 'Fighter',
+    subclass: 'Warrior of Legend', warriorLegendDamageType: 'Piercing',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const button = () => {
+    let result: { onClick: () => void; disabled?: boolean } | undefined
+    const visit = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<Record<string, unknown>>(child)) return
+      if (child.type === 'button' && child.props['aria-label'] === 'Took piercing damage')
+        result = child.props as typeof result
+      else visit(child.props.children as ReactNode)
+    })
+    visit(StatusesContent({ c, entries: [], save }))
+    return result
+  }
+  for (const doomed of [0, 1, 2, 3]) {
+    c = { ...c, conditions: { doomed, frightened: 1 } }
+    expect(button()?.disabled).toBe(doomed >= 2)
+    button()!.onClick()
+    expect(c.conditions).toEqual({ doomed: Math.max(doomed, 2), frightened: 1 })
+  }
+  c = { ...c, subclass: undefined }
+  expect(button()).toBeUndefined()
+})
+
 it('tracks Purify Air within the familiar aura without changing ordinary saves', () => {
   let c: Character = { id: 'purify-air', name: 'Test', systems: ['pf2e'], level: 4, className: 'Druid',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },

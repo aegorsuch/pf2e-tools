@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { ClassFeatures } from './ClassFeatures'
 import type { Character, ContentEntry } from './types'
-import { effectiveWeapon } from './builder'
+import { effectiveWeapon, syncClassArchetypeDedication, warriorLegendWeakness } from './builder'
 import { DamageRoll } from './SpellDamage'
 
 function findControl(node: ReactNode, label: string): { value?: string; onChange?: (event: { target: { value: string } }) => void } | undefined {
@@ -32,6 +32,30 @@ function findButton(node: ReactNode, label: string): { disabled?: boolean; onCli
     if (nested) return nested
   }
 }
+
+it('chooses cursed weakness at level one and preserves it when the dedication is granted', () => {
+  let c: Character = { id: 'warrior', systems: ['pf2e'], name: 'Test', level: 1, className: 'Fighter',
+    subclass: 'Warrior of Legend', abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const tree = () => ClassFeatures({ c, entries: [], save: patch => { c = { ...c, ...patch } } })
+  expect(warriorLegendWeakness(c, [])).toBeUndefined()
+  findControl(tree(), 'Cursed Weakness')!.onChange!({ target: { value: 'slashing' } })
+  expect(warriorLegendWeakness(c, [])).toEqual({ damage: 'slashing', value: 1 })
+  c = { ...c, level: 2 }
+  c = { ...c, ...syncClassArchetypeDedication(c, []) }
+  expect(c.feats).toContainEqual(expect.objectContaining({ name: 'Warrior of Legend Dedication', choice: 'Slashing' }))
+  expect(findControl(tree(), 'Cursed Weakness')).toBeUndefined()
+  expect(warriorLegendWeakness(c, [])).toEqual({ damage: 'slashing', value: 1 })
+  c = { ...c, feats: c.feats.map(feat => ({ ...feat, choice: 'Piercing' })) }
+  expect(warriorLegendWeakness(c, [])?.damage).toBe('piercing')
+  c = { ...c, ...syncClassArchetypeDedication(c, []) }
+  expect(c.warriorLegendDamageType).toBe('Piercing')
+  expect(warriorLegendWeakness({ ...c, level: 1 }, [])?.damage).toBe('piercing')
+  const changedClass = { ...c, subclass: undefined }
+  const returned = { ...changedClass, ...syncClassArchetypeDedication(changedClass, []), subclass: 'Warrior of Legend', level: 1 }
+  expect(warriorLegendWeakness(returned, [])?.damage).toBe('piercing')
+  expect(warriorLegendWeakness({ ...c, subclass: undefined }, [])).toBeUndefined()
+})
 
 it('tracks Precision Edge damage dice and resets at a new round', () => {
   let c: Character = {

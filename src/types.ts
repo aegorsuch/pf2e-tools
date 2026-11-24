@@ -226,6 +226,7 @@ export interface Character {
   order?: string
   // The skill picked when the class grants a choice (e.g. Acrobatics or Athletics)
   classSkill?: string
+  warriorLegendDamageType?: 'Bludgeoning' | 'Piercing' | 'Slashing'
   subclassSkillChoices?: Record<string, string>
   witchwarper?: {
     anchor?: 'Core Memories' | 'Focal Point' | 'Tangible Object'
