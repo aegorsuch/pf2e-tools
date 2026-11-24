@@ -150,9 +150,9 @@ it('offers specific familiars by required abilities, reduced by Improved Familia
   const specific = { ...ability('Imp', 'Required Number of Abilities 6'), data: { ability_type: 'Specific Familiar' } }
   const wizard: Character = { ...character, className: 'Wizard',
     feats: [{ name: 'Enhanced Familiar', type: 'Class Feat', level: 2 }, { name: 'Familiar', type: 'Class Feat', level: 1 }] }
-  expect(specificFamiliarOptions(wizard, [specific]).map(o => [o.required, o.available])).toEqual([[6, false]])
+  expect(specificFamiliarOptions(wizard, [specific]).filter(o => o.entry.name === 'Imp').map(o => [o.required, o.available])).toEqual([[6, false]])
   const improved = { ...wizard, feats: [...wizard.feats, { name: 'Improved Familiar', type: 'Archetype Feat', level: 4 }] }
-  expect(specificFamiliarOptions(improved, [specific]).map(o => [o.required, o.available])).toEqual([[4, true]])
+  expect(specificFamiliarOptions(improved, [specific]).filter(o => o.entry.name === 'Imp').map(o => [o.required, o.available])).toEqual([[4, true]])
 })
 
 it('applies granted abilities of the selected specific familiar without using daily slots', () => {
@@ -162,6 +162,17 @@ it('applies granted abilities of the selected specific familiar without using da
   const wizard: Character = { ...character, className: 'Wizard', familiar: { specificFamiliar: 'Calligraphy Wyrm' },
     feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }] }
   expect(activeFamiliarAbilities(wizard, [wyrm])).toEqual(['Darkvision', 'Flier', 'Manual Dexterity', 'Scent', 'Skilled', 'Speech'])
+})
+
+it('offers Calligraphy Wyrm with granted abilities and unique actions without synced data', () => {
+  const wizard: Character = { ...character, className: 'Wizard', familiar: { specificFamiliar: 'Calligraphy Wyrm' },
+    feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }, { name: 'Incredible Familiar', type: 'Class Feat', level: 8 }] }
+  const [wyrm] = specificFamiliarOptions(wizard, [])
+  expect(wyrm).toMatchObject({ required: 6, available: true })
+  expect(specificFamiliarGrants(wyrm.entry).abilities).toEqual(['Darkvision', 'Flier', 'Manual Dexterity', 'Scent', 'Skilled', 'Speech'])
+  const sections = specificFamiliarSections(wyrm.entry)
+  expect(sections.summary[0]).toMatch(/^Calligraphy wyrms are curious dragons/)
+  expect(sections.abilities.map(text => text.split(' ')[0])).toEqual(['Ink', 'Stylus'])
 })
 
 it('splits a specific familiar into summary and unique actions', () => {

@@ -261,10 +261,19 @@ export function specificFamiliarRequirement(entry: ContentEntry) {
   return Number(/required number of abilities\W*(\d+)/i.exec(text)?.[1] ?? /^\s*(\d+)\s*$/.exec(String(entry.data.required_abilities ?? entry.data.required_number_of_abilities ?? ''))?.[1] ?? 0)
 }
 
+const FALLBACK_SPECIFIC_FAMILIARS: ContentEntry[] = [{
+  id: 'fallback:specific-familiar:calligraphy-wyrm', name: 'Calligraphy Wyrm', kind: 'familiar', systems: ['pf2e'], source: 'official', level: 0,
+  traits: ['Uncommon', 'Dragon'],
+  description: 'Required Number of Abilities 6\n\nGranted Abilities darkvision, flier, manual dexterity, scent, skilled (arcana, society), speech Calligraphy wyrms are curious dragons constantly in search of new lore and writing. They make natural allies for academics of all stripes, but are also found working with witches contracted to draconic powers or wizards who\u2019ve somehow managed to impress the tiny creatures.\n\nInk Spray (one action, Arcane) Frequency once per 10 minutes; Effect The wyrm splatters ink in a 10-foot cone. Each creature in the area must attempt a Reflex save with a DC equal to its master\u2019s spell DC or class DC, whichever is higher. Critical Success The creature is unaffected. Success If the creature was invisible, it is concealed instead for 2 rounds. Failure As success, but for 1 minute. Critical Failure As success, but for 10 minutes. The creature is also blinded for 1 round or until it wipes the ink from its eyes using an Interact action.\n\nStylus Claws The wyrm has stylus-shaped claws that it can fill with its natural ink, using its claw as a pen without having to purchase ink.',
+  data: { ability_type: 'Specific Familiar', required_abilities: 6 }, effects: [], updatedAt: 0,
+}]
+
 export function specificFamiliarOptions(c: Character, entries: ContentEntry[]) {
   const reduction = activeFeatsNamed(c, 'Improved Familiar').length ? 2 : 0
   const abilities = familiarSelection(c).dailyAbilityLimit
-  return familiarAbilityEntries(entries, c).filter(isSpecificFamiliar).map(entry => {
+  const official = familiarAbilityEntries(entries, c).filter(isSpecificFamiliar)
+  const known = new Set(official.map(entry => key(entry.name)))
+  return [...official, ...FALLBACK_SPECIFIC_FAMILIARS.filter(entry => c.systems.includes('pf2e') && !known.has(key(entry.name)))].map(entry => {
     const required = Math.max(0, specificFamiliarRequirement(entry) - reduction)
     return { entry, required, available: abilities >= required }
   })
@@ -272,9 +281,10 @@ export function specificFamiliarOptions(c: Character, entries: ContentEntry[]) {
 
 const titleCase = (text: string) => text.replace(/\b\w/g, letter => letter.toUpperCase())
 
+const GRANTED_LIST = /\bGranted Abilities\W+((?:[a-z][a-z' -]*(?:\([^)]*\))?(?:,\s*)?)+)/
+
 export function specificFamiliarGrants(entry?: ContentEntry) {
-  const raw = String(entry?.data.granted_abilities ?? '')
-    || /\bGranted Abilities\W+([^\n]+?)(?=\s+(?:Required Number|Familiar Abilities|Source)\b|\n|$)/i.exec(entry?.description ?? '')?.[1] || ''
+  const raw = String(entry?.data.granted_abilities ?? '') || GRANTED_LIST.exec(entry?.description ?? '')?.[1] || ''
   const abilities: string[] = []
   const skilled: string[] = []
   for (const part of raw.split(/,(?![^()]*\))/).map(item => item.trim().replace(/[.;]$/, '')).filter(Boolean)) {
@@ -293,13 +303,11 @@ export function selectedSpecificFamiliar(c: Character, entries: ContentEntry[]) 
 }
 
 export function specificFamiliarSections(entry?: ContentEntry) {
-  const paragraphs = (entry?.description ?? '').split(/\n\s*\n/).map(part => part.trim()).filter(Boolean)
+  const clean = (parts: string[]) => parts.map(part => part.trim()).filter(part => part && !/^(?:Source|Required Number of Abilities)\b/i.test(part))
+  const paragraphs = (entry?.description ?? '').split(/\n\s*\n/)
   const boundary = paragraphs.findIndex(part => /\bGranted Abilities\b/i.test(part))
-  const clean = (parts: string[]) => parts.filter(part => !/^(?:Source|Required Number of Abilities)\b/i.test(part))
-  const grantedLine = boundary >= 0 ? paragraphs[boundary] : ''
-  const tail = grantedLine.replace(/^[\s\S]*?\bGranted Abilities\W+[^\n]*?(?:\)|[a-z])(?=\s+[A-Z][a-z]+ [A-Z])/, '').trim()
-  return {
-    summary: clean(boundary >= 0 ? paragraphs.slice(0, boundary) : paragraphs.slice(0, 1)),
-    abilities: clean([...(tail && tail !== grantedLine ? [tail] : []), ...(boundary >= 0 ? paragraphs.slice(boundary + 1) : [])]),
-  }
+  if (boundary < 0) return { summary: clean(paragraphs.slice(0, 1)), abilities: [] as string[] }
+  const match = GRANTED_LIST.exec(paragraphs[boundary])
+  const rest = match ? paragraphs[boundary].slice(match.index + match[0].length) : ''
+  return { summary: clean([...paragraphs.slice(0, boundary), ...rest ? [rest] : []]), abilities: clean(paragraphs.slice(boundary + 1)) }
 }
