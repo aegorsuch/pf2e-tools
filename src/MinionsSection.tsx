@@ -1047,10 +1047,22 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   .filter((_, abilityIndex) => abilityIndex !== index) }),
               }
             })
+          const specificSections = specificFamiliarSections(isWasp ? undefined
+            : specificFamiliars.find(option => option.entry.name === data?.specificFamiliar)?.entry)
           return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" data-minion-name={isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'} open>
           <summary><h4>{!isWasp && data?.specificFamiliar ? `${data.specificFamiliar} (Specific Familiar)` : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
             : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'}</h4> ({activeAbilityChoices.length + Number(!!patronAbility)}/{dailyAbilityLimit})</summary>
           <article className="gear-card">
+          {!isWasp && specificFamiliars.length > 0 && <header className="row">
+            <SearchableSelect aria-label="Specific familiar" value={data?.specificFamiliar ?? ''}
+              onChange={event => saveFamiliar({ specificFamiliar: event.target.value || undefined })}>
+              <option value="">Choose specific familiar…</option>
+              {specificFamiliars.map(option => <option key={option.entry.id} value={option.entry.name}
+                disabled={!option.available && option.entry.name !== data?.specificFamiliar}>
+                {option.entry.name}{option.required ? ` (${option.required} abilities)` : ''}</option>)}
+            </SearchableSelect>
+          </header>}
+          {specificSections.summary.map(text => <p key={text} className="companion-description">{text}</p>)}
           {isCrocodile && <small>Tiny crocodile familiar granted by Crocodile's Twin.</small>}
           {spiritFamiliar && <>
             <label>Apparition{' '}
@@ -1109,28 +1121,13 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           {familiarEffects.skilled.length > 0 && <section className="companion-actions">
             <h5>Skills</h5><div>{familiarEffects.skilled.map(skill => `${skill.skill} ${signed(skill.modifier)}`).join(', ')}</div>
           </section>}
+          {specificSections.abilities.length > 0 && <section className="companion-actions">
+            <h5>Actions</h5>{specificSections.abilities.map(text => <p key={text}>{text}</p>)}
+          </section>}
           {specificGrants.abilities.length > 0 && <section className="companion-actions">
             <h5>Granted abilities</h5><div>{specificGrants.abilities.map(ability => ability === 'Skilled' && specificGrants.skilled.length
               ? `Skilled (${specificGrants.skilled.join(', ')})` : ability).join(', ')}</div>
           </section>}
-          {!isWasp && specificFamiliars.length > 0 && <label>Specific familiar{' '}
-            <select aria-label="Specific familiar" value={data?.specificFamiliar ?? ''}
-              onChange={event => saveFamiliar({ specificFamiliar: event.target.value || undefined })}>
-              <option value="">None</option>
-              {specificFamiliars.map(option => <option key={option.entry.id} value={option.entry.name}
-                disabled={!option.available && option.entry.name !== data?.specificFamiliar}>
-                {option.entry.name}{option.required ? ` (${option.required} abilities)` : ''}</option>)}
-            </select>
-          </label>}
-          {!isWasp && specificFamiliarSections(specificFamiliars.find(option => option.entry.name === data?.specificFamiliar)?.entry).summary.map(text =>
-            <p key={text}><small>{text}</small></p>)}
-          {!isWasp && specificFamiliarSections(specificFamiliars.find(option => option.entry.name === data?.specificFamiliar)?.entry).abilities.length > 0
-            && <section className="companion-actions"><h5>Actions and abilities</h5>
-              {specificFamiliarSections(specificFamiliars.find(option => option.entry.name === data?.specificFamiliar)?.entry).abilities.map(text =>
-                <p key={text}><small>{text}</small></p>)}</section>}
-          {!isWasp && specificFamiliars.some(option => option.entry.name === data?.specificFamiliar) && <div className="gear-traits">
-            <EntryDescription name={data!.specificFamiliar!} entry={specificFamiliars.find(option => option.entry.name === data?.specificFamiliar)!.entry}
-              entries={entries} character={c} buttonLabel="Specific familiar" /></div>}
           {isLeshy && <label>Granted ability{' '}
             <select aria-label="Leshy familiar granted ability" value={data?.leshyAbility ?? ''} onChange={event => {
               const value = event.target.value
