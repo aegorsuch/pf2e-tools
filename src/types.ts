@@ -108,6 +108,8 @@ export interface OwnedArmor {
   immortalSurvivalUsed?: boolean
   immortalSurvivalActive?: boolean
   immortalConditionUsed?: boolean
+  mountainPoisonImmunityActive?: boolean
+  mountainPoisonImmunityUsed?: boolean
   worn: boolean
   material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Keep Stone' | 'Grisantian Hide' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
   gauntlet?: 'Gauntlet' | 'Spiked Gauntlet' | 'Bladed Gauntlet' | 'Clawed Gauntlet'

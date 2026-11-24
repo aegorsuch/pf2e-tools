@@ -151,6 +151,7 @@ it('offers scaling Rebounding and Mountain armor in each plate profile', () => {
     expect(markup).not.toContain('aria-label="Potency"')
     expect(markup).not.toContain('aria-label="Remove Fortification (Greater) rune"')
     if (index % 3 === 2) expect(markup).toContain('Entrench Melee')
+    if (index >= 3) expect(markup).toContain(`aria-label="Activate ${name} poison immunity"`)
     const resistance = resistances(c, catalog).filter(value => value.source === name)
     expect(resistance).toEqual(index < 3 ? [
       { damage: 'Bludgeoning', value: 5, source: name }, { damage: 'Piercing', value: 5, source: name },
@@ -161,6 +162,22 @@ it('offers scaling Rebounding and Mountain armor in each plate profile', () => {
   expect(namedArmorAbilities(armorEntry({ ...character, level: 20 }, catalog, names[0])).find(ability => ability.name === 'Kinetic Pulse')?.actions).toBe('Single Action')
   expect(namedArmorAbilities(armorEntry({ ...character, level: 20 }, catalog, names[3])).filter(ability => ability.name.startsWith('Activation')).map(ability => ability.actions))
     .toEqual(['Two Actions', 'Single Action', 'Reaction'])
+  let c: Character = { ...character, armors: [owned('Breastplate of the Mountain')] }
+  const activation = () => {
+    let result: ComponentProps<typeof NamedArmorAbilities>['activations']
+    const visit = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<{ children?: ReactNode }>(child)) return
+      if (child.type === NamedArmorAbilities) result = (child.props as ComponentProps<typeof NamedArmorAbilities>).activations
+      else visit(child.props.children)
+    })
+    visit(ArmorList({ c, entries: catalog, save: patch => { c = { ...c, ...patch } }, part: 'armor' }))
+    return result!['Activation 2']
+  }
+  activation().toggle()
+  expect(c.armors?.[0]).toMatchObject({ mountainPoisonImmunityActive: true, mountainPoisonImmunityUsed: true, potency: 0, resilient: 0, runes: [] })
+  expect(activation().active).toBe(true)
+  activation().toggle()
+  expect(activation().disabled).toBe(true)
 })
 
 it('scales Immortal Bastion fundamentals and grants Orichalcum without changing saved armor', () => {

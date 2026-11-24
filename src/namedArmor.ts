@@ -1,4 +1,4 @@
-import type { ContentEntry, OwnedArmor } from './types'
+import type { Character, ContentEntry, OwnedArmor } from './types'
 import { automaticArmigerRunes } from './grantedArmor'
 
 const ANCESTRAL_HIDE = 'Ancestral Embrace Hide Armor'
@@ -9,6 +9,9 @@ const PLATE_VARIANTS: Record<string, string[]> = {
 }
 const plateVariantNames = Object.values(PLATE_VARIANTS).flat()
 const isScalingPlateVariant = (name?: string) => !!name && plateVariantNames.includes(name)
+export const isMountainArmor = (name?: string) => !!name && PLATE_VARIANTS['Breastplate of the Mountain'].includes(name)
+export const mountainPoisonImmunities = (c: Character) =>
+  (c.armors ?? []).filter(armor => isMountainArmor(armor.name) && armor.mountainPoisonImmunityActive)
 const ARMORS = new Set(['Ancestral Embrace', ANCESTRAL_HIDE, "Slithermaw's Bane", "Slithermaw's Bane (Artifact)",
   'Highhelm Stronghold Plate', 'Bastion of the Inheritor', 'Immortal Bastion', 'Library Robes', ...Object.keys(PLATE_VARIANTS)])
 const BASTION_NAMES: Record<string, string> = {

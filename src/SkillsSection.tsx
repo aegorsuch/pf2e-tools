@@ -24,6 +24,7 @@ import { artifactItemSkillBonus, hunterArrowheadBonus } from './builder'
 import { ERUDITE_LORE_KEY, eruditeWarrior, isSoldier, soldierStyle } from './soldier'
 import { isWitchwarper } from './witchwarper'
 import { hellknightBenefitActive, hellknightSkillNotes, hellknightTrainingBenefits } from './hellknight'
+import { mountainPoisonImmunities } from './namedArmor'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 const LABORER_LORES = PROFESSION_LORES.filter(lore => !['First Ones Lore', 'Underworld Lore'].includes(lore))
@@ -1010,6 +1011,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               note={`After using its one-action activity while standing on earthen or stone ground, you gain resistance ${Math.min(6, 3 + Math.max(0, Math.floor((c.level - 8) / 4)))} to physical damage except adamantine until the beginning of your next turn.`} />
           </>}
         </small>
+        {mountainPoisonImmunities(c).map(armor => <small key={armor.id}>Immunity: Poison
+          <SourceNote source={armor.name} note="Poison immunity lasts 1 minute." /></small>)}
         {divineWeaknesses.length > 0 && <small>Weaknesses: {divineWeaknesses.map((weakness, index) =>
           <span key={`${weakness.damage}:${weakness.source}`}>{index > 0 && ', '}{weakness.damage} {weakness.value}
             <SourceNote source={weakness.source} note="Weaknesses to the same damage type do not stack; apply only the highest." /></span>)}</small>}

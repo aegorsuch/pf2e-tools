@@ -28,7 +28,7 @@ const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const normalized = (text: string) => text.replace(/[\u2018\u2019]/g, "'").toLowerCase()
 const aliases: Record<string, string> = {
   barkskin: 'oaken resilience', 'disguise self': 'illusory disguise', 'searing light': 'holy light',
-  'dimension door': 'translocate', 'pass without trace': 'vanishing tracks',
+  'dimension door': 'translocate', 'pass without trace': 'vanishing tracks', regeneration: 'regenerate',
 }
 const catalogs = new WeakMap<ContentEntry[], { names: RegExp; spells: Map<string, ContentEntry[]> }>()
 function catalog(entries: ContentEntry[]) {

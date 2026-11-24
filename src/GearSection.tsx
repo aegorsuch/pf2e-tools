@@ -6,7 +6,7 @@ import {
 import { newId } from './db'
 import { blessedShieldBenefit, canEquipShield, championBlessings, clanPistolRunes, equippedHands, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
-import { isAncestralEmbrace, isBastionNamedArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { isAncestralEmbrace, isBastionNamedArmor, isMountainArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { DamageRoll } from './SpellDamage'
@@ -1992,6 +1992,12 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           'Activation 2': { label: 'Use Immortal Bastion condition protection',
             disabled: !a.worn || !!a.immortalConditionUsed,
             toggle: () => update(a.id, { immortalConditionUsed: true }) },
+        } : isMountainArmor(a.name) ? {
+          'Activation 2': { label: `${a.mountainPoisonImmunityActive ? 'End' : 'Activate'} ${a.name} poison immunity`,
+            active: a.mountainPoisonImmunityActive,
+            disabled: !a.mountainPoisonImmunityActive && (!a.worn || !!a.mountainPoisonImmunityUsed),
+            toggle: () => update(a.id, { mountainPoisonImmunityActive: !a.mountainPoisonImmunityActive,
+              ...(!a.mountainPoisonImmunityActive ? { mountainPoisonImmunityUsed: true } : {}) }) },
         } : undefined
         const booster = a.id === INVENTOR_ARMOR_ID && a.worn
           ? speedBonuses(c, entries).find(bonus => /Boosters/.test(bonus.source))

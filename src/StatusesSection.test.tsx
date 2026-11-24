@@ -8,6 +8,7 @@ import { fulminatingShotBonus } from './fulminatingShot'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
 import { ANCESTRAL_AVATAR } from './battleForms'
+import { SkillsSection } from './SkillsSection'
 
 function findToggle(node: ReactNode, label: string): ((event: { target: { checked: boolean } }) => void) | undefined {
   let result: ((event: { target: { checked: boolean } }) => void) | undefined
@@ -348,6 +349,7 @@ it('toggles Entrench Melee from Statuses and summarizes it while active', () => 
         result = child.props.onChange as typeof result
       else result ??= findChange(child.props.children as ReactNode)
     })
+
     return result
   }
   const change = findChange(StatusesContent({ c, entries, save }))
@@ -358,6 +360,40 @@ it('toggles Entrench Melee from Statuses and summarizes it while active', () => 
   change({ target: { checked: false } })
   expect(c.armors?.[0].entrenchMeleeActive).toBe(false)
 })
+
+it.each(['Breastplate of the Mountain', 'Full Plate of the Mountain', 'Bastion Plate of the Mountain'])(
+  'tracks %s poison immunity through use, removal, and daily preparations', name => {
+    let c: Character = { id: 'mountain', name: 'Test', systems: ['pf2e'], level: 20,
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+      equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+      armors: [{ id: 'mountain', name, worn: true, potency: 0, resilient: 0, runes: ['Custom Rune'] }] }
+    const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+    const content = () => StatusesContent({ c, entries: [], save })
+    const label = `Poison immunity: ${name} status`
+    findToggle(content(), label)!({ target: { checked: true } })
+    expect(c.armors?.[0]).toMatchObject({ mountainPoisonImmunityActive: true, mountainPoisonImmunityUsed: true, runes: ['Custom Rune'] })
+    expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).toContain('Poison Immunity')
+    expect(renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={save} part="defense" />)).toContain('Immunity: Poison')
+    c = { ...c, armors: c.armors!.map(armor => ({ ...armor, worn: false })) }
+    expect(renderToStaticMarkup(content())).toContain('checked=""')
+    findToggle(content(), label)!({ target: { checked: false } })
+    expect(renderToStaticMarkup(content())).toContain(`aria-label="${label}" disabled=""`)
+    expect(renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={save} part="defense" />)).not.toContain('Immunity: Poison')
+    c = { ...c, armors: c.armors!.map(armor => ({ ...armor, worn: true })) }
+    expect(renderToStaticMarkup(content())).toContain(`aria-label="${label}" disabled=""`)
+    let reset: (() => void) | undefined
+    const visit = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<Record<string, unknown>>(child)) return
+      if (child.type === 'button' && child.props['aria-label'] === `Reset ${name} poison immunity`)
+        reset = child.props.onClick as () => void
+      else visit(child.props.children as ReactNode)
+    })
+    visit(content())
+    expect(reset).toBeTypeOf('function')
+    reset!()
+    expect(c.armors?.[0]).toMatchObject({ mountainPoisonImmunityUsed: false, mountainPoisonImmunityActive: false })
+    expect(renderToStaticMarkup(content())).not.toContain(`aria-label="${label}" disabled=""`)
+  })
 
 it('toggles Devise a Stratagem from the class summary and Statuses', () => {
   let c: Character = { id: 'investigator', name: 'Test', systems: ['pf2e'], level: 1, className: 'Investigator',

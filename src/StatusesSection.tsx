@@ -5,7 +5,7 @@ import { StancesContent } from './StancesSection'
 import { ActiveSpellActions, automatedSpellStatusControls, ProtectCompanionOptions, SpellEffectActions, ZealousConvictionToggle } from './SpellsSection'
 import { EntryDescription } from './EntryDescription'
 import { SimplePoisons } from './GearSection'
-import { isAncestralEmbrace, isBastionNamedArmor } from './namedArmor'
+import { isAncestralEmbrace, isBastionNamedArmor, isMountainArmor, mountainPoisonImmunities } from './namedArmor'
 import { ANCESTRAL_AVATAR } from './battleForms'
 import { FULMINATING_SHOT_ELEMENTS, fulminatingShotBonus } from './fulminatingShot'
 import { confirmRemoval } from './confirmRemoval'
@@ -53,6 +53,7 @@ export function StatusesSummary({ c, entries }: SectionProps) {
     ...(activeFeatsNamed(c, 'Poison Weapon').length
       ? [`Poison Weapon ${poisonTotal - poisonSpent}/${poisonTotal}${c.poisonWeaponActive ? ' (active)' : ''}`] : []),
     ...(entrenchMeleeActive(c, entries) ? ['Entrench Melee'] : []),
+    ...(mountainPoisonImmunities(c).length ? ['Poison Immunity'] : []),
     ...(fulminatingShotBonus(c) ? [`Fulminating Shot (${fulminatingShotBonus(c)})`] : []),
     ...(purifyAirActive(c) ? ['Purify Air'] : []),
     ...(c.hardenFleshActive && activeFeatsNamed(c, 'Harden Flesh').length ? ['Harden Flesh'] : []),
@@ -96,6 +97,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   const summonedUndead = c.summonedUndead
   const summonedFiend = c.summonedFiend
   const entrenchArmors = ownedArmors(c, entries).filter(armor => isBastionNamedArmor(armor.name))
+  const mountainArmors = ownedArmors(c, entries).filter(armor => isMountainArmor(armor.name))
   const ancestralAvatarAvailable = isAncestralEmbrace(wornArmor(c, entries)?.name)
   const avatarEntry = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Avatar'
     && entry.systems.some(system => c.systems.includes(system)))
@@ -151,6 +153,20 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
         onChange={event => save({ armors: ownedArmors(c, entries).map(current => current.id === armor.id
           ? { ...current, entrenchMeleeActive: event.target.checked } : current) })} />
         {' '}Entrench Melee: {armor.name}</label>
+    })}</div> }] : []),
+    ...(mountainArmors.length ? [{ name: 'Poison Immunity', element: <div>{mountainArmors.map(armor => {
+      const active = !!armor.mountainPoisonImmunityActive
+      const update = (patch: Partial<typeof armor>) => save({ armors: (c.armors ?? ownedArmors(c, entries))
+        .map(current => current.id === armor.id ? { ...current, ...patch } : current) })
+      return <div key={armor.id}>
+        <label><input type="checkbox" aria-label={`Poison immunity: ${armor.name} status`}
+          checked={active} disabled={!active && (!armor.worn || !!armor.mountainPoisonImmunityUsed)}
+          onChange={event => update({ mountainPoisonImmunityActive: event.target.checked,
+            ...(event.target.checked ? { mountainPoisonImmunityUsed: true } : {}) })} />
+          {' '}Poison Immunity: {armor.name}</label>
+        {armor.mountainPoisonImmunityUsed && <button type="button" aria-label={`Reset ${armor.name} poison immunity`}
+          onClick={() => update({ mountainPoisonImmunityUsed: false, mountainPoisonImmunityActive: false })}>Daily preparations</button>}
+      </div>
     })}</div> }] : []),
     ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Fulminating Shot').length ? [{
       name: 'Fulminating Shot',

@@ -100,6 +100,25 @@ it('lists the Highhelm wall effect without a separate spell use', () => {
     .toMatchObject([{ name: 'Wall of Stone' }])
 })
 
+it.each(['Breastplate of the Mountain', 'Full Plate of the Mountain', 'Bastion Plate of the Mountain'])(
+  'lists the %s Regenerate activation and scales its rank', name => {
+    const entries = [official('Breastplate of the Mountain'), official('Breastplate'), official('Full Plate'),
+      official('Bastion Plate'), official('Regenerate')]
+    const armor = { id: 'mountain', name, worn: true, potency: 0, resilient: 0, runes: [] }
+    const c: Character = { ...base, level: 20, armors: [armor] }
+    const original = itemSpells(c, entries)
+    expect(original).toMatchObject([{ name: 'Regenerate', rank: 7, actions: 'Two Actions',
+      frequency: 'once per day', source: { name } }])
+    expect(itemSpellUses(c, original[0])).toMatchObject({ remaining: 1 })
+    updateSettings({ innateAutoHeighten: true })
+    const scaled = itemSpells(c, entries)
+    expect(scaled).toMatchObject([{ name: 'Regenerate', rank: 10, actions: 'Two Actions', frequency: 'once per day' }])
+    expect(itemSpells({ ...c, level: 10 }, entries)[0].rank).toBe(7)
+    expect(scaled[0].usageKey).toBe(original[0].usageKey)
+    expect(itemSpellUses({ ...c, itemSpellUses: { [scaled[0].usageKey]: [0] } }, scaled[0])?.remaining).toBe(0)
+    expect(itemSpells({ ...c, armors: [{ ...armor, worn: false }] }, entries)).toEqual([])
+  })
+
 it('auto-heightens item spells without lowering higher ranks, changing uses, or granting additional spells', () => {
   const charm = make('Spell Charm', 'item', 'Activate Reaction; Frequency twice per day; Effect You cast a 2nd-rank fear spell (DC 25).')
   const higher: ContentEntry = { ...make('Healing Charm', 'item'),
