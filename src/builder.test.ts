@@ -2806,7 +2806,7 @@ describe('languageAllowance', () => {
     school.description = 'Curriculum\n\ncantrips: message, sigil; 1st: command, runic weapon; 2nd: dispel magic, translate\n\nSchool Spells\n\ninitial: protective wards'
     const c: Character = { ...base, className: 'Wizard', level: 3, subclass: school.name }
     expect(classExtraSlots(c, [school]).map(extra => [extra.rank, extra.allowedSpells])).toEqual([
-      [0, ['message', 'sigil']], [1, ['command', 'runic weapon']], [2, ['dispel magic', 'translate']]])
+      [0, ['Message', 'Sigil']], [1, ['Command', 'Runic Weapon']], [2, ['Dispel Magic', 'Translate']]])
   })
 
   it('adds Gnome Polyglot languages and improves each active Multilingual grant', () => {
