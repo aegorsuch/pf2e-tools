@@ -422,6 +422,8 @@ const namedCatalog: ContentEntry[] = [...catalog, rune('Ghost Touch'), rune('Vor
     data: { ...melee('', '').data, damage: '1d6 piercing', weapon_category: 'Simple', weapon_group: 'Spear', thrown_range: 20 } },
   { ...melee("Dancer's Spear", '1d6 piercing', ['Backswing', 'Finesse', 'Reach', 'Sweep', 'Versatile B'], 2),
     data: { ...melee('', '').data, damage: '1d6 piercing', hands: 2, weapon_group: 'Spear' } },
+  { ...melee('Broadspear', '1d10 piercing', ['Reach', 'Sweep', 'Versatile S'], 2),
+    data: { ...melee('', '').data, damage: '1d10 piercing', hands: 2, weapon_category: 'Advanced', weapon_group: 'Spear' } },
   melee('Longsword', '1d8 slashing', ['Versatile P']),
   melee('Shortsword', '1d6 piercing', ['Agile', 'Finesse', 'Versatile S']),
   melee('Bastard Sword', '1d8 slashing', ['Two-Hand d12']),
@@ -730,7 +732,7 @@ it('creates stronger arrowheads with conditional nonstacking bonuses and unchang
 })
 
 it.each([
-  ['Shadowpiercer', ['Shadowpiercer (Spear)', "Shadowpiercer (Dancer's Spear)"], 'Spear'],
+  ['Shadowpiercer', ['Shadowpiercer (Spear)', "Shadowpiercer (Dancer's Spear)", 'Shadowpiercer (Broadspear)'], 'Spear'],
   ['Callooh Callay', ['Callooh Callay'], 'Longsword'],
   ['Blade of Fallen Stars', ['Blade of Fallen Stars (Melee)', 'Blade of Fallen Stars (Ranged)'], 'Gun Sword (Melee)'],
   ['Final Stand', ['Final Stand'], 'Rapier'],
@@ -741,7 +743,7 @@ it.each([
   expect(weaponEntry(namedCatalog, name)?.data.named_weapon_base).toBe(base)
   expect(weaponEntry(namedCatalog, name)?.kind).toBe('weapon')
   expect(namedCatalog.find(entry => entry.name === name)?.kind).toBe('item')
-  expect(choices.filter(entry => entry.source === 'homebrew').length).toBe(name === 'Shadowpiercer' ? 1 : 0)
+  expect(choices.filter(entry => entry.source === 'homebrew').length).toBe(name === 'Shadowpiercer' ? 2 : 0)
 })
 
 it('preserves Wintershot artifact access approvals', () => {
