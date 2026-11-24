@@ -2,8 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import {
-  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticFeatGrants, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canBeOsteoArmament, canBeWeaponInnovation, canInstallAugmentation, championBlessings, characterSummary, classDifficultyClass, combinationForms, combinationName, defenseSummary, deitySanctification, dinosaurForm, effectiveHandwraps, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featEffectChange, gearPickerEntries, hasAutomaticWeaponFundamentals, hasParryWeapon, isLockedWeapon, parryValue, savingThrowBreakdown, spellDifficultyClass,
-  featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, signed, speed, weaponAttack, weaponEntry, weaponEquipped,
+  activeAnimalFeatures, animalSkinBenefits, armorClass, armorClassBreakdown, armorRanks, armorSpecialization, augmentationLimit, automaticFeatGrants, automaticHardlightGrade, blessedArmamentRuneOptions, blessedArmamentTargets, canBeOsteoArmament, canBeWeaponInnovation, canInstallAugmentation, championBlessings, characterSummary, classDifficultyClass, combinationForms, combinationName, defenseSummary, deitySanctification, dinosaurForm, effectiveHandwraps, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, equippedHands, featEffectChange, gearPickerEntries, hasAutomaticWeaponFundamentals, hasParryWeapon, isLockedWeapon, parryValue, savingThrowBreakdown, spellDifficultyClass,
+  featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, signed, speed, weaponAttack, weaponCanUseTwoHands, weaponEntry, weaponEquipped, weaponHands,
 } from './builder'
 import { companionStats } from './companions'
 import { ArmorList, Augmentations, Gadgets, SimplePoisons, WeaponList } from './GearSection'
@@ -15,6 +15,7 @@ import { homebrewCharacterOptions, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PIST
 import { getSettings, updateSettings } from './settings'
 import { fetchAonHits } from './aonQuery'
 import { mapAonHit, mapAonHits } from './aon'
+import pf2eSnapshot from '../public/data/aon-pf2e.json?raw'
 import type { Character, ContentEntry, HardlightGrade, OwnedWeapon } from './types'
 import { parryBonus, ringCapacity, ringCount, twinnedDefenseActive } from './builder'
 import { canBeGiantWeapon, giantWeaponClumsy, isGiantWeapon, tradecraftTattooBonus } from './builder'
@@ -436,7 +437,7 @@ it.each([false, true])('shows effective thrown range in traits without a separat
   expect(render(dart)).toContain('>Thrown 20</button>')
   expect(render(dart)).not.toContain('Range</small><b>20 feet')
   expect(render(dart)).not.toContain('Range 20 feet')
-  expect(render(bow)).toContain(displayOnly ? 'Range 60 feet' : 'Range</small><b>60 feet')
+  expect(render(bow)).toContain('Ranged (60 feet): Attack')
 })
 
 it.each([false, true])('puts melee and ranged thrown attacks on separate lines (offense %s)', displayOnly => {
@@ -446,13 +447,13 @@ it.each([false, true])('puts melee and ranged thrown attacks on separate lines (
     c={{ ...base, abilities: { ...base.abilities, str: 18, dex: 12 }, weapons: [{ ...main, name: entry.name }] }}
     entries={[entry]} save={() => {}} displayOnly={displayOnly} />)
   const html = render(javelin)
-  expect(html).toMatch(/Melee: Attack[\s\S]*?<br\/>Ranged: Attack/)
+  expect(html).toMatch(/Melee: Attack[\s\S]*?>Thrown 30<\/button>[\s\S]*?Ranged \(30 feet\): Attack[\s\S]*?>Thrown 30<\/button>/)
   expect(html).toContain('Javelin Melee attack')
   expect(html).toContain('Javelin Ranged attack')
-  expect(render(dart)).toContain('Ranged: Attack')
+  expect(render(dart)).toContain('Ranged (20 feet): Attack')
   expect(render(sword)).toContain('Melee: Attack')
   expect(render({ ...javelin, data: { ...javelin.data, thrown_range: 0 } }))
-    .toMatch(/Melee: Attack[\s\S]*?<br\/>Ranged: Attack/)
+    .toMatch(/Melee: Attack[\s\S]*?Ranged: Attack/)
 })
 
 it('gives Throwing rune a range based on hands without reducing an existing range', () => {
@@ -1077,10 +1078,10 @@ it('calculates thrown melee attacks with Dexterity and Raging Thrower damage', (
   expect(weaponAttack({ ...dragon, feats: [] }, [dagger], weapon, { thrown: true }).additionalDamage)
     .not.toContainEqual(expect.objectContaining({ source: 'Draconic Rage' }))
   const html = renderToStaticMarkup(<WeaponList c={c} entries={[dagger]} save={() => {}} displayOnly />)
-  expect(html).toContain('Ranged: Attack')
+  expect(html).toContain('Ranged (10 feet): Attack')
   expect(html).toContain('Damage 2d4+5 P')
   const calm = renderToStaticMarkup(<WeaponList c={{ ...c, raging: false }} entries={[dagger]} save={() => {}} displayOnly />)
-  expect(calm).toContain('Ranged: Attack')
+  expect(calm).toContain('Ranged (10 feet): Attack')
   } finally { updateSettings({ barbarianIgnoreAgile: previous }) }
 })
 
@@ -1855,8 +1856,8 @@ it('marks one eligible weapon innovation with scaled fundamentals and locked mat
 })
 
 it('shows both combination forms with shared runes, modifications, and active form', () => {
-  const melee = content('weapon', 'Hammer Gun (Melee)', { url: 'same', weapon_category: 'Martial', damage: '1d10 slashing' }, 0, ['Combination', 'Uncommon'])
-  const ranged = content('weapon', 'Hammer Gun (Ranged)', { url: 'same', weapon_category: 'Martial', weapon_type: 'Ranged', range: 60, damage: '1d6 piercing' }, 0, ['Combination', 'Uncommon'])
+  const melee = content('weapon', 'Hammer Gun (Melee)', { url: 'same', weapon_category: 'Martial', damage: '1d10 slashing' }, 0, ['Combination', 'Uncommon', 'Sweep'])
+  const ranged = content('weapon', 'Hammer Gun (Ranged)', { url: 'same', weapon_category: 'Martial', weapon_type: 'Ranged', range: 60, damage: '1d6 piercing' }, 0, ['Combination', 'Uncommon', 'Deadly d8'])
   const impossibleRune = content('item', 'Impossible', { item_subcategory: 'Weapon Property Runes', usage: 'etched onto a ranged weapon' })
   const vorpalRune = content('item', 'Vorpal', { item_subcategory: 'Weapon Property Runes', usage: 'etched onto a slashing melee weapon' })
   const entries = [melee, ranged, impossibleRune, vorpalRune]
@@ -1870,20 +1871,22 @@ it('shows both combination forms with shared runes, modifications, and active fo
   expect(effectiveWeapon(character, entries, { ...weapon, combinationForm: 'Melee' }).runes).toEqual(['Vorpal'])
   expect(eligibleWeaponRunes(entries, { ...weapon, runes: [] }).map(rune => rune.name)).toContain('Vorpal')
   const html = renderToStaticMarkup(<WeaponList c={{ ...character, weapons: [weapon] }} entries={entries} save={() => {}} />)
-  expect(html).toContain('Ranged: Attack')
+  expect(html).toContain('Ranged (120 feet): Attack')
   expect(html).toContain('Hammer Gun Melee attack')
   expect(html).toContain('aria-label="Combination form: Hammer Gun"')
+  expect(html).not.toContain('>Combination form')
   expect(html).toContain('Extensible Weapon')
   expect(html).toContain('Omnirange Stabilizers')
+  expect(html).toMatch(/Melee: Attack[\s\S]*?>Sweep<\/button>[\s\S]*?Ranged \(120 feet\): Attack[\s\S]*?>Deadly d8<\/button>/)
   const summary = html.match(/<summary>(.*?)<\/summary>/)?.[1] ?? ''
   expect(summary).not.toContain('Impossible')
   const offense = renderToStaticMarkup(<WeaponList c={{ ...character, weapons: [weapon] }} entries={entries} save={() => {}} displayOnly />)
   expect(offense).toContain('>Impossible</button>')
   expect(offense).not.toContain('>Vorpal</button>')
-  expect(offense).toMatch(/Melee: Attack[\s\S]*?\(inactive\)<br\/>Ranged: Attack/)
+  expect(offense).toMatch(/Melee: Attack[\s\S]*?\(inactive\)[\s\S]*?>Sweep<\/button>[\s\S]*?Ranged \(120 feet\): Attack[\s\S]*?>Deadly d8<\/button>/)
   const meleeOffense = renderToStaticMarkup(<WeaponList c={{ ...character, weapons: [{ ...weapon, combinationForm: 'Melee' }] }}
     entries={entries} save={() => {}} displayOnly />)
-  expect(meleeOffense).toMatch(/Melee: Attack[\s\S]*?<br\/>Ranged: Attack[\s\S]*?\(inactive\)/)
+  expect(meleeOffense).toMatch(/Melee: Attack[\s\S]*?Ranged \(120 feet\): Attack[\s\S]*?\(inactive\)/)
   expect(combinationForms([melee, { ...ranged, data: { ...ranged.data, url: 'different' } }], melee.name)).toEqual([])
 })
 
@@ -1897,9 +1900,26 @@ it.each([false, true])('keeps a thrown combination melee attack distinct from it
   const weapon = { ...main, name: melee.name, combinationForm: 'Ranged' as const }
   const html = renderToStaticMarkup(<WeaponList c={{ ...base, weapons: [weapon] }} entries={[melee, ranged]}
     save={() => {}} displayOnly={displayOnly} />)
-  expect(html).toMatch(/Melee: Attack[\s\S]*?\(inactive\)<br\/>Thrown: Attack[\s\S]*?\(inactive\)<br\/>Ranged: Attack/)
+  expect(html).toMatch(/Melee: Attack[\s\S]*?\(inactive\)[\s\S]*?>Thrown 20<\/button>[\s\S]*?Thrown \(20 feet\): Attack[\s\S]*?\(inactive\)[\s\S]*?>Thrown 20<\/button>[\s\S]*?Ranged \(60 feet\): Attack/)
   expect(html).toContain('Throwing Gun Thrown attack')
   expect(html).toContain('Throwing Gun Ranged attack')
+})
+
+it('uses two hands for both official Bow Staff forms, including saved one-hand grips', () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(pf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => /^Bow Staff \((?:Melee|Ranged)\)$/.test(String(hit._source?.name))), 'pf2e')
+  expect(entries).toHaveLength(2)
+  for (const form of ['Melee', 'Ranged'] as const) {
+    const weapon: OwnedWeapon = { ...main, name: `Bow Staff (${form})`, combinationForm: form, handsHeld: 1 }
+    const c = { ...base, weapons: [weapon] }
+    expect(weaponHands(entries, weapon, c)).toBe(2)
+    expect(equippedHands(c, entries)).toBe(2)
+    expect(weaponCanUseTwoHands(entries.find(entry => entry.name === weapon.name)!)).toBe(false)
+    const html = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
+    expect(html).not.toContain('1 (hold)')
+    expect(html).not.toContain('2 (shoot)')
+    expect(html).toContain('Ranged (80 feet): Attack')
+  }
 })
 
 it('adds Hammer Multipistol as a custom copy of both Mace Multipistol forms', () => {

@@ -8,12 +8,12 @@ export function DeferredContent({ children }: { children: () => ReactNode }) {
   return children()
 }
 
-export function DeferredDetails({ children }: { children: ReactNode }) {
+export function DeferredDetails({ children, className = 'character-section' }: { children: ReactNode; className?: string }) {
   const [open, setOpen] = useState(false)
   const [opened, setOpened] = useState(false)
   const [summary, ...body] = Children.toArray(children)
 
-  return <details className="character-section" onToggle={event => {
+  return <details className={className} onToggle={event => {
     if (event.target !== event.currentTarget) return
     const next = event.currentTarget.open
     setOpen(next)

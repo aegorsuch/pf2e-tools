@@ -804,7 +804,7 @@ it('keeps Shadowpiercer variants fixed after purchase and scales Astral', () => 
       expect(markup).toContain('>Parrying</button>')
       expect(markup).toContain('>Throwing</button>')
       expect(markup).toContain('>Returning</button>')
-      expect(markup).toMatch(/Melee: Attack[\s\S]*?<br\/>Ranged: Attack/)
+      expect(markup).toMatch(/Melee: Attack[\s\S]*?Ranged \(10 feet\): Attack/)
     }
   }
   expect(effectiveWeapon({ ...c, level: 14 }, entries, { ...weapon, runes: ['Greater Astral'] }).runes)
@@ -864,14 +864,14 @@ it('shows both Blade of Fallen Stars attacks and lets inventory switch its activ
   const save = (patch: Partial<Character>) => { saved = { ...saved, ...patch } }
   const meleeMarkup = renderToStaticMarkup(<WeaponList c={saved} entries={namedCatalog} save={save} />)
   expect(meleeMarkup).toContain('Melee: Attack')
-  expect(meleeMarkup).toMatch(/Melee: Attack[\s\S]*?<br\/>Ranged: Attack[\s\S]*?\(inactive\)/)
+  expect(meleeMarkup).toMatch(/Melee: Attack[\s\S]*?Ranged \(30 feet\): Attack[\s\S]*?\(inactive\)/)
   const label = meleeMarkup.match(/aria-label="(Combination form: [^"]+)"/)?.[1]
   expect(label).toBeTruthy()
   changeControl(WeaponList({ c: saved, entries: namedCatalog, save }), label!, 'Ranged')
   expect(saved.weapons?.[0]).toMatchObject({ combinationForm: 'Ranged' })
   const rangedMarkup = renderToStaticMarkup(<WeaponList c={saved} entries={namedCatalog} save={save} />)
-  expect(rangedMarkup).toContain('Ranged: Attack')
-  expect(rangedMarkup).toMatch(/Melee: Attack[\s\S]*?\(inactive\)<br\/>Ranged: Attack/)
+  expect(rangedMarkup).toContain('Ranged (30 feet): Attack')
+  expect(rangedMarkup).toMatch(/Melee: Attack[\s\S]*?\(inactive\)[\s\S]*?Ranged \(30 feet\): Attack/)
 })
 
 it.each([false, true])('shows named weapon properties, action costs, reactions and destruction rules in both views (displayOnly=%s)', displayOnly => {

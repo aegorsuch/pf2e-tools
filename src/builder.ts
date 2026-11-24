@@ -6367,7 +6367,12 @@ export function haftStrikerSource(c: Character, entries: ContentEntry[]) {
   return weapons.find((weapon) => weapon.id === c.haftStrikerWeaponId) ?? weapons[0]
 }
 
+function isBowStaff(entry: ContentEntry) {
+  return entry.source === 'official' && /^Bow Staff(?: \((?:Melee|Ranged)\))?$/.test(entry.name)
+}
+
 export function weaponCanUseTwoHands(entry: ContentEntry): boolean {
+  if (isBowStaff(entry)) return false
   return String(entry.data.hands).trim() === '1+'
     || String(entry.data.hands).trim() === '1 or 2'
     || String(entry.data.hands).trim() === '1'
@@ -7124,6 +7129,9 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || cachedDwarfClanWeaponGrants(c, entries).some(weapon => weapon.name === name && (!id || weapon.id === id))
 export function weaponEntry(entries: ContentEntry[], name: string, id?: string) {
   let entry = resolveWeaponEntry(entries, name, id)
+  if (entry && isBowStaff(entry) && String(entry.data.hands).trim() !== '2') {
+    entry = { ...entry, data: { ...entry.data, hands: 2 } }
+  }
   if (entry?.name === CLAN_PISTOL.name && (entry.source === 'official' || id === DWARF_CLAN_PISTOL_ID)
     && !entry.traits.some(trait => /^dwarf$/i.test(trait.trim()))) {
     entry = { ...entry, traits: [...entry.traits, 'Dwarf'] }

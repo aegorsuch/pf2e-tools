@@ -601,6 +601,7 @@
 .weapon-offense-header { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.75rem; }
 .weapon-attack-bonuses { white-space: nowrap; }
 .weapon-attack-bonuses > .total-breakdown { white-space: normal; }
+.weapon-form-summaries { display: flex; flex-direction: column; gap: 0.4rem; }
 .weapon-offense-header label { display: inline-flex; align-items: center; gap: 0.25rem; }
 .gear-card > summary { align-items: baseline; cursor: pointer; display: flex; flex-wrap: wrap; gap: 0.75rem; list-style: none; }
 .gear-card > summary::-webkit-details-marker { display: none; }

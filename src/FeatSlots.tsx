@@ -5,6 +5,7 @@ import { ActionIcon } from './ActionIcon'
 import { RUNESMITH_RUNES } from './runesmithRunes'
 import { DamageRoll, rollSpellDamage, rollTreehealerHealing } from './SpellDamage'
 import { PickerDialog } from './PickerDialog'
+import { DeferredContent, DeferredDetails } from './DeferredDetails'
 import { sortPickerOptions } from './PickerSort'
 import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, byName, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, knownSpellNames, matchesSkill, plannedSlots, ranksAt, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, temporarySkillTrainings, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
@@ -66,6 +67,16 @@ function BattlePrayerRoll({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
 }
 
 const PAGE = 100
+
+const classNamesCache = new WeakMap<ContentEntry[], Set<string>>()
+function classNamesFor(entries: ContentEntry[]) {
+  let names = classNamesCache.get(entries)
+  if (!names) {
+    names = new Set(entries.filter(entry => entry.kind === 'class').map(entry => entry.name))
+    classNamesCache.set(entries, names)
+  }
+  return names
+}
 
 const selectedCheckCaches = new WeakMap<ContentEntry[], { context: string; checks: Map<string, PrerequisiteCheck> }>()
 function selectedChecks(c: Character, entries: ContentEntry[]) {
@@ -160,8 +171,19 @@ export function SearchableFeatSlots(props: Omit<FeatSlotsProps, 'search' | 'onSe
     options: new Map<string, FeatOption[]>(),
   }), [props.c, props.entries, settings])
   const pickerVariantCache = cache.options
-  return <FeatSlots {...props} search={search} pickerEligibility={pickerEligibility} pickerVariantCache={pickerVariantCache}
+  const body = () => <FeatSlots {...props} bare search={search} pickerEligibility={pickerEligibility} pickerVariantCache={pickerVariantCache}
     onSearch={(key, text) => setSearch(previous => ({ ...previous, [key]: text }))} />
+  if (props.bare) return body()
+  const allSlots = props.plannedFeatSlots ?? plannedSlots(props.c, props.entries)
+  const slots = [...allSlots, ...(props.categories?.includes('archetype') ? classArchetypeSlotViews(props.c, props.entries, allSlots) : [])]
+    .filter(slot => !props.categories || props.categories.includes(slot.displayCategory ?? slot.category))
+  const { backgroundFeats, automaticFeats, memories } = featSectionGrants(props.c, props.entries, props.categories, allSlots)
+  const grantedCount = backgroundFeats.length + automaticFeats.length + memories.length
+  const filled = slots.filter(slot => props.c.feats.some(feat => feat.slot === slot.key)).length + grantedCount
+  return <DeferredDetails className="character-subsection">
+    <summary><h4>{props.title ?? 'Feat slots'} {filled}/{slots.length + grantedCount}</h4></summary>
+    <DeferredContent>{body}</DeferredContent>
+  </DeferredDetails>
 }
 
 export function featPickerEligibility(c: Character, entries: ContentEntry[]) {
@@ -288,10 +310,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     return (!categories || categories.includes(allSlots.find(slot => slot.key === f.slot)?.displayCategory ?? category))
       && !allSlots.some((slot) => slot.key === f.slot)
   })
-  const classNames = new Set([c.className, selectedClassArchetype(c, entries)?.name,
-    ...entries.filter((entry) => entry.kind === 'class').map((entry) => entry.name)])
+  const classNames = classNamesFor(entries)
   const displayName = (name: string) => adoptedAncestryText(c, featDisplayName(featsByName.get(name), name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : name))
-    .replace(/ \(([^)]+)\)$/, (suffix, label: string) => classNames.has(label) ? '' : suffix)
+    .replace(/ \(([^)]+)\)$/, (suffix, label: string) =>
+      classNames.has(label) || label === c.className || label === classArchetype ? '' : suffix)
   const fixedLabel = (name: string, sourceId?: string) => {
     if (name === 'Ancestral Cantrip') {
       const spell = fixedAncestralCantrip(c, entries, sourceId)

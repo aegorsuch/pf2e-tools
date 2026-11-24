@@ -1371,8 +1371,17 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             ...(intensified ? [{ source: 'Intensified Element Stance', value: `${intensified.dice}d6 ${intensified.type} (conditional)`,
               note: `Only against ${intensified.targets}.` }] : []),
           ] }))
-        const meleeAndRanged = attackSummaries.length === 2
-          && attackSummaries[0].form === 'Melee' && attackSummaries[1].form === 'Ranged'
+        const inlineRange = (summary: (typeof attackSummaries)[number]) =>
+          summary.attack.range > 0 && (summary.attackForm === 'Ranged' || summary.attackForm === 'Thrown')
+        const attackLine = (summary: (typeof attackSummaries)[number]) => <>
+          {summary.attackForm && `${summary.attackForm}${inlineRange(summary) ? ` (${summary.attack.range} feet)` : ''}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
+          {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.strikeNote && <SourceNote
+            source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
+            note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
+            <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
+              && <SourceNote source={rune.source} note={rune.note} inlineSource={rune.source === 'Gravity Weapon' || rune.source === 'Pharasma (Moderate Boon)'} />}</Fragment>)}
+            {summary.fulminatingShot && ` + ${summary.fulminatingShot}`}{untamedPersistent && ` + ${untamedPersistent}`}</>}{summary.inactive && ' (inactive)'}
+        </>
         const avengerNote = rogueRackets(c, entries).includes('Avenger') && isFavoredWeapon(c, entries, w.name)
           ? 'Avenger: sneak attack applies to your prey; critical specialization applies on a critical hit against an off-guard target.' : undefined
         const activeRunes = forms.length || card ? enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) : enhanced.runes
@@ -1424,7 +1433,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               </select>
             </label>}
             {activeCombinationForm && <label title="Changing combination forms uses an Interact action.">
-              Combination form{' '}<ActionIcon actions="Single Action" />
+              <ActionIcon actions="Single Action" />
               <select aria-label={`Combination form: ${displayName}`} value={activeCombinationForm} onChange={event => {
                 const form = event.target.value
                 const nextWeapon = form === 'Melee' || form === 'Ranged' ? combinationWeaponForForm(form) : undefined
@@ -1537,23 +1546,17 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           </div>
           {cannotEquip && (legacyPouchWeapon || hands === undefined || unknownHands)
             && <small>{legacyPouchWeapon ? 'Retrieve this weapon from your cheek pouch first.' : 'Weapon hands unavailable.'}</small>}
-          <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
-            {index > 0 && (meleeAndRanged || forms.length ? <br /> : '; ')}{summary.attackForm && `${summary.attackForm}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
-            {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.strikeNote && <SourceNote
-              source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
-              note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
-              <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
-              && <SourceNote source={rune.source} note={rune.note} inlineSource={rune.source === 'Gravity Weapon' || rune.source === 'Pharasma (Moderate Boon)'} />}</Fragment>)}
-            {summary.fulminatingShot && ` + ${summary.fulminatingShot}`}{untamedPersistent && ` + ${untamedPersistent}`}</>}{summary.inactive && ' (inactive)'}
-          </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}
-          {typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect && <SourceNote source="Untamed Form" note={a.entry.data.form_effect} inlineSource={false} />}</small>
+          {attackSummaries.map(summary => <div key={summary.form ?? 'weapon'}>
+            <small>{attackLine(summary)}</small>
+            {summary.attack.traits.length > 0 && <WeaponTraits attack={summary.attack} entries={entries} />}
+          </div>)}
+          {(a.criticalNote || typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect) && <small>
+            {a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}
+            {typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect && <SourceNote source="Untamed Form" note={a.entry.data.form_effect} inlineSource={false} />}
+          </small>}
           {a.areaAttacks.map(area => <small key={area.name}>{area.name}: DC {area.dc} Reflex, {area.shape}
             <SourceNote source={a.entry?.name === 'Offensive Defense' ? 'Offensive Defense' : 'Suppressing Fire / Primary Target'} note={area.note} /></small>)}
           {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
-          {attackSummaries.map(summary => summary.attack.traits.length > 0 && <div key={summary.form ?? 'weapon'}>
-            {summary.form && <small>{summary.form}:</small>}
-            <WeaponTraits attack={summary.attack} entries={entries} />
-          </div>)}
           {!upgradeWeapon && !fixed && <Runes
             runes={activeRunes.filter(rune => !activeFreeRunes.some(free => runeName(free.name) === runeName(rune)))}
             entries={entries} options={[]} limit={0} freeRunes={activeFreeRunes}
@@ -1562,7 +1565,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           <AttackUpgrades attack={a} />
           {namedSource !== 'Serithtial' && namedWeaponNotes}
           <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
-          {attackSummaries.map(summary => summary.attack.range > 0 && !summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim()))
+          {attackSummaries.map(summary => summary.attack.range > 0 && !inlineRange(summary) && !summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim()))
             && <small key={`${summary.form ?? 'weapon'}-range`}>{summary.form ? `${summary.form} range` : 'Range'} {summary.attack.range} feet</small>)}
           {avengerNote && <small>{avengerNote}</small>}
         </div>
@@ -1573,16 +1576,19 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             if (event.currentTarget.open === !collapsed.includes(w.id)) return
             save({ collapsedWeaponIds: event.currentTarget.open ? collapsed.filter(id => id !== w.id) : [...collapsed, w.id] })
           }}>
-            <summary><strong><EntryDescription name={displayName} entry={witchAttackEntry(c, entries, w.id, a.entry)} className="equipment-name" /></strong>{oversizedAction} <small>{attackSummaries.map((summary, index) => <Fragment key={summary.form ?? 'weapon'}>
-              {index > 0 && (meleeAndRanged || forms.length ? <br /> : '; ')}{summary.attackForm && `${summary.attackForm}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
-              {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.strikeNote && <SourceNote
-                source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
-                note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
-                <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
-                  && <SourceNote source={rune.source} note={rune.note} inlineSource={rune.source === 'Gravity Weapon' || rune.source === 'Pharasma (Moderate Boon)'} />}</Fragment>)}
-                {summary.fulminatingShot && ` + ${summary.fulminatingShot}`}{untamedPersistent && ` + ${untamedPersistent}`}</>}{summary.inactive && ' (inactive)'}
-            </Fragment>)}{a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}
-            {typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect && <SourceNote source="Untamed Form" note={a.entry.data.form_effect} inlineSource={false} />}</small>{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
+            <summary><strong><EntryDescription name={displayName} entry={witchAttackEntry(c, entries, w.id, a.entry)} className="equipment-name" /></strong>{oversizedAction}
+              {attackSummaries.length > 1 ? <div className="weapon-form-summaries">
+                {attackSummaries.map(summary => <div key={summary.form ?? 'weapon'}>
+                  <small>{attackLine(summary)}</small>
+                  {summary.attack.traits.length > 0 && <div onClick={event => event.stopPropagation()}>
+                    <WeaponTraits attack={summary.attack} entries={entries} />
+                  </div>}
+                </div>)}
+              </div> : <small>{attackLine(attackSummaries[0])}</small>}
+              {(a.criticalNote || typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect) && <small>
+                {a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}
+                {typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect && <SourceNote source="Untamed Form" note={a.entry.data.form_effect} inlineSource={false} />}
+              </small>}{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
             <div className="row">{equipControls}</div>
             {!attachmentSource && canAttachWeapon(entries, w) && <label>Attached weapon{' '}
               <select aria-label={`Attached weapon: ${displayName}`} value={w.attachedWeapon ?? ''}
@@ -1619,7 +1625,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               {summary.form && <strong>{summary.form} form</strong>}
               <div className="gear-stats">
                 <span><small>Attack</small><b><TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal /></b></span>
-                {summary.attack.range > 0 && !summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim()))
+                {summary.attack.range > 0 && !inlineRange(summary) && !summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim()))
                   && <span><small>Range</small><b>{summary.attack.range} feet</b></span>}
                 {summary.attack.reach > 0 && <span><small>Reach</small><b>{summary.attack.reach} feet</b></span>}
                 {summary.attack.areaAttacks.map(area => <span key={area.name}><small>{area.name}</small>
@@ -1629,7 +1635,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 <span><small>Proficiency</small>{signed(summary.attack.prof)}</span>
                 <span><small>Item</small>{signed(summary.attack.item)}</span>
               </div>
-              {summary.attack.traits.length > 0 && <WeaponTraits attack={summary.attack} entries={entries} />}
+              {attackSummaries.length === 1 && summary.attack.traits.length > 0 && <WeaponTraits attack={summary.attack} entries={entries} />}
             </div>)}
             {!(upgradeWeapon && a.entry && !linkedSource) && <AttackUpgrades attack={a} />}
             {namedWeaponNotes}
