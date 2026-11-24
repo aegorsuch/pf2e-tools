@@ -7785,8 +7785,9 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
   if (haft) {
     const source = effectiveWeapon(c, entries, haft)
     const inherited = { ...weapon, livingWeapon: !!source.livingWeapon && canBeLivingWeapon(c, entries, haft),
-      potency: source.potency, striking: source.striking, material: source.material, runes: source.runes }
-    weapon = { ...inherited, runes: source.runes.filter((rune) => weaponRuneApplies(entries, inherited, rune)) }
+      potency: source.potency, striking: source.striking, material: source.material,
+      runes: source.runes.filter(rune => runeBaseName(rune) !== 'Throwing') }
+    weapon = { ...inherited, runes: inherited.runes.filter((rune) => weaponRuneApplies(entries, inherited, rune)) }
   }
   if (weaponCategory(weaponEntry(entries, weapon.name)) !== 'Unarmed') {
     let enhanced = weapon

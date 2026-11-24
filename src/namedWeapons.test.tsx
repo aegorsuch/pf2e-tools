@@ -9,8 +9,8 @@ import { specificMagicItemName } from './equipmentGroups'
 import { getSettings, updateSettings } from './settings'
 import { SkillsSection } from './SkillsSection'
 import { gearAccess } from './gearAccess'
-import { CLAN_PISTOL, HUNTERS_ARROWHEADS } from './supplemental'
-import { hunterArrowheadBonus } from './builder'
+import { CLAN_PISTOL, HAFT_STRIKER_WEAPON, HUNTERS_ARROWHEADS } from './supplemental'
+import { hunterArrowheadBonus, ownedWeapons } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 
 const bow = (name: string, long: boolean, composite = true): ContentEntry => ({
@@ -818,6 +818,11 @@ it('labels Haft Striker with its named source without displaying inherited mater
   const character: Character = { ...c, level: 15, activeStance: stance.name, weapons: [weapon],
     feats: [{ name: stance.name, type: 'Class Feat', level: 4 }] }
   const entries = [...namedCatalog, stance]
+  const haft = ownedWeapons(character, entries).find(item => item.name === HAFT_STRIKER_WEAPON.name)!
+  expect(weaponAttack(character, entries, haft).thrownRange).toBe(0)
+  expect(weaponAttack(character, entries, haft).traits.some(trait => /^thrown\b/i.test(trait))).toBe(false)
+  expect(effectiveWeapon(character, entries, haft).runes).not.toContain('Throwing')
+  expect(effectiveWeapon(character, entries, haft).runes).not.toContain('Returning')
   for (const displayOnly of [false, true]) {
     const markup = renderToStaticMarkup(<WeaponList c={character} entries={entries} save={() => {}} displayOnly={displayOnly} />)
     expect(markup).toContain('Haft Striker Stance (from Shadowpiercer Broadspear)')
