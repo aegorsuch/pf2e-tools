@@ -1,6 +1,6 @@
 import { EntryDescription } from './EntryDescription'
 import { confirmRemoval } from './confirmRemoval'
-import { useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeBattleForm, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, investigatorMethodologies, isMagicHideActive, isSpellActive, magicHideChange, proficiencyBonus, rogueRackets, signed, spellActiveChange, spellRemovalChange, untamedShiftChoices, type SectionProps } from './builder'
 import { ANIMAL_FEATURES, PERSISTENT_SPELLS } from './supplemental'
 import type { Character, ContentEntry } from './types'
@@ -15,7 +15,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { animistApparitionSlots, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, type Ability } from './builder'
+import { animistApparitionSlots, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
@@ -1732,6 +1732,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
     && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase()) && matchesSpellDefense(entry, bookDefense)
     && matchesGearSystem(entry, bookSystem, c.systems) && !knownWitchSpells.has(entry.name.toLowerCase()))
+  const schoolBookSpells = useMemo(() => wizardSchoolBookSpells(c, entries), [c, entries])
+  useEffect(() => { if (schoolBookSpells) save({ spells: schoolBookSpells }) }, [schoolBookSpells])
   const schoolSpells = useMemo(() => new Set((wizardCurriculum(wizardSchool(c, entries))[bookRank] ?? [])
     .map(name => spellName(entries, name).toLowerCase())), [c, entries, bookRank])
   const schoolFirst = (list: ContentEntry[]) => bookSource === 'Wizard' && schoolSpells.size

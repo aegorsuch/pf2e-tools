@@ -6,7 +6,7 @@ import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOpt
 import { getSettings, updateSettings } from './settings'
 import { coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
-import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting } from './builder'
+import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting, wizardSchoolBookSpells } from './builder'
 import { hasRemainingFeatSelections } from './builder'
 import { maxEtchedRunes, runicRepertoireSize } from './runesmithRunes'
 import type { Character, ContentEntry } from './types'
@@ -2813,6 +2813,18 @@ describe('languageAllowance', () => {
     const c: Character = { ...base, className: 'Wizard', level: 3, subclass: school.name }
     expect(classExtraSlots(c, [school]).map(extra => [extra.rank, extra.allowedSpells])).toEqual([
       [0, ['Message', 'Sigil']], [1, ['Command', 'Runic Weapon']], [2, ['Dispel Magic', 'Translate']]])
+  })
+
+  it('adds school curriculum spells to the Wizard spellbook up to the highest spell rank', () => {
+    const school = entry('subclass', 'School of Ars Grammatica', { class: 'Wizard' })
+    school.description = 'Curriculum\n\ncantrips: message; 1st: command; 2nd: translate\n\nSchool Spells\n\ninitial: protective wards'
+    const spells = ['Message', 'Command', 'Translate'].map(name => ({ ...entry('spell', name, {}), systems: ['pf2e' as const] }))
+    const c: Character = { ...base, className: 'Wizard', level: 1, subclass: school.name }
+    const added = wizardSchoolBookSpells(c, [school, ...spells])!
+    expect(added.map(spell => [spell.name, spell.rank, spell.cantrip])).toEqual([['Message', 0, true], ['Command', 1, false]])
+    expect(wizardSchoolBookSpells({ ...c, spells: added }, [school, ...spells])).toBeUndefined()
+    expect(wizardSchoolBookSpells({ ...c, level: 3, spells: added }, [school, ...spells])!.map(spell => spell.name))
+      .toEqual(['Message', 'Command', 'Translate'])
   })
 
   it('adds Gnome Polyglot languages and improves each active Multilingual grant', () => {

@@ -2517,6 +2517,31 @@ export function wizardSchool(c: Character, entries: ContentEntry[]) {
       && entry.systems.includes('pf2e') && entry.name === c.subclass)
 }
 
+export const SCHOOL_BOOK_PREFIX = 'school:'
+
+export function wizardSchoolBookSpells(c: Character, entries: ContentEntry[]): NonNullable<Character['spells']> | undefined {
+  const school = wizardSchool(c, entries)
+  if (!school || c.level < 1) return undefined
+  const maxRank = Math.min(9, Math.ceil(c.level / 2))
+  const kept = (c.spells ?? []).filter(spell => !spell.bookSlot?.startsWith(SCHOOL_BOOK_PREFIX))
+  const known = new Set(kept.map(spell => spell.name.toLowerCase()))
+  const added: NonNullable<Character['spells']> = []
+  for (const [rank, names] of Object.entries(wizardCurriculum(school)))
+    if (Number(rank) <= maxRank) for (const name of names) {
+      const resolved = spellName(entries, name)
+      const entry = entries.find(candidate => candidate.kind === 'spell' && !candidate.deleted && candidate.name === resolved
+        && candidate.systems.includes('pf2e'))
+      if (!entry || known.has(entry.name.toLowerCase())) continue
+      known.add(entry.name.toLowerCase())
+      added.push({ name: entry.name, entryId: entry.id, rank: Number(rank), cantrip: Number(rank) === 0,
+        bookSlot: `${SCHOOL_BOOK_PREFIX}${rank}:${entry.name}` })
+    }
+  const next = [...kept, ...added]
+  const current = c.spells ?? []
+  return next.length === current.length && next.every((spell, i) => spell.entryId === current[i].entryId
+    && spell.bookSlot === current[i].bookSlot && spell.name === current[i].name) ? undefined : next
+}
+
 function wizardCurriculumExtras(c: Character, entries: ContentEntry[]): ClassSpellSlotExtra[] {
   if (c.level < 1) return []
   const school = wizardSchool(c, entries)

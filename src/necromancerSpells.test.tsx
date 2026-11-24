@@ -9,7 +9,7 @@ import type { Character, ContentEntry } from './types'
 vi.mock('react', async importOriginal => {
   const react = await importOriginal<typeof import('react')>()
   return { ...react, useState: vi.fn(react.useState), useMemo: vi.fn(react.useMemo),
-    useRef: vi.fn(react.useRef), useId: vi.fn(react.useId) }
+    useRef: vi.fn(react.useRef), useId: vi.fn(react.useId), useEffect: vi.fn() }
 })
 
 const base: Character = {
