@@ -350,9 +350,20 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       copy(tetheredFavoredWeapon),
     ]
   })
+  const wizardFamiliarCopies = ['Incredible Familiar', 'Improved Familiar'].flatMap(name => {
+    const matches = entries.filter(entry => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted && entry.name === name)
+    if (!matches.length || matches.some(entry => entry.traits.includes('Wizard'))) return []
+    const original = matches[0]
+    return [{ ...original, id: `homebrew:wizard-${name.toLowerCase().replaceAll(' ', '-')}`, source: 'homebrew' as const,
+      traits: [...original.traits.filter(trait => !['Archetype', 'Dedication', 'Multiclass'].includes(trait)), 'Wizard'],
+      description: original.description.split('\n\n').filter(paragraph => !/^Archetypes?\b/i.test(paragraph)).join('\n\n'),
+      data: { ...Object.fromEntries(Object.entries(original.data).filter(([key]) => !['archetype', 'archetype_levels'].includes(key))), class: 'Wizard' },
+      updatedAt: 1 }]
+  })
   return [
     ...divineSpellVariants,
     ...rangerCopies,
+    ...wizardFamiliarCopies,
     ...copiedClassFeats,
     homebrewFeat('bony-plates', 'Bony Plates', 1, ['Lizardfolk'], BONY_PLATES_DESCRIPTION),
     homebrewFeat('incredible-undead-familiar', 'Incredible Undead Familiar', 10, ['Necromancer'],

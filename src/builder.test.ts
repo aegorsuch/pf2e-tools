@@ -6,7 +6,7 @@ import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOpt
 import { getSettings, updateSettings } from './settings'
 import { coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
-import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting } from './builder'
+import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting, wizardSchoolBookSpells } from './builder'
 import { hasRemainingFeatSelections } from './builder'
 import { maxEtchedRunes, runicRepertoireSize } from './runesmithRunes'
 import type { Character, ContentEntry } from './types'
@@ -1730,6 +1730,16 @@ describe('official passive feat mechanics', () => {
     expect(featChoiceOptions('Weapon Proficiency', base, data, 'general:1:0')).toBeUndefined()
   })
 
+  it('offers Advanced Weapon Training weapon groups and trains that group\'s advanced weapons as martial', () => {
+    const grouped = (name: string, group: string) => ({ ...weapon(name, 'Advanced'), data: { ...weapon(name, 'Advanced').data, weapon_group: group } })
+    const data = [wizard, ranger, grouped('Falcata', 'Sword'), grouped('Dueling Sword', 'Sword'), grouped('Orc Knuckle Dagger', 'Knife'), weapon('Longsword', 'Martial')]
+    const fighter = { ...base, className: 'Ranger', level: 6, feats: [selected('Advanced Weapon Training', 6, 'Sword')] }
+    expect(featChoiceOptions('Advanced Weapon Training', { ...fighter, feats: [] }, data, 'class:6:0')).toEqual(['Knife', 'Sword'])
+    expect(featChoiceOptions('Advanced Weapon Training', fighter, data, 'class:8:0')).toEqual(['Knife'])
+    expect(attack(fighter, 'Falcata', data).rank).toBe(attack(fighter, 'Longsword', data).rank)
+    expect(attack(fighter, 'Orc Knuckle Dagger', data).rank).toBe(0)
+  })
+
   it('keeps the original martial grant when the class later gains martial weapon proficiency', () => {
     const expertise = { ...entry('classFeature', 'Martial Expertise', { class: 'Wizard' }, 7),
       description: 'Your proficiency rank for martial weapons increases to expert.' }
@@ -2114,6 +2124,8 @@ describe('ancestryLabel', () => {
       expect(classLabel(character)).toBe('Warrior of Legend')
       expect(plannedSlots(character).find(slot => slot.grantedBy === 'Warrior of Legend'))
         .toMatchObject({ displayCategory: 'archetype', grantedFeat: 'Warrior of Legend Dedication' })
+      expect(plannedSlots(character).filter(slot => slot.key.startsWith('class:2:')).map(slot => slot.grantedFeat))
+        .toEqual(['Warrior of Legend Dedication', undefined])
       expect(syncClassArchetypeDedication(character, [])?.feats).toContainEqual({
         name: 'Warrior of Legend Dedication', type: 'Class Feat', level: 2, slot: 'class:2:0',
       })
@@ -2780,6 +2792,39 @@ describe('languageAllowance', () => {
     expect(featLores(changed, [])).not.toContain('Circus Lore')
     expect(automaticFeatGrants({ ...c, level: 1, feats: [{ ...obsession, slot: 'ancestry:5:0' }] }, []))
       .not.toEqual(expect.arrayContaining([{ name: 'Assurance', choice: 'Circus Lore', source: 'Gnome Obsession', level: 5 }]))
+  })
+
+  it('grants Magical Shorthand from the Spellbook Prodigy arcana choice', () => {
+    const arcana = { name: 'Basic Arcana', type: 'Class Feat', level: 2, slot: 'class:2:1', choice: 'Spellbook Prodigy' }
+    const c: Character = { ...base, className: 'Wizard', level: 2, feats: [arcana] }
+    expect(automaticFeatGrants(c, [])).toContainEqual({ name: 'Magical Shorthand', source: 'Spellbook Prodigy', level: 2 })
+    expect(automaticFeatGrants({ ...c, level: 1 }, []).some(grant => grant.name === 'Magical Shorthand')).toBe(false)
+  })
+
+  it('ranks up Wizard spell proficiency at levels 7, 15 and 19 without class feature data', () => {
+    const ranks = [1, 6, 7, 14, 15, 18, 19].map(level =>
+      classSpellcasting({ ...base, className: 'Wizard', level }, [entry('class', 'Wizard', { tradition: 'Arcane' })])?.rank)
+    expect(ranks).toEqual([1, 1, 2, 2, 3, 3, 4])
+  })
+
+  it('adds a school curriculum spell restriction to each Wizard spell rank', () => {
+    const school = entry('subclass', 'School of Ars Grammatica', { class: 'Wizard' })
+    school.description = 'Curriculum\n\ncantrips: message, sigil; 1st: command, runic weapon; 2nd: dispel magic, translate\n\nSchool Spells\n\ninitial: protective wards'
+    const c: Character = { ...base, className: 'Wizard', level: 3, subclass: school.name }
+    expect(classExtraSlots(c, [school]).map(extra => [extra.rank, extra.allowedSpells])).toEqual([
+      [0, ['Message', 'Sigil']], [1, ['Command', 'Runic Weapon']], [2, ['Dispel Magic', 'Translate']]])
+  })
+
+  it('adds school curriculum spells to the Wizard spellbook up to the highest spell rank', () => {
+    const school = entry('subclass', 'School of Ars Grammatica', { class: 'Wizard' })
+    school.description = 'Curriculum\n\ncantrips: message; 1st: command; 2nd: translate\n\nSchool Spells\n\ninitial: protective wards'
+    const spells = ['Message', 'Command', 'Translate'].map(name => ({ ...entry('spell', name, {}), systems: ['pf2e' as const] }))
+    const c: Character = { ...base, className: 'Wizard', level: 1, subclass: school.name }
+    const added = wizardSchoolBookSpells(c, [school, ...spells])!
+    expect(added.map(spell => [spell.name, spell.rank, spell.cantrip])).toEqual([['Message', 0, true], ['Command', 1, false]])
+    expect(wizardSchoolBookSpells({ ...c, spells: added }, [school, ...spells])).toBeUndefined()
+    expect(wizardSchoolBookSpells({ ...c, level: 3, spells: added }, [school, ...spells])!.map(spell => spell.name))
+      .toEqual(['Message', 'Command', 'Translate'])
   })
 
   it('adds Gnome Polyglot languages and improves each active Multilingual grant', () => {

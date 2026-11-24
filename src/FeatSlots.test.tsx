@@ -2750,6 +2750,21 @@ it('keeps Wizard-shared Spellshot archetype feats out of Gunslinger class feats'
   expect(available).toContain(spellshotFeat)
 })
 
+it('offers Wizard archetype-use class feats like Familiar in Spellshot class slots', () => {
+  const dedication: ContentEntry = { id: 'spellshot-dedication', name: 'Spellshot Dedication', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 2, traits: ['Archetype', 'Dedication'], description: '',
+    data: { archetype: 'Spellshot' }, effects: [], updatedAt: 0 }
+  const way: ContentEntry = { ...dedication, id: 'spellshot-way', kind: 'subclass', name: 'Way of the Spellshot',
+    data: { class: 'Gunslinger' } }
+  const familiar: ContentEntry = { ...dedication, id: 'familiar', name: 'Familiar', level: 4, traits: ['Wizard'],
+    data: { archetype: 'Wizard' } }
+  const c: Character = { ...emptyRanger(), className: 'Gunslinger', subclass: way.name, level: 4,
+    feats: [{ name: dedication.name, type: 'Class Feat', level: 2, slot: 'class:2:0' }] }
+  const entries = [dedication, way, familiar]
+  const slot = plannedSlots(c, entries).find(candidate => candidate.key === 'class:4:0')!
+  expect(eligibleFeats(entries, c, slot)).toContain(familiar)
+})
+
 it.each(['Basic Arcana', 'Advanced Arcana'])('shows the selected Wizard feat description for %s', name => {
   const level = name === 'Basic Arcana' ? 4 : 8
   const arcana: ContentEntry = { id: name, name, kind: 'feat', source: 'official', systems: ['pf2e'],

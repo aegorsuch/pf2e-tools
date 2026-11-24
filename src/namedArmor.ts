@@ -4,7 +4,7 @@ import { automaticArmigerRunes } from './grantedArmor'
 const ANCESTRAL_HIDE = 'Ancestral Embrace Hide Armor'
 export const isAncestralEmbrace = (name?: string) => name === 'Ancestral Embrace' || name === ANCESTRAL_HIDE
 const ARMORS = new Set(['Ancestral Embrace', ANCESTRAL_HIDE, "Slithermaw's Bane", "Slithermaw's Bane (Artifact)",
-  'Highhelm Stronghold Plate', 'Bastion of the Inheritor', 'Immortal Bastion'])
+  'Highhelm Stronghold Plate', 'Bastion of the Inheritor', 'Immortal Bastion', 'Library Robes'])
 const BASTION_NAMES: Record<string, string> = {
   'Highhelm Stronghold Plate': 'Highhelm Stronghold Bastion Plate',
   'Bastion of the Inheritor': 'Bastion Plate of the Inheritor',
@@ -15,9 +15,12 @@ export const isBastionNamedArmor = (name?: string) =>
 export const INHERITOR_RUNE_FAMILIES = ['Advancing', 'Fortification', 'Moonweave', 'Sunweave'] as const
 export const isInheritorPlate = (name?: string) => name === 'Bastion Plate of the Inheritor' || name === 'Bastion of the Inheritor'
 export const isHighhelmPlate = (name?: string) => name === 'Highhelm Stronghold Bastion Plate' || name === 'Highhelm Stronghold Plate'
+export const isLibraryRobes = (name?: string) => name === 'Library Robes' || name === 'Library Scroll Robes'
+export const libraryRobesRank = (level: number) => level >= 19 ? 9 : level >= 15 ? 8 : level >= 12 ? 6 : 5
 export const isImmortalBastion = (name?: string) => name === 'Immortal Bastion Plate' || name === 'Immortal Bastion'
 export const scalingBastionRuneFamilies = (name?: string): readonly string[] =>
-  isInheritorPlate(name) ? INHERITOR_RUNE_FAMILIES : isImmortalBastion(name) ? INHERITOR_RUNE_FAMILIES : isHighhelmPlate(name) ? ['Fortification', 'Moonweave', 'Sunweave'] : []
+  isInheritorPlate(name) ? INHERITOR_RUNE_FAMILIES : isImmortalBastion(name) ? INHERITOR_RUNE_FAMILIES : isHighhelmPlate(name) ? ['Fortification', 'Moonweave', 'Sunweave']
+    : isLibraryRobes(name) ? ['Moonweave', 'Sunweave'] : []
 const BODY = /\n\n-{3,}\s*\n\n/
 export const SCALE_OF_IGROON_FORTRESS = 'Scale of Igroon (Fortress Shield)'
 export const isScaleOfIgroonShield = (name?: string) =>
@@ -50,7 +53,7 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
       const base = baseName && entries.find(entry => entry.kind === 'armor' && !entry.deleted
         && entry.systems.includes('pf2e') && entry.name.toLowerCase() === baseName.toLowerCase())
       if (!base || /\belven chain\b/i.test(item.description) && !elven) return []
-      const enchantment = /\+([1-4])\s+([^.!?\n]{0,100}?)\b(?:leather armor|hide armor|elven chain|bastion plate)\b/i.exec(item.description)
+      const enchantment = /\+([1-4])\s+([^.!?\n]{0,100}?)\b(?:leather armor|hide armor|elven chain|bastion plate|scroll robes)\b/i.exec(item.description)
       if (!enchantment) return []
       let properties = ` ${enchantment[2].toLowerCase()} `
       const fixed: string[] = WEAVE_ARMORS.has(item.name) ? ['Moonweave (Major)', 'Sunweave (Major)'] : []
@@ -73,7 +76,7 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
       const fortifiedBastion = isBastionNamedArmor(item.name) && fixed.some(rune => /^Fortification(?: \(Greater\))?$/.test(rune))
       const traits = [...new Set([...base.traits.filter(trait => !notNoisy || trait.toLowerCase() !== 'noisy'), ...item.traits])]
       return [{
-        ...item, name: BASTION_NAMES[item.name] ?? item.name, kind: 'armor' as const, traits,
+        ...item, name: item.name === 'Library Robes' ? 'Library Scroll Robes' : BASTION_NAMES[item.name] ?? item.name, kind: 'armor' as const, traits,
         data: {
           ...base.data, ...item.data, price: item.data.price ?? '', item_subcategory: 'Specific Magic Armor',
           named_armor: true, named_armor_base: base.name,
@@ -89,7 +92,7 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
           ...(elven ? { named_armor_elven: true, named_armor_material: /\bhigh-grade elven chain\b/i.test(item.description) ? 'High-grade dawnsilver elven chain' : 'Dawnsilver elven chain' } : {}),
           ...(WEAVE_ARMORS.has(item.name) || item.name === 'Immortal Bastion' || isInheritorPlate(item.name) ? { named_armor_material: 'Orichalcum' } : {}),
           ...(isHighhelmPlate(item.name) ? { named_armor_material: 'Keep Stone' } : {}),
-          ...(item.name === 'Immortal Bastion' || isInheritorPlate(item.name) || isHighhelmPlate(item.name) ? { automatic_fundamentals: true } : {}),
+          ...(item.name === 'Immortal Bastion' || isInheritorPlate(item.name) || isHighhelmPlate(item.name) || isLibraryRobes(item.name) ? { automatic_fundamentals: true } : {}),
         },
         description: `${item.description}${elven ? `\n\nElven chain construction: ${elven.description.split(BODY)[1]?.trim() ?? elven.description}` : ''}`,
       }]
@@ -108,6 +111,7 @@ export function namedArmorEnhancements(entry?: ContentEntry) {
 export function scaledNamedArmorDescription(entry: ContentEntry, armor: OwnedArmor) {
   if (!entry.data.named_armor || entry.data.automatic_fundamentals !== true) return entry.description
   const resilient = ['', 'resilient', 'greater resilient', 'major resilient'][armor.resilient]
+  if (entry.data.library_spell_rank) return `Stores one spell of up to rank ${entry.data.library_spell_rank}. ${entry.description}`
   const runes = armor.runes.map(rune => rune.replace(/^(.+) \((Lesser|Greater|Major|True)\)$/, '$2 $1').toLowerCase())
   const enhancements = [armor.potency ? `+${armor.potency}` : '', resilient, ...runes].filter(Boolean).join(' ')
   return entry.description.replace(/\+[1-4]\s+[^.!?\n]{0,100}?\bbastion plate\b/i,
@@ -128,6 +132,10 @@ export function scaleInheritorPlate(entry: ContentEntry | undefined, level: numb
   const fortification = level >= 12
   const highhelm = isHighhelmPlate(entry.name)
   const immortal = isImmortalBastion(entry.name)
+  if (isLibraryRobes(entry.name)) {
+    return { ...entry, data: { ...entry.data, named_armor_runes: '', library_spell_rank: libraryRobesRank(level),
+      automatic_property_runes: automaticArmigerRunes(level).filter(rune => /^(Moonweave|Sunweave)/.test(rune)).join(';') } }
+  }
   if (immortal) {
     return { ...entry, data: { ...entry.data, named_armor_runes: '',
       automatic_property_runes: [...automaticArmigerRunes(level).filter(rune => /^(Moonweave|Sunweave|Advancing)/.test(rune)),

@@ -422,6 +422,8 @@ const namedCatalog: ContentEntry[] = [...catalog, rune('Ghost Touch'), rune('Vor
     data: { ...melee('', '').data, damage: '1d6 piercing', weapon_category: 'Simple', weapon_group: 'Spear', thrown_range: 20 } },
   { ...melee("Dancer's Spear", '1d6 piercing', ['Backswing', 'Finesse', 'Reach', 'Sweep', 'Versatile B'], 2),
     data: { ...melee('', '').data, damage: '1d6 piercing', hands: 2, weapon_group: 'Spear' } },
+  { ...melee('Broadspear', '1d10 piercing', ['Reach', 'Sweep', 'Versatile S'], 2),
+    data: { ...melee('', '').data, damage: '1d10 piercing', hands: 2, weapon_category: 'Advanced', weapon_group: 'Spear' } },
   melee('Longsword', '1d8 slashing', ['Versatile P']),
   melee('Shortsword', '1d6 piercing', ['Agile', 'Finesse', 'Versatile S']),
   melee('Bastard Sword', '1d8 slashing', ['Two-Hand d12']),
@@ -730,7 +732,7 @@ it('creates stronger arrowheads with conditional nonstacking bonuses and unchang
 })
 
 it.each([
-  ['Shadowpiercer', ['Shadowpiercer'], 'Spear'],
+  ['Shadowpiercer', ['Shadowpiercer (Spear)', "Shadowpiercer (Dancer's Spear)", 'Shadowpiercer (Broadspear)'], 'Spear'],
   ['Callooh Callay', ['Callooh Callay'], 'Longsword'],
   ['Blade of Fallen Stars', ['Blade of Fallen Stars (Melee)', 'Blade of Fallen Stars (Ranged)'], 'Gun Sword (Melee)'],
   ['Final Stand', ['Final Stand'], 'Rapier'],
@@ -741,7 +743,7 @@ it.each([
   expect(weaponEntry(namedCatalog, name)?.data.named_weapon_base).toBe(base)
   expect(weaponEntry(namedCatalog, name)?.kind).toBe('weapon')
   expect(namedCatalog.find(entry => entry.name === name)?.kind).toBe('item')
-  expect(choices.filter(entry => entry.source === 'homebrew').length).toBe(0)
+  expect(choices.filter(entry => entry.source === 'homebrew').length).toBe(name === 'Shadowpiercer' ? 2 : 0)
 })
 
 it('preserves Wintershot artifact access approvals', () => {
@@ -759,8 +761,8 @@ it('does not duplicate Grievous when already present in an artifact source or sa
   expect(weapon.runes).toEqual(['Grievous', 'Flaming'])
 })
 
-it('resolves saved Shadowpiercer variants to its only spear form', () => {
-  for (const name of ["Shadowpiercer (Dancer's Spear)", 'Shadowpiercer (Spear)', 'Shadowpiercer']) {
+it('offers Shadowpiercer as a spear or Dancer\'s spear and applies each base weapon', () => {
+  for (const name of ['Shadowpiercer (Spear)', 'Shadowpiercer']) {
     const weapon = owned(name)
     expect(effectiveWeapon(c, namedCatalog, weapon)).toMatchObject({ potency: 4, striking: 3, runes: ['Ghost Touch', 'Grievous'] })
     const attack = weaponAttack(c, namedCatalog, weapon)
@@ -770,6 +772,9 @@ it('resolves saved Shadowpiercer variants to its only spear form', () => {
     expect(attack.thrownRange).toBe(20)
     expect(attack.traits).not.toContain('Reach')
   }
+  const dancer = owned("Shadowpiercer (Dancer's Spear)")
+  expect(weaponHands(namedCatalog, dancer)).toBe(2)
+  expect(weaponAttack(c, namedCatalog, dancer).traits).toContain('Reach')
   const enhanced = effectiveWeapon(c, namedCatalog, { ...owned('Shadowpiercer'), striking: 3, runes: ['Flaming'] })
   expect(enhanced.runes).toEqual(['Ghost Touch', 'Grievous', 'Flaming'])
 })
@@ -897,6 +902,21 @@ it('implements Fungicidal Hatchet with scaling Peachwood, Returning, Grievous an
   expect(at(5)).toMatchObject({ named_weapon_runes: 'Returning;Grievous', named_weapon_material: 'Peachwood (Standard-Grade)' })
   expect(at(18)?.named_weapon_material).toBe('Peachwood (High-Grade)')
   expect(namedWeaponDamage(entry)[0].value).toContain('poison')
+})
+
+it('implements Blade of the Black Sovereign as a Greatsword or Bastard Sword with scaling Shock, Grievous and Adamantine', () => {
+  const sword = (name: string): ContentEntry => ({ ...bow(name, false, false), traits: ['Versatile P'],
+    data: { damage: '1d12 slashing', range: 0, weapon_type: 'Melee', weapon_category: 'Martial', weapon_group: 'Sword', hands: 2, bulk: 2 } })
+  const item: ContentEntry = { ...winter, id: 'black-sovereign', name: 'Blade of the Black Sovereign', level: 15, traits: ['Electricity', 'Magical', 'Unique'],
+    description: 'Base Weapon Greatsword\n\nThis +2 greater striking shock greatsword is forged from standard-grade adamantine.',
+    data: { item_subcategory: 'Specific Magic Weapons', url: 'https://2e.aonprd.com/Equipment.aspx?ID=775' } }
+  const found = makeNamedWeaponEntries([sword('Greatsword'), sword('Bastard Sword'), item], [{ name: 'Shock' }])
+  expect(found.map(entry => entry.name)).toContain('Blade of the Black Sovereign (Bastard Sword)')
+  const entry = found.find(candidate => candidate.name === 'Blade of the Black Sovereign (Greatsword)')!
+  const at = (level: number) => withNamedWeaponState(entry, owned(entry.name), level)?.data
+  expect(at(10)).toMatchObject({ named_weapon_runes: 'Shock;Grievous', named_weapon_material: 'Adamantine (Standard-Grade)' })
+  expect(at(17)).toMatchObject({ named_weapon_runes: 'Shock (Greater);Grievous', named_weapon_material: 'Adamantine (High-Grade)' })
+  expect(effectiveWeapon({ ...c, level: 12 }, [...found, sword('Greatsword')], owned(entry.name))).toMatchObject({ potency: 2, striking: 2 })
 })
 
 it('scales Scalding Gauntlets potency, striking and Flaming with level and hides graded duplicates', () => {

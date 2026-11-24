@@ -21,7 +21,7 @@ import { DroneFeatures } from './DroneFeatures'
 import { FOLLOWER_STAGES, FOLLOWER_TYPES, followerStage, followerStats } from './followers'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
   familiarAbilityEntry, familiarAbilityUnavailableReason, GLYPH_FAMILIAR_ABILITIES, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds,
-  specificFamiliar, specificFamiliarAbilityName, specificFamiliarGrants } from './familiarAbilities'
+  specificFamiliarAbilityName, specificFamiliarGrantedLabels, specificFamiliarOptions, specificFamiliarRequirement, specificFamiliarSections } from './familiarAbilities'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
@@ -980,12 +980,14 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           const patronAbility = !isWasp ? familiarCapacity.patronAbility : undefined
           const dailyAbilityLimit = familiarCapacity.dailyAbilityLimit
           const baseSelectableLimit = patronAbility ? familiarCapacity.selectableAbilityLimit : dailyAbilityLimit
-          const selectedSpecific = !isWasp ? specificFamiliar(c, entries) : undefined
-          const specificCost = Number(selectedSpecific?.data.required_abilities ?? 0)
+          const specificFamiliars = specificFamiliarOptions(c, entries)
+          const selectedSpecificOption = !isWasp ? specificFamiliars.find(option => option.entry.name === data?.specificFamiliar) : undefined
+          const selectedSpecific = selectedSpecificOption?.entry
+          const specificCost = selectedSpecificOption?.required ?? 0
           const specificAccess = selectedSpecific && featAccess(c, selectedSpecific)
           const activeSpecific = !!selectedSpecific && contentAccessGranted(c, selectedSpecific)
-            && specificCost > 0 && specificCost <= baseSelectableLimit
-          const grants = activeSpecific ? specificFamiliarGrants(selectedSpecific) : []
+            && specificFamiliarRequirement(selectedSpecific) > 0 && !!selectedSpecificOption?.available
+          const grants = activeSpecific ? specificFamiliarGrantedLabels(selectedSpecific) : []
           const grantedNames = grants.map(specificFamiliarAbilityName)
           const selectableAbilityLimit = baseSelectableLimit - (activeSpecific ? specificCost : 0)
           const familiarType = spiritFamiliar ? 'Spirit familiar' : isUndead ? 'Undead familiar' : isLeshy ? 'Leshy familiar'
@@ -1061,7 +1063,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 name: entry?.name ?? ability,
                 entry,
                 after: ability === 'Restorative Familiar' && index < selectableAbilityLimit && !reason
-                  ? <> <DamageRoll name="Restorative Familiar" actions="Two Actions"
+                  ? <> <DamageRoll name="Restorative Familiar" actions="Two Actions" toggleResult
                     damage={{ label: 'Healing', dice: Math.max(1, Math.floor(c.level / 2)), sides: 8, type: 'HP' }} /></>
                   : undefined,
                 inactive: index >= selectableAbilityLimit,
@@ -1076,35 +1078,39 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             const name = specificFamiliarAbilityName(grant)
             return { key: `granted:${index}:${grant}`, name: grant, entry: familiarAbilityEntry(name, familiarAbilityCatalog, c) }
           }))
-          if (activeSpecific) familiarAbilityItems.push(...familiarAbilityCatalog.filter(entry =>
-            String(entry.data.ability_type ?? '').toLowerCase() === `specific familiar - ${selectedSpecific.name}`.toLowerCase())
-            .map(entry => ({ key: `specific:${entry.id}`, name: entry.name, entry })))
+          const specificActions = activeSpecific ? familiarAbilityCatalog.filter(entry =>
+            String(entry.data.ability_type ?? '').toLowerCase() === `specific familiar - ${selectedSpecific.name}`.toLowerCase()) : []
+          familiarAbilityItems.push(...specificActions.map(entry => ({ key: `specific:${entry.id}`, name: entry.name, entry })))
           familiarAbilityItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
           const grantedCount = grants.reduce((count, grant) => count + (/^skilled\s*\(/i.test(grant)
             ? /choice/i.test(grant) ? (/\btwo\b/i.test(grant) ? 2 : 1)
               : Math.max(1, skillNames.filter(skill => new RegExp(`\\b${skill}\\b`, 'i').test(grant)).length) : 1), 0)
+          const specificSections = specificFamiliarSections(activeSpecific ? selectedSpecific : undefined)
+          const specificSummary = selectedSpecific?.data.granted_abilities && !/\bGranted Abilities\b/i.test(selectedSpecific.description)
+            ? selectedSpecific.description.split(/\n\s*\n/).filter(Boolean) : specificSections.summary
           return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" data-minion-name={activeSpecific ? selectedSpecific.name : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'} open>
           <summary><h4>{activeSpecific ? selectedSpecific.name : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
             : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'}</h4> ({activeAbilityChoices.length + Number(!!patronAbility) + grantedCount}/{activeSpecific ? selectableAbilityLimit + Number(!!patronAbility) + grantedCount : dailyAbilityLimit})</summary>
           <article className="gear-card">
-          {!isWasp && <label>Specific familiar{' '}
-            <select aria-label="Specific familiar" value={data?.specificFamiliar ?? ''} onChange={event => {
-              const selected = familiarAbilityCatalog.find(entry => entry.data.ability_type === 'Specific Familiar' && entry.name === event.target.value)
-              if (event.target.value && (!selected || Number(selected.data.required_abilities) > baseSelectableLimit)) return
-              saveFamiliar({ specificFamiliar: selected?.name })
+          {!isWasp && specificFamiliars.length > 0 && <header className="row">
+            <SearchableSelect aria-label="Specific familiar" value={data?.specificFamiliar ?? ''} onChange={event => {
+              const selected = specificFamiliars.find(option => option.entry.name === event.target.value)
+              if (event.target.value && (!selected || !selected.available)) return
+              saveFamiliar({ specificFamiliar: selected?.entry.name })
             }}>
-              <option value="">None</option>
-              {familiarAbilityCatalog.filter(entry => entry.data.ability_type === 'Specific Familiar').map(entry =>
-                <option key={entry.id} value={entry.name} disabled={Number(entry.data.required_abilities) > baseSelectableLimit}>{entry.name}</option>)}
-            </select>
-          </label>}
+              <option value="">Choose specific familiar…</option>
+              {specificFamiliars.map(option => <option key={option.entry.id} value={option.entry.name}
+                disabled={!option.available && option.entry.name !== data?.specificFamiliar}>
+                {option.entry.name}{option.required ? ` (${option.required} abilities)` : ''}</option>)}
+            </SearchableSelect>
+          </header>}
           {selectedSpecific && specificAccess && !specificAccess.automatic && <label>
             <input type="checkbox" aria-label={`GM approved access: ${selectedSpecific.name}`} checked={specificAccess.approved}
               onChange={event => save({ featAccessOverrides: event.target.checked
                 ? [...new Set([...(c.featAccessOverrides ?? []), selectedSpecific.id])]
                 : c.featAccessOverrides?.filter(id => id !== selectedSpecific.id) })} /> Approve access: {specificAccess.requirement}
           </label>}
-          {selectedSpecific?.description && <p className="companion-description">{selectedSpecific.description}</p>}
+          {activeSpecific && specificSummary.map(text => <p key={text} className="companion-description">{text}</p>)}
           {isCrocodile && <small>Tiny crocodile familiar granted by Crocodile's Twin.</small>}
           {spiritFamiliar && <>
             <label>Apparition{' '}
@@ -1162,6 +1168,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           </section>}
           {familiarEffects.skilled.length > 0 && <section className="companion-actions">
             <h5>Skills</h5><div>{familiarEffects.skilled.map(skill => `${skill.skill} ${signed(skill.modifier)}`).join(', ')}</div>
+          </section>}
+          {specificActions.length === 0 && specificSections.abilities.length > 0 && <section className="companion-actions">
+            <h5>Actions</h5>{specificSections.abilities.map(text => <p key={text}>{text}</p>)}
           </section>}
           {isLeshy && <label>Granted ability{' '}
             <select aria-label="Leshy familiar granted ability" value={data?.leshyAbility ?? ''} onChange={event => {

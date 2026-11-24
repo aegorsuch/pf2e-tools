@@ -1,6 +1,6 @@
 import { EntryDescription } from './EntryDescription'
 import { confirmRemoval } from './confirmRemoval'
-import { useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeBattleForm, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, investigatorMethodologies, isMagicHideActive, isSpellActive, knowsSpell, magicHideChange, proficiencyBonus, rogueRackets, signed, spellActiveChange, spellRemovalChange, untamedShiftChoices, type SectionProps } from './builder'
 import { ANIMAL_FEATURES, PERSISTENT_SPELLS } from './supplemental'
 import type { Character, ContentEntry } from './types'
@@ -15,7 +15,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { animistApparitionSlots, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, wizardArchetypeSpellbookChoices, type Ability } from './builder'
+import { animistApparitionSlots, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
@@ -939,12 +939,13 @@ export function PyreResistEnergyActions({ c, save, entry, rank }: Pick<SectionPr
   </ActiveSpellActions>
 }
 
-export function DirgeLearnOptions({ options, onLearn }: { options: ContentEntry[]; onLearn: (entry: ContentEntry) => void }) {
+export function DirgeLearnOptions({ options, onLearn, marked }: { options: ContentEntry[]; onLearn: (entry: ContentEntry) => void; marked?: Set<string> }) {
   return <ul className="dirge-options">
     {options.map(entry => <li key={entry.id}>
       <button type="button" aria-label={`Learn ${entry.name}`} onClick={() => onLearn(entry)}>+</button>
       <EntryDescription name={entry.name} entry={entry} />
       {' '}<small>{entry.systems.map(system => system.toUpperCase()).join(' / ')}</small>
+      {marked?.has(entry.name.toLowerCase()) && <> <strong>School</strong></>}
     </li>)}
   </ul>
 }
@@ -1450,7 +1451,7 @@ export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'en
   const benefits = familiarSpellBenefits(c, entries, baseSlots ?? c.spellcasting?.slots ?? {})
   const witchwarper = witchwarperParadox(c)
   const slots = classRepertoireRows(c) ?? (classSpellcasting(c, entries)?.traditions.length ? c.spellcasting?.slots : undefined)
-  const extraSlots = baseSlots ? classExtraSlots(c) : []
+  const extraSlots = baseSlots ? classExtraSlots(c, entries) : []
   const choices = witchwarper ? witchwarperRepertoireSlots(c, benefits.cantrip).map(slot => !!(slot.granted || slot.value))
     : slots ? Array.from({ length: 11 }, (_, rank) => {
       const baseCount = Math.max(0, Math.min(20, Math.trunc(Number(slots[rank]) || 0)))
@@ -1698,7 +1699,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     && activeFeatsNamed(c, 'Bloodrager Dedication').some(feat => feat.choice === 'Arcane' || feat.choice === 'Divine')
   const warrior = c.className === 'Champion' ? activeFeatsNamed(c, 'Divine Warrior')[0]
     : c.className === 'Ranger' ? activeFeatsNamed(c, 'Primal Warrior')[0] : undefined
-  const extraSlots = automaticSlots ? classExtraSlots(c) : []
+  const extraSlots = automaticSlots ? classExtraSlots(c, entries) : []
   const avengerTraditionSwitch = !!c.spellcasting && rogueRackets(c, entries).includes('Avenger')
     && /^(occult|divine)$/i.test(c.spellcasting.tradition)
   const traditions = warrior ? [warrior.name === 'Divine Warrior' ? 'Divine' : 'Primal']
@@ -1771,8 +1772,14 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
     && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase()) && matchesSpellDefense(entry, bookDefense)
     && matchesGearSystem(entry, bookSystem, c.systems) && !knownWitchSpells.has(entry.name.toLowerCase()))
+  const schoolBookSpells = useMemo(() => wizardSchoolBookSpells(c, entries), [c, entries])
+  useEffect(() => { if (schoolBookSpells) save({ spells: schoolBookSpells }) }, [schoolBookSpells])
+  const schoolSpells = useMemo(() => new Set((wizardCurriculum(wizardSchool(c, entries))[bookRank] ?? [])
+    .map(name => spellName(entries, name).toLowerCase())), [c, entries, bookRank])
+  const schoolFirst = (list: ContentEntry[]) => bookSource === 'Wizard' && schoolSpells.size
+    ? [...list].sort((a, b) => Number(schoolSpells.has(b.name.toLowerCase())) - Number(schoolSpells.has(a.name.toLowerCase()))) : list
   const rankedBookOptions = bookSource === 'Dirge' ? rankedDirgeOptions
-    : bookSource === 'Witch' ? rankedWitchBookOptions : rankedArcaneBookOptions
+    : bookSource === 'Witch' ? rankedWitchBookOptions : schoolFirst(rankedArcaneBookOptions)
   const { spells, granted, featSpells, innate, special, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
   const available = spellCategoryAvailability(c, entries, data ?? spellSummaryData(c, entries))
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
@@ -2265,7 +2272,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           onChange={event => setBookQuery(event.target.value)} /></label>
         <SpellDefenseFilter value={bookDefense} onChange={setBookDefense} />
         <GearSystemFilter value={bookSystem} onChange={setBookSystem} />
-        {bookOpen && <DirgeLearnOptions options={rankedBookOptions} onLearn={learnSpellbookSpell} />}
+        {bookOpen && <DirgeLearnOptions options={rankedBookOptions} onLearn={learnSpellbookSpell}
+          marked={bookSource === 'Wizard' ? schoolSpells : undefined} />}
         <form method="dialog"><button autoFocus>Close</button></form>
       </dialog>}
       {(casting || avengerTraditionSwitch) && <>
@@ -2362,6 +2370,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                   return option.name !== otherEntry?.name && (!bloodrager || !otherEntry || spellResolution(otherEntry).attack
                     || !!entry && spellResolution(entry).attack)
                 })
+              }
+              if (cantrip && preparedClass) {
+                const taken = new Set(Object.entries(sc.prepared ?? {})
+                  .filter(([key, value]) => (key.startsWith('0:') || key === 'curriculum:0') && key !== slotKey && value).map(([, value]) => value))
+                slotOptions = slotOptions.filter(option => !taken.has(option.entryId ?? option.name)
+                  && !taken.has(option.name))
               }
               let optionIndex: Map<string, typeof slotOptions[number]> | undefined
               const spellOption = (value: string) => {
@@ -2671,7 +2685,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             ? active => save(spellActiveChange(c, ANCESTRAL_AVATAR, active)) : undefined}
           activeActions={spell.name === 'Avatar' && isAncestralEmbrace(spell.source.name) ? spell.actions : undefined}
           saveDC={spell.dc ?? (spell.usesSpellcasting ? classSpellDC : undefined)}
-          attackBonus={spell.usesSpellcasting && classSpellDC !== undefined ? classSpellDC - 10 : undefined}
+          attackBonus={spell.attackBonus ?? (spell.usesSpellcasting && classSpellDC !== undefined ? classSpellDC - 10 : undefined)}
           inlineControls={<ItemSpellUses c={c} save={save} spell={spell} />}
           actionControls={spell.name === 'Bone Shield'
             ? <BoneShieldActions c={c} save={save} entry={spell.entry} rank={spell.rank} actions={spell.actions} />
@@ -2686,7 +2700,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             : spell.name === 'Summon Plant or Fungus'
             ? <SummonPlantActions c={c} save={save} entry={spell.entry} rank={spell.rank} actions={spell.actions}
               slainCreatureRank={/^Shadowed Scale, the Jungle Secret$/i.test(spell.source.name)} />
-            : spell.name === 'Heal' ? <SpellActions name={spell.name} entry={spell.entry} rank={spell.rank} actionOverride={spell.actions} />
+            : spell.name === 'Heal' || spell.name === 'Electric Arc' ? <SpellActions name={spell.name} entry={spell.entry} rank={spell.rank} actionOverride={spell.actions} />
             : spell.actions ? <ActionIcon actions={spell.actions}
             showOther={!/^10 minutes$/i.test(spell.actions.trim()) && !(spell.name === 'Creation' && /^1 minute$/i.test(spell.actions.trim()))} />
             : <SpellActions name={spell.name} entry={spell.entry} rank={spell.rank}

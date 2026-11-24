@@ -138,6 +138,19 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       ], note: 'Treat resistances as 10 lower' }] : []
     case 'Fireball':
       return rank >= 3 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 3), sides: 6, type: 'fire' }] : []
+    case 'Chain Lightning':
+      return rank >= 6 ? [{ label: 'Damage', dice: rank + 2, sides: 12, type: 'electricity' }] : []
+    case 'Howling Blizzard':
+      return rank >= 5 ? [{ label: 'Damage', dice: 10 + 2 * (rank - 5), sides: 6, type: 'cold' }] : []
+    case 'Glacial Skewer':
+      return rank >= 4 ? [{ label: 'Damage', dice: rank, sides: 10, type: 'cold', components: [
+        { dice: rank, sides: 4, type: 'piercing' },
+      ] }] : []
+    case 'Force Bolt': {
+      if (rank < 1) return []
+      const dice = 1 + Math.floor((rank - 1) / 2)
+      return [{ label: 'Damage', dice, sides: 4, bonus: dice, type: 'force' }]
+    }
     case 'Shatter':
       return rank >= 2 ? [{ label: 'Damage', dice: rank, sides: 10, type: 'sonic' }] : []
     case 'Breath of Life':

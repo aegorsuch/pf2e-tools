@@ -18,7 +18,7 @@ import { RUNESMITH_RUNES } from './runesmithRunes'
 import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, FIRST_WORLD_ARMAMENTS, AUTOMATON_CLAW, AUTOMATON_PINCER, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ENERGY_BLAST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
-import { isAncestralEmbrace, isHighhelmPlate, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { isAncestralEmbrace, isHighhelmPlate, isLibraryRobes, libraryRobesRank, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
@@ -33,6 +33,7 @@ import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoice
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
 import { divineAttackDamage, hasDivineIntercession, TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
 import { characterHeritages, characterSize, elfAtavismOptions, isVersatileHeritage } from './heritages'
+import { selectedArcaneThesis } from './arcaneTheses'
 import { fatalMethodGrants, selectedFatalMethod } from './fatalMethods'
 import { ELEMENTAL_GAUNTLET_SOURCES, makeNamedWeaponEntries, namedWeaponBaseName, namedWeaponDamage, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
 export { heritagesFor, isVersatileHeritage } from './heritages'
@@ -733,6 +734,8 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
       ? range(1, 20) : r.levels).map((level) => ({ category: r.category, level, count: 1 }))),
     ...(getSettings().freeArchetype ? [{ category: 'archetype' as const, levels: range(2, 20, 2) }].flatMap((r) => r.levels.map((level) => ({ category: r.category, level, count: level === 2 && activeHomebrewDedications(c).some(rule => rule.replacesFreeArchetype) ? 0 : 1 }))) : []),
     ...c.extraSlots,
+    ...(isWarriorOfLegend(c) ? [{ category: 'class' as const, level: 2, count: 1 }] : []),
+    ...(selectedArcaneThesis(c) === 'Metamagical Experimentation' ? [{ category: 'class' as const, level: 1, count: 1 }] : []),
   ]
   const slots: PlannedSlot[] = []
   const counters = new Map<string, number>()
@@ -1355,6 +1358,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         familiar: character.className === 'Witch'
           || (character.className === 'Animist' && character.systems.includes('pf2e')
             && activeFeatsNamed(character, 'Spirit Familiar (Animist)').length > 0)
+          || selectedArcaneThesis(character) === 'Improved Familiar Attunement'
           || character.feats.some(feat => ['Familiar', 'Leshy Familiar', 'Animal Accomplice', 'Glyph Familiar'].includes(feat.name))
           || hasDivineIntercession(character, 'Calistria', 'moderate-boon'),
         get primalInnateSpell() { return getInnateGrants().some(grant => grant.rule.tradition?.toLowerCase() === 'primal') },
@@ -1640,7 +1644,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0
         || !!classArchetypeDedication && !!classArchetype && archetypesOf(e).includes(classArchetype)
-          && !(classArchetype === 'Spellshot' && archetypesOf(e).includes('Wizard')))
+          && !(classArchetype === 'Spellshot' && archetypesOf(e).includes('Wizard') && traits.has('archetype'))
+        || classArchetype === 'Spellshot' && archetypesOf(e).includes('Wizard') && !traits.has('archetype') && traits.has('wizard'))
       && (e.name === 'Magical Trickster' && slot.category === 'class'
       && rogueRackets({ ...c, level: Math.min(c.level, slot.level) }, entries).includes('Eldritch Trickster') ? 2
       : featSelectionLevel(e, c, entries, slot.category, slot)) <= (slot.grantedBy === 'Eldritch Trickster'
@@ -2157,6 +2162,12 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       && entry.systems.some((system) => c.systems.includes(system)) && !used.has(entry.name.toLowerCase())).map((entry) => entry.name))]
       .sort((a, b) => a.localeCompare(b))
   }
+  if (name === 'Advanced Weapon Training' && c.systems.includes('pf2e')) {
+    const used = new Set(c.feats.flatMap((feat, i) => i !== index && feat.name === name && feat.choice ? [feat.choice.toLowerCase()] : []))
+    return [...new Set(entries.filter(entry => entry.kind === 'weapon' && !entry.deleted && weaponCategory(entry) === 'Advanced'
+      && entry.systems.some(system => c.systems.includes(system))).map(entry => String(entry.data.weapon_group ?? '').trim())
+      .filter(group => group && !used.has(group.toLowerCase())))].sort((a, b) => a.localeCompare(b))
+  }
   if (name === 'Order Explorer') return availableOrders(c, index)
   if (name === 'Mercy') {
     const used = new Set(c.feats.flatMap((feat, i) => i !== index && feat.name === name && feat.choice ? [feat.choice] : []))
@@ -2373,7 +2384,7 @@ export function classSpellcasting(c: Character, entries: ContentEntry[]) {
     'legendary spellcasting': 4,
   }
   const features = classFeatures(entries, c)
-  const hasLevelBasedRank = ['Druid', 'Necromancer'].includes(c.className ?? '')
+  const hasLevelBasedRank = ['Druid', 'Necromancer'].includes(c.className ?? '') || c.className === 'Wizard' && c.systems.includes('pf2e')
     || c.systems.includes('sf2e') && ['Mystic', 'Technomancer'].includes(c.className ?? '')
   const rank = features.reduce((best, feature) => {
     let rank = progression[feature.name.toLowerCase()] ?? 0
@@ -2487,15 +2498,76 @@ export function classRepertoireRows(c: Character) {
   return c.className === 'Bard' && c.systems.includes('pf2e') ? bardRepertoire(c).rows : classSpellSlots(c)
 }
 
-export function classExtraSlots(c: Character) {
+export function wizardCurriculum(school?: ContentEntry) {
+  const text = school?.description ?? ''
+  const start = text.search(/curriculum/i)
+  if (start < 0) return {} as Record<number, string[]>
+  const end = text.slice(start).search(/school spells/i)
+  const section = text.slice(start, end < 0 ? undefined : start + end)
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/[*_]/g, '')
+  const curriculum: Record<number, string[]> = {}
+  for (const [, label, list] of section.matchAll(/\b(cantrips?|\d+(?:st|nd|rd|th))\s*:\s*([^;\n]*)/gi)) {
+    const rank = /^cantrip/i.test(label) ? 0 : parseInt(label)
+    curriculum[rank] = list.split(',').map(name => name.replace(/\s+U$/, '').replace(/[\u1D3E\u1D41\u1D2C]/g, '').trim())
+      .filter(Boolean)
+  }
+  return curriculum
+}
+
+export function wizardSchool(c: Character, entries: ContentEntry[]) {
+  return c.className !== 'Wizard' || !c.systems.includes('pf2e') ? undefined
+    : entries.find(entry => entry.kind === 'subclass' && !entry.deleted && entry.data.class === 'Wizard'
+      && entry.systems.includes('pf2e') && entry.name === c.subclass)
+}
+
+export const SCHOOL_BOOK_PREFIX = 'school:'
+
+export function wizardSchoolBookSpells(c: Character, entries: ContentEntry[]): NonNullable<Character['spells']> | undefined {
+  const school = wizardSchool(c, entries)
+  if (!school || c.level < 1) return undefined
+  const maxRank = Math.min(9, Math.ceil(c.level / 2))
+  const kept = (c.spells ?? []).filter(spell => !spell.bookSlot?.startsWith(SCHOOL_BOOK_PREFIX))
+  const known = new Set(kept.map(spell => spell.name.toLowerCase()))
+  const added: NonNullable<Character['spells']> = []
+  for (const [rank, names] of Object.entries(wizardCurriculum(school)))
+    if (Number(rank) <= maxRank) for (const name of names) {
+      const resolved = spellName(entries, name)
+      const entry = entries.find(candidate => candidate.kind === 'spell' && !candidate.deleted && candidate.name === resolved
+        && candidate.systems.includes('pf2e'))
+      if (!entry || known.has(entry.name.toLowerCase())) continue
+      known.add(entry.name.toLowerCase())
+      added.push({ name: entry.name, entryId: entry.id, rank: Number(rank), cantrip: Number(rank) === 0,
+        bookSlot: `${SCHOOL_BOOK_PREFIX}${rank}:${entry.name}` })
+    }
+  const next = [...kept, ...added]
+  const current = c.spells ?? []
+  return next.length === current.length && next.every((spell, i) => spell.entryId === current[i].entryId
+    && spell.bookSlot === current[i].bookSlot && spell.name === current[i].name) ? undefined : next
+}
+
+function wizardCurriculumExtras(c: Character, entries: ContentEntry[]): ClassSpellSlotExtra[] {
+  if (c.level < 1) return []
+  const school = wizardSchool(c, entries)
+  const curriculum = wizardCurriculum(school)
+  return Object.entries(curriculum).filter(([rank, names]) => names.length
+    && Number(rank) <= Math.min(9, Math.ceil(c.level / 2))).map(([rank, allowedSpells]) => ({
+    key: `curriculum:${rank}`, rank: Number(rank), source: `${school!.name} curriculum`,
+    allowedSpells: allowedSpells.map(name => spellName(entries, name)) }))
+}
+
+export function classExtraSlots(c: Character, entries: ContentEntry[] = []) {
   const extras: ClassSpellSlotExtra[] = c.className === 'Bard' && c.systems.includes('pf2e')
     ? bardRepertoire(c).extras : necromancerExtraSlots(c)
+  extras.push(...wizardCurriculumExtras(c, entries))
   if (c.systems.includes('pf2e') && c.className === 'Champion' && activeFeatsNamed(c, 'Divine Warrior').length)
     extras.push({ key: 'divine-warrior:divine-lance', rank: 0, spell: 'Divine Lance', source: 'Divine Warrior' },
       { key: 'divine-warrior:protect-companion', rank: 0, spell: 'Protect Companion', source: 'Divine Warrior' })
   if (c.systems.includes('pf2e') && c.className === 'Ranger' && activeFeatsNamed(c, 'Primal Warrior').length)
     extras.push({ key: 'primal-warrior:bramble-bush', rank: 0, spell: 'Bramble Bush', source: 'Primal Warrior' },
       { key: 'primal-warrior:protect-companion', rank: 0, spell: 'Protect Companion', source: 'Primal Warrior' })
+  const robes = c.systems.includes('pf2e') ? wornArmor(c, entries) : undefined
+  if (robes && isLibraryRobes(robes.name))
+    extras.push({ key: 'library-robes', rank: libraryRobesRank(c.level), source: 'Library Scroll Robes' })
   if (c.className === 'Cleric' && c.systems.includes('pf2e') && c.level >= 1) {
     const rank = Math.min(9, Math.ceil(c.level / 2))
     extras.push(...Array.from({ length: clericDivineFontSlotCount(c) }, (_, index) => ({
@@ -3560,7 +3632,7 @@ export const orderMagicOptions = (c: Character, exceptIndex = -1) => {
 }
 
 const spellNameCache = new WeakMap<ContentEntry[], Map<string, string>>()
-const spellName = (entries: ContentEntry[], name: string) => {
+export const spellName = (entries: ContentEntry[], name: string) => {
   if (name.toLowerCase() === 'goodberry') name = 'Cornucopia'
   let map = spellNameCache.get(entries)
   if (!map) {
@@ -4604,6 +4676,11 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
       name: 'Additional Lore', choice: lore.replace(/ Lore$/, ''), source: feat.name, level: featTakenLevel(feat),
     })
   }
+  if (c.systems.includes('pf2e')) for (const feat of [...activeFeatsNamed(c, 'Spellbook Prodigy'),
+    ...c.feats.filter(feat => ['Basic Arcana', 'Advanced Arcana'].includes(feat.name) && feat.choice === 'Spellbook Prodigy'
+      && featTakenLevel(feat) <= c.level)]) {
+    grants.push({ name: 'Magical Shorthand', source: 'Spellbook Prodigy', level: featTakenLevel(feat) })
+  }
   for (const feat of activeFeatsNamed(c, 'Knowledge Of The Realm Before')) {
     if (feat.choice) grants.push({ name: 'Additional Lore', choice: feat.choice.replace(/ Lore$/, ''), source: feat.name, level: featTakenLevel(feat) })
   }
@@ -5087,6 +5164,8 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
   const category = weaponCategory(entry)
   const advancedTraining = category === 'Advanced' && weaponProficiencyGrants(c, entries)
     .some((grant) => !grant.martial && grant.feat.choice?.trim().toLowerCase() === entry?.name.toLowerCase())
+  const groupTraining = category === 'Advanced' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Advanced Weapon Training')
+    .some(feat => feat.choice?.trim().toLowerCase() === String(entry?.data.weapon_group ?? '').trim().toLowerCase())
   const familiarity = entry ? weaponFamiliarity(c, entry, category, entries) : undefined
   const unconventional = entry && unconventionalWeapon(c, entries, entry)
   const familiarCategory = familiarity?.proficiency
@@ -5125,7 +5204,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
   const rank = Math.max(category === 'Unarmed' ? 1 : 0, ranks[category], familiarCategory ? ranks[familiarCategory] : 0,
     unconventionalCategory ? ranks[unconventionalCategory] : 0, innovationCategory ? ranks[innovationCategory] : 0,
     familiarity?.trained ? 1 : 0, expertise ? Math.max(...Object.values(baseWeaponRanks(c, entries))) : 0,
-    advancedTraining ? c.level >= 11 ? 2 : 1 : 0, avengerRank, vindicatorRank, operativeRank, gunslingerFirearmRank, professionalRank,
+    advancedTraining ? c.level >= 11 ? 2 : 1 : 0, groupTraining ? ranks.Martial : 0, avengerRank, vindicatorRank, operativeRank, gunslingerFirearmRank, professionalRank,
     warriorLegendRank,
     highestRank ? Math.max(...Object.values(ranks)) : 0)
   const proficiencySources = [
@@ -5136,6 +5215,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     ...(familiarity?.trained ? [{ name: 'Weapon familiarity training', rank: 1 }] : []),
     ...(expertise ? [{ name: 'Weapon expertise', rank: Math.max(...Object.values(baseWeaponRanks(c, entries))) }] : []),
     ...(advancedTraining ? [{ name: 'Weapon Proficiency feat', rank: c.level >= 11 ? 2 : 1 }] : []),
+    ...(groupTraining ? [{ name: 'Advanced Weapon Training', rank: ranks.Martial }] : []),
     ...(avengerRank ? [{ name: 'Avenger favored weapon', rank: avengerRank }] : []),
     ...(vindicatorRank ? [{ name: 'Vindicator favored weapon', rank: vindicatorRank }] : []),
     ...(operativeRank ? [{ name: strikerWeapon ? 'Striker' : 'Operative', rank: operativeRank }] : []),
@@ -6993,7 +7073,7 @@ export function effectiveArmor(c: Character, entries: ContentEntry[], armor: Own
     if (families.length) {
       const automatic = automaticArmorFundamentals(c.level, namedEntry)
       const fixed = automaticArmorPropertyRunes(namedEntry)
-      const material = isHighhelmPlate(armor.name) ? 'Keep Stone' : 'Orichalcum'
+      const material = isHighhelmPlate(armor.name) ? 'Keep Stone' : isLibraryRobes(armor.name) ? armor.material : 'Orichalcum'
       const remaining = Math.max(0, maxPropertyRunes(automatic.potency, material) - fixed.length)
       return { ...armor, material, ...automatic,
         runes: [...armor.runes.filter(rune => !families.some(family => family === runeBaseName(rune))).slice(0, remaining), ...fixed] }
@@ -7495,7 +7575,7 @@ export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEnt
       && weapon.id !== OVERSIZED_THROW.id && weapon.name !== SHIELD_BASH.name
       && weapon.name !== HAFT_STRIKER_WEAPON.name
     || !!shieldAttachmentSource(c, weapon) && weapon.name !== SHIELD_BASH.name
-    || ["Hunter's Dawn", "Clear Cutter's Hatchet", 'Fungicidal Hatchet', ...ELEMENTAL_GAUNTLET_SOURCES].includes(String(weaponEntry(entries, weapon.name, weapon.id)?.data.named_weapon_source))
+    || ["Hunter's Dawn", "Clear Cutter's Hatchet", 'Fungicidal Hatchet', 'Blade of the Black Sovereign', ...ELEMENTAL_GAUNTLET_SOURCES].includes(String(weaponEntry(entries, weapon.name, weapon.id)?.data.named_weapon_source))
     || weapon.name === 'Bladed Gauntlet' && !!armorGauntlet(c, entries)?.locked
     || deityWeapon(c, entries)?.id === weapon.id
     || isGrantedDwarfClanWeapon(c, entries, weapon)

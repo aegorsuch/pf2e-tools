@@ -273,7 +273,7 @@ it.each([
   const synced = { ...c, ...syncClassArchetypeDedication(c, [dedication]) }
   const slot = plannedSlots(synced, [dedication]).find(item => item.key === 'class:2:0')!
   expect(slot.grantedFeat).toBe(dedication.name)
-  expect(slot.displayCategory).toBe(['Avenger', 'Spellshot'].includes(name) ? 'archetype' : undefined)
+  expect(slot.displayCategory).toBe(['Avenger', 'Spellshot', 'Vindicator'].includes(name) ? 'archetype' : undefined)
   expect(synced.feats).toEqual([{ name: dedication.name, type: 'Class Feat', level: 2, slot: slot.key, sourceId: dedication.id }])
   expect(featSelectionPrerequisiteChecker(synced, [dedication], slot)(dedication)).toEqual({ missing: [], manual: [] })
   expect(featPrerequisiteChecker({ ...synced, subclass: '' }, [dedication])(dedication).missing)

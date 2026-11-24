@@ -9,7 +9,7 @@ import type { Character, ContentEntry } from './types'
 vi.mock('react', async importOriginal => {
   const react = await importOriginal<typeof import('react')>()
   return { ...react, useState: vi.fn(react.useState), useMemo: vi.fn(react.useMemo),
-    useRef: vi.fn(react.useRef), useId: vi.fn(react.useId) }
+    useRef: vi.fn(react.useRef), useId: vi.fn(react.useId), useEffect: vi.fn() }
 })
 
 const base: Character = {
@@ -507,6 +507,13 @@ it('filters learnable Dirge spells by defense and search', () => {
   expect(results).toContain('aria-label="Learn Fireball"')
   expect(results).not.toContain('aria-label="Learn Fear"')
   expect(results).not.toContain('aria-label="Learn Flame Bolt"')
+})
+
+it('marks Wizard school spells in the learn list', () => {
+  const html = renderToStaticMarkup(DirgeLearnOptions({ options: [spell('Bane'), spell('Fear')], onLearn: () => {},
+    marked: new Set(['fear']) }))
+  expect(html.match(/<strong>School<\/strong>/g)).toHaveLength(1)
+  expect(html.indexOf('School')).toBeGreaterThan(html.indexOf('Fear'))
 })
 
 it('adds spells with inline plus buttons without opening another picker', () => {

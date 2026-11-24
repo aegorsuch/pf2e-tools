@@ -2469,7 +2469,7 @@ it('uses Persistent durations in prepared and innate spell tables too', () => {
     else if (match[0].startsWith('<dialog')) dialogDepth++
     else if (dialogDepth === 0) visibleDurations++
   }
-  expect(visibleDurations).toBe(3)
+  expect(visibleDurations).toBe(2)
 })
 
 it.each(['Distracting Decoy', 'Heal Animal', 'Heal Companion', 'Slime Spit', 'Snare Hopping', "Hunter's Luck", 'Soothing Mist', 'Threatening Mimicry'])('shows %s duration as Instant', name => {
@@ -2916,7 +2916,7 @@ it('uses class DC and selected slot rank for prepared spell metadata', () => {
   const entries = [fear, tracks, master, entry('Wizard', 'class', { attribute: 'Intelligence', tradition: 'Arcane' })]
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   const rows = html.match(/<li class="spellbook-row">[\s\S]*?<\/li>/g)?.filter(row => !row.includes("Cantrip slot"))
-  expect(rows?.[0]).toContain('<small>Save</small>Will DC 42')
+  expect(rows?.[0]).toContain('<small>Save</small>Will DC 44')
   expect(html).toContain('aria-label="Cast spell slot rank 4 slot 1"')
   const tracksRow = rows?.find(row => row.includes('aria-label="Cast spell slot rank 4 slot 1"'))
   expect(tracksRow).toContain('<small>Duration</small>8 hours')

@@ -75,6 +75,7 @@ const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weapon
         : source === 'Holy' ? 'Holy: 2d4 spirit instead against unholy targets.'
         : source === 'Unholy' ? 'Unholy: 2d4 spirit instead against holy targets.'
           : source === 'Astral (Greater)' ? 'Greater Astral: spirit damage ignores spirit resistance.'
+            : source === 'Shock' || source === 'Shock (Greater)' ? `1d10 electricity damage on a critical hit, and it arcs to each creature adjacent to the target.${source === 'Shock (Greater)' ? ' Electricity damage from this weapon ignores electricity resistance.' : ''}`
             : source === 'Flaming' ? '1d10 persistent fire damage on a critical hit.'
               : source === 'Flaming (Greater)' ? '2d10 persistent fire damage on a critical hit; fire damage from this weapon ignores fire resistance.'
                 : source === 'Frost' || source === 'Frost (Greater)' ? `Critical hit: DC ${source === 'Frost' ? 24 : 34} Fortitude or slowed 1 until the end of your next turn.${source === 'Frost (Greater)' ? ' Cold damage from this weapon ignores cold resistance.' : ''}`
@@ -93,6 +94,7 @@ const damageRuneSummary = (weapon: OwnedWeapon, attack: ReturnType<typeof weapon
           : source === 'Holy' || source === 'Unholy' ? '1d4 spirit'
             : source === 'Flaming' || source === 'Flaming (Greater)' ? '1d6 fire'
               : source === 'Frost' || source === 'Frost (Greater)' ? '1d6 cold'
+                : source === 'Shock' || source === 'Shock (Greater)' ? '1d6 electricity'
                 : source === 'Thundering' || source === 'Thundering (Greater)' ? '1d6 sonic'
               : source === 'Ashen' ? '1d4 persistent fire'
                 : source === 'Ashen (Greater)' ? '1d8 persistent fire'

@@ -196,6 +196,7 @@ export interface Character {
   rangerPrecisionHitsThisRound?: number
   huntPreyActive?: boolean
   fatalMethod?: 'Puppeteer' | 'Reaper'
+  arcaneThesis?: 'Improved Familiar Attunement' | 'Metamagical Experimentation' | 'Spell Blending' | 'Spell Substitution' | 'Staff Nexus'
   heritage?: string
   testSubjectAdaptation?: 'Cybernetic Augmentation' | 'Extra Limbs' | 'Psychic Augmentation' | 'Radioactive'
   activeHandPair?: number

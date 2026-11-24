@@ -1,5 +1,6 @@
 import type { Character, ContentEntry } from './types'
 import { activeFeatsNamed, classSpellcasting, classSpellSlots, selectedSubclass } from './builder'
+import { attunementFamiliarAbilities, selectedArcaneThesis } from './arcaneTheses'
 import { hasDivineIntercession } from './divineIntercessions'
 import { contentAccessGranted } from './featAccess'
 
@@ -29,6 +30,7 @@ export function familiarSelection(c: Character) {
   const crocodileFamiliar = !classFamiliar && activeFeatsNamed(c, "Crocodile's Twin").length > 0
   const familiar = !!classFamiliar || crocodileFamiliar
     || ['Animal Accomplice', 'Familiar', 'Glyph Familiar'].some(name => activeFeatsNamed(c, name).length > 0)
+    || selectedArcaneThesis(c) === 'Improved Familiar Attunement'
   const wasp = !familiar && hasDivineIntercession(c, 'Calistria', 'moderate-boon')
   const divineEmissary = activeFeatsNamed(c, 'Divine Emissary').length > 0 ? 1 : 0
   const glyph = !classFamiliar && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Glyph Familiar').length > 0
@@ -38,7 +40,7 @@ export function familiarSelection(c: Character) {
       ? c.level >= 10 && activeFeatsNamed(c, 'Incredible Undead Familiar').length ? 5 : 3 : 1
     : glyph ? (activeFeatsNamed(c, 'Enhanced Glyph Familiar').length ? 2 : 1)
     : activeFeatsNamed(c, 'Incredible Familiar').length ? 6 : activeFeatsNamed(c, 'Enhanced Familiar').length ? 4 : 2)
-    + witchAbilities + divineEmissary
+    + witchAbilities + divineEmissary + attunementFamiliarAbilities(c)
   return { leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, spiritFamiliar, dailyAbilityLimit, glyph }
 }
 
@@ -76,18 +78,6 @@ export function familiarAbilityCapacity(c: Character, entries: ContentEntry[]) {
   }
 }
 
-export function specificFamiliar(c: Character, entries: ContentEntry[]) {
-  const name = c.familiar?.specificFamiliar
-  if (!name) return undefined
-  return familiarAbilityEntries(entries, c).find(entry => entry.data.ability_type === 'Specific Familiar'
-    && key(entry.name) === key(name))
-}
-
-export function specificFamiliarGrants(entry: ContentEntry | undefined) {
-  if (!entry || typeof entry.data.granted_abilities !== 'string') return []
-  return entry.data.granted_abilities.split(/,\s*(?![^()]*\))/).map(value => value.trim()).filter(Boolean)
-}
-
 export function specificFamiliarAbilityName(grant: string) {
   return grant.replace(/\s*\(.*\)$/, '').trim()
 }
@@ -98,14 +88,16 @@ export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
   const data = state.wasp ? c.waspFamiliar : c.familiar
   if (state.spiritFamiliar && (!data?.spiritManifested || data.spiritDestroyed)) return []
   const capacity = familiarAbilityCapacity(c, entries)
-  const specific = !state.wasp ? specificFamiliar(c, entries) : undefined
-  const cost = Number(specific?.data.required_abilities ?? 0)
-  const activeSpecific = !!specific && contentAccessGranted(c, specific) && cost > 0 && cost <= capacity.selectableAbilityLimit
+  const option = !state.wasp ? specificFamiliarOptions(c, entries).find(item => key(item.entry.name) === key(data?.specificFamiliar ?? '')) : undefined
+  const specific = option?.entry
+  const cost = option?.required ?? 0
+  const activeSpecific = !!specific && contentAccessGranted(c, specific)
+    && specificFamiliarRequirement(specific) > 0 && !!option?.available
   const grants = activeSpecific
-    ? specificFamiliarGrants(specific).map(specificFamiliarAbilityName) : []
+    ? specificFamiliarGrants(specific).abilities : []
   const choices = (data?.abilities ?? []).slice(0, capacity.selectableAbilityLimit - (activeSpecific ? cost : 0))
   const catalog = familiarAbilityEntries(entries, c)
-  const granted = state.glyph && !state.wasp ? GLYPH_FAMILIAR_ABILITIES : []
+  const granted = [...state.glyph && !state.wasp ? GLYPH_FAMILIAR_ABILITIES : []]
   return [...choices.flatMap((name, index) => {
     const entry = familiarAbilityEntry(name, catalog, c)
     if (!entry || /^specific familiar\b/i.test(String(entry.data.ability_type ?? ''))) return []
@@ -272,4 +264,88 @@ export function familiarAbilityEffects(abilities: string[], level: number,
     skilled: (options?.skilled ?? []).filter(skill => [...FAMILIAR_SKILLS, 'Perception'].includes(skill))
       .map(skill => ({ skill, modifier: skillModifier })),
   }
+}
+
+const isSpecificFamiliar = (entry: ContentEntry) => /^specific familiar\b/i.test(String(entry.data.ability_type ?? ''))
+
+export function specificFamiliarRequirement(entry: ContentEntry): number {
+  const text = `${entry.data.required_abilities ?? entry.data.required_number_of_abilities ?? ''} ${entry.description}`
+  const required = /required number of abilities\W*(\d+)/i.exec(text)?.[1]
+    ?? /^\s*(\d+)\s*$/.exec(String(entry.data.required_abilities ?? entry.data.required_number_of_abilities ?? ''))?.[1]
+  if (required !== undefined) return Number(required)
+  const fallback = FALLBACK_SPECIFIC_FAMILIARS.find(item => key(item.name) === key(entry.name))
+  return fallback && fallback !== entry ? specificFamiliarRequirement(fallback) : 0
+}
+
+const FALLBACK_SPECIFIC_FAMILIARS: ContentEntry[] = [{
+  id: 'fallback:specific-familiar:calligraphy-wyrm', name: 'Calligraphy Wyrm', kind: 'familiar', systems: ['pf2e'], source: 'official', level: 0,
+  traits: ['Uncommon', 'Dragon'],
+  description: 'Required Number of Abilities 6\n\nCalligraphy wyrms are curious dragons constantly in search of new lore and writing. They make natural allies for academics of all stripes, whether remaining in the towers of Cobyslarni or heading into fieldwork like the Pathfinder Society, but are also found working with witches contracted to draconic powers or wizards who\u2019ve somehow managed to impress the tiny creatures.\n\nWhile knowledgeable, calligraphy wyrms can also be know-it-alls. Their chirpy, high-pitched voices make this attitude humorous to some and insufferable to others.\n\nGranted Abilities darkvision, flier, manual dexterity, scent, skilled (arcana, society), speech\n\nInk Spray (one action, Arcane) Frequency once per 10 minutes; Effect The wyrm splatters ink in a 10-foot cone. Each creature in the area must attempt a Reflex save with a DC equal to its master\u2019s spell DC or class DC, whichever is higher. Critical Success The creature is unaffected. Success If the creature was invisible, it is concealed instead for 2 rounds. Failure As success, but for 1 minute. Critical Failure As success, but for 10 minutes. The creature is also blinded for 1 round or until it wipes the ink from its eyes using an Interact action.\n\nStylus Claws The wyrm has stylus-shaped claws that it can fill with its natural ink, using its claw as a pen without having to purchase ink.',
+  data: { ability_type: 'Specific Familiar', required_abilities: 6, access: 'affiliation with Cobyslarni or the Pathfinder Society' }, effects: [], updatedAt: 0,
+}]
+
+export function specificFamiliarOptions(c: Character, entries: ContentEntry[]) {
+  const reduction = activeFeatsNamed(c, 'Improved Familiar').length ? 2 : 0
+  const abilities = familiarAbilityCapacity(c, entries).selectableAbilityLimit
+  const official = familiarAbilityEntries(entries, c).filter(isSpecificFamiliar)
+  const known = new Set(official.map(entry => key(entry.name)))
+  return [...official, ...FALLBACK_SPECIFIC_FAMILIARS.filter(entry => c.systems.includes('pf2e') && !known.has(key(entry.name)))].map(entry => {
+    const required = Math.max(0, specificFamiliarRequirement(entry) - reduction)
+    return { entry, required, available: abilities >= required }
+  })
+}
+
+const titleCase = (text: string) => text.replace(/\b\w/g, letter => letter.toUpperCase())
+
+const GRANTED_LIST = /\bGranted Abilities\W+((?:[a-z][a-z' -]*(?:\([^)]*\))?(?:,\s*)?)+)/
+
+const builtInSpecific = (entry?: ContentEntry) =>
+  FALLBACK_SPECIFIC_FAMILIARS.find(item => key(item.name) === key(entry?.name ?? ''))
+
+export function specificFamiliarGrants(entry?: ContentEntry): { abilities: string[]; skilled: string[] } {
+  const parsed = parseSpecificGrants(entry)
+  const builtIn = builtInSpecific(entry)
+  return !parsed.abilities.length && builtIn && builtIn !== entry ? parseSpecificGrants(builtIn) : parsed
+}
+
+export function specificFamiliarGrantedLabels(entry?: ContentEntry): string[] {
+  const raw = String(entry?.data.granted_abilities ?? '') || GRANTED_LIST.exec(entry?.description ?? '')?.[1] || ''
+  const fallback = builtInSpecific(entry)
+  if (!raw && fallback && fallback !== entry) return specificFamiliarGrantedLabels(fallback)
+  return raw.split(/,(?![^()]*\))/).map(item => titleCase(item.trim().replace(/[.;]$/, ''))).filter(Boolean)
+}
+
+function parseSpecificGrants(entry?: ContentEntry) {
+  const raw = String(entry?.data.granted_abilities ?? '') || GRANTED_LIST.exec(entry?.description ?? '')?.[1] || ''
+  const abilities: string[] = []
+  const skilled: string[] = []
+  for (const part of raw.split(/,(?![^()]*\))/).map(item => item.trim().replace(/[.;]$/, '')).filter(Boolean)) {
+    const skills = /^skilled\s*\(([^)]*)\)/i.exec(part)
+    if (skills) {
+      abilities.push('Skilled')
+      skilled.push(...skills[1].split(/,|\band\b/).map(skill => titleCase(skill.trim())).filter(skill => FAMILIAR_SKILLS.includes(skill)))
+    } else abilities.push(titleCase(part))
+  }
+  return { abilities, skilled }
+}
+
+export function selectedSpecificFamiliar(c: Character, entries: ContentEntry[]) {
+  const name = c.familiar?.specificFamiliar
+  return name ? specificFamiliarOptions(c, entries).find(option => option.entry.name === name)?.entry : undefined
+}
+
+export function specificFamiliarSections(entry?: ContentEntry): { summary: string[]; abilities: string[] } {
+  const parsed = parseSpecificSections(entry)
+  const builtIn = builtInSpecific(entry)
+  return !parsed.abilities.length && builtIn && builtIn !== entry ? parseSpecificSections(builtIn) : parsed
+}
+
+function parseSpecificSections(entry?: ContentEntry) {
+  const clean = (parts: string[]) => parts.map(part => part.trim()).filter(part => part && !/^(?:Source|Required Number of Abilities)\b/i.test(part))
+  const paragraphs = (entry?.description ?? '').split(/\n\s*\n/)
+  const boundary = paragraphs.findIndex(part => /\bGranted Abilities\b/i.test(part))
+  if (boundary < 0) return { summary: clean(paragraphs.slice(0, 1)), abilities: [] as string[] }
+  const match = GRANTED_LIST.exec(paragraphs[boundary])
+  const rest = match ? paragraphs[boundary].slice(match.index + match[0].length) : ''
+  return { summary: clean([...paragraphs.slice(0, boundary), ...rest ? [rest] : []]), abilities: clean(paragraphs.slice(boundary + 1)) }
 }

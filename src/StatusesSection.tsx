@@ -1,4 +1,4 @@
-import { activeFeatsNamed, activeStance, armorEntry, armorProficiencyRank, conditionValue, featEffectChange, hasHuntPrey, isFeatEffectActive, knowsSpell, ownedArmors, type SectionProps } from './builder'
+import { activeFeatsNamed, activeStance, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, type SectionProps } from './builder'
 import { grantedFeatSpells } from './featSpells'
 import { RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
@@ -19,7 +19,22 @@ function entrenchMeleeActive(c: SectionProps['c'], entries: SectionProps['entrie
   })
 }
 
+function defenseToggles(c: SectionProps['c'], entries: SectionProps['entries']) {
+  const shield = equippedShield(c)
+  const parry = parryValue(c, entries)
+  const boneShield = boneShieldActive(c)
+  return {
+    shield, parry, boneShield,
+    shieldLabel: shield?.id === 'granted-shield:chitinous' ? 'Raise Chitinous Shield'
+      : shield && isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raise Shield',
+    cantrip: knowsSpell(c, entries, 'Shield'),
+    parryWeapon: hasParryWeapon(c, entries),
+    stanceParry: twinnedDefenseActive(c, entries),
+  }
+}
+
 export function StatusesSummary({ c, entries }: SectionProps) {
+  const defense = defenseToggles(c, entries)
   const stance = activeStance(c, entries)
   const poisonTotal = Math.max(0, Math.floor(c.level))
   const poisonSpent = Math.max(0, Math.min(poisonTotal, Math.floor(c.simplePoisonsSpent ?? 0)))
@@ -27,6 +42,10 @@ export function StatusesSummary({ c, entries }: SectionProps) {
     ...(canDeviseAStratagem(c) && c.deviseAStratagemActive ? ['Devise a Stratagem'] : []),
     ...(hasHuntPrey(c, entries) && c.huntPreyActive ? ['Hunt Prey'] : []),
     ...(c.raging ? ['Rage'] : []),
+    ...(defense.shield && shieldRaised(c) ? [defense.shieldLabel] : []),
+    ...(defense.boneShield ? (c.boneShieldRaised ? ['Raise Bone Shield'] : [])
+      : defense.cantrip && isSpellActive(c, entries, 'Shield') ? ['Raise Shield Cantrip'] : []),
+    ...(defense.parryWeapon && defense.parry > 0 && (c.parrying || defense.stanceParry) ? ['Parry'] : []),
     ...(stance ? [stance.name] : []),
     ...(activeFeatsNamed(c, 'Poison Weapon').length
       ? [`Poison Weapon ${poisonTotal - poisonSpent}/${poisonTotal}${c.poisonWeaponActive ? ' (active)' : ''}`] : []),
@@ -65,6 +84,7 @@ export function HuntPreyToggle({ c, entries, save, summary = false }: SectionPro
 }
 
 export function StatusesContent({ c, entries, save }: SectionProps) {
+  const defense = defenseToggles(c, entries)
   const grant = grantedFeatSpells(c, entries).find(spell => spell.source === 'Heroic Presence')
   const summonedUndead = c.summonedUndead
   const summonedFiend = c.summonedFiend
@@ -120,6 +140,18 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
         onChange={event => save(featEffectChange(c, 'Thick Hide Mask', event.target.checked))} />
         {' '}Thick Hide Mask resistance</label>,
     }] : []),
+    ...(defense.shield ? [{ name: 'Raise Shield', element: <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
+      <input type="checkbox" aria-label={`${defense.shieldLabel} status`} checked={shieldRaised(c)} disabled={shieldParagonActive(c)}
+        onChange={event => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} />
+      {' '}{defense.shieldLabel} (+{shieldAcBonus(c, entries)} AC)</label> }] : []),
+    ...(defense.boneShield ? [{ name: 'Raise Bone Shield', element: <label><input type="checkbox" aria-label="Raise Bone Shield status"
+      checked={!!c.boneShieldRaised} onChange={event => save({ boneShieldRaised: event.target.checked })} /> Raise Bone Shield (+2 AC)</label> }]
+      : defense.cantrip ? [{ name: 'Raise Shield Cantrip', element: <label><input type="checkbox" aria-label="Raise Shield Cantrip status"
+        checked={isSpellActive(c, entries, 'Shield')}
+        onChange={event => save(spellActiveChange(c, 'Shield', event.target.checked))} /> Raise Shield Cantrip (+1 AC)</label> }] : []),
+    ...(defense.parryWeapon && defense.parry > 0 ? [{ name: 'Parry', element: <label><input type="checkbox" aria-label="Parry status"
+      checked={!!c.parrying || defense.stanceParry} disabled={defense.stanceParry}
+      onChange={event => { if (!defense.stanceParry) save({ parrying: event.target.checked }) }} /> Parry (+{defense.parry} AC)</label> }] : []),
     ...(['enfeebled', 'frightened', 'sickened', 'doomed'] as const).map(name => ({
       name, element: <label>
         {name[0].toUpperCase() + name.slice(1)}{' '}

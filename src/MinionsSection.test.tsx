@@ -620,6 +620,24 @@ it('removes companion and familiar naming controls without erasing saved names',
   expect(c.familiar?.name).toBe('Saved familiar')
 })
 
+it('shows the built-in Calligraphy Wyrm picker, header, granted abilities and actions for a Wizard familiar', () => {
+  const c: Character = {
+    id: 'wyrm', systems: ['pf2e'], name: 'Test', level: 8, className: 'Wizard',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }, { name: 'Incredible Familiar', type: 'Class Feat', level: 8 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { specificFamiliar: 'Calligraphy Wyrm' },
+    featAccessOverrides: ['fallback:specific-familiar:calligraphy-wyrm'],
+  }
+  const markup = renderToStaticMarkup(MinionsContent({ c, entries: [], save: () => {} }))
+  expect(markup).toContain('Calligraphy Wyrm')
+  expect(markup).toContain('aria-label="Specific familiar"')
+  expect(markup).toContain('Manual Dexterity')
+  expect(markup).toContain('Ink Spray')
+  expect(markup).toContain('know-it-alls')
+  expect(markup).toContain('towers of Cobyslarni')
+})
+
 it('shows Beastmaster Bond range based on Nature proficiency only for animal companions', () => {
   const c: Character = {
     id: 'bond', systems: ['pf2e'], name: 'Test', level: 15, className: 'Ranger',

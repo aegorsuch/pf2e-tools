@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ComponentProps, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
 import { mapAonHit } from './aon'
-import { activeBattleForm, armorClass, armorClassBreakdown, armorEntry, armorSaveBonus, effectiveArmor, gearPickerEntries, movementSpeeds, ownedArmors, ownedWeapons, perceptionItemBonus, resistances, savingThrowBreakdown, shieldAcBonus, shieldEntry, shieldMaterialOptions, shieldStats, speedBonuses, spellActiveChange, temporaryHpGrant, weaponAttack, wornArmor } from './builder'
+import { activeBattleForm, armorClass, armorClassBreakdown, armorEntry, armorSaveBonus, classExtraSlots, effectiveArmor, gearPickerEntries, movementSpeeds, ownedArmors, ownedWeapons, perceptionItemBonus, resistances, savingThrowBreakdown, shieldAcBonus, shieldEntry, shieldMaterialOptions, shieldStats, speedBonuses, spellActiveChange, temporaryHpGrant, weaponAttack, wornArmor } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
 import { ANCESTRAL_AVATAR } from './battleForms'
 import { makeNamedArmorEntries, makeNamedShieldEntry, namedArmorAbilities, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
@@ -595,4 +595,23 @@ it("orders Slithermaw's Bane artifact sections as senses, summary, then alphabet
   const abilities = namedArmorAbilities({ ...artifact, data: { ...artifact.data, named_armor: true } })
   expect(abilities.map(ability => ability.name)).toEqual(['Senses', 'Summary', 'Adaptation', "Calistria’s Sting", 'Purge Toxins'])
   expect(abilities[0].paragraphs).toEqual(['Perception +34; precise low-light vision and hearing within 30 feet', 'Will +34'])
+})
+
+it('scales Library Robes fundamentals and Moonweave/Sunweave runes with level', () => {
+  const scrollRobes: ContentEntry = { ...hide, id: 'scroll-robes', name: 'Scroll Robes', traits: [],
+    data: { ...hide.data, ac: 0, dex_cap: 5, strength: 0, armor_category: 'Unarmored', bulk: 0 } }
+  const robes = item('Library Robes', ['**Base Armor** [Scroll Robes](/Armor.aspx?ID=1)', '---',
+    'These +1 resilient scroll robes magically store a spell for you.'].join('\n\n'), { bulk: 0 })
+  const catalog = [scrollRobes, robes]
+  expect(makeNamedArmorEntries(catalog, []).map(entry => entry.name)).toEqual(['Library Scroll Robes'])
+  const armor = owned('Library Scroll Robes')
+  for (const [level, potency, resilient, runes] of [[1, 0, 0, []], [5, 1, 0, ['Moonweave']], [8, 1, 1, ['Moonweave', 'Sunweave']],
+    [13, 2, 1, ['Moonweave (Greater)', 'Sunweave (Greater)']], [18, 3, 2, ['Moonweave (Major)', 'Sunweave (Major)']]] as const) {
+    expect(effectiveArmor({ ...character, level, armors: [armor] }, catalog, armor))
+      .toMatchObject({ potency, resilient, runes: [...runes] })
+  }
+  const html = renderToStaticMarkup(<ArmorList c={{ ...character, level: 20, armors: [armor] }} entries={catalog} save={() => {}} part="armor" />)
+  expect(html).toContain('up to rank 9')
+  expect(classExtraSlots({ ...character, level: 20, className: 'Wizard', armors: [armor] }, catalog))
+    .toContainEqual({ key: 'library-robes', rank: 9, source: 'Library Scroll Robes' })
 })
