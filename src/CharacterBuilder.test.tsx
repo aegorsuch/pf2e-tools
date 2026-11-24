@@ -8,7 +8,7 @@ import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 import { equipmentGroupName, WORN_EQUIPMENT_GROUPS } from './equipmentGroups'
 import * as equipmentGroups from './equipmentGroups'
-import { FeatSlots } from './FeatSlots'
+import { classArchetypeSlotViews, FeatSlots } from './FeatSlots'
 import { SearchableSelect } from './SearchableSelect'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
 import { armorClass, classDifficultyClass, classLabel, isSpellActive, plannedSlots, spellActiveChange, subclassOptions, syncClassArchetypeDedication, warriorLegendWeakness } from './builder'
@@ -156,6 +156,37 @@ it('offers Warrior of Legend archetype feats only in Dedications while using cla
     expect(render('class', selected)).not.toContain('Clear the Way')
     expect(render('archetype', selected)).toContain('Clear the Way')
   } finally { updateSettings({ warriorLegendClearTheWay: previous }) }
+})
+
+it('does not duplicate Vindicator class slots as dedication slots', () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+  const entries = ['Vindicator Dedication', 'Interrogate'].map(name =>
+    mapAonHit(hits.find(hit => hit._source?.name === name)!, 'pf2e')!)
+  const initial: Character = { id: 'vindicator-slots', name: 'Test', systems: ['pf2e'], level: 6,
+    className: 'Ranger', subclass: 'Vindication',
+    abilities: { str: 10, dex: 18, con: 10, int: 10, wis: 14, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const c = { ...initial, ...syncClassArchetypeDedication(initial, entries) }
+  const previous = getSettings()
+  try {
+    updateSettings({ freeArchetype: false, rangerCavalier: false, rangerBeastmaster: false, rangerSnarecrafter: false })
+    const slots = plannedSlots(c, entries)
+    expect(classArchetypeSlotViews(c, entries, slots)).toEqual([])
+    expect(slots.filter(slot => (slot.displayCategory ?? slot.category) === 'archetype').map(slot => slot.key))
+      .toEqual(['class:2:0'])
+    const render = (category: 'class' | 'archetype', character = c) =>
+      renderToStaticMarkup(<FeatSlots c={character} entries={entries} save={() => {}} categories={[category]}
+        search={{ 'class:6:0:open': '1' }} onSearch={() => {}} />)
+    expect(render('class')).toContain('L06 Class: Interrogate')
+    expect(render('archetype')).not.toContain('L06 Dedication: Interrogate')
+    const selected = { ...c, feats: [...c.feats, { name: 'Interrogate', type: 'Class Feat', level: 6, slot: 'class:6:0' }] }
+    expect(render('archetype', selected)).toContain('Interrogate')
+    expect(render('class', selected)).not.toContain('Interrogate')
+    updateSettings({ freeArchetype: true })
+    expect(plannedSlots(c, entries).filter(slot => slot.category === 'archetype').map(slot => slot.key))
+      .toEqual(['archetype:2:0', 'archetype:4:0', 'archetype:6:0'])
+    expect(classArchetypeSlotViews(c, entries, plannedSlots(c, entries))).toEqual([])
+  } finally { updateSettings(previous) }
 })
 
 it('filters equipment by skill item bonuses without treating other bonuses as item bonuses', () => {

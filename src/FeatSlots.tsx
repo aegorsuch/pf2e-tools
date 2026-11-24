@@ -213,7 +213,7 @@ function arcanaChoiceCandidates(entries: ContentEntry[], name: string) {
 }
 
 export function classArchetypeSlotViews(c: Character, entries: ContentEntry[], slots: PlannedSlot[]) {
-  if (!selectedClassArchetype(c, entries)) return []
+  if (selectedClassArchetype(c, entries)?.name !== 'Warrior of Legend') return []
   return slots.filter(slot => slot.category === 'class' && !slot.displayCategory && !slot.grantedBy
     && !c.feats.some(feat => feat.slot === slot.key) && !c.skippedFeatSlots?.includes(slot.key))
     .map(slot => ({ ...slot, displayCategory: 'archetype' as const }))
@@ -605,7 +605,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             (matchesEntry(o) || variantsFor(o).length > 0)
             && matchesSkill(o, skill, featsByName)
             && (!skill || o.name !== 'Skill Training' || cachedOptionsFor(o, s, skill).length > 0)
-            && (s.category !== 'class' || s.grantedFeat || (s.displayCategory === 'archetype'
+            && (classArchetype !== 'Warrior of Legend' || s.category !== 'class' || s.grantedFeat || (s.displayCategory === 'archetype'
               ? isClassArchetypeFeat(o) : !isClassArchetypeFeat(o)))
             && (!picksType || (type === 'dedication') === isDedication(o)))
           const sortValue = search[`${s.key}:sort`]
