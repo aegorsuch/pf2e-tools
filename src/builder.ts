@@ -6276,6 +6276,10 @@ export const killerBeltBonus = (c: Character, entries: ContentEntry[]) => ownedG
 export const wildwoodInkBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, 'Wildwood Ink')
 export const tradecraftTattooBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, 'Tradecraft Tattoo', 2)
 export const hunterArrowheadBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, "Hunter's Arrowhead")
+export const daredevilBootsBonus = (c: Character, entries: ContentEntry[]) =>
+  ownedItemBonus(c, entries, { 'Daredevil Boots': 2, 'Daredevil Boots (Greater)': 3 })
+export const armbandsOfAthleticismBonus = (c: Character, entries: ContentEntry[]) =>
+  ownedItemBonus(c, entries, { 'Armbands of Athleticism': 2, 'Armbands of Athleticism (Greater)': 3 })
 
 export function artifactItemSkillBonus(c: Character, entries: ContentEntry[], skill: string) {
   if (!['Arcana', 'Crafting', 'Diplomacy'].includes(skill)) return undefined

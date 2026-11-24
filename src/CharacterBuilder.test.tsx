@@ -15,6 +15,7 @@ import { armorClass, classDifficultyClass, classLabel, isSpellActive, plannedSlo
 import snapshot from '../public/data/aon-pf2e.json?raw'
 import { GearSystemFilter } from './GearSystemFilter'
 import type { GearSystem } from './gearSystem'
+import { SkillsSection } from './SkillsSection'
 
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
@@ -249,6 +250,7 @@ it("offers Survival for Voyager's Pack in the backpacks picker", () => {
             && select.props['aria-label'] === 'Skill item bonus' && select.props.value !== 'Survival')
             select.props.onChange?.({ target: { value: 'Survival' } })
         })
+
       })
     })
     return tree
@@ -256,6 +258,32 @@ it("offers Survival for Voyager's Pack in the backpacks picker", () => {
   const markup = renderToStaticMarkup(<SurvivalSearch />)
   expect(markup).toContain('>Survival</option>')
   expect(markup).toContain(`Add Voyager&#x27;s Pack`)
+})
+
+it.each([
+  ['Daredevil Boots', 'Acrobatics'],
+  ['Armbands of Athleticism', 'Athletics'],
+])('offers and applies %s skill bonuses, including greater versions', (name, skill) => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+  const entries = [name, `${name} (Greater)`].map(itemName =>
+    mapAonHit(hits.find(hit => hit._source?.name === itemName)!, 'pf2e')!)
+  const c: Character = { id: 'skill-gear', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const picker = renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} fixedSkill={skill} />)
+  expect(picker).toContain(`Add ${name}`)
+  expect(picker).toContain(`Add ${name} (Greater)`)
+  expect(renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} fixedSkill="Religion" />))
+    .not.toContain(`Add ${name}`)
+  const row = (equipment: Character['equipment'], itemEntries = entries) =>
+    renderToStaticMarkup(<SkillsSection c={{ ...c, equipment }} entries={itemEntries} save={() => {}} />)
+      .split(`class="skill-name">${skill} `)[1].split('role="row"')[0]
+  expect(row([])).toContain('<small>Item</small>+0</button>')
+  expect(row([{ name, qty: 1 }])).toContain('<small>Item</small>+2</button>')
+  expect(row([{ name, qty: 1 }, { name: `${name} (Greater)`, qty: 1 }]))
+    .toContain('<small>Item</small>+3</button>')
+  expect(row([{ name, qty: 0 }])).toContain('<small>Item</small>+0</button>')
+  expect(row([{ name, qty: 1 }], [{ ...entries[0], deleted: true }])).toContain('<small>Item</small>+0</button>')
 })
 
 it.each([

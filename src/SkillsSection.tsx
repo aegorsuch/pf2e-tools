@@ -25,6 +25,8 @@ import { ERUDITE_LORE_KEY, eruditeWarrior, isSoldier, soldierStyle } from './sol
 import { isWitchwarper } from './witchwarper'
 import { hellknightBenefitActive, hellknightSkillNotes, hellknightTrainingBenefits } from './hellknight'
 import { mountainPoisonImmunities } from './namedArmor'
+import { armbandsOfAthleticismBonus, daredevilBootsBonus } from './builder'
+import { SkillItemPicker } from './SkillItemPicker'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
 const LABORER_LORES = PROFESSION_LORES.filter(lore => !['First Ones Lore', 'Underworld Lore'].includes(lore))
@@ -459,8 +461,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const artifact = artifactItemSkillBonus(c, entries, s.name)
     const arrowhead = s.name === 'Survival' ? hunterArrowheadBonus(c, entries) : undefined
     const pack = s.name === 'Survival' ? voyagerPackBonus(c, entries) : undefined
+    const skillGear = s.name === 'Acrobatics' ? daredevilBootsBonus(c, entries)
+      : s.name === 'Athletics' ? armbandsOfAthleticismBonus(c, entries) : undefined
     const item = s.name === 'Perception' ? perceptionItemBonus(c, entries)
-      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0, pack?.value ?? 0, apexSkillBonus(c, s.name))
+      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0, pack?.value ?? 0, skillGear?.value ?? 0, apexSkillBonus(c, s.name))
     const athleticRush = s.name === 'Athletics' && isSpellActive(c, entries, 'Athletic Rush')
     const ferocious = s.name === 'Athletics' && form?.source === 'Untamed Form' && !!activeFeatsNamed(c, 'Ferocious Shape').length
     const status = athleticRush ? 2 : ferocious ? 1 : s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
@@ -765,7 +769,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         </span>
         <span className="skill-part"><small>{ABILITY_LABEL[ability]}</small>{signed(abil)}</span>
         <span className="skill-part"><small>Proficiency</small>{signed(prof)}</span>
-        <span className="skill-part"><small>Item</small>{signed(item)}</span>
+        {s.kind === 'skill' ? <SkillItemPicker c={c} entries={entries} save={save} skill={skillLabel} value={signed(item)} />
+          : <span className="skill-part"><small>Item</small>{signed(item)}</span>}
         {circumstance && circumstance.source !== 'Hellknight Preferment' && <span className="skill-part skill-circumstance"><small>Circumstance</small>{signed(circumstance.value)} <small>({circumstance.source})</small></span>}
       </div>
     )
