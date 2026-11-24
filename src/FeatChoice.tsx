@@ -1,5 +1,5 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, orderMagicOptions, statDefs, subclassSkillChoice, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, nephilimLineageLore, orderMagicOptions, statDefs, subclassSkillChoice, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
 import { automaticFeatGrants } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, automaticFeatChoiceKey, coreAttunementOptions, featSpellOptions } from './featSpells'
@@ -52,21 +52,23 @@ export function AutomaticFeatChoice({ c, entries, save, name, source, choice, ch
   if (name === 'Additional Lore') {
     const key = choiceKey ?? automaticFeatChoiceKey(source, name)
     if (source === 'Nephilim Lore') {
+      const fixedPlane = nephilimLineageLore(c, entries)
+      const planes = fixedPlane ? [fixedPlane] : PLANAR_LORE_CHOICES
       const current = choice?.trim().replace(/\s+lore$/i, '') ?? ''
-      const selected = PLANAR_LORE_CHOICES.find(option => option.toLowerCase() === current.toLowerCase()) ?? current
+      const selected = fixedPlane ?? planes.find(option => option.toLowerCase() === current.toLowerCase()) ?? current
       const feat = entries.find(entry => entry.kind === 'feat' && entry.name === name && entry.systems.includes('pf2e') && !entry.deleted)
       return <>
-        <SearchableSelect aria-label="Nephilim Lore Additional Lore" alwaysSearchable value={selected}
+        <SearchableSelect aria-label="Nephilim Lore Additional Lore" alwaysSearchable value={selected} disabled={!!fixedPlane}
           renderDetails={() => <EntryDescription character={c} name={name} entry={feat} entries={entries}
             buttonLabel="Details" className="picker-details" deferDetails />}
           onChange={event => {
             const value = event.target.value
-            if (!PLANAR_LORE_CHOICES.includes(value)) return
+            if (fixedPlane || !PLANAR_LORE_CHOICES.includes(value)) return
             save({ automaticFeatChoices: { ...c.automaticFeatChoices, [key]: value } })
           }}>
           <option value="" disabled>Additional Lore</option>
-          {selected && !PLANAR_LORE_CHOICES.includes(selected) && <option value={selected} disabled>Additional Lore ({selected}) (unavailable)</option>}
-          {PLANAR_LORE_CHOICES.map(plane => <option key={plane} value={plane}>Additional Lore ({plane})</option>)}
+          {selected && !planes.includes(selected) && <option value={selected} disabled>Additional Lore ({selected}) (unavailable)</option>}
+          {planes.map(plane => <option key={plane} value={plane}>Additional Lore ({plane})</option>)}
         </SearchableSelect>
         {' '}<small>({source})</small>
       </>

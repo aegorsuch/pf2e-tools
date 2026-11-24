@@ -178,7 +178,7 @@ export function ethnicityOptions(entries: ContentEntry[], ancestry?: string) {
   if (target === 'dwarf') return Object.keys(DWARF_ETHNICITIES)
   if (target === 'halfling') return Object.keys(HALFLING_ETHNICITIES)
   const additional = target === 'human' ? [
-    'Chelaxian', 'Erutaki', 'Garundi', 'Keleshite', 'Lirgeni', 'Mauxi', 'Nidalese', 'Olehala', 'Shoanti', 'Taldan', 'Tian-Dan', 'Tian-Yae', 'Ulfen', 'Varisian', 'Vudrani',
+    'Chelaxian', 'Erutaki', 'Garundi', 'Keleshite', 'Lirgeni', 'Mauxi', 'Nidalese', 'Olehala', 'Shoanti', 'Taldan', 'Tian-Dan', 'Tian-Yae', 'Ulfen', 'Varki', 'Varisian', 'Vudrani',
   ] : target === 'elf' ? ['Ekujae', 'Spiresworn'] : target === 'orc' ? ['Belkzen'] : []
   const names = [...additional, ...entries.filter(entry => !entry.deleted && entry.kind === 'feat'
     && (!target || entry.traits.some(trait => trait.toLowerCase() === target)))

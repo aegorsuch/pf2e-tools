@@ -45,6 +45,61 @@ const PET_ABILITY_NOTES: Record<string, string> = {
   Scent: 'Imprecise scent within 30 feet.',
 }
 
+type MinionAbilityOption = { value: string; label: string; entry?: ContentEntry }
+type MinionAbilityPickerItem = {
+  key: string
+  name: string
+  entry?: ContentEntry
+  after?: ReactNode
+  inactive?: boolean
+  unavailable?: string
+  removeLabel?: string
+  confirmation?: string
+  onRemove?: () => void
+}
+
+function minionAbilityPicker({ label, items, optionGroups, onAdd, entries, character, children }: {
+  label: string
+  items: MinionAbilityPickerItem[]
+  optionGroups: { label?: string; options: MinionAbilityOption[] }[]
+  onAdd?: (value: string) => void
+  entries: ContentEntry[]
+  character: Character
+  children?: ReactNode
+}) {
+  const optionCount = optionGroups.reduce((count, group) => count + group.options.length, 0)
+  const optionEntries = new Map(optionGroups.flatMap(group => group.options)
+    .flatMap(option => option.entry ? [[option.value, option.entry] as const] : []))
+  return <div className="gear-runes">
+    {items.map(item => {
+      const onRemove = item.onRemove
+      return <div key={item.key} className="rune">
+        {item.entry ? <EntryDescription name={item.name} entry={item.entry} entries={entries} character={character} />
+          : <span>{item.name}</span>}
+        {item.after}
+        {item.inactive && <small> (inactive)</small>}
+        {item.unavailable && <small title={item.unavailable}> (unavailable)</small>}
+        {onRemove && <button type="button" aria-label={item.removeLabel ?? `Remove ${label} ability`}
+          onClick={() => confirmRemoval(item.confirmation ?? `ability "${item.name}"`, onRemove)}>×</button>}
+      </div>
+    })}
+    {children}
+    {onAdd && <SearchableSelect aria-label={`${label} ability`} value="" optionCount={optionCount}
+      renderDetails={value => {
+        const entry = optionEntries.get(value)
+        return entry && <EntryDescription name={entry.name} entry={entry} entries={entries} character={character}
+          buttonLabel="Details" className="picker-details" deferDetails />
+      }} onChange={event => onAdd(event.target.value)}>
+      <option value="">+</option>
+      {optionGroups.map((group, index) => group.label
+        ? group.options.length > 0 && <optgroup key={group.label} label={group.label}>
+          {group.options.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </optgroup>
+        : group.options.map(option => <option key={`${index}:${option.value}`} value={option.value}>{option.label}</option>))}
+    </SearchableSelect>}
+  </div>
+}
+
 const SUMMONED_CREATURES = {
   Emganat: {
     level: 3, traits: ['Medium', 'Kucharn'],
@@ -530,6 +585,28 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
     ?? (PET_ABILITY_NOTES[ability] ? { id: `pet:${ability}`, name: ability, kind: 'familiar' as const,
       systems: c.systems, source: 'official' as const, level: 1, traits: [], description: PET_ABILITY_NOTES[ability],
       data: {}, effects: [], updatedAt: 0 } : undefined)
+  const petAbilityItems = displayedPetAbilities.map(({ ability, index, granted }) => ({
+    key: `${granted ? 'granted' : index}:${ability}`,
+    name: ability,
+    entry: petAbilityEntry(ability),
+    removeLabel: index === undefined ? undefined : `Remove Pet ability ${index + 1}`,
+    confirmation: `pet ability "${ability}"`,
+    onRemove: !granted && index !== undefined ? () => save({ pet: { ...c.pet,
+      abilities: petAbilities.map((value, i) => i === index ? '' : value) } }) : undefined,
+  }))
+  const petAbilityOptionGroups = [{
+    options: PET_ABILITIES.filter(ability => !chosenPetAbilities.some(chosen => chosen.ability === ability)
+      && !grantedPetAbilities.includes(ability))
+      .map(ability => ({ value: ability, label: ability, entry: petAbilityEntry(ability) })),
+  }]
+  const addPetAbility = (ability: string) => {
+    const index = [0, 1].find(i => !petAbilities[i] || grantedPetAbilities.includes(petAbilities[i]))
+    if (index === undefined || !PET_ABILITIES.includes(ability) || chosenPetAbilities.some(item => item.ability === ability)
+      || grantedPetAbilities.includes(ability)) return
+    const abilities = [...petAbilities]
+    abilities[index] = ability
+    save({ pet: { ...c.pet, abilities } })
+  }
   const choices = c.feats.map((feat, featIndex) => ({ feat, featIndex }))
     .filter(({ feat }) => featTakenLevel(feat) <= c.level && (isCompanionAdvancement(feat.name) && feat.name !== 'Splendid Companion' || isCompanionSpecialization(feat.name)))
     .sort((a, b) => Number(isCompanionAdvancement(b.feat.name)) - Number(isCompanionAdvancement(a.feat.name))
@@ -922,8 +999,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             save(isWasp ? { waspFamiliar: { ...data, ...changes } } : { familiar: { ...data, ...changes } })
           const saveAbilityOptions = (abilityOptions: NonNullable<Character['familiar']>['abilityOptions']) =>
             saveFamiliar({ abilityOptions: { ...data?.abilityOptions, ...abilityOptions } })
-          const chooseAbility = (event: { target: { value: string } }) => {
-            const ability = familiarAbilityCatalog.find(entry => entry.id === event.target.value)
+          const chooseAbility = (value: string) => {
+            const ability = familiarAbilityCatalog.find(entry => entry.id === value)
             if (!ability || activeAbilityChoices.length >= selectableAbilityLimit
               || /^specific familiar\b/i.test(String(ability.data.ability_type ?? ''))
               || familiarAbilityUnavailableReason(ability, c, savedAbilities.map(item => item.ability), isUndead, entries)) return
@@ -939,6 +1016,32 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               && (!alreadySelected || isFamiliarAbilityRepeatable(entry))
               && !familiarAbilityUnavailableReason(entry, c, savedAbilities.map(item => item.ability), isUndead, entries)
           })
+          const familiarOptionGroups = ['Familiar', 'Master', 'Divine Emissary'].map(type => ({
+            label: type,
+            options: abilityOptions.filter(entry =>
+              String(entry.data.ability_type ?? 'Familiar').toLowerCase() === type.toLowerCase())
+              .map(entry => ({ value: entry.id, label: entry.name, entry })),
+          })).filter(group => group.options.length > 0)
+          const familiarAbilityItems = [...savedAbilities]
+            .sort((a, b) => a.ability.localeCompare(b.ability, undefined, { sensitivity: 'base' }) || a.index - b.index)
+            .map(({ ability, index }) => {
+              const { entry, reason } = abilityStatus(ability, index)
+              return {
+                key: `${index}:${ability}`,
+                name: entry?.name ?? ability,
+                entry,
+                after: ability === 'Restorative Familiar' && index < selectableAbilityLimit && !reason
+                  ? <> <DamageRoll name="Restorative Familiar" actions="Two Actions"
+                    damage={{ label: 'Healing', dice: Math.max(1, Math.floor(c.level / 2)), sides: 8, type: 'HP' }} /></>
+                  : undefined,
+                inactive: index >= selectableAbilityLimit,
+                unavailable: reason && index < selectableAbilityLimit ? reason : undefined,
+                removeLabel: `Remove ${familiarLabel} ability ${index + 1}`,
+                confirmation: `familiar ability "${ability}"`,
+                onRemove: () => saveFamiliar({ abilities: (data?.abilities ?? [])
+                  .filter((_, abilityIndex) => abilityIndex !== index) }),
+              }
+            })
           return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" data-minion-name={isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'} open>
           <summary><h4>{isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
             : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'}</h4> ({activeAbilityChoices.length + Number(!!patronAbility)}/{dailyAbilityLimit})</summary>
@@ -1011,22 +1114,14 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           </label>}
           <section className="companion-actions">
           <h5>Special</h5>
-          <div className="gear-runes">
-            {[...savedAbilities].sort((a, b) => a.ability.localeCompare(b.ability, undefined, { sensitivity: 'base' }) || a.index - b.index)
-              .map(({ ability, index }) => {
-              const { entry, reason } = abilityStatus(ability, index)
-              return <div key={`${index}:${ability}`} className="rune">
-                <EntryDescription name={entry?.name ?? ability} entry={entry} entries={entries} character={c} />
-                {ability === 'Restorative Familiar' && index < selectableAbilityLimit && !reason
-                  && <> <DamageRoll name="Restorative Familiar" actions="Two Actions"
-                    damage={{ label: 'Healing', dice: Math.max(1, Math.floor(c.level / 2)), sides: 8, type: 'HP' }} /></>}
-                {index >= selectableAbilityLimit && <small> (inactive)</small>}
-                {reason && index < selectableAbilityLimit && <small title={reason}> (unavailable)</small>}
-                <button type="button" aria-label={`Remove ${familiarLabel} ability ${index + 1}`}
-                  onClick={() => confirmRemoval(`familiar ability "${ability}"`, () =>
-                    saveFamiliar({ abilities: (data?.abilities ?? []).filter((_, abilityIndex) => abilityIndex !== index) }))}>×</button>
-              </div>
-            })}
+          {minionAbilityPicker({
+            label: familiarLabel,
+            items: familiarAbilityItems,
+            optionGroups: familiarOptionGroups,
+            entries,
+            character: c,
+            onAdd: activeAbilityChoices.length < selectableAbilityLimit ? chooseAbility : undefined,
+            children: <>
             {c.className === 'Witch' && activeFeatsNamed(c, "Patron’s Claim").concat(activeFeatsNamed(c, "Patron's Claim")).length > 0
               && <div className="rune"><b>Patron’s Claim</b> <DamageRoll name="Patron’s Claim" actions="Two Actions"
                 damage={{ label: 'Damage', dice: 10, sides: 10, type: 'spirit' }} /></div>}
@@ -1036,23 +1131,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 <b>{activity}</b> <DamageRoll name={activity} actions="Two Actions"
                   damage={{ label: 'Damage', dice: 6 + 2 * Math.max(0, Math.floor((c.level - 7) / 2)), sides: 6, type }} />
               </div>)}
-            {activeAbilityChoices.length < selectableAbilityLimit && <SearchableSelect aria-label={`${familiarLabel} ability`}
-              value="" optionCount={abilityOptions.length}
-              renderDetails={value => {
-                const entry = abilityOptions.find(option => option.id === value)
-                return entry && <EntryDescription name={entry.name} entry={entry} entries={entries} character={c}
-                  buttonLabel="Details" className="picker-details" deferDetails />
-              }} onChange={chooseAbility}>
-              <option value="">+</option>
-              {['Familiar', 'Master', 'Divine Emissary'].map(type => {
-                const options = abilityOptions.filter(entry =>
-                  String(entry.data.ability_type ?? 'Familiar').toLowerCase() === type.toLowerCase())
-                return options.length > 0 && <optgroup key={type} label={type}>
-                  {options.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-                </optgroup>
-              })}
-            </SearchableSelect>}
-          </div>
+            </>,
+          })}
           </section>
           <section className="companion-actions">
           <h5>Speed</h5><div>{familiarEffects.speeds.map(speed =>
@@ -1149,29 +1229,15 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           </section>
           <section className="companion-actions">
             <h5>Special</h5>
-            <div className="gear-runes">
-             {displayedPetAbilities.map(({ ability, index, granted }) => <div key={`${granted ? 'granted' : index}:${ability}`} className="rune">
-                {petAbilityEntry(ability) ? <EntryDescription name={ability} entry={petAbilityEntry(ability)} entries={entries} character={c} />
-                  : <span>{ability}</span>}
-               {!granted && index !== undefined && <button type="button" aria-label={`Remove Pet ability ${index + 1}`}
-                 onClick={() => confirmRemoval(`pet ability "${ability}"`, () =>
-                   save({ pet: { ...c.pet, abilities: petAbilities.map((value, i) => i === index ? '' : value) } }))}>×</button>}
-              </div>)}
-              {[0, 1].some(index => !petAbilities[index] || grantedPetAbilities.includes(petAbilities[index])) && <SearchableSelect aria-label="Pet ability" value=""
-                onChange={event => {
-                  const value = event.target.value
-                  const index = [0, 1].find(i => !petAbilities[i] || grantedPetAbilities.includes(petAbilities[i]))
-                  if (index === undefined || !PET_ABILITIES.includes(value) || chosenPetAbilities.some(({ ability }) => ability === value)
-                    || grantedPetAbilities.includes(value)) return
-                  const abilities = [...petAbilities]
-                  abilities[index] = value
-                  save({ pet: { ...c.pet, abilities } })
-                }}>
-                <option value="">+</option>
-                {PET_ABILITIES.filter(ability => !chosenPetAbilities.some(chosen => chosen.ability === ability)
-                  && !grantedPetAbilities.includes(ability)).map(ability => <option key={ability}>{ability}</option>)}
-              </SearchableSelect>}
-            </div>
+            {minionAbilityPicker({
+              label: 'Pet',
+              items: petAbilityItems,
+              optionGroups: petAbilityOptionGroups,
+              entries,
+              character: c,
+              onAdd: [0, 1].some(index => !petAbilities[index] || grantedPetAbilities.includes(petAbilities[index]))
+                ? addPetAbility : undefined,
+            })}
           </section>
           <section className="companion-actions">
           <h5>Speed</h5><div>{minionMovementSpeeds(petAbilities, c.pet?.fastMovement, !!(seaFriend || c.pet?.aquatic))

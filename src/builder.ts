@@ -169,15 +169,23 @@ export function ancestryLabel(ancestry?: string, heritage?: string, lineage?: st
   return includesAncestry ? heritage : `${heritage} ${ancestry}`
 }
 
-export function characterAncestryLabel(c: Character, entries: ContentEntry[]) {
-  const lineage = c.systems.includes('pf2e') && c.heritage?.trim().toLowerCase() === 'nephilim'
-    ? c.feats.find(feat => featTakenLevel(feat) === 1 && (() => {
+export function nephilimLineage(c: Character, entries: ContentEntry[]) {
+  if (!c.systems.includes('pf2e') || c.heritage?.trim().toLowerCase() !== 'nephilim') return undefined
+  return c.feats.find(feat => featTakenLevel(feat) === 1 && (() => {
       const source = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
       return source && ['nephilim', 'lineage'].every(required =>
         source.traits.some(trait => trait.toLowerCase() === required))
     })())?.name
-    : undefined
-  return ancestryLabel(c.ancestry, c.heritage, lineage)
+}
+
+export function nephilimLineageLore(c: Character, entries: ContentEntry[]) {
+  const lineage = nephilimLineage(c, entries)
+  return lineage === 'Musetouched' ? 'Elysium'
+    : lineage === 'Pitborn' ? 'Outer Rifts' : undefined
+}
+
+export function characterAncestryLabel(c: Character, entries: ContentEntry[]) {
+  return ancestryLabel(c.ancestry, c.heritage, nephilimLineage(c, entries))
 }
 
 export const characterSummary = (c: Character, entries: ContentEntry[]) =>
@@ -2483,7 +2491,11 @@ export function classSpellSlots(c: Character): Record<number, number> | undefine
   if (c.className === 'Animist' && c.systems.includes('pf2e')) {
     const progression = ANIMIST_SLOT_PROGRESSION[Math.min(20, c.level) - 1]
     const slots: Record<number, number> = {}
-    progression.forEach((count, rank) => { if (count) slots[rank] = count })
+    const apparitionSlots = ANIMIST_APPARITION_SLOT_PROGRESSION[Math.min(20, c.level) - 1]
+    progression.forEach((count, rank) => {
+      const prepared = count - (apparitionSlots[rank] ?? 0)
+      if (prepared) slots[rank] = prepared
+    })
     return slots
   }
   if (c.className === 'Bard' && c.systems.includes('pf2e')) return bardSpellSlots(c)
@@ -2515,7 +2527,13 @@ const FLEXIBLE_SPELLCASTER_CLASSES = new Set([
   'Animist', 'Cleric', 'Druid', 'Magus', 'Necromancer', 'Technomancer', 'Witch', 'Wizard',
 ])
 
-// Animist's separate spell pools share one preparation list in the current character model.
+export function animistApparitionSlots(c: Character): Record<number, number> {
+  if (!c.systems.includes('pf2e') || c.className !== 'Animist' || c.level < 1) return {}
+  return Object.fromEntries(ANIMIST_APPARITION_SLOT_PROGRESSION[Math.min(20, c.level) - 1]
+    .map((count, rank) => [rank, count]).filter(([, count]) => count > 0))
+}
+
+// Combined totals preserve the published Animist progression; apparition slots are split below.
 const ANIMIST_SLOT_PROGRESSION = [
   [4, 2], [4, 3], [4, 3, 2], [4, 3, 3], [4, 3, 3, 2], [4, 3, 3, 3],
   [5, 3, 3, 3, 2], [5, 3, 3, 3, 3], [5, 3, 3, 3, 3, 2],
@@ -2523,7 +2541,16 @@ const ANIMIST_SLOT_PROGRESSION = [
   [5, 4, 4, 4, 4, 4, 3, 2], [5, 4, 4, 4, 4, 4, 3, 3],
   [6, 4, 4, 4, 4, 4, 4, 3, 2], [6, 4, 4, 4, 4, 4, 4, 3, 3],
   [6, 4, 4, 4, 4, 4, 4, 4, 3, 2], [6, 4, 4, 4, 4, 4, 4, 4, 3, 3],
-  [6, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1], [6, 4, 4, 4, 4, 4, 4, 4, 4, 4, 1],
+  [6, 4, 4, 4, 4, 4, 4, 4, 4, 3, 1], [6, 4, 4, 4, 4, 4, 4, 4, 4, 3, 1],
+]
+const ANIMIST_APPARITION_SLOT_PROGRESSION = [
+  [2, 1], [2, 1], [2, 1, 1], [2, 1, 1], [2, 1, 1, 1], [2, 1, 1, 1],
+  [3, 1, 1, 1, 1], [3, 1, 1, 1, 1], [3, 1, 1, 1, 1, 1],
+  [3, 2, 2, 2, 1, 1], [3, 2, 2, 2, 2, 1, 1], [3, 2, 2, 2, 2, 1, 1],
+  [3, 2, 2, 2, 2, 2, 1, 1], [3, 2, 2, 2, 2, 2, 1, 1],
+  [4, 2, 2, 2, 2, 2, 2, 1, 1], [4, 2, 2, 2, 2, 2, 2, 1, 1],
+  [4, 2, 2, 2, 2, 2, 2, 2, 1, 1], [4, 2, 2, 2, 2, 2, 2, 2, 1, 1],
+  [4, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1], [4, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1],
 ]
 
 export function necromancerConjurerRank(c: Character) {
@@ -3931,7 +3958,7 @@ export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set(
     return choice ? [/\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`] : []
   }),
   ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Nephilim Lore').length
-    ? [c.automaticFeatChoices?.[automaticFeatChoiceKey('Nephilim Lore', 'Additional Lore')]]
+    ? [nephilimLineageLore(c, entries) ?? c.automaticFeatChoices?.[automaticFeatChoiceKey('Nephilim Lore', 'Additional Lore')]]
       .flatMap(choice => choice?.trim() ? [/\s+lore$/i.test(choice.trim()) ? choice.trim().replace(/\s+lore$/i, ' Lore') : `${choice.trim()} Lore`] : [])
     : []),
   ...featData({ ...c, feats: c.feats.filter((feat) => featTakenLevel(feat) <= c.level) }, entries, 'grants_lore').map((g) => g.value),

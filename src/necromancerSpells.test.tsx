@@ -25,13 +25,12 @@ const taken = (name: string, level: number) => ({ name, level, type: 'Class Feat
 const render = (c: Character, entries: ContentEntry[]) =>
   renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => { throw Error('Rendering must preserve saved data') }} />)
 const renderAtDirgeRank = (c: Character, entries: ContentEntry[], rank: number, query = '', defense = 'all') => {
-  for (const value of ['class', c.spellcasting?.tradition ?? '', undefined, true, rank, query, defense])
+  for (const value of ['class', c.spellcasting?.tradition ?? '', undefined, true, 'Dirge', rank, undefined, query, defense, 'both'])
     vi.mocked(useState).mockReturnValueOnce([value, vi.fn()])
   return render(c, entries)
 }
 const renderAtWizardBookRank = (c: Character, entries: ContentEntry[], rank: number) => {
-  for (const value of ['class', c.spellcasting?.tradition ?? '', undefined, false, 0, '', 'all', 'both',
-    true, rank, undefined, '', 'all', 'both'])
+  for (const value of ['class', c.spellcasting?.tradition ?? '', undefined, true, 'Wizard', rank, undefined, '', 'all', 'both'])
     vi.mocked(useState).mockReturnValueOnce([value, vi.fn()])
   return render(c, entries)
 }
@@ -127,14 +126,21 @@ it('adds Cantrip Connection to Spellshot Wizard dedication book choices', () => 
   expect(html).not.toContain('Open Wizard spellbook for Wizard cantrip')
 })
 
-it('opens Wizard spellbook choices by rank and filters them to Arcane spells', () => {
+it('uses the rank book editor for Wizard spells and filters its source to Arcane', () => {
   const wizardClass: ContentEntry = { ...spell('Wizard'), kind: 'class', traits: ['Wizard'],
     data: { tradition: 'Arcane' } }
   const arcane = spell('Fear', 1, 'Arcane')
   const occult = spell('Dread Aura', 1, 'Occult')
+  const learned = spell('Magic Missile', 1, 'Arcane')
   const c: Character = { ...base, className: 'Wizard', level: 1,
-    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: { 0: 1, 1: 1 } } }
-  const html = renderAtWizardBookRank(c, [wizardClass, arcane, occult], 1)
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: { 0: 1, 1: 1 } },
+    spells: [{ name: learned.name, entryId: learned.id, rank: 1, cantrip: false }] }
+  const html = renderAtWizardBookRank(c, [wizardClass, arcane, occult, learned], 1)
+  const book = html.slice(html.indexOf('class="entry-dialog dirge-dialog"'))
+  expect(book).toContain('>Wizard Spellbook</h4>')
+  expect(book).toContain('aria-label="Wizard spell ranks"')
+  expect(book).toContain('aria-label="Search wizard spells"')
+  expect(book).toContain('Magic Missile')
   expect(html).toContain('aria-label="Open Wizard rank 1"')
   expect(html).toContain('aria-label="Learn Fear"')
   expect(html).not.toContain('aria-label="Learn Dread Aura"')
@@ -148,8 +154,7 @@ it('opens Wizard Dedication slot books and avoids duplicate spells across slots'
     spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: {} },
     spells: [{ name: guidance.name, entryId: guidance.id, rank: 0, cantrip: true, bookSlot: 'wizard:0:1' }] }
   const save = vi.fn()
-  const stateValues = ['class', 'Arcane', undefined, false, 0, '', 'all', 'both',
-    true, 0, 'wizard:0:0', '', 'all', 'both']
+  const stateValues = ['class', 'Arcane', undefined, true, 'Wizard', 0, 'wizard:0:0', '', 'all', 'both']
   stateValues.forEach(value => vi.mocked(useState).mockReturnValueOnce([value, vi.fn()]))
   vi.mocked(useMemo).mockImplementation(fn => fn())
   vi.mocked(useRef).mockReturnValue({ current: null })
@@ -453,9 +458,8 @@ it('keeps the Dirge editor open when a nested spell description closes', () => {
   const setOpen = vi.fn()
   vi.mocked(useState).mockReturnValueOnce(['class', vi.fn()]).mockReturnValueOnce(['', vi.fn()])
     .mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce([true, setOpen])
-    .mockReturnValueOnce([1, vi.fn()]).mockReturnValueOnce(['fear', vi.fn()]).mockReturnValueOnce(['all', vi.fn()])
-    .mockReturnValueOnce(['both', vi.fn()]).mockReturnValueOnce([false, vi.fn()])
-    .mockReturnValueOnce([0, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['', vi.fn()])
+    .mockReturnValueOnce(['Dirge', vi.fn()]).mockReturnValueOnce([1, vi.fn()])
+    .mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['fear', vi.fn()])
     .mockReturnValueOnce(['all', vi.fn()]).mockReturnValueOnce(['both', vi.fn()])
   vi.mocked(useMemo).mockImplementation(fn => fn())
   vi.mocked(useRef).mockReturnValue({ current: null })

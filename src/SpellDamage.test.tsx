@@ -1260,7 +1260,7 @@ it('renders rank-scaled rollers beside owned spells and omits unavailable spell 
     expect(spellDamage(name, 2)).toEqual([])
 })
 
-it('toggles Bless directly from its two-action icon', () => {
+it('opens Bless status toggle from its two-action icon', () => {
   const bless: ContentEntry = { id: 'bless', name: 'Bless', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions', tradition: 'Divine' },
     effects: [], updatedAt: 1 }
@@ -1270,9 +1270,10 @@ it('toggles Bless directly from its two-action icon', () => {
     spells: [{ name: 'Bless', rank: 1, cantrip: false }],
   }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[bless]} save={() => {}} />)
-  expect(markup).toContain('aria-label="Activate Bless"')
-  expect(markup).toContain('aria-pressed="false"')
-  expect(markup).not.toContain('aria-label="Bless options"')
+  expect(markup).toContain('aria-label="Bless options" aria-haspopup="dialog"')
+  expect(markup).toContain('<dialog')
+  expect(markup).toContain('aria-label="Bless active"')
+  expect(markup).not.toContain('aria-label="Activate Bless"')
 })
 
 it('scales Entropy Strike void and tech persistent acid damage by rank', () => {

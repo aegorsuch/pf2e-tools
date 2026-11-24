@@ -257,6 +257,26 @@ it('offers a clickable planar-only Additional Lore picker for Nephilim Lore', ()
   expect(render()).toContain('Additional Lore (Sailing) (unavailable)')
 })
 
+it.each([
+  ['Musetouched', 'Elysium'],
+  ['Pitborn', 'Outer Rifts'],
+])('locks %s Nephilim Lore to %s Lore', (lineage, plane) => {
+  const source: ContentEntry = { id: `feat:${lineage}`, systems: ['pf2e'], kind: 'feat',
+    source: 'official', name: lineage, level: 1, traits: ['Nephilim', 'Lineage'],
+    description: '', data: {}, effects: [], updatedAt: 1 }
+  const c: Character = { ...emptyRanger(), heritage: 'Nephilim',
+    feats: [{ name: lineage, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+      { name: 'Nephilim Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:1', choice: 'Diplomacy' }],
+    automaticFeatChoices: { [automaticFeatChoiceKey('Nephilim Lore', 'Additional Lore')]: 'Heaven' } }
+  const html = renderToStaticMarkup(<FeatSlots c={c} entries={[source]} categories={['skill']} save={() => {}} />)
+  expect(html).toContain(`Additional Lore (${plane})`)
+  expect(html).toContain('aria-label="Nephilim Lore Additional Lore"')
+  expect(html).toContain('disabled=""')
+  expect(html).not.toContain('Additional Lore (Heaven)')
+  expect(html).not.toContain('Additional Lore (Elysium) (unavailable)')
+  expect(html).not.toContain('Additional Lore (Outer Rifts) (unavailable)')
+})
+
 it('omits the subcategory selector for lore fixed by another feat', () => {
   const c: Character = { ...emptyRanger(), ancestry: 'Orc', level: 1,
     feats: [{ name: 'Orc Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }

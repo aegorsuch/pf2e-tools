@@ -1,7 +1,9 @@
+import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { classRepertoireRows, classSpellcasting, classSpellSlots, eligibleFeats, knowsSpell, languageAllowance } from './builder'
-import { SpellsSection } from './SpellsSection'
+import { animistApparitionSlots, classRepertoireRows, classSpellcasting, classSpellSlots, eligibleFeats, knowsSpell, languageAllowance } from './builder'
+import { AnimistApparitionSpells, SpellsSection } from './SpellsSection'
+import { SearchableSelect } from './SearchableSelect'
 import { homebrewCharacterOptions } from './supplemental'
 import type { Character, ContentEntry } from './types'
 
@@ -14,6 +16,15 @@ const baseEntry = (name: string): ContentEntry => ({
   id: name, name, kind: 'class', systems: ['pf2e'], source: 'official', level: 1, traits: [],
   data: {}, description: '', effects: [], updatedAt: 0,
 })
+const findElement = (node: ReactNode, type: unknown, label: string): ReactElement<Record<string, unknown>> | undefined => {
+  let found: ReactElement<Record<string, unknown>> | undefined
+  Children.forEach(node, child => {
+    if (found || !isValidElement<Record<string, unknown>>(child)) return
+    found = child.type === type && child.props['aria-label'] === label
+      ? child : findElement(child.props.children as ReactNode, type, label)
+  })
+  return found
+}
 
 it.each([
   ['Champion', 'Divine Warrior', 'Divine', 'cha'],
@@ -85,9 +96,54 @@ it.each([
   ['Magus', 3, { 0: 5, 1: 2, 2: 1 }],
   ['Summoner', 1, { 0: 5, 1: 1 }],
   ['Psychic', 3, { 0: 6, 1: 2, 2: 1 }],
-  ['Animist', 19, { 0: 6, 1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4, 7: 4, 8: 4, 9: 4, 10: 1 }],
+  ['Animist', 19, { 0: 2, 1: 2, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2, 7: 2, 8: 2, 9: 2 }],
 ])('derives %s slot progression at level %i without saved slot counts', (className, level, expected) => {
   expect(classSpellSlots({ ...base, className, level })).toEqual(expected)
+})
+
+it.each([
+  [1, { 0: 2, 1: 1 }],
+  [7, { 0: 3, 1: 1, 2: 1, 3: 1, 4: 1 }],
+  [10, { 0: 3, 1: 2, 2: 2, 3: 2, 4: 1, 5: 1 }],
+  [19, { 0: 4, 1: 2, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2, 7: 2, 8: 2, 9: 1, 10: 1 }],
+])('derives Animist apparition spell slots at level %i', (level, expected) => {
+  expect(animistApparitionSlots({ ...base, className: 'Animist', level })).toEqual(expected)
+})
+
+it('keeps Animist prepared spells separate from spontaneous apparition spells', () => {
+  const spell = (id: string, name: string, level: number, tradition: string, traits: string[] = []) => ({
+    ...baseEntry(name), id, kind: 'spell' as const, level, traits, data: { tradition },
+  })
+  const entries = [ { ...baseEntry('Animist'), data: { tradition: 'Divine' } },
+    spell('guidance', 'Guidance', 1, 'Divine', ['Cantrip']),
+    spell('arcane-spell', 'Arcane Apparition Spell', 1, 'Arcane'),
+    spell('divine-spell', 'Divine Prepared Spell', 1, 'Divine') ]
+  let c: Character = { ...base, className: 'Animist', level: 1, abilities: { ...base.abilities, wis: 18 } }
+  const save = (patch: Partial<Character>) => {
+    if (patch.spellcasting) c = { ...c, spellcasting: {
+      ...(c.spellcasting ?? { ability: 'wis', tradition: 'Divine', rank: 1, slots: {} }),
+      ...patch.spellcasting,
+    } }
+    else c = { ...c, ...patch }
+  }
+  expect(classSpellSlots(c)).toEqual({ 0: 2, 1: 1 })
+  expect(animistApparitionSlots(c)).toEqual({ 0: 2, 1: 1 })
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(markup).toContain('Apparition Spellcasting')
+  expect(markup).toContain('Apparition Spell Rank 1')
+  expect(markup).toContain('Divine Prepared Spell')
+  expect(markup).toContain('Arcane Apparition Spell (Rank 1)')
+  expect(markup).not.toContain('Arcane Apparition Spell</option>')
+
+  const add = findElement(AnimistApparitionSpells({ c, entries, save }), SearchableSelect, 'Add apparition spell')
+  if (!isValidElement<{ onChange: (event: { target: { value: string } }) => void }>(add)) throw new Error('Missing apparition spell picker')
+  add.props.onChange({ target: { value: 'arcane-spell' } })
+  expect(c.spellcasting?.apparitionRepertoire).toEqual(['arcane-spell'])
+
+  const slot = findElement(AnimistApparitionSpells({ c, entries, save }), SearchableSelect, 'Apparition spell rank 1 slot 1')
+  if (!isValidElement<{ onChange: (event: { target: { value: string } }) => void }>(slot)) throw new Error('Missing apparition slot picker')
+  slot.props.onChange({ target: { value: 'arcane-spell' } })
+  expect(c.spellcasting?.apparitionSlots?.['apparition:1:0']).toBe('arcane-spell')
 })
 
 it.each([

@@ -2435,7 +2435,14 @@ it('uses Persistent durations in prepared and innate spell tables too', () => {
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={[entry('Wizard', 'class', { tradition: 'Arcane' }), spell, source]} save={() => {}} />)
   expect(html).toContain('aria-label="Clear Gravity Weapon spell slot"')
   expect(html).toContain('<b>Innate Spells</b>')
-  expect(html.match(/<small>Duration<\/small>Until next daily preparations/g)).toHaveLength(3)
+  let dialogDepth = 0
+  let visibleDurations = 0
+  for (const match of html.matchAll(/<\/dialog>|<dialog\b[^>]*>|<small>Duration<\/small>Until next daily preparations/g)) {
+    if (match[0] === '</dialog>') dialogDepth--
+    else if (match[0].startsWith('<dialog')) dialogDepth++
+    else if (dialogDepth === 0) visibleDurations++
+  }
+  expect(visibleDurations).toBe(3)
 })
 
 it.each(['Distracting Decoy', 'Heal Animal', 'Heal Companion', 'Slime Spit', 'Snare Hopping', "Hunter's Luck", 'Soothing Mist', 'Threatening Mimicry'])('shows %s duration as Instant', name => {

@@ -15,7 +15,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, wizardArchetypeSpellbookChoices, type Ability } from './builder'
+import { animistApparitionSlots, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, wizardArchetypeSpellbookChoices, type Ability } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
@@ -948,18 +948,20 @@ function SignatureCast({ name, baseRank, slots, spent, onCast }: { name: string;
   </>
 }
 
-export function DirgeRankButton({ rank, onOpen }: { rank: number; onOpen: (rank: number) => void }) {
-  const label = rank === 0 ? 'Open Dirge cantrips' : `Open Dirge rank ${rank}`
+function spellbookRankButton(book: string, rank: number, onOpen: (rank: number) => void) {
+  const label = rank === 0 ? `Open ${book} cantrips` : `Open ${book} rank ${rank}`
   return <button type="button" className="dirge-rank-button" aria-label={label} title={label}
     aria-haspopup="dialog" onClick={() => onOpen(rank)}><DirgeIcon /></button>
 }
 
-function SpellbookRankButton({ book, rank, label, onOpen }: {
-  book: string; rank: number; label?: string; onOpen: (rank: number) => void
+export function DirgeRankButton({ rank, onOpen }: { rank: number; onOpen: (rank: number) => void }) {
+  return spellbookRankButton('Dirge', rank, onOpen)
+}
+
+function SpellbookRankButton({ book, rank, onOpen }: {
+  book: string; rank: number; onOpen: (rank: number) => void
 }) {
-  const buttonLabel = label ?? (rank === 0 ? `Open ${book} cantrips` : `Open ${book} rank ${rank}`)
-  return <button type="button" className="dirge-rank-button" aria-label={buttonLabel} title={buttonLabel}
-    aria-haspopup="dialog" onClick={() => onOpen(rank)}><DirgeIcon /></button>
+  return spellbookRankButton(book, rank, onOpen)
 }
 
 function SpellColumns() {
@@ -1016,7 +1018,7 @@ function SpellItem({ c, name, nameControl, entry, note, onRemove, active, onTogg
         <div className="spell-title">{nameControl ?? <EntryDescription name={name} entry={entry} />}
           {onRemove && <button type="button" className="spell-remove" aria-label={`Remove ${name}`} title="Remove"
             onClick={() => confirmRemoval(`spell "${name}"`, onRemove)}>×</button>}
-          {onToggle && (name === 'Fly' || name === 'Bless') ? <button type="button" className="spell-action-button"
+          {onToggle && name === 'Fly' ? <button type="button" className="spell-action-button"
             aria-label={active ? `Deactivate ${name}` : `Activate ${name}`} aria-pressed={!!active}
             onClick={() => onToggle(!active)}><ActionIcon actions={activeActions
               ?? (typeof entry?.data.actions === 'string' ? entry.data.actions : 'Two Actions')} showOther /></button>
@@ -1471,6 +1473,141 @@ export function spellCategoryAvailability(c: Character, entries: ContentEntry[],
     rituals: characterRituals(c, entries).ritualNames.length > 0 }
 }
 
+export function AnimistApparitionSpells({ c, entries, save }: SectionProps) {
+  const slots = animistApparitionSlots(c)
+  if (!Object.keys(slots).length) return null
+  const casting: NonNullable<Character['spellcasting']> = {
+    ...c.spellcasting,
+    ability: c.spellcasting?.ability ?? 'wis',
+    tradition: c.spellcasting?.tradition ?? 'Divine',
+    rank: c.spellcasting?.rank ?? 1,
+    slots: classSpellSlots(c) ?? c.spellcasting?.slots ?? {},
+  }
+  const availableSpells = entries.filter(entry => entry.kind === 'spell' && !entry.deleted
+    && entry.systems.some(system => c.systems.includes(system)))
+  const spellById = new Map(availableSpells.map(entry => [entry.id, entry]))
+  const spellByName = new Map(availableSpells.map(entry => [entry.name, entry]))
+  const repertoire = casting.apparitionRepertoire ?? []
+  const repertoireEntries = [...new Set(repertoire)].flatMap(value => {
+    const entry = spellById.get(value) ?? spellByName.get(value)
+    return entry ? [entry] : []
+  })
+  const repertoireIds = new Set(repertoireEntries.map(entry => entry.id))
+  const cantripLimit = slots[0] ?? 0
+  const cantripCount = repertoireEntries.filter(entry => entry.traits.some(trait => trait.toLowerCase() === 'cantrip')).length
+  const highestRank = Math.max(...Object.keys(slots).map(Number))
+  const addOptions = availableSpells.filter(entry => !repertoireIds.has(entry.id)
+    && (entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
+      ? cantripCount < cantripLimit : entry.level <= highestRank))
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+  const castAbility = classSpellcasting(c, entries)?.ability
+  const update = (patch: Partial<NonNullable<Character['spellcasting']>>) =>
+    save({ spellcasting: { ...casting, ...patch } })
+  const addSpell = (id: string) => {
+    if (!addOptions.some(entry => entry.id === id)) return
+    update({ apparitionRepertoire: [...new Set([...repertoire, id])] })
+  }
+  const removeSpell = (entry: ContentEntry) => {
+    const apparitionSlots = { ...casting.apparitionSlots }
+    for (const [key, value] of Object.entries(apparitionSlots)) {
+      if (value === entry.id || value === entry.name) delete apparitionSlots[key]
+    }
+    update({ apparitionRepertoire: repertoire.filter(value => value !== entry.id && value !== entry.name), apparitionSlots })
+  }
+  const castSlots = Object.entries(slots).filter(([rank]) => Number(rank) > 0)
+  return <section className="class-spell-slots">
+    <h5>Apparition Spellcasting</h5>
+    {(casting.apparitionSpentSlots?.length ?? 0) > 0 && <div className="row">
+      <button type="button" aria-label="Reset apparition spell slots"
+        title="Restore apparition spell slots during daily preparations."
+        onClick={() => update({ apparitionSpentSlots: [] })}>Reset slots</button>
+    </div>}
+    <section className="spell-slot-group">
+      <h6>Apparition Spell Repertoire</h6>
+      <SearchableSelect aria-label="Add apparition spell" value="" optionCount={addOptions.length} alwaysSearchable
+        defaultSortOrder="level-desc" optionLevel={value => spellById.get(value)?.level}
+        optionSpell={value => spellById.get(value)}
+        renderDetails={value => {
+          const entry = spellById.get(value)
+          return entry && <EntryDescription name={entry.name} entry={entry} entries={entries} character={c}
+            buttonLabel="Details" className="picker-details" deferDetails />
+        }}
+        onChange={event => addSpell(event.target.value)}>
+        <option value="">Add apparition spell...</option>
+        {addOptions.map(entry => <option key={entry.id} value={entry.id}>{entry.name} (Rank {entry.level})</option>)}
+      </SearchableSelect>
+      <ul>{repertoireEntries.map(entry => <li className="spellbook-row" key={entry.id}>
+        <div className="spellbook-slot">
+          <EntryDescription name={entry.name} entry={entry} entries={entries} character={c} />
+        </div>
+        <span><small>Spell</small>{entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
+          ? `Cantrip (Heightened Level ${Math.ceil(c.level / 2)})` : `Rank ${entry.level}`}</span>
+        <button type="button" className="spell-remove" aria-label={`Remove apparition spell ${entry.name}`}
+          onClick={() => confirmRemoval(`apparition spell "${entry.name}"`, () => removeSpell(entry))}>×</button>
+      </li>)}</ul>
+    </section>
+    {castSlots.map(([rankText, count]) => {
+      const rank = Number(rankText)
+      const options = repertoireEntries.filter(entry => !entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
+        && entry.level <= rank)
+      return <section className="spell-slot-group" key={rank}>
+        <h6>Apparition Spell Rank {rank}</h6>
+        <SpellColumns />
+        <ul>{Array.from({ length: count }, (_, index) => {
+          const slotKey = `apparition:${rank}:${index}`
+          const selectedValue = casting.apparitionSlots?.[slotKey] ?? ''
+          const selectedEntry = spellById.get(selectedValue) ?? spellByName.get(selectedValue)
+          const valid = options.some(entry => entry.id === selectedValue || entry.name === selectedValue)
+          const spent = casting.apparitionSpentSlots?.includes(slotKey) ?? false
+          const selectSpell = (value: string) => {
+            if (value && !options.some(entry => entry.id === value)) return
+            const apparitionSlots = { ...casting.apparitionSlots }
+            if (value) apparitionSlots[slotKey] = value
+            else delete apparitionSlots[slotKey]
+            update({ apparitionSlots })
+          }
+          return <li className="spellbook-row" key={slotKey}>
+            <div className="spellbook-slot">
+              <button type="button" disabled={!valid || spent} aria-label={`Cast apparition spell rank ${rank} slot ${index + 1}`}
+                onClick={() => update({ apparitionSpentSlots: [...new Set([...(casting.apparitionSpentSlots ?? []), slotKey])] })}>
+                Cast
+              </button>
+              {selectedValue
+                ? <SelectedSlotSpell name={selectedEntry?.name ?? selectedValue} entry={selectedEntry} disabled={spent}
+                  heightened={selectedEntry ? Math.max(0, rank - selectedEntry.level) : 0}
+                  onClear={() => confirmRemoval(`apparition spell slot "${selectedEntry?.name ?? selectedValue}"`,
+                    () => selectSpell(''))} />
+                : <SearchableSelect aria-label={`Apparition spell rank ${rank} slot ${index + 1}`} value=""
+                  optionCount={options.length} alwaysSearchable primaryDetails defaultSortOrder="level-desc"
+                  optionLevel={value => spellById.get(value)?.level}
+                  optionSpell={value => spellById.get(value)}
+                  renderDetails={value => {
+                    const entry = spellById.get(value)
+                    return entry && <EntryDescription name={entry.name} entry={entry} entries={entries}
+                      buttonLabel="Details" className="picker-details" deferDetails />
+                  }}
+                  onChange={event => selectSpell(event.target.value)}>
+                  <option value="">Not Selected</option>
+                  {options.map(entry => <option key={entry.id} value={entry.id}>{entry.name}
+                    {rank > entry.level ? ` (+${rank - entry.level})` : ''}</option>)}
+                </SearchableSelect>}
+              {selectedEntry && <SpellActions name={selectedEntry.name} entry={selectedEntry} rank={rank}
+                spellcastingModifier={castAbility ? abilityMod(c.abilities[castAbility]) : undefined} />}
+              {spent && <small role="status">Spent</small>}
+            </div>
+            <span><small>Spell</small>{selectedEntry?.name ?? (selectedValue ? `${selectedValue} (unavailable)` : '—')}</span>
+            <span><small>Rank</small>{rank}</span>
+            <span><small>Range</small>{selectedEntry ? spellMetadata(selectedEntry, rank, c).range : '—'}</span>
+            <span><small>Save</small>{selectedEntry ? spellSave(spellMetadata(selectedEntry, rank, c).save,
+              spellDifficultyClass(c, entries)) : '—'}</span>
+            <span><small>Area/Targets</small>{selectedEntry ? spellMetadata(selectedEntry, rank, c).targets : '—'}</span>
+          </li>
+        })}</ul>
+      </section>
+    })}
+  </section>
+}
+
 export function SpellsPanel(props: SectionProps) {
   const data = useMemo(() => spellSummaryData(props.c, props.entries), [props.c, props.entries])
   const available = spellCategoryAvailability(props.c, props.entries, data)
@@ -1493,21 +1630,15 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const [category, setCategory] = useState<'class' | 'focus' | 'innate' | 'feat' | 'items' | 'rituals'>('class')
   const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
   const [preparedSlot, setPreparedSlot] = useState<string>()
-  const [dirgeOpen, setDirgeOpen] = useState(false)
-  const [dirgeRank, setDirgeRank] = useState(0)
-  const [dirgeQuery, setDirgeQuery] = useState('')
-  const [dirgeDefense, setDirgeDefense] = useState<SpellDefense>('all')
-  const [dirgeSystem, setDirgeSystem] = useState<GearSystem>('both')
-  const dirgeDialog = useRef<HTMLDialogElement>(null)
-  const dirgeTitleId = useId()
-  const [wizardBookOpen, setWizardBookOpen] = useState(false)
-  const [wizardBookRank, setWizardBookRank] = useState(0)
-  const [wizardBookSlotKey, setWizardBookSlotKey] = useState<string>()
-  const [wizardBookQuery, setWizardBookQuery] = useState('')
-  const [wizardBookDefense, setWizardBookDefense] = useState<SpellDefense>('all')
-  const [wizardBookSystem, setWizardBookSystem] = useState<GearSystem>('both')
-  const wizardBookDialog = useRef<HTMLDialogElement>(null)
-  const wizardBookTitleId = useId()
+  const [bookOpen, setBookOpen] = useState(false)
+  const [bookSource, setBookSource] = useState<'Dirge' | 'Wizard'>(c.className === 'Necromancer' ? 'Dirge' : 'Wizard')
+  const [bookRank, setBookRank] = useState(0)
+  const [bookSlotKey, setBookSlotKey] = useState<string>()
+  const [bookQuery, setBookQuery] = useState('')
+  const [bookDefense, setBookDefense] = useState<SpellDefense>('all')
+  const [bookSystem, setBookSystem] = useState<GearSystem>('both')
+  const bookDialog = useRef<HTMLDialogElement>(null)
+  const bookTitleId = useId()
   const casting = classSpellcasting(c, entries)
   const intensified = intensifiedElementDamage(c, entries)
   const automaticSlots = classSpellSlots(c)
@@ -1546,16 +1677,16 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   }, [entries, c.systems])
   const spellEntry = (name: string, id?: string) => id ? spellIndex.byId.get(id) : spellIndex.byName.get(name)
   const wizardBookOptions = useMemo(() => uniqueSpellVariants(
-    wizardSpellOptions(c, spellIndex.spells, wizardBookRank),
+    wizardSpellOptions(c, spellIndex.spells, bookRank),
     entry => [...entry.systems].sort().join(',')),
-    [c, spellIndex, wizardBookRank])
-  const knownWizardSpells = new Set((c.spells ?? []).filter(spell => spell.bookSlot !== wizardBookSlotKey)
+    [c, spellIndex, bookRank])
+  const knownWizardSpells = new Set((c.spells ?? []).filter(spell => spell.bookSlot !== bookSlotKey)
     .map(spell => spell.name.toLowerCase()))
-  const rankedWizardOptions = wizardBookOptions.filter(entry => (wizardBookRank === 0
+  const rankedWizardOptions = wizardBookOptions.filter(entry => (bookRank === 0
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
-    : entry.level === wizardBookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
-    && entry.name.toLowerCase().includes(wizardBookQuery.trim().toLowerCase())
-    && matchesSpellDefense(entry, wizardBookDefense) && matchesGearSystem(entry, wizardBookSystem, c.systems)
+    : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
+    && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase())
+    && matchesSpellDefense(entry, bookDefense) && matchesGearSystem(entry, bookSystem, c.systems)
     && !knownWizardSpells.has(entry.name.toLowerCase()))
   const druidList = useMemo(() => druid ? druidSpellList(c, spellIndex.spells)
     : c.className === 'Witch' ? witchSpellList(c, spellIndex.spells) : undefined,
@@ -1568,11 +1699,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     .filter(entry => spellAccessGranted(c, entry) && necromancerDirgeCanLearn(c, spellIndex.spells, entry)),
     entry => [...entry.systems].sort().join(',')) : [],
     [necromancer, c, spellIndex, dirge])
-  const rankedDirgeOptions = dirgeOptions.filter(entry => (dirgeRank === 0
+  const rankedDirgeOptions = dirgeOptions.filter(entry => (bookRank === 0
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
-    : entry.level === dirgeRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
-    && entry.name.toLowerCase().includes(dirgeQuery.trim().toLowerCase()) && matchesSpellDefense(entry, dirgeDefense)
-    && matchesGearSystem(entry, dirgeSystem, c.systems))
+    : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
+    && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase()) && matchesSpellDefense(entry, bookDefense)
+    && matchesGearSystem(entry, bookSystem, c.systems))
+  const rankedBookOptions = bookSource === 'Dirge' ? rankedDirgeOptions : rankedWizardOptions
   const { spells, granted, featSpells, innate, special, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
   const available = spellCategoryAvailability(c, entries, data ?? spellSummaryData(c, entries))
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
@@ -1902,36 +2034,34 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       {castAbility && spellPenalty(castAbility) > 0 && <span className="skill-part"><small>Status</small>{signed(-spellPenalty(castAbility))}</span>}
     </div>
   )
-  const openDirge = (rank: number) => {
-    setDirgeRank(rank)
-    setDirgeQuery('')
-    setDirgeDefense('all')
-    setDirgeSystem('both')
-    setDirgeOpen(true)
-    dirgeDialog.current?.showModal()
-    dirgeDialog.current?.querySelector('h4')?.focus()
+  const openSpellbook = (source: 'Dirge' | 'Wizard', rank: number, slotKey?: string) => {
+    setBookSource(source)
+    setBookRank(rank)
+    setBookSlotKey(slotKey)
+    setBookQuery('')
+    setBookDefense('all')
+    setBookSystem('both')
+    setBookOpen(true)
+    bookDialog.current?.showModal()
+    bookDialog.current?.querySelector('h4')?.focus()
   }
-  const openWizardBook = (rank: number, slotKey?: string) => {
-    setWizardBookRank(rank)
-    setWizardBookSlotKey(slotKey)
-    setWizardBookQuery('')
-    setWizardBookDefense('all')
-    setWizardBookSystem('both')
-    setWizardBookOpen(true)
-    wizardBookDialog.current?.showModal()
-    wizardBookDialog.current?.querySelector('h4')?.focus()
-  }
+  const openDirge = (rank: number) => openSpellbook('Dirge', rank)
   const openWizardBookRank = (rank: number) => {
     const slots = wizardSpellbookSlots.filter(slot => slot.rank === rank)
     const assigned = new Set((c.spells ?? []).map(spell => spell.bookSlot))
     const slot = slots.find(candidate => !assigned.has(candidate.key)) ?? slots[0]
-    openWizardBook(rank, slot?.key)
+    openSpellbook('Wizard', rank, slot?.key)
   }
-  const saveWizardBookSpell = (entry: ContentEntry) => {
-    const slot = wizardSpellbookSlots.find(candidate => candidate.key === wizardBookSlotKey)
-    if (!rankedWizardOptions.some(option => option.id === entry.id)
-      || (c.spells ?? []).some(spell => spell.name.toLowerCase() === entry.name.toLowerCase()
-        && spell.bookSlot !== slot?.key)) return
+  const learnSpellbookSpell = (entry: ContentEntry) => {
+    if (!rankedBookOptions.some(option => option.id === entry.id)) return
+    if (bookSource === 'Dirge') {
+      save({ spells: [...(c.spells ?? []), { name: entry.name, entryId: entry.id, rank: entry.level,
+        cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }] })
+      return
+    }
+    const slot = wizardSpellbookSlots.find(candidate => candidate.key === bookSlotKey)
+    if ((c.spells ?? []).some(spell => spell.name.toLowerCase() === entry.name.toLowerCase()
+      && spell.bookSlot !== slot?.key)) return
     const spells = slot ? (c.spells ?? []).filter(spell => spell.bookSlot !== slot.key) : [...(c.spells ?? [])]
     spells.push({ name: entry.name, entryId: entry.id, rank: slot?.rank ?? entry.level,
       cantrip: slot?.cantrip ?? entry.traits.some(trait => trait.toLowerCase() === 'cantrip'),
@@ -1944,7 +2074,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     const patch = { spells, ...(prepared ? { spellcasting: { ...c.spellcasting!, prepared } } : {}) }
     const update = () => {
       save(patch)
-      if (slot) wizardBookDialog.current?.close()
+      if (slot) bookDialog.current?.close()
     }
     if (current && current.entryId !== entry.id) confirmRemoval(`Wizard spellbook spell "${current.name}"`, update)
     else update()
@@ -2052,45 +2182,25 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       {renderSpecialGroups(tricksterAceSpells)}
       {renderLoanerSpellChoices()}
       {renderSpecialGroups(loanerSpells)}
-      {necromancer && c.level >= 1 && <>
-        <dialog ref={dirgeDialog} className="entry-dialog dirge-dialog" aria-labelledby={dirgeTitleId}
-          onClose={event => { if (event.target === event.currentTarget) setDirgeOpen(false) }}
-          onClick={event => { if (event.target === event.currentTarget) dirgeDialog.current?.close() }}>
-          <h4 id={dirgeTitleId} tabIndex={-1}>Dirge</h4>
-          <div className="gear-tabs spell-category-tabs" role="group" aria-label="Dirge spell ranks">
-            {Array.from({ length: 11 }, (_, rank) => <button key={rank} type="button"
-              aria-label={rank === 0 ? 'Cantrips' : `Rank ${rank}`} aria-pressed={dirgeRank === rank}
-              className={dirgeRank === rank ? 'on' : ''} onClick={() => setDirgeRank(rank)}>{rank}</button>)}
-          </div>
-          {groups.filter(group => group !== 'Focus Spells').map(group =>
-            <div className="dirge-rank" key={group} hidden={group !== (dirgeRank === 0 ? 'Cantrips' : `Rank ${dirgeRank}`)}>{renderSpellGroup(group)}</div>)}
-          <label>Search spells{' '}<input type="search" aria-label="Search dirge spells" value={dirgeQuery}
-            onChange={event => setDirgeQuery(event.target.value)} /></label>
-          <SpellDefenseFilter value={dirgeDefense} onChange={setDirgeDefense} />
-          <GearSystemFilter value={dirgeSystem} onChange={setDirgeSystem} />
-          {dirgeOpen && <DirgeLearnOptions options={rankedDirgeOptions} onLearn={entry => {
-            if (!rankedDirgeOptions.some(option => option.id === entry.id)) return
-            save({ spells: [...(c.spells ?? []), { name: entry.name, entryId: entry.id, rank: entry.level,
-              cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }] })
-          }} />}
-          <form method="dialog"><button autoFocus>Close</button></form>
-        </dialog>
-      </>}
-      {(wizard || wizardSpellbookSlots.length > 0) && c.level >= 1 && <dialog ref={wizardBookDialog} className="entry-dialog dirge-dialog"
-        aria-labelledby={wizardBookTitleId}
-        onClose={event => { if (event.target === event.currentTarget) setWizardBookOpen(false) }}
-        onClick={event => { if (event.target === event.currentTarget) wizardBookDialog.current?.close() }}>
-        <h4 id={wizardBookTitleId} tabIndex={-1}>Wizard Spellbook</h4>
-        <div className="gear-tabs spell-category-tabs" role="group" aria-label="Wizard spell ranks">
+      {(necromancer || wizard || wizardSpellbookSlots.length > 0) && c.level >= 1 && <dialog ref={bookDialog}
+        className="entry-dialog dirge-dialog" aria-labelledby={bookTitleId}
+        onClose={event => { if (event.target === event.currentTarget) setBookOpen(false) }}
+        onClick={event => { if (event.target === event.currentTarget) bookDialog.current?.close() }}>
+        <h4 id={bookTitleId} tabIndex={-1}>{bookSource === 'Dirge' ? 'Dirge' : 'Wizard Spellbook'}</h4>
+        <div className="gear-tabs spell-category-tabs" role="group" aria-label={`${bookSource} spell ranks`}>
           {Array.from({ length: 11 }, (_, rank) => <button key={rank} type="button"
-            aria-label={rank === 0 ? 'Cantrips' : `Rank ${rank}`} aria-pressed={wizardBookRank === rank}
-            className={wizardBookRank === rank ? 'on' : ''} onClick={() => setWizardBookRank(rank)}>{rank}</button>)}
+            aria-label={rank === 0 ? 'Cantrips' : `Rank ${rank}`} aria-pressed={bookRank === rank}
+            className={bookRank === rank ? 'on' : ''} onClick={() => setBookRank(rank)}>{rank}</button>)}
         </div>
-        <label>Search spells{' '}<input type="search" aria-label="Search wizard spells" value={wizardBookQuery}
-          onChange={event => setWizardBookQuery(event.target.value)} /></label>
-        <SpellDefenseFilter value={wizardBookDefense} onChange={setWizardBookDefense} />
-        <GearSystemFilter value={wizardBookSystem} onChange={setWizardBookSystem} />
-        {wizardBookOpen && <DirgeLearnOptions options={rankedWizardOptions} onLearn={saveWizardBookSpell} />}
+        {groups.filter(group => group !== 'Focus Spells').map(group =>
+          <div className="dirge-rank" key={group} hidden={group !== (bookRank === 0 ? 'Cantrips' : `Rank ${bookRank}`)}>
+            {renderSpellGroup(group)}
+          </div>)}
+        <label>Search spells{' '}<input type="search" aria-label={`Search ${bookSource.toLowerCase()} spells`} value={bookQuery}
+          onChange={event => setBookQuery(event.target.value)} /></label>
+        <SpellDefenseFilter value={bookDefense} onChange={setBookDefense} />
+        <GearSystemFilter value={bookSystem} onChange={setBookSystem} />
+        {bookOpen && <DirgeLearnOptions options={rankedBookOptions} onLearn={learnSpellbookSpell} />}
         <form method="dialog"><button autoFocus>Close</button></form>
       </dialog>}
       {(casting || avengerTraditionSwitch) && <>
@@ -2129,9 +2239,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         <h5>Wizard Spellbook</h5>
         <SpellColumns />
         {Array.from(new Set(wizardSpellbookSlots.map(slot => slot.rank))).map(rank => <section className="spell-slot-group" key={rank}>
-          <h6 className="spellbook-rank-heading">
-            <span>{rank === 0 ? 'Cantrips' : `Rank ${rank}`}</span>
-            <SpellbookRankButton book="Wizard" rank={rank} onOpen={openWizardBookRank} />
+          <h6>{rank === 0 ? 'Cantrips' : `Rank ${rank}`}
+            {' '}<SpellbookRankButton book="Wizard" rank={rank} onOpen={openWizardBookRank} />
           </h6>
           <ul>{wizardSpellbookSlots.filter(slot => slot.rank === rank).map(slot => {
             const current = (c.spells ?? []).find(spell => spell.bookSlot === slot.key)
@@ -2167,11 +2276,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           const { options, choices } = preparedOptions[rank]
           const extras = extraSlots.filter(slot => slot.rank === rank)
           return <section className="spell-slot-group" key={rank}>
-            <h5 className={wizard ? 'spellbook-rank-heading' : undefined}>
-              <span>{title}</span>
-              {necromancer && <DirgeRankButton rank={rank} onOpen={openDirge} />}
-              {wizard && <SpellbookRankButton book="Wizard" rank={rank} onOpen={openWizardBook} />}
-            </h5>
+            <h5>{title}{necromancer && <> <DirgeRankButton rank={rank} onOpen={openDirge} /></>}
+              {wizard && <> <SpellbookRankButton book="Wizard" rank={rank} onOpen={rank => openSpellbook('Wizard', rank)} /></>}</h5>
             <SpellColumns />
             <ul>{Array.from({ length: count }, (_, index) => {
               const extra = extras[index - (count - extras.length)]
@@ -2357,6 +2463,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         })}
       </div>}
       </>}
+      {c.className === 'Animist' && c.systems.includes('pf2e')
+        && <AnimistApparitionSpells c={c} entries={entries} save={save} />}
       {druid && groups.some(group => group !== 'Focus Spells') && <b>Learned spell access</b>}
       {!necromancer && groups.filter(group => group !== 'Focus Spells').map(renderSpellGroup)}
       </div>

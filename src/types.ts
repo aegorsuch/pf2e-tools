@@ -410,6 +410,9 @@ export interface Character {
     spentSlots?: string[]
     repertoire?: Record<string, string>
     signatureSpells?: Record<string, string>
+    apparitionRepertoire?: string[]
+    apparitionSlots?: Record<string, string>
+    apparitionSpentSlots?: string[]
   }
   beckoningDirge?: { spell?: string; rank?: number; used?: boolean }
   minorMagic?: { tradition?: 'Arcane' | 'Divine' | 'Occult' | 'Primal'; cantrips?: Partial<Record<'Arcane' | 'Divine' | 'Occult' | 'Primal', string[]>> }

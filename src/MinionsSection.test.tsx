@@ -834,7 +834,10 @@ it('tracks an Animist Spirit Familiar through manifestation, dispersal, and next
     familiar: { name: 'Battle Spirit', abilities: ['Flier'] },
   }
   const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
-  expect(renderToStaticMarkup(tree())).toContain('<h4>Spirit Familiar</h4>')
+  const initialHtml = renderToStaticMarkup(tree())
+  expect(initialHtml).toContain('<h4>Spirit Familiar</h4>')
+  expect(initialHtml).toContain('aria-label="Spirit familiar ability"')
+  expect(initialHtml).toContain('aria-label="Remove Spirit familiar ability 1"')
   expect(renderToStaticMarkup(tree())).toContain('aria-label="Spirit familiar manifested"')
   expect(c.familiar?.spiritManifested).toBeUndefined()
   findToggle(tree(), 'Spirit familiar manifested')?.({ target: { checked: true } })

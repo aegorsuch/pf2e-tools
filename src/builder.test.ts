@@ -605,6 +605,20 @@ it.each(['Diplomacy', 'Intimidation'])('grants Nephilim Lore %s and chosen plana
   expect(featLores({ ...c, feats: [] }, [])).not.toContain('Heaven Lore')
 })
 
+it.each([
+  ['Musetouched', 'Elysium'],
+  ['Pitborn', 'Outer Rifts'],
+])('locks %s Nephilim Lore to %s Lore', (lineage, plane) => {
+  const source = entry('feat', lineage, {}, 1, ['Nephilim', 'Lineage'])
+  const c: Character = { ...base, heritage: 'Nephilim', className: undefined, background: undefined,
+    feats: [{ name: lineage, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+      { name: 'Nephilim Lore', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:1', choice: 'Diplomacy' }],
+    automaticFeatChoices: { [JSON.stringify(['Nephilim Lore', 'Additional Lore'])]: 'Heaven' } }
+  expect(featLores(c, [source])).toContain(`${plane} Lore`)
+  expect(ranksAt(c, [source])[`${plane} Lore`]).toBe(1)
+  expect(ranksAt({ ...c, level: 7 }, [source])[`${plane} Lore`]).toBe(3)
+})
+
 it('grants Core Attunement two chosen arcane innate spells once per day', () => {
   const spell = (name: string, level: number, tradition = 'arcane') => ({ ...entry('spell', name, { tradition }, level), traits: [] })
   const spells = [spell('Fear', 1), spell('Mirror Image', 2), spell('Fireball', 3), spell('Heal', 1, 'divine')]
