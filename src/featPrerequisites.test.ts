@@ -23,6 +23,38 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it('requires matching expert Recall Knowledge skills and Assurance for Automatic Knowledge variants', () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+  const knowledge = mapAonHit(hits.find(hit => hit._id === 'feat-5122')!, 'pf2e')!
+  const assurance = entry('feat', 'Assurance', { repeatable: true }, 1, ['General', 'Skill'])
+  const entries = [knowledge, assurance]
+  const slot = { key: 'skill:4:0', category: 'skill' as const, level: 4 }
+  const c: Character = { ...base, level: 4, rankOverrides: { Arcana: 2, Nature: 2, Athletics: 2, Religion: 1 },
+    lores: [{ name: 'Sailing Lore', rank: 2 }],
+    feats: ['Arcana', 'Athletics', 'Religion', 'Sailing Lore'].map((choice, index) =>
+      ({ name: 'Assurance', choice, type: 'Skill Feat', level: 1, slot: `skill:1:${index}` })) }
+  expect(featChoiceOptions(knowledge.name, c, entries, slot.key)).toEqual(['Arcana', 'Sailing Lore'])
+  expect(featSelectionPrerequisiteChecker(c, entries, slot)(knowledge)).toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats(entries, c, slot)).toContain(knowledge)
+  const wrongSkill = { ...c, feats: c.feats.filter(feat => feat.choice !== 'Arcana' && feat.choice !== 'Sailing Lore') }
+  expect(featChoiceOptions(knowledge.name, wrongSkill, entries, slot.key)).toEqual([])
+  expect(featSelectionPrerequisiteChecker(wrongSkill, entries, slot)(knowledge).missing).toHaveLength(1)
+  expect(eligibleFeats(entries, wrongSkill, slot)).not.toContain(knowledge)
+  const selectedKnowledge = { ...c, feats: [...c.feats,
+    { name: knowledge.name, choice: 'Arcana', type: 'Skill Feat', level: 2, slot: slot.key }] }
+  expect(featChoiceOptions(knowledge.name, selectedKnowledge, entries, slot.key, c.feats.length)).toEqual(['Arcana', 'Sailing Lore'])
+  expect(featChoiceOptions(knowledge.name, selectedKnowledge, entries, 'skill:6:0')).toEqual(['Sailing Lore'])
+  const laterAssurance = { ...c, feats: c.feats.map(feat => feat.choice === 'Arcana' ? { ...feat, slot: 'skill:6:0' } : feat) }
+  expect(featChoiceOptions(knowledge.name, laterAssurance, entries, slot.key)).toEqual(['Arcana', 'Sailing Lore'])
+  expect(featPrerequisiteChecker(laterAssurance, entries, 4)(knowledge)).toEqual({ missing: [], manual: [] })
+  const planned = { ...laterAssurance, feats: laterAssurance.feats.filter(feat => feat.choice !== 'Sailing Lore') }
+  expect(featPrerequisiteChecker(planned, entries, 4)(knowledge).missing).toHaveLength(1)
+  expect(featSelectionPrerequisiteChecker(planned, entries, slot)(knowledge)).toEqual({ missing: [], manual: [] })
+  const gnome = { ...c, ancestry: 'Gnome', lores: [{ name: 'Sailing Lore', rank: 2 }],
+    feats: [{ name: 'Gnome Obsession', choice: 'Sailing Lore', type: 'Ancestry Feat', level: 1 }] }
+  expect(featChoiceOptions(knowledge.name, gnome, entries, slot.key)).toEqual(['Sailing Lore'])
+})
+
 it('keeps feat eligibility specific to the current class and adopted ancestry after warming the trait index', () => {
   const entries: ContentEntry[] = [
     entry('feat', 'Fighter Choice', {}, 1, ['Fighter']),

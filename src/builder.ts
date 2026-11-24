@@ -1456,6 +1456,12 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
   })
   let captainCheck: ReturnType<typeof createFeatPrerequisiteChecker> | undefined
   return (entry: ContentEntry) => {
+    if (entry.source === 'official' && entry.name === 'Automatic Knowledge'
+      && /\bRecall Knowledge\b/i.test(String(entry.data.prerequisite ?? ''))) {
+      return automaticKnowledgeOptions(c, entries, level, excludedIndex).length
+        ? { missing: [], manual: [] }
+        : { missing: ['expert in a Recall Knowledge skill with Assurance in that skill'], manual: [] }
+    }
     if (!options.captainIntelligence && c.className === 'Commander' && archetypesOf(entry).includes('Captain')) {
       captainCheck ??= featPrerequisiteChecker(c, entries, level, excludedIndex, { ...options, captainIntelligence: true })
       return captainCheck(entry)
@@ -2015,9 +2021,37 @@ function scrapperVariants(ranks: Record<string, number>) {
 
 const NEPHILIM_RESISTANCE_TYPES = ['Acid', 'Cold', 'Electricity', 'Fire', 'Sonic']
 
+function automaticKnowledgeOptions(c: Character, entries: ContentEntry[], level: number, excludedIndex: number) {
+  const character = { ...c, level, feats: c.feats.filter((feat, index) =>
+    index !== excludedIndex && featTakenLevel(feat) <= level) }
+  const ranks = ranksAt(character, entries)
+  const grants = automaticFeatGrants(character, entries)
+  const assurance = [...character.feats.filter(feat => feat.name === 'Assurance').map(feat => feat.choice),
+    ...grants.filter(grant => grant.name === 'Assurance').map(grant =>
+      grant.choice ?? /^Exceptional Artisan \((.+)\)$/.exec(grant.source)?.[1])]
+  const used = new Set([...c.feats.filter((feat, index) => index !== excludedIndex && feat.name === 'Automatic Knowledge')
+    .map(feat => feat.choice?.toLowerCase()), ...grants.filter(grant => grant.name === 'Automatic Knowledge')
+    .map(grant => grant.choice?.toLowerCase())])
+  const recallSkills = new Set(['arcana', 'computers', 'crafting', 'medicine', 'nature', 'occultism', 'religion', 'society'])
+  return Object.keys(ranks).filter(skill => (recallSkills.has(skill.toLowerCase()) || /.+\s+lore$/i.test(skill))
+    && ranks[skill] >= 2 && assurance.some(choice => choice?.toLowerCase() === skill.toLowerCase())
+    && !used.has(skill.toLowerCase())).sort((a, b) => a.localeCompare(b))
+}
+
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number,
   category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === 'Automatic Knowledge') {
+    const level = Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)
+    const choices = automaticKnowledgeOptions(c, entries, level, index)
+    for (const feat of c.feats) {
+      if (feat.name !== 'Assurance' || !feat.choice || featTakenLevel(feat) <= level) continue
+      const planned = automaticKnowledgeOptions(c, entries, featTakenLevel(feat), index)
+        .find(skill => skill.toLowerCase() === feat.choice?.toLowerCase())
+      if (planned && !choices.includes(planned)) choices.push(planned)
+    }
+    return choices.sort((a, b) => a.localeCompare(b))
+  }
   if (name === 'Experienced Laborer' && c.systems.includes('sf2e')) {
     const saved = c.feats[index]?.name === name ? c.feats[index].choice?.trim().replace(/\s+/g, ' ') : undefined
     const lore = saved && !/^lore$/i.test(saved) ? /\s+lore$/i.test(saved) ? saved : `${saved} Lore` : undefined

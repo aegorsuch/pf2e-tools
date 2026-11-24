@@ -113,6 +113,23 @@ it('restricts Palewatch duplicate replacements to Religion feats and Religion va
   expect(eligibleFeats(entries, c, normal).map(item => item.name)).toContain('Athletic Feat')
 })
 
+it('selects Automatic Knowledge skill variants in the existing feat picker', () => {
+  const knowledge: ContentEntry = { id: 'knowledge', systems: ['pf2e'], kind: 'feat', source: 'official',
+    name: 'Automatic Knowledge', level: 2, traits: ['General', 'Skill'], description: '',
+    data: { repeatable: true, prerequisite: 'expert in a skill with the Recall Knowledge action; Assurance in that skill' },
+    effects: [], updatedAt: 0 }
+  const assurance: ContentEntry = { ...knowledge, id: 'assurance', name: 'Assurance', level: 1,
+    data: { repeatable: true } }
+  let c: Character = { ...emptyRanger(), level: 4, rankOverrides: { Arcana: 2, Nature: 2 },
+    feats: [{ name: 'Assurance', choice: 'Arcana', type: 'Skill Feat', level: 1, slot: 'skill:2:0' }] }
+  const tree = () => FeatSlots({ c, entries: [knowledge, assurance], categories: ['skill'],
+    save: patch => { c = { ...c, ...patch } }, search: { 'skill:4:0:open': '1' }, onSearch: () => {} })
+  expect(findButton(tree(), 'L04 Skill: Automatic Knowledge (Nature)')).toBeUndefined()
+  findButton(tree(), 'L04 Skill: Automatic Knowledge (Arcana)')!()
+  expect(c.feats).toContainEqual(expect.objectContaining({ name: knowledge.name, choice: 'Arcana', slot: 'skill:4:0' }))
+  expect(renderToStaticMarkup(tree())).toContain('Automatic Knowledge (Arcana)')
+})
+
 it('keeps the level 4 skill slot and allows marking it N/A', () => {
   let c: Character = { ...emptyRanger(), level: 4, dismissedFeatSlots: ['skill:4:0'],
     extraSlots: [{ category: 'skill', level: 4, count: 1 }] }
