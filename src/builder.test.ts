@@ -2124,6 +2124,8 @@ describe('ancestryLabel', () => {
       expect(classLabel(character)).toBe('Warrior of Legend')
       expect(plannedSlots(character).find(slot => slot.grantedBy === 'Warrior of Legend'))
         .toMatchObject({ displayCategory: 'archetype', grantedFeat: 'Warrior of Legend Dedication' })
+      expect(plannedSlots(character).filter(slot => slot.key.startsWith('class:2:')).map(slot => slot.grantedFeat))
+        .toEqual(['Warrior of Legend Dedication', undefined])
       expect(syncClassArchetypeDedication(character, [])?.feats).toContainEqual({
         name: 'Warrior of Legend Dedication', type: 'Class Feat', level: 2, slot: 'class:2:0',
       })

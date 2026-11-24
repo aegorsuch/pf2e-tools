@@ -733,6 +733,7 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
       ? range(1, 20) : r.levels).map((level) => ({ category: r.category, level, count: 1 }))),
     ...(getSettings().freeArchetype ? [{ category: 'archetype' as const, levels: range(2, 20, 2) }].flatMap((r) => r.levels.map((level) => ({ category: r.category, level, count: level === 2 && activeHomebrewDedications(c).some(rule => rule.replacesFreeArchetype) ? 0 : 1 }))) : []),
     ...c.extraSlots,
+    ...(isWarriorOfLegend(c) ? [{ category: 'class' as const, level: 2, count: 1 }] : []),
   ]
   const slots: PlannedSlot[] = []
   const counters = new Map<string, number>()
