@@ -904,6 +904,21 @@ it('implements Fungicidal Hatchet with scaling Peachwood, Returning, Grievous an
   expect(namedWeaponDamage(entry)[0].value).toContain('poison')
 })
 
+it('implements Blade of the Black Sovereign as a Greatsword or Bastard Sword with scaling Shock, Grievous and Adamantine', () => {
+  const sword = (name: string): ContentEntry => ({ ...bow(name, false, false), traits: ['Versatile P'],
+    data: { damage: '1d12 slashing', range: 0, weapon_type: 'Melee', weapon_category: 'Martial', weapon_group: 'Sword', hands: 2, bulk: 2 } })
+  const item: ContentEntry = { ...winter, id: 'black-sovereign', name: 'Blade of the Black Sovereign', level: 15, traits: ['Electricity', 'Magical', 'Unique'],
+    description: 'Base Weapon Greatsword\n\nThis +2 greater striking shock greatsword is forged from standard-grade adamantine.',
+    data: { item_subcategory: 'Specific Magic Weapons', url: 'https://2e.aonprd.com/Equipment.aspx?ID=775' } }
+  const found = makeNamedWeaponEntries([sword('Greatsword'), sword('Bastard Sword'), item], [{ name: 'Shock' }])
+  expect(found.map(entry => entry.name)).toContain('Blade of the Black Sovereign (Bastard Sword)')
+  const entry = found.find(candidate => candidate.name === 'Blade of the Black Sovereign (Greatsword)')!
+  const at = (level: number) => withNamedWeaponState(entry, owned(entry.name), level)?.data
+  expect(at(10)).toMatchObject({ named_weapon_runes: 'Shock;Grievous', named_weapon_material: 'Adamantine (Standard-Grade)' })
+  expect(at(17)).toMatchObject({ named_weapon_runes: 'Shock (Greater);Grievous', named_weapon_material: 'Adamantine (High-Grade)' })
+  expect(effectiveWeapon({ ...c, level: 12 }, [...found, sword('Greatsword')], owned(entry.name))).toMatchObject({ potency: 2, striking: 2 })
+})
+
 it('scales Scalding Gauntlets potency, striking and Flaming with level and hides graded duplicates', () => {
   const gauntlet: ContentEntry = { ...bow('Spiked Gauntlet', false, false), traits: ['Agile', 'Free-Hand'],
     data: { damage: '1d4 piercing', range: 0, weapon_type: 'Melee', weapon_category: 'Simple', weapon_group: 'Brawling', hands: 1, bulk: 'L' } }

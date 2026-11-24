@@ -2645,7 +2645,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             ? active => save(spellActiveChange(c, ANCESTRAL_AVATAR, active)) : undefined}
           activeActions={spell.name === 'Avatar' && isAncestralEmbrace(spell.source.name) ? spell.actions : undefined}
           saveDC={spell.dc ?? (spell.usesSpellcasting ? classSpellDC : undefined)}
-          attackBonus={spell.usesSpellcasting && classSpellDC !== undefined ? classSpellDC - 10 : undefined}
+          attackBonus={spell.attackBonus ?? (spell.usesSpellcasting && classSpellDC !== undefined ? classSpellDC - 10 : undefined)}
           inlineControls={<ItemSpellUses c={c} save={save} spell={spell} />}
           actionControls={spell.name === 'Bone Shield'
             ? <BoneShieldActions c={c} save={save} entry={spell.entry} rank={spell.rank} actions={spell.actions} />

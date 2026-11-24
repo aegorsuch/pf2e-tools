@@ -22,6 +22,7 @@ const BASES: Record<string, string[]> = {
   'Axe of the Dwarven Lords': ['Dwarven Waraxe'],
   'Azlanti Diamond': ['Longsword'],
   Blackaxe: ['Greataxe'],
+  'Blade of the Black Sovereign': ['Greatsword', 'Bastard Sword'],
   'Cane of the Maelstrom': ['Club'],
   "Clear Cutter's Axe": ['Hatchet'],
   'Fungicidal Hatchet': ['Hatchet'],
@@ -254,6 +255,13 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
       named_weapon_potency: at >= 18 ? 3 : 2, named_weapon_striking: at >= 13 ? 2 : 1,
       named_weapon_runes: [...new Set([...runes.filter(rune => runeBase(rune) !== 'Flaming' && runeBase(rune) !== element),
         at >= 18 ? `${element} (Greater)` : element, 'Hooked', 'Grappling', 'Grievous'])].join(';') } }
+  }
+  if (source === 'Blade of the Black Sovereign') {
+    const at = level ?? entry.level
+    const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)
+    return { ...entry, data: { ...entry.data, named_weapon_material: `Adamantine (${at >= 17 ? 'High' : 'Standard'}-Grade)`,
+      named_weapon_runes: [...new Set([...runes.filter(rune => !['Shock', 'Grievous'].includes(runeBase(rune))),
+        at >= 15 ? 'Shock (Greater)' : 'Shock', 'Grievous'])].join(';') } }
   }
   if (source === 'Fungicidal Hatchet') {
     const runes = String(entry.data.named_weapon_runes ?? '').split(';').filter(Boolean)

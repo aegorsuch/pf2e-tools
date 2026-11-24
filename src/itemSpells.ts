@@ -1,5 +1,5 @@
 import type { Character, ContentEntry } from './types'
-import { armorEntry, ownedArmors, ownedShields, runeName, shieldEntry, weaponEntry } from './builder'
+import { armorEntry, ownedArmors, ownedShields, runeName, shieldEntry, weaponAttack, weaponEntry } from './builder'
 import { withNamedWeaponState } from './namedWeapons'
 import { limitedSpellUses } from './featSpells'
 import { getSettings } from './settings'
@@ -15,6 +15,7 @@ export interface ItemSpell {
   frequency?: string
   condition?: string
   dc?: number
+  attackBonus?: number
   usesSpellcasting: boolean
 }
 
@@ -97,6 +98,9 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
     const costOverride = /\bactivation is a ([123])-action/i.exec(text)?.[1]
     const actionCosts = String(source.data.artifact_activation_actions ?? source.data.item_activation_actions ?? '').split(';')
     const atWill = /activate it any number of times per day/i.test(text)
+    const bladeOwner = source.data.named_weapon_source === 'Blade of the Black Sovereign'
+      ? c.weapons?.find(weapon => weaponEntry(entries, weapon.name, weapon.id)?.id === source.id) : undefined
+    const bladeAttack = bladeOwner ? weaponAttack(c, entries, bladeOwner).attack : undefined
     const addSpell = (name: string, rank?: number, details: Partial<ItemSpell> = {}) => {
       const key = normalized(name)
       const candidates = [...index.spells.get(key) ?? [], ...index.spells.get(aliases[key]) ?? []].filter(eligible)
@@ -110,6 +114,7 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
         usesSpellcasting: staff || source.traits.some(trait => /^(?:wand|scroll|spellheart)$/i.test(trait))
           || /(?:your|wielder's) spell (?:DC|attack)|your spellcasting/i.test(text),
         ...details,
+        ...(bladeAttack !== undefined ? { attackBonus: bladeAttack, dc: 10 + bladeAttack, usesSpellcasting: false } : {}),
         ...(atWill ? { frequency: 'At will' } : {}),
         ...(costOverride ? { actions: ['', 'Single Action', 'Two Actions', 'Three Actions'][Number(costOverride)] } : {}) })
     }
