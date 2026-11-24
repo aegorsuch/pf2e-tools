@@ -825,6 +825,27 @@ it('shows clickable undead familiar rules and one daily ability', () => {
   expect(html).not.toContain('aria-label="Undead familiar name"')
 })
 
+it('tracks an Animist Spirit Familiar through manifestation, dispersal, and next daily preparations', () => {
+  let c: Character = {
+    id: 'animist-spirit-familiar', systems: ['pf2e'], name: 'Test', level: 1, className: 'Animist',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 18, cha: 10 },
+    feats: [{ name: 'Spirit Familiar (Animist)', type: 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { name: 'Battle Spirit', abilities: ['Flier'] },
+  }
+  const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
+  expect(renderToStaticMarkup(tree())).toContain('<h4>Spirit Familiar</h4>')
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="Spirit familiar manifested"')
+  expect(c.familiar?.spiritManifested).toBeUndefined()
+  findToggle(tree(), 'Spirit familiar manifested')?.({ target: { checked: true } })
+  expect(c.familiar?.spiritManifested).toBe(true)
+  findToggle(tree(), 'Spirit familiar manifested')?.({ target: { checked: false } })
+  expect(c.familiar?.spiritDestroyed).toBe(true)
+  findButton(tree(), 'Spirit familiar daily preparations')?.()
+  expect(c.familiar?.spiritDestroyed).toBe(false)
+  expect(c.familiar?.spiritManifested).toBe(false)
+})
+
 it('selects, details, removes, and applies familiar abilities without exposing stored names', () => {
   const confirm = vi.fn(() => true)
   vi.stubGlobal('window', { confirm })

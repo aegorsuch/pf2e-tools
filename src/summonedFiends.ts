@@ -57,6 +57,21 @@ export function normalizePlants(hits: Hit[]): SummonedFiend[] {
   return normalizeCreatures(hits, ['plant', 'fungus'], /^(plant|fungus)$/i)
 }
 
+export function undeadLevelLimit(rank: number) {
+  return Number.isInteger(rank) && rank >= 1 && rank <= 10
+    ? rank === 1 ? -1 : rank <= 4 ? rank - 1 : 2 * rank - 5 : undefined
+}
+
+export function undeadOptions(creatures: SummonedFiend[], rank: number) {
+  const maxLevel = undeadLevelLimit(rank)
+  return maxLevel === undefined ? [] : creatures.filter(creature => creature.level <= maxLevel
+    && creature.traits.some(trait => /^undead$/i.test(trait)))
+}
+
+export function normalizeUndead(hits: Hit[]): SummonedFiend[] {
+  return normalizeCreatures(hits, ['undead'], /^undead$/i)
+}
+
 function normalizeCreatures(hits: Hit[], requiredTraits: string[], categories: RegExp): SummonedFiend[] {
   const byId = new Map(hits.map(hit => [hit._id, hit._source]))
   const numeric = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? value : undefined

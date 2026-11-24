@@ -6,6 +6,7 @@ import { automatedSpellStatusControls, ProtectCompanionOptions, ZealousConvictio
 import { SimplePoisons } from './GearSection'
 import { isBastionNamedArmor } from './namedArmor'
 import { FULMINATING_SHOT_ELEMENTS, fulminatingShotBonus } from './fulminatingShot'
+import { confirmRemoval } from './confirmRemoval'
 
 const canDeviseAStratagem = (c: SectionProps['c']) => c.systems.includes('pf2e') && c.className === 'Investigator'
 
@@ -28,6 +29,7 @@ export function StatusesSummary({ c, entries }: SectionProps) {
     ...(entrenchMeleeActive(c, entries) ? ['Entrench Melee'] : []),
     ...(fulminatingShotBonus(c) ? [`Fulminating Shot (${fulminatingShotBonus(c)})`] : []),
     ...c.activeSpells ?? [],
+    ...(c.summonedUndead ? ['Summon Undead'] : []),
     ...c.activeFeatEffects ?? [],
     ...(c.zealousConvictionRank !== undefined ? ['Zealous Conviction'] : []),
     ...(activeFeatsNamed(c, 'Favored Terrain').length && isFeatEffectActive(c, 'Favored Terrain') ? ['Favored Terrain'] : []),
@@ -59,6 +61,7 @@ export function HuntPreyToggle({ c, entries, save, summary = false }: SectionPro
 
 export function StatusesContent({ c, entries, save }: SectionProps) {
   const grant = grantedFeatSpells(c, entries).find(spell => spell.source === 'Heroic Presence')
+  const summonedUndead = c.summonedUndead
   const entrenchArmors = ownedArmors(c, entries).filter(armor => isBastionNamedArmor(armor.name))
   const controls = [
     { name: 'Active stance', element: <StancesContent c={c} entries={entries} save={save} /> },
@@ -131,6 +134,16 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
         onChange={event => save(featEffectChange(c, 'Favored Terrain', event.target.checked))} /> Favored Terrain</label> }] : []),
     ...(knowsSpell(c, entries, 'Protect Companion') || c.activeSpells?.includes('Protect Companion')
       ? [{ name: 'Protect Companion', element: <ProtectCompanionOptions c={c} save={save} /> }] : []),
+    ...(summonedUndead ? [{
+      name: 'Summon Undead',
+      element: <label><input type="checkbox" aria-label="Summon Undead status" checked
+        onChange={event => {
+          if (event.target.checked) return
+          confirmRemoval(`summoned ${summonedUndead.name}`, () => save({
+            summonedUndead: undefined, activeSpells: c.activeSpells?.filter(spell => spell !== 'Summon Undead'),
+          }))
+        }} /> Summon Undead: {summonedUndead.name}</label>,
+    }] : []),
     ...automatedSpellStatusControls({ c, entries, save }),
   ].sort((a, b) => a.name.localeCompare(b.name))
   return <div className="character-section-content">

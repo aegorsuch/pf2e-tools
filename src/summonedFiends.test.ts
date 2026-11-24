@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
-import { fiendLevelLimit, fiendOptions, normalizeFiends, normalizePlants, plantLevelLimit, plantOptions } from './summonedFiends'
+import { fiendLevelLimit, fiendOptions, normalizeFiends, normalizePlants, normalizeUndead, plantLevelLimit, plantOptions,
+  undeadLevelLimit, undeadOptions } from './summonedFiends'
 import type { Hit } from './aonQuery'
 
 const creature = (id: string, name: string, traits: string[], level: number, extra: Record<string, unknown> = {}): Hit => ({
@@ -48,4 +49,21 @@ it('filters plant and fungus summons by rarity, remaster and spell rank', () => 
   expect([1, 2, 3, 4, 5, 6, 9, 10, 11].map(plantLevelLimit)).toEqual([-1, 1, 2, 3, 5, 7, 13, 15, undefined])
   expect(plantOptions(creatures, 1).map(creature => creature.name)).toEqual(['Sapling'])
   expect(plantOptions(creatures, 5).map(creature => creature.name)).toEqual(['Mushroom', 'Remaster plant', 'Sapling'])
+})
+
+it('filters undead summons by rarity and spell rank', () => {
+  const undead = (id: string, name: string, traits: string[], level: number, extra: Record<string, unknown> = {}): Hit => ({
+    _id: id, _source: { name, trait: traits, level, rarity: 'Common',
+      url: `/Monsters.aspx?ID=${id}`, ...extra },
+  })
+  const creatures = normalizeUndead([
+    undead('1', 'Skeleton Guard', ['Undead', 'Skeleton'], 1),
+    undead('2', 'Weak Zombie', ['Undead', 'Zombie'], -1),
+    undead('3', 'Rare Vampire', ['Undead', 'Vampire'], 5, { rarity: 'Rare' }),
+    undead('4', 'Powerful Lich', ['Undead', 'Lich'], 16),
+    undead('5', 'Living Guard', ['Humanoid'], 1),
+  ])
+  expect([1, 2, 3, 4, 5, 6, 9, 10, 11].map(undeadLevelLimit)).toEqual([-1, 1, 2, 3, 5, 7, 13, 15, undefined])
+  expect(undeadOptions(creatures, 1).map(creature => creature.name)).toEqual(['Weak Zombie'])
+  expect(undeadOptions(creatures, 5).map(creature => creature.name)).toEqual(['Skeleton Guard', 'Weak Zombie'])
 })

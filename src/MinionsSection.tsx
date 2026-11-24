@@ -135,7 +135,9 @@ function SummonedCreature({ name, displayName = name }: { name: keyof typeof SUM
   </details>
 }
 
-export function SummonedFiendCard({ fiend, save, plant = false }: { fiend: SummonedFiend; save: SectionProps['save']; plant?: boolean }) {
+export function SummonedFiendCard({ fiend, save, plant = false, undead = false, activeSpells }: {
+  fiend: SummonedFiend; save: SectionProps['save']; plant?: boolean; undead?: boolean; activeSpells?: Character['activeSpells']
+}) {
   const bonus = (value: number | null | undefined) => value == null ? '—' : signed(value)
   return <details className="character-subsection" open>
     <summary><h4>Summoned {fiend.name}</h4></summary>
@@ -153,7 +155,10 @@ export function SummonedFiendCard({ fiend, save, plant = false }: { fiend: Summo
     <section className="companion-actions"><h5>Skills</h5><div>{fiend.skills}</div></section>
     <section className="companion-actions"><h5>Speed</h5><div>{fiend.speed}</div></section>
     <a href={fiend.url} target="_blank" rel="noreferrer">{fiend.name} abilities and statistics</a>
-    <button type="button" aria-label={`Dismiss summoned ${fiend.name}`} onClick={() => confirmRemoval(`summoned ${fiend.name}`, () => save(plant ? { summonedPlant: undefined } : { summonedFiend: undefined }))}>Dismiss</button>
+    <button type="button" aria-label={`Dismiss summoned ${fiend.name}`} onClick={() => confirmRemoval(`summoned ${fiend.name}`, () => save(plant
+      ? { summonedPlant: undefined }
+      : undead ? { summonedUndead: undefined, activeSpells: activeSpells?.filter(spell => spell !== 'Summon Undead') }
+        : { summonedFiend: undefined }))}>Dismiss</button>
   </details>
 }
 
@@ -193,11 +198,12 @@ function minionSummaryData(c: Character) {
   const advancement = companionAdvancement(c)
   const constructAdvancement = constructCompanionAdvancement(c)
   const stage = [advancement.advanced, advancement.mature ? 'Mature' : 'Young'].find(Boolean)
-  const { leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, glyph } = familiarSelection(c)
+  const { leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, spiritFamiliar, glyph } = familiarSelection(c)
   const seaFriend = activeFeatsNamed(c, 'Friend of the Sea').length > 0
   const pet = seaFriend || activeFeatsNamed(c, 'Pet').length > 0
     || activeFeatsNamed(c, 'Beast Trainer').some(feat => feat.choice === 'Pet')
-  return { companions, advancement, constructAdvancement, stage, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, glyph, seaFriend, pet }
+  return { companions, advancement, constructAdvancement, stage, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp,
+    spiritFamiliar, glyph, seaFriend, pet }
 }
 
 function companionTitle(c: Character, index: number) {
@@ -345,13 +351,13 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
 }
 
 export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
-  const { companions, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, glyph, seaFriend, pet } = minionSummaryData(c)
+  const { companions, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, spiritFamiliar, glyph, seaFriend, pet } = minionSummaryData(c)
   const lashuntaAlly = activeLashuntaAlly(c)
   return <summary className="character-section-summary">
     <strong>Minions</strong>
     <span>{[...companions.map((_, index) => companionTitle(c, index)),
       ...(c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' ? ['Drone'] : []),
-      ...(familiar ? [leshy ? 'Leshy Familiar' : undeadFamiliar ? 'Undead Familiar'
+      ...(familiar ? [spiritFamiliar ? 'Spirit Familiar' : leshy ? 'Leshy Familiar' : undeadFamiliar ? 'Undead Familiar'
         : crocodileFamiliar ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'] : []), ...(wasp ? ['Wasp Familiar'] : []),
       ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
       ...Array.from({ length: followerCount(c) }, (_, index) => {
@@ -360,6 +366,7 @@ export function MinionsSummary({ c }: Pick<SectionProps, 'c'>) {
       ...(lashuntaAlly ? [`Summoned ${lashuntaAlly}`] : []),
       ...(activeShirrenAlly(c) ? ['Summoned Kucharn'] : []),
       ...(c.summonedPlant ? [`Summoned ${c.summonedPlant.name}`] : []),
+      ...(c.summonedUndead ? [`Summoned ${c.summonedUndead.name}`] : []),
       ...(activeSummonedFiend(c) ? [`Summoned ${activeSummonedFiend(c)!.name}`] : [])]
       .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })).join(', ') || '0 minions'}</span>
   </summary>
@@ -476,7 +483,7 @@ export function FollowerCards({ c, entries, save }: SectionProps) {
 }
 
 export function MinionsContent({ c, entries, save }: SectionProps) {
-  const { companions, constructAdvancement, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, glyph, seaFriend, pet } = minionSummaryData(c)
+  const { companions, constructAdvancement, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, spiritFamiliar, glyph, seaFriend, pet } = minionSummaryData(c)
   const lashuntaAlly = activeLashuntaAlly(c)
   const ferocity = minionFerocity(c)
   const magicHideKnown = knowsSpell(c, entries, 'Magic Hide')
@@ -542,6 +549,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
         {lashuntaAlly && <SummonedCreature name={lashuntaAlly} />}
         {activeShirrenAlly(c) && <SummonedCreature name="Emganat" displayName="Kucharn" />}
         {c.summonedPlant && <SummonedFiendCard fiend={c.summonedPlant} plant save={save} />}
+        {c.summonedUndead && <SummonedFiendCard fiend={c.summonedUndead} undead activeSpells={c.activeSpells} save={save} />}
         {activeSummonedFiend(c) && <SummonedFiendCard fiend={activeSummonedFiend(c)!} save={save} />}
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" data-minion-name="Drone" open>
           <summary><h4>Drone</h4></summary>
@@ -883,7 +891,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           const patronAbility = !isWasp ? familiarCapacity.patronAbility : undefined
           const dailyAbilityLimit = familiarCapacity.dailyAbilityLimit
           const selectableAbilityLimit = patronAbility ? familiarCapacity.selectableAbilityLimit : dailyAbilityLimit
-          const familiarType = isUndead ? 'Undead familiar' : isLeshy ? 'Leshy familiar'
+          const familiarType = spiritFamiliar ? 'Spirit familiar' : isUndead ? 'Undead familiar' : isLeshy ? 'Leshy familiar'
             : isCrocodile ? 'Crocodile familiar' : glyph ? 'Glyph familiar' : 'Familiar'
           const familiarLabel = isWasp ? 'Wasp familiar' : familiarType
           const savedAbilities = (data?.abilities ?? []).map((ability, index) => ({ ability, index })).filter(item => !!item.ability)
@@ -931,11 +939,32 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               && (!alreadySelected || isFamiliarAbilityRepeatable(entry))
               && !familiarAbilityUnavailableReason(entry, c, savedAbilities.map(item => item.ability), isUndead, entries)
           })
-          return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" data-minion-name={isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'} open>
-          <summary><h4>{isWasp ? 'Wasp Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
+          return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" data-minion-name={isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'} open>
+          <summary><h4>{isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
             : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : 'Familiar'}</h4> ({activeAbilityChoices.length + Number(!!patronAbility)}/{dailyAbilityLimit})</summary>
           <article className="gear-card">
           {isCrocodile && <small>Tiny crocodile familiar granted by Crocodile's Twin.</small>}
+          {spiritFamiliar && <>
+            <label>Apparition{' '}
+              <input aria-label="Spirit familiar apparition" value={data?.name ?? ''}
+                onChange={event => saveFamiliar({ name: event.target.value })} />
+            </label>
+            <div className="gear-traits"><span>Spirit</span></div>
+            <label><input type="checkbox" aria-label="Spirit familiar manifested"
+              checked={!!data?.spiritManifested && !data.spiritDestroyed}
+              disabled={!!data?.spiritDestroyed}
+              onChange={event => saveFamiliar(event.target.checked
+                ? { spiritManifested: true, spiritDestroyed: false }
+                : { spiritManifested: false, spiritDestroyed: true })} /> Manifested after daily preparations</label>
+            {data?.spiritDestroyed
+              ? <small>Destroyed or dispersed; apparition benefits return after next daily preparations.
+                <button type="button" aria-label="Spirit familiar daily preparations"
+                  onClick={() => saveFamiliar({ spiritDestroyed: false, spiritManifested: false })}>
+                  Next daily preparations
+                </button>
+              </small>
+              : !data?.spiritManifested && <small>Choose whether to manifest this familiar during daily preparations.</small>}
+          </>}
           {patronAbility && <div className="gear-traits"><EntryDescription name={patronAbility.name} entry={patronAbility}
             entries={entries} character={c} buttonLabel="Patron familiar ability" /></div>}
           {glyph && !isWasp && <div className="gear-runes">{GLYPH_FAMILIAR_ABILITIES.map(name => {

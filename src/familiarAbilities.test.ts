@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import { activeFamiliarAbilities, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries,
-  familiarAbilityUnavailableReason, familiarSpellBenefits } from './familiarAbilities'
+  familiarAbilityUnavailableReason, familiarSelection, familiarSpellBenefits } from './familiarAbilities'
 import type { Character, ContentEntry } from './types'
 
 const character: Character = {
@@ -89,6 +89,18 @@ it('activates spell benefits only for valid familiar choices within the daily li
   expect(familiarSpellBenefits(manual, entries, { 0: 5, 1: 2, 4: 1 })).toEqual({ cantrip: true, batteryRank: 1 })
   expect(familiarSpellBenefits({ ...manual, familiar: { abilities: ['Spell Battery', 'Spell Battery'] } }, entries, slots))
     .toEqual({ cantrip: false, batteryRank: undefined })
+})
+
+it('recognizes Animist Spirit Familiar and activates its familiar abilities only while manifested', () => {
+  const c: Character = { ...character, className: 'Animist', feats: [
+    { name: 'Spirit Familiar (Animist)', type: 'Class Feat', level: 1 },
+  ], familiar: { abilities: ['Flier'] } }
+  expect(familiarSelection(c)).toMatchObject({ familiar: true, spiritFamiliar: true, dailyAbilityLimit: 2 })
+  expect(activeFamiliarAbilities(c, [ability('Flier', '')])).toEqual([])
+  const manifested = { ...c, familiar: { ...c.familiar, spiritManifested: true } }
+  expect(activeFamiliarAbilities(manifested, [ability('Flier', '')])).toEqual(['Flier'])
+  expect(activeFamiliarAbilities({ ...manifested, familiar: { ...manifested.familiar, spiritDestroyed: true } },
+    [ability('Flier', '')])).toEqual([])
 })
 
 it('reserves one Witch familiar ability for the selected patron', () => {

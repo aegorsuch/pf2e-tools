@@ -100,5 +100,7 @@ export function characterSize(c: Character, entries: ContentEntry[]) {
   const heritageSize = characterHeritages(c, entries).find(entry => typeof entry.data.size === 'string')?.data.size
   const ancestrySize = c.ancestry === undefined ? undefined : namedEntries(entries).ancestry.get(c.ancestry)
     ?.find(entry => entry.systems.some(system => c.systems.includes(system)))?.data.size
-  return String(heritageSize ?? ancestrySize ?? 'Medium')
+  const scionTransformation = c.systems.includes('pf2e')
+    && c.feats.some(feat => feat.name === 'Scion Transformation' && featTakenLevel(feat) <= c.level)
+  return scionTransformation ? 'Large' : String(heritageSize ?? ancestrySize ?? 'Medium')
 }

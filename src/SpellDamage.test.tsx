@@ -418,6 +418,27 @@ it('rolls every Cataclysm component once with conditional damage identified', ()
     'Treat resistances as 10 lower']) expect(html).toContain(text)
 })
 
+it.each([
+  ['Blood Infusion', 1, { label: 'Failure damage', dice: 1, sides: 6, type: 'persistent bleed',
+    note: 'Success: 1 persistent bleed; critical failure: 2d6 persistent bleed' }],
+  ['Bloody Tendrils', 6, { label: 'Damage', dice: 2, sides: 12, type: 'bludgeoning' }],
+  ['Blossoming Gore', 7, { label: 'Persistent bleed', dice: 0, sides: 0, bonus: 14, type: 'persistent bleed' }],
+  ['Bone Spear', 3, { label: 'Damage', dice: 6, sides: 6, type: 'piercing' }],
+  ['Bony Barrage', 4, { label: 'Damage', dice: 4, sides: 10, type: 'piercing' }],
+  ['Necrotic Bomb', 5, { label: 'Damage', dice: 5, sides: 12, type: 'void' }],
+  ['Song of the Soul', 5, { label: 'Healing', dice: 5, sides: 8, type: 'HP' }],
+  ['Zombie Horde', 5, { label: 'Damage', dice: 5, sides: 4, type: 'bludgeoning' }],
+  ['Eclipse Burst', 9, { label: 'Damage', dice: 10, sides: 10, type: 'cold',
+    additional: { label: 'Void damage to living creatures', dice: 10, sides: 4, type: 'void' } }],
+] as const)('rolls %s at rank %i using its documented damage', (name, rank, expected) => {
+  expect(spellDamage(name, rank)).toEqual([expected])
+  const [roll] = spellDamage(name, rank)
+  expect(renderToStaticMarkup(<SpellActions name={name} rank={rank}
+    entry={{ id: name, name, systems: ['pf2e'], kind: 'spell', source: 'official', level: rank,
+      traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }} />))
+    .toContain(roll.additional ? roll.additional.label : roll.type)
+})
+
 it('records a limited damage roll once and refuses disabled rolls', () => {
   const onRoll = vi.fn()
   const damage = { label: 'Damage', dice: 2, sides: 8, type: 'fire' }
@@ -431,6 +452,17 @@ it('records a limited damage roll once and refuses disabled rolls', () => {
   run(false)
   run(true)
   expect(onRoll).toHaveBeenCalledTimes(1)
+})
+
+it('offers Dread Mosquito Storm area damage and selectable Necrotic Blood stages', () => {
+  const entry: ContentEntry = { id: 'dread-mosquito-storm', name: 'Dread Mosquito Storm', systems: ['pf2e'],
+    kind: 'spell', source: 'official', level: 8, traits: [], description: '', data: { actions: 'Three Actions' },
+    effects: [], updatedAt: 1 }
+  const html = renderToStaticMarkup(<SpellActions name={entry.name} rank={8} entry={entry} />)
+  expect(html).toContain('aria-label="Roll Dread Mosquito Storm: Area damage"')
+  expect(html).toContain('1 void')
+  expect(html).toContain('aria-label="Necrotic Blood stage"')
+  expect(html).toContain('Stage 1 disease damage: 3d10 void')
 })
 
 it('rolls and rerolls all ten Primal Howl dice when its two-action button is clicked and announces the total', () => {

@@ -257,6 +257,26 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 4, type: 'void' }] : []
     case 'Deathly Scream':
       return rank >= 1 ? [{ label: 'Damage', dice: rank, sides: 4, type: 'mental' }] : []
+    case 'Blood Infusion':
+      return rank >= 1 ? [{ label: 'Failure damage', dice: rank, sides: 6, type: 'persistent bleed',
+        note: `Success: ${rank} persistent bleed; critical failure: ${2 * rank}d6 persistent bleed` }] : []
+    case 'Bloody Tendrils':
+      return rank >= 3 ? [{ label: 'Damage', dice: 1 + Math.floor((rank - 3) / 3), sides: 12, type: 'bludgeoning' }] : []
+    case 'Blossoming Gore':
+      return rank >= 5 ? [{ label: 'Persistent bleed', dice: 0, sides: 0, bonus: 10 + 2 * (rank - 5), type: 'persistent bleed' }] : []
+    case 'Bone Spear':
+      return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'piercing' }] : []
+    case 'Bony Barrage':
+      return rank >= 2 ? [{ label: 'Damage', dice: rank + 0, sides: 10, type: 'piercing' }] : []
+    case 'Necrotic Bomb':
+      return rank >= 1 ? [{ label: 'Damage', dice: rank, sides: 12, type: 'void' }] : []
+    case 'Song of the Soul':
+      return rank >= 1 ? [{ label: 'Healing', dice: rank, sides: 8, type: 'HP' }] : []
+    case 'Zombie Horde':
+      return rank >= 3 ? [{ label: 'Damage', dice: rank, sides: 4, type: 'bludgeoning' }] : []
+    case 'Eclipse Burst':
+      return rank >= 7 ? [{ label: 'Damage', dice: rank + 1, sides: 10, type: 'cold',
+        additional: { label: 'Void damage to living creatures', dice: rank + 1, sides: 4, type: 'void' } }] : []
     case 'Harm':
       return rank >= 1 ? [{ label: 'Damage', dice: rank, sides: 8, type: 'void' }] : []
     case 'Heal':
@@ -493,9 +513,26 @@ function SunBladeActions({ rank }: { rank: number }) {
   </span>
 }
 
+function DreadMosquitoStormActions() {
+  const [stage, setStage] = useState<1 | 2 | 3>(1)
+  return <span>
+    <DamageRoll name="Dread Mosquito Storm" damage={{ label: 'Area damage', dice: 0, sides: 0, bonus: 1, type: 'void' }}
+      actions="Three Actions" />
+    <label>Necrotic Blood stage <select aria-label="Necrotic Blood stage" value={stage}
+      onChange={event => setStage(Number(event.target.value) as 1 | 2 | 3)}>
+      <option value={1}>Stage 1</option>
+      <option value={2}>Stage 2</option>
+      <option value={3}>Stage 3</option>
+    </select></label>
+    <DamageRoll key={stage} name="Dread Mosquito Storm"
+      damage={{ label: `Stage ${stage} disease damage`, dice: stage + 2, sides: 10, type: 'void' }} />
+  </span>
+}
+
 export function SpellActions({ name, rank, entry, spellcastingModifier, actionOverride }: { name: string; rank: number; entry?: ContentEntry; spellcastingModifier?: number; actionOverride?: string }) {
   if (name === 'Warp World' && rank >= 4) return <WarpWorldRoll rank={rank} />
   if (name === 'Sun Blade' && rank >= 2) return <SunBladeActions rank={rank} />
+  if (name === 'Dread Mosquito Storm') return <DreadMosquitoStormActions />
   const allRolls = spellActionRolls(name, rank, entry, spellcastingModifier)
   const action = actionOverride?.replace(/^Single Action$/i, 'One Action')
   const rolls = name === 'Heal' && action && /^(?:One|Two|Three) Actions?$/i.test(action)

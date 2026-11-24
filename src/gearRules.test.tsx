@@ -3057,6 +3057,37 @@ it('grants Defensive Armaments parry to wielded two-handed firearms and crossbow
   expect(hasParryWeapon({ ...c, feats: [] }, entries)).toBe(false)
 })
 
+it('applies Gunslinger firearm and crossbow proficiency progression, including Spellshot', () => {
+  const gunslinger = content('class', 'Gunslinger', { attack_proficiency: 'Trained in simple weapons, Trained in martial weapons' })
+  const firearm = content('weapon', 'Arquebus', { weapon_category: 'Martial', weapon_group: 'Firearm', weapon_type: 'Ranged',
+    range: 150, hands: 2, damage: '1d8 piercing' })
+  const crossbow = content('weapon', 'Heavy Crossbow', { weapon_category: 'Martial', weapon_group: 'Crossbow', weapon_type: 'Ranged',
+    range: 120, hands: 2, damage: '1d10 piercing' })
+  const advancedFirearm = content('weapon', 'Advanced Firearm', { weapon_category: 'Advanced', weapon_group: 'Firearm',
+    weapon_type: 'Ranged', range: 150, hands: 2, damage: '1d8 piercing' })
+  const bow = content('weapon', 'Longbow', { weapon_category: 'Martial', weapon_type: 'Ranged', range: 100, hands: 2, damage: '1d8 piercing' })
+  const advancedBow = content('weapon', 'Advanced Bow', { weapon_category: 'Advanced', weapon_type: 'Ranged', range: 100,
+    hands: 2, damage: '1d8 piercing' })
+  const mastery = content('classFeature', 'Gunslinger Weapon Mastery', { class: 'Gunslinger' }, 5)
+  mastery.description = 'Your proficiency rank increases to master with simple and martial firearms and crossbows. Your proficiency rank for advanced firearms and crossbows, simple weapons, martial weapons, and unarmed attacks increases to expert.'
+  const legend = content('classFeature', 'Gunslinging Legend', { class: 'Gunslinger' }, 13)
+  legend.description = 'Your proficiency rank increases to legendary with simple and martial firearms and crossbows and to master with advanced firearms and crossbows. Your proficiency rank for simple weapons, martial weapons, and unarmed attacks increases to master.'
+  const weapons = [firearm, crossbow, advancedFirearm, bow, advancedBow]
+    .map(entry => ({ id: entry.name, name: entry.name, potency: 0, striking: 0, runes: [] as string[] }))
+  const entries = [gunslinger, firearm, crossbow, advancedFirearm, bow, advancedBow, mastery, legend]
+  for (const [level, martialGunRank, advancedGunRank, martialWeaponRank] of [
+    [1, 2, 1, 1], [5, 3, 2, 2], [13, 4, 3, 3], [20, 4, 3, 3],
+  ]) {
+    const c: Character = { ...base, className: 'Gunslinger', subclass: 'Way of the Spellshot', level,
+      feats: [], weapons }
+    expect(weaponAttack(c, entries, weapons[0]).rank).toBe(martialGunRank)
+    expect(weaponAttack(c, entries, weapons[1]).rank).toBe(martialGunRank)
+    expect(weaponAttack(c, entries, weapons[2]).rank).toBe(advancedGunRank)
+    expect(weaponAttack(c, entries, weapons[3]).rank).toBe(martialWeaponRank)
+    expect(weaponAttack(c, entries, weapons[4]).rank).toBe(0)
+  }
+})
+
 it('doubles ranged and thrown increments for the Impossible rune', () => {
   const bow = content('weapon', 'Longbow', { weapon_category: 'Martial', weapon_type: 'Ranged', range: 100, damage: '1d8 piercing' })
   const dagger = content('weapon', 'Thrown Dagger', { weapon_category: 'Simple', weapon_type: 'Melee',

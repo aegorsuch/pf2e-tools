@@ -161,15 +161,27 @@ export function hitPointBonuses(c: Character, entries?: ContentEntry[]) {
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
-export function ancestryLabel(ancestry?: string, heritage?: string) {
+export function ancestryLabel(ancestry?: string, heritage?: string, lineage?: string) {
   if (!ancestry) return heritage ?? ''
+  if (lineage && heritage?.toLowerCase() === 'nephilim') heritage = lineage
   if (!heritage) return ancestry
   const includesAncestry = `-${slug(heritage)}-`.includes(`-${slug(ancestry)}-`)
   return includesAncestry ? heritage : `${heritage} ${ancestry}`
 }
 
+export function characterAncestryLabel(c: Character, entries: ContentEntry[]) {
+  const lineage = c.systems.includes('pf2e') && c.heritage?.trim().toLowerCase() === 'nephilim'
+    ? c.feats.find(feat => featTakenLevel(feat) === 1 && (() => {
+      const source = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
+      return source && ['nephilim', 'lineage'].every(required =>
+        source.traits.some(trait => trait.toLowerCase() === required))
+    })())?.name
+    : undefined
+  return ancestryLabel(c.ancestry, c.heritage, lineage)
+}
+
 export const characterSummary = (c: Character, entries: ContentEntry[]) =>
-  [ancestryLabel(c.ancestry, c.heritage), classLabel(c, entries), c.level].filter((value) => value !== '').join(' ')
+  [characterAncestryLabel(c, entries), classLabel(c, entries), c.level].filter((value) => value !== '').join(' ')
 
 // Best-effort feat category from AoN traits
 export function featType(feat: ContentEntry, c: Character) {
@@ -1317,7 +1329,10 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         championReaction: character.className === 'Champion' && ['Justice', 'Grandeur', 'Liberation', 'Redemption'].includes(subclass ?? '')
           ? 'protective' : character.className === 'Champion' && ['Desecration', 'Iniquity', 'Obedience'].includes(subclass ?? '')
             ? 'offensive' : undefined,
-        familiar: character.className === 'Witch' || character.feats.some(feat => ['Familiar', 'Leshy Familiar', 'Animal Accomplice', 'Glyph Familiar'].includes(feat.name))
+        familiar: character.className === 'Witch'
+          || (character.className === 'Animist' && character.systems.includes('pf2e')
+            && activeFeatsNamed(character, 'Spirit Familiar (Animist)').length > 0)
+          || character.feats.some(feat => ['Familiar', 'Leshy Familiar', 'Animal Accomplice', 'Glyph Familiar'].includes(feat.name))
           || hasDivineIntercession(character, 'Calistria', 'moderate-boon'),
         get primalInnateSpell() { return getInnateGrants().some(grant => grant.rule.tradition?.toLowerCase() === 'primal') },
         get gnomePrimalInnateSpell() {
@@ -3732,6 +3747,9 @@ export function classLabel(c: Character, entries: ContentEntry[] = []) {
   if (c.className === 'Rogue') return `${subclass.replace(/ Racket$/, '')} Racket Rogue`
   if (c.className === 'Bard') return `${subclass.replace(/ Muse$/, '')} Muse Bard`
   if (c.className === 'Witch') return `Witch of ${subclass.replace(/^The /, 'the ')}`
+  if (c.className === 'Oracle') return `Oracle of the ${subclass.replace(/^The\s+/i, '')}`
+  if (c.className === 'Investigator') return `Investigator of the ${subclass.replace(/^The\s+/i, '').replace(/\s+Methodology$/i, '')} Methodology`
+  if (c.className === 'Sorcerer') return `Sorcerer of the ${subclass.replace(/^The\s+/i, '').replace(/\s+Bloodline$/i, '')} Bloodline`
   return `${subclass} ${c.className}`
 }
 
@@ -4271,6 +4289,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
     addVision(`Detect magic (30-foot emanation, rank ${rank})`, 'Melodic Adaptation')
   }
   if (activeFeatsNamed(c, 'Soulsight').length) addVision('Spiritsense (imprecise) 60 feet', 'Soulsight')
+  if (activeFeatsNamed(c, 'Apparition Sense').length) addVision('Apparition sight (imprecise) 30 feet', 'Apparition Sense')
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Blood Sense').length) {
     addVision('Blood sense (imprecise) 30 feet', 'Blood Sense')
   }
@@ -4866,7 +4885,10 @@ export const ARMOR_GROUPS = ['Light', 'Medium', 'Heavy', 'Unarmored'] as const
 // "Your proficiency ranks for light armor and unarmored defense increase to expert"
 function groupRanks<G extends string>(c: Character, entries: ContentEntry[], groups: readonly G[], field: string, applies: (text: string) => boolean) {
   const ranks = Object.fromEntries(groups.map((g) => [g, 0])) as Record<G, number>
-  const mentioned = (text: string) => groups.filter((g) => new RegExp(`\\b${g}\\b`, 'i').test(text)
+  const mentioned = (text: string) => groups.filter((g) =>
+    (new RegExp(`\\b${g}\\b`, 'i').test(text)
+      && !(field === 'attack_proficiency' && g === 'Advanced'
+        && /\badvanced\s+(?:firearms?|crossbows?)\b/i.test(text) && !/\badvanced\s+weapons?\b/i.test(text)))
     || field === 'defense_proficiency' && /\ball armor\b/i.test(text) && g !== 'Unarmored')
   const klass = byName(entries, 'class', c.className)
   const base = klass?.data[field]
@@ -4997,6 +5019,11 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     gun && (category === 'Simple' || category === 'Martial' && c.subclass !== 'Striker') || strikerWeapon
       ? c.level >= 13 ? 4 : c.level >= 5 ? 3 : 2 : 0,
   ) : 0
+  const gunslingerFirearmRank = c.systems.includes('pf2e') && c.className === 'Gunslinger'
+    && /^(?:firearms?|crossbows?)$/i.test(String(entry?.data.weapon_group ?? ''))
+    ? category === 'Advanced' ? c.level >= 13 ? 3 : c.level >= 5 ? 2 : c.level >= 1 ? 1 : 0
+      : c.level >= 13 ? 4 : c.level >= 5 ? 3 : c.level >= 1 ? 2 : 0
+    : 0
   const favoredWeaponRank = c.level >= 19 ? 4 : c.level >= 13 ? 3 : c.level >= 5 ? 2 : 1
   const avengerRank = rogueRackets(c, entries).includes('Avenger') && isFavoredWeapon(c, entries, weapon.name)
     ? Math.max(favoredWeaponRank, baseWeaponRanks(c, entries).Simple, baseWeaponRanks(c, entries).Martial) : 0
@@ -5007,7 +5034,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
   const rank = Math.max(category === 'Unarmed' ? 1 : 0, ranks[category], familiarCategory ? ranks[familiarCategory] : 0,
     unconventionalCategory ? ranks[unconventionalCategory] : 0, innovationCategory ? ranks[innovationCategory] : 0,
     familiarity?.trained ? 1 : 0, expertise ? Math.max(...Object.values(baseWeaponRanks(c, entries))) : 0,
-    advancedTraining ? c.level >= 11 ? 2 : 1 : 0, avengerRank, vindicatorRank, operativeRank, professionalRank,
+    advancedTraining ? c.level >= 11 ? 2 : 1 : 0, avengerRank, vindicatorRank, operativeRank, gunslingerFirearmRank, professionalRank,
     highestRank ? Math.max(...Object.values(ranks)) : 0)
   const proficiencySources = [
     { name: category, rank: Math.max(category === 'Unarmed' ? 1 : 0, ranks[category]) },
@@ -5020,6 +5047,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     ...(avengerRank ? [{ name: 'Avenger favored weapon', rank: avengerRank }] : []),
     ...(vindicatorRank ? [{ name: 'Vindicator favored weapon', rank: vindicatorRank }] : []),
     ...(operativeRank ? [{ name: strikerWeapon ? 'Striker' : 'Operative', rank: operativeRank }] : []),
+    ...(gunslingerFirearmRank ? [{ name: 'Gunslinger firearm and crossbow proficiency', rank: gunslingerFirearmRank }] : []),
     ...(professionalRank ? [{ name: 'Professional', rank: professionalRank }] : []),
     ...(highestRank ? [{ name: 'Cairn Form: highest weapon proficiency', rank: Math.max(...Object.values(ranks)) }] : []),
     ...(martialExperience ? [{ name: 'Martial Experience', rank: c.level >= 11 ? 1 : 0 }] : []),
@@ -5312,6 +5340,8 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   ].filter((e): e is ContentEntry => !!e)
   const half = Math.max(1, Math.floor(c.level / 2))
   const out: { damage: string; value: number; source: string }[] = []
+  if (c.systems.includes('pf2e') && c.activeSpells?.includes('Eat Fire')
+    && knowsSpell(c, entries, 'Eat Fire')) out.push({ damage: 'fire', value: 5, source: 'Eat Fire' })
   const juggernaut = activeFeatsNamed(c, 'Unstoppable Juggernaut').length > 0
   const ragingResistance = Math.max(0, (juggernaut ? 8 : 3) + abilityMod(c.abilities.con))
   if (juggernaut) out.push({ damage: 'all damage', value: Math.max(0, 3 + abilityMod(c.abilities.con)), source: 'Unstoppable Juggernaut' })
@@ -7291,13 +7321,19 @@ export function enlargedChassisSize(c: Character, entries: ContentEntry[]) {
   return ['tiny', 'small', 'medium'].includes(String(characterSize(c, entries)).toLowerCase()) ? 'Large' : undefined
 }
 
+export function scionTransformationActive(c: Character) {
+  return c.systems.includes('pf2e') && activeFeatsNamed(c, 'Scion Transformation').length > 0
+}
+
 export function giantClumsySource(c: Character, entries: ContentEntry[]) {
   if (giantStatureSize(c, entries)) return "Giant's Stature"
+  if (scionTransformationActive(c)) return 'Scion Transformation'
   return enlargedChassisSize(c, entries) && !isGiantInstinct(c, entries) ? 'Enlarged Chassis' : 'Giant Instinct'
 }
 
 export function giantWeaponClumsy(c: Character, entries: ContentEntry[]) {
-  return giantStatureSize(c, entries) || enlargedChassisSize(c, entries) || isGiantInstinct(c, entries) && ownedWeapons(c, entries).some(weapon =>
+  return giantStatureSize(c, entries) || enlargedChassisSize(c, entries) || scionTransformationActive(c)
+    || isGiantInstinct(c, entries) && ownedWeapons(c, entries).some(weapon =>
     countsAsGiantWeapon(c, entries, weapon) && weaponEquipped(c, entries, weapon)) ? 1 : 0
 }
 
@@ -7898,7 +7934,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     : battleStance && weaponHands(entries, w, c) === 2 && !hasReachTrait ? 10
     : c.raging && isFeatEffectActive(c, "Giant's Lunge") ? Math.max(10, baseReach) : baseReach
   const stature = giantStatureSize(c, entries)
-  const reach = normalReach + (normalReach > 0 && !formAttack ? stature === 'Huge' ? 10 : stature === 'Large' || !stature && enlargedChassisSize(c, entries) ? 5 : 0 : 0)
+  const scionTransformation = scionTransformationActive(c)
+  const reach = normalReach + (normalReach > 0 && !formAttack
+    ? stature === 'Huge' ? 10 : stature === 'Large' || !stature && (enlargedChassisSize(c, entries) || scionTransformation) ? 5 : 0 : 0)
     + (normalReach > 0 && !formAttack && category !== 'Unarmed'
     && isFeatEffectActive(c, 'Reckless Riding Lunge') && c.mountedCompanionId
     && c.companions?.some(companion => companion.id === c.mountedCompanionId) && weaponHeld(c, entries, w) ? 5 : 0)
@@ -7927,7 +7965,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const spiritDamage = rageDamage && c.raging && c.spiritRage && barbarianInstinct(c, entries) === 'spirit'
   const damageBonus = (formAttack && form ? (formAttack.data.form_damage_bonus === undefined ? form.damageBonus : num(formAttack.data.form_damage_bonus)) + (dragonFormAttack && !dragonDamage && !elementalDamage && !spiritDamage ? rageDamage : 0) : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + (dragonDamage || elementalDamage || spiritDamage ? 0 : rageDamage)
     + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
-  ) - damagePenalty
+  ) + (scionTransformation && !ranged ? 2 : 0) - damagePenalty
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
     c.level >= 4 && hasActiveFeatVariant(c, 'Favored Weapon Jousting') && isFavoredWeapon(c, entries, livingSource?.name ?? w.name)
@@ -8598,6 +8636,7 @@ export function skillRankAllocations(c: Character, entries: ContentEntry[]) {
 }
 
 const eligibleSourceCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
+const skillRequirementResultCache = new WeakMap<ContentEntry[], Map<string, Map<string, Map<number, string[]>>>>()
 function skillRequirementSources(c: Character, entries: ContentEntry[]) {
   const cache = eligibleSourceCache.get(entries) ?? new Map<string, ContentEntry[]>()
   eligibleSourceCache.set(entries, cache)
@@ -8622,6 +8661,13 @@ function skillRequirementSources(c: Character, entries: ContentEntry[]) {
 export function skillRankRequirements(c: Character, entries: ContentEntry[], skills: string[]) {
   const result = new Map<string, Map<number, string[]>>()
   if (!skills.length) return result
+  const { updatedAt: _u, equipment: _e, armors: _a, weapons: _w, spentFocusPoints: _f, innateSpellUses: _i, itemSpellUses: _s,
+    extraSlots: _x, skippedFeatSlots: _k, dismissedFeatSlots: _d, ...stable } = c
+  const cache = skillRequirementResultCache.get(entries) ?? new Map<string, Map<string, Map<number, string[]>>>()
+  skillRequirementResultCache.set(entries, cache)
+  const key = JSON.stringify([stable, skills])
+  const cached = cache.get(key)
+  if (cached) return cached
   const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const skillPattern = new RegExp(`\\b(?:${[...skills].sort((a, b) => b.length - a.length).map(escape).join('|')})\\b`, 'gi')
   const sources = new Map<string, ContentEntry>(skillRequirementSources(c, entries).map(source => [source.id, source]))
@@ -8654,6 +8700,8 @@ export function skillRankRequirements(c: Character, entries: ContentEntry[], ski
       }
     }
   }
+  if (cache.size >= 8) cache.delete(cache.keys().next().value!)
+  cache.set(key, result)
   return result
 }
 

@@ -110,7 +110,7 @@ it('grants Avenger divine skill, medium armor and deity-favored weapon proficien
     slot: 'class:10:0', choice: 'Avenger' }] }
   expect(ranksAt(c, [rogue, deity]).Religion).toBe(1)
   expect(armorRanks(c, [rogue]).Medium).toBe(2)
-  expect(weaponAttack(c, [rogue, deity, saber], { id: 'saber', name: saber.name, potency: 0, striking: 0, runes: [] }).rank).toBe(1)
+  expect(weaponAttack(c, [rogue, deity, saber], { id: 'saber', name: saber.name, potency: 0, striking: 0, runes: [] }).rank).toBe(2)
   expect(weaponAttack({ ...c, level: 9 }, [rogue, deity, saber], { id: 'saber', name: saber.name, potency: 0, striking: 0, runes: [] }).rank).toBe(0)
   const withWeapon = { ...c, weapons: [{ id: 'saber', name: saber.name, potency: 0, striking: 0, runes: [] }] }
   const markup = renderToStaticMarkup(createElement(WeaponList, { c: withWeapon, entries: [rogue, deity, saber], save: () => {}, displayOnly: true }))

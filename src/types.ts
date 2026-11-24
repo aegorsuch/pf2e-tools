@@ -428,6 +428,7 @@ export interface Character {
   lashuntaCreatureAlly?: 'Shotalashu' | 'Squox'
   summonedFiend?: import('./summonedFiends.ts').SummonedFiend
   summonedPlant?: import('./summonedFiends.ts').SummonedFiend
+  summonedUndead?: import('./summonedFiends.ts').SummonedFiend
   zealousConvictionRank?: number
   protectCompanionId?: string
   untamedForm?: {
@@ -462,7 +463,7 @@ export interface Character {
     auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceSubtype?: 'Angel' | 'Devil' | 'Psychopomp' | 'Other'; auspiceLanguage?: string;
     mascotLanguage?: string; mascotBannerAffixed?: boolean; paleHorse?: 'Fire' | 'Poison' | 'Void'; spiritAspect?: 'Might' | 'Swiftness' | 'Insight' | 'Alpha' }[]
   followers?: { name?: string; type?: string; ancestry?: string; adeptSkill?: string; energyTypes?: string[] }[]
-  familiar?: { name?: string; leshyAbility?: 'Plant' | 'Fungus'; leshySecret?: 'Grasping Tendrils' | 'Purify Air' | 'Verdant Burst'; abilities?: string[]; abilityOptions?: { resistance?: string[]; skilled?: string[]; fastMovement?: string }; oakenResilienceActive?: boolean; oakenResilienceRank?: number }
+  familiar?: { name?: string; spiritManifested?: boolean; spiritDestroyed?: boolean; leshyAbility?: 'Plant' | 'Fungus'; leshySecret?: 'Grasping Tendrils' | 'Purify Air' | 'Verdant Burst'; abilities?: string[]; abilityOptions?: { resistance?: string[]; skilled?: string[]; fastMovement?: string }; oakenResilienceActive?: boolean; oakenResilienceRank?: number }
   waspFamiliar?: Character['familiar']
   pet?: { name?: string; aquatic?: boolean; abilities?: string[]; fastMovement?: string }
   faithfulSteedGranted?: boolean

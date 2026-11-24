@@ -2,7 +2,7 @@ import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQue
 import { mapAonHit } from './aon'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, subclassOptions, subclassSkillChoice, subclassSkillGrants, selectedSubclass, investigatorSkillfulLessonSkills, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, characterAncestryLabel, characterSummary, subclassOptions, subclassSkillChoice, subclassSkillGrants, selectedSubclass, investigatorSkillfulLessonSkills, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
@@ -566,6 +566,16 @@ it('applies persistent Lizardfolk and Necromancer feat benefits to defenses, sen
   ]))
   expect(savingThrowBreakdown(c, [], 'Fortitude').notes).toContain(
     'Parthenogenic Hatchling +1 circumstance against diseases; a success becomes a critical success. If another ability would improve the save this way, a critical failure becomes a failure instead.')
+})
+
+it('grants apparition sight from Apparition Sense only when the feat is active', () => {
+  const c: Character = { ...base, feats: [{ name: 'Apparition Sense', type: 'Class Feat', level: 1 }] }
+  expect(senses(c, [])).toContainEqual({
+    value: 'Apparition sight (imprecise) 30 feet', source: 'Apparition Sense',
+  })
+  expect(senses({ ...c, feats: [] }, [])).not.toContainEqual({
+    value: 'Apparition sight (imprecise) 30 feet', source: 'Apparition Sense',
+  })
 })
 
 it.each([
@@ -1977,6 +1987,16 @@ describe('ancestryLabel', () => {
     expect(ancestryLabel('Human', 'Pioneer human')).toBe('Pioneer human')
     expect(ancestryLabel('Human', 'Winterborn')).toBe('Winterborn Human')
     expect(ancestryLabel('Human', 'Humanity')).toBe('Humanity Human')
+    expect(ancestryLabel('Human', 'Nephilim', 'Pitborn')).toBe('Pitborn Human')
+    expect(ancestryLabel('Human', 'Nephilim', 'Musetouched')).toBe('Musetouched Human')
+  })
+
+  it('uses selected Nephilim lineage in the character label', () => {
+    const pitborn: ContentEntry = { ...entry('feat', 'Pitborn'), traits: ['Nephilim', 'Lineage'] }
+    const c: Character = { ...base, ancestry: 'Human', heritage: 'Nephilim',
+      feats: [{ name: 'Pitborn', type: 'Ancestry Feat', level: 1, sourceId: pitborn.id }] }
+    expect(characterAncestryLabel(c, [pitborn])).toBe('Pitborn Human')
+    expect(characterSummary(c, [pitborn])).toContain('Pitborn Human')
   })
 
   describe('class labels', () => {
@@ -1990,6 +2010,9 @@ describe('ancestryLabel', () => {
       ['Inventor', 'Construct', 'Construct Inventor'],
       ['Druid', 'Animal', 'Druid of the Animal Order'],
       ['Druid', 'Storm', 'Druid of the Storm Order'],
+      ['Oracle', 'Tempest', 'Oracle of the Tempest'],
+      ['Investigator', 'Empiricism', 'Investigator of the Empiricism Methodology'],
+      ['Sorcerer', 'Imperial', 'Sorcerer of the Imperial Bloodline'],
     ])('labels %s with selected %s specialization', (className, subclass, expected) => {
       expect(classLabel({ ...base, className, subclass, ...(className === 'Druid' ? { order: subclass } : {}) })).toBe(expected)
       expect(classLabel({ ...base, className })).toBe(className)

@@ -9,7 +9,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
-import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, ancestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
+import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { featSectionGrants, SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
@@ -651,7 +651,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Ancestry</strong>
-          <span>{ancestryLabel(c.ancestry, c.heritage) || 'Choose ancestry'}
+          <span>{characterAncestryLabel(c, entries) || 'Choose ancestry'}
             {ancestrySlots.length + ancestryGranted > 0 && ` (${ancestryFilled}/${ancestrySlots.length + ancestryGranted})`}</span>
         </summary>
         <div className="character-section-content">

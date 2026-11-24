@@ -15,8 +15,11 @@ export const GLYPH_FAMILIAR_ABILITIES = ['Construct', 'Flier', 'Tough']
 export function familiarSelection(c: Character) {
   const leshyGrant = activeFeatsNamed(c, 'Leshy Familiar').length > 0
   const undeadGrant = activeFeatsNamed(c, 'Undead Familiar').length > 0
+  const spiritFamiliar = c.systems.includes('pf2e') && c.className === 'Animist'
+    && activeFeatsNamed(c, 'Spirit Familiar (Animist)').length > 0
   const classFamiliar = c.className === 'Witch' ? 'normal'
     : c.className === 'Druid' && leshyGrant ? 'leshy'
+    : spiritFamiliar ? 'normal'
     : undeadGrant ? 'undead' : leshyGrant ? 'leshy'
     : activeFeatsNamed(c, 'Familiar').some(feat => /^(?:Class|Archetype) Feat$/i.test(feat.type)
       || /^(?:class|archetype):/.test(feat.slot ?? '')) ? 'normal' : undefined
@@ -35,7 +38,7 @@ export function familiarSelection(c: Character) {
     : glyph ? (activeFeatsNamed(c, 'Enhanced Glyph Familiar').length ? 2 : 1)
     : activeFeatsNamed(c, 'Incredible Familiar').length ? 6 : activeFeatsNamed(c, 'Enhanced Familiar').length ? 4 : 2)
     + witchAbilities + divineEmissary
-  return { leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, dailyAbilityLimit, glyph }
+  return { leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, spiritFamiliar, dailyAbilityLimit, glyph }
 }
 
 export function witchPatronFamiliarAbility(c: Character, entries: ContentEntry[]) {
@@ -76,6 +79,7 @@ export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
   const state = familiarSelection(c)
   if (!state.familiar && !state.wasp) return []
   const data = state.wasp ? c.waspFamiliar : c.familiar
+  if (state.spiritFamiliar && (!data?.spiritManifested || data.spiritDestroyed)) return []
   const choices = (data?.abilities ?? []).slice(0, familiarAbilityCapacity(c, entries).selectableAbilityLimit)
   const catalog = familiarAbilityEntries(entries, c)
   const granted = state.glyph && !state.wasp ? GLYPH_FAMILIAR_ABILITIES : []
