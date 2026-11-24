@@ -1916,7 +1916,7 @@ it('lets users select the Haft Striker source and keeps all inherited enhancemen
   expect(c.haftStrikerWeaponId).toBe('second')
   c = JSON.parse(JSON.stringify(c))
   expect(effectiveWeapon(c, entries, haft).livingWeapon).toBe(false)
-  const card = findElement(WeaponList({ c, entries, save }), (element) => element.props['aria-label'] === 'Haft Striker Stance')
+  const card = findElement(WeaponList({ c, entries, save }), (element) => element.props['aria-label'] === 'Haft Striker Stance (from Hammer)')
   if (!card) throw new Error('Missing haft card')
   const markup = renderToStaticMarkup(card)
   expect(findElement(card, element => element.props['aria-label'] === 'Living Weapon: inherited from Hammer')!.props)
@@ -2177,7 +2177,7 @@ it('shows Haft Striker only in its learned active stance with a qualifying wield
   const render = (character: Character, displayOnly: boolean) => renderToStaticMarkup(
     <WeaponList c={character} entries={entries} save={() => {}} displayOnly={displayOnly} />)
   const markup = render(c, false)
-  expect(markup).toContain('aria-haspopup="dialog">Haft Striker Stance</button>')
+  expect(markup).toContain('aria-haspopup="dialog">Haft Striker Stance (from Maul)</button>')
   expect(markup).not.toContain('aria-label="Remove Haft Striker Stance"')
   for (const displayOnly of [false, true]) {
     for (const current of [

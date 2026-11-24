@@ -811,6 +811,20 @@ it('keeps Shadowpiercer variants fixed after purchase and scales Astral', () => 
     .toEqual(['Grievous', 'Astral (Greater)', 'Parrying', 'Throwing', 'Returning'])
 })
 
+it('labels Haft Striker with its named source without displaying inherited material', () => {
+  const stance: ContentEntry = { ...shadowpiercer, id: 'haft-stance', kind: 'feat', name: 'Haft Striker Stance',
+    level: 4, traits: ['Stance'], data: {} }
+  const weapon = owned('Shadowpiercer (Broadspear)')
+  const character: Character = { ...c, level: 15, activeStance: stance.name, weapons: [weapon],
+    feats: [{ name: stance.name, type: 'Class Feat', level: 4 }] }
+  const entries = [...namedCatalog, stance]
+  for (const displayOnly of [false, true]) {
+    const markup = renderToStaticMarkup(<WeaponList c={character} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+    expect(markup).toContain('Haft Striker Stance (from Shadowpiercer Broadspear)')
+    expect(markup).not.toContain('Material: Orichalcum (from Shadowpiercer (Broadspear))')
+  }
+})
+
 it('uses Callooh Callay base dice, finesse and two-hand traits, preserves Vorpal, and applies matching deity boons', () => {
   const longsword = owned('Callooh Callay (Longsword)')
   expect(effectiveWeapon(c, namedCatalog, longsword)).toMatchObject({ potency: 3, striking: 3, runes: ['Vorpal', 'Grievous'] })

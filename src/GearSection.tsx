@@ -1216,7 +1216,9 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const attachmentName = shieldSource ? specificMagicItemName(shieldEntry(entries, shieldSource.name), shieldSource.name, true)
           : sourceWeapon ? specificMagicItemName(withNamedWeaponState(weaponEntry(entries, sourceWeapon.name), sourceWeapon, c.level),
             combinationName(entries, sourceWeapon.name), true).replace(/\bDueling Pistols$/, 'Dueling Pistol') : ''
-        const displayName = `${equipmentDisplayName(adoptedAncestryText(c, grantedName))}${attachmentSource ? ` (Attached to ${equipmentDisplayName(attachmentName)})` : ''}`
+        const haft = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : undefined
+        const haftName = haft ? specificMagicItemName(weaponEntry(entries, haft.name, haft.id), combinationName(entries, haft.name), true) : ''
+        const displayName = `${equipmentDisplayName(adoptedAncestryText(c, grantedName))}${attachmentSource ? ` (Attached to ${equipmentDisplayName(attachmentName)})` : ''}${haft ? ` (from ${equipmentDisplayName(adoptedAncestryText(c, haftName))})` : ''}`
         displayNames.set(w.id, displayName)
         const forms = combinationForms(entries, w.name)
         const activeCombinationForm = forms.length
@@ -1234,7 +1236,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const inherited = !!handwraps && unarmed && !strengthSource
         const shieldBash = !!shieldSource && !shieldSource.attachedWeapon
         const fixed = w.id === OVERSIZED_THROW.id || shieldBash
-        const haft = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : undefined
         const hands = weaponHands(entries, w, c)
         const bowGrip = String(a.entry?.data.hands).trim() === '1+'
         const equipped = weaponEquipped(c, entries, w)
@@ -1655,7 +1656,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             {shieldSource ? null : fixed ? enhanced.material ? <div className="gear-runes"><span>Material</span>
               <Material name={enhanced.material} entries={entries} equipment="Weapon"
                 source={`Built into ${namedSource || w.name.split(' (')[0]}`} />
-            </div> : null : linkedSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {linkedSource.name})</small>
+            </div> : null : haft ? null : linkedSource ? <small>Material: {enhanced.material ?? 'Standard'} (from {linkedSource.name})</small>
               : unarmed ? alloyMaterial : <div className="row">
               {osteoArmament ? null : card ? <small>Material: playing cards</small> : <>
               {grantedClanWeapon ? (enhanced.material ?? 'Orichalcum') === 'Orichalcum' ? null : <div className="gear-runes"><span>Material</span>
