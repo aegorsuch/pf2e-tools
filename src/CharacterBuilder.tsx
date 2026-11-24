@@ -80,6 +80,7 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
   disabled?: boolean
 }) {
   const [ready, setReady] = useState(false)
+  const [deitySort, setDeitySort] = useState<'name' | 'category'>('name')
   const variants = useMemo<BackgroundVariant[]>(() => kind === 'background' ? backgroundVariants(options, deityLores)
     : options.map(background => ({ value: background.name, background })), [options, kind, deityLores])
   const selectedLore = backgroundLores?.[value ?? '']?.[0]
@@ -94,6 +95,15 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
   const choices = useMemo(() => {
     if (!ready) return null
     const option = (name: string) => <option key={name} value={name}>{labels.get(name)}</option>
+    if (kind === 'deity' && deitySort === 'category') {
+      const groups = new Map<string, string[]>()
+      for (const name of [...labels.keys()].sort()) {
+        const category = String(byName.get(name)?.data.deity_category ?? '').trim() || 'Other'
+        groups.set(category, [...(groups.get(category) ?? []), name])
+      }
+      return [...groups].sort(([a], [b]) => (a === 'Other' ? 1 : b === 'Other' ? -1 : a.localeCompare(b)))
+        .map(([category, names]) => <optgroup key={category} label={category}>{names.map(option)}</optgroup>)
+    }
     if (kind !== 'heritage') return [...labels.keys()].sort().map(option)
     const names = [...labels.keys()].sort()
     return [false, true].map(versatile => {
@@ -102,13 +112,19 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
         {group.map(option)}
       </optgroup>
     })
-  }, [labels, ready, kind, byName, ancestry])
+  }, [labels, ready, kind, byName, ancestry, deitySort])
   const prepare = () => {
     // Populate before the browser opens its native select popup.
     if (!ready) flushSync(() => setReady(true))
   }
   const unavailable = kind === 'heritage' && !!value && !labels.has(value)
-  return (
+  return (<>
+      {kind === 'deity' && <label>Sort by{' '}
+        <select aria-label="Sort deities by" value={deitySort} onChange={event => setDeitySort(event.target.value === 'category' ? 'category' : 'name')}>
+          <option value="name">Alphabetical</option>
+          <option value="category">Category</option>
+        </select>
+      </label>}
       <SearchableSelect label={label} aria-label={label} value={selectedValue ?? ''} disabled={disabled} onPrepare={prepare} optionCount={labels.size}
         searchText={kind === 'background' ? name => String(byName.get(name)?.data.feat ?? '') : undefined}
         renderDetails={name => {
@@ -124,7 +140,7 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
           {labels.get(selectedValue) ?? (unavailable ? `${value} (not available for this ancestry)` : selectedValue)}
         </option>}
         {choices}
-      </SearchableSelect>
+      </SearchableSelect></>
   )
 }
 
