@@ -730,7 +730,7 @@ it('creates stronger arrowheads with conditional nonstacking bonuses and unchang
 })
 
 it.each([
-  ['Shadowpiercer', ['Shadowpiercer'], 'Spear'],
+  ['Shadowpiercer', ['Shadowpiercer (Spear)', "Shadowpiercer (Dancer's Spear)"], 'Spear'],
   ['Callooh Callay', ['Callooh Callay'], 'Longsword'],
   ['Blade of Fallen Stars', ['Blade of Fallen Stars (Melee)', 'Blade of Fallen Stars (Ranged)'], 'Gun Sword (Melee)'],
   ['Final Stand', ['Final Stand'], 'Rapier'],
@@ -741,7 +741,7 @@ it.each([
   expect(weaponEntry(namedCatalog, name)?.data.named_weapon_base).toBe(base)
   expect(weaponEntry(namedCatalog, name)?.kind).toBe('weapon')
   expect(namedCatalog.find(entry => entry.name === name)?.kind).toBe('item')
-  expect(choices.filter(entry => entry.source === 'homebrew').length).toBe(0)
+  expect(choices.filter(entry => entry.source === 'homebrew').length).toBe(name === 'Shadowpiercer' ? 1 : 0)
 })
 
 it('preserves Wintershot artifact access approvals', () => {
@@ -759,8 +759,8 @@ it('does not duplicate Grievous when already present in an artifact source or sa
   expect(weapon.runes).toEqual(['Grievous', 'Flaming'])
 })
 
-it('resolves saved Shadowpiercer variants to its only spear form', () => {
-  for (const name of ["Shadowpiercer (Dancer's Spear)", 'Shadowpiercer (Spear)', 'Shadowpiercer']) {
+it('offers Shadowpiercer as a spear or Dancer\'s spear and applies each base weapon', () => {
+  for (const name of ['Shadowpiercer (Spear)', 'Shadowpiercer']) {
     const weapon = owned(name)
     expect(effectiveWeapon(c, namedCatalog, weapon)).toMatchObject({ potency: 4, striking: 3, runes: ['Ghost Touch', 'Grievous'] })
     const attack = weaponAttack(c, namedCatalog, weapon)
@@ -770,6 +770,9 @@ it('resolves saved Shadowpiercer variants to its only spear form', () => {
     expect(attack.thrownRange).toBe(20)
     expect(attack.traits).not.toContain('Reach')
   }
+  const dancer = owned("Shadowpiercer (Dancer's Spear)")
+  expect(weaponHands(namedCatalog, dancer)).toBe(2)
+  expect(weaponAttack(c, namedCatalog, dancer).traits).toContain('Reach')
   const enhanced = effectiveWeapon(c, namedCatalog, { ...owned('Shadowpiercer'), striking: 3, runes: ['Flaming'] })
   expect(enhanced.runes).toEqual(['Ghost Touch', 'Grievous', 'Flaming'])
 })

@@ -14,7 +14,7 @@ const BASES: Record<string, string[]> = {
   'Splithead Bow': ['Composite Longbow'],
   "Hunter's Anthem": ['Composite Longbow'],
   'Mammoth Bow': ['Composite Longbow'],
-  Shadowpiercer: ['Spear'],
+  Shadowpiercer: ['Spear', "Dancer's Spear", 'Broadspear', 'Broad Spear'],
   'Callooh Callay': ['Longsword'],
   'Blade of Fallen Stars': ['Gun Sword (Melee)', 'Gun Sword (Ranged)'],
   'Final Stand': ['Rapier'],
