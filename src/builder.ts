@@ -1640,7 +1640,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0
         || !!classArchetypeDedication && !!classArchetype && archetypesOf(e).includes(classArchetype)
-          && !(classArchetype === 'Spellshot' && archetypesOf(e).includes('Wizard')))
+          && !(classArchetype === 'Spellshot' && archetypesOf(e).includes('Wizard') && traits.has('archetype'))
+        || classArchetype === 'Spellshot' && archetypesOf(e).includes('Wizard') && !traits.has('archetype') && traits.has('wizard'))
       && (e.name === 'Magical Trickster' && slot.category === 'class'
       && rogueRackets({ ...c, level: Math.min(c.level, slot.level) }, entries).includes('Eldritch Trickster') ? 2
       : featSelectionLevel(e, c, entries, slot.category, slot)) <= (slot.grantedBy === 'Eldritch Trickster'
