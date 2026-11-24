@@ -1668,6 +1668,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     rank: casting?.rank ?? c.spellcasting?.rank ?? 1, slots: classRepertoireRows(c) ?? automaticSlots } : c.spellcasting
   const benefits = familiarSpellBenefits(c, entries, automaticSlots ?? sc?.slots ?? {})
   const wizardSpellbookSlots = wizardArchetypeSpellbookChoices(c, Number(benefits.cantrip))
+  const wizardBookUser = wizard || wizardSpellbookSlots.length > 0
   const preparedClass = ['Animist', 'Cleric', 'Druid', 'Magus', 'Necromancer', 'Technomancer', 'Witch', 'Wizard']
     .includes(c.className ?? '') || wizardSpellbookSlots.length > 0
   const spellIndex = useMemo(() => {
@@ -2283,28 +2284,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               {magus && <> <SpellbookRankButton book="Magus" rank={rank} onOpen={rank => openSpellbook('Magus', rank)} /></>}
               {witch && <> <SpellbookRankButton book="Witch" rank={rank} onOpen={rank => openSpellbook('Witch', rank)} /></>}</h5>
             <SpellColumns />
-            {wizardSpellbookSlots.some(slot => slot.rank === rank) && <ul aria-label={`Wizard rank ${rank} spellbook`}>
-              {wizardSpellbookSlots.filter(slot => slot.rank === rank).map(slot => {
-                const current = (c.spells ?? []).find(spell => spell.bookSlot === slot.key)
-                const currentEntry = current && spellEntry(current.name, current.entryId)
-                const label = rank === 0 ? `Wizard cantrip ${slot.index + 1}` : `Wizard rank ${rank} spell ${slot.index + 1}`
-                return <li className="spellbook-row" key={slot.key}>
-                  {currentEntry
-                    ? <EntryDescription className="spellbook-slot-name" name={currentEntry.name} entry={currentEntry} entries={entries} character={c} />
-                    : <span className="spellbook-slot-name">{label}: Not Selected</span>}
-                  {current && <button type="button" className="spell-remove" aria-label={`Remove ${label} spell`}
-                    onClick={() => {
-                      const spells = (c.spells ?? []).filter(spell => spell.bookSlot !== slot.key)
-                      const prepared = c.spellcasting?.prepared
-                        ? Object.fromEntries(Object.entries(c.spellcasting.prepared)
-                          .filter(([, preparedSpell]) => preparedSpell !== current.entryId && preparedSpell !== current.name))
-                        : undefined
-                      const patch = { spells, ...(prepared ? { spellcasting: { ...c.spellcasting!, prepared } } : {}) }
-                      confirmRemoval(`Wizard spellbook spell "${current.name}"`, () => save(patch))
-                    }}>×</button>}
-                </li>
-              })}
-            </ul>}
             <ul>{Array.from({ length: count }, (_, index) => {
               const extra = extras[index - (count - extras.length)]
               const normalCount = Math.max(0, Math.min(20, Math.trunc(Number(sc.slots[rank]) || 0)))
@@ -2492,7 +2471,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       {c.className === 'Animist' && c.systems.includes('pf2e')
         && <AnimistApparitionSpells c={c} entries={entries} save={save} />}
       {druid && groups.some(group => group !== 'Focus Spells') && <b>Learned spell access</b>}
-      {!necromancer && groups.filter(group => group !== 'Focus Spells').map(renderSpellGroup)}
+      {!necromancer && !wizardBookUser && groups.filter(group => group !== 'Focus Spells').map(renderSpellGroup)}
       </div>
       <div hidden={activeCategory !== 'innate'}>
       {c.systems.includes('pf2e') && c.level >= 1 && ['fey-touched gnome', 'wellspring gnome'].includes(c.heritage?.toLowerCase() ?? '') && (() => {

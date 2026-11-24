@@ -843,10 +843,11 @@ it('adds Spellshot Wizard spellbook selections to Class Spells', () => {
     { name: 'Basic Wizard Spellcasting', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' },
   ], spells: [{ name: spell.name, rank: 1, cantrip: false, entryId: spell.id, bookSlot: 'wizard:1:0' }] }
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[spell]} save={() => {}} />)
+  const book = markup.slice(markup.indexOf('class="entry-dialog dirge-dialog"'))
   expect(markup).toContain('Wizard Spellbook')
   expect(markup).toContain('aria-label="Open Wizard rank 1"')
-  expect(markup).toContain('Wizard rank 1 spell 1')
-  expect(markup).toContain('Mystic Armor')
+  expect(markup).not.toContain('Wizard rank 1 spell 1')
+  expect(book).toContain('Mystic Armor')
   expect(markup).toContain('Spell Rank 1')
 })
 
