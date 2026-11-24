@@ -110,6 +110,8 @@ export interface OwnedArmor {
   immortalConditionUsed?: boolean
   mountainPoisonImmunityActive?: boolean
   mountainPoisonImmunityUsed?: boolean
+  livingFlameActive?: boolean
+  livingFlameUsed?: boolean
   worn: boolean
   material?: 'Duskwood' | 'Duskwood (Standard-Grade)' | 'Duskwood (High-Grade)' | 'Orichalcum' | 'Keep Stone' | 'Grisantian Hide' | 'Grisantian Hide (Standard-Grade)' | 'Grisantian Hide (High-Grade)'
   gauntlet?: 'Gauntlet' | 'Spiked Gauntlet' | 'Bladed Gauntlet' | 'Clawed Gauntlet'
@@ -466,6 +468,8 @@ export interface Character {
   enlargeCompanionId?: string
   apexCompanionId?: string
   mountedCompanionId?: string
+  mountedSummon?: string
+  summonInnateRanks?: { fiend?: number; plant?: number; undead?: number }
   // Companions and their equipped gear
   companions?: { id: string; name: string; type: string; equipment?: CompanionEquipmentSet; supportActive?: boolean;
     beastmasterAdvancement?: 'Nimble' | 'Savage'; beastmasterSpecializations?: Record<string, string>;

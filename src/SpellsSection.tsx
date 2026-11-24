@@ -15,7 +15,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { animistApparitionSlots, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
+import { animistApparitionSlots, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, knownSpellNames, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
@@ -59,8 +59,8 @@ function uniqueSpellVariants<T extends { name: string }>(spells: T[], systems: (
   })
 }
 
-function arcaneSpellbookOptions(c: Character, spells: ContentEntry[], rank: number) {
-  return spells.filter(entry => entry.systems.includes('pf2e')
+function arcaneSpellbookOptions(c: Character, spells: ContentEntry[], rank: number, system: 'pf2e' | 'sf2e') {
+  return spells.filter(entry => entry.systems.includes(system)
     && (rank === 0 ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
       : entry.level === rank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
     && String(entry.data.tradition ?? '').split(/,\s*/).some(tradition => tradition.toLowerCase() === 'arcane')
@@ -318,7 +318,7 @@ function spellUseTracker(label: string, uses: NonNullable<ReturnType<typeof limi
 
 export function AnimalFeatureOptions({ c, entries, save }: SectionProps) {
   const active = activeAnimalFeatures(c, entries)
-  const multiple = c.feats.some((feat) => feat.name === 'Persistent Animal Feature')
+  const multiple = activeFeatsNamed(c, 'Persistent Animal Feature').length > 0
   return <fieldset className="col">
     <legend>Animal Feature: {multiple ? 'choose effects' : 'choose one'}</legend>
     {ANIMAL_FEATURES.filter(feature => feature.name !== 'Wings' || !getSettings().championFormNoFlight).map((feature) => {
@@ -451,14 +451,16 @@ export function CreatureShapeOptions({ c, entries, save, rank }: SectionProps & 
 
 export function CaypinAllyToggle({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
   return <label><input type="checkbox" aria-label="Summoned Caypin active" checked={!!c.creatureAllyActive}
-    onChange={event => save({ creatureAllyActive: event.target.checked })} /> Active
+    onChange={event => save({ creatureAllyActive: event.target.checked,
+      ...(!event.target.checked && c.mountedSummon === 'ally:Caypin' ? { mountedSummon: undefined } : {}) })} /> Active
     <SourceNote source="Caypin" note="GM approval required: caypin is a beast, not an animal, and Creature Ally's rank 5 spell normally permits creatures of level 5 or lower." />
   </label>
 }
 
 export function ShirrenAllyToggle({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
   return <label><input type="checkbox" aria-label="Summoned Kucharn active" checked={!!c.shirrenCreatureAllyActive}
-    onChange={event => save({ shirrenCreatureAllyActive: event.target.checked })} /> Active
+    onChange={event => save({ shirrenCreatureAllyActive: event.target.checked,
+      ...(!event.target.checked && c.mountedSummon === 'ally:Emganat' ? { mountedSummon: undefined } : {}) })} /> Active
     <SourceNote source="Emganat" note="GM approval required: kucharns do not have the animal trait required by Summon Animal." />
   </label>
 }
@@ -468,7 +470,8 @@ export function LashuntaAllyOptions({ c, save }: Pick<SectionProps, 'c' | 'save'
     <select aria-label="Creature Ally summoned creature" value={c.lashuntaCreatureAlly ?? ''} onChange={event => {
       const value = event.target.value
       if (value !== '' && value !== 'Shotalashu' && value !== 'Squox') return
-      save({ lashuntaCreatureAlly: value || undefined })
+      save({ lashuntaCreatureAlly: value || undefined,
+        ...(c.mountedSummon?.startsWith('ally:') && c.mountedSummon !== `ally:${value}` ? { mountedSummon: undefined } : {}) })
     }}>
       <option value="">None</option>
       <option>Shotalashu</option>
@@ -478,8 +481,8 @@ export function LashuntaAllyOptions({ c, save }: Pick<SectionProps, 'c' | 'save'
   </label>
 }
 
-export function SummonFiendActions({ c, entries, save, entry, rank, lineageOnly = false, requiredTrait, disabled }: SectionProps & {
-  entry?: ContentEntry; rank: number; lineageOnly?: boolean; requiredTrait?: string; disabled?: boolean
+export function SummonFiendActions({ c, entries, save, entry, rank, lineageOnly = false, requiredTrait, disabled, innate = false }: SectionProps & {
+  entry?: ContentEntry; rank: number; lineageOnly?: boolean; requiredTrait?: string; disabled?: boolean; innate?: boolean
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -513,7 +516,9 @@ export function SummonFiendActions({ c, entries, save, entry, rank, lineageOnly 
           const value = event.target.value
           const selected = options.find(fiend => fiend.id === value)
           if (value && !selected) return
-          const select = () => save({ summonedFiend: selected, ...spellActiveChange(c, 'Summon Fiend', !!selected) })
+          const select = () => save({ summonedFiend: selected, ...spellActiveChange(c, 'Summon Fiend', !!selected),
+            summonInnateRanks: { ...c.summonInnateRanks, fiend: selected && innate ? rank : undefined },
+            ...(c.mountedSummon?.startsWith('fiend:') && c.mountedSummon !== `fiend:${selected?.id}` ? { mountedSummon: undefined } : {}) })
           if (c.summonedFiend && c.summonedFiend.id !== value) confirmRemoval(`summoned ${c.summonedFiend.name}`, select)
           else select()
         }}>
@@ -528,6 +533,7 @@ export function SummonFiendActions({ c, entries, save, entry, rank, lineageOnly 
             if (event.target.checked || !c.summonedFiend) return
             confirmRemoval(`summoned ${c.summonedFiend.name}`, () => save({
               summonedFiend: undefined, ...spellActiveChange(c, 'Summon Fiend', false),
+              ...(c.mountedSummon?.startsWith('fiend:') ? { mountedSummon: undefined } : {}),
             }))
           }} /> Summon Fiend{c.summonedFiend ? `: ${c.summonedFiend.name}` : ''}</label>
       <p>{entry?.description || 'Description unavailable. Sync Archives of Nethys content to load it.'}</p>
@@ -536,8 +542,8 @@ export function SummonFiendActions({ c, entries, save, entry, rank, lineageOnly 
   </>
 }
 
-export function SummonUndeadActions({ c, save, entry, rank, disabled }: Pick<SectionProps, 'c' | 'save'> & {
-  entry?: ContentEntry; rank: number; disabled?: boolean
+export function SummonUndeadActions({ c, save, entry, rank, disabled, innate = false }: Pick<SectionProps, 'c' | 'save'> & {
+  entry?: ContentEntry; rank: number; disabled?: boolean; innate?: boolean
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -569,7 +575,9 @@ export function SummonUndeadActions({ c, save, entry, rank, disabled }: Pick<Sec
           const value = event.target.value
           const selected = options.find(creature => creature.id === value)
           if (value && !selected) return
-          const select = () => save({ summonedUndead: selected, ...spellActiveChange(c, 'Summon Undead', !!selected) })
+          const select = () => save({ summonedUndead: selected, ...spellActiveChange(c, 'Summon Undead', !!selected),
+            summonInnateRanks: { ...c.summonInnateRanks, undead: selected && innate ? rank : undefined },
+            ...(c.mountedSummon?.startsWith('undead:') && c.mountedSummon !== `undead:${selected?.id}` ? { mountedSummon: undefined } : {}) })
           if (c.summonedUndead && c.summonedUndead.id !== value) confirmRemoval(`summoned ${c.summonedUndead.name}`, select)
           else select()
         }}>
@@ -597,8 +605,8 @@ function MarvelousMountActions({ c, save, entry, disabled }: Pick<SectionProps, 
   </button>
 }
 
-export function SummonPlantActions({ c, save, entry, rank, disabled, slainCreatureRank = false, actions = 'Three Actions' }: Pick<SectionProps, 'c' | 'save'> & {
-  entry?: ContentEntry; rank: number; disabled?: boolean; slainCreatureRank?: boolean; actions?: string
+export function SummonPlantActions({ c, save, entry, rank, disabled, slainCreatureRank = false, actions = 'Three Actions', innate = false }: Pick<SectionProps, 'c' | 'save'> & {
+  entry?: ContentEntry; rank: number; disabled?: boolean; slainCreatureRank?: boolean; actions?: string; innate?: boolean
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -637,7 +645,9 @@ export function SummonPlantActions({ c, save, entry, rank, disabled, slainCreatu
           const value = event.target.value
           const selected = options.find(creature => creature.id === value)
           if (value && !selected) return
-          const select = () => save({ summonedPlant: selected })
+          const select = () => save({ summonedPlant: selected,
+            summonInnateRanks: { ...c.summonInnateRanks, plant: selected && innate ? rank : undefined },
+            ...(c.mountedSummon?.startsWith('plant:') && c.mountedSummon !== `plant:${selected?.id}` ? { mountedSummon: undefined } : {}) })
           if (c.summonedPlant && c.summonedPlant.id !== value) confirmRemoval(`summoned ${c.summonedPlant.name}`, select)
           else select()
         }}>
@@ -1389,12 +1399,27 @@ export function automatedSpellStatusControls({ c, entries, save }: SectionProps)
       && candidate.name.toLowerCase() === name.toLowerCase() && candidate.systems.some(system => c.systems.includes(system)))
     const actions = typeof entry?.data.actions === 'string' ? entry.data.actions : ''
     return <>{toggle}{' '}{spellStatusName(name)}
-      {actions && <> <ActiveSpellActions name={name} entry={entry} actions={actions}>{toggle}</ActiveSpellActions></>}
+      {name === 'Animal Feature'
+        ? <> <SpellEffectActions c={c} entries={entries} save={save} entry={entry} name="Animal Feature" rank={Math.ceil(c.level / 2)} /></>
+        : actions && <> <ActiveSpellActions name={name} entry={entry} actions={actions}>{toggle}</ActiveSpellActions></>}
     </>
   }
   const controls = STATUS_TRACKED_SPELL_EFFECTS.filter(name => names.has(name)).map(name => ({ name, element: statusElement(name,
     <input type="checkbox" aria-label={`${name} status`} checked={name === 'Magic Hide' ? isMagicHideActive(c, entries) : !!c.activeSpells?.includes(name)}
       onChange={event => save(name === 'Magic Hide' ? magicHideChange(c, event.target.checked) : spellActiveChange(c, name, event.target.checked))} />) }))
+  if (names.has('Summon Animal')) {
+    const specialAlly = c.systems.includes('sf2e') && ['Vesk', 'Shirren', 'Lashunta'].includes(c.ancestry ?? '')
+      && data.featSpells.some(grant => grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal')
+    const entry = entries.find(candidate => candidate.kind === 'spell' && !candidate.deleted
+      && candidate.name === 'Summon Animal' && candidate.systems.some(system => c.systems.includes(system)))
+    const toggle = specialAlly && c.ancestry === 'Vesk' ? <CaypinAllyToggle c={c} save={save} />
+      : specialAlly && c.ancestry === 'Shirren' ? <ShirrenAllyToggle c={c} save={save} />
+      : specialAlly && c.ancestry === 'Lashunta' ? <LashuntaAllyOptions c={c} save={save} />
+      : <label><input type="checkbox" aria-label="Summon Animal status" checked={!!c.activeSpells?.includes('Summon Animal')}
+        onChange={event => save(spellActiveChange(c, 'Summon Animal', event.target.checked))} /> Active</label>
+    controls.push({ name: 'Summon Animal', element: <>{toggle}{' '}{spellStatusName('Summon Animal')}{' '}
+      <ActiveSpellActions name="Summon Animal" entry={entry} actions="Three Actions">{toggle}</ActiveSpellActions></> })
+  }
   if (knowsSpell(c, entries, 'Shield') || c.activeSpells?.includes('Shield')) {
     const active = isSpellActive(c, entries, 'Shield')
     controls.push({ name: 'Shield', element: statusElement('Shield',
@@ -1690,9 +1715,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const [tradition, setTradition] = useState(c.spellcasting?.tradition ?? '')
   const [preparedSlot, setPreparedSlot] = useState<string>()
   const [bookOpen, setBookOpen] = useState(false)
-  const [bookSource, setBookSource] = useState<'Dirge' | 'Wizard' | 'Magus' | 'Witch'>(
+  const [bookSource, setBookSource] = useState<'Dirge' | 'Wizard' | 'Magus' | 'Witch' | 'Technomancer'>(
     c.className === 'Necromancer' ? 'Dirge' : c.className === 'Magus' ? 'Magus'
-      : c.className === 'Witch' ? 'Witch' : 'Wizard')
+      : c.className === 'Witch' ? 'Witch' : c.className === 'Technomancer' ? 'Technomancer' : 'Wizard')
   const [bookRank, setBookRank] = useState(0)
   const [bookSlotKey, setBookSlotKey] = useState<string>()
   const [bookQuery, setBookQuery] = useState('')
@@ -1709,6 +1734,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const wizard = c.className === 'Wizard' && c.systems.includes('pf2e')
   const magus = c.className === 'Magus' && c.systems.includes('pf2e')
   const witch = c.className === 'Witch' && c.systems.includes('pf2e')
+  const technomancer = c.className === 'Technomancer' && c.systems.includes('sf2e')
   const bard = automaticSlots !== undefined && isSpontaneousClass(c)
   const bloodrager = c.className === 'Barbarian' && c.systems.includes('pf2e')
     && activeFeatsNamed(c, 'Bloodrager Dedication').some(feat => feat.choice === 'Arcane' || feat.choice === 'Divine')
@@ -1725,7 +1751,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     rank: casting?.rank ?? c.spellcasting?.rank ?? 1, slots: classRepertoireRows(c) ?? automaticSlots } : c.spellcasting
   const benefits = familiarSpellBenefits(c, entries, automaticSlots ?? sc?.slots ?? {})
   const wizardSpellbookSlots = wizardArchetypeSpellbookChoices(c, Number(benefits.cantrip))
-  const wizardBookUser = wizard || wizardSpellbookSlots.length > 0
+  const wizardBookUser = wizard || technomancer || wizardSpellbookSlots.length > 0
   const preparedClass = ['Animist', 'Cleric', 'Druid', 'Magus', 'Necromancer', 'Technomancer', 'Witch', 'Wizard']
     .includes(c.className ?? '') || wizardSpellbookSlots.length > 0
   const spellIndex = useMemo(() => {
@@ -1741,9 +1767,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   }, [entries, c.systems])
   const spellEntry = (name: string, id?: string) => id ? spellIndex.byId.get(id) : spellIndex.byName.get(name)
   const arcaneBookOptions = useMemo(() => uniqueSpellVariants(
-    arcaneSpellbookOptions(c, spellIndex.spells, bookRank),
+    arcaneSpellbookOptions(c, spellIndex.spells, bookRank, bookSource === 'Technomancer' ? 'sf2e' : 'pf2e'),
     entry => [...entry.systems].sort().join(',')),
-    [c, spellIndex, bookRank])
+    [c, spellIndex, bookRank, bookSource])
   const knownArcaneSpells = new Set((c.spells ?? []).map(spell => spell.name.toLowerCase()))
   const rankedArcaneBookOptions = arcaneBookOptions.filter(entry => (bookRank === 0
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
@@ -1931,11 +1957,15 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     key: string; label: string; tradition: string; rank: number; current: string; options: ContentEntry[]
     select: (value: string) => void; grant?: typeof featSpells[number]; entry?: ContentEntry
   }[] = []
+  let occupiedSpells: Set<string> | undefined
+  const availableInnateOptions = (options: ContentEntry[], current: string) => options.filter(entry =>
+    !getSettings().uniqueInnateSpellChoices || entry.name === current
+      || !(occupiedSpells ??= knownSpellNames(c, entries)).has(spellName(entries, entry.name).toLowerCase()))
   c.feats.forEach((feat, index) => {
     if (!(feat.name === 'First World Magic' || ['Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon'].includes(feat.name) && c.systems.includes('sf2e'))
       || featTakenLevel(feat) > c.level) return
-    const options = featSpellOptions(c, entries, feat) ?? []
     const current = feat.choice ?? ''
+    const options = availableInnateOptions(featSpellOptions(c, entries, feat) ?? [], current)
     const grant = innate.find(item => item.source === feat.name && item.entry.name === current)
     const tradition = grant?.rule.tradition ?? (feat.name !== 'First World Magic' ? 'Occult'
       : c.heritage?.toLowerCase() === 'wellspring gnome' ? gnomeHeritageTradition(c) ?? 'Innate' : 'Primal')
@@ -1992,10 +2022,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         onClear={() => slot.select('')} />}
       note={details?.note} spellcastingModifier={modifier} saveDC={dc} attackBonus={details?.attackBonus ?? dc - 10}
       actionControls={slot.entry.name === 'Summon Undead'
-        ? <SummonUndeadActions c={c} save={save} entry={slot.entry} rank={slot.rank} />
+        ? <SummonUndeadActions c={c} save={save} entry={slot.entry} rank={slot.rank} innate={slot.grant?.rule.kind === 'innate'} />
         : slot.entry.name === 'Marvelous Mount' ? <MarvelousMountActions c={c} save={save} entry={slot.entry} />
         : slot.entry.name === 'Summon Plant or Fungus'
-        ? <SummonPlantActions c={c} save={save} entry={slot.entry} rank={slot.rank} /> : undefined}
+        ? <SummonPlantActions c={c} save={save} entry={slot.entry} rank={slot.rank} innate={slot.grant?.rule.kind === 'innate'} /> : undefined}
       inlineControls={<>{inlineControls(slot.entry.name, slot.rank, slot.grant?.source)}
         {slot.grant?.rule.kind === 'innate' && <InnateSpellUses c={c} save={save} grant={slot.grant} />}</>}
       effectControls={effectControls(slot.entry.name)} effectRank={activeRank(slot.entry.name)}
@@ -2120,7 +2150,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       {castAbility && spellPenalty(castAbility) > 0 && <span className="skill-part"><small>Status</small>{signed(-spellPenalty(castAbility))}</span>}
     </div>
   )
-  const openSpellbook = (source: 'Dirge' | 'Wizard' | 'Magus' | 'Witch', rank: number, slotKey?: string) => {
+  const openSpellbook = (source: 'Dirge' | 'Wizard' | 'Magus' | 'Witch' | 'Technomancer', rank: number, slotKey?: string) => {
     setBookSource(source)
     setBookRank(rank)
     setBookSlotKey(slotKey)
@@ -2268,12 +2298,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       {renderSpecialGroups(tricksterAceSpells)}
       {renderLoanerSpellChoices()}
       {renderSpecialGroups(loanerSpells)}
-      {(necromancer || wizard || magus || witch || wizardSpellbookSlots.length > 0) && c.level >= 1 && <dialog ref={bookDialog}
+      {(necromancer || wizard || magus || witch || technomancer || wizardSpellbookSlots.length > 0) && c.level >= 1 && <dialog ref={bookDialog}
         className="entry-dialog dirge-dialog" aria-labelledby={bookTitleId}
         onClose={event => { if (event.target === event.currentTarget) setBookOpen(false) }}
         onClick={event => { if (event.target === event.currentTarget) bookDialog.current?.close() }}>
         <h4 id={bookTitleId} tabIndex={-1}>{bookSource === 'Dirge' ? 'Dirge'
-          : bookSource === 'Witch' ? 'Witch Familiar' : `${bookSource} Spellbook`}</h4>
+          : bookSource === 'Witch' ? 'Witch Familiar' : bookSource === 'Technomancer' ? 'Spell Database' : `${bookSource} Spellbook`}</h4>
         <div className="gear-tabs spell-category-tabs" role="group" aria-label={`${bookSource} spell ranks`}>
           {Array.from({ length: 11 }, (_, rank) => <button key={rank} type="button"
             aria-label={rank === 0 ? 'Cantrips' : `Rank ${rank}`} aria-pressed={bookRank === rank}
@@ -2341,6 +2371,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                   onOpen={wizardSpellbookSlots.length > 0 && !wizard ? openWizardBookRank : rank => openSpellbook('Wizard', rank)} />
               </>}
               {magus && <> <SpellbookRankButton book="Magus" rank={rank} onOpen={rank => openSpellbook('Magus', rank)} /></>}
+              {technomancer && <> <SpellbookRankButton book="Spell Database" rank={rank} onOpen={rank => openSpellbook('Technomancer', rank)} /></>}
               {witch && <> <SpellbookRankButton book="Witch" rank={rank} onOpen={rank => openSpellbook('Witch', rank)} /></>}</h5>
             <SpellColumns />
             <ul>{Array.from({ length: count }, (_, index) => {
@@ -2545,8 +2576,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       <div hidden={activeCategory !== 'innate'}>
       {c.systems.includes('pf2e') && c.level >= 1 && ['fey-touched gnome', 'wellspring gnome'].includes(c.heritage?.toLowerCase() ?? '') && (() => {
         const tradition = gnomeHeritageTradition(c)
-        const options = gnomeHeritageCantripOptions(c, entries)
         const current = tradition ? c.gnomeHeritageMagic?.cantrips?.[tradition] ?? '' : ''
+        const options = availableInnateOptions(gnomeHeritageCantripOptions(c, entries), current)
         return <div className="col">
           {c.heritage?.toLowerCase() === 'wellspring gnome' && <label>Wellspring Gnome tradition{' '}
             <select aria-label="Wellspring Gnome tradition" value={c.gnomeHeritageMagic?.tradition ?? ''} onChange={event => {
@@ -2571,8 +2602,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         </div>
       })()}
       {c.heritage === 'Mage Automaton' && c.level >= 1 && (() => {
-        const options = mageAutomatonOptions(c, entries)
         const current = c.mageAutomatonCantrip ?? ''
+        const options = availableInnateOptions(mageAutomatonOptions(c, entries), current)
         return <SearchableSelect label="Mage Automaton cantrip" aria-label="Mage Automaton cantrip" value={current}
           optionSpell={value => options.find(entry => entry.name === value)}
           onChange={event => {
@@ -2600,7 +2631,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         {innateGroups.map(group => <section className="innate-spell-group" key={group.key}>
           <h5>{group.tradition} Spell Rank {group.rank}</h5>
           <SpellColumns />
-          <ul>{group.choices.map(renderChoiceSlot)}{group.grants.map(grants => {
+          <ul>{[
+            ...group.choices.map(slot => ({ name: slot.current || slot.label, slot })),
+            ...group.grants.map(grants => ({ name: grants[0].entry.name, grants })),
+          ].sort((a, b) => a.name.localeCompare(b.name)).map(item => {
+            if ('slot' in item) return renderChoiceSlot(item.slot)
+            const grants = item.grants
             const grant = grants[0]
             const details = grantDetails(grant)
             return <InnateSpellRow c={c} key={grant.usageKey} grant={grant} note={details.note} saveDC={details.dc} attackBonus={details.attackBonus} spellcastingModifier={details.spellcastingModifier}
@@ -2608,12 +2644,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 <ZealousConvictionToggle c={c} save={save} rank={grant.rank} />
                 <SourceNote source="Heroic Presence" note="A repugnant command immediately ends the effect on that target." /></ActiveSpellActions>
                 : grant.entry.name === 'Summon Undead' ? <SummonUndeadActions c={c} save={save}
-                  entry={grant.entry} rank={grant.rank} />
+                  entry={grant.entry} rank={grant.rank} innate />
                 : grant.entry.name === 'Marvelous Mount' ? <MarvelousMountActions c={c} save={save} entry={grant.entry} />
                 : grant.entry.name === 'Summon Fiend' ? <SummonFiendActions c={c} entries={entries} save={save}
-                  entry={grant.entry} rank={grant.rank} lineageOnly={grant.source === 'Summon Nephilim Kin'}
+                  entry={grant.entry} rank={grant.rank} innate lineageOnly={grant.source === 'Summon Nephilim Kin'}
                   requiredTrait={grant.rule.condition === 'Devils only' ? 'devil' : undefined} />
-                : grant.entry.name === 'Summon Plant or Fungus' ? <SummonPlantActions c={c} save={save} entry={grant.entry} rank={grant.rank} />
+                : grant.entry.name === 'Summon Plant or Fungus' ? <SummonPlantActions c={c} save={save} entry={grant.entry} rank={grant.rank} innate />
                 : c.systems.includes('sf2e') && c.ancestry === 'Lashunta'
                 && grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal'
                 ? <ActiveSpellActions name={grant.entry.name} entry={grant.entry} rank={grant.rank} actions="Three Actions">

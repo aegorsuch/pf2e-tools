@@ -6,10 +6,12 @@ export const isAncestralEmbrace = (name?: string) => name === 'Ancestral Embrace
 const PLATE_VARIANTS: Record<string, string[]> = {
   'Rebounding Breastplate': ['Rebounding Breastplate', 'Rebounding Full Plate', 'Rebounding Bastion Plate'],
   'Breastplate of the Mountain': ['Breastplate of the Mountain', 'Full Plate of the Mountain', 'Bastion Plate of the Mountain'],
+  'Incendiary Plate': ['Incendiary Breastplate', 'Incendiary Full Plate', 'Incendiary Bastion Plate'],
 }
 const plateVariantNames = Object.values(PLATE_VARIANTS).flat()
 const isScalingPlateVariant = (name?: string) => !!name && plateVariantNames.includes(name)
 export const isMountainArmor = (name?: string) => !!name && PLATE_VARIANTS['Breastplate of the Mountain'].includes(name)
+export const isIncendiaryArmor = (name?: string) => !!name && PLATE_VARIANTS['Incendiary Plate'].includes(name)
 export const mountainPoisonImmunities = (c: Character) =>
   (c.armors ?? []).filter(armor => isMountainArmor(armor.name) && armor.mountainPoisonImmunityActive)
 const ARMORS = new Set(['Ancestral Embrace', ANCESTRAL_HIDE, "Slithermaw's Bane", "Slithermaw's Bane (Artifact)",
@@ -21,7 +23,7 @@ const BASTION_NAMES: Record<string, string> = {
 }
 export const isBastionNamedArmor = (name?: string) =>
   !!name && (Object.hasOwn(BASTION_NAMES, name) || Object.values(BASTION_NAMES).includes(name)
-    || name === 'Rebounding Bastion Plate' || name === 'Bastion Plate of the Mountain')
+    || name === 'Rebounding Bastion Plate' || name === 'Bastion Plate of the Mountain' || name === 'Incendiary Bastion Plate')
 export const INHERITOR_RUNE_FAMILIES = ['Advancing', 'Fortification', 'Moonweave', 'Sunweave'] as const
 export const isInheritorPlate = (name?: string) => name === 'Bastion Plate of the Inheritor' || name === 'Bastion of the Inheritor'
 export const isHighhelmPlate = (name?: string) => name === 'Highhelm Stronghold Bastion Plate' || name === 'Highhelm Stronghold Plate'
@@ -29,7 +31,8 @@ export const isLibraryRobes = (name?: string) => name === 'Library Robes' || nam
 export const libraryRobesRank = (level: number) => level >= 19 ? 9 : level >= 15 ? 8 : level >= 12 ? 6 : 5
 export const isImmortalBastion = (name?: string) => name === 'Immortal Bastion Plate' || name === 'Immortal Bastion'
 export const scalingBastionRuneFamilies = (name?: string): readonly string[] =>
-  isInheritorPlate(name) || isScalingPlateVariant(name) ? INHERITOR_RUNE_FAMILIES : isImmortalBastion(name) ? INHERITOR_RUNE_FAMILIES : isHighhelmPlate(name) ? ['Fortification', 'Moonweave', 'Sunweave']
+  isIncendiaryArmor(name) ? ['Fortification', 'Moonweave', 'Sunweave', 'Energy-Resistant: Fire']
+    : isInheritorPlate(name) || isScalingPlateVariant(name) ? INHERITOR_RUNE_FAMILIES : isImmortalBastion(name) ? INHERITOR_RUNE_FAMILIES : isHighhelmPlate(name) ? ['Fortification', 'Moonweave', 'Sunweave']
     : isLibraryRobes(name) ? ['Moonweave', 'Sunweave'] : []
 const BODY = /\n\n-{3,}\s*\n\n/
 export const SCALE_OF_IGROON_FORTRESS = 'Scale of Igroon (Fortress Shield)'
@@ -55,7 +58,7 @@ function plateVariants(item: ContentEntry): (ContentEntry & { baseOverride?: str
   return PLATE_VARIANTS[item.name].map((name, index) => {
     const baseOverride = ['Breastplate', 'Full Plate', 'Bastion Plate'][index]
     return { ...item, id: `${item.id}:${baseOverride.toLowerCase().replaceAll(' ', '-')}`, name, baseOverride,
-      description: item.description.replace(/breastplate/gi, match =>
+      description: item.description.replace(/breastplate|full plate/gi, match =>
         match[0] === 'B' ? baseOverride : baseOverride.toLowerCase()) }
   })
 }
@@ -115,6 +118,7 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
           ...(isHighhelmPlate(item.name) ? { named_armor_material: 'Keep Stone' } : {}),
           ...(item.name === 'Immortal Bastion' || isInheritorPlate(item.name) || isHighhelmPlate(item.name) || isLibraryRobes(item.name) || isScalingPlateVariant(item.name) ? { automatic_fundamentals: true } : {}),
           ...(item.name.startsWith('Rebounding ') ? { resistances: 'bludgeoning=5,piercing=5,slashing=5,force=10' } : {}),
+          ...(isIncendiaryArmor(item.name) ? { resistances: 'fire=10' } : {}),
         },
         description: `${item.description}${elven ? `\n\nElven chain construction: ${elven.description.split(BODY)[1]?.trim() ?? elven.description}` : ''}`,
       }]
@@ -166,7 +170,8 @@ export function scaleInheritorPlate(entry: ContentEntry | undefined, level: numb
   }
   return { ...entry, data: { ...entry.data,
     ...(highhelm ? { named_armor_runes: '', strength: Number(entry.data.strength) - (fortification ? 0 : 1) } : {}),
-    automatic_property_runes: automaticArmigerRunes(level).filter(rune => !highhelm || !rune.startsWith('Advancing')).join(';'),
+    automatic_property_runes: [...automaticArmigerRunes(level).filter(rune => !(highhelm || isIncendiaryArmor(entry.name)) || !rune.startsWith('Advancing')),
+      ...(isIncendiaryArmor(entry.name) && level >= 8 ? [`Energy-Resistant${level >= 12 ? ' (Greater)' : ''}: Fire`] : [])].join(';'),
     ...(!highhelm && fortification ? { bulk: Number(entry.data.bulk) + 1, strength: Number(entry.data.strength) + 1 } : {}),
   } }
 }
@@ -229,6 +234,9 @@ const ACTIONS: Record<string, string[]> = {
   'Breastplate of the Mountain': ['Two Actions', 'Single Action', 'Reaction'],
   'Full Plate of the Mountain': ['Two Actions', 'Single Action', 'Reaction'],
   'Bastion Plate of the Mountain': ['Two Actions', 'Single Action', 'Reaction'],
+  'Incendiary Breastplate': ['Two Actions'],
+  'Incendiary Full Plate': ['Two Actions'],
+  'Incendiary Bastion Plate': ['Two Actions'],
 }
 
 export function namedArmorAbilities(entry?: ContentEntry) {

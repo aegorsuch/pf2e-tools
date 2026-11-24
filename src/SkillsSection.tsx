@@ -17,7 +17,6 @@ import { confirmRemoval } from './confirmRemoval'
 import { getSettings } from './settings'
 import { backgroundLoreChoiceOptions, backgroundLoreSlots, backgroundSkillSlots, chosenLoreFeats, normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
 import { SearchableSelect } from './SearchableSelect'
-import { PROFESSION_LORES } from './backgrounds'
 import { characterHeritages } from './heritages'
 import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
 import { artifactItemSkillBonus, hunterArrowheadBonus } from './builder'
@@ -29,7 +28,6 @@ import { armbandsOfAthleticismBonus, daredevilBootsBonus, marvelousMedicinesBonu
 import { SkillItemPicker } from './SkillItemPicker'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
-const LABORER_LORES = PROFESSION_LORES.filter(lore => !['First Ones Lore', 'Underworld Lore'].includes(lore))
 export { commonLoreOptions } from './builder'
 
 const RESISTANCE_NOTES: Record<string, string> = {
@@ -83,7 +81,7 @@ const movementLabel = (movement: { name: string; feet: number }) =>
 export function SensesAndSpeedSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
   const characterSenses = senses(c, entries)
   const speeds = movementSpeeds(c, entries)
-  const hover = magneticLevitatorsActive(c, entries)
+  const hover = !speeds.some(movement => movement.source?.startsWith('Mounted: ')) && magneticLevitatorsActive(c, entries)
   return <summary className="character-section-summary">
     <strong>Senses and Speed</strong>
     <span>{characterSenses.map(sense => sense.value).join(', ') || 'No special senses'}; Speed {speeds.map(movement =>
@@ -148,10 +146,10 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
       {c.raging && !!activeFeatsNamed(c, 'Supernatural Senses').length && <SourceNote source="Supernatural Senses"
         note="When targeting a concealed or hidden opponent, the flat check DC is 3 or 9, respectively." />}</small>
     <small>Speed: {speeds.map((movement, index) => {
-      const bonuses = movement.name === 'Land' ? speedBonuses(c, entries) : []
+      const bonuses = movement.name === 'Land' && !movement.source?.startsWith('Mounted: ') ? speedBonuses(c, entries) : []
       return <span key={movement.name}>
         {index > 0 && '; '}{movementLabel(movement)}
-        {movement.name === 'Land' && magneticLevitatorsActive(c, entries) && ' (hover)'}
+        {movement.name === 'Land' && !movement.source?.startsWith('Mounted: ') && magneticLevitatorsActive(c, entries) && ' (hover)'}
         {(movement.source || bonuses.length > 0) && <SourceNote source={`${movement.name} Speed`}
           note={[movement.source, ...(movement.name === 'Land' && form?.source === 'Ancestral Embrace Avatar' ? [form.note] : []),
             ...bonuses.map(bonus => `+${bonus.feet} ${bonus.source}`)].filter(Boolean).join('; ')} />}
@@ -1075,10 +1073,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {available.map(option => <option key={option} value={option}>{option}</option>)}
         </SearchableSelect>
       })}
-      {loreFeats.map(({ feat, index }) => {
+      {loreFeats.filter(({ feat }) => feat.name !== 'Experienced Laborer').map(({ feat, index }) => {
         const value = feat.choice?.trim().replace(/\s+/g, ' ') ?? ''
         const selected = value && !/\s+lore$/i.test(value) ? `${value} Lore` : value.replace(/\s+lore$/i, ' Lore')
-        const options = feat.name === 'Experienced Laborer' ? LABORER_LORES : commonLoreOptions(deityLores, c.deity)
+        const options = commonLoreOptions(deityLores, c.deity)
         return <SearchableSelect key={feat.slot ?? index} label={`${feat.name} Lore`} aria-label={`${feat.name} Lore`}
           value={selected} onChange={event => {
             const choice = event.target.value

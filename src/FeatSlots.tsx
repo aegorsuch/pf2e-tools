@@ -3,17 +3,17 @@ import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { ActionIcon } from './ActionIcon'
 import { RUNESMITH_RUNES } from './runesmithRunes'
-import { DamageRoll, rollTreehealerHealing } from './SpellDamage'
+import { DamageRoll, rollSpellDamage, rollTreehealerHealing } from './SpellDamage'
 import { PickerDialog } from './PickerDialog'
 import { sortPickerOptions } from './PickerSort'
-import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, matchesSkill, plannedSlots, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, knownSpellNames, matchesSkill, plannedSlots, ranksAt, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, temporarySkillTrainings, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
 import { adoptedAncestryText, compareFeatSelections, featDisplayName } from './featChoices'
 import { featAccess, featRarity } from './featAccess'
-import { DOMAIN_FEATS, automaticFeatChoiceKey, domainSpellDescription, featSpellOptions, fixedAncestralCantrip, widespreadFascinationOptions } from './featSpells'
+import { DOMAIN_FEATS, automaticFeatChoiceKey, domainSpellDescription, featSpellOptions, fixedAncestralCantrip, isInnateSpellChoice, widespreadFascinationOptions } from './featSpells'
 import type { Character, ContentEntry, FeatSlotCategory } from './types'
 import type { PrerequisiteCheck } from './featPrerequisites'
 import { getSettings } from './settings'
@@ -40,6 +40,27 @@ function TreehealerRoll() {
       onClick={() => setResult(rollTreehealerHealing())}>Roll healing</button>
     {result && <output aria-live="polite" aria-label="Treehealer healing result">
       Plant creature: {result.target} HP; you: {result.self} HP
+    </output>}
+  </span>
+}
+
+function BattlePrayerRoll({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
+  const [result, setResult] = useState<{ check: number; success: number; critical: number }>()
+  const rank = Math.max(ranksAt(c, entries).Religion ?? 0,
+    ...temporarySkillTrainings(c, entries).filter(training => training.skill === 'Religion').map(training => training.rank))
+  const dice = rank >= 4 ? 3 : 1
+  return <span>
+    <button type="button" className="spell-action-button" aria-label={result ? 'Hide Battle Prayer result' : 'Roll Battle Prayer'}
+      onClick={() => {
+        if (result) { setResult(undefined); return }
+        const check = rollSpellDamage({ label: 'Religion', dice: 1, sides: 20, type: '' })
+        const success = rollSpellDamage({ label: 'Damage', dice, sides: 6, type: '' })
+        const critical = success + rollSpellDamage({ label: 'Damage', dice, sides: 6, type: '' })
+        setResult({ check, success, critical })
+      }}><ActionIcon actions="Single Action" /></button>
+    {result && <output aria-live="polite" aria-label="Battle Prayer result">
+      {' '}Religion d20: {result.check} (add Religion modifier; compare with Will DC); success: {result.success} alignment damage;
+      {' '}critical success: {result.critical} alignment damage
     </output>}
   </span>
 }
@@ -283,7 +304,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     return option && (source?.traits.some(trait => trait.toLowerCase() === 'ysoki') && option.toLowerCase() === 'rodents'
       ? 'Rats' : option.replace(/^[a-z]/, char => char.toUpperCase()))
   }
-  const choiceLabel = (name: string, choice: string) => name === 'Clan Lore' ? clanLoreLabel(choice)
+  const choiceLabel = (name: string, choice: string) => name === 'Researched Spell Resistance' ? choice.split(',').map(value => value.trim()).sort().join(', ')
+    : name === 'Clan Lore' ? clanLoreLabel(choice)
     : name === 'Widespread Fascination' ? entries.find(entry => entry.kind === 'subclass'
       && entry.data.class === 'Necromancer' && entry.data.grants_focus_spells === choice)?.name ?? choice
     : name === 'Bone Magic' ? choice.replace(/^occult\|Void Warp$/, 'primal|Void Warp')
@@ -301,6 +323,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       : `${choiceLabel(name, choice)} description unavailable in loaded content.`
   }
   const cannyOptions = new Set(cannyAcumenOptions(c, entries))
+  let knownSpells: Set<string> | undefined
   const prerequisiteChecks = new Map<string, ReturnType<typeof featSelectionPrerequisiteChecker>>()
   const prerequisitesFor = (entry: ContentEntry, slot: PlannedSlot) => {
     let check = prerequisiteChecks.get(slot.key)
@@ -329,7 +352,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       ? undefined : featChoiceOptions(entry.name, c, entries, slot.key, undefined, slot.category)
     const lessonSkills = slot.grantedBy === "Investigator's Skillful Lessons"
       ? investigatorSkillfulLessonSkills(c, entries, slot.level) : undefined
-    const choices = allChoices?.filter(choice => (!skill || entry.name !== 'Skill Training' || choice === skill)
+    const currentChoice = c.feats.find(feat => feat.slot === slot.key && feat.name === entry.name)?.choice
+    const choices = allChoices?.filter(choice => (!getSettings().uniqueInnateSpellChoices || !isInnateSpellChoice(entry)
+      || choice === currentChoice || !(knownSpells ??= knownSpellNames(c, entries)).has(choice.replace(/^(?:occult|primal)\|/i, '').toLowerCase()))
+      && (!skill || entry.name !== 'Skill Training' || choice === skill)
+      && (slot.grantedBy !== 'Palewatch Initiate' || !slot.redundantFeat
+        || !['Assurance', 'Skill Training'].includes(entry.name) || choice === slot.grantedSkill)
       && (!lessonSkills || lessonSkills.some(lessonSkill => choice === lessonSkill
         || /Lore$/i.test(lessonSkill) && /^Lore$/i.test(choice))))
     if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label }]
@@ -419,7 +447,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       if (!entryIds.includes(entry.id)) entryIds.push(entry.id)
     }
     const skippedFeatSlots = (c.skippedFeatSlots ?? []).filter((slot) => slot !== key)
-    if ((category === 'archetype' || category === 'ancestry') && name === 'N/A') skippedFeatSlots.push(key)
+    if ((category === 'archetype' || category === 'ancestry' || key === 'skill:4:0') && name === 'N/A') skippedFeatSlots.push(key)
     saveFeatChanges({ feats, entryIds, skippedFeatSlots,
       ...(option?.mastermindSkill ? { rogueRacketSkills: { ...c.rogueRacketSkills, Mastermind: option.mastermindSkill } } : {}),
       ...(option?.methodologySkill && option.choice ? {
@@ -457,7 +485,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const removeSlot = (slot: PlannedSlot, extra: boolean) => {
     const selection = c.feats.find((feat) => feat.slot === slot.key)
     const remove = () => {
-      if (slot.grantedFeat || slot.redundantFeat || slot.grantedAncestry || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === "Operative's Specialization" || slot.grantedBy === 'Sniper' || slot.grantedBy === 'Social Chameleon' || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'Pitborn' || slot.grantedBy === 'Captain Dedication' || slot.grantedBy === 'Scion of Many Planes' || slot.grantedBy === 'In Another Life'
+      if (slot.key === 'skill:4:0' || slot.grantedFeat || slot.redundantFeat || slot.grantedAncestry || slot.grantedBy === 'Versatile Rogue' || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer' || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === "Operative's Specialization" || slot.grantedBy === 'Sniper' || slot.grantedBy === 'Social Chameleon' || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'Pitborn' || slot.grantedBy === 'Captain Dedication' || slot.grantedBy === 'Scion of Many Planes' || slot.grantedBy === 'In Another Life'
         || allSlots.filter((other) => other.category === slot.category && other.level === slot.level).length === 1) {
         choose(slot.key, slot.category, slot.level, '')
       } else if (extra) {
@@ -550,9 +578,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const fixedOrSelectedLabel = selection && (fixedLabel(selection.name, selection.sourceId) ?? selectedLabel)
           const selectedName = selection
             ? `${displayName(selection.name)}${fixedOrSelectedLabel ? ` (${fixedOrSelectedLabel})` : ''}` : current
-          const sources = featPrerequisiteSources(entries, {
+          const sources = selection ? featPrerequisiteSources(entries, {
             ...c, name: current, category: s.category, ancestryTraits: ancestryFeatTraits({ ...c, level: Math.min(c.level, s.level) }),
-          })
+          }) : []
           const currentEntry = sources.find(source => source.id === selection?.sourceId) ?? sources[0] ?? featByName(entries).get(current)
           const arcanaChoiceEntry = selection && ['Basic Arcana', 'Advanced Arcana'].includes(selection.name)
             && selection.choice ? arcanaChoiceCandidates(entries, selection.choice) : undefined
@@ -562,6 +590,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             && !!activeFeatsNamed(c, currentEntry.name).length
           const showWrathRoll = currentEntry?.name === 'Wrath of the Hold' && !!activeFeatsNamed(c, currentEntry.name).length
           const showTreehealerRoll = c.systems.includes('pf2e') && currentEntry?.name === 'Treehealer'
+            && !!activeFeatsNamed(c, currentEntry.name).length
+          const showBattlePrayerRoll = c.systems.includes('pf2e') && currentEntry?.name === 'Battle Prayer'
             && !!activeFeatsNamed(c, currentEntry.name).length
           const showPiercingDoom = c.systems.includes('pf2e') && currentEntry?.name === 'Piercing Doom'
             && !!activeFeatsNamed(c, currentEntry.name).length
@@ -673,7 +703,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
           const classDedication = s.key === 'class:2:0' && !!s.grantedFeat
           const locked = !!homebrewDedication(s.key) || classDedication
-          const requiredGrant = !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Versatile Investigator' || s.grantedBy === "Investigator's Skillful Lessons" || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer' || s.grantedBy === 'Pitborn' || s.grantedBy === 'Captain Dedication' || s.grantedBy === 'Scion of Many Planes' || s.grantedBy === 'In Another Life'
+          const requiredGrant = s.key === 'skill:4:0' || !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Versatile Investigator' || s.grantedBy === "Investigator's Skillful Lessons" || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer' || s.grantedBy === 'Pitborn' || s.grantedBy === 'Captain Dedication' || s.grantedBy === 'Scion of Many Planes' || s.grantedBy === 'In Another Life'
           const automaticOrderFeat = s.grantedBy === 'Order Explorer' && !!current
             && (() => {
               const eligible = eligibleFeats(entries, c, s)
@@ -729,7 +759,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     prerequisites={arcanaChoiceEntry ? selectedPrerequisites(s, arcanaChoiceEntry) : prerequisites}
                     access={descriptionEntry ? featAccess(c, descriptionEntry) : access}
                     grantSource={arcanaChoiceEntry ? selection?.name : grantSource}
-                    buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showTreehealerRoll || showPiercingDoom || showAcidicSpitRoll || showInscribedBlast || showCoreCannon}
+                    buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showTreehealerRoll || showBattlePrayerRoll || showPiercingDoom || showAcidicSpitRoll || showInscribedBlast || showCoreCannon}
                     descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                       : selection?.choice && DOMAIN_FEATS.includes(selection.name)
                         ? domainSpellDescription(c, entries, selection.name, selection.choice)
@@ -738,6 +768,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   {showWrathRoll && <DamageRoll name="Wrath of the Hold" actions="Two Actions" toggleResult
                     damage={{ label: 'Damage', dice: 4 + Math.floor((c.level - 8) / 2), sides: 6, type: 'spirit' }} />}
                   {showTreehealerRoll && <TreehealerRoll />}
+                  {showBattlePrayerRoll && <BattlePrayerRoll c={c} entries={entries} />}
                   {showPiercingDoom && <DamageRoll name="Piercing Doom" actions="Two Actions" toggleResult
                     disabled={conditionValue(c, 'doomed') < 2}
                     damage={{ label: 'Additional damage on a successful melee Strike', dice: 1, sides: 10, type: 'void' }} />}
@@ -777,7 +808,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               ) : <select aria-label={`${label} feat`} value={current}
                 onChange={(e) => choose(s.key, s.category, s.level, e.target.value)}>
                 <option value="">{emptyLabel}</option>
-                {s.category === 'ancestry' && <option value="N/A">N/A</option>}
+                {(s.category === 'ancestry' || s.key === 'skill:4:0') && <option value="N/A">N/A</option>}
                 {suggested.length > 0 && <optgroup label="Suggested prerequisites">
                   {suggested.sort((a, b) => displayName(a.entry.name).localeCompare(displayName(b.entry.name)) || a.label.localeCompare(b.label))
                     .map(option => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
@@ -823,7 +854,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     </div>}
                     <ul className="feat-modal-list">
                       <li><button type="button" aria-label={`${label} clear`} onClick={() => { choose(s.key, s.category, s.level, ''); onSearch?.(`${s.key}:open`, '') }}>{emptyLabel}</button></li>
-                      {(s.category === 'ancestry' || picksType && s.grantedBy !== 'Eldritch Trickster') && <li><button type="button" aria-label={`${label} N/A`} onClick={() => { choose(s.key, s.category, s.level, 'N/A'); onSearch?.(`${s.key}:open`, '') }}>N/A</button></li>}
+                      {(s.category === 'ancestry' || s.key === 'skill:4:0' || picksType && s.grantedBy !== 'Eldritch Trickster') && <li><button type="button" aria-label={`${label} N/A`} onClick={() => { choose(s.key, s.category, s.level, 'N/A'); onSearch?.(`${s.key}:open`, '') }}>N/A</button></li>}
                       {sort === 'suggested' && <>
                         {suggested.length > 0 && <><li className="feat-modal-level">Suggested prerequisites</li>{popupOptions(suggested)}</>}
                         {paired.length > 0 && <><li className="feat-modal-level">Suggested combinations</li>{popupOptions(paired)}</>}

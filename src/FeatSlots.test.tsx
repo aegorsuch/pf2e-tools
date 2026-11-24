@@ -68,6 +68,67 @@ it.each([
   expect(c.feats).toContainEqual(expect.objectContaining({ name, choice }))
 })
 
+it('selects and changes Experienced Laborer Lore in the ancestry feat picker', () => {
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Orc', lores: [{ name: 'Custom Lore', rank: 0 }],
+    skillPicks: ['Diplomacy'] }
+  const feat: ContentEntry = { id: 'laborer', systems: ['sf2e'], kind: 'feat', source: 'official',
+    name: 'Experienced Laborer', level: 1, traits: ['Orc'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const tree = (query: string) => FeatSlots({ c, entries: [feat], categories: ['ancestry'], save: patch => { c = { ...c, ...patch } },
+    search: { 'ancestry:1:0:open': '1', 'ancestry:1:0:query': query }, onSearch: () => {} })
+  expect(renderToStaticMarkup(tree('Mining Lore'))).toContain('Experienced Laborer (Mining Lore)')
+  expect(renderToStaticMarkup(tree('Abadar Lore'))).toContain('Experienced Laborer (Abadar Lore)')
+  expect(renderToStaticMarkup(tree('Custom Lore'))).toContain('Experienced Laborer (Custom Lore)')
+  findButton(tree('Mining Lore'), 'L01 Ancestry: Experienced Laborer (Mining Lore)')!()
+  expect(c.feats).toContainEqual(expect.objectContaining({ name: feat.name, choice: 'Mining Lore' }))
+  expect(ranksAt(c, [feat])['Mining Lore']).toBe(1)
+  expect(c.skillPicks).toEqual(['Diplomacy'])
+  expect(renderToStaticMarkup(tree('Custom Lore'))).toContain('Experienced Laborer (Mining Lore)')
+  findButton(tree('Custom Lore'), 'L01 Ancestry: Experienced Laborer (Custom Lore)')!()
+  expect(ranksAt(c, [feat])['Custom Lore']).toBe(1)
+  expect(ranksAt(c, [feat])['Mining Lore']).toBeUndefined()
+})
+
+it('restricts Palewatch duplicate replacements to Religion feats and Religion variants', () => {
+  const feat = (name: string, data: ContentEntry['data'] = {}): ContentEntry => ({
+    id: name, systems: ['pf2e'], kind: 'feat', source: 'official', name, level: 1,
+    traits: ['General', 'Skill'], description: '', data, effects: [], updatedAt: 0,
+  })
+  const entries = [feat("Pilgrim's Token", { skill: 'Religion' }), feat('Student of the Canon', { skill: 'Religion' }),
+    feat('Religious Feat', { skill: 'Religion' }), feat('Athletic Feat', { skill: 'Athletics' }), feat('Assurance')]
+  let c: Character = { ...emptyRanger(), level: 4, skillPicks: ['Athletics'], feats: [
+    { name: "Pilgrim's Token", type: 'Skill Feat', level: 1, slot: 'skill:2:0' },
+    { name: 'Palewatch Initiate', type: 'Class Feat', level: 4, slot: 'class:4:0' },
+  ] }
+  const slot = plannedSlots(c, entries).find(item => item.redundantFeat === "Pilgrim's Token")!
+  expect(slot.grantedSkill).toBe('Religion')
+  const eligible = eligibleFeats(entries, c, slot).map(item => item.name)
+  expect(eligible).toContain('Religious Feat')
+  expect(eligible).not.toContain('Athletic Feat')
+  const tree = () => FeatSlots({ c, entries, categories: ['skill'], save: patch => { c = { ...c, ...patch } },
+    search: { [`${slot.key}:open`]: '1' }, onSearch: () => {} })
+  expect(findButton(tree(), 'L04 Skill: Assurance (Athletics)')).toBeUndefined()
+  findButton(tree(), 'L04 Skill: Assurance (Religion)')!()
+  expect(c.feats).toContainEqual(expect.objectContaining({ slot: slot.key, name: 'Assurance', choice: 'Religion' }))
+  const normal = plannedSlots(c, entries).find(item => item.key === 'skill:4:0')!
+  expect(eligibleFeats(entries, c, normal).map(item => item.name)).toContain('Athletic Feat')
+})
+
+it('keeps the level 4 skill slot and allows marking it N/A', () => {
+  let c: Character = { ...emptyRanger(), level: 4, dismissedFeatSlots: ['skill:4:0'],
+    extraSlots: [{ category: 'skill', level: 4, count: 1 }] }
+  const tree = () => FeatSlots({ c, entries: [], categories: ['skill'],
+    save: patch => { c = { ...c, ...patch } }, search: { 'skill:4:0:open': '1' }, onSearch: () => {} })
+  expect(plannedSlots(c).some(slot => slot.key === 'skill:4:0')).toBe(true)
+  findButton(tree(), 'L04 Skill N/A')!()
+  expect(c.skippedFeatSlots).toContain('skill:4:0')
+  expect(renderToStaticMarkup(tree())).toContain('N/A')
+  expect(findButton(tree(), 'Remove L04 Skill feat slot 0')).toBeUndefined()
+  findButton(tree(), 'Clear L04 Skill feat selection')!()
+  expect(c.skippedFeatSlots).not.toContain('skill:4:0')
+  expect(plannedSlots(c).some(slot => slot.key === 'skill:4:0')).toBe(true)
+  expect(plannedSlots(c).some(slot => slot.key === 'skill:4:1')).toBe(true)
+})
+
 it('bounds cached slot eligibility and retains recently used slots', () => {
   const c = emptyRanger()
   const entries: ContentEntry[] = []
@@ -151,9 +212,9 @@ it.each([
   expect(markup).toContain('Feat benefit.')
 })
 
-it('hides Religious Talisman prerequisites in Starfinder feat description', () => {
+it.each(['Religious Talisman', 'Deific Obedience'])('hides %s prerequisites in Starfinder feat description', (name) => {
   const prerequisite = 'Master in Religion; follower of a specific religion'
-  const entry = mapAonHit({ _id: 'talisman', _source: { category: 'feat', name: 'Religious Talisman', level: 7,
+  const entry = mapAonHit({ _id: 'talisman', _source: { category: 'feat', name, level: 7,
     trait: ['General', 'Skill'], prerequisite, markdown: `**Prerequisites**\n${prerequisite}\n\n---\n\nFeat benefit.` } }, 'sf2e')!
   const markup = renderToStaticMarkup(<EntryDescription name={entry.name} entry={entry} />)
   expect(markup).not.toContain('Prerequisites')

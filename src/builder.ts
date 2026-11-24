@@ -2,7 +2,7 @@ import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, GameSystem, H
 import { ANCESTRAL_AVATAR, BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, ancestralAvatarForm, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm, pestBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
-import { DOMAIN_FEATS, EXTRAPLANAR_SUPPLICATION_SPELLS, KITSUNE_SPELL_FAMILIARITY_CANTRIPS, ancestralMagicAvailable, automaticFeatChoiceKey, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
+import { DOMAIN_FEATS, EXTRAPLANAR_SUPPLICATION_SPELLS, KITSUNE_SPELL_FAMILIARITY_CANTRIPS, activeCaypinAlly, activeLashuntaAlly, activeShirrenAlly, ancestralMagicAvailable, automaticFeatChoiceKey, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
 import { GODCLAW_DOMAINS, HELLKNIGHT_FAVORED_WEAPONS, ORDER_TRAINING_FEATS, PYRE_ENERGY_TYPES, hellknightBenefitActive, hellknightOrder, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
 import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore, PROFESSION_LORES } from './backgrounds'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
@@ -957,7 +957,7 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
     slots.push(slot)
   }
-  const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || homebrewDedication(slot.key) || !!slot.grantedFeat || !!slot.redundantFeat
+  const visible = slots.filter((slot) => !c.dismissedFeatSlots?.includes(slot.key) || slot.key === 'skill:4:0' || homebrewDedication(slot.key) || !!slot.grantedFeat || !!slot.redundantFeat
     || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
     || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon'
     || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'Pitborn' || slot.grantedBy === 'Scion of Many Planes' || slot.grantedBy === 'In Another Life' || slot.grantedBy === "Operative's Specialization"
@@ -1013,6 +1013,7 @@ function redundantFeatSlots(c: Character, entries: ContentEntry[], slots: Planne
     if (seen.has(feat.name) && occurrence.granted) replacements.push({
       key: `${category}:${occurrence.level}:redundant:${encodeURIComponent(occurrence.identity)}`,
       category, level: occurrence.level, grantedBy: occurrence.source, redundantFeat: feat.name,
+      ...(occurrence.source === 'Palewatch Initiate' ? { grantedSkill: 'Religion' } : {}),
     })
     seen.add(feat.name)
   }
@@ -1623,7 +1624,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const classArchetype = slot.category === 'class' ? selectedClassArchetype(c, entries)?.name : undefined
   const classArchetypeDedication = classArchetype && c.feats.some(feat => feat.name === `${classArchetype} Dedication`
     && feat.slot !== slot.key && featTakenLevel(feat) <= Math.min(c.level, slot.level))
-  const skillFeats = slot.grantedBy === "Operative's Specialization" ? featByName(entries) : undefined
+  const skillFeats = slot.grantedBy === "Operative's Specialization" || slot.grantedBy === 'Palewatch Initiate'
+    ? featByName(entries) : undefined
   const classCompanionStages = new Set<string>()
   if (getSettings().singleAnimalCompanion && classTrait) {
     for (const { entry, traits } of featIndex(entries)) {
@@ -1695,6 +1697,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || e.name === 'Assurance' || tokens(e.data.skill).some(skill => /^(computers|crafting)$/i.test(skill)))
       && (slot.grantedBy !== "Operative's Specialization" || !!slot.grantedSkill
         && e.name !== 'Skill Training' && matchesSkill(e, slot.grantedSkill, skillFeats!))
+      && (slot.grantedBy !== 'Palewatch Initiate' || slot.redundantFeat && !!slot.grantedSkill
+        && matchesSkill(e, slot.grantedSkill, skillFeats!))
       && (!investigatorLessonSkills || investigatorLessonSkills.length > 0
         && (e.name === 'Assurance' || e.name === 'Skill Training' || e.name === 'Additional Lore'
           ? investigatorLessonSkills.some(skill => /(?:^|\s)Lore$/i.test(skill))
@@ -1955,6 +1959,11 @@ const NEPHILIM_RESISTANCE_TYPES = ['Acid', 'Cold', 'Electricity', 'Fire', 'Sonic
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number,
   category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === 'Experienced Laborer' && c.systems.includes('sf2e')) {
+    const saved = c.feats[index]?.name === name ? c.feats[index].choice?.trim().replace(/\s+/g, ' ') : undefined
+    const lore = saved && !/^lore$/i.test(saved) ? /\s+lore$/i.test(saved) ? saved : `${saved} Lore` : undefined
+    return commonLoreOptions([...c.lores.map(item => item.name), ...(lore ? [lore] : [])], c.deity)
+  }
   if (name === 'Leshy Familiar' && c.systems.includes('pf2e')) return ['Plant', 'Fungus']
   if (c.systems.includes('pf2e') && ['Divine Emissary', 'Leshy Familiar Secrets'].includes(name)) {
     const highest = Math.max(0, ...Object.entries(classSpellSlots(c) ?? c.spellcasting?.slots ?? {})
@@ -3020,7 +3029,44 @@ export const MOBILITY_ENHANCER_SPEEDS = ['Burrow', 'Climb', 'Fly', 'Swim']
 export const mobilityEnhancers = (c: Character) => (c.augmentations ?? []).filter(item => /^Mobility Enhancer\b/.test(item.name))
   .map(item => ({ ...item, bonus: /\(Advanced\)$/.test(item.name) ? 15 : /\(Tactical\)$/.test(item.name) ? 10 : 5 }))
 
+const ALLY_MOUNTS = {
+  Shotalashu: { size: 'Large', speed: '40 feet' },
+  Squox: { size: 'Tiny', speed: '25 feet, climb 20 feet' },
+  Caypin: { size: 'Large', speed: '40 feet, swim 30 feet' },
+  Emganat: { size: 'Medium', speed: '20 feet, burrow 30 feet' },
+} as const
+
+export function summonedMounts(c: Character, entries: ContentEntry[]) {
+  const ally = activeLashuntaAlly(c) ?? (activeCaypinAlly(c) ? 'Caypin' : activeShirrenAlly(c) ? 'Emganat' : undefined)
+  const creatures = [
+    ...(ally ? [{ key: `ally:${ally}`, name: ally === 'Emganat' ? 'Kucharn' : ally,
+      size: ALLY_MOUNTS[ally].size, speed: ALLY_MOUNTS[ally].speed }] : []),
+    ...([['fiend', c.summonedFiend], ['plant', c.summonedPlant], ['undead', c.summonedUndead]] as const)
+      .flatMap(([kind, creature]) => creature ? [{ key: `${kind}:${creature.id}`, name: creature.name,
+        size: creature.traits.find(trait => /^(tiny|small|medium|large|huge|gargantuan)$/i.test(trait)) ?? '',
+        speed: creature.speed }] : []),
+  ]
+  const sizes = ['tiny', 'small', 'medium', 'large', 'huge', 'gargantuan']
+  const riderSize = String(giantStatureSize(c, entries) ?? enlargedChassisSize(c, entries)
+    ?? activeBattleForm(c, entries)?.size ?? characterSize(c, entries)).toLowerCase()
+  const riderIndex = sizes.indexOf(riderSize)
+  return creatures.filter(creature => riderIndex >= 0 && sizes.indexOf(creature.size.toLowerCase()) > riderIndex)
+}
+
+export function mountedSummonSpeeds(c: Character, entries: ContentEntry[]) {
+  const mount = summonedMounts(c, entries).find(creature => creature.key === c.mountedSummon)
+  if (!mount) return undefined
+  const movements = [...mount.speed.matchAll(/(?:^|[,;]\s*)(?:(land|burrow|climb|fly|swim)\s+)?(\d+)\s*(?:feet|foot|ft\.?)/gi)]
+    .map(match => ({ name: match[1] ? `${match[1][0].toUpperCase()}${match[1].slice(1).toLowerCase()}` : 'Land',
+      feet: Number(match[2]), source: `Mounted: ${mount.name}` }))
+  if (!movements.length && /can['’]t move/i.test(mount.speed))
+    return [{ name: 'Land', feet: 0, source: `Mounted: ${mount.name}` }]
+  return movements.length ? movements : undefined
+}
+
 export function movementSpeeds(c: Character, entries: ContentEntry[], options: MovementSpeedOptions = {}) {
+  const mounted = mountedSummonSpeeds(c, entries)
+  if (mounted) return mounted
   if (isFeatEffectActive(c, 'Verdant Metamorphosis')) return [{ name: 'Land', feet: 0, source: 'Verdant Rest', status: 0 }]
   const form = activeBattleForm(c, entries)
   if (form?.source === 'Animal Rage') return movementSpeeds(withoutBattleForm(c), entries, options)
@@ -3415,7 +3461,7 @@ function researchedSpellResistanceVariants(c: Character, entries: ContentEntry[]
       const next = [...traditions, tradition]
       const key = [...next].sort().join(', ')
       if (variants.has(key)) continue
-      variants.set(key, next.join(', '))
+      variants.set(key, key)
       visit(next)
     }
   }
@@ -3426,6 +3472,12 @@ function researchedSpellResistanceVariants(c: Character, entries: ContentEntry[]
 export function researchedSpellResistanceChoices(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   const ranks = ranksAt(c, entries)
   const saved = feat.choice?.split(',').map(value => value.trim()).filter(Boolean) ?? []
+  const canSelectAll = (selected: string[]): boolean =>
+    selected.length === saved.length || researchedTraditionOptions(ranks, selected)
+      .some(option => saved.includes(option) && !selected.includes(option) && canSelectAll([...selected, option]))
+  if (new Set(saved).size === saved.length && canSelectAll([])) {
+    return { rows: [], traditions: saved }
+  }
   const traditions: string[] = []
   const rows: { value: string; options: string[] }[] = []
   for (let index = 0; index < 4; index++) {
@@ -5792,7 +5844,7 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   if (isFeatEffectActive(c, 'Heart of the Kaiju')) out.push({ damage: 'physical', value: 5, source: 'Heart of the Kaiju' })
   if (c.hardenFleshActive && activeFeatsNamed(c, 'Harden Flesh').length) out.push({ damage: 'physical (except adamantine)',
     value: Math.min(6, 3 + Math.max(0, Math.floor((c.level - 8) / 4))), source: 'Harden Flesh' })
-  for (const rune of wornArmor(c)?.runes ?? []) {
+  for (const rune of wornArmor(c, entries)?.runes ?? []) {
     const m = /^Energy-Resistant( \(Greater\))?: (\w+)$/.exec(rune.replace(/^Greater Energy-Resistant/, 'Energy-Resistant (Greater)')) ?? /^()(\w+) Resistant$/.exec(rune)
     if (m) out.push({ damage: m[2], value: m[1] ? 10 : 5, source: `${rune} rune` })
   }
@@ -6673,6 +6725,26 @@ export function knowsSpell(c: Character, entries: ContentEntry[], name: string) 
     || focusSpells(c, entries).spells.some((spell) => spell.name === name))
 }
 
+export function knownSpellNames(c: Character, entries: ContentEntry[]) {
+  const selected = selectedClassSpellSlots(c).map(({ value }) =>
+    entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.id === value
+      && entry.systems.some(system => c.systems.includes(system)))?.name ?? value)
+  const warrior = c.className === 'Champion' ? activeFeatsNamed(c, 'Divine Warrior')[0]
+    : c.className === 'Ranger' ? activeFeatsNamed(c, 'Primal Warrior')[0] : undefined
+  const names = [
+    ...(c.spells ?? []).map(spell => spell.name), ...selected,
+    ...(warrior ? classExtraSlots(c).flatMap(slot => slot.spell ? [slot.spell] : []) : []),
+    ...(selectedShieldCantrip(c, entries) ? ['Shield'] : []),
+    ...(selectedTailwind(c, entries) ? ['Tailwind'] : []),
+    ...necromancerGrantedDirgeSpells(c),
+    ...grantedWardenSpells(c, entries).map(spell => spell.name),
+    ...grantedFeatSpells(c, entries).map(grant => grant.entry.name),
+    ...minorMagicSpells(c, entries).map(spell => spell.name),
+    ...focusSpells(c, entries).spells.map(spell => spell.name),
+  ]
+  return new Set(names.map(name => spellName(entries, name).trim().toLowerCase()))
+}
+
 function selectedClassSpellSlots(c: Character) {
   if (c.className === 'Champion' && activeFeatsNamed(c, 'Divine Warrior').length
     || c.className === 'Ranger' && activeFeatsNamed(c, 'Primal Warrior').length) return []
@@ -6888,7 +6960,7 @@ export function magicHideChange(c: Character, active: boolean, companionId = mag
 
 export function activeAnimalFeatures(c: Character, entries: ContentEntry[]) {
   if (!isSpellActive(c, entries, 'Animal Feature')) return []
-  const selected = hasFeat(c, 'Persistent Animal Feature')
+  const selected = activeFeatsNamed(c, 'Persistent Animal Feature').length
     ? c.animalFeatures ?? [c.animalFeature ?? 'Claws']
     : [c.animalFeature ?? c.animalFeatures?.[0] ?? 'Claws']
   return ANIMAL_FEATURES.filter((feature) => selected.includes(feature.name) && feature.rank <= Math.ceil(c.level / 2)
@@ -7273,7 +7345,7 @@ const FALLBACK_RUNE_USAGE: Record<string, string> = {
   Unholy: "etched into a weapon that isn't holy",
 }
 
-export const runeBaseName = (name: string) => runeName(name).replace(/ \((Lesser|Greater|Major|True)\)$/, '')
+export const runeBaseName = (name: string) => runeName(name).replace(/ \((Lesser|Greater|Major|True)\)(?=:|$)/, '')
 
 export function weaponRuneApplies(entries: ContentEntry[], weapon: OwnedWeapon, rune: string) {
   const entry = weaponEntry(entries, weapon.name, weapon.id)
@@ -7697,6 +7769,24 @@ export function usesWeaponUpgrades(entry?: ContentEntry) {
     || /^Shobhad Longrifle(?: \(Starfinder\))?$/.test(entry.name))
 }
 
+export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  const entry = weaponEntry(entries, weapon.name, weapon.id)
+  if (!getSettings().automaticSfWeaponUpgrades || !c.systems.includes('sf2e') || !entry) return []
+  const name = entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+  const upgrades = entry.data.special_weapon_source === 'SLARP' || name === 'SLARP Rapid Laser Pistol' ? ["Smuggler's Grip", 'Flaming Module']
+    : name === 'Shuriken Drone' ? ['Retrieval Boosters']
+    : name === 'Singing Spear' ? ['Retrieval Boosters', 'Loudener']
+    : name === 'Shock Pad' ? ['Shock Module'] : []
+  return upgrades.flatMap(base => {
+    const candidates = entries.filter(candidate => candidate.kind === 'item' && !candidate.deleted
+      && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Weapon Upgrades'
+      && (candidate.name === base || candidate.name === `${base} (Commercial)` || candidate.name === `${base} (Tactical)`)
+      && candidate.level <= c.level)
+      .sort((a, b) => b.level - a.level || Number(b.name.includes('(')) - Number(a.name.includes('(')))
+    return candidates[0] ? [candidates[0]] : []
+  })
+}
+
 export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const entry = weaponEntry(entries, weapon.name, weapon.id)
   const unarmed = weaponCategory(entry) === 'Unarmed'
@@ -7704,11 +7794,18 @@ export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], w
   const ids = unarmed
     ? handwraps?.kind === 'hardlight' && !animalStrengthSource(c, entries, weapon) ? handwraps.upgrades : undefined
     : usesWeaponUpgrades(entry) ? weapon.upgrades : undefined
-  return (ids ?? []).flatMap(id => {
+  const installed = (ids ?? []).flatMap(id => {
     const upgrade = entries.find(candidate => candidate.id === id && !candidate.deleted && candidate.kind === 'item'
       && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Weapon Upgrades')
     return upgrade ? [upgrade] : []
   })
+  for (const granted of automaticWeaponUpgrades(c, entries, weapon)) {
+    const base = granted.name.replace(/\s*\([^)]*\)$/, '')
+    const index = installed.findIndex(item => item.name.replace(/\s*\([^)]*\)$/, '') === base)
+    if (index < 0) installed.push(granted)
+    else if (installed[index].level < granted.level) installed[index] = granted
+  }
+  return installed
 }
 
 export function scaleOfIgroonWeaponRunes(c: Character, shield?: OwnedShield, weapon?: OwnedWeapon) {

@@ -1,12 +1,13 @@
-import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, nephilimLineageLore, orderMagicOptions, statDefs, subclassSkillChoice, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
+import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions } from './featChoices'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, knownSpellNames, nephilimLineageLore, orderMagicOptions, statDefs, subclassSkillChoice, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
 import { automaticFeatGrants } from './builder'
 import type { SectionProps } from './builder'
-import { DOMAIN_FEATS, automaticFeatChoiceKey, coreAttunementOptions, featSpellOptions } from './featSpells'
+import { DOMAIN_FEATS, automaticFeatChoiceKey, coreAttunementOptions, featSpellOptions, isInnateSpellChoice } from './featSpells'
 import { featRarity } from './featAccess'
 import { SearchableSelect } from './SearchableSelect'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { EntryDescription } from './EntryDescription'
+import { getSettings } from './settings'
 
 const repeatableFeatNames = new WeakMap<SectionProps['entries'], Set<string>>()
 const PLANAR_LORE_CHOICES = [
@@ -117,7 +118,9 @@ export function AutomaticFeatChoice({ c, entries, save, name, source, choice, ch
     </SearchableSelect>
   }
   if (name !== 'Kitsune Spell Familiarity') return null
-  const options = featSpellOptions(c, entries, { name, type: 'Ancestry Feat', level: 1, slot: '' }) ?? []
+  const known = getSettings().uniqueInnateSpellChoices ? knownSpellNames(c, entries) : new Set<string>()
+  const options = (featSpellOptions(c, entries, { name, type: 'Ancestry Feat', level: 1, slot: '' }) ?? [])
+    .filter(spell => spell.name === choice || !known.has(spell.name.toLowerCase()))
   return <label className="feat-choice">
     <SearchableSelect label="Daily cantrip" aria-label={`${name} spell`} value={choice ?? ''}
       optionSpell={value => options.find(spell => spell.name === value)} onChange={event => {
@@ -493,7 +496,10 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </SearchableSelect>
     })}</span>
   }
-  const spellOptions = featSpellOptions(c, entries, feat)
+  const allSpellOptions = featSpellOptions(c, entries, feat)
+  const source = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
+  const known = getSettings().uniqueInnateSpellChoices && allSpellOptions && source && isInnateSpellChoice(source) ? knownSpellNames(c, entries) : undefined
+  const spellOptions = known ? allSpellOptions?.filter(spell => spell.name === feat.choice || !known.has(spell.name.toLowerCase())) : allSpellOptions
   if (['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip', 'Free Heart', 'Bone Magic', 'Widespread Fascination', 'Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon', 'Divine Warrior', 'Primal Warrior'].includes(feat.name)) return null
   if (spellOptions) return <span className="feat-choice">
     <SearchableSelect aria-label={`${feat.name} spell`} value={feat.choice ?? ''}

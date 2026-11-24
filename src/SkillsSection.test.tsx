@@ -1262,7 +1262,7 @@ it('grants Underworld Investigator free trained Lore without Additional Lore pro
   } finally { updateSettings({ autoLores: previous }) }
 })
 
-it.each(['Orc', 'Human'])('grants Experienced Laborer a separate Lore choice for %s', ancestry => {
+it.each(['Orc', 'Human'])('does not show an Experienced Laborer Lore picker in skills for %s', ancestry => {
   const previous = getSettings().autoLores
   updateSettings({ autoLores: false })
   const c: Character = { ...base, systems: ['sf2e'], ancestry, level: 7,
@@ -1273,7 +1273,7 @@ it.each(['Orc', 'Human'])('grants Experienced Laborer a separate Lore choice for
   const entries = [{ ...ranger, systems: ['sf2e' as const] }]
   try {
     const markup = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} />)
-    expect(markup).toContain('Experienced Laborer Lore')
+    expect(markup).not.toContain('aria-label="Experienced Laborer Lore"')
     expect(skillRankBudget(c, entries).trained).toBe(4)
     expect(builder.automaticFeatGrants(c, entries).some(grant => grant.source === 'Experienced Laborer')).toBe(false)
     const trained: Character = { ...c, skillPicks: ['Diplomacy'] }
@@ -1337,31 +1337,11 @@ it('saves restricted background Lore choices and rejects unrelated options', () 
   }))
 })
 
-it('saves feat Lore choices separately from ordinary skill picks', () => {
-  const c: Character = { ...base, systems: ['sf2e'], skillPicks: ['Athletics'],
-    feats: [{ name: 'Experienced Laborer', type: 'Ancestry Feat', level: 1 }] }
-  const save = vi.fn()
-  const picker = findLorePicker(SkillsSection({ c, entries: [], save }), 'Experienced Laborer Lore')!
-  const onChange = picker.onChange as (event: { target: { value: string } }) => void
-  onChange({ target: { value: 'Abadar Lore' } })
-  onChange({ target: { value: 'First Ones Lore' } })
-  expect(save).not.toHaveBeenCalled()
-  onChange({ target: { value: 'Mining Lore' } })
-  const patch = save.mock.calls[0][0]
-  expect(patch.feats[0].choice).toBe('Mining Lore')
-  expect(ranksAt({ ...c, ...patch }, [])['Mining Lore']).toBe(1)
-  expect(c.skillPicks).toEqual(['Athletics'])
-})
-
-it('preserves an existing non-profession Experienced Laborer choice', () => {
+it('preserves an existing non-profession Experienced Laborer choice without a skills picker', () => {
   const c: Character = { ...base, systems: ['sf2e'],
     feats: [{ name: 'Experienced Laborer', type: 'Ancestry Feat', level: 1, choice: 'Abadar Lore' }] }
-  const picker = findLorePicker(SkillsSection({ c, entries: [], save: vi.fn() }), 'Experienced Laborer Lore')!
-  expect(picker.value).toBe('Abadar Lore')
+  expect(findLorePicker(SkillsSection({ c, entries: [], save: vi.fn() }), 'Experienced Laborer Lore')).toBeUndefined()
   expect(ranksAt(c, [])['Abadar Lore']).toBe(1)
-  const children = Children.toArray(picker.children as ReactNode)
-  const saved = children.find(child => isValidElement<Record<string, unknown>>(child) && child.props.value === 'Abadar Lore')
-  expect(isValidElement<Record<string, unknown>>(saved) && saved.props.disabled).toBe(true)
 })
 
 it('shows radioactive protection and tracks the two separate daily abilities', () => {

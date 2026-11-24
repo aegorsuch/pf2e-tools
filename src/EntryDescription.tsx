@@ -10,7 +10,7 @@ import { equipmentDisplayName } from './equipmentGroups'
 import { spellDCText } from './builder'
 import { getSettings } from './settings'
 import { hellknightTrainingBenefit } from './hellknight'
-import { domainSpellDescription } from './featSpells'
+import { domainSpellDescription, featSpellOptions } from './featSpells'
 
 const featIndexes = new WeakMap<ContentEntry[], { urls: Map<string, ContentEntry>; names: Map<string, ContentEntry> }>()
 function featIndex(entries: ContentEntry[]) {
@@ -41,10 +41,10 @@ export function EntryDescription({ name, entry, className, prerequisites, access
   const [history, setHistory] = useState<ContentEntry[]>([])
   const [openRequested, setOpenRequested] = useState(false)
   useLayoutEffect(() => {
-    if (!openRequested) return
+    if (!openRequested || !deferDetails) return
     dialog.current?.showModal()
     dialog.current?.querySelector('h4')?.focus()
-  }, [openRequested])
+  }, [openRequested, deferDetails])
   const text = (value: string) => {
     if (!character) return value
     const adopted = adoptedAncestryText(character, value)
@@ -58,6 +58,7 @@ export function EntryDescription({ name, entry, className, prerequisites, access
         aria-haspopup="dialog" onClick={() => {
           if (deferDetails) setOpenRequested(true)
           else {
+            setOpenRequested(true)
             dialog.current?.showModal()
             dialog.current?.querySelector('h4')?.focus()
           }
@@ -72,15 +73,16 @@ export function EntryDescription({ name, entry, className, prerequisites, access
         onClose={() => { setHistory([]); setOpenRequested(false) }}
         onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close() }}>
         {(!deferDetails || openRequested) && <EntryDescriptionContents {...details} name={name} entry={entry} prerequisites={prerequisites}
-          access={access} entries={entries} character={character} history={history} setHistory={setHistory} dialog={dialog} titleId={titleId} />}
+          access={access} entries={entries} character={character} history={history} setHistory={setHistory} dialog={dialog} titleId={titleId}
+          includeChoiceSpell={openRequested} />}
       </dialog>
     </>
   )
 }
 
-function EntryDescriptionContents({ name, entry, choice, prerequisites, access, descriptionNote, entries, character, history, setHistory, dialog, titleId }: EntryDescriptionProps & {
+function EntryDescriptionContents({ name, entry, choice, prerequisites, access, descriptionNote, entries, character, history, setHistory, dialog, titleId, includeChoiceSpell }: EntryDescriptionProps & {
   history: ContentEntry[]; setHistory: Dispatch<SetStateAction<ContentEntry[]>>
-  dialog: RefObject<HTMLDialogElement | null>; titleId: string
+  dialog: RefObject<HTMLDialogElement | null>; titleId: string; includeChoiceSpell: boolean
 }) {
   const active = history.at(-1) ?? entry
   const text = (value: string) => {
@@ -129,6 +131,11 @@ function EntryDescriptionContents({ name, entry, choice, prerequisites, access, 
       .replace(/\byour companions['\u2019]/gi, "your companion's") : originalDescription
   const training = character && active?.kind === 'feat'
     ? hellknightTrainingBenefit(character, active.name, history.length ? undefined : choice) : undefined
+  const choiceSpell = includeChoiceSpell && !history.length && character && entries && entry?.kind === 'feat' && choice
+    ? featSpellOptions(character, entries, character.feats.find(feat => feat.name === entry.name && feat.choice === choice)
+      ?? { name: entry.name, type: '', level: entry.level, sourceId: entry.id, choice })
+      ?.find(spell => spell.name.toLowerCase() === choice.trim().toLowerCase())
+    : undefined
   return (
     <>
         <h4 id={titleId} tabIndex={-1}>{title(history.length ? active?.name ?? name : name)}{featActions && <> <ActionIcon entry={active} /></>}{active && active.kind !== 'trait' && <small> (Level {active.level}{rarity ? `; ${rarity}` : ''})</small>}</h4>
@@ -143,6 +150,8 @@ function EntryDescriptionContents({ name, entry, choice, prerequisites, access, 
           {' '}Access does not replace prerequisites.
         </p>}
         <p>{text(description || 'Description unavailable. Sync Archives of Nethys content to load it.')}</p>
+        {choiceSpell && <p><strong>{text(choiceSpell.name)}:</strong>{' '}
+          {text(choiceSpell.description || 'Spell description unavailable; sync Archives of Nethys content to load it.')}</p>}
         {training && <p><strong>{training.name} ({training.order}):</strong> {training.description}
           {training.name === 'Dedication to the Five' && training.choice && character && entries
             && <> {text(domainSpellDescription(character, entries, 'Domain Initiate', training.choice))}</>}

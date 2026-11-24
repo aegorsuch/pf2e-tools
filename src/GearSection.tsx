@@ -6,7 +6,7 @@ import {
 import { newId } from './db'
 import { blessedShieldBenefit, canEquipShield, championBlessings, clanPistolRunes, equippedHands, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
-import { isAncestralEmbrace, isBastionNamedArmor, isMountainArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { isAncestralEmbrace, isBastionNamedArmor, isIncendiaryArmor, isMountainArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { DamageRoll } from './SpellDamage'
@@ -462,17 +462,21 @@ function GearTag({ name, entry, onRemove, source = 'Granted by Living Weapon', k
   )
 }
 
-export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange }: {
+export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, effectiveUpgrades }: {
   entries: ContentEntry[]; weapon: ContentEntry; upgrades: string[]; limit: number | undefined; onChange: (ids: string[]) => void
+  effectiveUpgrades?: ContentEntry[]
 }) {
   const catalog = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
     && entry.data.item_subcategory === 'Weapon Upgrades')
   const installed = upgrades.map(id => catalog.find(entry => entry.id === id))
+  const sameUpgrade = (a: ContentEntry, b: ContentEntry) => a.id === b.id || !!a.data.url && a.data.url === b.data.url
+    || a.name.replace(/\s*\([^)]*\)$/, '') === b.name.replace(/\s*\([^)]*\)$/, '')
+  const granted = effectiveUpgrades?.filter(item => !installed.some(saved => saved && sameUpgrade(item, saved))) ?? []
   const usage = (entry: ContentEntry) => String(entry.data.usage ?? '').toLowerCase().replace(/\s+/g, ' ')
   const traits = weapon.traits.map(trait => trait.toLowerCase())
   const options = catalog.filter(entry => {
     const text = usage(entry)
-    if (installed.some(item => item && (item.id === entry.id || item.data.url && item.data.url === entry.data.url))) return false
+    if (installed.some(item => item && sameUpgrade(item, entry)) || granted.some(item => sameUpgrade(item, entry))) return false
     const part = /\((sight|grip)\)/.exec(text)?.[1]
     if (part && installed.some(item => item && usage(item).includes(`(${part})`))) return false
     if (/without a silencer/.test(text) && installed.some(item => item?.name.toLowerCase().startsWith('silencer'))) return false
@@ -495,12 +499,17 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange }: {
     return true
   }).sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
   return <div className="gear-runes">
-    {upgrades.map((id, index) => <GearTag key={`${id}:${index}`} name={installed[index]?.name ?? id} entry={installed[index]}
-      kind="upgrade" onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />)}
+    {upgrades.map((id, index) => {
+      const saved = installed[index]
+      const effective = effectiveUpgrades?.find(item => saved && sameUpgrade(item, saved)) ?? saved
+      return <GearTag key={`${id}:${index}`} name={effective?.name ?? id} entry={effective}
+        kind="upgrade" onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />
+    })}
+    {granted.map(entry => <GearTag key={`granted:${entry.id}`} name={entry.name} entry={entry} kind="upgrade" source="Automatic weapon upgrade" />)}
     {installed.some(item => !item) && <small role="status">Saved upgrade unavailable. Sync official content to restore its effects.</small>}
     {limit === undefined && <small role="status">Weapon upgrade slots unavailable. Sync official content.</small>}
-    {limit !== undefined && upgrades.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
-    {limit !== undefined && upgrades.length < limit && options.length > 0 && <SearchableSelect aria-label="Add weapon upgrade" value=""
+    {limit !== undefined && upgrades.length + granted.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
+    {limit !== undefined && upgrades.length + granted.length < limit && options.length > 0 && <SearchableSelect aria-label="Add weapon upgrade" value=""
       optionLevel={value => options.find(entry => entry.id === value)?.level} onChange={event => {
       if (options.some(entry => entry.id === event.target.value)) onChange([...upgrades, event.target.value])
     }}>
@@ -1694,6 +1703,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             {upgradeWeapon && a.entry && !linkedSource && <>
               {(w.runes.length > 0 || w.potency > 0 || w.striking > 0) && <small role="status">Saved runes are inactive on this weapon.</small>}
               <WeaponUpgrades entries={entries} weapon={a.entry} upgrades={w.upgrades ?? []}
+                effectiveUpgrades={a.upgrades}
                 limit={typeof a.entry.data.upgrade_slots === 'number' ? Math.max(0, a.entry.data.upgrade_slots - (a.entry.data.raptorial_edge ? 1 : 0)) : undefined}
                 onChange={upgrades => update(w.id, { upgrades })} />
             </>}
@@ -2048,6 +2058,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               damageRolls={['Rebounding Breastplate', 'Rebounding Full Plate', 'Rebounding Bastion Plate'].includes(a.name) ? {
                 'Kinetic Pulse': { name: 'Kinetic Pulse', damage: { label: 'Damage', dice: 12, sides: 6, type: 'force' },
                   disabled: !a.worn, toggleResult: true },
+              } : isIncendiaryArmor(a.name) ? {
+                'Living Flame': { name: 'Living Flame', damage: { label: 'Damage', dice: 10, sides: 6, type: 'fire',
+                  note: 'DC 40 basic Reflex save' }, disabled: !a.worn && !a.livingFlameActive, toggleResult: true },
               } : undefined} avatar={isAncestralEmbrace(entry?.name) ? {
               active: !!c.activeSpells?.includes(ANCESTRAL_AVATAR) && a.worn,
               disabled: !a.worn,
@@ -2064,7 +2077,6 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               {(a.strongholdWallUsed || a.immortalSurvivalUsed || a.immortalConditionUsed) && <button type="button"
                 onClick={() => update(a.id, { strongholdWallUsed: false, immortalSurvivalUsed: false, immortalConditionUsed: false })}>Daily preparations</button>}
             </div>}
-            {sf2eArmor && entry?.data.armor_grade && <small>Grade: {String(entry.data.armor_grade)}</small>}
             {entry?.data.upgrades_allowed === false && <small>Armor upgrades cannot be installed on this armor.</small>}
             {entry && <GearAccess c={c} entries={entries} entry={entry} save={save} />}
             {entry && entry.traits.length > 0 && <GearTraits traits={entry.traits} entries={entries} system={entry.systems[0]} />}
@@ -2087,7 +2099,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                   ? `${penalty(speedPenalty)} ft (${penalty(effectiveSpeedPenalty)} ft)`
                   : `${penalty(speedPenalty)} ft`}</span>
                 {booster && <span><small>{booster.source.replace(' (status)', '')}</small>{signed(booster.feet)} ft status</span>}
-                {starfinder && <span><small>Grade AC increase</small>+{Number(entry.data.grade_ac_bonus)}</span>}
+                {starfinder && <span><small>AC increase</small>+{Number(entry.data.grade_ac_bonus)}</span>}
                 {starfinder && <span><small>Saving throws</small>+{Number(entry.data.grade_save_bonus)}</span>}
               </div>
             )}

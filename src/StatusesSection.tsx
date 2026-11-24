@@ -1,11 +1,12 @@
-import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, wornArmor, type SectionProps } from './builder'
+import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, selectedFeatEntry, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, wornArmor, type SectionProps } from './builder'
 import { grantedFeatSpells } from './featSpells'
 import { FavoredTerrainSelector, HardenFleshToggle, RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
 import { ActiveSpellActions, automatedSpellStatusControls, ProtectCompanionOptions, SpellEffectActions, ZealousConvictionToggle } from './SpellsSection'
 import { EntryDescription } from './EntryDescription'
 import { SimplePoisons } from './GearSection'
-import { isAncestralEmbrace, isBastionNamedArmor, isMountainArmor, mountainPoisonImmunities } from './namedArmor'
+import { isAncestralEmbrace, isBastionNamedArmor, isIncendiaryArmor, isMountainArmor, mountainPoisonImmunities } from './namedArmor'
+import { DamageRoll } from './SpellDamage'
 import { ANCESTRAL_AVATAR } from './battleForms'
 import { FULMINATING_SHOT_ELEMENTS, fulminatingShotBonus } from './fulminatingShot'
 import { confirmRemoval } from './confirmRemoval'
@@ -22,6 +23,27 @@ const HUNT_PREY: ContentEntry = {
     + 'Ignore the ranged attack penalty in the second range increment against it. '
     + 'You can designate only one prey at a time; choosing another replaces it. The designation lasts until your next daily preparations.',
   data: { url: 'https://2e.aonprd.com/Actions.aspx?ID=2257' },
+}
+
+const PARRY: ContentEntry = {
+  id: 'trait:parry', systems: ['pf2e'], kind: 'trait', source: 'official', name: 'Parry',
+  level: 0, traits: [], effects: [], updatedAt: 0,
+  description: 'While wielding a parry weapon with trained or better proficiency, spend one action to gain a +1 circumstance bonus to AC until the start of your next turn.',
+  data: { url: 'https://2e.aonprd.com/Traits.aspx?ID=667' },
+}
+
+const FAVORED_TERRAIN: ContentEntry = {
+  id: 'feat:favored-terrain', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Favored Terrain',
+  level: 2, traits: ['Ranger'], effects: [], updatedAt: 0,
+  description: 'Choose a favored terrain. Ignore non-magical difficult terrain there; Unimpeded Journey grants an additional benefit based on the terrain.',
+  data: {},
+}
+
+const LIVING_FLAME: ContentEntry = {
+  id: 'armor:living-flame', systems: ['pf2e'], kind: 'item', source: 'official', name: 'Living Flame',
+  level: 20, traits: ['Aura', 'Concentrate', 'Fire'], effects: [], updatedAt: 0,
+  description: 'Once per day, engulf yourself in living fire for 10 minutes in a 15-foot emanation. Creatures entering the aura or starting their turn in it take 10d6 fire damage (DC 40 basic Reflex save). The area is difficult terrain for other creatures.',
+  data: { actions: 'Two Actions', url: 'https://2e.aonprd.com/Equipment.aspx?ID=3814' },
 }
 
 function entrenchMeleeActive(c: SectionProps['c'], entries: SectionProps['entries']) {
@@ -64,6 +86,7 @@ export function StatusesSummary({ c, entries }: SectionProps) {
       ? [`Poison Weapon ${poisonTotal - poisonSpent}/${poisonTotal}${c.poisonWeaponActive ? ' (active)' : ''}`] : []),
     ...(entrenchMeleeActive(c, entries) ? ['Entrench Melee'] : []),
     ...(mountainPoisonImmunities(c).length ? ['Poison Immunity'] : []),
+    ...((c.armors ?? []).some(armor => isIncendiaryArmor(armor.name) && armor.livingFlameActive) ? ['Living Flame'] : []),
     ...(fulminatingShotBonus(c) ? [`Fulminating Shot (${fulminatingShotBonus(c)})`] : []),
     ...(purifyAirActive(c) ? ['Purify Air'] : []),
     ...(c.hardenFleshActive && activeFeatsNamed(c, 'Harden Flesh').length ? ['Harden Flesh'] : []),
@@ -72,6 +95,9 @@ export function StatusesSummary({ c, entries }: SectionProps) {
       : [name]),
     ...(c.summonedUndead ? ['Summon Undead'] : []),
     ...(c.summonedFiend ? ['Summon Fiend'] : []),
+    ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Creature Ally').length
+      && (c.ancestry === 'Vesk' && c.creatureAllyActive || c.ancestry === 'Shirren' && c.shirrenCreatureAllyActive
+        || c.ancestry === 'Lashunta' && c.lashuntaCreatureAlly) ? ['Summon Animal'] : []),
     ...c.activeFeatEffects ?? [],
     ...(c.zealousConvictionRank !== undefined ? ['Zealous Conviction'] : []),
     ...(activeFeatsNamed(c, 'Favored Terrain').length && isFeatEffectActive(c, 'Favored Terrain') ? ['Favored Terrain'] : []),
@@ -96,7 +122,11 @@ export function HuntPreyToggle({ c, entries, save, summary = false }: SectionPro
   if (!hasHuntPrey(c, entries)) return null
   const content = <><input type="checkbox" aria-label="Hunt Prey active" checked={!!c.huntPreyActive}
       onChange={event => save({ huntPreyActive: event.target.checked })} />{' '}
-    <EntryDescription name="Hunt Prey" entry={HUNT_PREY} character={c} entries={entries} buttonActions="Single Action" /></>
+    <EntryDescription name="Hunt Prey" entry={HUNT_PREY} character={c} entries={entries} hideButtonActions />{' '}
+    <ActiveSpellActions name="Hunt Prey" entry={HUNT_PREY} actions="Single Action">
+      <label><input type="checkbox" aria-label="Hunt Prey active in options" checked={!!c.huntPreyActive}
+        onChange={event => save({ huntPreyActive: event.target.checked })} /> Hunt Prey</label>
+    </ActiveSpellActions></>
   return <span className={summary ? 'combat-summary-toggles' : undefined}
     onClick={summary ? event => event.stopPropagation() : undefined}>{content}</span>
 }
@@ -108,6 +138,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   const summonedFiend = c.summonedFiend
   const entrenchArmors = ownedArmors(c, entries).filter(armor => isBastionNamedArmor(armor.name))
   const mountainArmors = ownedArmors(c, entries).filter(armor => isMountainArmor(armor.name))
+  const incendiaryArmors = ownedArmors(c, entries).filter(armor => isIncendiaryArmor(armor.name))
   const cursedWeakness = warriorLegendWeakness(c, entries)
   const ancestralAvatarAvailable = isAncestralEmbrace(wornArmor(c, entries)?.name)
   const avatarEntry = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Avatar'
@@ -127,6 +158,11 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   const zealousEntry = grant?.entry ?? entries.find(entry => entry.kind === 'spell' && !entry.deleted
     && entry.name === 'Zealous Conviction' && entry.systems.some(system => c.systems.includes(system)))
   const zealousRank = grant?.rank ?? c.zealousConvictionRank
+  const parryEntry = entries.find(entry => entry.kind === 'trait' && !entry.deleted && entry.name === 'Parry'
+    && entry.systems.some(system => c.systems.includes(system))) ?? PARRY
+  const terrainEntry = selectedFeatEntry(c, entries, 'Favored Terrain') ?? FAVORED_TERRAIN
+  const terrainActive = isFeatEffectActive(c, 'Favored Terrain')
+  const terrainLocked = activeFeatsNamed(c, 'Terrain Master').length > 0
   const controls = [
     { name: 'Active stance', element: <StancesContent c={c} entries={entries} save={save} /> },
     ...(activeFeatsNamed(c, 'Heroic Defiance').length ? [{ name: 'Heroic Defiance', element: <>
@@ -189,6 +225,26 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
           onClick={() => update({ mountainPoisonImmunityUsed: false, mountainPoisonImmunityActive: false })}>Daily preparations</button>}
       </div>
     })}</div> }] : []),
+    ...(incendiaryArmors.length ? [{ name: 'Living Flame', element: <div>{incendiaryArmors.map(armor => {
+      const active = !!armor.livingFlameActive
+      const update = (patch: Partial<typeof armor>) => save({ armors: (c.armors ?? ownedArmors(c, entries))
+        .map(current => current.id === armor.id ? { ...current, ...patch } : current) })
+      const toggle = (checked: boolean) => update({ livingFlameActive: checked, ...(checked ? { livingFlameUsed: true } : {}) })
+      const disabled = !active && (!armor.worn || !!armor.livingFlameUsed)
+      return <div key={armor.id}>
+        <input type="checkbox" aria-label={`Living Flame: ${armor.name} status`} checked={active} disabled={disabled}
+          onChange={event => toggle(event.target.checked)} />{' '}
+        <EntryDescription name={`Living Flame: ${armor.name}`} entry={LIVING_FLAME} hideButtonActions />{' '}
+        <ActiveSpellActions name={`Living Flame: ${armor.name}`} entry={LIVING_FLAME} actions="Two Actions">
+          <label><input type="checkbox" aria-label={`Living Flame: ${armor.name} active`} checked={active} disabled={disabled}
+            onChange={event => toggle(event.target.checked)} /> Active</label>{' '}
+          <DamageRoll name="Living Flame" damage={{ label: 'Damage', dice: 10, sides: 6, type: 'fire',
+            note: 'DC 40 basic Reflex save' }} disabled={!active} />
+        </ActiveSpellActions>
+        {armor.livingFlameUsed && <button type="button" aria-label={`Reset ${armor.name} Living Flame`}
+          onClick={() => update({ livingFlameUsed: false, livingFlameActive: false })}>Daily preparations</button>}
+      </div>
+    })}</div> }] : []),
     ...(cursedWeakness ? [{ name: 'Cursed Weakness', element: <button type="button" aria-label={`Took ${cursedWeakness.damage} damage`}
       disabled={conditionValue(c, 'doomed') >= 2}
       onClick={() => save({ conditions: { ...c.conditions, doomed: Math.max(2, conditionValue(c, 'doomed')) } })}>
@@ -235,9 +291,14 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       : defense.cantrip ? [{ name: 'Raise Shield Cantrip', element: <label><input type="checkbox" aria-label="Raise Shield Cantrip status"
         checked={isSpellActive(c, entries, 'Shield')}
         onChange={event => save(spellActiveChange(c, 'Shield', event.target.checked))} /> Raise Shield Cantrip (+1 AC)</label> }] : []),
-    ...(defense.parryWeapon && defense.parry > 0 ? [{ name: 'Parry', element: <label><input type="checkbox" aria-label="Parry status"
+    ...(defense.parryWeapon && defense.parry > 0 ? [{ name: 'Parry', element: <><input type="checkbox" aria-label="Parry status"
       checked={!!c.parrying || defense.stanceParry} disabled={defense.stanceParry}
-      onChange={event => { if (!defense.stanceParry) save({ parrying: event.target.checked }) }} /> Parry (+{defense.parry} AC)</label> }] : []),
+      onChange={event => { if (!defense.stanceParry) save({ parrying: event.target.checked }) }} />{' '}
+      <EntryDescription name="Parry" entry={parryEntry} entries={entries} character={c} /> (+{defense.parry} AC){' '}
+      <ActiveSpellActions name="Parry" entry={parryEntry} actions="Single Action">
+        <label><input type="checkbox" aria-label="Parry active in options" checked={!!c.parrying || defense.stanceParry}
+          disabled={defense.stanceParry} onChange={event => { if (!defense.stanceParry) save({ parrying: event.target.checked }) }} /> Parry</label>
+      </ActiveSpellActions></> }] : []),
     ...(['enfeebled', 'frightened', 'sickened', 'doomed'] as const).map(name => ({
       name, element: <label>
         {name[0].toUpperCase() + name.slice(1)}{' '}
@@ -261,10 +322,16 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       </ActiveSpellActions>}
     </> }] : []),
     ...(activeFeatsNamed(c, 'Favored Terrain').length
-      ? [{ name: 'Favored Terrain', element: <span><label><input type="checkbox" aria-label="Favored Terrain status"
-        checked={isFeatEffectActive(c, 'Favored Terrain')} disabled={activeFeatsNamed(c, 'Terrain Master').length > 0}
-        onChange={event => save(featEffectChange(c, 'Favored Terrain', event.target.checked))} /> Favored Terrain</label>{' '}
-        <FavoredTerrainSelector c={c} save={save} status /></span> }] : []),
+      ? [{ name: 'Favored Terrain', element: <><input type="checkbox" aria-label="Favored Terrain status"
+        checked={terrainActive} disabled={terrainLocked}
+        onChange={event => save(featEffectChange(c, 'Favored Terrain', event.target.checked))} />{' '}
+        <EntryDescription name="Favored Terrain" entry={terrainEntry} entries={entries} character={c} hideButtonActions />{' '}
+        <ActiveSpellActions name="Favored Terrain" entry={terrainEntry}>
+          <label><input type="checkbox" aria-label="Favored Terrain active in options" checked={terrainActive} disabled={terrainLocked}
+            onChange={event => save(featEffectChange(c, 'Favored Terrain', event.target.checked))} /> Favored Terrain</label>
+          <FavoredTerrainSelector c={c} save={save} />
+        </ActiveSpellActions>{' '}
+        <FavoredTerrainSelector c={c} save={save} status /></> }] : []),
     ...(knowsSpell(c, entries, 'Protect Companion') || c.activeSpells?.includes('Protect Companion')
       ? [{ name: 'Protect Companion', element: <ProtectCompanionOptions c={c} save={save} entries={entries} showDetails /> }] : []),
     ...(summonedUndead ? [{
@@ -274,6 +341,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
           if (event.target.checked) return
           confirmRemoval(`summoned ${summonedUndead.name}`, () => save({
             summonedUndead: undefined, activeSpells: c.activeSpells?.filter(spell => spell !== 'Summon Undead'),
+            ...(c.mountedSummon?.startsWith('undead:') ? { mountedSummon: undefined } : {}),
           }))
         }} /> Summon Undead: {summonedUndead.name}</label>,
     }] : []),
@@ -284,6 +352,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
           if (event.target.checked) return
           confirmRemoval(`summoned ${summonedFiend.name}`, () => save({
             summonedFiend: undefined, activeSpells: c.activeSpells?.filter(spell => spell !== 'Summon Fiend'),
+            ...(c.mountedSummon?.startsWith('fiend:') ? { mountedSummon: undefined } : {}),
           }))
         }} /> Summon Fiend: {summonedFiend.name}</label>,
     }] : []),

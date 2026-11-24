@@ -4,15 +4,212 @@ import { createRoot } from 'react-dom/client'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import { SpellActions } from './SpellDamage'
 import { SpellsSection, SpiritOfTheBeastOptions } from './SpellsSection'
-import { StatusesContent } from './StatusesSection'
-import { SkillsSection } from './SkillsSection'
+import { StatusesContent, StatusesSummary } from './StatusesSection'
+import { SensesAndSpeedSummary, SkillsSection } from './SkillsSection'
 import { MinionsSection } from './MinionsSection'
 import { WeaponList } from './GearSection'
-import { ownedWeapons, resistances, weaponAttack } from './builder'
+import { activeAnimalFeatures, ownedWeapons, resistances, weaponAttack } from './builder'
 import { OVERSIZED_THROW } from './supplemental'
 import { companionStats } from './companions'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
+
+it('rides an eligible summoned creature using its movement instead of the rider bonuses', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const initial: Character = { id: 'rider', name: 'Test', systems: ['sf2e'], level: 13, ancestry: 'Lashunta',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Creature Ally', type: 'Ancestry Feat', level: 13 }, { name: 'Fleet', type: 'General Feat', level: 3 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    lashuntaCreatureAlly: 'Shotalashu', mountedCompanionId: 'old-mount' }
+  let current = initial
+  function Sheet() {
+    const [c, setC] = useState(initial)
+    current = c
+    const save = (patch: Partial<Character>) => setC(previous => ({ ...previous, ...patch }))
+    return <><SensesAndSpeedSummary c={c} entries={[]} /><MinionsSection c={c} entries={[]} save={save} />
+      <SpellsSection c={c} entries={[{ id: 'summon', name: 'Summon Animal', kind: 'spell', systems: ['sf2e'],
+        source: 'official', level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 0 }]} save={save} /></>
+  }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<Sheet />))
+    expect(container.querySelector('summary')?.textContent).toContain('Speed 30 ft.')
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Mounted on Shotalashu"]')!.click())
+    expect(current.mountedCompanionId).toBeUndefined()
+    expect(container.querySelector('summary')?.textContent).toContain('Speed 40 ft.')
+    await act(async () => {
+      const select = container.querySelector<HTMLSelectElement>('[aria-label="Creature Ally summoned creature"]')!
+      select.value = 'Squox'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    expect(current.mountedSummon).toBeUndefined()
+    expect(container.querySelector('[aria-label="Mounted on Squox"]')).toBeNull()
+    expect(container.querySelector('summary')?.textContent).toContain('Speed 30 ft.')
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('uses the Technomancer spell database to learn and prepare Starfinder arcane spells', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  } })
+  const initial: Character = { id: 'tech', name: 'Test', systems: ['sf2e'], level: 1, className: 'Technomancer',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const spell = (name: string, tradition: string): ContentEntry => ({ id: name, name, systems: ['sf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: [], description: `${name} rules`, data: { tradition }, effects: [], updatedAt: 0 })
+  const entries = [spell('Arcane Test', 'Arcane'), spell('Divine Test', 'Divine')]
+  let current = initial
+  function Sheet() {
+    const [c, setC] = useState(initial)
+    current = c
+    return <SpellsSection c={c} entries={entries} save={patch => setC(previous => ({ ...previous, ...patch }))} />
+  }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<Sheet />))
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Open Spell Database rank 1"]')!.click())
+    expect(container.querySelector('dialog[open]')?.textContent).toContain('Spell Database')
+    expect(container.querySelector('[aria-label="Learn Divine Test"]')).toBeNull()
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Learn Arcane Test"]')!.click())
+    expect(current.spells).toContainEqual(expect.objectContaining({ name: 'Arcane Test', entryId: 'Arcane Test' }))
+    const slot = container.querySelector<HTMLSelectElement>('select[aria-label="Spell Rank 1 slot 1"]')!
+    expect([...slot.options].map(option => option.value)).toContain('Arcane Test')
+    expect(container.querySelectorAll('.dirge-rank').length).toBeGreaterThan(0)
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
+    vi.unstubAllGlobals()
+  }
+})
+
+it('tracks Summon Animal and Creature Ally in statuses', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const initial: Character = { id: 'summon', name: 'Test', systems: ['sf2e'], level: 13, ancestry: 'Vesk',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Creature Ally', type: 'Ancestry Feat', level: 13, choice: 'Summon Animal' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const spell: ContentEntry = { id: 'summon', name: 'Summon Animal', systems: ['sf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: ['Summon'], description: 'Summon animal rules.',
+    data: { actions: 'Three Actions', tradition: 'Primal' }, effects: [], updatedAt: 0 }
+  let current = initial
+  function Sheet() {
+    const [c, setC] = useState(initial)
+    current = c
+    return <><StatusesSummary c={c} entries={[spell]} save={() => {}} />
+      <StatusesContent c={c} entries={[spell]} save={patch => setC(previous => ({ ...previous, ...patch }))} /></>
+  }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<Sheet />))
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Summoned Caypin active"]')!.click())
+    expect(current.creatureAllyActive).toBe(true)
+    expect(container.querySelector('summary')?.textContent).toContain('Summon Animal')
+    expect(container.querySelector('[aria-label="Summon Animal options"]')).toBeTruthy()
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('selects Animal Feature effects from statuses with the active Persistent Animal Feature feat', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  } })
+  const previous = getSettings().championFormNoFlight
+  updateSettings({ championFormNoFlight: false })
+  const initial: Character = { id: 'animal', name: 'Test', systems: ['pf2e'], level: 8, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Advanced Warden', type: 'Class Feat', level: 4, choice: 'Animal Feature' },
+      { name: 'Persistent Animal Feature', type: 'Class Feat', level: 8 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const spell: ContentEntry = { id: 'animal', name: 'Animal Feature', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 2, traits: ['Focus'], description: 'Animal feature rules.',
+    data: { actions: 'Single Action', warden_spell_tier: 'Advanced' }, effects: [], updatedAt: 0 }
+  let current = initial
+  function Sheet() {
+    const [c, setC] = useState(initial)
+    current = c
+    return <StatusesContent c={c} entries={[spell]} save={patch => setC(previous => ({ ...previous, ...patch }))} />
+  }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<Sheet />))
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Choose Animal Feature effects"]')!.click())
+    for (const name of ['Claws', 'Jaws', 'Fish Tail', 'Owl Eyes', 'Wings']) {
+      await act(async () => container.querySelector<HTMLInputElement>(`[aria-label="Animal Feature: ${name}"]`)!.click())
+    }
+    expect(activeAnimalFeatures(current, [spell])).toEqual(['Claws', 'Fish Tail', 'Jaws', 'Owl Eyes', 'Wings'])
+    expect(activeAnimalFeatures({ ...current, level: 7 }, [spell])).toEqual(['Wings'])
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Animal Feature: Jaws"]')!.click())
+    expect(activeAnimalFeatures(current, [spell])).not.toContain('Jaws')
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    updateSettings({ championFormNoFlight: previous })
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
+    vi.unstubAllGlobals()
+  }
+})
+
+it('opens status options for Hunt Prey, Parry, and Favored Terrain', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  } })
+  const initial: Character = { id: 'status-actions', name: 'Test', systems: ['pf2e'], level: 8, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Favored Terrain', type: 'Class Feat', level: 2, choice: 'Plains' }],
+    weapons: [{ id: 'sword', name: 'Parry Sword', potency: 0, striking: 0, runes: [] }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const weapon: ContentEntry = { id: 'sword', name: 'Parry Sword', systems: ['pf2e'], kind: 'weapon',
+    source: 'official', level: 1, traits: ['Parry'], description: '', data: { weapon_category: 'Martial', hands: 1 },
+    effects: [], updatedAt: 0 }
+  let current = initial
+  function Sheet() {
+    const [c, setC] = useState(initial)
+    current = c
+    return <StatusesContent c={c} entries={[weapon]} save={patch => setC(previous => ({ ...previous, ...patch }))} />
+  }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<Sheet />))
+    for (const name of ['Hunt Prey', 'Parry', 'Favored Terrain']) {
+      const button = container.querySelector<HTMLButtonElement>(`[aria-label="${name} options"]`)!
+      expect(button).toBeTruthy()
+      await act(async () => button.click())
+      const dialog = button.nextElementSibling!
+      expect(dialog.hasAttribute('open')).toBe(true)
+      expect(dialog.textContent).not.toContain('Description unavailable')
+      await act(async () => dialog.querySelector<HTMLInputElement>(`[aria-label="${name} active in options"]`)!.click())
+    }
+    expect(current.huntPreyActive).toBe(true)
+    expect(current.parrying).toBe(true)
+    expect(current.activeFeatEffects).toContain('Favored Terrain')
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
+    vi.unstubAllGlobals()
+  }
+})
 
 it.each([false, true])('rolls and hides Oversized Throw damage without toggling its card (%s)', async displayOnly => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)

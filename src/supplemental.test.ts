@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import type { Character, ContentEntry } from './types'
 import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, homebrewCharacterOptions, homebrewWeapons, IRON_FIST, migrateMobileHunt, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
-import { automaticFeatGrants, backgroundSkills, boostSlots, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featChoiceOptions, gearPickerEntries, handwrapRuneOptions, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
+import { automaticFeatGrants, backgroundSkills, boostSlots, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featChoiceOptions, gearPickerEntries, handwrapRuneOptions, installedWeaponUpgrades, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { FeatSlots } from './FeatSlots'
 import { MinionsContent } from './MinionsSection'
@@ -10,6 +10,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { removeColdIronTusks } from './supplemental'
 import { mapAonHits } from './aon'
 import { groupHomebrew } from './HomebrewList'
+import sf2eSnapshot from '../public/data/aon-sf2e.json?raw'
 
 it('retires Cold Iron Tusks without touching other feats, weapons or character choices', () => {
   const c: Character = { ...base, entryIds: ['homebrew:cold-iron-tusks', 'other'],
@@ -23,6 +24,21 @@ it('retires Cold Iron Tusks without touching other feats, weapons or character c
   expect(JSON.stringify(c)).toBe(before)
   expect(removeColdIronTusks(updated)).toBe(updated)
   expect(homebrewCharacterOptions([]).some(entry => entry.name === 'Cold Iron Tusks')).toBe(false)
+})
+
+it('upgrades generated SLARP rapid pistols using the imported Starfinder catalog', () => {
+  const previous = getSettings().automaticSfWeaponUpgrades
+  try {
+    updateSettings({ automaticSfWeaponUpgrades: true })
+    const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+    const entries = mapAonHits(hits.filter(hit => /laser pistol|^slarp$|^flaming module|^smuggler's grip/i
+      .test(String(hit._source?.name))), 'sf2e')
+    const generated = homebrewWeapons(entries)
+    const weapon = { id: 'owned', name: 'SLARP Rapid Laser Pistol', potency: 0, striking: 0, runes: [] }
+    expect(generated.some(item => item.name === weapon.name)).toBe(true)
+    expect(installedWeaponUpgrades({ ...base, systems: ['sf2e'], level: 15 }, [...entries, ...generated], weapon)
+      .map(item => item.name)).toEqual(["Smuggler's Grip (Tactical)", 'Flaming Module (Tactical)'])
+  } finally { updateSettings({ automaticSfWeaponUpgrades: previous }) }
 })
 
 const base: Character = {

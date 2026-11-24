@@ -706,8 +706,8 @@ it.each([
   expect(checkFeat(other).manual).toHaveLength(1)
 })
 
-it('removes Religious Talisman prerequisites for Starfinder characters', () => {
-  const talisman: ContentEntry = { ...entry('feat', 'Religious Talisman',
+it.each(['Religious Talisman', 'Deific Obedience'])('removes %s prerequisites for Starfinder characters', (name) => {
+  const talisman: ContentEntry = { ...entry('feat', name,
     { prerequisite: 'Master in Religion; follower of a specific religion' }, 7, ['General', 'Skill']), systems: ['sf2e'] }
   const c: Character = { ...base, systems: ['sf2e'], deity: undefined, skillPicks: [] }
   expect(featPrerequisiteChecker(c, [talisman])(talisman)).toEqual({ missing: [], manual: [] })

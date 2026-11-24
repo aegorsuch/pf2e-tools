@@ -3,7 +3,7 @@ import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, companionItemName, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
   CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, languageGroups, magicHideChange, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, spellDCText, type SectionProps, type TotalBreakdown } from './builder'
+import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, languageGroups, magicHideChange, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, spellDCText, summonedMounts, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
 import { CompanionSpellOptions, ProtectCompanionOptions, SpiritOfTheBeastOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
@@ -17,6 +17,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { featAccess } from './featAccess'
 import { activeCaypinAlly, activeLashuntaAlly, activeShirrenAlly } from './featSpells'
 import { activeSummonedFiend, type SummonedFiend } from './summonedFiends'
+import { creatureScaling, scaledDamage, scaledSummon } from './summonScaling'
 import { DroneFeatures } from './DroneFeatures'
 import { FOLLOWER_STAGES, FOLLOWER_TYPES, followerStage, followerStats } from './followers'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityEffects, familiarAbilityEntries, familiarAbilitySlots, familiarMedicRank,
@@ -199,13 +200,42 @@ const SUMMONED_CREATURES = {
   specials: { name: string; actions?: string; description: string }[]; url: string
 }>
 
-function SummonedCreature({ name, displayName = name, protectedByCompanion = false }: {
+function scaledAlly(name: keyof typeof SUMMONED_CREATURES, c: Character) {
+  const creature = SUMMONED_CREATURES[name]
+  if (!getSettings().innateAutoHeighten) return creature
+  const target = Math.max(creature.level, Math.min(15, 2 * Math.max(5, Math.ceil(c.level / 2)) - 5))
+  const { ac, checks, skills, hp, attack, damage, ability } = creatureScaling(creature.level, target)
+  return { ...creature, level: target, hp: creature.hp + hp, ac: creature.ac + ac,
+    abilities: creature.abilities.map(value => value >= 0 ? value + ability : value),
+    saves: creature.saves.map(value => value + checks), perception: creature.perception + checks,
+    skills: creature.skills.map(value => value.replace(/\+(\d+)/g, (_, n: string) => `+${Number(n) + skills}`)),
+    attacks: creature.attacks.map(value => ({ ...value, bonus: value.bonus + attack,
+      damage: scaledDamage(value.damage, damage) })),
+    specials: creature.specials.map(special => ({ ...special, description: special.name === 'Telepathic Pounce'
+      ? special.description.replace('DC 18', `DC ${18 + checks}`)
+      : special.name === 'Appendage Cluster'
+      ? special.description.replace('30 HP', `${30 + Math.round(hp * 0.3)} HP`)
+        .replace('Jaws +14', `Jaws +${14 + attack}`).replace('2d4+3', scaledDamage('2d4+3', damage))
+      : special.name === 'Cluster Onslaught'
+      ? special.description.replace('3d8 piercing', `${scaledDamage('3d8', damage)} piercing`) : special.description })) }
+}
+
+function SummonedMountToggle({ c, entries, save, mountKey }: SectionProps & { mountKey: string }) {
+  const mount = summonedMounts(c, entries).find(candidate => candidate.key === mountKey)
+  if (!mount) return null
+  return <label><input type="checkbox" aria-label={`Mounted on ${mount.name}`} checked={c.mountedSummon === mountKey}
+    onChange={event => save({ mountedSummon: event.target.checked ? mountKey : undefined,
+      ...(event.target.checked ? { mountedCompanionId: undefined } : {}) })} /> Mounted</label>
+}
+
+function SummonedCreature({ name, displayName = name, protectedByCompanion = false, c, entries, save }: SectionProps & {
   name: keyof typeof SUMMONED_CREATURES; displayName?: string; protectedByCompanion?: boolean
 }) {
-  const creature: (typeof SUMMONED_CREATURES)[keyof typeof SUMMONED_CREATURES] & { languages?: string; resistances?: string } = SUMMONED_CREATURES[name]
+  const creature: ReturnType<typeof scaledAlly> & { languages?: string; resistances?: string } = scaledAlly(name, c)
   return <details className="character-subsection" open>
     <summary><h4>Summoned {displayName}</h4></summary>
     <div className="gear-traits"><span>Level {creature.level}</span>{creature.traits.map(trait => <span key={trait}>{trait}</span>)}</div>
+    <SummonedMountToggle c={c} entries={entries} save={save} mountKey={`ally:${name}`} />
     <div className="gear-stats">{ABILITIES.map((ability, index) =>
       <span key={ability}><small>{ABILITY_LABEL[ability]}</small>{signed(creature.abilities[index])}</span>)}</div>
     <section className="companion-actions"><h5>Attacks</h5>
@@ -225,20 +255,22 @@ function SummonedCreature({ name, displayName = name, protectedByCompanion = fal
     {creature.languages && <section className="companion-actions"><h5>Languages</h5><div>{creature.languages}</div></section>}
     <section className="companion-actions"><h5>Special</h5>{creature.specials.map(special =>
       <div key={special.name} className="companion-action">
-        <div className="companion-action-title">{'actions' in special && special.actions && <ActionIcon actions={special.actions} />}<b>{special.name}</b></div>
+        <div className="companion-action-title">{'actions' in special && typeof special.actions === 'string' && <ActionIcon actions={special.actions} />}<b>{special.name}</b></div>
         <p className="companion-action-description">{special.description}</p>
       </div>)}</section>
     <a href={creature.url} target="_blank" rel="noreferrer">{name} abilities and statistics</a>
   </details>
 }
 
-export function SummonedFiendCard({ fiend, save, plant = false, undead = false, activeSpells, protectedByCompanion = false }: {
-  fiend: SummonedFiend; save: SectionProps['save']; plant?: boolean; undead?: boolean; activeSpells?: Character['activeSpells']; protectedByCompanion?: boolean
+export function SummonedFiendCard({ fiend, save, c, entries = [], plant = false, undead = false, activeSpells, protectedByCompanion = false }: {
+  fiend: SummonedFiend; save: SectionProps['save']; c?: Character; entries?: ContentEntry[]; plant?: boolean; undead?: boolean; activeSpells?: Character['activeSpells']; protectedByCompanion?: boolean
 }) {
+  if (c) fiend = scaledSummon(c, plant ? 'plant' : undead ? 'undead' : 'fiend', fiend)
   const bonus = (value: number | null | undefined) => value == null ? '—' : signed(value)
   return <details className="character-subsection" open>
     <summary><h4>Summoned {fiend.name}</h4></summary>
     <div className="gear-traits"><span>Level {fiend.level}</span>{fiend.traits.map(trait => <span key={trait}>{trait}</span>)}</div>
+    {c && <SummonedMountToggle c={c} entries={entries} save={save} mountKey={`${plant ? 'plant' : undead ? 'undead' : 'fiend'}:${fiend.id}`} />}
     <div className="gear-stats">{ABILITIES.map((ability, index) =>
       <span key={ability}><small>{ABILITY_LABEL[ability]}</small>{bonus(fiend.abilities[index])}</span>)}</div>
     <section className="companion-actions"><h5>Attacks</h5>{fiend.attacks.map((attack, index) =>
@@ -254,9 +286,11 @@ export function SummonedFiendCard({ fiend, save, plant = false, undead = false, 
     <section className="companion-actions"><h5>Speed</h5><div>{fiend.speed}</div></section>
     <a href={fiend.url} target="_blank" rel="noreferrer">{fiend.name} abilities and statistics</a>
     <button type="button" aria-label={`Dismiss summoned ${fiend.name}`} onClick={() => confirmRemoval(`summoned ${fiend.name}`, () => save(plant
-      ? { summonedPlant: undefined }
-      : undead ? { summonedUndead: undefined, activeSpells: activeSpells?.filter(spell => spell !== 'Summon Undead') }
-        : { summonedFiend: undefined, activeSpells: activeSpells?.filter(spell => spell !== 'Summon Fiend') }))}>Dismiss</button>
+      ? { summonedPlant: undefined, ...(c?.mountedSummon === `plant:${fiend.id}` ? { mountedSummon: undefined } : {}) }
+      : undead ? { summonedUndead: undefined, activeSpells: activeSpells?.filter(spell => spell !== 'Summon Undead'),
+        ...(c?.mountedSummon === `undead:${fiend.id}` ? { mountedSummon: undefined } : {}) }
+        : { summonedFiend: undefined, activeSpells: activeSpells?.filter(spell => spell !== 'Summon Fiend'),
+          ...(c?.mountedSummon === `fiend:${fiend.id}` ? { mountedSummon: undefined } : {}) }))}>Dismiss</button>
   </details>
 }
 
@@ -671,12 +705,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   return (
       <div className="character-section-content minions-section-content">
         <SortedMinionSections>
-        {activeCaypinAlly(c) && <SummonedCreature name="Caypin" protectedByCompanion={protectedByCompanion} />}
-        {lashuntaAlly && <SummonedCreature name={lashuntaAlly} protectedByCompanion={protectedByCompanion} />}
-        {activeShirrenAlly(c) && <SummonedCreature name="Emganat" displayName="Kucharn" protectedByCompanion={protectedByCompanion} />}
-        {c.summonedPlant && <SummonedFiendCard fiend={c.summonedPlant} plant save={save} protectedByCompanion={protectedByCompanion} />}
-        {c.summonedUndead && <SummonedFiendCard fiend={c.summonedUndead} undead activeSpells={c.activeSpells} save={save} protectedByCompanion={protectedByCompanion} />}
-        {activeSummonedFiend(c) && <SummonedFiendCard fiend={activeSummonedFiend(c)!} activeSpells={c.activeSpells} save={save} protectedByCompanion={protectedByCompanion} />}
+        {activeCaypinAlly(c) && <SummonedCreature c={c} entries={entries} save={save} name="Caypin" protectedByCompanion={protectedByCompanion} />}
+        {lashuntaAlly && <SummonedCreature c={c} entries={entries} save={save} name={lashuntaAlly} protectedByCompanion={protectedByCompanion} />}
+        {activeShirrenAlly(c) && <SummonedCreature c={c} entries={entries} save={save} name="Emganat" displayName="Kucharn" protectedByCompanion={protectedByCompanion} />}
+        {c.summonedPlant && <SummonedFiendCard c={c} entries={entries} fiend={c.summonedPlant} plant save={save} protectedByCompanion={protectedByCompanion} />}
+        {c.summonedUndead && <SummonedFiendCard c={c} entries={entries} fiend={c.summonedUndead} undead activeSpells={c.activeSpells} save={save} protectedByCompanion={protectedByCompanion} />}
+        {activeSummonedFiend(c) && <SummonedFiendCard c={c} entries={entries} fiend={activeSummonedFiend(c)!} activeSpells={c.activeSpells} save={save} protectedByCompanion={protectedByCompanion} />}
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" data-minion-name="Drone" open>
           <summary><h4>Drone</h4></summary>
           <DroneFeatures c={c} entries={entries} save={save} />
@@ -748,7 +782,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 ...(['Cavalier Dedication', 'Mounted Parry', 'Mounted Shield', 'Born In The Saddle', 'Legendary Rider', 'Reckless Riding Lunge']
                   .some(name => activeFeatsNamed(c, name).length) || stats?.mount ? [{ name: 'Mounted', element: <label><input type="checkbox"
                   aria-label={`Mounted on ${comp.name || comp.type}`} checked={c.mountedCompanionId === comp.id}
-                  onChange={event => save({ mountedCompanionId: event.target.checked ? comp.id : undefined })} /> Mounted</label> }] : []),
+                  onChange={event => save({ mountedCompanionId: event.target.checked ? comp.id : undefined,
+                    ...(event.target.checked ? { mountedSummon: undefined } : {}) })} /> Mounted</label> }] : []),
                 ...(magicHideKnown ? [{ name: 'Magic Hide', element: <label><input type="checkbox"
                   aria-label={`Magic Hide on ${comp.name || comp.type}`} checked={isMagicHideActive(c, entries, comp.id)}
                   onChange={event => save(magicHideChange(c, event.target.checked, comp.id))} /> Magic Hide</label> }] : []),

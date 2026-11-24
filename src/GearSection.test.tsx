@@ -3,7 +3,7 @@ import { Children, cloneElement, isValidElement, type ReactElement, type ReactNo
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon, installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, ownedWeapons, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, OVERSIZED_THROW } from './supplemental'
@@ -31,6 +31,45 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
+})
+
+it('grants and scales requested Starfinder weapon upgrades without duplicating saved upgrades', () => {
+  const upgrades = [
+    ["Smuggler's Grip (Commercial)", 2], ["Smuggler's Grip (Tactical)", 6],
+    ['Flaming Module (Commercial)', 8], ['Flaming Module (Tactical)', 15],
+    ['Retrieval Boosters', 3], ['Shock Module (Commercial)', 8], ['Shock Module (Tactical)', 15],
+    ['Loudener (Commercial)', 8], ['Loudener (Tactical)', 15],
+  ].map(([name, level]) => ({ ...shifting, id: String(name), name: String(name), level: Number(level),
+    systems: ['sf2e' as const], data: { item_subcategory: 'Weapon Upgrades' } }))
+  const sfWeapon = (name: string): ContentEntry => ({ ...weapon, id: name, name, systems: ['sf2e'],
+    traits: ['Tech'], data: { weapon_category: 'Martial', damage: '1d6 F', hands: 1, upgrade_slots: 4 } })
+  const weapons = ['SLARP Rapid Laser Pistol', 'Shuriken Drone', 'Singing Spear', 'Shock Pad', 'Other']
+    .map(sfWeapon)
+  const entries = [...weapons, ...upgrades]
+  const owned = (name: string, ids: string[] = []): OwnedWeapon => ({ id: name, name, potency: 0, striking: 0, runes: [], upgrades: ids })
+  const at = (name: string, level: number, ids: string[] = []) => installedWeaponUpgrades(
+    { ...character([]), systems: ['sf2e'], level }, entries, owned(name, ids)).map(item => item.name)
+  const previous = getSettings().automaticSfWeaponUpgrades
+  try {
+    updateSettings({ automaticSfWeaponUpgrades: true })
+    expect(at('SLARP Rapid Laser Pistol', 1)).toEqual([])
+    expect(at('SLARP Rapid Laser Pistol', 6)).toEqual(["Smuggler's Grip (Tactical)"])
+    expect(at('SLARP Rapid Laser Pistol', 15, ['Flaming Module (Commercial)']))
+      .toEqual(['Flaming Module (Tactical)', "Smuggler's Grip (Tactical)"])
+    expect(at('Shuriken Drone', 3)).toEqual(['Retrieval Boosters'])
+    expect(at('Singing Spear', 15)).toEqual(['Retrieval Boosters', 'Loudener (Tactical)'])
+    expect(at('Shock Pad', 8)).toEqual(['Shock Module (Commercial)'])
+    expect(at('Shock Pad', 15)).toEqual(['Shock Module (Tactical)'])
+    expect(at('Other', 20)).toEqual([])
+    const c = { ...character([]), systems: ['sf2e' as const], level: 15,
+      weapons: [owned('SLARP Rapid Laser Pistol')] }
+    const html = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
+    expect(html).toContain('Flaming Module (Tactical)')
+    expect(html).toContain("Smuggler&#x27;s Grip (Tactical)")
+    expect(html).not.toContain('Remove Flaming Module (Tactical) upgrade')
+    updateSettings({ automaticSfWeaponUpgrades: false })
+    expect(at('Shock Pad', 15)).toEqual([])
+  } finally { updateSettings({ automaticSfWeaponUpgrades: previous }) }
 })
 
 it("toggles Infused with Belkzen's Might on weapons and unarmed attacks and scales with historian feats", () => {
@@ -2689,7 +2728,7 @@ it('automatically upgrades SF2e armor without discarding installed upgrades', ()
   expect(markup).not.toContain('Armor upgrade slots:')
   expect(markup).toContain('class="equipment-name" aria-haspopup="dialog">Armored Coat</button>')
   expect(markup).not.toContain('aria-label="Armor grade: Armored Coat"')
-  expect(markup).toContain('Grade: Tactical')
+  expect(markup).not.toContain('Grade: Tactical')
   expect(markup).toContain('<small>Armor Class</small><b>3</b>')
   expect(markup).not.toContain('aria-label="Worn Tactical Armored Coat"')
   expect(c.armors?.[0]).toMatchObject({ name: armor.name, upgrades: ['upgrade'], worn: true })
@@ -2710,7 +2749,7 @@ it('keeps the base name for paragon armor while retaining its grade and AC', () 
   const markup = renderToStaticMarkup(<ArmorList c={c} entries={[armor, paragon]} save={() => {}} />)
   expect(markup).toContain('class="equipment-name" aria-haspopup="dialog">Tempweave</button>')
   expect(markup).not.toContain('aria-label="Armor grade: Tempweave"')
-  expect(markup).toContain('Grade: Paragon')
+  expect(markup).not.toContain('Grade: Paragon')
   expect(markup).toContain('<small>Armor Class</small><b>5</b>')
   expect(markup).not.toContain('Armor upgrade slots:')
   expect(c.armors?.[0].name).toBe('Paragon Tempweave')

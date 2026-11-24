@@ -405,7 +405,7 @@ it('persists chained researched traditions, requiring Expert first and one new T
   expect(c.feats[0].choice).toBe('Arcane, Primal')
   expect(researchedSpellResistanceChoices(c, [], c.feats[0]).traditions).toEqual(['Arcane', 'Primal'])
   c = { ...c, rankOverrides: { ...c.rankOverrides, Nature: 3 } }
-  expect(options()).toContain('Arcane, Primal, Occult')
+  expect(options()).toContain('Arcane, Occult, Primal')
   c = { ...c, rankOverrides: { ...c.rankOverrides, Occultism: 3, Religion: 1 } }
   c.feats[0].choice = 'Arcane, Primal, Occult, Divine'
   expect(researchedSpellResistanceChoices(c, [], c.feats[0]).traditions).toEqual(['Arcane', 'Primal', 'Occult', 'Divine'])
@@ -415,6 +415,10 @@ it('persists chained researched traditions, requiring Expert first and one new T
   for (const choice of variants) {
     expect(researchedSpellResistanceChoices(c, [], { ...c.feats[0], choice }).traditions).toEqual(choice.split(', '))
   }
+  expect(variants).toContain('Arcane, Divine, Occult, Primal')
+  expect(variants.every(choice => choice === choice.split(', ').sort().join(', '))).toBe(true)
+  expect(researchedSpellResistanceChoices(c, [], { ...c.feats[0], choice: 'Divine, Occult' }).traditions)
+    .toEqual(['Divine', 'Occult'])
   c = { ...c, rankOverrides: { Arcana: 2, Nature: 1, Occultism: 1, Religion: 0 } }
   expect(researchedSpellResistanceChoices(c, [], c.feats[0]).traditions).toEqual(['Arcane'])
   expect(options()).toEqual(['Arcane'])

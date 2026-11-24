@@ -4,7 +4,7 @@ import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 import { CompanionEquipmentSlots, FollowerCards, MinionsContent, MinionsSection, MinionsSummary, SummonedFiendCard } from './MinionsSection'
 import { SearchableSelect } from './SearchableSelect'
 import { CaypinAllyToggle, CompanionSpellOptions, CreatureShapeOptions, LashuntaAllyOptions, ShirrenAllyToggle, SpellsSection, SpiritOfTheBeastOptions } from './SpellsSection'
-import { activeBattleForm, armorClass, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, movementSpeeds, ownedWeapons, spellActiveChange } from './builder'
+import { activeBattleForm, armorClass, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, movementSpeeds, ownedWeapons, spellActiveChange, summonedMounts } from './builder'
 import { familiarAbilityEffects, familiarAbilityUnavailableReason } from './familiarAbilities'
 import { EntryDescription } from './EntryDescription'
 import { DamageRoll } from './SpellDamage'
@@ -253,6 +253,9 @@ it('displays and dismisses a summoned plant independently from a fiend', () => {
 })
 
 it('toggles the Creature Ally caypin and applies a GM-selected Creature Shape animal form', () => {
+  const previous = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: false })
+  onTestFinished(() => updateSettings({ innateAutoHeighten: previous }))
   const spell = (name: string, level: number, trait: string): ContentEntry => ({
     id: name, name, kind: 'spell', systems: ['sf2e'], source: 'official', level, traits: [trait],
     description: trait === 'Polymorph' ? 'You transform into a battle form.' : '',
@@ -472,12 +475,45 @@ it('grants Lashunta Creature Ally as occult Summon Animal and shows the selected
   expect(minions()).toContain('Survival +7')
   expect(minions()).toContain('Telepathic Pounce')
   expect(minions()).toContain('DC 18 Will save')
+  updateSettings({ innateAutoHeighten: true })
+  expect(grantedFeatSpells(c, entries)[0].rank).toBe(7)
+  expect(minions()).toContain('<span>Level 9</span>')
+  expect(minions()).toContain('<small>Hit Points</small><b>160</b>')
+  expect(minions()).toContain('DC 28 Will save')
+  expect(minions()).toContain('Survival +18')
+  expect(minions()).toContain('1d6+14 slashing')
+  expect(renderToStaticMarkup(<MinionsSection c={{ ...c, level: 20 }} entries={entries} save={save} />)).toContain('<span>Level 15</span>')
   expect(renderToStaticMarkup(<MinionsSummary c={c} />)).toContain('Summoned Shotalashu')
   expect(minions()).not.toContain('Summoned Squox')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, level: 12 }} entries={entries} save={save} />)).not.toContain('Summoned Shotalashu')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, ancestry: 'Vesk' }} entries={entries} save={save} />)).not.toContain('Summoned Shotalashu')
   select()({ target: { value: '' } })
   expect(minions()).not.toContain('Summoned Shotalashu')
+})
+
+it('allows riding only larger current summons and uses their movement modes', () => {
+  const c: Character = { id: 'rider', name: 'Test', systems: ['sf2e'], level: 13, ancestry: 'Lashunta',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Creature Ally', type: 'Ancestry Feat', level: 13 }], lashuntaCreatureAlly: 'Shotalashu',
+    mountedSummon: 'ally:Shotalashu', equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const ancestry: ContentEntry = { id: 'lashunta', name: 'Lashunta', systems: ['sf2e'], kind: 'ancestry',
+    level: 1, traits: [], source: 'official', description: '', data: { size: 'Medium' }, effects: [], updatedAt: 0 }
+  expect(summonedMounts(c, [ancestry]).map(mount => mount.name)).toEqual(['Shotalashu'])
+  expect(movementSpeeds(c, [ancestry])).toEqual([{ name: 'Land', feet: 40, source: 'Mounted: Shotalashu' }])
+  expect(summonedMounts(c, [{ ...ancestry, data: { size: 'Large' } }])).toEqual([])
+  expect(movementSpeeds({ ...c, lashuntaCreatureAlly: 'Squox' }, [ancestry])[0].feet).toBe(25)
+  expect(summonedMounts({ ...c, lashuntaCreatureAlly: 'Squox' }, [ancestry])).toEqual([])
+  const fiend = { id: 'mount', name: 'Demon', level: 5, traits: ['Huge', 'Fiend'], url: '', abilities: [],
+    saves: [], senses: '', skills: '', speed: '35 feet, climb 15 feet, fly 40 feet',
+    resistances: '', weaknesses: '', attacks: [] }
+  expect(movementSpeeds({ ...c, summonedFiend: fiend, mountedSummon: 'fiend:mount' }, [ancestry])).toEqual([
+    { name: 'Land', feet: 35, source: 'Mounted: Demon' },
+    { name: 'Climb', feet: 15, source: 'Mounted: Demon' },
+    { name: 'Fly', feet: 40, source: 'Mounted: Demon' },
+  ])
+  expect(movementSpeeds({ ...c, summonedUndead: { ...fiend, name: 'Soulbound Ruin', speed: "can't move" },
+    mountedSummon: 'undead:mount' }, [ancestry]))
+    .toEqual([{ name: 'Land', feet: 0, source: 'Mounted: Soulbound Ruin' }])
 })
 
 it('selects one mounted companion for Mounted Parry and shows its AC source', () => {

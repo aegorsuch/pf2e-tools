@@ -503,6 +503,36 @@ it.each(['Breastplate of the Mountain', 'Full Plate of the Mountain', 'Bastion P
     expect(renderToStaticMarkup(content())).not.toContain(`aria-label="${label}" disabled=""`)
   })
 
+it.each(['Incendiary Breastplate', 'Incendiary Full Plate', 'Incendiary Bastion Plate'])(
+  'tracks %s Living Flame activation and daily use', name => {
+    let c: Character = { id: 'flame', name: 'Test', systems: ['pf2e'], level: 20,
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+      equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+      armors: [{ id: 'flame', name, worn: true, potency: 0, resilient: 0, runes: ['Custom Rune'] }] }
+    const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+    const content = () => StatusesContent({ c, entries: [], save })
+    const label = `Living Flame: ${name} status`
+    findToggle(content(), label)!({ target: { checked: true } })
+    expect(c.armors?.[0]).toMatchObject({ livingFlameActive: true, livingFlameUsed: true, runes: ['Custom Rune'] })
+    expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).toContain('Living Flame')
+    const html = renderToStaticMarkup(content())
+    expect(html).toContain(`aria-label="Living Flame: ${name} options"`)
+    expect(html).toContain('aria-label="Roll Living Flame: Damage"')
+    findToggle(content(), label)!({ target: { checked: false } })
+    expect(renderToStaticMarkup(content())).toContain(`aria-label="${label}" disabled=""`)
+    let reset: (() => void) | undefined
+    const visit = (node: ReactNode) => Children.forEach(node, child => {
+      if (!isValidElement<Record<string, unknown>>(child)) return
+      if (child.type === 'button' && child.props['aria-label'] === `Reset ${name} Living Flame`)
+        reset = child.props.onClick as () => void
+      else visit(child.props.children as ReactNode)
+    })
+    visit(content())
+    expect(reset).toBeTypeOf('function')
+    reset!()
+    expect(c.armors?.[0]).toMatchObject({ livingFlameUsed: false, livingFlameActive: false })
+  })
+
 it('toggles Devise a Stratagem from the class summary and Statuses', () => {
   let c: Character = { id: 'investigator', name: 'Test', systems: ['pf2e'], level: 1, className: 'Investigator',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],

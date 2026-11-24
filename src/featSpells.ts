@@ -11,6 +11,12 @@ import { classSpellcasting, classSpellSlots, featChoiceOptions, investigatorMeth
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 export const KITSUNE_SPELL_FAMILIARITY_CANTRIPS = ['Daze', 'Forbidding Ward', 'Ghost Sound']
+export function isInnateSpellChoice(entry: ContentEntry) {
+  return ['Ancestral Cantrip', 'Ancestral Magic', 'Bone Magic', 'Creature Ally', 'Creature Shape',
+    'First World Magic', 'Kitsune Spell Familiarity', 'Mask of Power', 'Otherworldly Acumen',
+    'Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon', 'Touch of the Sea'].includes(entry.name)
+    || !!entry.spellGrants?.some(grant => grant.kind === 'innate' && grant.choice)
+}
 export const EXTRAPLANAR_SUPPLICATION_SPELLS = ['Bane', 'Bless']
 export const automaticFeatChoiceKey = (source: string, feat: string, instance?: string) =>
   JSON.stringify(instance === undefined ? [source, feat] : [source, feat, instance])

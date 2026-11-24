@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ComponentProps, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
-import { mapAonHit } from './aon'
+import { mapAonHit, mapAonHits } from './aon'
 import { activeBattleForm, armorClass, armorClassBreakdown, armorEntry, armorSaveBonus, classExtraSlots, effectiveArmor, gearPickerEntries, movementSpeeds, ownedArmors, ownedWeapons, perceptionItemBonus, resistances, savingThrowBreakdown, shieldAcBonus, shieldEntry, shieldMaterialOptions, shieldStats, speedBonuses, spellActiveChange, temporaryHpGrant, weaponAttack, wornArmor } from './builder'
 import { ArmorList, WeaponList } from './GearSection'
 import { ANCESTRAL_AVATAR } from './battleForms'
@@ -10,6 +10,7 @@ import { specificMagicItemName } from './equipmentGroups'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
 import { SkillsSection } from './SkillsSection'
 import type { Character, ContentEntry, OwnedArmor, OwnedShield } from './types'
+import pf2eSnapshot from '../public/data/aon-pf2e.json?raw'
 
 const item = (name: string, markdown: string, extra: Record<string, unknown> = {}) => mapAonHit({
   _id: name, _source: { category: 'equipment', name, markdown, level: 20, trait: ['Invested', 'Artifact'], ...extra },
@@ -109,6 +110,39 @@ const bastionFighter: ContentEntry = { ...hide, id: 'fighter', kind: 'class', na
 const plateGroup: ContentEntry = { ...hide, id: 'plate-group', kind: 'armorGroup', name: 'Plate', data: {}, description: 'Plate armor.' }
 const armorExpertise: ContentEntry = { ...hide, id: 'armor-expertise', kind: 'classFeature', name: 'Armor Expertise',
   level: 1, data: { class: 'Fighter' }, description: 'Gain armor specialization.' }
+
+it('creates Incendiary plate variants with scaling runes and the original fire resistance', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(pf2eSnapshot)
+  const [incendiary] = mapAonHits(hits.filter(hit => hit._source?.name === 'Incendiary Plate'), 'pf2e')
+  const breastplate: ContentEntry = { ...hide, id: 'breastplate', name: 'Breastplate',
+    data: { ...hide.data, ac: 4, strength: 3, bulk: 2 } }
+  const fullPlate: ContentEntry = { ...bastionPlate, id: 'full', name: 'Full Plate',
+    data: { ...bastionPlate.data, bulk: 4 } }
+  const catalog = [breastplate, fullPlate, bastionPlate, incendiary]
+  const names = ['Incendiary Breastplate', 'Incendiary Full Plate', 'Incendiary Bastion Plate']
+  expect(makeNamedArmorEntries(catalog, []).map(entry => entry.name)).toEqual(names)
+  expect(gearPickerEntries(catalog, 'armor').map(entry => entry.name)).toEqual(expect.arrayContaining(names))
+  for (const [index, name] of names.entries()) {
+    const armor = owned(name)
+    const c = { ...character, armors: [armor] }
+    const entry = armorEntry(c, catalog, name)!
+    expect(entry.data).toMatchObject({ named_armor_base: [breastplate, fullPlate, bastionPlate][index].name,
+      named_armor_material: 'Orichalcum', bulk: [3, 5, 6][index], strength: [4, 5, 5][index] })
+    expect(effectiveArmor(c, catalog, armor)).toMatchObject({ potency: 3, resilient: 3, material: 'Orichalcum',
+      runes: ['Moonweave (Major)', 'Sunweave (Major)', 'Fortification (Greater)', 'Energy-Resistant (Greater): Fire'] })
+    expect(effectiveArmor({ ...c, level: 8 }, catalog, armor).runes)
+      .toEqual(['Moonweave', 'Sunweave', 'Energy-Resistant: Fire'])
+    expect(resistances(c, catalog)).toEqual(expect.arrayContaining([
+      { damage: 'Fire', value: 10, source: name },
+      { damage: 'Fire', value: 10, source: 'Energy-Resistant (Greater): Fire rune' },
+    ]))
+    expect(resistances({ ...c, armors: [{ ...armor, worn: false }] }, catalog)).toEqual([])
+    expect(namedArmorAbilities(entry).find(ability => ability.name === 'Living Flame')?.actions).toBe('Two Actions')
+    const markup = renderToStaticMarkup(<ArmorList c={c} entries={catalog} save={() => {}} part="armor" />)
+    expect(markup).toContain('aria-label="Roll Living Flame: Damage"')
+    if (index === 2) expect(markup).toContain('Entrench Melee')
+  }
+})
 
 it('offers scaling Rebounding and Mountain armor in each plate profile', () => {
   const breastplate: ContentEntry = { ...hide, id: 'breastplate', name: 'Breastplate', traits: [],

@@ -51,6 +51,8 @@ export interface Settings {
   innateHighestMental: boolean
   innateAutoHeighten: boolean
   consolidateInnateTraditions: boolean
+  uniqueInnateSpellChoices: boolean
+  automaticSfWeaponUpgrades: boolean
   // House rule: General Training and Advanced General Training can each be selected once
   singleTrainingFeats: boolean
   // House rule: Inventors have Access to uncommon firearms, firearm ammunition, and the Bladed Gauntlet
@@ -69,7 +71,7 @@ export interface Settings {
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { singleAdditionalArms: true, singleAugmentedBody: true, singleDistantTelepath: true, adoptedDwarfClanDagger: true, disableAdoptedAncestry: true, disableAncientElfMultitalented: true, disableBeastmasterWardenSpells: true, exclusiveCyborgHearts: true, autoClassSkills: false, sf2eDeitySkills: true, orderExplorerSkills: true, autoLores: false, deityLore: true, freeArchetype: true, ignoreArchetypeFeatMinimums: true, rangerSnarecrafter: false, rangerOpeningStance: true, warriorLegendClearTheWay: true, orcTattooedHistorian: true, dwarfStalwartDefender: true, bardAnimalTrainer: true, bardBeastmaster: true, bardCavalier: true, championCavalier: false, commanderCavalier: true, commanderCaptain: true, druidCavalier: false, rangerCavalier: true, championBeastmaster: true, commanderBeastmaster: true, druidBeastmaster: true, rangerBeastmaster: true, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true, innateHighestMental: true, innateAutoHeighten: true, consolidateInnateTraditions: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, bucklerMeleeFinesse: true, freeHandFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true, singleAnimalCompanion: true, protectCompanionAll: true }
+const DEFAULTS: Settings = { singleAdditionalArms: true, singleAugmentedBody: true, singleDistantTelepath: true, adoptedDwarfClanDagger: true, disableAdoptedAncestry: true, disableAncientElfMultitalented: true, disableBeastmasterWardenSpells: true, exclusiveCyborgHearts: true, autoClassSkills: false, sf2eDeitySkills: true, orderExplorerSkills: true, autoLores: false, deityLore: true, freeArchetype: true, ignoreArchetypeFeatMinimums: true, rangerSnarecrafter: false, rangerOpeningStance: true, warriorLegendClearTheWay: true, orcTattooedHistorian: true, dwarfStalwartDefender: true, bardAnimalTrainer: true, bardBeastmaster: true, bardCavalier: true, championCavalier: false, commanderCavalier: true, commanderCaptain: true, druidCavalier: false, rangerCavalier: true, championBeastmaster: true, commanderBeastmaster: true, druidBeastmaster: true, rangerBeastmaster: true, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true, innateHighestMental: true, innateAutoHeighten: true, consolidateInnateTraditions: true, uniqueInnateSpellChoices: true, automaticSfWeaponUpgrades: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, bucklerMeleeFinesse: true, freeHandFinesse: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true, singleAnimalCompanion: true, protectCompanionAll: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 
