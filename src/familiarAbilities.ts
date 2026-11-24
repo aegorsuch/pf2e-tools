@@ -283,7 +283,16 @@ const titleCase = (text: string) => text.replace(/\b\w/g, letter => letter.toUpp
 
 const GRANTED_LIST = /\bGranted Abilities\W+((?:[a-z][a-z' -]*(?:\([^)]*\))?(?:,\s*)?)+)/
 
-export function specificFamiliarGrants(entry?: ContentEntry) {
+const builtInSpecific = (entry?: ContentEntry) =>
+  FALLBACK_SPECIFIC_FAMILIARS.find(item => key(item.name) === key(entry?.name ?? ''))
+
+export function specificFamiliarGrants(entry?: ContentEntry): { abilities: string[]; skilled: string[] } {
+  const parsed = parseSpecificGrants(entry)
+  const builtIn = builtInSpecific(entry)
+  return !parsed.abilities.length && builtIn && builtIn !== entry ? parseSpecificGrants(builtIn) : parsed
+}
+
+function parseSpecificGrants(entry?: ContentEntry) {
   const raw = String(entry?.data.granted_abilities ?? '') || GRANTED_LIST.exec(entry?.description ?? '')?.[1] || ''
   const abilities: string[] = []
   const skilled: string[] = []
@@ -302,7 +311,13 @@ export function selectedSpecificFamiliar(c: Character, entries: ContentEntry[]) 
   return name ? specificFamiliarOptions(c, entries).find(option => option.entry.name === name)?.entry : undefined
 }
 
-export function specificFamiliarSections(entry?: ContentEntry) {
+export function specificFamiliarSections(entry?: ContentEntry): { summary: string[]; abilities: string[] } {
+  const parsed = parseSpecificSections(entry)
+  const builtIn = builtInSpecific(entry)
+  return !parsed.abilities.length && builtIn && builtIn !== entry ? parseSpecificSections(builtIn) : parsed
+}
+
+function parseSpecificSections(entry?: ContentEntry) {
   const clean = (parts: string[]) => parts.map(part => part.trim()).filter(part => part && !/^(?:Source|Required Number of Abilities)\b/i.test(part))
   const paragraphs = (entry?.description ?? '').split(/\n\s*\n/)
   const boundary = paragraphs.findIndex(part => /\bGranted Abilities\b/i.test(part))
