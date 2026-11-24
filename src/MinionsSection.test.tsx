@@ -61,6 +61,15 @@ function findButton(node: ReactNode, label: string): (() => void) | undefined {
   return found
 }
 
+function hasOption(node: ReactNode, value: string): boolean {
+  let found = false
+  Children.forEach(node, child => {
+    if (!isValidElement<Record<string, unknown>>(child)) return
+    if (child.type === 'option' && child.props.value === value || hasOption(child.props.children as ReactNode, value)) found = true
+  })
+  return found
+}
+
 afterEach(() => vi.unstubAllGlobals())
 
 it('opens Spirit of the Beast from its spell action and synchronizes companion aspects', () => {
@@ -1053,6 +1062,36 @@ it('shows feat-selected familiar abilities and Witch activities as locked cards'
   expect(radiantHtml).toContain('negative 9')
 })
 
+it('tracks Medic and Restorative Familiar daily uses independently', () => {
+  let c: Character = {
+    id: 'familiar-daily', systems: ['pf2e'], name: 'Test', level: 8, className: 'Witch',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [{ name: 'Divine Emissary', type: 'Class Feat', level: 6, choice: 'Medic' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { abilities: ['Restorative Familiar'] },
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 4, slots: { 3: 1, 4: 1 } },
+  }
+  const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
+  const html = () => renderToStaticMarkup(tree())
+  expect(html().match(/aria-label="1 of 1 uses remaining"/g)).toHaveLength(2)
+  findButton(tree(), 'Spend Familiar Medic use 1')!()
+  expect(c.familiar?.dailyUses).toEqual({ Medic: true })
+  expect(html()).toContain('aria-label="Restore Familiar Medic use 1"')
+  findButton(tree(), 'Spend Familiar Restorative Familiar use 1')!()
+  expect(c.familiar?.dailyUses).toEqual({ Medic: true, 'Restorative Familiar': true })
+  expect(html().match(/aria-label="0 of 1 uses remaining"/g)).toHaveLength(2)
+  findButton(tree(), 'Restore Familiar Medic use 1')!()
+  expect(c.familiar?.dailyUses).toEqual({ Medic: false, 'Restorative Familiar': true })
+  c = { ...c, feats: [{ ...c.feats[0], choice: undefined }], familiar: { abilities: ['Medic'] } }
+  findButton(tree(), 'Spend Familiar Medic use 1')!()
+  expect(c.familiar?.dailyUses).toEqual({ Medic: true })
+  c = { ...c, className: 'Druid', feats: [], deity: 'Calistria', divineIntercessions: { Calistria: ['moderate-boon'] },
+    waspFamiliar: { abilities: ['Restorative Familiar'] } }
+  findButton(tree(), 'Spend Wasp familiar Restorative Familiar use 1')!()
+  expect(c.waspFamiliar?.dailyUses).toEqual({ 'Restorative Familiar': true })
+  expect(c.familiar?.dailyUses).toEqual({ Medic: true })
+})
+
 it('shows Nine-Tailed Fox and its locked Scent alongside selected abilities', () => {
   const c: Character = {
     id: 'fox', systems: ['pf2e'], name: 'Test', level: 1, className: 'Wizard',
@@ -1089,23 +1128,26 @@ it('locks Glyph Familiar and shows its granted abilities in the familiar list', 
   expect(c.familiar?.specificFamiliar).toBe('Nine-Tailed Fox')
 })
 
-it('locks Leshy Familiar and switches its granted form through familiar variants', () => {
+it('shows Leshy Familiar variants chosen on the feat without duplicate picker choices', () => {
   let c: Character = {
     id: 'leshy-form', systems: ['pf2e'], name: 'Test', level: 1, className: 'Druid',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 18, cha: 10 },
-    feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 }],
+    feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1, choice: 'Fungus' }],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     familiar: { specificFamiliar: 'Nine-Tailed Fox', leshyAbility: 'Fungus', abilities: ['Tough', 'Flier'] },
   }
   const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
   let html = renderToStaticMarkup(tree())
-  expect(html).toContain('<h4>Leshy Familiar</h4> (3/3)')
+  expect(html).toContain('<h4>Leshy Familiar (Fungus)</h4> (3/3)')
+  expect(renderToStaticMarkup(<MinionsSummary c={c} entries={familiarEntries} />)).toContain('Leshy Familiar (Fungus) (3/3)')
   expect(html).not.toContain('aria-label="Specific familiar"')
   expect(html).toContain('aria-haspopup="dialog">Fungus</button>')
-  findSelect(tree(), 'Leshy familiar ability')!({ target: { value: 'leshy-familiar:plant' } })
-  expect(c.feats[0].choice).toBe('Plant')
+  expect(findSelect(tree(), 'Leshy familiar ability')).toBeUndefined()
+  c = { ...c, feats: [{ ...c.feats[0], choice: 'Plant' }] }
   expect(c.familiar?.leshyAbility).toBe('Fungus')
   html = renderToStaticMarkup(tree())
+  expect(html).toContain('<h4>Leshy Familiar (Plant)</h4> (3/3)')
+  expect(renderToStaticMarkup(<MinionsSummary c={c} entries={familiarEntries} />)).toContain('Leshy Familiar (Plant) (3/3)')
   expect(html).toContain('aria-haspopup="dialog">Plant</button>')
   expect(html).not.toContain('aria-haspopup="dialog">Fungus</button>')
   expect(html.match(/aria-label="Remove Leshy familiar ability \d+"/g)).toHaveLength(2)
@@ -1289,7 +1331,7 @@ it('keeps one familiar while preserving dormant Calistria wasp choices', () => {
   const before = JSON.stringify(c.familiar)
   let html = markup()
   expect(saves).toBe(0)
-  expect(html).toContain('<h4>Leshy Familiar</h4>')
+  expect(html).toContain('<h4>Leshy Familiar (Fungus)</h4>')
   expect(html).not.toContain('Wasp Familiar')
   expect(html).not.toContain('Burrower')
   expect(html).toContain('aria-haspopup="dialog">Fungus</button>')
@@ -1533,13 +1575,19 @@ it('provides one extra Leshy Familiar Secrets ability and requires second-rank s
     feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 }, { name: 'Leshy Familiar Secrets', type: 'Class Feat', level: 4 }],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
   }
-  const tree = () => MinionsContent({ c, entries: [], save: patch => { c = { ...c, ...patch } } })
-  findSelect(tree(), 'Leshy familiar ability')?.({ target: { value: 'leshy-secret:verdant burst' } })
-  expect(c.feats[1].choice).toBe('Verdant Burst')
+  const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
+  expect(hasOption(tree(), 'leshy-familiar:plant')).toBe(false)
+  expect(hasOption(tree(), 'leshy-secret:verdant burst')).toBe(false)
+  expect(hasOption(tree(), 'familiar:Flier')).toBe(true)
+  findSelect(tree(), 'Leshy familiar ability')!({ target: { value: 'leshy-secret:verdant burst' } })
+  expect(c.feats[1].choice).toBeUndefined()
+  findSelect(tree(), 'Leshy familiar ability')!({ target: { value: 'familiar:Flier' } })
+  expect(c.familiar?.abilities).toEqual(['Flier'])
+  c = { ...c, feats: c.feats.map(feat => feat.name === 'Leshy Familiar Secrets' ? { ...feat, choice: 'Verdant Burst' } : feat) }
   expect(renderToStaticMarkup(tree())).toContain('three-action Heal at rank 1')
   c = { ...c, className: 'Ranger' }
   expect(renderToStaticMarkup(tree())).toContain('Verdant Burst requires a 2nd-rank spell slot')
-  findSelect(tree(), 'Leshy familiar ability')?.({ target: { value: 'leshy-secret:purify air' } })
+  c = { ...c, feats: c.feats.map(feat => feat.name === 'Leshy Familiar Secrets' ? { ...feat, choice: 'Purify Air' } : feat) }
   expect(renderToStaticMarkup(tree())).toContain('+2 circumstance to saves against inhaled effects')
   c = { ...c, feats: c.feats.slice(0, 1) }
   expect(renderToStaticMarkup(tree())).not.toContain('+2 circumstance to saves against inhaled effects')
