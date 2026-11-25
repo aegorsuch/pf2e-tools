@@ -6665,6 +6665,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   for (const entry of featAttacks) {
     if (legacyTusksJaws.has(entry.id) || importedNephilimAttacks.has(entry.id) || !entry.systems.some(system => c.systems.includes(system))) continue
     const featName = String(entry.data.granted_by_feat)
+    if (featName === 'Iruxi Armaments') continue
     const selectedFeat = activeFeatsNamed(c, featName).find(feat =>
       !entry.data.granted_by_feat_choice
       || !feat.choice

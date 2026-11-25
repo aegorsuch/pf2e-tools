@@ -2370,3 +2370,14 @@ it('shows an active Marvelous Mount in Minions with a Mounted toggle', () => {
   expect(minions).toContain('aria-label="Mounted on Marvelous Mount"')
   expect(renderToStaticMarkup(<MinionsSection c={{ ...c, activeSpells: [] }} entries={[]} save={() => {}} />)).not.toContain('Marvelous Mount')
 })
+
+it('lists Iruxi Armaments Fangs once when imported data also grants it', () => {
+  const imported: ContentEntry = { id: 'imp', name: 'Fangs', kind: 'weapon', systems: ['pf2e'], source: 'official', level: 0,
+    traits: ['Unarmed'], description: '', data: { damage: '1d8 piercing', granted_by_feat: 'Iruxi Armaments', granted_by_feat_choice: 'Fangs' },
+    effects: [], updatedAt: 0 }
+  const c: Character = { id: 'ir', name: 'Test', systems: ['pf2e'], level: 1, ancestry: 'Lizardfolk',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Iruxi Armaments', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: 'Fangs' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(ownedWeapons(c, [imported]).filter(weapon => weapon.name === 'Fangs')).toHaveLength(1)
+})
