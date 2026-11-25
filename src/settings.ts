@@ -54,7 +54,7 @@ export interface Settings {
   consolidateInnateTraditions: boolean
   uniqueInnateSpellChoices: boolean
   automaticSfWeaponUpgrades: boolean
-  studentOfApotheosisStrengthWisdom: boolean
+  studentOfApotheosisStrengthWisdom: boolean // Kept for compatibility with saved settings.
   // House rule: General Training and Advanced General Training can each be selected once
   singleTrainingFeats: boolean
   // House rule: Inventors have Access to uncommon firearms, firearm ammunition, and the Bladed Gauntlet

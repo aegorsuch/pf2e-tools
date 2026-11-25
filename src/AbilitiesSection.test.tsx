@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { AbilitiesContent, AbilitiesSection, AbilityBoostChoices } from './AbilitiesSection'
 import { computeAbilities, type SectionProps } from './builder'
+import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
 const entry = (kind: ContentEntry['kind'], name: string, attribute: string): ContentEntry => ({
@@ -126,6 +127,26 @@ describe('ability score boost controls', () => {
     checkbox(props(), ['background'], 'Background Boosts: Wisdom').onChange()
     expect(c.boosts).toMatchObject({ 'background:0': 'wis', 'background:1': 'str' })
   })
+
+  it.each([['Strength', 'Wisdom'], ['Wisdom', 'Strength'], ['Dexterity', 'Constitution'], ['Charisma', 'Strength']] as const)(
+    'allows Student of Apotheosis to select %s and %s', (first, second) => {
+      const previous = getSettings().studentOfApotheosisStrengthWisdom
+      const background = entry('background', 'Student of Apotheosis (Religion)', 'Intelligence, Charisma')
+      background.data.background_base = 'Student of Apotheosis'
+      const options = [...entries, background]
+      let c: Character = { ...character, background: background.name, boosts: {} }
+      const props = () => ({ c, entries: options, save: (patch: Partial<Character>) => { c = { ...c, ...patch } } })
+      try {
+        updateSettings({ studentOfApotheosisStrengthWisdom: true })
+        checkbox(props(), ['background'], `Background Boosts: ${first}`).onChange()
+        expect(checkbox(props(), ['background'], `Background Boosts: ${second}`).disabled).toBe(false)
+        checkbox(props(), ['background'], `Background Boosts: ${second}`).onChange()
+        expect(checkbox(props(), ['background'], `Background Boosts: ${first}`).checked).toBe(true)
+        expect(checkbox(props(), ['background'], `Background Boosts: ${second}`).checked).toBe(true)
+        expect(checkbox(props(), ['background'], `Background Boosts: ${first}`).disabled).toBe(false)
+      } finally { updateSettings({ studentOfApotheosisStrengthWisdom: previous }) }
+    },
+  )
 
   it('keeps fixed ancestry boosts locked while allowing only distinct free boosts', () => {
     const elfEntries = [...entries, entry('ancestry', 'Elf', 'Dexterity, Intelligence, Free')]

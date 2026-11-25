@@ -18,7 +18,7 @@ const base: Character = {
   feats: [], lores: [], equipment: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
-it('uses Strength or Wisdom for Student of Apotheosis and restores official boosts when disabled', () => {
+it('allows two free boosts for Student of Apotheosis and restores official boosts when disabled', () => {
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(pf2eSnapshot)
   const entries = mapAonHits(hits.filter(hit => hit._source?.name === 'Student of Apotheosis'
     && hit._source?.category === 'background'), 'pf2e')
@@ -30,7 +30,7 @@ it('uses Strength or Wisdom for Student of Apotheosis and restores official boos
     updateSettings({ studentOfApotheosisStrengthWisdom: true })
     for (const background of backgrounds) {
       const c: Character = { ...base, background: background.name, boosts: { 'background:0': 'str', 'background:1': 'cha' } }
-      expect(boostSlots(c, entries).find(slot => slot.key === 'background:0')?.options).toEqual(['str', 'wis'])
+      expect(boostSlots(c, entries).find(slot => slot.key === 'background:0')?.options).toBeUndefined()
       expect(boostSlots(c, entries).find(slot => slot.key === 'background:1')?.options).toBeUndefined()
       expect(computeAbilities(c, entries)).toMatchObject({ str: 12, cha: 12 })
       expect(computeAbilities({ ...c, boosts: { 'background:0': 'wis' } }, entries).wis).toBe(12)

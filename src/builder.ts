@@ -290,7 +290,7 @@ export function boostSlots(c: Character, entries: ContentEntry[]): BoostSlot[] {
   if (bg) {
     const opts: Ability[] = getSettings().studentOfApotheosisStrengthWisdom && bg.systems.includes('pf2e')
       && (bg.data.background_base ?? bg.name) === 'Student of Apotheosis'
-      ? ['str', 'wis'] : parseAbilities(bg.data.attribute)
+      ? [] : parseAbilities(bg.data.attribute)
     slots.push({ key: 'background:0', label: 'Background', options: opts.length ? opts : undefined, group: 'background' })
     slots.push({ key: 'background:1', label: 'Background (free)', group: 'background' })
   }
