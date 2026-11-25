@@ -702,9 +702,6 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
       {handwraps ? <details className="gear-card" aria-label={item.name} open>
         <summary><strong><EntryDescription name={item.name}
           entry={entries.find(entry => entry.kind === 'item' && entry.name === item.name) ?? item} className="equipment-name" /></strong></summary>
-        {handwraps.kind !== 'hardlight' && <div className="gear-runes"><span>Material</span>
-          <Material name="Orichalcum" entries={entries} equipment="Weapon" source="Handwraps of Mighty Blows" />
-        </div>}
         {handwraps.kind !== 'hardlight' && <WeaponFundamentals {...handwraps} entries={entries} />}
         {handwraps.kind === 'hardlight' ? <>
           {!!handwraps.runes.length && <small role="status">Saved runes are inactive on hardlight handwraps.</small>}

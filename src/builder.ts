@@ -7579,7 +7579,8 @@ export function handwrapRuneOptions(c: Character, entries: ContentEntry[]) {
   if (cached) return cached
   const available = new Set(unarmed.flatMap((weapon) =>
     eligibleWeaponRunes(entries, { ...weapon, runes: handwrapRunes }).map((rune) => rune.name)))
-  const result = propertyRunes(entries, 'Weapon').filter((rune) => available.has(rune.name))
+  const result = propertyRunes(entries, 'Weapon')
+    .filter((rune) => available.has(rune.name) && runeBaseName(rune.name) !== 'Impactful')
   cache.set(key, result)
   return result
 }

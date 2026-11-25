@@ -985,6 +985,7 @@ it('offers handwrap runes for compatible unarmed attacks without requiring the b
   expect(options).toContain('Wounding')
   expect(options).not.toContain('Shifting')
   expect(options).not.toContain('Returning')
+  expect(options.some(name => name.includes('Impactful'))).toBe(false)
 })
 
 it('ignores directly configured unarmed runes while leaving saved data and manufactured weapons unchanged', () => {
