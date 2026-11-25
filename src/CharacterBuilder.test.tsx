@@ -20,7 +20,8 @@ import { SkillsSection } from './SkillsSection'
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
 vi.mock('./DeferredDetails', () => ({
-  DeferredDetails: ({ children }: { children: ReactNode }) => <details className="character-section">{children}</details>,
+  DeferredDetails: ({ children, className = 'character-section' }: { children: ReactNode; className?: string }) =>
+    <details className={className}>{children}</details>,
   DeferredContent: ({ children }: { children: () => ReactNode }) => children(),
 }))
 const CharacterBuilder = (props: Omit<Parameters<typeof Builder>[0], 'catalog'>) =>
