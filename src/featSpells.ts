@@ -28,7 +28,7 @@ const PSYCHIC_FEAT_SPELLS: Record<string, { names: string[]; tradition: string; 
 const FIENDISH_MAGIC_SPELLS: Record<string, string[]> = {
   Grimspawn: ['False Vitality', 'See the Unseen'],
   Pitborn: ['Paranoia', 'Shatter'],
-  Hellspawn: ['Invisibility', 'Disguise Magic'],
+  Hellspawn: ['Invisibility', 'Disguise'],
 }
 const CELESTIAL_MAGIC_SPELLS: Record<string, string[]> = {
   Angelkin: ['Clear Mind', 'Humanoid Form'],
@@ -700,7 +700,7 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
         const entry = matchingSpells(entries, name).find(spell => spell.systems.includes('pf2e'))
         if (entry) out.push({ entry, source: feat.name,
           rule: { kind: 'innate', spells: [entry.name], tradition: 'divine', frequency: 'once per day', fixedRank: true },
-          rank: feat.name === 'Summon Nephilim Kin' ? 5 : 2,
+          rank: feat.name === 'Summon Nephilim Kin' ? Math.min(10, Math.max(5, Math.ceil(c.level / 2))) : 2,
           usageKey: JSON.stringify([selection, feat.name, name.toLowerCase()]) })
       }
       continue

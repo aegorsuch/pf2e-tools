@@ -24,14 +24,17 @@ export function fiendLevelLimit(rank: number) {
   return Number.isInteger(rank) && rank >= 5 && rank <= 10 ? 2 * rank - 5 : undefined
 }
 
-export function fiendOptions(fiends: SummonedFiend[], rank: number, lineage?: string, requiredTrait?: string) {
+export function fiendOptions(fiends: SummonedFiend[], rank: number, lineage?: string, requiredTrait?: string, highestOnly = false) {
   const maxLevel = fiendLevelLimit(rank)
   const category: Record<string, string> = { Pitborn: 'demon', Hellspawn: 'devil', Grimspawn: 'daemon', Faultspawn: 'asura' }
   const required = lineage ? category[lineage] : undefined
   if (maxLevel === undefined || lineage && !required) return []
-  return fiends.filter(fiend => fiend.level <= maxLevel
+  const eligible = fiends.filter(fiend => fiend.level <= maxLevel
     && (!required || fiend.traits.some(trait => trait.toLowerCase() === required))
     && (!requiredTrait || fiend.traits.some(trait => trait.toLowerCase() === requiredTrait.toLowerCase())))
+  if (!highestOnly) return eligible
+  const highest = Math.max(...eligible.map(fiend => fiend.level))
+  return eligible.filter(fiend => fiend.level === highest)
 }
 
 export function activeSummonedFiend(c: Character) {

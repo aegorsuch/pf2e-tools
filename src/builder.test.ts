@@ -2133,6 +2133,12 @@ describe('ancestryLabel', () => {
     expect(characterSummary(c, [pitborn])).toContain('Pitborn Human')
   })
 
+  it('uses the Nephilim lineage in the label even when feat content is not loaded', () => {
+    const c: Character = { ...base, ancestry: 'Human', heritage: 'Nephilim',
+      feats: [{ name: 'Musetouched', type: 'Ancestry Feat', level: 1, sourceId: 'missing' }] }
+    expect(characterAncestryLabel(c, [])).toBe('Musetouched Human')
+  })
+
   it('uses selected Fadrim lineage in the character label', () => {
     const c: Character = { ...base, ancestry: 'Elf', heritage: 'Fadrim',
       feats: [{ name: 'Trickster Fadrim', type: 'Ancestry Feat', level: 1 }] }

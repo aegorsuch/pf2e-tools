@@ -493,7 +493,7 @@ export function SummonFiendActions({ c, entries, save, entry, rank, lineageOnly 
   const [fiends, setFiends] = useState<SummonedFiend[]>()
   const [error, setError] = useState('')
   const lineage = lineageOnly ? originalNephilimLineage(c, entries) ?? '' : undefined
-  const options = fiendOptions(fiends ?? [], rank, lineageOnly ? lineage || 'unknown' : undefined, requiredTrait)
+  const options = fiendOptions(fiends ?? [], rank, lineageOnly ? lineage || 'unknown' : undefined, requiredTrait, lineageOnly)
   const open = () => {
     dialog.current?.showModal()
     dialog.current?.querySelector('h4')?.focus()

@@ -184,12 +184,17 @@ function fadrimLineage(c: Character) {
 
 export function nephilimLineage(c: Character, entries: ContentEntry[]) {
   if (!c.systems.includes('pf2e') || c.heritage?.trim().toLowerCase() !== 'nephilim') return undefined
-  return c.feats.find(feat => featTakenLevel(feat) === 1 && (() => {
-      const source = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
-      return source && ['nephilim', 'lineage'].every(required =>
-        source.traits.some(trait => trait.toLowerCase() === required))
-    })())?.name
+  const isLineage = (feat: Character['feats'][number]) => {
+    const source = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
+    return source ? ['nephilim', 'lineage'].every(required => source.traits.some(trait => trait.toLowerCase() === required))
+      : NEPHILIM_LINEAGE_NAMES.has(feat.name)
+  }
+  return (c.feats.find(feat => featTakenLevel(feat) === 1 && isLineage(feat))
+    ?? c.feats.find(feat => NEPHILIM_LINEAGE_NAMES.has(feat.name) && isLineage(feat)))?.name
 }
+
+const NEPHILIM_LINEAGE_NAMES = new Set(['Angelkin', 'Lawbringer', 'Musetouched', 'Grimspawn', 'Hellspawn', 'Pitborn', 'Faultspawn',
+  'Aeonbound', 'Battleblooded', 'Proteankin'])
 
 export function nephilimLineageLore(c: Character, entries: ContentEntry[]) {
   const lineage = nephilimLineage(c, entries)

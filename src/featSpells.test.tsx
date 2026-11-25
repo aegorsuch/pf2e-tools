@@ -540,7 +540,7 @@ it.each(['Bane', 'Bless'])('grants Extraplanar Supplication %s as a daily divine
 it.each([
   ['Grimspawn', ['False Vitality', 'See the Unseen']],
   ['Pitborn', ['Paranoia', 'Shatter']],
-  ['Hellspawn', ['Invisibility', 'Disguise Magic']],
+  ['Hellspawn', ['Invisibility', 'Disguise']],
 ] as const)('grants Fiendish Magic spells for %s', (lineage, names) => {
   const source = feat('Fiendish Magic', 'Choose two spells.', 9)
   const spells = names.map(name => entry(name, 'spell'))
