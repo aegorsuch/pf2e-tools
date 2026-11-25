@@ -562,6 +562,15 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
     .sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
   const automaticOnly = automaticUpgrades.filter(automatic => isEnergyShieldingUpgrade(automatic)
     || !installed.some(item => item && sameUpgrade(automatic, item)))
+  const displayUpgrades = [
+    ...upgrades.map((id, index) => {
+      const entry = installed[index]
+      const automatic = automaticFor(entry)
+      return { kind: 'installed' as const, id, index, entry, automatic,
+        name: automatic ? automaticName(automatic) : entry?.name ?? id }
+    }),
+    ...automaticOnly.map(entry => ({ kind: 'automatic' as const, entry, name: automaticName(entry) })),
+  ].sort((a, b) => a.name.localeCompare(b.name))
   const usedEnergyTypes = new Set<EnergyShieldingType>()
   automaticUpgrades.forEach(entry => {
     const type = ENERGY_SHIELDING_TYPES.find(candidate => candidate === entry.data.automatic_energy_type)
@@ -572,13 +581,22 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
     if (installed[index] && isEnergyShieldingUpgrade(installed[index]) && type) usedEnergyTypes.add(type)
   })
   return <div className="gear-runes">
-    {upgrades.map((id, index) => <span className="rune" key={`${id}:${index}`}>
-      <GearTag name={automaticFor(installed[index])
-        ? automaticName(automaticFor(installed[index])!) : installed[index]?.name ?? id}
-        entry={automaticFor(installed[index]) ?? installed[index]}
-        kind="upgrade" onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />
-      {installed[index] && isEnergyShieldingUpgrade(installed[index]) && <label>Damage type{' '}
-        <select aria-label={`Energy Shielding type ${installed[index].name}`} value={energyShieldingTypes?.[id] ?? ''}
+    {displayUpgrades.map(item => {
+      if (item.kind === 'automatic') return <span className="rune" key={`automatic:${item.entry.id}`}>
+        <GearTag name={`${automaticName(item.entry)}${automaticArmorUpgradeUsesSlot(armorName, item.entry) ? '' : ' *'}`}
+          entry={item.entry} kind="upgrade" source={`Built into ${armorName}`} />
+        {jetpackSpeed(item.entry) > 0 && <button type="button" className={`spell-action-button${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? ' on' : ''}`}
+          aria-label={`${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? 'Dismiss' : 'Activate'} ${item.entry.name}`}
+          aria-pressed={activeJetpack === AUTOMATIC_JETPACK_ID && worn} disabled={!worn}
+          title={`${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? 'Dismiss' : 'Activate'} jetpack (1 minute; cannot lift while encumbered${jetpackSpeed(item.entry) === 20 ? '; off-guard while hovering' : ''})`}
+          onClick={() => onToggleJetpack(AUTOMATIC_JETPACK_ID)}><ActionIcon actions="Single Action" /></button>}
+      </span>
+      const { id, index, entry, automatic } = item
+      return <span className="rune" key={`${id}:${index}`}>
+        <GearTag name={item.name} entry={automatic ?? entry} kind="upgrade"
+          onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />
+      {entry && isEnergyShieldingUpgrade(entry) && <label>Damage type{' '}
+        <select aria-label={`Energy Shielding type ${entry.name}`} value={energyShieldingTypes?.[id] ?? ''}
           onChange={event => {
             const type = ENERGY_SHIELDING_TYPES.find(candidate => candidate === event.target.value)
             onEnergyShieldingTypeChange(id, type)
@@ -590,21 +608,13 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
           </option>)}
         </select>
       </label>}
-      {jetpackSpeed(automaticFor(installed[index]) ?? installed[index]) > 0 && <button type="button" className={`spell-action-button${activeJetpack === id && worn ? ' on' : ''}`}
-        aria-label={`${activeJetpack === id && worn ? 'Dismiss' : 'Activate'} ${automaticFor(installed[index])?.name ?? installed[index]?.name}`}
+      {jetpackSpeed(automatic ?? entry) > 0 && <button type="button" className={`spell-action-button${activeJetpack === id && worn ? ' on' : ''}`}
+        aria-label={`${activeJetpack === id && worn ? 'Dismiss' : 'Activate'} ${automatic?.name ?? entry?.name}`}
         aria-pressed={activeJetpack === id && worn} disabled={!worn || index >= limit}
-        title={`${activeJetpack === id && worn ? 'Dismiss' : 'Activate'} jetpack (1 minute; cannot lift while encumbered${jetpackSpeed(automaticFor(installed[index]) ?? installed[index]) === 20 ? '; off-guard while hovering' : ''})`}
+        title={`${activeJetpack === id && worn ? 'Dismiss' : 'Activate'} jetpack (1 minute; cannot lift while encumbered${jetpackSpeed(automatic ?? entry) === 20 ? '; off-guard while hovering' : ''})`}
         onClick={() => onToggleJetpack(id)}><ActionIcon actions="Single Action" /></button>}
-    </span>)}
-    {automaticOnly.map(entry => <span className="rune" key={`automatic:${entry.id}`}>
-      <GearTag name={`${automaticName(entry)}${automaticArmorUpgradeUsesSlot(armorName, entry) ? '' : ' *'}`}
-        entry={entry} kind="upgrade" source={`Built into ${armorName}`} />
-      {jetpackSpeed(entry) > 0 && <button type="button" className={`spell-action-button${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? ' on' : ''}`}
-        aria-label={`${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? 'Dismiss' : 'Activate'} ${entry.name}`}
-        aria-pressed={activeJetpack === AUTOMATIC_JETPACK_ID && worn} disabled={!worn}
-        title={`${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? 'Dismiss' : 'Activate'} jetpack (1 minute; cannot lift while encumbered${jetpackSpeed(entry) === 20 ? '; off-guard while hovering' : ''})`}
-        onClick={() => onToggleJetpack(AUTOMATIC_JETPACK_ID)}><ActionIcon actions="Single Action" /></button>}
-    </span>)}
+    </span>
+    })}
     {installed.some(item => !item) && <small role="status">Saved armor upgrade unavailable. Sync official content to restore its effects.</small>}
     {upgrades.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
     {upgrades.length < limit && options.length > 0 && <SearchableSelect aria-label="Add armor upgrade" value=""
@@ -2024,7 +2034,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         onPick={(e) => saveArmors([...armors, { id: newId(), name: e.name, potency: 0, resilient: 0, runes: [], worn: !armors.some((a) => a.worn) }])} />
       {[...armors].sort((x, y) => x.name.localeCompare(y.name)).map((a) => {
         const entry = armorEntry(c, entries, a.name, a.id)
-        const braceShields = entry?.traits.some(trait => trait.toLowerCase() === 'shield brace')
+        const hasShieldBrace = !!entry?.traits.some(trait => trait.toLowerCase() === 'shield brace')
+          && !/^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?Myrmidon Siegebreaker Plate$/i.test(entry.name)
+        const braceShields = hasShieldBrace
           ? ownedShields(c).filter(shield => shieldBraceEligible(entries, entry, shield)) : []
         const sf2eArmor = !!entry?.systems.includes('sf2e')
         const originalDisplayEntry = entry?.data.automatic_fundamentals === true && entry.data.named_armor
@@ -2182,7 +2194,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             {entry?.traits.some(trait => trait.toLowerCase() === 'implacable') && <small>
               Implacable: the first time each turn an action would be lost to stunned or paralyzed, Step or Take Cover instead.
             </small>}
-            {entry?.traits.some(trait => trait.toLowerCase() === 'shield brace') && <div className="row">
+            {hasShieldBrace && <div className="row">
               <label>Shield Brace
                 <select aria-label={`Shield Brace: ${labelName}`} value={braceShields.some(shield => shield.id === a.shieldBraceShieldId)
                   ? a.shieldBraceShieldId : ''} onChange={event => {

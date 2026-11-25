@@ -3166,7 +3166,9 @@ export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
   const family = armor?.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   if (!armor?.systems.includes('sf2e')) return 0
   if (family === 'Carvesong') return 4
-  return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Clandestine Suit', "Drifter's Jacket", 'Retrieval Harness',
+  if (family === "Drifter's Jacket") return 3
+  return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Clandestine Suit',
+    'Myrmidon Siegebreaker Plate', 'Retrieval Harness',
     'Rocketeer Armor', 'Stormbreaker Armor']
     .includes(family ?? '') ? 2 : 0
 }
@@ -3175,8 +3177,9 @@ export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upg
   const family = armorName?.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   const base = upgrade.name.replace(/\s*\([^)]*\)$/, '')
   if (family === 'Carvesong') return true
-  if (['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Clandestine Suit', "Drifter's Jacket", 'Retrieval Harness',
-    'Stormbreaker Armor'].includes(family ?? '')) return ['Jetpack', 'Force Field'].includes(base)
+  if (['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Clandestine Suit', "Drifter's Jacket",
+    'Myrmidon Siegebreaker Plate', 'Retrieval Harness', 'Stormbreaker Armor'].includes(family ?? ''))
+    return ['Jetpack', 'Force Field'].includes(base) || family === "Drifter's Jacket" && base === 'Active Camouflage'
   return family === 'Rocketeer Armor' && ['Force Field', 'Maneuvering Unit'].includes(base)
 }
 
@@ -3187,7 +3190,7 @@ const AUTOMATIC_UPGRADE_ARMORS = new Set([
 const SPELL_ARMOR_FAMILIES = new Set(['Carveweave', 'Carvesong', 'Mageplate'])
 const AUTOMATIC_ARMOR_UPGRADES = ['Jetpack', 'Force Field']
 const CLOAKING_ARMOR_UPGRADES = ['Active Camouflage', 'Cloaking Device']
-const DRIFTER_JACKET_ARMOR_UPGRADES = ['Drift Drive Relay', 'Maneuvering Unit']
+const DRIFTER_JACKET_ARMOR_UPGRADES = ['Active Camouflage', 'Drift Drive Relay', 'Maneuvering Unit']
 const ROCKETEER_ARMOR_UPGRADES = ['Maneuvering Unit']
 const RETRIEVAL_HARNESS_ARMOR_UPGRADES = ['Easypatcher']
 const STORMBREAKER_ARMOR_UPGRADES = ['Energized Spikes', 'Energy Shielding']

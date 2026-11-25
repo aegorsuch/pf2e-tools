@@ -3,7 +3,7 @@ import { Children, cloneElement, isValidElement, type ReactElement, type ReactNo
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, automaticArmorUpgradeSlotsUsed, canRaiseShield, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon, installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, automaticArmorUpgradeSlotsUsed, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon, installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, OVERSIZED_THROW } from './supplemental'
@@ -855,7 +855,7 @@ it('reserves a free hand for shields, but not bucklers, and switches generated s
   expect(equippedShield(c)).toBeUndefined()
 })
 
-it('installs only Compact or Retractable shields in Shield Brace and preserves the raising hand requirement', () => {
+it('hides the Shield Brace selector on Myrmidon Siegebreaker Plate', () => {
   const armor: ContentEntry = { ...weapon, id: 'myrmidon-armor', kind: 'armor', name: 'Myrmidon Siegebreaker Plate',
     systems: ['sf2e'], traits: ['Shield Brace', 'Implacable'], data: { armor_category: 'Heavy', armor_group: 'Plate',
       ac: 6, dex_cap: 0, strength: 2, check_penalty: -2 } }
@@ -877,28 +877,34 @@ it('installs only Compact or Retractable shields in Shield Brace and preserves t
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const selector = findElement(ArmorList({ c, entries, save, part: 'armor' }), element =>
     element.type === 'select' && element.props['aria-label'] === 'Shield Brace: Myrmidon Siegebreaker Plate')
-  if (!selector) throw new Error('Shield Brace selector unavailable')
-  const changeShield = selector.props.onChange as (event: { target: { value: string } }) => void
-  changeShield({ target: { value: shield.id } })
-  expect(c.armors?.[0].shieldBraceShieldId).toBe(shield.id)
-  expect(c.shield?.equipped).toBe(true)
-  expect(shieldBraceInstalled(c, entries, shield)).toBe(true)
-  expect(canEquipShield(c, entries, shield)).toBe(true)
-  expect(equippedHands(c, entries)).toBe(0)
-  expect(canRaiseShield(c, entries, shield)).toBe(true)
-  c = { ...c, ...shieldRaisedChange(c, true, entries) }
-  expect(equippedShield(c)?.raised).toBe(true)
-
-  const twoHanded = { ...weapon, data: { ...weapon.data, hands: 2 } }
-  c = { ...c, weapons: [{ id: 'two-handed', name: twoHanded.name, potency: 0, striking: 0, runes: [] }],
-    shield: { ...shield, raised: false } }
-  expect(equippedHands(c, [armor, compact, twoHanded])).toBe(2)
-  expect(canRaiseShield(c, [armor, compact, twoHanded], shield)).toBe(false)
-  expect(shieldRaisedChange(c, true, [armor, compact, twoHanded])).toEqual({})
-  const markup = renderToStaticMarkup(<ArmorList c={c} entries={[armor, compact, twoHanded]} save={() => {}} part="armor" />)
-  expect(markup).toContain('aria-label="Shield Brace: Myrmidon Siegebreaker Plate"')
-  expect(markup).toContain('Compact Shield')
+  expect(selector).toBeUndefined()
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} part="armor" />)
+  expect(markup).not.toContain('aria-label="Shield Brace: Myrmidon Siegebreaker Plate"')
   expect(markup).toContain('Implacable: the first time each turn an action would be lost')
+})
+
+it('auto-installs Myrmidon Siegebreaker Plate upgrades and reserves slots for both', () => {
+  const armor: ContentEntry = { ...weapon, id: 'myrmidon-siegebreaker', name: 'Myrmidon Siegebreaker Plate',
+    kind: 'armor', systems: ['sf2e'], level: 9,
+    data: { url: 'myrmidon-siegebreaker-plate', armor_category: 'Heavy', ac: 6, upgrade_slots: 2 } }
+  const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
+    systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
+  const upgrades = [module('Jetpack (Tactical)', 9), module('Force Field (Paragon)', 19)]
+  const c: Character = { ...character([]), systems: ['sf2e'], level: 20, armors: [
+    { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
+  ] }
+  const tree = ArmorList({ c, entries: [armor, ...upgrades], save: () => {} })
+  const markup = renderToStaticMarkup(tree)
+  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(2)
+  expect(markup).toContain('Jetpack (Tactical)')
+  expect(markup).toContain('Force Field (Paragon)')
+  expect(markup).not.toContain('Jetpack (Tactical) *')
+  expect(markup).not.toContain('Force Field (Paragon) *')
+  expect(markup).not.toContain('Add armor upgrade')
+  const component = findElement(tree, element => typeof element.type === 'function' && element.type.name === 'ArmorUpgrades')!
+  const content = (component.type as (props: typeof component.props) => ReactNode)(component.props)
+  const upgradeMarkup = renderToStaticMarkup(content)
+  expect(upgradeMarkup.indexOf('Force Field (Paragon)')).toBeLessThan(upgradeMarkup.indexOf('Jetpack (Tactical)'))
 })
 
 it('grants Chitinous Shield without occupying a hand and automatically improves its grade', () => {
@@ -2846,6 +2852,25 @@ it('uses armor upgrades instead of runes for SF2E-tagged armor', () => {
   expect(extraSlot).not.toContain('Armor upgrade slots:')
 })
 
+it('displays installed Starfinder armor upgrades alphabetically without changing saved order', () => {
+  const suit: ContentEntry = { ...weapon, id: 'starfinder-sort', name: 'Sorted Suit', kind: 'armor', systems: ['sf2e'],
+    data: { ac: 2, dex_cap: 2, armor_category: 'Light', upgrade_slots: 2 } }
+  const jetpack: ContentEntry = { ...shifting, id: 'jetpack', name: 'Jetpack (Tactical)', systems: ['sf2e'],
+    data: { item_subcategory: 'Armor Upgrades' } }
+  const forceField: ContentEntry = { ...shifting, id: 'force-field', name: 'Force Field (Paragon)', systems: ['sf2e'],
+    data: { item_subcategory: 'Armor Upgrades' } }
+  const c: Character = { ...character([]), systems: ['sf2e'], armors: [
+    { id: suit.id, name: suit.name, potency: 0, resilient: 0, runes: [],
+      upgrades: [jetpack.id, forceField.id], worn: true },
+  ] }
+  const tree = ArmorList({ c, entries: [suit, jetpack, forceField], save: () => {} })
+  const component = findElement(tree, element => typeof element.type === 'function' && element.type.name === 'ArmorUpgrades')!
+  const content = (component.type as (props: typeof component.props) => ReactNode)(component.props)
+  const markup = renderToStaticMarkup(content)
+  expect(markup.indexOf('Force Field (Paragon)')).toBeLessThan(markup.indexOf('Jetpack (Tactical)'))
+  expect(c.armors?.[0].upgrades).toEqual([jetpack.id, forceField.id])
+})
+
 it.each([
   ['Jetpack (Commercial)', 20],
   ['Jetpack (Tactical)', 40],
@@ -2927,13 +2952,13 @@ it('reserves Clandestine Suit slots for its built-in Jetpack and Force Field', (
   })
 })
 
-it('auto-installs Drifter Jacket upgrades, reserving slots for Jetpack and Force Field', () => {
+it('auto-installs Drifter Jacket upgrades, reserving slots for Jetpack, Force Field, and Active Camouflage', () => {
   const jacket: ContentEntry = { ...weapon, id: 'drifters-jacket', name: "Drifter's Jacket", kind: 'armor', systems: ['sf2e'],
     level: 10, description: 'A practical jacket.', data: { url: 'drifters-jacket', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 2 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
     systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
   const upgrades = [
-    module('Jetpack (Commercial)', 5), module('Force Field (Superior)', 10),
+    module('Jetpack (Commercial)', 5), module('Force Field (Superior)', 10), module('Active Camouflage (Tactical)', 10),
     module('Drift Drive Relay (Commercial)', 9), module('Maneuvering Unit (Tactical)', 7),
   ]
   const c: Character = { ...character([]), systems: ['sf2e'], level: 10, armors: [
@@ -2941,13 +2966,15 @@ it('auto-installs Drifter Jacket upgrades, reserving slots for Jetpack and Force
   ] }
   const entries = [jacket, ...upgrades]
   const markup = renderToStaticMarkup(ArmorList({ c, entries, save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(jacket)).toBe(2)
+  expect(automaticArmorUpgradeSlotsUsed(jacket)).toBe(3)
   expect(markup).toContain('Drift Drive Relay (Commercial) *')
   expect(markup).toContain('Maneuvering Unit (Tactical) *')
   expect(markup).toContain('Force Field (Superior)')
   expect(markup).toContain('Jetpack (Commercial)')
+  expect(markup).toContain('Active Camouflage (Tactical)')
   expect(markup).not.toContain('Jetpack (Commercial) *')
   expect(markup).not.toContain('Force Field (Superior) *')
+  expect(markup).not.toContain('Active Camouflage (Tactical) *')
   expect(markup).toContain('Includes a Drift Drive Relay and Maneuvering Unit at no extra cost; neither uses an upgrade slot.')
   expect(markup).not.toContain('Free (no upgrade slot)')
   expect(markup).not.toContain('Add armor upgrade')

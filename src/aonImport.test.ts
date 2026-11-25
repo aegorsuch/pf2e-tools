@@ -57,13 +57,14 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
     expect(effectiveArmor(character, entries, owned).name).toBe(`Superior ${name}`)
     const autoUpgrades = automaticSpecificArmorUpgrades({ ...character, level: 20 }, entries, armor!)
     expect(autoUpgrades.map(entry => entry.name)).toEqual(expect.arrayContaining(['Jetpack (Tactical)', 'Force Field (Paragon)']))
-    expect(autoUpgrades).toHaveLength(name === 'Clandestine Suit' || name === "Drifter's Jacket"
-      || name === 'Stormbreaker Armor' || name === 'Carvesong' ? 4
+    expect(autoUpgrades).toHaveLength(name === "Drifter's Jacket" ? 5
+      : name === 'Clandestine Suit' || name === 'Stormbreaker Armor' || name === 'Carvesong' ? 4
       : name === 'Aquavarius Armor' || name === 'Rocketeer Armor' || name === 'Retrieval Harness' ? 3 : 2)
     if (name === 'Clandestine Suit') expect(autoUpgrades.map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Active Camouflage (Advanced)', 'Cloaking Device (Tactical)']))
     if (name === "Drifter's Jacket") expect(autoUpgrades.map(entry => entry.name))
-      .toEqual(expect.arrayContaining(['Force Field (Paragon)', 'Drift Drive Relay (Advanced)', 'Maneuvering Unit (Superior)']))
+      .toEqual(expect.arrayContaining(['Force Field (Paragon)', 'Active Camouflage (Advanced)',
+        'Drift Drive Relay (Advanced)', 'Maneuvering Unit (Superior)']))
     if (name === 'Retrieval Harness') expect(autoUpgrades.map(entry => entry.name))
       .toContain('Easypatcher (Advanced)')
     if (name === 'Aquavarius Armor') expect(autoUpgrades.map(entry => entry.name))
