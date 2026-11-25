@@ -156,7 +156,7 @@ it.each([
     expect(effective.runes).not.toContain('Ghost Touch')
     expect(effectiveWeapon(character, entries, weapon)?.runes).not.toContain('Quickstrike')
     const markup = renderToStaticMarkup(<WeaponList c={character} entries={entries} save={() => {}} />)
-    expect(markup).toContain(`>Peachwood (${grade}-Grade)</button>`)
+    expect(markup).not.toContain(`>Peachwood (${grade}-Grade)</button>`)
     expect(markup).not.toContain('aria-label="Weapon material"')
     expect(markup).not.toContain(`aria-label="Remove Peachwood (${grade}-Grade) material"`)
     expect(markup).not.toContain('<label>Potency')

@@ -1667,7 +1667,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 source={`Built into ${namedSource || w.name.split(' (')[0]}`} />
             </div> : null : haft ? null : linkedSource ? enhanced.material === 'Orichalcum' ? null
               : <small>Material: {enhanced.material ?? 'Standard'} (from {linkedSource.name})</small>
-              : unarmed ? alloyMaterial : <div className="row">
+              : namedSource === "Hunter's Dawn" ? null
+            : unarmed ? alloyMaterial : <div className="row">
               {osteoArmament ? null : card ? <small>Material: playing cards</small> : <>
               {grantedClanWeapon ? (enhanced.material ?? 'Orichalcum') === 'Orichalcum' ? null : <div className="gear-runes"><span>Material</span>
                 <Material name={enhanced.material ?? 'Orichalcum'} entries={entries} equipment="Weapon" source="Granted Dwarf clan weapon" />
