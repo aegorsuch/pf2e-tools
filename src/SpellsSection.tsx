@@ -497,7 +497,9 @@ export function SummonFiendActions({ c, entries, save, entry, rank, lineageOnly 
   const noun = celestial ? 'celestial' : 'fiend'
   const lineage = lineageOnly ? originalNephilimLineage(c, entries) ?? '' : undefined
   const options = fiendOptions(fiends ?? [], rank, lineageOnly ? lineage || 'unknown' : undefined, requiredTrait, true)
+  const [opened, setOpened] = useState(false)
   const open = () => {
+    setOpened(true)
     dialog.current?.showModal()
     dialog.current?.querySelector('h4')?.focus()
     if (fiends) return
@@ -510,6 +512,15 @@ export function SummonFiendActions({ c, entries, save, entry, rank, lineageOnly 
       setFiends(data)
     }).catch((failure: unknown) => setError(`Unable to load ${noun}s: ${failure instanceof Error ? failure.message : String(failure)}`))
   }
+  const choose = (selected?: SummonedFiend) => save({ summonedFiend: selected, ...spellActiveChange(c, spellName, !!selected),
+      summonInnateRanks: { ...c.summonInnateRanks, fiend: selected && innate ? rank : undefined },
+      ...(c.mountedSummon?.startsWith('fiend:') && c.mountedSummon !== `fiend:${selected?.id}` ? { mountedSummon: undefined } : {}) })
+  const only = options.length === 1 ? options[0] : undefined
+  useEffect(() => {
+    if (!opened || !fiends) return
+    setOpened(false)
+    if (only && !c.summonedFiend) choose(only)
+  })
   return <>
     <button type="button" className="spell-action-button" aria-label={`${spellName} options`} aria-haspopup="dialog" disabled={disabled} onClick={open}>
       <ActionIcon actions="Three Actions" />
@@ -523,9 +534,7 @@ export function SummonFiendActions({ c, entries, save, entry, rank, lineageOnly 
           const value = event.target.value
           const selected = options.find(fiend => fiend.id === value)
           if (value && !selected) return
-          const select = () => save({ summonedFiend: selected, ...spellActiveChange(c, spellName, !!selected),
-            summonInnateRanks: { ...c.summonInnateRanks, fiend: selected && innate ? rank : undefined },
-            ...(c.mountedSummon?.startsWith('fiend:') && c.mountedSummon !== `fiend:${selected?.id}` ? { mountedSummon: undefined } : {}) })
+          const select = () => choose(selected)
           if (c.summonedFiend && c.summonedFiend.id !== value) confirmRemoval(`summoned ${c.summonedFiend.name}`, select)
           else select()
         }}>
