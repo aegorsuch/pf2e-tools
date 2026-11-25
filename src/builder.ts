@@ -9413,7 +9413,7 @@ const CORE_LANGUAGES: Record<string, [string, string][]> = {
     ['Muan', 'Wood elemental creatures'], ['Talican', 'Metal elemental creatures'],
   ],
   Regional: [
-    ['Hallit', 'Broken Lands, Eye of Dread, Saga Lands'], ['Kelish', 'Golden Road'],
+    ['Hallit', 'Broken Lands, Eye of Dread, Saga Lands'], ['Iblydosi', 'Iblydos'], ['Kelish', 'Golden Road'],
     ['Mwangi', 'Mwangi Expanse, the Shackles, Thuvia, Vidrian'],
     ['Osiriani', 'Geb, Katapesh, Mana Wastes, Nex, Osirion, Rahadoum, Thuvia'],
     ['Shoanti', 'Hold of Belkzen, Varisia'], ['Skald', 'Irrisen, Lands of the Linnorm Kings'],
