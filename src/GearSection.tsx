@@ -473,6 +473,14 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, eff
   const sameUpgrade = (a: ContentEntry, b: ContentEntry) => a.id === b.id || !!a.data.url && a.data.url === b.data.url
     || a.name.replace(/\s*\([^)]*\)$/, '') === b.name.replace(/\s*\([^)]*\)$/, '')
   const granted = effectiveUpgrades?.filter(item => !installed.some(saved => saved && sameUpgrade(item, saved))) ?? []
+  const displayed = [
+    ...upgrades.map((id, index) => {
+      const saved = installed[index]
+      const entry = effectiveUpgrades?.find(item => saved && sameUpgrade(item, saved)) ?? saved
+      return { key: `${id}:${index}`, name: entry?.name ?? id, entry, index }
+    }),
+    ...granted.map(entry => ({ key: `granted:${entry.id}`, name: entry.name, entry, index: undefined })),
+  ].sort((a, b) => a.name.localeCompare(b.name))
   const usage = (entry: ContentEntry) => String(entry.data.usage ?? '').toLowerCase().replace(/\s+/g, ' ')
   const traits = weapon.traits.map(trait => trait.toLowerCase())
   const options = catalog.filter(entry => {
@@ -500,13 +508,9 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, eff
     return true
   }).sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
   return <div className="gear-runes">
-    {upgrades.map((id, index) => {
-      const saved = installed[index]
-      const effective = effectiveUpgrades?.find(item => saved && sameUpgrade(item, saved)) ?? saved
-      return <GearTag key={`${id}:${index}`} name={effective?.name ?? id} entry={effective}
-        kind="upgrade" onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />
-    })}
-    {granted.map(entry => <GearTag key={`granted:${entry.id}`} name={entry.name} entry={entry} kind="upgrade" source="Automatic weapon upgrade" />)}
+    {displayed.map(({ key, name, entry, index }) => <GearTag key={key} name={name} entry={entry}
+      kind="upgrade" source="Automatic weapon upgrade"
+      onRemove={index === undefined ? undefined : () => onChange(upgrades.filter((_, i) => i !== index))} />)}
     {installed.some(item => !item) && <small role="status">Saved upgrade unavailable. Sync official content to restore its effects.</small>}
     {limit === undefined && <small role="status">Weapon upgrade slots unavailable. Sync official content.</small>}
     {limit !== undefined && upgrades.length + granted.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}

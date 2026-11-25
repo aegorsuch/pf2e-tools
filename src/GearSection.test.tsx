@@ -2606,6 +2606,24 @@ it('installs compatible weapon upgrades within capacity without changing saved r
   expect(full).not.toContain('aria-label="Add weapon upgrade"')
 })
 
+it('alphabetizes saved and automatic weapon upgrades together without changing removal targets', () => {
+  const upgrade = (name: string): ContentEntry => ({ ...shifting, id: name, name, systems: ['sf2e'],
+    data: { item_subcategory: 'Weapon Upgrades' } })
+  const grip = upgrade("Smuggler's Grip")
+  const flaming = upgrade('Flaming Module')
+  const loudener = upgrade('Loudener')
+  const onChange = vi.fn()
+  const content = WeaponUpgrades({ entries: [grip, flaming, loudener], weapon, upgrades: [grip.id, loudener.id],
+    effectiveUpgrades: [grip, flaming, loudener], limit: 3, onChange })
+  const html = renderToStaticMarkup(content)
+  expect(html.indexOf('Flaming Module')).toBeLessThan(html.indexOf('Loudener'))
+  expect(html.indexOf('Loudener')).toBeLessThan(html.indexOf('Smuggler&#x27;s Grip'))
+  expect(html).not.toContain('Remove Flaming Module upgrade')
+  const tag = findElement(content, element => element.props.name === 'Loudener')!
+  ;(tag.props.onRemove as () => void)()
+  expect(onChange).toHaveBeenCalledWith([grip.id])
+})
+
 it('offers grapple and shove modules for melee weapons and hardlight handwraps, but not ranged weapons', () => {
   const melee: ContentEntry = { ...weapon, systems: ['sf2e'], traits: ['Tech'],
     data: { weapon_type: 'Melee', range: 20, upgrade_slots: 2 } }
