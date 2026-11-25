@@ -1660,7 +1660,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 </SearchableSelect>
               </span>}
             </>}
-            {shieldSource ? null : fixed ? enhanced.material && enhanced.material !== 'Orichalcum' ? <div className="gear-runes"><span>Material</span>
+            {shieldSource ? null : fixed ? enhanced.material && enhanced.material !== 'Orichalcum' && namedSource !== "Hunter's Dawn" ? <div className="gear-runes"><span>Material</span>
               <Material name={enhanced.material} entries={entries} equipment="Weapon"
                 source={`Built into ${namedSource || w.name.split(' (')[0]}`} />
             </div> : null : haft ? null : linkedSource ? enhanced.material === 'Orichalcum' ? null
