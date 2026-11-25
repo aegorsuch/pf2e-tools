@@ -54,6 +54,30 @@ it('reuses feat eligibility across slots, but recomputes for another character o
   }
 })
 
+it('reuses picker prerequisite results when search changes', () => {
+  const c: Character = { ...emptyRanger(), level: 4 }
+  const feat: ContentEntry = { id: 'target', name: 'Target Feat', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 1, traits: ['General', 'Skill'], description: 'Rules.',
+    data: { prerequisite: 'trained in Arcana' }, effects: [], updatedAt: 0 }
+  const entries = [feat]
+  const realChecker = builder.featSelectionPrerequisiteChecker
+  const checks = vi.fn()
+  const spy = vi.spyOn(builder, 'featSelectionPrerequisiteChecker').mockImplementation((character, catalog, slot) => {
+    const check = realChecker(character, catalog, slot)
+    return entry => { checks(entry); return check(entry) }
+  })
+  const pickerEligibility = featPickerEligibility(c, entries)
+  const pickerVariantCache = new Map()
+  const render = (query: string) => renderToStaticMarkup(<FeatSlots c={c} entries={entries} categories={['skill']}
+    save={() => {}} search={{ 'skill:4:0:open': '1', 'skill:4:0:query': query }} onSearch={() => {}}
+    pickerEligibility={pickerEligibility} pickerVariantCache={pickerVariantCache} />)
+  try {
+    expect(render('')).toContain('Missing trained in Arcana')
+    expect(render('Target')).toContain('Missing trained in Arcana')
+    expect(checks).toHaveBeenCalledTimes(1)
+  } finally { spy.mockRestore() }
+})
+
 it.each([
   ['Divine Emissary', 'Witch', 6, 'Radiant'],
   ['Leshy Familiar', 'Druid', 1, 'Plant'],

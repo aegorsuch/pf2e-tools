@@ -13,7 +13,7 @@ import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
 import { adoptedAncestryText, compareFeatSelections, featDisplayName } from './featChoices'
-import { featAccess, featRarity } from './featAccess'
+import { featAccess, featRarity, type FeatAccessCheck } from './featAccess'
 import { DOMAIN_FEATS, automaticFeatChoiceKey, domainSpellDescription, featSpellOptions, fixedAncestralCantrip, isInnateSpellChoice, widespreadFascinationOptions } from './featSpells'
 import type { Character, ContentEntry, FeatSlotCategory } from './types'
 import type { PrerequisiteCheck } from './featPrerequisites'
@@ -94,7 +94,7 @@ const LABEL: Record<FeatSlotCategory, string> = {
   class: 'Class', ancestry: 'Ancestry', skill: 'Skill', general: 'General', archetype: 'Dedication', bonus: 'Bonus',
 }
 
-type FeatOption = { entry: ContentEntry; choice?: string; mastermindSkill?: string; methodologySkill?: string; gunslingerSkill?: string; value: string; label: string; disabled?: boolean }
+type FeatOption = { entry: ContentEntry; choice?: string; mastermindSkill?: string; methodologySkill?: string; gunslingerSkill?: string; value: string; label: string; disabled?: boolean; prerequisites: PrerequisiteCheck; access?: FeatAccessCheck }
 
 function FeatVariantGroup({ summary, autoOpen, count, renderOptions }: {
   summary: ReactNode; autoOpen: boolean; count: number; renderOptions: (limit: number) => ReactNode
@@ -359,6 +359,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const prerequisites = prerequisitesFor(entry, slot)
     const unmet = prerequisites.missing.length > 0
     const access = featAccess(c, entry)
+    const details = { prerequisites, access }
     const rarity = featRarity(entry)
     const accessMissing = access && !access.automatic && !access.approved
     const unlocks = ['general', 'skill'].includes(slot.category) ? suggestions.get(entry.name) : undefined
@@ -382,32 +383,32 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
         || !['Assurance', 'Skill Training'].includes(entry.name) || choice === slot.grantedSkill)
       && (!lessonSkills || lessonSkills.some(lessonSkill => choice === lessonSkill
         || /Lore$/i.test(lessonSkill) && /^Lore$/i.test(choice))))
-    if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label }]
+    if (choices?.length === 0 && unmet) return [{ entry, value: entry.name, disabled: true, label, ...details }]
     return choices !== undefined
       ? choices.flatMap((choice) => {
         const noImprovement = entry.name === 'Canny Acumen' && !cannyOptions.has(choice)
         const disabled = unmet || !!accessMissing || noImprovement
         if (entry.name === 'Versatile Rogue' && choice === 'Mastermind') return MASTERMIND_SKILLS.map(mastermindSkill => ({
-          entry, choice, mastermindSkill, disabled, value: JSON.stringify([entry.name, choice, mastermindSkill]),
+          entry, choice, mastermindSkill, disabled, value: JSON.stringify([entry.name, choice, mastermindSkill]), ...details,
           label: `${label} (Mastermind - ${mastermindSkill})`,
         }))
         if (entry.name === 'Versatile Investigator') {
           const skillChoice = subclassSkillChoice({ ...c, className: 'Investigator', subclass: choice }, entries)
           if (skillChoice?.options.length) return skillChoice.options.map(methodologySkill => ({
-            entry, choice, methodologySkill, disabled, value: JSON.stringify([entry.name, choice, methodologySkill]),
+            entry, choice, methodologySkill, disabled, value: JSON.stringify([entry.name, choice, methodologySkill]), ...details,
             label: `${label} (${choice} - ${methodologySkill})`,
           }))
         }
         if (entry.name === 'Versatile Gunslinger') {
           const skillChoice = subclassSkillChoice({ ...c, className: 'Gunslinger', subclass: choice }, entries)
           if (skillChoice?.options.length) return skillChoice.options.map(gunslingerSkill => ({
-            entry, choice, gunslingerSkill, disabled, value: JSON.stringify([entry.name, choice, gunslingerSkill]),
+            entry, choice, gunslingerSkill, disabled, value: JSON.stringify([entry.name, choice, gunslingerSkill]), ...details,
             label: `${label} (${choice} - ${gunslingerSkill})`,
           }))
         }
-        return [{ entry, choice, disabled, value: JSON.stringify([entry.name, choice]), label: `${label} (${choiceLabel(entry.name, choice)}${noImprovement ? ' - no improvement' : ''})` }]
+        return [{ entry, choice, disabled, value: JSON.stringify([entry.name, choice]), label: `${label} (${choiceLabel(entry.name, choice)}${noImprovement ? ' - no improvement' : ''})`, ...details }]
       })
-      : [{ entry, value: entry.name, label, disabled: unmet || !!accessMissing }]
+      : [{ entry, value: entry.name, label, disabled: unmet || !!accessMissing, ...details }]
   }
   const cachedOptionsFor = (entry: ContentEntry, slot: PlannedSlot, skill = '') => {
     if (!pickerVariantCache) return optionsFor(entry, slot, skill)
@@ -742,7 +743,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             </button>
             <EntryDescription character={c} name={`${displayName(option.entry.name)}${DOMAIN_FEATS.includes(option.entry.name) && option.choice ? ` (${option.choice})` : ''}`}
               entry={option.entry} choice={option.choice} entries={entries} buttonLabel="Details" className="picker-details" deferDetails
-              prerequisites={prerequisitesFor(option.entry, s)} access={featAccess(c, option.entry)}
+              prerequisites={option.prerequisites} access={option.access}
               descriptionNote={option.entry.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                 : DOMAIN_FEATS.includes(option.entry.name) && option.choice
                   ? domainSpellDescription(c, entries, option.entry.name, option.choice)

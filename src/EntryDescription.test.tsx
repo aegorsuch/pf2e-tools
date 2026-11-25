@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
 import { HuntPreyToggle } from './StatusesSection'
-import { FeatSlots } from './FeatSlots'
+import { FeatSlots, SearchableFeatSlots } from './FeatSlots'
 import type { Character, ContentEntry } from './types'
 
 afterEach(() => {
@@ -112,6 +112,30 @@ it('opens selected feat details after an unrelated slot update', async () => {
     await act(async () => button.click())
     expect(button.parentElement?.querySelector('dialog')?.open).toBe(true)
     expect(button.parentElement?.querySelector('dialog')?.textContent).toContain('Selected feat rules.')
+  } finally { await act(async () => root.unmount()) }
+})
+
+it('refreshes cached picker prerequisites when character skills change', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const feat: ContentEntry = { id: 'target', name: 'Target Feat', kind: 'feat', source: 'official',
+    systems: ['pf2e'], level: 1, traits: ['General', 'Skill'], description: 'Rules.',
+    data: { prerequisite: 'trained in Arcana' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'c', name: 'Test', systems: ['pf2e'], level: 4, className: 'Ranger',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, rankOverrides: { Arcana: 0 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const entries = [feat]
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const render = (character: Character) => <SearchableFeatSlots c={character} entries={entries}
+    categories={['skill']} save={() => {}} bare />
+  try {
+    await act(async () => root.render(render(c)))
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="L04 Skill feat"]')!.click())
+    const option = () => document.querySelector<HTMLButtonElement>('[aria-label^="L04 Skill: Target Feat"]')!
+    expect(option().disabled).toBe(true)
+    await act(async () => root.render(render({ ...c, rankOverrides: { Arcana: 1 } })))
+    expect(option().disabled).toBe(false)
   } finally { await act(async () => root.unmount()) }
 })
 
