@@ -107,6 +107,20 @@ it('displays Nimble Feet without changing the saved feat identity', () => {
   expect(entry.name).toBe('Nimble Hooves')
 })
 
+it('renames Staff Acrobat feats to spear variants only while the house rule is enabled', () => {
+  const previous = getSettings().staffAcrobatSpear
+  try {
+    updateSettings({ staffAcrobatSpear: true })
+    expect(featDisplayName({ ...spell('Bullying Staff', 'Initiate'), kind: 'feat' })).toBe('Bullying Spear')
+    expect(featDisplayName({ ...spell('Staff Sweep', 'Initiate'), kind: 'feat' })).toBe('Spear Sweep')
+    updateSettings({ staffAcrobatSpear: false })
+    expect(featDisplayName({ ...spell('Bullying Staff', 'Initiate'), kind: 'feat' })).toBe('Bullying Staff')
+    expect(featDisplayName({ ...spell('Staff Sweep', 'Initiate'), kind: 'feat' })).toBe('Staff Sweep')
+  } finally {
+    updateSettings({ staffAcrobatSpear: previous })
+  }
+})
+
 it('shows only the explicit variant row without changing shared rules, other tables, or future previews', () => {
   const entry = mapAonHit({ _id: 'variant-details', _source: { name: 'Variant Details', category: 'feat',
     markdown: 'Shared rules before.\n\n<table><tr><td>**Style**</td><td>**Skill**</td></tr>'

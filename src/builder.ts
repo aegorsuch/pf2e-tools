@@ -3588,7 +3588,8 @@ export const whirlwindStanceActive = (c: Character, entries: ContentEntry[]) =>
     const entry = weaponEntry(entries, weapon.name, weapon.id)
     const isStaff = /\bstaff\b/i.test(entry?.name ?? weapon.name)
     const isSpear = String(entry?.data.weapon_group ?? '').toLowerCase() === 'spear'
-    return weaponEquipped(c, entries, weapon) && (isStaff || getSettings().staffAcrobatSpear && isSpear) && hasParryTrait(entry)
+    return weaponEquipped(c, entries, weapon) && (isStaff || getSettings().staffAcrobatSpear && isSpear)
+      && weaponHasParry(c, entries, weapon)
   })
 
 export const parryBonus = (c: Character, entries: ContentEntry[]) =>

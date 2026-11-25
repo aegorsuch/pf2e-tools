@@ -742,13 +742,17 @@ it('shows Druid terrain and shield benefits only when applicable', () => {
 it('saves Rage state through the shared toggle and isolates summary clicks', () => {
   let c: Character = { ...base, className: 'Barbarian' }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const entries: ContentEntry[] = [{ id: 'rage', systems: ['pf2e'], kind: 'classFeature', source: 'official',
+    name: 'Rage', level: 1, traits: [], description: 'Gain Rage benefits.', data: {}, effects: [], updatedAt: 0 }]
   for (const checked of [true, false]) {
-    const toggle = RageToggle({ c, save })!
+    const toggle = RageToggle({ c, entries, save })!
     const input = Children.toArray(toggle.props.children).find(child => isValidElement(child) && child.type === 'input')
     if (!isValidElement<{ onChange: (event: { target: { checked: boolean } }) => void }>(input)) throw new Error('Missing Rage input')
     input.props.onChange({ target: { checked } })
     expect(c.raging).toBe(checked)
-    expect(renderToStaticMarkup(<RageToggle c={c} save={save} summary />).includes('checked=""')).toBe(checked)
+    const markup = renderToStaticMarkup(<RageToggle c={c} entries={entries} save={save} summary />)
+    expect(markup.includes('checked=""')).toBe(checked)
+    expect(markup).toContain('aria-haspopup="dialog">Rage</button>')
   }
   const stopPropagation = vi.fn()
   RageToggle({ c, save, summary: true })!.props.onClick({ stopPropagation })
@@ -1131,8 +1135,10 @@ it('applies the highest Marvelous Medicines bonus to Medicine when using the too
   const total = Number(/<b>\+?(-?\d+)/.exec(row(base))![1])
   const c: Character = { ...base, equipment: [{ name: medicines.name, qty: 2 }, { name: greater.name, qty: 1 }] }
   expect(row(c)).toContain(`<b>+${total + 3}`)
-  expect(row(c)).toContain('+3 item bonus when using the toolkit')
+  expect(row(c)).not.toContain('Marvelous Medicines (Greater) note')
+  expect(row(c)).not.toContain('+3 item bonus when using the toolkit')
   expect(row({ ...c, equipment: [{ name: medicines.name, qty: 1 }] })).toContain(`<b>+${total + 2}`)
+  expect(row({ ...c, equipment: [{ name: medicines.name, qty: 1 }] })).toContain('+2 item bonus when using the toolkit')
   expect(row({ ...c, equipment: [{ name: greater.name, qty: 0 }] })).toContain(`<b>+${total}`)
   expect(builder.marvelousMedicinesBonus(c, [ranger, { ...greater, deleted: true }])?.value).toBeUndefined()
   expect(builder.marvelousMedicinesBonus({ ...c, systems: ['sf2e'] }, entries)).toBeUndefined()
@@ -1313,6 +1319,10 @@ it('lets Skilled Human choose a free trained skill in Skills', () => {
   expect(c.skilledHumanSkill).toBe('Stealth')
   expect(ranksAt(c, [ranger]).Stealth).toBe(1)
   expect(skillRankBudget(c, [ranger]).trained).toBe(trained)
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('aria-label="Skilled Human note"')
+  expect(markup).toContain('Grants trained proficiency without spending a skill training pick.')
+  expect(markup).toMatch(/<button type="button" class="on" aria-pressed="true" aria-label="Stealth Trained"/)
 })
 
 function findSelect(node: ReactNode, label: string): Record<string, unknown> | undefined {

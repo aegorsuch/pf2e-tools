@@ -1930,6 +1930,15 @@ describe('official passive feat mechanics', () => {
       .toEqual(['Arcana to Expert'])
   })
 
+  it('uses Skilled Human training when choosing Technomagical Scrapper variants', () => {
+    const c: Character = { ...base, level: 5, ancestry: 'Human', heritage: 'Skilled Human',
+      skilledHumanSkill: 'Arcana', skillPicks: [],
+      feats: [selected('Technomagical Scrapper', 5, undefined, 'ancestry:5:0')],
+      rankOverrides: { Nature: 2, Occultism: 2, Religion: 2 } }
+    expect(ranksAt(c, []).Arcana).toBe(1)
+    expect(featChoiceOptions('Technomagical Scrapper', c, [], 'ancestry:5:0')).toEqual(['Arcana to Expert'])
+  })
+
   it('grants and scales Ancestral Skills Lore for the current ancestry without requiring the optional Lore house rule', () => {
     updateSettings({ autoLores: false })
     for (const ancestry of ['Human', 'Android', 'Ysoki']) {

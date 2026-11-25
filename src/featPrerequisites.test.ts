@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, movementSpeeds, plannedSlots, ranksAt, resistances, senses, syncClassArchetypeDedication, syncOrderExplorerFeats } from './builder'
-import { createFeatPrerequisiteChecker, featPrerequisiteSources, featPrerequisiteSuggestions, type PrerequisiteFacts } from './featPrerequisites'
+import { createFeatPrerequisiteChecker, featPrerequisiteSources, featPrerequisiteSuggestions, ignoresFeatPrerequisites, type PrerequisiteFacts } from './featPrerequisites'
 import { mapAonHit } from './aon'
 import snapshot from '../public/data/aon-pf2e.json?raw'
 import { getSettings, updateSettings } from './settings'
@@ -53,6 +53,18 @@ it('accepts Strength 16 for Staff Acrobat and honors its no-prerequisite house r
     .toContain('Dexterity 16 or Strength 16')
   updateSettings({ staffAcrobatNoPrerequisites: true })
   expect(featPrerequisiteChecker(notStrongEnough, entries, 2)(dedication)).toEqual({ missing: [], manual: [] })
+})
+
+it('ignores Whirlwind Stance prerequisites under its house rule', () => {
+  const previous = getSettings().whirlwindStanceNoPrerequisites
+  onTestFinished(() => updateSettings({ whirlwindStanceNoPrerequisites: previous }))
+  const stance = entry('feat', 'Whirlwind Stance', { prerequisite: 'trained in Acrobatics' }, 10, ['Archetype', 'Stance'])
+  updateSettings({ whirlwindStanceNoPrerequisites: true })
+  expect(ignoresFeatPrerequisites(stance)).toBe(true)
+  expect(featPrerequisiteChecker(base, [stance], 20)(stance)).toEqual({ missing: [], manual: [] })
+  updateSettings({ whirlwindStanceNoPrerequisites: false })
+  expect(ignoresFeatPrerequisites(stance)).toBe(false)
+  expect(featPrerequisiteChecker(base, [stance], 20)(stance).missing).toContain('trained in Acrobatics')
 })
 
 it('requires matching expert Recall Knowledge skills and Assurance for Automatic Knowledge variants', () => {

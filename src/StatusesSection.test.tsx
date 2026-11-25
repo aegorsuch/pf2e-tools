@@ -534,6 +534,46 @@ it('locks Parry on for Whirlwind Stance while wielding a parry staff', () => {
     .toContain('Parry')
 })
 
+it('locks Parry on for Whirlwind Stance with a parry spear under the spear house rule', () => {
+  const stance: ContentEntry = { id: 'whirlwind-spear', name: 'Whirlwind Stance', systems: ['pf2e'], kind: 'feat',
+    source: 'official', level: 10, traits: ['Archetype', 'Flourish', 'Stance'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const spear: ContentEntry = { id: 'spear', name: 'Spear', systems: ['pf2e'], kind: 'weapon',
+    source: 'official', level: 1, traits: ['Parry'], description: '',
+    data: { weapon_type: 'Melee', weapon_group: 'Spear', hands: 2 }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'whirlwind-spear-status', name: 'Test', systems: ['pf2e'], level: 10,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: stance.name, type: 'Archetype Feat', level: 10 }], activeStance: stance.name,
+    weapons: [{ id: spear.id, name: spear.name, potency: 0, striking: 0, runes: [] }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const previous = getSettings().staffAcrobatSpear
+  try {
+    updateSettings({ staffAcrobatSpear: true })
+    const markup = renderToStaticMarkup(<StatusesContent c={c} entries={[stance, spear]} save={() => {}} />)
+    expect(markup).toMatch(/aria-label="Parry active" disabled="" checked=""/)
+  } finally {
+    updateSettings({ staffAcrobatSpear: previous })
+  }
+})
+
+it('makes active spells and Rage clickable in the status header', () => {
+  const content = (name: string, kind: ContentEntry['kind']): ContentEntry => ({
+    id: name, name, systems: ['pf2e'], kind, source: 'official', level: 1, traits: [],
+    description: `${name} rules.`, data: {}, effects: [], updatedAt: 0,
+  })
+  const entries = [
+    content('Rage', 'classFeature'), content('Oaken Resilience', 'spell'),
+    content('Zealous Conviction', 'spell'), content('Avatar', 'spell'),
+  ]
+  const c: Character = { id: 'status-learn-more', name: 'Test', systems: ['pf2e'], level: 10, className: 'Barbarian',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [], raging: true,
+    activeSpells: ['Oaken Resilience', 'Avatar'], zealousConvictionRank: 5,
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<StatusesSummary c={c} entries={entries} save={() => {}} />)
+  for (const name of ['Rage', 'Oaken Resilience', 'Zealous Conviction', 'Avatar']) {
+    expect(markup).toContain(`aria-haspopup="dialog">${name}</button>`)
+  }
+})
+
 it('deactivates selected Statuses from the summary header', () => {
   let c: Character = { id: 'status-header', name: 'Test', systems: ['pf2e'], level: 10, className: 'Fighter',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },

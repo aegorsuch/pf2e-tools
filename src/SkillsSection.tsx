@@ -6,6 +6,7 @@ import { resistances, activeBattleForm,
 import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, giantStatureSize, giantClumsySource, enlargedChassisSize, effectiveWeapon, weaponEntry, weaponHeld } from './builder'
 import { ArmorList, ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
+import { EntryDescription } from './EntryDescription'
 import { CONDITIONAL_BONUSES } from './conditionalBonuses'
 import { droneCustomizationSlots, droneStats } from './drone'
 import { TotalBreakdown } from './TotalBreakdown'
@@ -97,10 +98,17 @@ export function HardenFleshToggle({ c, save }: Pick<SectionProps, 'c' | 'save'>)
   </label>
 }
 
-export function RageToggle({ c, save, summary = false }: Pick<SectionProps, 'c' | 'save'> & { summary?: boolean }) {
+export function RageToggle({ c, save, summary = false, entries = [] }: Pick<SectionProps, 'c' | 'save'> & {
+  summary?: boolean; entries?: SectionProps['entries']
+}) {
   if (c.className !== 'Barbarian' && !activeFeatsNamed(c, 'Barbarian Dedication').length) return null
-  const toggle = <label><input type="checkbox" aria-label={summary ? 'Rage active' : 'Rage active (defense)'} checked={!!c.raging}
-    onChange={(event) => save({ raging: event.target.checked })} /> Rage active</label>
+  const rageEntry = entries.find(entry => !entry.deleted && entry.name === 'Rage'
+    && entry.systems.some(system => c.systems.includes(system)))
+  const toggle = <span className="rage-status-toggle">
+    <input type="checkbox" aria-label={summary ? 'Rage active' : 'Rage active (defense)'} checked={!!c.raging}
+      onChange={(event) => save({ raging: event.target.checked })} />{' '}
+    <EntryDescription name="Rage" entry={rageEntry} entries={entries} character={c} hideButtonActions deferDetails />
+  </span>
   return summary
     ? <span className="combat-summary-toggles" onClick={(event) => event.stopPropagation()}>{toggle}</span>
     : toggle
@@ -518,7 +526,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             save({ lores: c.lores.filter(lore => lore.name !== s.name), subclassSkillChoices,
               ...(!stillGranted ? { skillPicks: picks.filter(pick => pick !== s.name), skillIncreases, rankOverrides,
                 skillTokenUpgrades: c.skillTokenUpgrades?.filter(purchase => purchase.skill !== s.name) } : {}) })
-          })}>×</button>}<b>{s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
+          })}>×</button>}
+          {s.kind === 'skill' && isSkilledHuman(c) && c.skilledHumanSkill === s.name && <SourceNote inlineSource={false}
+            source={heritageSkillSource(s.name)} note="Grants trained proficiency without spending a skill training pick." />}
+          <b>{s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
           ? <TotalBreakdown label={s.name} breakdown={savingThrowBreakdown(c, entries, s.name, ranks)} signedTotal />
           : signed(total)}{formSkill !== undefined && (pest && s.name === 'Athletics' || formSkill > ownTotal)
           && <SourceNote source={form?.source ?? ''} note={`${s.name} ${signed(formSkill)}${pest && s.name === 'Athletics' ? '.' : ' unless your own modifier is higher.'}`} />}{!!armorPenalty
@@ -567,7 +578,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {ink && <SourceNote inlineSource={false} source={ink.source}
             note={`Stealth ${signed(total + forestIncrease)} in forests`} />}
           {artifact && <SourceNote inlineSource={false} source={artifact.source} note={`+${artifact.value} item bonus while carried; item bonuses do not stack.`} />}
-          {s.name === 'Medicine' && skillGear && <SourceNote inlineSource={false} source={skillGear.source}
+          {s.name === 'Medicine' && skillGear && skillGear.source !== 'Marvelous Medicines (Greater)'
+            && <SourceNote inlineSource={false} source={skillGear.source}
             note={`+${skillGear.value} item bonus when using the toolkit; item bonuses do not stack.`} />}
           {professionalTools.filter(tool => tool.skills.includes(s.name)).map(tool =>
             <SourceNote key={tool.name} source={tool.name}

@@ -76,7 +76,8 @@ export const ignoresFeatPrerequisites = (entry: ContentEntry) =>
     && (["pilgrim's token", 'sanctify water', 'exhort the faithful', 'battle prayer', 'sacred defense',
       'ancestral linguistics', 'ancestral longevity', 'expert longevity', 'otherworldly acumen',
       'universal longevity', 'wandering heart'].includes(key(entry.name))
-      || key(entry.name) === 'staff acrobat dedication' && getSettings().staffAcrobatNoPrerequisites)
+      || key(entry.name) === 'staff acrobat dedication' && getSettings().staffAcrobatNoPrerequisites
+      || key(entry.name) === 'whirlwind stance' && getSettings().whirlwindStanceNoPrerequisites)
     || entry.systems.includes('sf2e') && ['religious talisman', 'deific obedience'].includes(key(entry.name)))
 const prerequisiteText = (entry: ContentEntry) => {
   let text = typeof entry.data.prerequisite === 'string' ? entry.data.prerequisite : ''

@@ -178,12 +178,25 @@ export function StatusesSummary({ c, entries, save }: SectionProps) {
     return <button type="button" className="status-header-toggle" aria-label={name} aria-pressed="true"
       onClick={event => { event.preventDefault(); event.stopPropagation(); toggle() }}>{name}</button>
   }
+  const headerEntry = (name: string) => entries.find(entry => !entry.deleted && entry.name === name
+    && entry.systems.some(system => c.systems.includes(system))
+    && ['spell', 'feat', 'classFeature'].includes(entry.kind))
+  const headerContent = (name: string) => {
+    const toggle = headerToggle(name)
+    if (typeof toggle !== 'string') return toggle
+    const entry = headerEntry(name)
+    return entry
+      ? <span className="status-header-info" onClick={event => event.stopPropagation()}>
+        <EntryDescription name={name} entry={entry} entries={entries} character={c} hideButtonActions deferDetails />
+      </span>
+      : name
+  }
   const sorted = [...new Set(active)].sort((a, b) => a.localeCompare(b))
   return <summary className="character-section-summary"><strong>Statuses</strong>
     <span>{sorted.length ? sorted.map((name, index) => <Fragment key={name}>{index > 0 && ', '}
       {name === 'Parry' ? <span onClick={event => event.stopPropagation()}>
         <EntryDescription name="Parry" entry={parryTrait(c, entries)} entries={entries} character={c} deferDetails />
-      </span> : headerToggle(name)}</Fragment>) : 'None active'}</span>
+      </span> : headerContent(name)}</Fragment>) : 'None active'}</span>
   </summary>
 }
 
@@ -438,7 +451,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       </span>,
     })),
     ...(c.className === 'Barbarian' || activeFeatsNamed(c, 'Barbarian Dedication').length
-      ? [{ name: 'Rage', element: <RageToggle c={c} save={save} /> }] : []),
+      ? [{ name: 'Rage', element: <RageToggle c={c} entries={entries} save={save} /> }] : []),
     ...(zealousRank !== undefined ? [{ name: 'Zealous Conviction', element: <>
       <input type="checkbox" aria-label="Zealous Conviction active on self" checked={c.zealousConvictionRank !== undefined}
         onChange={event => save({ zealousConvictionRank: event.target.checked ? zealousRank : undefined })} />{' '}
