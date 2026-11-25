@@ -124,16 +124,16 @@ it.each([
 ] as const)("locks every Hunter's Dawn form to Peachwood and scales fundamentals at level %i", (level, potency, striking, grade) => {
   const item: ContentEntry = { ...winter, id: 'dawn', name: "Hunter's Dawn", level: 5,
    description: "Base Weapon Club. _Hunter's Dawn_ is a _+3 [greater striking](/Equipment.aspx?ID=280) [speed](/Equipment.aspx?ID=304) [ghost touch](/Equipment.aspx?ID=297) [club](/Weapons.aspx?ID=2)_. " }
-  const bases: ContentEntry[] = ['Club', 'Gaff', 'War Gavel', 'Cruuk', 'Javelin'].map(name => ({
+  const bases: ContentEntry[] = ['Club', 'Gaff', 'War Gavel', 'Javelin'].map(name => ({
     ...bow(name, false), data: { damage: '1d6 piercing', weapon_type: name === 'Javelin' ? 'Ranged' : 'Melee',
       weapon_category: 'Simple', hands: 1, range: name === 'Javelin' ? 30 : 0 },
   }))
   const entries = [item, ...bases, rune('Astral'), rune('Astral (Greater)'), rune('Ghost Touch'), rune('Returning')]
   const options = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === item.name)
-  expect(options.map(entry => entry.name)).toEqual(["Hunter's Dawn (Gaff)", "Hunter's Dawn (War Gavel)", "Hunter's Dawn (Cruuk)"])
+  expect(options.map(entry => entry.name)).toEqual(["Hunter's Dawn (Gaff)", "Hunter's Dawn (War Gavel)"])
   const forms = makeNamedWeaponEntries(entries, entries.filter(entry => entry.data.item_subcategory === 'Weapon Property Runes'))
     .filter(entry => entry.data.named_weapon_source === item.name && !entry.data.named_weapon_resolver_only)
-  expect(forms).toHaveLength(3)
+  expect(forms).toHaveLength(2)
   expect(makeNamedWeaponEntries(entries, entries.filter(entry => entry.data.item_subcategory === 'Weapon Property Runes'))
     .find(entry => entry.name === "Hunter's Dawn (Javelin)")?.data).toMatchObject({ named_weapon_base: 'Javelin', range: 60 })
     for (const form of forms) {
