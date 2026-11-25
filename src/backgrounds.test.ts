@@ -3,7 +3,7 @@ import { mapAonHits } from './aon'
 import pf2eSnapshot from '../public/data/aon-pf2e.json?raw'
 import sf2eSnapshot from '../public/data/aon-sf2e.json?raw'
 import { backgroundLoreCount, characterDeityLores, normalizeAcolyte } from './backgrounds'
-import { backgroundLoreChoiceOptions, backgroundLoreIncreaseSlots, backgroundLoreSlots, backgroundSkills, backgroundSkillSlots, backgroundVariants, boostSlots, featChoiceOptions, plannedSlots, ranksAt, skillRankBudget, skillTokenPurchase } from './builder'
+import { backgroundLoreChoiceOptions, backgroundLoreIncreaseSlots, backgroundLoreSlots, backgroundSkills, backgroundSkillSlots, backgroundVariants, boostSlots, computeAbilities, featChoiceOptions, plannedSlots, ranksAt, skillRankBudget, skillTokenPurchase } from './builder'
 import { getSettings, updateSettings } from './settings'
 import type { Character } from './types'
 
@@ -17,6 +17,30 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], lores: [], equipment: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it('uses Strength or Wisdom for Student of Apotheosis and restores official boosts when disabled', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(pf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => hit._source?.name === 'Student of Apotheosis'
+    && hit._source?.category === 'background'), 'pf2e')
+  const backgrounds = entries.filter(entry => entry.name === 'Student of Apotheosis'
+    || entry.data.background_base === 'Student of Apotheosis')
+  expect(backgrounds.length).toBeGreaterThan(1)
+  const previous = getSettings().studentOfApotheosisStrengthWisdom
+  try {
+    updateSettings({ studentOfApotheosisStrengthWisdom: true })
+    for (const background of backgrounds) {
+      const c: Character = { ...base, background: background.name, boosts: { 'background:0': 'str', 'background:1': 'cha' } }
+      expect(boostSlots(c, entries).find(slot => slot.key === 'background:0')?.options).toEqual(['str', 'wis'])
+      expect(boostSlots(c, entries).find(slot => slot.key === 'background:1')?.options).toBeUndefined()
+      expect(computeAbilities(c, entries)).toMatchObject({ str: 12, cha: 12 })
+      expect(computeAbilities({ ...c, boosts: { 'background:0': 'wis' } }, entries).wis).toBe(12)
+    }
+    updateSettings({ studentOfApotheosisStrengthWisdom: false })
+    const c: Character = { ...base, background: backgrounds[0].name, boosts: { 'background:0': 'int' } }
+    expect(boostSlots(c, entries).find(slot => slot.key === 'background:0')?.options).toEqual(['int', 'cha'])
+    expect(computeAbilities(c, entries).int).toBe(12)
+  } finally { updateSettings({ studentOfApotheosisStrengthWisdom: previous }) }
+})
 
 it('keeps academic backgrounds on their named Lore without unrelated picker variants', () => {
   const expected: Record<string, string> = {
