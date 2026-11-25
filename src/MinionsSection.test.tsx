@@ -931,6 +931,7 @@ it('gives an Animist Spirit Familiar the Spirit Familiar specific familiar witho
   }
   const html = renderToStaticMarkup(MinionsContent({ c, entries: familiarEntries, save: () => {} }))
   expect(html).toContain('<h4>Spirit Familiar</h4>')
+  expect(html).not.toContain('aria-label="Specific familiar"')
   expect(html).toContain('aria-label="Remove Spirit familiar ability 1"')
   expect(html).not.toMatch(/Apparition|Manifested after daily preparations|Spirit familiar manifested/)
 })
