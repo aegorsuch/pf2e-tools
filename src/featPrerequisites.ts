@@ -2,6 +2,7 @@ import type { Character, ContentEntry } from './types'
 import { ancestralUnarmedFeatNames } from './featChoices'
 import { ethnicityKey } from './featAccess'
 import { WITCHWARPER_PARADOXES } from './witchwarper'
+import { getSettings } from './settings'
 
 export interface PrerequisiteCheck {
   missing: string[]
@@ -72,13 +73,16 @@ const manual = (text: string): PrerequisiteCheck => ({ missing: [], manual: [tex
 const satisfied = (result: PrerequisiteCheck) => !result.missing.length && !result.manual.length
 export const ignoresFeatPrerequisites = (entry: ContentEntry) =>
   entry.kind === 'feat' && (entry.systems.includes('pf2e')
-    && ["pilgrim's token", 'sanctify water', 'exhort the faithful', 'battle prayer', 'sacred defense',
+    && (["pilgrim's token", 'sanctify water', 'exhort the faithful', 'battle prayer', 'sacred defense',
       'ancestral linguistics', 'ancestral longevity', 'expert longevity', 'otherworldly acumen',
       'universal longevity', 'wandering heart'].includes(key(entry.name))
+      || key(entry.name) === 'staff acrobat dedication' && getSettings().staffAcrobatNoPrerequisites)
     || entry.systems.includes('sf2e') && ['religious talisman', 'deific obedience'].includes(key(entry.name)))
 const prerequisiteText = (entry: ContentEntry) => {
-  const text = typeof entry.data.prerequisite === 'string' ? entry.data.prerequisite : ''
+  let text = typeof entry.data.prerequisite === 'string' ? entry.data.prerequisite : ''
   if (ignoresFeatPrerequisites(entry)) return ''
+  if (entry.kind === 'feat' && key(entry.name) === 'staff acrobat dedication')
+    text = text.replace(/\bdexterity\s+16\b/i, 'Dexterity 16 or Strength 16')
   if (entry.kind === 'feat' && key(entry.name) === 'captain dedication')
     return text.split(';').filter(part => !/^you don['’]t have an animal companion, construct companion, or other companion that functions similarly\.?$/i.test(part.trim())).join(';')
   return entry.kind === 'feat' && key(entry.name) === 'numb to death'

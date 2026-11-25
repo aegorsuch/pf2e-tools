@@ -21,6 +21,7 @@ import { parryBonus, ringCapacity, ringCount, twinnedDefenseActive, whirlwindSta
 import { canBeGiantWeapon, giantWeaponClumsy, isGiantWeapon, tradecraftTattooBonus } from './builder'
 import { GRAPPLING_MODULE, PARRYING_RUNE, SHOVING_MODULE } from './supplemental'
 import { groupHomebrew } from './HomebrewList'
+import { EntryDescription } from './EntryDescription'
 import { crocodileBattleForm, insectBattleForm } from './battleForms'
 import { activeBattleForm, animalRageFormChange, bulkLimits, classSpellcasting, dragonTransformationChange, giantStatureChange, giantStatureSize, spellActiveChange, thrashDamage } from './builder'
 
@@ -575,7 +576,8 @@ it.each([
   const ownAttack = weaponAttack(natural, entries, ownedWeapons(natural, entries).find(weapon => weapon.name === 'Fist')!).attack
   expect(jaws.attack).toBe(Math.max(rank >= 7 ? 25 : rank >= 5 ? 18 : 16, ownAttack))
   const defense = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="defense" />)
-  expect(defense).toContain(`<small>Temporary HP granted</small><b>${hp}`)
+  expect(defense).toMatch(new RegExp(`<small>Hit Points</small><b>\\d+\\+${hp}`))
+  expect(defense).not.toContain('Temporary HP granted')
   expect(defense).toContain(size)
   expect(JSON.stringify(c.weapons)).toBe(before)
   const inventory = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
@@ -630,7 +632,8 @@ it.each([9, 20])('applies and dismisses crocodile Animal Form without changing e
   expect(renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="skills" />))
     .toMatch(/class="skill-name">Athletics.*?<b>\+20/)
   const defense = renderToStaticMarkup(<SkillsSection c={c} entries={entries} save={() => {}} part="defense" />)
-  expect(defense).toContain('<small>Temporary HP granted</small><b>20')
+  expect(defense).toMatch(/<small>Hit Points<\/small><b>\d+\+20/)
+  expect(defense).not.toContain('Temporary HP granted')
   expect(defense).toContain('hold your breath')
   const inventory = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} />)
   expect(inventory).toContain('Longsword')
@@ -1182,7 +1185,7 @@ it('preserves personal statistics and attacks in Animal Rage, including frog ton
     damage: ownTongue.damage, item: ownTongue.item })
   const defense = renderToStaticMarkup(<SkillsSection c={form} entries={entries} save={() => {}} part="defense" />)
   expect(defense).toContain('retain constant gear abilities')
-  expect(defense).toContain('<small>Temporary HP granted</small>')
+  expect(defense).not.toContain('Temporary HP granted')
   expect(spellActiveChange(form, 'Untamed Form', true).animalRageForm).toBe(false)
   expect(dragonTransformationChange(form, 'Omen').animalRageForm).toBe(false)
   expect(featEffectChange(form, 'Verdant Metamorphosis', true).animalRageForm).toBe(false)
@@ -3422,6 +3425,35 @@ it('locks Whirlwind Stance Parry on only while wielding a staff with the Parry t
   expect(whirlwindStanceActive(c, [stance, { ...staff, traits: [] }])).toBe(false)
 })
 
+it('allows spear-group weapons for Staff Acrobat when the house rule is enabled', () => {
+  const stance = content('feat', 'Whirlwind Stance', {}, 10, ['Archetype', 'Flourish', 'Stance'])
+  const spear = content('weapon', 'Spear', { weapon_category: 'Martial', weapon_group: 'Spear', hands: 2, weapon_type: 'Melee' }, 1, ['Parry'])
+  const c: Character = { ...base, level: 10, activeStance: stance.name, feats: [feat(stance.name, 10)],
+    weapons: [{ id: spear.id, name: spear.name, potency: 0, striking: 0, runes: [] }] }
+  const previous = getSettings()
+  try {
+    updateSettings({ staffAcrobatSpear: true })
+    expect(whirlwindStanceActive(c, [stance, spear])).toBe(true)
+    updateSettings({ staffAcrobatSpear: false })
+    expect(whirlwindStanceActive(c, [stance, spear])).toBe(false)
+  } finally { updateSettings(previous) }
+})
+
+it('rewrites Staff Acrobat weapon references when the spear house rule is enabled', () => {
+  const sweep = content('feat', 'Staff Sweep', {}, 6, ['Archetype'])
+  sweep.description = 'You are wielding your staff and sweep your foes away with your staff.'
+  const dedication = content('feat', 'Staff Acrobat Dedication', {}, 2, ['Archetype', 'Dedication'])
+  const previous = getSettings()
+  try {
+    updateSettings({ staffAcrobatSpear: true })
+    expect(renderToStaticMarkup(<EntryDescription name={sweep.name} entry={sweep} />)).toContain('your spear')
+    expect(renderToStaticMarkup(<EntryDescription name={dedication.name} entry={dedication} />))
+      .toContain('Spear Acrobat Dedication')
+    updateSettings({ staffAcrobatSpear: false })
+    expect(renderToStaticMarkup(<EntryDescription name={sweep.name} entry={sweep} />)).toContain('your staff')
+  } finally { updateSettings(previous) }
+})
+
 it('scales ring capacity with fingered hands, not prehensile tails, and counts quantities', () => {
   const ring = content('item', 'Ring of Climbing', { item_category: 'Worn Items', usage: 'worn' })
   expect(ringCapacity(base)).toBe(10)
@@ -3660,6 +3692,13 @@ it('scales and gates official Oversized Throw and prevents enhancement editing',
     expect(ownedWeapons({ ...c, ...patch }, []).map((weapon) => weapon.name)).not.toContain(OVERSIZED_THROW.name)
   }
   expect(ownedWeapons({ ...c, raging: false }, []).map(weapon => weapon.name)).not.toContain(OVERSIZED_THROW.name)
+  const twoHander = content('weapon', 'Greatsword', { weapon_category: 'Martial', weapon_type: 'Melee', hands: 2 })
+  const noFreeHand = { ...c, weapons: [{ id: twoHander.id, name: twoHander.name, potency: 0, striking: 0, runes: [] }] }
+  expect(ownedWeapons(noFreeHand, [twoHander]).map(weapon => weapon.name)).not.toContain(OVERSIZED_THROW.name)
+  const freeHand = content('weapon', 'Free-Hand Blade',
+    { weapon_category: 'Martial', weapon_type: 'Melee', hands: 1 }, 1, ['Free-Hand'])
+  const freeHandCharacter = { ...c, weapons: [{ id: freeHand.id, name: freeHand.name, potency: 0, striking: 0, runes: [] }] }
+  expect(ownedWeapons(freeHandCharacter, [freeHand]).map(weapon => weapon.name)).toContain(OVERSIZED_THROW.name)
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain('aria-haspopup="dialog">Oversized Throw</button>')
   expect(markup).not.toContain('aria-label="Weapon material"')

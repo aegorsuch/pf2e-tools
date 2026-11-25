@@ -392,11 +392,11 @@ it('shows Starfinder speakers and allows common regional languages in common-onl
   expect(chosen).toMatch(/<input type="checkbox"\/> Orcish/)
 })
 
-it('persists chained researched traditions, requiring Expert first and one new Trained tradition per selected Master skill', () => {
+it('persists chained researched traditions, requiring Expert first and one new Trained tradition per selected Expert skill', () => {
   let c: Character = { ...base, level: 13, rankOverrides: { Arcana: 2, Nature: 1, Occultism: 1, Religion: 0 },
     feats: [{ name: 'Researched Spell Resistance', type: 'Ancestry Feat', level: 13, slot: 'ancestry:13:0' }] }
   const options = () => featChoiceOptions('Researched Spell Resistance', c, [], 'ancestry:13:0')!
-  expect(options()).toEqual(['Arcane'])
+  expect(options()).toEqual(['Arcane', 'Arcane, Occult', 'Arcane, Primal'])
   expect(FeatChoice({ c, entries: [], index: 0, save: () => {} })).toBeNull()
   c = { ...c, rankOverrides: { ...c.rankOverrides, Arcana: 3 } }
   expect(options()).toEqual(['Arcane', 'Arcane, Occult', 'Arcane, Primal'])
@@ -419,9 +419,13 @@ it('persists chained researched traditions, requiring Expert first and one new T
   expect(variants.every(choice => choice === choice.split(', ').sort().join(', '))).toBe(true)
   expect(researchedSpellResistanceChoices(c, [], { ...c.feats[0], choice: 'Divine, Occult' }).traditions)
     .toEqual(['Divine', 'Occult'])
+  c = { ...c, rankOverrides: { Arcana: 2, Nature: 2, Occultism: 2, Religion: 2 } }
+  expect(options()).toContain('Arcane, Divine, Occult, Primal')
+  expect(researchedSpellResistanceChoices(c, [], { ...c.feats[0], choice: 'Arcane, Divine, Occult, Primal' }).traditions)
+    .toEqual(['Arcane', 'Divine', 'Occult', 'Primal'])
   c = { ...c, rankOverrides: { Arcana: 2, Nature: 1, Occultism: 1, Religion: 0 } }
-  expect(researchedSpellResistanceChoices(c, [], c.feats[0]).traditions).toEqual(['Arcane'])
-  expect(options()).toEqual(['Arcane'])
+  expect(researchedSpellResistanceChoices(c, [], c.feats[0]).traditions).toEqual(['Arcane', 'Primal'])
+  expect(options()).toEqual(['Arcane', 'Arcane, Occult', 'Arcane, Primal'])
   c = { ...c, rankOverrides: { Arcana: 1 } }
   expect(options()).toEqual([])
 })

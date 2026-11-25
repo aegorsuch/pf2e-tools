@@ -457,10 +457,12 @@ it('shows active Immortal Bastion temporary HP beside HP without stacking grants
   const c = { ...character, className: 'Fighter', armors: [armor] }
   const render = (value: Character) => renderToStaticMarkup(<SkillsSection c={value} entries={data} save={() => {}} part="defense" />)
   expect(temporaryHpGrant(c, data)?.value).toBe(10)
-  expect(render(c)).toContain('Temporary HP granted</small><b>10')
+  expect(render(c)).toMatch(/<small>Hit Points<\/small><b>\d+\+10/)
+  expect(render(c)).not.toContain('Temporary HP granted')
   const survival = { ...c, armors: [{ ...armor, immortalSurvivalActive: true }] }
   expect(temporaryHpGrant(survival, data)?.value).toBe(100)
-  expect(render(survival)).toContain('Temporary HP granted</small><b>100')
+  expect(render(survival)).toMatch(/<small>Hit Points<\/small><b>\d+\+100/)
+  expect(render(survival)).not.toContain('Temporary HP granted')
   expect(temporaryHpGrant({ ...survival, armors: [{ ...armor, worn: false, immortalSurvivalActive: true }] }, data)).toBeUndefined()
   expect(temporaryHpGrant({ ...c, armors: [{ ...armor, entrenchMeleeActive: false }] }, data)).toBeUndefined()
 })

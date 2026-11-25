@@ -761,6 +761,18 @@ it('offers Arcane Locomotion climb and swim variants granting a 20 foot Speed', 
   expect(movementSpeeds(c, []).some(speed => speed.name === 'Climb')).toBe(false)
 })
 
+it.each([
+  ['Quick Climb', 'Climb'],
+  ['Quick Swim', 'Swim'],
+] as const)('grants land-speed %s movement with Legendary Athletics', (feat, mode) => {
+  const c: Character = { ...base, level: 20, rankOverrides: { Athletics: 4 },
+    feats: [{ name: feat, type: 'Skill Feat', level: 7 }] }
+  expect(movementSpeeds(c, [])).toContainEqual({ name: mode, feet: speed(c, []), source: feat })
+  expect(movementSpeeds({ ...c, rankOverrides: { Athletics: 3 } }, []).some(move => move.name === mode && move.source === feat))
+    .toBe(false)
+  expect(movementSpeeds({ ...c, feats: [] }, []).some(move => move.name === mode && move.source === feat)).toBe(false)
+})
+
 it('offers Magical Resistance energy variants and grants the selected resistance 5', () => {
   const feat = { name: 'Magical Resistance', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Sonic' }
   const c: Character = { ...base, level: 5, feats: [feat] }
@@ -1433,6 +1445,21 @@ describe('official passive feat mechanics', () => {
     expect(automaticFeatGrants(other, entries)).not.toContainEqual(expect.objectContaining({ name: 'Terrain Expertise' }))
   })
 
+  it('grants Skilled Human training without spending a trained pick and refunds overlapping training', () => {
+    const c: Character = { ...base, className: undefined, ancestry: 'Human', heritage: 'Skilled Human',
+      skilledHumanSkill: 'Stealth', skillPicks: [] }
+    const withoutGrant = { ...c, heritage: undefined, skilledHumanSkill: undefined }
+    expect(ranksAt(c, entries).Stealth).toBe(1)
+    expect(additionalSkillCount(c, entries)).toBe(additionalSkillCount(withoutGrant, entries))
+
+    const hunter = entry('background', 'Hunter', { skill: 'Stealth' })
+    const overlapping = { ...c, background: 'Hunter' }
+    const data = [...entries, hunter]
+    expect(additionalSkillCount(overlapping, data) -
+      additionalSkillCount({ ...overlapping, heritage: undefined, skilledHumanSkill: undefined }, data)).toBe(1)
+    expect(ranksAt(overlapping, data).Stealth).toBe(1)
+  })
+
   it('gives exactly one replacement training pick when class, background, or both also grant Survival', () => {
     const ranger = entry('class', 'Ranger', { skill_proficiency: 'Trained in Nature, Trained in Survival, Trained in a number of additional skills equal to 4 plus your Intelligence modifier' })
     const hunter = entry('background', 'Hunter', { skill: 'Survival' })
@@ -1893,6 +1920,14 @@ describe('official passive feat mechanics', () => {
     const allExpert = { ...c, rankOverrides: { Crafting: 3, Arcana: 2, Nature: 2, Occultism: 2, Religion: 2 } }
     expect(featChoiceOptions('Technomagical Scrapper', allExpert, [], 'ancestry:5:0')).toBeUndefined()
     expect(ranksAt(allExpert, [])).toMatchObject({ Crafting: 3, Arcana: 2, Nature: 2 })
+    const otherTraditionsExpert = { ...c, rankOverrides: { Crafting: 3, Arcana: 1, Nature: 2, Occultism: 2, Religion: 2 } }
+    expect(featChoiceOptions('Technomagical Scrapper', otherTraditionsExpert, [], 'ancestry:5:0'))
+      .toEqual(['Arcana to Expert'])
+    const arcanaTrainedByPick = { ...base, level: 5, skillPicks: ['Arcana'],
+      feats: [selected('Technomagical Scrapper', 5, undefined, 'ancestry:5:0')],
+      rankOverrides: { Crafting: 3, Nature: 2, Occultism: 2, Religion: 2 } }
+    expect(featChoiceOptions('Technomagical Scrapper', arcanaTrainedByPick, [], 'ancestry:5:0'))
+      .toEqual(['Arcana to Expert'])
   })
 
   it('grants and scales Ancestral Skills Lore for the current ancestry without requiring the optional Lore house rule', () => {

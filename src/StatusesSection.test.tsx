@@ -504,16 +504,14 @@ it('toggles Parry with one control that includes its AC bonus', () => {
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const content = StatusesContent({ c, entries: [weapon], save })
   const markup = renderToStaticMarkup(content)
-  expect(markup).toContain('aria-label="Parry (+2 AC)"')
+  expect(markup).toContain('aria-label="Parry active"')
   expect(markup).toContain('aria-label="Single Action"')
-  expect(markup).toContain('Parry (+2 AC)</button>')
+  expect(markup).toContain('(+2 AC)')
   expect(markup).not.toContain('✓')
-  expect(findToggle(content, 'Parry (+2 AC) status')).toBeUndefined()
-  findButton(content, 'Parry (+2 AC)')!()
+  findToggle(content, 'Parry active')!({ target: { checked: true } })
   expect(c.parrying).toBe(true)
   const activeMarkup = renderToStaticMarkup(StatusesContent({ c, entries: [weapon], save }))
-  expect(activeMarkup).toContain('aria-pressed="true"')
-  expect(activeMarkup).toContain('aria-hidden="true">✓</span>')
+  expect(activeMarkup).toContain('aria-label="Parry active" checked=""')
 })
 
 it('locks Parry on for Whirlwind Stance while wielding a parry staff', () => {
@@ -529,7 +527,9 @@ it('locks Parry on for Whirlwind Stance while wielding a parry staff', () => {
     weapons: [{ id: staff.id, name: staff.name, potency: 0, striking: 0, runes: [] }],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const markup = renderToStaticMarkup(<StatusesContent c={c} entries={[stance, staff]} save={() => {}} />)
-  expect(markup).toContain('aria-label="Parry (+2 AC)" aria-pressed="true" disabled=""')
+  expect(markup).toMatch(/aria-label="Parry active" disabled="" checked=""/)
+  expect(markup).toContain('aria-label="Parry options"')
+  expect(markup).toContain('Current bonus: +2 circumstance bonus to AC')
   expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[stance, staff]} save={() => {}} />))
     .toContain('Parry')
 })

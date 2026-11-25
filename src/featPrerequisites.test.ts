@@ -38,6 +38,23 @@ it('checks Space Pirate prerequisites and grants Piloting based on prior trainin
   expect(ranksAt({ ...c, systems: ['pf2e'] }, [feat]).Piloting ?? 0).toBe(0)
 })
 
+it('accepts Strength 16 for Staff Acrobat and honors its no-prerequisite house rule', () => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  const dedication = entry('feat', 'Staff Acrobat Dedication',
+    { prerequisite: 'Dexterity 16; trained in Acrobatics; trained in Athletics' }, 2, ['Archetype', 'Dedication'])
+  const entries = [dedication]
+  updateSettings({ staffAcrobatNoPrerequisites: false })
+  const strong = { ...base, level: 2, abilities: { ...base.abilities, str: 16, dex: 12 },
+    rankOverrides: { Acrobatics: 1, Athletics: 1 } }
+  expect(featPrerequisiteChecker(strong, entries, 2)(dedication)).toEqual({ missing: [], manual: [] })
+  const notStrongEnough = { ...strong, abilities: { ...strong.abilities, str: 14 } }
+  expect(featPrerequisiteChecker(notStrongEnough, entries, 2)(dedication).missing)
+    .toContain('Dexterity 16 or Strength 16')
+  updateSettings({ staffAcrobatNoPrerequisites: true })
+  expect(featPrerequisiteChecker(notStrongEnough, entries, 2)(dedication)).toEqual({ missing: [], manual: [] })
+})
+
 it('requires matching expert Recall Knowledge skills and Assurance for Automatic Knowledge variants', () => {
   const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
   const knowledge = mapAonHit(hits.find(hit => hit._id === 'feat-5122')!, 'pf2e')!

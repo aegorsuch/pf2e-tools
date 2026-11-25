@@ -54,7 +54,7 @@ export function equipmentBonusSkills(entry: ContentEntry) {
     if (separator >= 0 && variant.slice(0, separator).split('\n\n')
       .every(part => /^(?:Source|Price|Usage|Bulk)\b/i.test(part.trim()))) {
       const paragraph = variant.slice(separator + 7).split('\n\n', 1)[0]
-      const match = /the bonus to ([^.]{0,100}?) checks? is \+(\d+)/i.exec(paragraph)
+      const match = /the (?:item )?bonus to ([^.]{0,100}?) checks? is \+(\d+)/i.exec(paragraph)
       if (match) for (const [skill, pattern] of bonusSkillPatterns)
         if (pattern.test(match[1]) && skills.has(skill)) bonuses.set(skill, new Set([Number(match[2])]))
       const implicit = /\b(?:tools|item|it)\s+grant(?:s)?\s+(?:a|an)\s+\+(\d+)\s+item bonus\b/i.exec(paragraph)

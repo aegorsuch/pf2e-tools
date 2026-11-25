@@ -64,6 +64,8 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'rangerCavalier', label: 'Ranger Cavalier Dedication' },
   { key: 'rangerOpeningStance', label: 'Ranger Opening Stance Feat' },
   { key: 'rangerSnarecrafter', label: 'Ranger Snarecrafter Dedication' },
+  { key: 'staffAcrobatSpear', label: 'Spear Acrobat' },
+  { key: 'staffAcrobatNoPrerequisites', label: 'Staff Acrobat: No Dedication Prerequisites' },
   { key: 'singleAnimalCompanion', label: 'Disable Multiple Animal Companions',
     description: 'Beastmaster Dedication and Additional Companion do not add more companions. Your single companion gains their advancement, maneuvers and spells instead.' },
   { key: 'skillTokenConversion', label: 'Skill Token Conversion',

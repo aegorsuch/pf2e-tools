@@ -512,7 +512,8 @@ it.each(['Uncommon', 'Rare', 'Unique'])('allows %s gear without a specific Acces
 
 it.each([false, true])('shows the Oversized Throw damage roll in both views (displayOnly=%s)', displayOnly => {
   const c = { ...character([{ name: 'Oversized Throw', type: 'Class Feat', level: 4 }]), className: 'Barbarian', raging: true }
-  const tree = WeaponList({ c, entries: [], save: () => {}, displayOnly })
+  const longsword = { ...weapon, name: 'Longsword', data: { ...weapon.data, hands: 1 } }
+  const tree = WeaponList({ c, entries: [longsword], save: () => {}, displayOnly })
   const markup = renderToStaticMarkup(tree)
   expect(markup).toContain('aria-label="Roll Oversized Throw: Damage"')
   expect(markup).toContain('title="Two Actions; Damage: 2d10 bludgeoning"')
@@ -754,10 +755,11 @@ it.each([false, true])('hides automatic unarmed, Free-Hand and source-dependent 
   const before = JSON.stringify(c)
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly={displayOnly} />)
   expect(markup).toContain('aria-label="Equipped Spear"')
-  for (const name of ['Fist', freeHand.name, HAFT_STRIKER_WEAPON.name, OVERSIZED_THROW.name]) {
+  for (const name of ['Fist', freeHand.name, HAFT_STRIKER_WEAPON.name]) {
     expect(markup).not.toContain(`aria-label="Equipped ${name}"`)
     expect(weaponEquipped(c, entries, ownedWeapons(c, entries).find(weapon => weapon.name === name)!)).toBe(true)
   }
+  expect(ownedWeapons(c, entries).map(item => item.name)).not.toContain(OVERSIZED_THROW.name)
   expect(equippedWeaponHands(c, entries)).toBe(2)
   const stowed = { ...c, weapons: c.weapons!.map(weapon => weapon.id === 'spear' ? { ...weapon, stowed: true } : weapon) }
   expect(ownedWeapons(stowed, entries).some(weapon => weapon.name === HAFT_STRIKER_WEAPON.name)).toBe(false)

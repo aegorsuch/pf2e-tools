@@ -416,12 +416,16 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       : defense.cantrip ? [{ name: 'Raise Shield Cantrip', element: <label><input type="checkbox" aria-label="Raise Shield Cantrip status"
         checked={isSpellActive(c, entries, 'Shield')}
         onChange={event => save(spellActiveChange(c, 'Shield', event.target.checked))} /> Raise Shield Cantrip (+1 AC)</label> }] : []),
-    ...(defense.parryWeapon && defense.parry > 0 ? [{ name: 'Parry', element: <button type="button"
-      className="spell-action-button status-action-button" aria-label={`Parry (+${defense.parry} AC)`}
-      aria-pressed={!!c.parrying || defense.stanceParry} disabled={defense.stanceParry}
-      onClick={() => { if (!defense.stanceParry) save({ parrying: !c.parrying }) }}>
-      {(c.parrying || defense.stanceParry) && <span aria-hidden="true">✓</span>}
-      <ActionIcon actions="Single Action" /> Parry (+{defense.parry} AC)</button> }] : []),
+    ...(defense.parryWeapon && defense.parry > 0 ? [{ name: 'Parry', element: <>
+      <input type="checkbox" aria-label="Parry active" checked={!!c.parrying || defense.stanceParry}
+        disabled={defense.stanceParry} onChange={event => save({ parrying: event.target.checked })} />{' '}
+      <EntryDescription name="Parry" entry={parryTrait(c, entries)} entries={entries} character={c} />{' '}
+      <ActiveSpellActions name="Parry" entry={parryTrait(c, entries)} actions="Single Action">
+        <label><input type="checkbox" aria-label="Parry active in options" checked={!!c.parrying || defense.stanceParry}
+          disabled={defense.stanceParry} onChange={event => save({ parrying: event.target.checked })} /> Parry</label>
+        <p>Current bonus: +{defense.parry} circumstance bonus to AC until the start of your next turn.</p>
+      </ActiveSpellActions>{' '}(+{defense.parry} AC)
+    </> }] : []),
     ...(['enfeebled', 'frightened', 'sickened', 'doomed'] as const).map(name => ({
       name, element: <span>
         <EntryDescription name={name[0].toUpperCase() + name.slice(1)} entry={conditionEntry(name)} entries={entries} character={c} />{' '}

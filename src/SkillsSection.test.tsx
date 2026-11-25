@@ -185,7 +185,8 @@ it('shows Rage temporary HP and Second Wind only while raging', () => {
     abilities: { ...base.abilities, con: 16 }, feats: [{ name: 'Second Wind', type: 'Class Feat', level: 2 }] }
   const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[]} save={() => {}} part="defense" />)
   expect(render(c)).toContain('gain 11 temporary HP')
-  expect(render(c)).toContain('Temporary HP granted</small><b>11')
+  expect(render(c)).toMatch(/<small>Hit Points<\/small><b>\d+\+11/)
+  expect(render(c)).not.toContain('Temporary HP granted')
   expect(render(c)).toContain('Second Wind lets you gain them earlier')
   expect(render({ ...c, raging: false })).not.toContain('Second Wind lets you gain them earlier')
   expect(render({ ...c, raging: false })).not.toContain('Temporary HP granted')
@@ -1300,6 +1301,18 @@ it('preserves saved Experienced Laborer Lore without spending a trained pick', (
   expect(builder.normalizeConditionalSkillChoices(normalized, entries)).toBe(normalized)
   expect(c.feats[0].choice).toBe('  Mining  Lore ')
   expect(skillRankBudget({ ...normalized, skillPicks: [] }, entries).trained).toBe(4)
+})
+
+it('lets Skilled Human choose a free trained skill in Skills', () => {
+  let c: Character = { ...base, ancestry: 'Human', heritage: 'Skilled Human', skillPicks: [] }
+  const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } }, part: 'skills' })
+  const trained = skillRankBudget(c, [ranger]).trained
+  const picker = findLorePicker(tree(), 'Skilled Human skill')!
+  expect(picker).toBeDefined()
+  ;(picker.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Stealth' } })
+  expect(c.skilledHumanSkill).toBe('Stealth')
+  expect(ranksAt(c, [ranger]).Stealth).toBe(1)
+  expect(skillRankBudget(c, [ranger]).trained).toBe(trained)
 })
 
 function findSelect(node: ReactNode, label: string): Record<string, unknown> | undefined {

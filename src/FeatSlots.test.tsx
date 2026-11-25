@@ -629,6 +629,8 @@ it('picks researched spell resistance combinations as variants and restores save
   expect(builder.researchedSpellResistance(c, [feat])?.traditions).toEqual(['Arcane', 'Primal'])
   expect(renderToStaticMarkup(tree())).not.toContain('Researched Spell Resistance tradition')
   expect(renderToStaticMarkup(tree())).not.toContain('First tradition requires Expert')
+  c = { ...c, feats: [], rankOverrides: { Arcana: 2, Religion: 2, Occultism: 2, Nature: 2 } }
+  expect(renderToStaticMarkup(tree())).toContain('Researched Spell Resistance (Arcane, Divine, Occult, Primal)')
 })
 
 it('saves and reloads a level-five duplicate Titan Wrestler replacement, and cleans it up with its source', () => {

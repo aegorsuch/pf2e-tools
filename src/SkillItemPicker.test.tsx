@@ -103,3 +103,25 @@ it.each([true, false])('sorts skill equipment by highest known item bonus (fixed
     await act(async () => root.unmount())
   }
 })
+
+it.each([
+  ['Tradecraft Tattoo (Greater)', 'Crafting', '+2'],
+  ['Wildwood Ink (Major)', 'Stealth', '+1'],
+] as const)('shows the upgraded %s bonus in the skill item picker', async (name, skill, baseBonus) => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const c: Character = { id: 'upgraded-picker', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const item: ContentEntry = { id: name, name, kind: 'item', systems: ['pf2e'], source: 'official', level: 17,
+    traits: [], description: `You gain a ${baseBonus} item bonus to ${skill} checks.\n\n${name}\n\nSource\n\n---\n\nThe item bonus to ${skill} checks is +3.`,
+    data: {}, effects: [], updatedAt: 0 }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<EquipmentSearch c={c} entries={[item]} save={() => {}} fixedSkill={skill} />))
+    expect(container.querySelector('.gear-results li')?.textContent).toContain('(+3)')
+  } finally {
+    await act(async () => root.unmount())
+  }
+})

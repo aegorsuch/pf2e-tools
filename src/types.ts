@@ -218,6 +218,7 @@ export interface Character {
   monthlyFeatUses?: Record<string, boolean>
   pioneerEnvironment?: 'Cold' | 'Heat'
   pioneerTerrain?: string
+  skilledHumanSkill?: string
   solarianAttunement?: 'Graviton' | 'Photon' | 'Unattuned'
   solarianWeapon?: {
     damageType: 'Bludgeoning' | 'Piercing' | 'Slashing'

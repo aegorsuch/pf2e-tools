@@ -735,6 +735,7 @@ function heritageSkillGrants(c: Character, entries: ContentEntry[]) {
   if (c.level < 1) return []
   const skills = characterHeritages(c, entries).flatMap(heritage =>
     typeof heritage.data.grants_skill === 'string' ? [heritage.data.grants_skill] : [])
+  if (isSkilledHuman(c) && c.skilledHumanSkill) skills.push(c.skilledHumanSkill)
   if (c.systems.includes('sf2e') && c.heritage && STARFINDER_HERITAGE_SKILLS[c.heritage]) {
     skills.push(STARFINDER_HERITAGE_SKILLS[c.heritage])
   }
@@ -2974,6 +2975,7 @@ const hasActiveFeatVariant = (c: Character, name: string) => c.feats.some(feat =
 export const FAVORED_TERRAINS = ['Aquatic', 'Arctic', 'Desert', 'Forest', 'Mountain', 'Plains', 'Sky', 'Swamp', 'Underground']
 
 export const isPioneerHuman = (c: Character) => c.heritage?.trim().toLowerCase() === 'pioneer human'
+export const isSkilledHuman = (c: Character) => c.heritage?.trim().toLowerCase() === 'skilled human'
 
 export const terrainExpertiseTerrains = (c: Character) =>
   [...FAVORED_TERRAINS, ...(c.systems.includes('sf2e') ? ['Space'] : [])].sort((a, b) => a.localeCompare(b))
@@ -3259,6 +3261,11 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     ...(isSpellActive(c, entries, 'Stormwind Flight') ? [atLandSpeed('Fly', 'Stormwind Flight')] : []),
     ...(isSpellActive(c, entries, 'Fly') ? [{ ...atLandSpeed('Fly', 'Fly'), feet: Math.max(20, land) }] : []),
     ...(activeUntamedShiftEffects(c, entries).includes('Wings') ? [fixed('Fly', 30, 'Untamed Shift')] : [])]
+  if (c.systems.includes('pf2e') && ranksAt(c, entries).Athletics >= 4) {
+    for (const [feat, mode] of [['Quick Climb', 'Climb'], ['Quick Swim', 'Swim']] as const) {
+      if (activeFeatsNamed(c, feat).length) movement.push(atLandSpeed(mode, feat))
+    }
+  }
   if (activeFeatsNamed(c, 'Sky Master Mask').length) {
     const fly = atLandSpeed('Fly', 'Sky Master Mask')
     movement.push({ ...fly, feet: isFeatEffectActive(c, 'Sky Master Mask') ? fly.feet * 2 : fly.feet })
@@ -3579,7 +3586,9 @@ export const whirlwindStanceActive = (c: Character, entries: ContentEntry[]) =>
   featDisplayName(activeStance(c, entries)) === 'Whirlwind Stance'
   && ownedWeapons(c, entries).some(weapon => {
     const entry = weaponEntry(entries, weapon.name, weapon.id)
-    return weaponEquipped(c, entries, weapon) && /\bstaff\b/i.test(entry?.name ?? weapon.name) && hasParryTrait(entry)
+    const isStaff = /\bstaff\b/i.test(entry?.name ?? weapon.name)
+    const isSpear = String(entry?.data.weapon_group ?? '').toLowerCase() === 'spear'
+    return weaponEquipped(c, entries, weapon) && (isStaff || getSettings().staffAcrobatSpear && isSpear) && hasParryTrait(entry)
   })
 
 export const parryBonus = (c: Character, entries: ContentEntry[]) =>
@@ -3599,7 +3608,7 @@ export function featSkillChoiceLabel(name: string, choice: string) {
 
 function researchedTraditionOptions(ranks: Record<string, number>, traditions: string[]) {
   const capacity = 1 + TRADITION_SKILLS.filter(([tradition, skill]) =>
-    traditions.includes(tradition) && (ranks[skill] ?? 0) >= 3).length
+    traditions.includes(tradition) && (ranks[skill] ?? 0) >= 2).length
   return traditions.length < capacity ? TRADITION_SKILLS.filter(([tradition, skill]) =>
     !traditions.includes(tradition) && (ranks[skill] ?? 0) >= (traditions.length ? 1 : 2))
     .map(([tradition]) => tradition) : []
@@ -5238,6 +5247,7 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
     ...backgroundSkills(byName(entries, 'background', c.background), c),
     ...backgroundSkills(freeHeartBackground({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries), c),
     ...(isPioneerHuman(c) ? ['Survival'] : []),
+    ...(isSkilledHuman(c) && c.skilledHumanSkill ? [c.skilledHumanSkill] : []),
     ...skillTrainingSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries),
   ]) ranks[name] = Math.max(1, ranks[name] ?? 0)
   const effectiveLevel = Math.min(c.level, beforeLevel - 1)
@@ -6575,7 +6585,22 @@ export function canEquipShield(c: Character, entries: ContentEntry[], shield: Ow
       && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon, c) === undefined)
 }
 
-const canOversizedThrow = (c: Character) => c.level >= 4 && !!c.raging && activeFeatsNamed(c, 'Oversized Throw').length > 0
+const canOversizedThrow = (c: Character, entries: ContentEntry[]) => {
+  if (c.level < 4 || !c.raging || !activeFeatsNamed(c, 'Oversized Throw').length) return false
+  const capacity = totalHandCapacity(c)
+  const shield = equippedShield(c)
+  let occupiedHands = Number(!!shield && shield.id !== 'granted-shield:chitinous' && !isBucklerShield(shield.name))
+  for (const weapon of c.weapons ?? []) {
+    if (weapon.name === OVERSIZED_THROW.name || weapon.attachedTo || !weaponEquipped(c, entries, weapon)) continue
+    const hands = weaponHands(entries, weapon, c)
+    if (hands === undefined) return false
+    const entry = weaponEntry(entries, weapon.name, weapon.id)
+    const leavesHandFree = [...(entry?.traits ?? []), ...tokens(entry?.data.trait)].some(trait => /^free[- ]hand$/i.test(trait))
+    occupiedHands += Math.max(0, hands - Number(leavesHandFree))
+    if (occupiedHands >= capacity) return false
+  }
+  return occupiedHands < capacity
+}
 const OFFENSIVE_DEFENSE_WEAPON_ID = 'sf2e:soldier:offensive-defense'
 const OFFENSIVE_DEFENSE_GRADES = ['Commercial', 'Tactical', 'Advanced', 'Superior', 'Elite', 'Ultimate', 'Paragon']
 
@@ -6729,7 +6754,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const ironFists = c.feats.some((feat) => /^Iron Fists?$/i.test(feat.name))
   const tusks = c.feats.some((feat) => /^Tusks(?: \(Orc\))?$/i.test(feat.name))
   const haftStriker = !!haftStrikerSource(c, entries)
-  const oversizedThrow = canOversizedThrow(c)
+  const oversizedThrow = canOversizedThrow(c, entries)
   const gauntlet = armorGauntlet(c, entries)
   const favored = deityWeapon(c, entries)
   const features = activeAnimalFeatures(c, entries)
@@ -7192,7 +7217,7 @@ export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry
   || BATTLE_FORM_WEAPONS.some(entry => entry.name === name)
   || PLAYING_CARD_WEAPONS.some(card => card.name === name && activeFeatsNamed(c, "Fane's Fourberie").length > 0)
   || name === HAFT_STRIKER_WEAPON.name && !!haftStrikerSource(c, entries)
-  || name === OVERSIZED_THROW.name && canOversizedThrow(c)
+  || name === OVERSIZED_THROW.name && canOversizedThrow(c, entries)
   || ARMOR_GAUNTLETS.some((option) => option === name) && name === armorGauntlet(c, entries)?.name
   || !!id && iruxiAttackIds.has(id)
   || (id ? grantedWeaponIndex(entries).ids.has(id) : grantedWeaponIndex(entries).names.has(name))

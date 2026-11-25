@@ -13,6 +13,10 @@ import { hellknightTrainingBenefit } from './hellknight'
 import { domainSpellDescription, featSpellOptions } from './featSpells'
 
 const featIndexes = new WeakMap<ContentEntry[], { urls: Map<string, ContentEntry>; names: Map<string, ContentEntry> }>()
+const STAFF_ACROBAT_FEATS = new Set([
+  'Staff Acrobat Dedication', 'Bullying Staff', 'Staff Sweep', 'Levering Strike', 'Whirlwind Stance', 'Pivot Strike',
+])
+
 function featIndex(entries: ContentEntry[]) {
   let index = featIndexes.get(entries)
   if (!index) {
@@ -100,6 +104,10 @@ function EntryDescriptionContents({ name, entry, choice, prerequisites, access, 
       ?? active.systems.map(system => index.names.get(`${system}:${link.name.toLowerCase()}`)).find(Boolean),
   }))
   let originalDescription = leads?.length ? active?.description.replace(/\n\n[^\n]*\bleads to\.\.\.[\s\S]*$/i, '') : active?.description
+  if (active?.kind === 'feat' && STAFF_ACROBAT_FEATS.has(active.name) && getSettings().staffAcrobatSpear) {
+    originalDescription = originalDescription?.replace(/\bStaff Acrobat\b/gi, 'Spear Acrobat')
+      .replace(/\byour staff\b/gi, 'your spear')
+  }
   if (active?.kind === 'feat' && active.name === 'Anchoring Arrow' && active.systems.includes('pf2e')) {
     originalDescription = originalDescription?.replace(/\bbow Strike\b/gi, 'ranged Strike')
   }
