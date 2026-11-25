@@ -3689,9 +3689,13 @@ export function classSkills(klass?: ContentEntry) {
   const lines = tokensLoose(klass?.data.skill_proficiency)
   const fixed = lines.flatMap((l) => {
     const m = /^trained in (?!a number|(?:one|two|three) (?:or more|of|skills? determined|skills? based)|your choice)(.+)$/i.exec(l)
-    return m ? m[1].split(/,| and /).map((s) => s.trim()).filter(Boolean) : []
+    return m ? m[1].replace(/\s+and\s+either\s+.+$/i, '').split(/,| and /).map((s) => s.trim()).filter(Boolean) : []
   })
-  const choices = lines.flatMap((l) => {
+  const eitherChoices = lines.flatMap(l => {
+    const m = /\band\s+either\s+(.+)$/i.exec(l)
+    return m ? [m[1].split(/,| or /).map(x => x.trim()).filter(Boolean)] : []
+  })[0]
+  const choices = eitherChoices ?? lines.flatMap((l) => {
     const m = /^trained in (?:your choice of\s+|one of\s+(?:the following skills of your choice:\s*)?)(.+)$/i.exec(l)
     return m ? [m[1].split(/,| or /).map((x) => x.trim()).filter(Boolean)] : []
   })[0] ?? []
