@@ -24,7 +24,7 @@ import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { TotalBreakdown } from './TotalBreakdown'
 import { BRIAR_MAX_SHARPNESS, briarSharpnessPoints, namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, namedWeaponStrikeNote, withNamedWeaponState } from './namedWeapons'
-import { isFeatEffectActive, raptorialEdgeImproved } from './builder'
+import { installedHardlightUpgrades, isFeatEffectActive, raptorialEdgeImproved } from './builder'
 import { getSettings } from './settings'
 import { ARMIGER_ARMOR_ID, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, IRON_FIST, OVERSIZED_THROW, SPARK_FIST, UNTAMED_CLAWS } from './supplemental'
@@ -691,7 +691,6 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
   const automatic = automaticWeaponFundamentals(c.level)
   const minimumGrade = automaticHardlightGrade(c.level)
   const item = handwraps?.kind === 'hardlight' ? HARDLIGHT_HANDWRAPS : HANDWRAPS
-  const grades = Object.keys(HARDLIGHT_GRADES) as HardlightGrade[]
   const limit = handwraps?.kind === 'hardlight' ? HARDLIGHT_GRADES[handwraps.grade ?? 'Commercial'].upgrades
     : maxPropertyRunes(handwraps?.potency ?? 0, handwraps?.material)
   return (
@@ -699,16 +698,6 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
       {handwraps ? <details className="gear-card" aria-label={item.name} open>
         <summary><strong><EntryDescription name={item.name}
           entry={entries.find(entry => entry.kind === 'item' && entry.name === item.name) ?? item} className="equipment-name" /></strong></summary>
-        {handwraps.kind === 'hardlight' ? <label>Grade{' '}
-          <select aria-label="Hardlight handwraps grade" value={handwraps.grade ?? 'Commercial'} onChange={(e) => {
-            const grade = grades.find((name) => name === e.target.value)
-            if (grade && grades.indexOf(grade) >= grades.indexOf(minimumGrade)) {
-            updateHandwraps({ grade })
-            }
-          }}>
-            {grades.map((grade) => <option key={grade} disabled={grades.indexOf(grade) < grades.indexOf(minimumGrade)}>{grade}</option>)}
-          </select>
-        </label> : null}
         {handwraps.kind !== 'hardlight' && <div className="gear-runes"><span>Material</span>
           <Material name="Orichalcum" entries={entries} equipment="Weapon" source="Handwraps of Mighty Blows" />
         </div>}
@@ -717,7 +706,7 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
           {!!handwraps.runes.length && <small role="status">Saved runes are inactive on hardlight handwraps.</small>}
           <WeaponUpgrades entries={entries} weapon={{ ...HARDLIGHT_HANDWRAPS, kind: 'weapon',
             data: { ...HARDLIGHT_HANDWRAPS.data, weapon_type: 'Melee', weapon_group: 'Brawling', bulk: 0.1 } }}
-            upgrades={handwraps.upgrades ?? []} limit={limit}
+            upgrades={handwraps.upgrades ?? []} limit={limit} effectiveUpgrades={installedHardlightUpgrades(c, entries)}
             onChange={upgrades => updateHandwraps({ upgrades })} />
         </> : <Runes runes={handwraps.runes} entries={entries} options={handwrapRuneOptions(c, entries)} limit={limit}
           onChange={(runes) => updateHandwraps({ runes })} />}

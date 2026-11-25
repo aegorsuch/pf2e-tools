@@ -2156,7 +2156,7 @@ it.each([['Fighter', 'pf2e', HANDWRAPS.name], ['Mechanic', 'sf2e', HARDLIGHT_HAN
     expect(markup).toContain(`aria-label="${name}"`)
     expect(markup).not.toContain(`Add ${name}`)
     expect(markup).not.toContain(`aria-label="Remove ${name}"`)
-    if (system === 'sf2e') expect(markup).toContain('selected="">Superior</option>')
+    if (system === 'sf2e') expect(markup).not.toContain('Hardlight handwraps grade')
     expect(save).not.toHaveBeenCalled()
     expect(c.handwraps).toBeUndefined()
   })
@@ -2540,13 +2540,7 @@ it('keeps saved hardlight runes inactive and provides grade-based upgrade slots'
   if (!add) throw new Error('Missing Add Hardlight Handwraps button')
   ;(add.props.onClick as () => void)()
   expect(c.handwraps).toMatchObject({ kind: 'hardlight', grade: 'Superior', potency: 2, striking: 1 })
-  const selectGrade = (value: string) => {
-    const grade = findElement(tree(), (element) => element.props['aria-label'] === 'Hardlight handwraps grade')
-    if (!grade) throw new Error('Missing Hardlight grade selector')
-    ;(grade.props.onChange as (event: { target: { value: string } }) => void)({ target: { value } })
-  }
-  selectGrade('Advanced')
-  expect(c.handwraps).toMatchObject({ kind: 'hardlight', grade: 'Superior', potency: 2, striking: 1 })
+  expect(renderToStaticMarkup(<HandwrapsGear c={c} entries={[]} save={save} />)).not.toContain('Hardlight handwraps grade')
   c = { ...c, handwraps: { ...c.handwraps!, runes: ['Flaming', 'Impactful'] } }
   const attack = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={save} />)
   expect(attack).not.toContain('inherited from Hardlight Handwraps')
@@ -2555,12 +2549,36 @@ it('keeps saved hardlight runes inactive and provides grade-based upgrade slots'
   expect(attack).not.toContain('aria-label="Add property rune"')
   expect(renderToStaticMarkup(<HandwrapsGear c={c} entries={[]} save={save} />)).toContain('Saved runes are inactive')
   expect(renderToStaticMarkup(<HandwrapsGear c={c} entries={[]} save={save} />)).not.toContain('Upgrade slots:')
-  selectGrade('Commercial')
   expect(c.handwraps).toMatchObject({ grade: 'Superior', runes: ['Flaming', 'Impactful'] })
   const remove = findElement(tree(), (element) => element.props['aria-label'] === 'Remove Hardlight Handwraps')
   if (!remove) throw new Error('Missing Hardlight removal')
   ;(remove.props.onClick as () => void)()
   expect(c.handwraps).toBeUndefined()
+})
+
+it('automatically installs hardlight grapple and shove modules at level 8 without duplicating saved upgrades', () => {
+  const previous = getSettings().automaticSfWeaponUpgrades
+  const entries = [GRAPPLING_MODULE, SHOVING_MODULE]
+  const c: Character = { ...character([]), systems: ['sf2e'], level: 8, className: 'Fighter', weapons: [],
+    handwraps: { kind: 'hardlight', grade: 'Advanced', potency: 0, striking: 0, runes: [], upgrades: [GRAPPLING_MODULE.id] } }
+  const fist = ownedWeapons(c, entries).find(item => item.name === 'Fist')!
+  try {
+    updateSettings({ automaticSfWeaponUpgrades: true })
+    expect(installedWeaponUpgrades(c, entries, fist).map(item => item.name)).toEqual(['Grappling Module', 'Shoving Module'])
+    expect(weaponAttack(c, entries, fist).traits).toEqual(expect.arrayContaining(['Grapple', 'Shove']))
+    const markup = renderToStaticMarkup(<HandwrapsGear c={c} entries={entries} save={() => {}} />)
+    expect(markup).toContain('Grappling Module')
+    expect(markup).toContain('Shoving Module')
+    expect(markup).not.toContain('aria-label="Remove Shoving Module upgrade"')
+    expect(markup).not.toContain('aria-label="Add weapon upgrade"')
+    const before = { ...c, level: 7, handwraps: { ...c.handwraps!, upgrades: [] } }
+    expect(installedWeaponUpgrades(before, entries, fist)).toEqual([])
+    expect(weaponAttack(before, entries, fist).traits).not.toContain('Grapple')
+    expect(installedWeaponUpgrades({ ...c, handwraps: undefined, className: undefined }, entries, fist)).toEqual([])
+    updateSettings({ automaticSfWeaponUpgrades: false })
+    expect(installedWeaponUpgrades(c, entries, fist).map(item => item.name)).toEqual(['Grappling Module'])
+    expect(weaponAttack(c, entries, fist).traits).not.toContain('Shove')
+  } finally { updateSettings({ automaticSfWeaponUpgrades: previous }) }
 })
 
 it('installs compatible weapon upgrades within capacity without changing saved runes', () => {

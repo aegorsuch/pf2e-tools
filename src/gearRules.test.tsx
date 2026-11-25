@@ -1621,7 +1621,7 @@ it('applies grapple and shove modules only to eligible upgraded attacks', () => 
     potency: 0, striking: 0, runes: [], upgrades: [GRAPPLING_MODULE.id, SHOVING_MODULE.id] } }
   const fist = ownedWeapons(withWraps, entries).find(attack => attack.name === 'Fist')!
   expect(weaponAttack(withWraps, entries, fist).traits).toEqual(expect.arrayContaining(['Grapple', 'Shove']))
-  expect(weaponAttack({ ...withWraps, handwraps: undefined }, entries, fist).traits).not.toContain('Grapple')
+  expect(weaponAttack({ ...withWraps, handwraps: undefined, className: undefined }, entries, fist).traits).not.toContain('Grapple')
 })
 
 it('uses only an equipped upgraded weapon for Protection Grid parry', () => {

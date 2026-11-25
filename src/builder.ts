@@ -7925,14 +7925,8 @@ export function raptorialEdgeImproved(c: Character, weapon: OwnedWeapon) {
   return !!weapon.raptorialImproved || getSettings().automaticSfWeaponUpgrades && c.level >= 15
 }
 
-export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
-  const entry = weaponEntry(entries, weapon.name, weapon.id)
-  if (!getSettings().automaticSfWeaponUpgrades || !c.systems.includes('sf2e') || !entry) return []
-  const name = entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
-  const upgrades = entry.data.special_weapon_source === 'SLARP' || name === 'SLARP Rapid Laser Pistol' ? ["Smuggler's Grip", 'Flaming Module']
-    : name === 'Shuriken Drone' ? ['Retrieval Boosters']
-    : name === 'Singing Spear' ? ['Retrieval Boosters', 'Loudener']
-    : name === 'Shock Pad' ? ['Shock Module'] : []
+function automaticUpgradeEntries(c: Character, entries: ContentEntry[], upgrades: string[]) {
+  if (!getSettings().automaticSfWeaponUpgrades || !c.systems.includes('sf2e')) return []
   return upgrades.flatMap(base => {
     const candidates = entries.filter(candidate => candidate.kind === 'item' && !candidate.deleted
       && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Weapon Upgrades'
@@ -7943,25 +7937,49 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
   })
 }
 
-export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const entry = weaponEntry(entries, weapon.name, weapon.id)
-  const unarmed = weaponCategory(entry) === 'Unarmed'
-  const handwraps = unarmed ? effectiveHandwraps(c, entries) : undefined
-  const ids = unarmed
-    ? handwraps?.kind === 'hardlight' && !animalStrengthSource(c, entries, weapon) ? handwraps.upgrades : undefined
-    : usesWeaponUpgrades(entry) ? weapon.upgrades : undefined
-  const installed = (ids ?? []).flatMap(id => {
-    const upgrade = entries.find(candidate => candidate.id === id && !candidate.deleted && candidate.kind === 'item'
-      && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Weapon Upgrades')
-    return upgrade ? [upgrade] : []
-  })
-  for (const granted of automaticWeaponUpgrades(c, entries, weapon)) {
+  if (!entry) return []
+  const name = entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+  const upgrades = entry.data.special_weapon_source === 'SLARP' || name === 'SLARP Rapid Laser Pistol' ? ["Smuggler's Grip", 'Flaming Module']
+    : name === 'Shuriken Drone' ? ['Retrieval Boosters']
+    : name === 'Singing Spear' ? ['Retrieval Boosters', 'Loudener']
+    : name === 'Shock Pad' ? ['Shock Module'] : []
+  return automaticUpgradeEntries(c, entries, upgrades)
+}
+
+function mergeWeaponUpgrades(installed: ContentEntry[], automatic: ContentEntry[]) {
+  for (const granted of automatic) {
     const base = granted.name.replace(/\s*\([^)]*\)$/, '')
     const index = installed.findIndex(item => item.name.replace(/\s*\([^)]*\)$/, '') === base)
     if (index < 0) installed.push(granted)
     else if (installed[index].level < granted.level) installed[index] = granted
   }
   return installed
+}
+
+export function installedHardlightUpgrades(c: Character, entries: ContentEntry[]) {
+  const handwraps = effectiveHandwraps(c, entries)
+  if (handwraps?.kind !== 'hardlight') return []
+  const installed = (handwraps.upgrades ?? []).flatMap(id => {
+    const upgrade = entries.find(candidate => candidate.id === id && !candidate.deleted && candidate.kind === 'item'
+      && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Weapon Upgrades')
+    return upgrade ? [upgrade] : []
+  })
+  return mergeWeaponUpgrades(installed, automaticUpgradeEntries(c, entries, ['Grappling Module', 'Shoving Module']))
+}
+
+export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  const entry = weaponEntry(entries, weapon.name, weapon.id)
+  const unarmed = weaponCategory(entry) === 'Unarmed'
+  if (unarmed) return animalStrengthSource(c, entries, weapon) ? [] : installedHardlightUpgrades(c, entries)
+  const ids = usesWeaponUpgrades(entry) ? weapon.upgrades : undefined
+  const installed = (ids ?? []).flatMap(id => {
+    const upgrade = entries.find(candidate => candidate.id === id && !candidate.deleted && candidate.kind === 'item'
+      && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Weapon Upgrades')
+    return upgrade ? [upgrade] : []
+  })
+  return mergeWeaponUpgrades(installed, automaticWeaponUpgrades(c, entries, weapon))
 }
 
 export function scaleOfIgroonWeaponRunes(c: Character, shield?: OwnedShield, weapon?: OwnedWeapon) {

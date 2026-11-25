@@ -15,7 +15,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'uniqueInnateSpellChoices', label: 'Avoid Duplicate Innate Spell Choices',
     description: 'Innate spell choices exclude spells already known from another source. Existing choices are preserved.' },
   { key: 'automaticSfWeaponUpgrades', label: 'Automatic Starfinder Weapon Upgrades',
-    description: "SLARP gains Smuggler's Grip and Flaming Module; Shuriken Drone gains Retrieval Boosters; Singing Spear gains Retrieval Boosters and Loudener; Shock Pad gains Shock Module. Upgrades appear at their item levels and improve by character level." },
+    description: "SLARP gains Smuggler's Grip and Flaming Module; Shuriken Drone gains Retrieval Boosters; Singing Spear gains Retrieval Boosters and Loudener; Shock Pad gains Shock Module; Hardlight Handwraps gain Grappling and Shoving Modules. Upgrades appear at their item levels and improve by character level." },
   { key: 'innateAutoHeighten', label: 'Auto-Heighten Innate and Item Spells',
     description: 'Innate grants heighten to at least half your level (rounded up, maximum rank 10). Also heightens Heroic Presence’s Zealous Conviction and scales innate summons using creature-building benchmarks.' },
   { key: 'barbarianWarJavelinAccess', label: 'Barbarian Access: War Javelin',
