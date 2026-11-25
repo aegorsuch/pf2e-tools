@@ -1507,8 +1507,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               {namedSource === "Hunter's Dawn" && ability.name === 'Activation 1' && dawnDamage
                 && <span onClick={event => event.stopPropagation()}><MultipleDamageRoll name="Hunter's Dawn javelin"
                   actions={ability.actions ?? 'Single Action'} damages={[
-                    { label: 'Javelin', dice: dawnDamage.dice, sides: dawnDamage.sides, bonus: dawnDamage.bonus, type: 'piercing' },
-                    { label: 'Gazelle', dice: c.level >= 15 ? 4 : 2, sides: 6, bonus: dawnDamage.bonus, type: 'piercing' }]} /></span>}
+                    { label: 'Javelin', dice: dawnDamage.dice, sides: 6, bonus: dawnDamage.bonus, type: 'piercing' },
+                    { label: 'Gazelle', dice: 2, sides: 6, bonus: dawnDamage.bonus, type: 'piercing' }]} /></span>}
               {namedSource === "Hunter's Dawn" && ability.name === 'Activation 3'
                 && <span onClick={event => event.stopPropagation()}><DamageRoll name="Hunter's Dawn fire" actions={ability.actions ?? 'Single Action'}
                   damage={{ label: 'Fire', dice: 6, sides: 6, type: 'fire' }} /></span>}
