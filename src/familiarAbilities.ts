@@ -105,11 +105,12 @@ export function familiarAbilitySlots(c: Character, entries: ContentEntry[], isWa
   const patronAbility = isWasp ? undefined : capacity.patronAbility
   const baseSelectableLimit = patronAbility ? capacity.selectableAbilityLimit : capacity.dailyAbilityLimit
   const specificFamiliars = isWasp || state.glyph || state.leshy ? [] : specificFamiliarOptions(c, entries)
-  const name = isWasp || state.glyph || state.leshy ? undefined : state.spiritFamiliar ? 'Spirit Familiar' : c.familiar?.specificFamiliar
+  const name = isWasp || state.glyph || state.leshy ? undefined : state.spiritFamiliar ? 'Spirit Familiar'
+    : state.undeadFamiliar && c.systems.includes('pf2e') ? 'Undead Familiar' : c.familiar?.specificFamiliar
   const selectedSpecificOption = specificFamiliars.find(option => key(option.entry.name) === key(name ?? ''))
   const selectedSpecific = selectedSpecificOption?.entry
   const activeSpecific = selectedSpecific && contentAccessGranted(c, selectedSpecific)
-    && (specificFamiliarRequirement(selectedSpecific) > 0 || state.spiritFamiliar) && selectedSpecificOption?.available ? selectedSpecific : undefined
+    && (specificFamiliarRequirement(selectedSpecific) > 0 || state.spiritFamiliar || state.undeadFamiliar) && selectedSpecificOption?.available ? selectedSpecific : undefined
   const selectableAbilityLimit = baseSelectableLimit - (activeSpecific ? selectedSpecificOption?.required ?? 0 : 0)
     - Number(!!emissaryAbility) - Number(!isWasp && state.leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0)
   return { patronAbility, dailyAbilityLimit: capacity.dailyAbilityLimit, specificFamiliars, selectedSpecific,
@@ -338,6 +339,7 @@ export function specificFamiliarRequirement(entry: ContentEntry): number {
 }
 
 const SPIRIT_FAMILIAR_ID = 'fallback:specific-familiar:spirit-familiar'
+const UNDEAD_FAMILIAR_ID = 'fallback:specific-familiar:undead-familiar'
 
 const FALLBACK_SPECIFIC_FAMILIARS: ContentEntry[] = [{
   id: 'fallback:specific-familiar:calligraphy-wyrm', name: 'Calligraphy Wyrm', kind: 'familiar', systems: ['pf2e'], source: 'official', level: 0,
@@ -347,6 +349,10 @@ const FALLBACK_SPECIFIC_FAMILIARS: ContentEntry[] = [{
 }, {
   id: 'fallback:specific-familiar:spirit-familiar', name: 'Spirit Familiar', kind: 'familiar', systems: ['pf2e'], source: 'official', level: 0,
   traits: ['Spirit'], description: 'Required Number of Abilities 0\n\nAn apparition manifests as your familiar after daily preparations.',
+  data: { ability_type: 'Specific Familiar', required_abilities: 0 }, effects: [], updatedAt: 0,
+}, {
+  id: 'fallback:specific-familiar:undead-familiar', name: 'Undead Familiar', kind: 'familiar', systems: ['pf2e'], source: 'official', level: 0,
+  traits: ['Undead'], description: 'Required Number of Abilities 0\n\nYour familiar is an undead creature infused with void energy.',
   data: { ability_type: 'Specific Familiar', required_abilities: 0 }, effects: [], updatedAt: 0,
 }, {
   id: 'homebrew:specific-familiar:nine-tailed-fox', name: 'Nine-Tailed Fox', kind: 'familiar', systems: ['pf2e'], source: 'homebrew', level: 0,
@@ -365,7 +371,11 @@ export function specificFamiliarOptions(c: Character, entries: ContentEntry[]) {
     const spirit = FALLBACK_SPECIFIC_FAMILIARS.find(entry => entry.id === SPIRIT_FAMILIAR_ID)!
     return [{ entry: spirit, required: 0, available: true }]
   }
-  return [...official, ...FALLBACK_SPECIFIC_FAMILIARS.filter(entry => entry.id !== SPIRIT_FAMILIAR_ID
+  if (state.undeadFamiliar && c.systems.includes('pf2e')) {
+    const undead = FALLBACK_SPECIFIC_FAMILIARS.find(entry => entry.id === UNDEAD_FAMILIAR_ID)!
+    return [{ entry: undead, required: 0, available: true }]
+  }
+  return [...official, ...FALLBACK_SPECIFIC_FAMILIARS.filter(entry => entry.id !== SPIRIT_FAMILIAR_ID && entry.id !== UNDEAD_FAMILIAR_ID
     && c.systems.includes('pf2e') && !known.has(key(entry.name)))].map(entry => {
     const required = Math.max(0, specificFamiliarRequirement(entry) - reduction)
     return { entry, required, available: abilities >= required }

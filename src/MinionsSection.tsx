@@ -1222,7 +1222,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           <summary><h4>{activeSpecific ? specificFamiliarHeader(activeSpecific.name) : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
             : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : c.className === 'Witch' ? "Witch's Familiar" : 'Familiar'}</h4> ({selectedCount}/{totalCount})</summary>
           <article className="gear-card">
-          {!isWasp && !spiritFamiliar && specificFamiliars.length > 0 && <header className="row">
+          {!isWasp && !spiritFamiliar && !isUndead && specificFamiliars.length > 0 && <header className="row">
             <SearchableSelect aria-label="Specific familiar" value={data?.specificFamiliar ?? ''} onChange={event => {
               const selected = specificFamiliars.find(option => option.entry.name === event.target.value)
               if (event.target.value && (!selected || !selected.available)) return

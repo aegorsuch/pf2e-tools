@@ -103,6 +103,14 @@ it('recognizes Animist Spirit Familiar and offers only the Spirit specific famil
   expect(options[0].entry.traits).toContain('Spirit')
 })
 
+it('locks the Necromancer Undead Familiar to the Undead specific familiar', () => {
+  const c: Character = { ...character, className: 'Necromancer', feats: [{ name: 'Undead Familiar', type: 'Class Feat', level: 1 }],
+    familiar: { abilities: [], specificFamiliar: 'Calligraphy Wyrm' } }
+  const options = specificFamiliarOptions(c, [])
+  expect(options.map(option => option.entry.name)).toEqual(['Undead Familiar'])
+  expect(options[0].entry.traits).toContain('Undead')
+})
+
 it('reserves one Witch familiar ability for the selected patron', () => {
   const patron: ContentEntry = {
     ...ability('Wilding Steward', ''),
