@@ -2934,12 +2934,13 @@ describe('languageAllowance', () => {
 
 describe('languageGroups', () => {
   it('keeps listed speakers and regional languages while including other synced languages', () => {
-    const synced = [entry('language', 'Wildsong', { rarity: 'Secret' }), entry('language', 'Elven', { rarity: 'Common' }), entry('language', 'Aklo', { rarity: 'Uncommon' }), entry('language', 'Sussuran', { rarity: 'Secret' }), entry('language', 'Anadi', { rarity: 'Secret' })]
+    const synced = [entry('language', 'Wildsong', { rarity: 'Secret' }), entry('language', 'Elven', { rarity: 'Common' }), entry('language', 'Aklo', { rarity: 'Uncommon' }), entry('language', 'Sussuran', { rarity: 'Secret' }), entry('language', 'Anadi', { rarity: 'Secret' }), entry('language', 'Cyclops', { rarity: 'Uncommon' })]
     expect(Object.keys(languageGroups(synced))).toEqual(['Common', 'Regional', 'Uncommon', 'Secret', 'Rare'])
     expect(languageGroups(synced).Secret.map(([n]) => n)).toEqual(['Wildsong'])
     expect(languageGroups(synced).Rare.map(([n]) => n)).toEqual(['Anadi'])
     expect(languageGroups(synced).Uncommon).toContainEqual(['Sussuran', 'Air elemental creatures, flying creatures'])
     expect(languageGroups(synced).Uncommon).toContainEqual(['Petran', 'Earth elemental creatures'])
+    expect(languageGroups(synced).Uncommon).toContainEqual(['Cyclops', 'Cyclopes'])
     expect(languageGroups(synced).Regional).toContainEqual(['Hallit', 'Broken Lands, Eye of Dread, Saga Lands'])
     expect(languageGroups(synced).Regional).toContainEqual(['Iblydosi', 'Iblydos'])
     expect(languageGroups(synced).Regional).toHaveLength(10)

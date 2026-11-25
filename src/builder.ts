@@ -9406,7 +9406,7 @@ const CORE_LANGUAGES: Record<string, [string, string][]> = {
     ['Jotun', 'Giants, ogres, trolls, ettins, cyclopes'], ['Orcish', 'Orcs, dromaars'], ['Sakvroth', 'Subterranean civilizations, serpentfolk'],
   ],
   Uncommon: [
-    ['Aklo', 'Evil fey, otherworldly monsters'], ['Chthonian', 'Demons'], ['Diabolic', 'Devils'],
+    ['Aklo', 'Evil fey, otherworldly monsters'], ['Chthonian', 'Demons'], ['Cyclops', 'Cyclopes'], ['Diabolic', 'Devils'],
     ['Empyrean', 'Angels and other celestials'], ['Kholo', 'The hyena-like kholos'], ['Necril', 'Ghouls, intelligent undead'],
     ['Petran', 'Earth elemental creatures'], ['Pyric', 'Fire elemental creatures'], ['Shadowtongue', 'Nidalese, Netherworld creatures'],
     ['Sussuran', 'Air elemental creatures, flying creatures'], ['Thalassic', 'Aquatic creatures, water elemental creatures'],
