@@ -23,6 +23,21 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it('checks Space Pirate prerequisites and grants Piloting based on prior training', () => {
+  const feat: ContentEntry = { ...entry('feat', 'Space Pirate Dedication', { prerequisite: 'trained in Intimidation' }, 2,
+    ['Archetype', 'Dedication']), systems: ['sf2e'] }
+  const c: Character = { ...base, systems: ['sf2e'], level: 2, className: undefined,
+    feats: [{ name: feat.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }] }
+  expect(featPrerequisiteChecker(c, [feat], 2)(feat).missing).toContain('trained in Intimidation')
+  expect(featPrerequisiteChecker({ ...c, skillPicks: ['Intimidation'] }, [feat], 2)(feat).missing).toEqual([])
+  expect(ranksAt(c, [feat]).Piloting).toBe(1)
+  expect(ranksAt({ ...c, skillPicks: ['Piloting'] }, [feat]).Piloting).toBe(2)
+  expect(ranksAt({ ...c, level: 3, skillIncreases: { 3: 'Piloting' } }, [feat]).Piloting).toBe(2)
+  expect(ranksAt({ ...c, skillPicks: ['Piloting'], level: 7, skillIncreases: { 7: 'Piloting' } }, [feat]).Piloting).toBe(3)
+  expect(ranksAt({ ...c, level: 1 }, [feat]).Piloting ?? 0).toBe(0)
+  expect(ranksAt({ ...c, systems: ['pf2e'] }, [feat]).Piloting ?? 0).toBe(0)
+})
+
 it('requires matching expert Recall Knowledge skills and Assurance for Automatic Knowledge variants', () => {
   const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
   const knowledge = mapAonHit(hits.find(hit => hit._id === 'feat-5122')!, 'pf2e')!

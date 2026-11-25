@@ -293,7 +293,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const maxRank = c.level >= 15 ? 4 : c.level >= 7 ? 3 : c.level >= 3 ? 2 : 1
   const noPaidIncreases = { ...c, skillIncreases: {}, rankOverrides: undefined, skillTokenUpgrades: undefined }
   const baseRanks = editingSkills ? ranksAt(noPaidIncreases, entries, 99, false) : ranks
-  const rankGrants = (editingSkills ? ['Technomagical Scrapper', ...Object.keys(EXPERT_GRANT_FEATS), 'Ancestral Skills', ...new Set(trainedLores.map(grant => grant.source))] : []).flatMap(name => {
+  const rankGrants = (editingSkills ? ['Technomagical Scrapper', 'Space Pirate Dedication', ...Object.keys(EXPERT_GRANT_FEATS), 'Ancestral Skills', ...new Set(trainedLores.map(grant => grant.source))] : []).flatMap(name => {
     const feat = activeFeatsNamed(c, name).sort((a, b) => featTakenLevel(a) - featTakenLevel(b))[0]
     return feat ? [{ level: featTakenLevel(feat), without: ranksAt({
       ...noPaidIncreases, feats: c.feats.filter(feat => feat.name !== name),
@@ -606,6 +606,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Rider" note={`${conditionalTotal(1)} to Command an Animal checks for your own animal companion, if a check is required.`} />}
           {CONDITIONAL_BONUSES.filter(b => b.stats.includes(s.name) && activeFeatsNamed(c, b.feat).length > 0).map(b => <SourceNote key={b.feat} inlineSource={false}
             source={b.feat} note={`${b.type === 'status' ? signed(total + b.bonus) : conditionalTotal(b.bonus)} ${b.text} (+${b.bonus} ${b.type}).`} />)}
+          {s.name === 'Intimidation' && c.systems.includes('sf2e') && !!activeFeatsNamed(c, 'Space Pirate Dedication').length
+            && c.holoRogerActive && <SourceNote source="Holo-Roger"
+              note={`${conditionalTotal(1)} to Demoralize while the holo-flag is projected on a starship (+1 circumstance).`} />}
           {s.name === 'Diplomacy' && !!activeFeatsNamed(c, 'Extended Family').length && <SourceNote inlineSource={false}
             source="Extended Family" note={`${conditionalTotal(1)} to Make an Impression or Request against ysoki (+1 circumstance).`} />}
           {s.name === 'Diplomacy' && hasDivineIntercession(c, 'Sarenrae', 'major-boon') && <SourceNote inlineSource={false}

@@ -56,6 +56,17 @@ it('gives Reality Ripper Razing only in destructive mode and Deadly d10 only in 
   expect(reaping.range).toBe(40)
 })
 
+it('applies Space Pirate familiarity only in a razing weapon mode', () => {
+  const klass: ContentEntry = { ...phase, id: 'wizard', name: 'Wizard', kind: 'class',
+    data: { attack_proficiency: 'Expert in simple weapons, Trained in martial weapons' } }
+  const pirate: Character = { ...c, className: 'Wizard',
+    feats: [{ name: 'Space Pirate Dedication', type: 'Archetype Feat', level: 2 }] }
+  const destructive = weaponAttack(pirate, [klass, ripper], { ...weapon, name: ripper.name })
+  const reaping = weaponAttack(pirate, [klass, ripper], { ...weapon, name: ripper.name, weaponMode: 'mode-2' })
+  expect(destructive).toMatchObject({ rank: 2, criticalSpecialization: true })
+  expect(reaping).toMatchObject({ rank: 1, criticalSpecialization: false })
+})
+
 it('inherits mode rules for source-linked homebrew while preserving its custom damage dice', () => {
   const clone = { ...phase, id: 'clone', name: 'Custom Phase Cutlass', source: 'homebrew' as const,
     weaponModes: undefined, data: { ...phase.data, damage: '3d10 Modular' } }

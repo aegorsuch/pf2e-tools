@@ -24,7 +24,8 @@ import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { TotalBreakdown } from './TotalBreakdown'
 import { BRIAR_MAX_SHARPNESS, briarSharpnessPoints, namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, namedWeaponStrikeNote, withNamedWeaponState } from './namedWeapons'
-import { isFeatEffectActive } from './builder'
+import { isFeatEffectActive, raptorialEdgeImproved } from './builder'
+import { getSettings } from './settings'
 import { ARMIGER_ARMOR_ID, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, IRON_FIST, OVERSIZED_THROW, SPARK_FIST, UNTAMED_CLAWS } from './supplemental'
 import { supportsMeleeWeaponUpgrade } from './builder'
@@ -1484,7 +1485,9 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               </select>
             </label>}
             {!!a.entry?.data.raptorial_edge && <label>
-              <input type="checkbox" aria-label="Improved Raptorial Edge upgrade" checked={!!w.raptorialImproved}
+              <input type="checkbox" aria-label="Improved Raptorial Edge upgrade"
+                checked={raptorialEdgeImproved(c, w)}
+                disabled={getSettings().automaticSfWeaponUpgrades && c.level >= 15}
                 onChange={event => update(w.id, { raptorialImproved: event.target.checked })} /> Improved acid upgrade (60,000 credits)
             </label>}
             {!fixedEquipped && <label title={legacyPouchWeapon

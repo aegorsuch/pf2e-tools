@@ -437,6 +437,7 @@ export interface Character {
   shirrenCreatureAllyActive?: boolean
   lashuntaCreatureAlly?: 'Shotalashu' | 'Squox'
   lashuntaCreatureAllyChoice?: 'Shotalashu' | 'Squox'
+  holoRogerActive?: boolean
   summonedFiend?: import('./summonedFiends.ts').SummonedFiend
   summonedPlant?: import('./summonedFiends.ts').SummonedFiend
   summonedUndead?: import('./summonedFiends.ts').SummonedFiend

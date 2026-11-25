@@ -109,8 +109,20 @@ export function weaponFamiliarity(c: Character, weapon: ContentEntry, category: 
   let trained = false
   let expertise = false
   let criticalSpecialization = false
+  let pirateCriticalSpecialization = false
   for (const feat of c.feats) {
     if (featTakenLevel(feat) > c.level) continue
+    if (feat.name === 'Space Pirate Dedication' && c.systems.includes('sf2e')) {
+      const familyNames = gradeFamilyNames(entries, weapon)
+      const names = [weapon.name, String(weapon.data.proficiency_base ?? ''), ...(familyNames ?? [])]
+      if (names.some(name => /(?:cutlass|flail|rapier)\b/i.test(name))
+        || weapon.traits.some(trait => /^razing(?:\s|$)/i.test(trait))) {
+        if (category === 'Martial') proficiency = 'Simple'
+        else if (category === 'Advanced' && proficiency !== 'Simple') proficiency = 'Martial'
+        pirateCriticalSpecialization = true
+      }
+      continue
+    }
     if (feat.name === 'Explosive Savant') {
       const group = String(weapon.data.weapon_group).toLowerCase()
       if (group === 'bomb' || weapon.traits.some(trait => trait.toLowerCase() === 'bomb')
@@ -157,5 +169,5 @@ export function weaponFamiliarity(c: Character, weapon: ContentEntry, category: 
     expertise ||= !!rule.trained && c.feats.some(other => other.name === feat.name.replace('Familiarity', 'Expertise') && featTakenLevel(other) <= c.level)
     criticalSpecialization ||= (!rule.trained || feat.name === 'Vesk Weapon Familiarity') && c.level >= 5 && feat.name !== 'Jotunborn Weapon Familiarity'
   }
-  return { access, proficiency, trained, expertise, criticalSpecialization }
+  return { access, proficiency, trained, expertise, criticalSpecialization, pirateCriticalSpecialization }
 }

@@ -52,6 +52,13 @@ const LIVING_FLAME: ContentEntry = {
   data: { actions: 'Two Actions', url: 'https://2e.aonprd.com/Equipment.aspx?ID=3814' },
 }
 
+const HOLO_ROGER: ContentEntry = {
+  id: 'action:holo-roger', systems: ['sf2e'], kind: 'classFeature', source: 'official', name: 'Holo-Roger',
+  level: 2, traits: [], effects: [], updatedAt: 0,
+  description: 'Trigger: You roll initiative. Project your ship’s holo-flag for 1 minute and attempt to Demoralize one enemy within 30 feet that can see it. While projected on a starship, gain a +1 circumstance bonus to Intimidation checks to Demoralize.',
+  data: { actions: 'Free Action', url: 'https://2e.aonsrd.com/actions/189-holo-roger' },
+}
+
 function entrenchMeleeActive(c: SectionProps['c'], entries: SectionProps['entries']) {
   return ownedArmors(c, entries).some(armor => {
     if (!isBastionNamedArmor(armor.name) || !armor.entrenchMeleeActive || !armor.worn || armor.inheritorCloakRed) return false
@@ -96,6 +103,8 @@ export function StatusesSummary({ c, entries }: SectionProps) {
     ...(fulminatingShotBonus(c) ? [`Fulminating Shot (${fulminatingShotBonus(c)})`] : []),
     ...(purifyAirActive(c) ? ['Purify Air'] : []),
     ...(c.hardenFleshActive && activeFeatsNamed(c, 'Harden Flesh').length ? ['Harden Flesh'] : []),
+    ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Space Pirate Dedication').length
+      && c.holoRogerActive ? ['Holo-Roger'] : []),
     ...(c.activeSpells ?? []).flatMap(name => name === ANCESTRAL_AVATAR
       ? isAncestralEmbrace(wornArmor(c, entries)?.name) ? ['Avatar'] : []
       : [name]),
@@ -189,6 +198,17 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       ? [{ name: 'Devise a Stratagem', element: <DeviseAStratagemToggle c={c} save={save} /> }] : []),
     ...(hasHuntPrey(c, entries)
       ? [{ name: 'Hunt Prey', element: <HuntPreyToggle c={c} entries={entries} save={save} /> }] : []),
+    ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Space Pirate Dedication').length ? [{
+      name: 'Holo-Roger', element: <>
+        <input type="checkbox" aria-label="Holo-Roger status" checked={!!c.holoRogerActive}
+          onChange={event => save({ holoRogerActive: event.target.checked })} />{' '}
+        <EntryDescription name="Holo-Roger" entry={HOLO_ROGER} entries={entries} character={c} hideButtonActions />{' '}
+        <ActiveSpellActions name="Holo-Roger" entry={HOLO_ROGER}>
+          <label><input type="checkbox" aria-label="Holo-Roger active" checked={!!c.holoRogerActive}
+            onChange={event => save({ holoRogerActive: event.target.checked })} /> Active</label>
+        </ActiveSpellActions>
+      </>,
+    }] : []),
     ...(purifyAirAvailable(c) ? [{ name: 'Purify Air', element: <>
       <input type="checkbox" aria-label="Purify Air status" checked={purifyAirActive(c)}
         onChange={event => save({ familiar: { ...c.familiar, purifyAirActive: event.target.checked } })} />{' '}

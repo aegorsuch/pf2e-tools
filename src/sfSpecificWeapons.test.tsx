@@ -4,6 +4,7 @@ import { effectiveWeapon, featChoiceOptions, gearPickerEntries, weaponAttack } f
 import { isSpecificGear, WeaponList } from './GearSection'
 import { namedWeaponAbilities } from './namedWeapons'
 import { sfSpecificWeapons } from './sfSpecificWeapons'
+import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 
 const base: Character = {
@@ -120,4 +121,24 @@ it('displays Raptorial Edge with its phase cutlass type without changing saved i
   const html = renderToStaticMarkup(<WeaponList c={{ ...base, weapons: [blade] }} entries={entries} save={() => {}} />)
   expect(html).toContain('Raptorial Edge Phase Cutlass')
   expect(blade.name).toBe('Raptorial Edge')
+})
+
+it('automatically improves Raptorial Edge acid at level 15 and scales its weapon grade', () => {
+  const previous = getSettings().automaticSfWeaponUpgrades
+  const blade = owned('Raptorial Edge')
+  const acidNote = (level: number) => weaponAttack({ ...base, level }, entries, blade).additionalDamage
+    .find(damage => damage.source === 'Raptorial Edge')?.note
+  try {
+    updateSettings({ automaticSfWeaponUpgrades: true })
+    expect(acidNote(14)).toContain('1d10 persistent acid')
+    expect(acidNote(15)).toContain('2d10 persistent acid')
+    expect(acidNote(15)).toContain('ignores acid resistance')
+    expect(effectiveWeapon({ ...base, level: 16 }, entries, blade).name).toBe('Ultimate Raptorial Edge')
+    const html = renderToStaticMarkup(<WeaponList c={{ ...base, level: 15, weapons: [blade] }} entries={entries} save={() => {}} />)
+    expect(html).toMatch(/aria-label="Improved Raptorial Edge upgrade"[^>]*disabled=""[^>]*checked=""/)
+    updateSettings({ automaticSfWeaponUpgrades: false })
+    expect(acidNote(15)).toContain('1d10 persistent acid')
+    expect(weaponAttack({ ...base, level: 15 }, entries, { ...blade, raptorialImproved: true })
+      .additionalDamage.find(damage => damage.source === 'Raptorial Edge')?.note).toContain('2d10 persistent acid')
+  } finally { updateSettings({ automaticSfWeaponUpgrades: previous }) }
 })

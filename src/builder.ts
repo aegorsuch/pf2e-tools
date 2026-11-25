@@ -5136,6 +5136,11 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
     const level = Math.min(...activeFeatsNamed(c, name).map(featTakenLevel).filter(level => level < beforeLevel))
     return Number.isFinite(level) ? [{ skill: training.skill, level }] : []
   })
+  const pirate = c.systems.includes('sf2e') ? activeFeatsNamed(c, 'Space Pirate Dedication')
+    .find(feat => featTakenLevel(feat) < beforeLevel) : undefined
+  const pirateLevel = pirate && featTakenLevel(pirate)
+  const piratePrior = pirate ? ancestrySkillBefore(c, entries, c.feats.indexOf(pirate)).Piloting ?? 0 : 0
+  const pirateRank = pirate ? Math.min(2, piratePrior + 1) : 0
   const ancestral = activeFeatsNamed(c, 'Ancestral Skills').find(feat => featTakenLevel(feat) < beforeLevel)
   const ancestralLevel = ancestral && featTakenLevel(ancestral)
   const ancestrySkills = ancestral ? ancestralSkills(c, entries) : []
@@ -5147,7 +5152,7 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   const increases = new Set(skillIncreaseLevels(c).filter(level => level < beforeLevel))
   // Feat-granted ranks must precede skill increases spent at later levels.
   const levels = [...new Set([...increases, ...(scrapperLevel === undefined ? [] : [scrapperLevel]),
-    ...initiateGrants.map(grant => grant.level), ...(ancestralLevel === undefined ? [] : [ancestralLevel]),
+    ...initiateGrants.map(grant => grant.level), ...(pirateLevel === undefined ? [] : [pirateLevel]), ...(ancestralLevel === undefined ? [] : [ancestralLevel]),
     ...(longevityLevel === undefined ? [] : [longevityLevel]), ...educationSlots.map(slot => slot.level),
     ...ingenuitySlots.map(slot => slot.level), ...signiferSlots.map(slot => slot.level),
     ...backgroundSlots.map(slot => slot.level)])].sort((a, b) => a - b)
@@ -5184,6 +5189,7 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
       }
     }
     if (l === scrapperLevel) for (const [name, rank] of Object.entries(scrapperGrants)) ranks[name] = Math.max(ranks[name] ?? 0, rank)
+    if (l === pirateLevel) ranks.Piloting = Math.max(ranks.Piloting ?? 0, pirateRank)
     for (const grant of initiateGrants.filter(grant => grant.level === l)) ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, 2)
     if (l === ancestralLevel) for (const name of ancestrySkills) ranks[name] = Math.max(ranks[name] ?? 0, 1)
   }
@@ -5198,6 +5204,7 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
     }
   }
   for (const grant of initiateGrants) ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, 2)
+  if (pirate) ranks.Piloting = Math.max(ranks.Piloting ?? 0, pirateRank)
   for (const name of ancestrySkills) ranks[name] = Math.max(ranks[name] ?? 0, 1)
   for (const name of [
     ...autoSkills,
@@ -7914,6 +7921,10 @@ export function usesWeaponUpgrades(entry?: ContentEntry) {
     || /^Shobhad Longrifle(?: \(Starfinder\))?$/.test(entry.name))
 }
 
+export function raptorialEdgeImproved(c: Character, weapon: OwnedWeapon) {
+  return !!weapon.raptorialImproved || getSettings().automaticSfWeaponUpgrades && c.level >= 15
+}
+
 export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const entry = weaponEntry(entries, weapon.name, weapon.id)
   if (!getSettings().automaticSfWeaponUpgrades || !c.systems.includes('sf2e') || !entry) return []
@@ -8599,7 +8610,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ...(w.id !== 'mechanic:turret' && hasDivineIntercession(c, 'Pharasma', 'moderate-boon') ? [{ source: 'Pharasma (Moderate Boon)',
         value: '1 vitality vs. undead', note: 'Applies to your Strikes against undead.' }] : []),
       ...(entry?.data.raptorial_edge ? [{ source: 'Raptorial Edge', value: '1d6 acid',
-      note: `${upgrades.some(upgrade => upgrade.name === 'Merciful') ? 'Merciful suppresses persistent damage.' : `Critical hit: ${w.raptorialImproved ? '2d10' : '1d10'} persistent acid damage.`}${w.raptorialImproved ? ' Acid damage ignores acid resistance.' : ''}` }] : []),
+      note: `${upgrades.some(upgrade => upgrade.name === 'Merciful') ? 'Merciful suppresses persistent damage.' : `Critical hit: ${raptorialEdgeImproved(c, w) ? '2d10' : '1d10'} persistent acid damage.`}${raptorialEdgeImproved(c, w) ? ' Acid damage ignores acid resistance.' : ''}` }] : []),
       ...(dragonDamage ? [{ source: 'Draconic Rage', value: `${rageDamage} ${dragonDamage}`, note: 'Additional damage from Draconic Rage.' }] : []),
       ...(elementalDamage ? [{ source: 'Elemental Rage', value: `${rageDamage} ${elementalDamage}`, note: 'Additional damage from Elemental Rage.' }] : []), ...(formAttack ? [
       ...(formAttack.data.persistent_bleed && form
@@ -8654,6 +8665,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         && !traits.includes('parry') ? ['Parry'] : []),
       ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])].sort((a, b) => a.localeCompare(b)),
     criticalSpecialization: !formAttack && w.id !== venomousVeskJaws.id && (nephilimBrutality || hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization
+      || !!familiarity?.pirateCriticalSpecialization && rank >= 2
       || category === 'Unarmed' && activeFeatsNamed(c, 'Iruxi Unarmed Cunning').length > 0
       || c.level >= 5 && iruxiAttackIds.has(w.id) && activeFeatsNamed(c, 'Iruxi Armaments').length > 0
       || c.level >= 5 && veskAttacks.some(attack => attack.id === w.id) && activeFeatsNamed(c, 'Brutal Anatomy').length > 0

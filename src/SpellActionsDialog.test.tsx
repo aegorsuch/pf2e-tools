@@ -184,6 +184,38 @@ it('keeps Lashunta summon selection and status toggles in sync', async () => {
   }
 })
 
+it('tracks Holo-Roger and shows its conditional Demoralize bonus only while active', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const initial: Character = { id: 'pirate', name: 'Test', systems: ['sf2e'], level: 2,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Space Pirate Dedication', type: 'Archetype Feat', level: 2 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  function Sheet() {
+    const [c, setC] = useState(initial)
+    const save = (patch: Partial<Character>) => setC(previous => ({ ...previous, ...patch }))
+    return <><StatusesSummary c={c} entries={[]} save={save} /><StatusesContent c={c} entries={[]} save={save} />
+      <SkillsSection c={c} entries={[]} save={save} /></>
+  }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<Sheet />))
+    expect(container.querySelector('[aria-label="Holo-Roger options"] [aria-label="Free Action"]')).toBeTruthy()
+    expect(container.textContent).not.toContain('while the holo-flag is projected on a starship')
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Holo-Roger status"]')!.click())
+    expect(container.querySelector('summary')?.textContent).toContain('Holo-Roger')
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Holo-Roger active"]')?.checked).toBe(true)
+    expect(container.textContent).toContain('while the holo-flag is projected on a starship')
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Holo-Roger active"]')!.click())
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Holo-Roger status"]')?.checked).toBe(false)
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
 it('selects Animal Feature effects from statuses with the active Persistent Animal Feature feat', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {

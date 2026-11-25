@@ -68,6 +68,24 @@ it('applies Explosive Savant proficiency to bombs and firearms without granting 
   expect(weaponFamiliarity({ ...c, feats: [] }, equipmentBomb, 'Martial', entries).proficiency).toBeUndefined()
 })
 
+it('applies Space Pirate familiarity to named weapon families and razing modes at expert proficiency', () => {
+  const pirate: Character = { ...character, systems: ['sf2e'], level: 2,
+    feats: [{ name: 'Space Pirate Dedication', type: 'Archetype Feat', level: 2 }] }
+  const klass = { ...wizard, systems: ['sf2e'] as Character['systems'] }
+  const cutlass = { ...weapon('Advanced Phase Cutlass', 'Martial'), systems: ['sf2e'] as Character['systems'] }
+  const flail = { ...weapon('Electroflail', 'Advanced'), systems: ['sf2e'] as Character['systems'] }
+  const rapier = { ...weapon('Nano-Edge Rapier', 'Martial'), systems: ['sf2e'] as Character['systems'] }
+  const razing = { ...weapon('Razing Gun', 'Martial', ['Razing']), systems: ['sf2e'] as Character['systems'] }
+  const other = { ...weapon('Longsword', 'Martial'), systems: ['sf2e'] as Character['systems'] }
+  const entries = [klass, cutlass, flail, rapier, razing, other]
+  for (const item of [cutlass, rapier, razing])
+    expect(attack(pirate, item, entries)).toMatchObject({ rank: 2, criticalSpecialization: true })
+  expect(attack(pirate, flail, entries)).toMatchObject({ rank: 1, criticalSpecialization: false })
+  expect(attack(pirate, other, entries)).toMatchObject({ rank: 1, criticalSpecialization: false })
+  expect(attack({ ...pirate, level: 1 }, cutlass, entries).rank).toBe(1)
+  expect(attack({ ...pirate, systems: ['pf2e'] }, cutlass, entries).rank).toBe(1)
+})
+
 it('applies Starfinder ancestral weapon familiarity to elf bows, rapier, and elf-trait weapons', () => {
   const source: ContentEntry = { ...content('Ancestral Weapon Familiarity', 'feat', {}, ['Elf']), systems: ['sf2e'],
     description: 'You gain access to all uncommon weapons with your ancestry trait.\n\nOption(s): all bows or nano-edge rapier' }
