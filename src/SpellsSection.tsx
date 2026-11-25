@@ -34,7 +34,7 @@ import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
-const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Bless', 'Cairn Form', 'Eat Fire', 'Enduring Might', 'Fly', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Summon Celestial', 'Tailwind']
+const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Bless', 'Cairn Form', 'Eat Fire', 'Enduring Might', 'Fly', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Tailwind']
 const STATUS_TRACKED_SPELL_EFFECTS = [...AUTOMATED_SPELL_EFFECTS, 'Animal Feature', 'Canopy Crawler', 'Marvelous Mount', 'Speak with Plants', 'Warning Stripes']
 
 function PharasmaSpellBonus({ c, entry, name, rank }: { c: Character; entry?: ContentEntry; name: string; rank: number }) {

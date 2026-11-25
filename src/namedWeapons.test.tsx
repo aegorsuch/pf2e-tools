@@ -124,20 +124,20 @@ it.each([
 ] as const)("locks every Hunter's Dawn form to Peachwood and scales fundamentals at level %i", (level, potency, striking, grade) => {
   const item: ContentEntry = { ...winter, id: 'dawn', name: "Hunter's Dawn", level: 5,
    description: "Base Weapon Club. _Hunter's Dawn_ is a _+3 [greater striking](/Equipment.aspx?ID=280) [speed](/Equipment.aspx?ID=304) [ghost touch](/Equipment.aspx?ID=297) [club](/Weapons.aspx?ID=2)_. " }
-  const bases: ContentEntry[] = ['Club', 'Dart', 'Javelin'].map(name => ({
-    ...bow(name, false), data: { damage: '1d6 piercing', weapon_type: name === 'Club' ? 'Melee' : 'Ranged',
-      weapon_category: 'Simple', hands: 1, range: name === 'Club' ? 0 : 20 },
+  const bases: ContentEntry[] = ['Club', 'Cruuk', 'Dart', 'Javelin'].map(name => ({
+    ...bow(name, false), data: { damage: '1d6 piercing', weapon_type: ['Club', 'Cruuk'].includes(name) ? 'Melee' : 'Ranged',
+      weapon_category: 'Simple', hands: 1, range: ['Club', 'Cruuk'].includes(name) ? 0 : 20 },
   }))
   const entries = [item, ...bases, rune('Astral'), rune('Astral (Greater)'), rune('Ghost Touch'), rune('Returning')]
   const options = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === item.name)
-  expect(options.map(entry => entry.data.named_weapon_base)).toEqual(['Club'])
+  expect(options.map(entry => entry.data.named_weapon_base)).toEqual(['Club', 'Cruuk'])
   expect(namedWeaponBases(options[0])).toEqual(['Club', 'Dart', 'Javelin'])
   const forms = makeNamedWeaponEntries(entries, entries.filter(entry => entry.data.item_subcategory === 'Weapon Property Runes'))
     .filter(entry => entry.data.named_weapon_source === item.name && !entry.data.named_weapon_resolver_only)
-  expect(forms).toHaveLength(3)
+  expect(forms).toHaveLength(4)
   expect(forms.find(entry => entry.data.named_weapon_base === 'Dart')?.data.range).toBe(40)
   expect(forms.find(entry => entry.data.named_weapon_base === 'Club')?.description.toLowerCase()).toContain('ghost touch')
-  for (const form of forms.filter(entry => entry.data.named_weapon_base !== 'Club')) {
+  for (const form of forms.filter(entry => !['Club', 'Cruuk'].includes(String(entry.data.named_weapon_base)))) {
     expect(form.description).toContain('Returning')
     expect(form.description.toLowerCase()).not.toContain('ghost touch')
     expect(form.data.named_weapon_runes).toContain('Returning')
@@ -153,7 +153,7 @@ it.each([
       runes: expect.arrayContaining(['Flaming']),
     })
     expect(effective.runes).toContain(level >= 15 ? 'Astral (Greater)' : 'Astral')
-    if (entry.data.named_weapon_base === 'Club') {
+    if (['Club', 'Cruuk'].includes(String(entry.data.named_weapon_base))) {
       expect(effective.runes).toContain('Ghost Touch')
       expect(effective.runes).not.toContain('Returning')
     } else {

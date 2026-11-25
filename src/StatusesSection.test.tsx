@@ -371,11 +371,13 @@ it('toggles Summon Celestial status and tracks Summon Fiend with its active summ
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0, summonedFiend: fiend }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const entries = [lineage, feat, celestial]
-  const celestialToggle = findToggle(StatusesContent({ c, entries, save }), 'Summon Celestial status')
   const fiendToggle = findToggle(StatusesContent({ c, entries, save }), 'Summon Fiend status')
-  if (!celestialToggle || !fiendToggle) throw Error('Missing summon status toggle')
-  celestialToggle({ target: { checked: true } })
-  expect(c.activeSpells).toContain('Summon Celestial')
+  if (!fiendToggle) throw Error('Missing summon status toggle')
+  expect(findToggle(StatusesContent({ c, entries, save }), 'Summon Celestial status')).toBeUndefined()
+  c = { ...c, summonedFiend: { ...fiend, traits: ['Celestial'] } }
+  const celestialToggle = findToggle(StatusesContent({ c, entries, save }), 'Summon Celestial status')
+  if (!celestialToggle) throw Error('Missing celestial status toggle')
+  c = { ...c, summonedFiend: fiend }
   expect(renderToStaticMarkup(<StatusesSummary c={c} entries={entries} save={save} />)).toContain('Summon Fiend')
 })
 
