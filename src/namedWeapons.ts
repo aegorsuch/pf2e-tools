@@ -32,7 +32,7 @@ const BASES: Record<string, string[]> = {
   'Debilitating Dart': ['Dart'],
   "Freedom's Flame": ['Morningstar'],
   "Ghosthand's Comet": ["Ghosthand's Comet"],
-  "Hunter's Dawn": ['Club', 'War Gavel', 'Cruuk', 'Javelin'],
+  "Hunter's Dawn": ['Club', 'War Gavel', 'Gaff', 'Cruuk', 'Javelin'],
   'Kortos Diamond': ['Longsword'],
   'Lamentation of the Faithless': ['Greatsword'],
   "Meloth's Lifedrinker (Improved)": ['Longsword'],
@@ -45,7 +45,7 @@ const BASES: Record<string, string[]> = {
   "Spear of the Destroyer's Flame": ['Longspear'],
   'Whisperer of Souls': ['Glaive'],
 }
-const DAWN_MELEE_FORMS = ['Club', 'War Gavel', 'Cruuk']
+const DAWN_MELEE_FORMS = ['Club', 'War Gavel', 'Gaff', 'Cruuk']
 
 const ACTIONS: Record<string, { name: string; actions: string }[]> = {
   'Starday Night Special': [{ name: 'Lucky Bullet', actions: 'Free Action' }],
