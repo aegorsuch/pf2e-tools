@@ -9,7 +9,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { EquipmentSearch } from './EquipmentSearch'
 export { EquipmentSearch } from './EquipmentSearch'
 import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
-import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, boostSlots, deityLabel, warriorLegendWeakness } from './builder'
+import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, boostSlots, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, ownedArmors, warriorLegendWeakness } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { classArchetypeSlotViews, featSectionGrants, SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
@@ -46,6 +46,7 @@ import { getSettings } from './settings'
 import { arcaneThesisOptions, selectedArcaneThesis, type ArcaneThesis } from './arcaneTheses'
 import { fatalMethodOptions, selectedFatalMethod, type FatalMethod } from './fatalMethods'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
+import { GAUNTLET, HAFT_STRIKER_WEAPON, OVERSIZED_THROW } from './supplemental'
 
 const NONE: ContentEntry[] = []
 
@@ -869,7 +870,13 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Equipment</strong>
-          <span>{c.equipment.length + (effectiveHandwraps(c, entries) ? 1 : 0) + (c.augmentations?.length ?? 0) + pairedEmpathyBracelets.length} Items, {handsUsed}/{handLimit} Hands</span>
+          <span>{c.equipment.length + (effectiveHandwraps(c, entries) ? 1 : 0) + (c.augmentations?.length ?? 0) + pairedEmpathyBracelets.length
+            + (c.weapons ?? []).filter(weapon => !weapon.attachedTo && weapon.id !== GAUNTLET.id
+              && weapon.id !== OVERSIZED_THROW.id && weapon.id !== 'sf2e:soldier:offensive-defense'
+              && !weapon.id.startsWith('sf2e:solarian:') && weapon.name !== HAFT_STRIKER_WEAPON.name
+              && (!isLockedWeapon(c, weapon.name, entries, weapon.id) || isGrantedDwarfClanWeapon(c, entries, weapon))).length
+            + ownedArmors(c, entries).filter(armor => c.armors || !armor.id.startsWith('eq-')).length
+            + Number(!!c.shield)} Items, {handsUsed}/{handLimit} Hands</span>
         </summary>
         <DeferredContent>{() => <div className="character-section-content">
           <BulkLimits {...section} />

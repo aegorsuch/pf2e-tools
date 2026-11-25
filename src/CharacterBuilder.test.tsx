@@ -935,13 +935,51 @@ it('shows synced inventory counts and shared hand usage in Equipment and Offense
   try {
     const render = (character: Character) => renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
     const markup = render(c)
-    expect(markup).toContain('<strong>Equipment</strong><span>1 Items, 2/2 Hands</span>')
+    expect(markup).toContain('<strong>Equipment</strong><span>3 Items, 2/2 Hands</span>')
     expect(markup).toContain('<strong>Offense</strong><span>3 Weapons, 2/2 Hands</span>')
     const unequipped = render({ ...c, shield: { ...c.shield!, equipped: false } })
-    expect(unequipped).toContain('<strong>Equipment</strong><span>1 Items, 1/2 Hands</span>')
+    expect(unequipped).toContain('<strong>Equipment</strong><span>3 Items, 1/2 Hands</span>')
     expect(unequipped).toContain('<strong>Offense</strong><span>3 Weapons, 1/2 Hands</span>')
     const defense = markup.slice(markup.indexOf('<strong>Defense</strong>'), markup.indexOf('<strong>Deity</strong>'))
     expect(defense).toContain('aria-label="Equipped Steel Shield" checked=""')
+  } finally { content.entries = [] }
+})
+
+it('counts owned weapons and armor without counting attached or stance attacks', () => {
+  const c: Character = {
+    id: 'equipment-count', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    weapons: [
+      { id: 'w1', name: 'Sword', potency: 0, striking: 0, runes: [] },
+      { id: 'w2', name: 'Spear', potency: 0, striking: 0, runes: [] },
+      { id: 'attached:w1', name: 'Bayonet', attachedTo: 'w1', potency: 0, striking: 0, runes: [] },
+      { id: 'supplemental:haft-striker-stance', name: 'Haft Striker Stance', potency: 0, striking: 0, runes: [] },
+      { id: 'supplemental:fist', name: 'Fist', potency: 0, striking: 0, runes: [] },
+      { id: 'sf2e:solarian:solar-weapon', name: 'Solar Weapon', potency: 0, striking: 0, runes: [] },
+    ],
+    armors: [{ id: 'armor', name: 'Leather Armor', potency: 0, resilient: 0, runes: [], worn: true }],
+  }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  expect(markup).toContain('<strong>Equipment</strong><span>3 Items,')
+})
+
+it('does not count legacy equipment weapons and armor twice', () => {
+  content.entries = [
+    { id: 'legacy-sword', systems: ['pf2e'], kind: 'weapon', source: 'official', name: 'Sword',
+      level: 0, traits: [], description: '', data: { hands: 1 }, effects: [], updatedAt: 0 },
+    { id: 'legacy-armor', systems: ['pf2e'], kind: 'armor', source: 'official', name: 'Leather Armor',
+      level: 0, traits: [], description: '', data: { ac: 1 }, effects: [], updatedAt: 0 },
+  ]
+  const c: Character = {
+    id: 'legacy-equipment-count', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [{ name: 'Sword', qty: 1 }, { name: 'Leather Armor', qty: 1 }],
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  try {
+    expect(renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />))
+      .toContain('<strong>Equipment</strong><span>2 Items,')
   } finally { content.entries = [] }
 })
 
