@@ -89,6 +89,40 @@ it('opens Spirit of the Beast from its spell action and synchronizes companion a
   expect(c.companions?.[0].spiritAspect).toBeUndefined()
 })
 
+it('rolls animal companion attack and damage and marks the selected mount', () => {
+  const dog: ContentEntry = { id: 'dog', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Riding Dog',
+    level: 1, traits: ['Animal'], description: '', data: { size: 'Medium', hp: 8, strength: 3,
+      companion_attacks: 'Jaws|1d8 piercing|' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'mounted-dog', name: 'Test', systems: ['pf2e'], level: 4, className: 'Druid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Cavalier Dedication', type: 'Archetype Feat', level: 2 }],
+    companions: [{ id: 'dog', type: 'Riding Dog', name: 'Bristle' }], mountedCompanionId: 'dog',
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[dog]} save={() => {}} />)
+  expect(markup).toContain('Young Riding Dog (Bristle) (Mounted)')
+  expect(markup).toContain('aria-label="Roll Bristle Jaws: Attack"')
+  expect(markup).toContain('title="Single Action; Attack: 1d20+')
+  expect(markup).toContain('aria-label="Roll Bristle Jaws: Damage"')
+  expect(markup).toContain('title="Damage: 1d8+')
+  expect(markup).toContain('aria-label="Mounted on Bristle" checked=""')
+})
+
+it('opens Sinking Jaws details and rolls its flat piercing damage', () => {
+  const cat: ContentEntry = { id: 'cat', systems: ['pf2e'], kind: 'companion', source: 'official', name: 'Cat',
+    level: 1, traits: ['Animal'], description: '', data: { size: 'Small', hp: 6, strength: 2,
+      companion_attacks: 'Jaws|1d8 piercing|' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'sinking-jaws', name: 'Test', systems: ['pf2e'], level: 10,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Sinking Jaws', type: 'Archetype Feat', level: 10 }],
+    companions: [{ id: 'cat', type: 'Cat', name: 'Mittens' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[cat]} save={() => {}} />)
+  expect(markup).toContain('aria-label="Sinking Jaws details: Sinking Jaws"')
+  expect(markup).toContain('aria-label="Roll Sinking Jaws: Damage"')
+  expect(markup).toContain('title="Single Action; Damage: 12 piercing"')
+  expect(markup).toContain('This companion has a creature grabbed or restrained with its jaws or fangs')
+})
+
 it('grants saved followers and permits ancestry selection only with Leader of All', () => {
   const elf: ContentEntry = { id: 'elf', name: 'Elf', kind: 'ancestry', systems: ['pf2e'], source: 'official',
     level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 0 }
@@ -1059,7 +1093,7 @@ it('shows specific familiar grants alongside choices without removal controls an
   expect(html).toContain('aria-label="Single Action"')
   expect(html).toContain('<b>Critical Success</b>')
   expect(html).toContain('Rival Academies')
-  expect(html).toContain('Arcana +16, Society +16')
+  expect(html).toContain('<div>Arcana +16 (T)</div><div>Society +16 (T)</div>')
   expect(html).toContain('Scent (imprecise, 30 feet)')
   expect(html).toContain('Fly 25 feet')
   expect(html.match(/aria-label="Remove Familiar ability \d+"/g)).toHaveLength(5)
@@ -1250,7 +1284,7 @@ it('offers usable generic familiar abilities and applies Necromancer spellcastin
   findSelect(tree(), 'Undead familiar ability')?.({ target: { value: 'familiar:Skilled' } })
   expect(c.familiar?.abilities).toEqual(['Skilled'])
   findSelect(tree(), 'Undead familiar Skilled ability 1')?.({ target: { value: 'Occultism' } })
-  expect(renderToStaticMarkup(tree())).toContain('Occultism +15')
+  expect(renderToStaticMarkup(tree())).toContain('Occultism +15 (T)')
 })
 
 it('keeps saved trait-changing choices dormant and unavailable for an undead familiar', () => {

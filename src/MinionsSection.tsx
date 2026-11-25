@@ -3,7 +3,7 @@ import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, bardingOptions, companionItemName, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor,
   companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME, equippedBarding,
-  hasConstructInnovation, isBadgerCompanion, isCompanionEquipmentItem, minionFerocity, specializationOptions } from './companions'
+  hasCompanionMountOption, hasConstructInnovation, isBadgerCompanion, isCompanionEquipmentItem, minionFerocity, specializationOptions } from './companions'
 import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, languageGroups, magicHideChange, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, spellDCText, summonedMounts, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
 import { ActiveSpellActions, CompanionSpellOptions, ProtectCompanionOptions, SpiritOfTheBeastOptions } from './SpellsSection'
@@ -346,6 +346,18 @@ function companionTitle(c: Character, index: number) {
     ? companion.type === CONSTRUCT_COMPANION_NAME ? 'Advanced' : 'Mature'
     : companion.type === CONSTRUCT_COMPANION_NAME ? 'Prototype' : 'Young')
   return `${stage} ${companion.type}${companion.name && companion.name !== companion.type ? ` (${companion.name})` : ''}`
+    + (c.mountedCompanionId === companion.id ? ' (Mounted)' : '')
+}
+
+function companionStrikeDamage(expression: string) {
+  const dice = /^(\d+)d(\d+)([+-]\d+)?\s+(.+?)(?:\s+plus\s+(\d+)d(\d+)([+-]\d+)?\s+(.+))?$/i.exec(expression.trim())
+  if (dice) return {
+    label: 'Damage', dice: Number(dice[1]), sides: Number(dice[2]), bonus: Number(dice[3] ?? 0), type: dice[4],
+    ...(dice[5] ? { additional: { label: 'Additional damage', dice: Number(dice[5]), sides: Number(dice[6]),
+      bonus: Number(dice[7] ?? 0), type: dice[8] } } : {}),
+  }
+  const flat = /^([+-]?\d+)\s+(.+)$/.exec(expression.trim())
+  return flat ? { label: 'Damage', dice: 0, sides: 0, bonus: Number(flat[1]), type: flat[2] } : undefined
 }
 
 function SortedMinionSections({ children }: { children: ReactNode }) {
@@ -798,8 +810,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   description: `Once per hour: 30-foot cone, ${stats.primalHowl} sonic damage, basic Fortitude save against your spell DC; frightened 1 on a failure or frightened 2 on a critical failure. The fright is an emotion, fear, and mental effect.` }] : []),
               ].sort((a, b) => a.name.localeCompare(b.name))
               const statusControls = [
-                ...(['Cavalier Dedication', 'Mounted Parry', 'Mounted Shield', 'Born In The Saddle', 'Legendary Rider', 'Reckless Riding Lunge']
-                  .some(name => activeFeatsNamed(c, name).length) || stats?.mount ? [{ name: 'Mounted', element: <label><input type="checkbox"
+                ...(hasCompanionMountOption(c, stats?.mount) ? [{ name: 'Mounted', element: <label><input type="checkbox"
                   aria-label={`Mounted on ${comp.name || comp.type}`} checked={c.mountedCompanionId === comp.id}
                   onChange={event => save({ mountedCompanionId: event.target.checked ? comp.id : undefined,
                     ...(event.target.checked ? { mountedSummon: undefined } : {}) })} /> Mounted</label> }] : []),
@@ -960,9 +971,14 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                       <h5>Attacks{reach !== undefined && <> (Reach {reach} feet)
                         {stats.apex ? <SourceNote source="Apex Companion" note="Attacks have 15-foot reach; damage dice increase one step and gain Deadly d12." inlineSource={false} />
                           : enlargeNote && <SourceNote source="Enlarge Companion" note={enlargeNote} inlineSource={false} />}</>}</h5>
-                      {[...stats.attacks].sort((a, b) => a.name.localeCompare(b.name)).map(a => <div key={a.name} className="companion-action">
+                      {[...stats.attacks].sort((a, b) => a.name.localeCompare(b.name)).map(a => {
+                        const strikeName = `${comp.name || comp.type} ${a.name}`
+                        const strikeDamage = companionStrikeDamage(a.damage)
+                        return <div key={a.name} className="companion-action">
                         <div className="companion-action-title">
-                          <ActionIcon actions="Single Action" />
+                          <DamageRoll name={strikeName} damage={{ label: 'Attack', dice: 1, sides: 20, bonus: a.attack, type: '' }}
+                            actions="Single Action" toggleResult />
+                          {strikeDamage && <DamageRoll name={strikeName} damage={strikeDamage} toggleResult />}
                           <b>{a.name.replace(/\b\w/g, char => char.toUpperCase())}</b>{a.traits && <small>({formatTraitLabel(a.traits)})</small>}
                           <span>{signed(a.attack)}{a.dexterityBased && clumsyNote
                             && <SourceNote source="Enlarge Companion" note={clumsyNote} inlineSource={false} />}</span>
@@ -970,7 +986,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                             && <SourceNote source="Enlarge Companion" note={enlargeModifierNote} inlineSource={false} />}
                             {stats.apex && <SourceNote source="Apex Companion" note="Damage dice increase one step; Deadly d12." inlineSource={false} />}</span>
                         </div>
-                      </div>)}
+                      </div>})}
                   </section>}
                   {stats.stealthyCompanion && <div><small>Camouflage</small> In natural terrain, your companion can Hide and Sneak without cover or concealment.</div>}
                   <section className="companion-actions">
@@ -996,7 +1012,15 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   <CompanionEquipmentSlots c={c} companion={comp} entries={companionEntries} size={stats.size} save={save} />
                   {maneuvers.length > 0 && <section className="companion-actions">
                       <h5>Maneuvers</h5>
-                      {maneuvers.map(maneuver => <div key={maneuver.name} className="companion-action">
+                      {maneuvers.map(maneuver => {
+                        const maneuverEntry: ContentEntry | undefined = maneuver.name === 'Sinking Jaws' ? {
+                          id: 'beastmaster-maneuver:sinking-jaws', systems: c.systems, kind: 'feat', source: 'official',
+                          name: maneuver.name, level: c.level, traits: [], effects: [], updatedAt: 0,
+                          description: [maneuver.requirements && `Requirements: ${maneuver.requirements}`, maneuver.description]
+                            .filter(Boolean).join('\n\n'),
+                          data: { actions: maneuver.actions },
+                        } : undefined
+                        return <div key={maneuver.name} className="companion-action">
                         <div className="companion-action-title">
                           {maneuver.name === 'Badger Rage' && isBadgerCompanion(comp)
                             ? <ActiveSpellActions name={`Badger Rage (${comp.name || comp.type})`} actions={maneuver.actions}>
@@ -1005,16 +1029,19 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                                 onChange={event => update(comp.id, { badgerRageActive: event.target.checked })} /> Active</label>
                             </ActiveSpellActions>
                             : maneuver.damage ? <DamageRoll key={`${maneuver.damage.dice}d${maneuver.damage.sides}`}
-                            name={maneuver.name} damage={maneuver.damage} actions={maneuver.actions} toggleResult={maneuver.name === 'Primal Howl' || maneuver.name === 'Vicious Rend'} />
+                            name={maneuver.name} damage={maneuver.damage} actions={maneuver.actions}
+                            toggleResult={maneuver.name === 'Primal Howl' || maneuver.name === 'Vicious Rend' || maneuver.name === 'Sinking Jaws'} />
                             : maneuver.actions ? <ActionIcon actions={maneuver.actions} showOther />
                             : <small>Action cost unavailable</small>}
-                          <b>{maneuver.name}</b>{maneuver.traits && <small>({maneuver.traits})</small>}
+                          {maneuverEntry ? <EntryDescription name={maneuver.name} entry={maneuverEntry} entries={entries}
+                            character={c} buttonLabel="Sinking Jaws details" /> : <b>{maneuver.name}</b>}
+                          {maneuver.traits && <small>({maneuver.traits})</small>}
                         </div>
                         {maneuver.requirements && <p className="companion-action-requirements">
                           <strong>Requirements:</strong> {spellDCText(c, entries, maneuver.requirements)}
                         </p>}
                         <p className="companion-action-description">{spellDCText(c, entries, maneuver.description)}</p>
-                      </div>)}
+                      </div>})}
                   </section>}
                   <MinionFerocity c={c} ferocity={stats.ferocity} />
                   <section className="companion-actions">
@@ -1301,7 +1328,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             <h5>Senses</h5><div>{familiarEffects.senses.join(', ')}</div>
           </section>}
           {familiarEffects.skilled.length > 0 && <section className="companion-actions">
-            <h5>Skills</h5><div>{familiarEffects.skilled.map(skill => `${skill.skill} ${signed(skill.modifier)}`).join(', ')}</div>
+            <h5>Skills</h5>{familiarEffects.skilled.map(skill =>
+              <div key={skill.skill}>{skill.skill} {signed(skill.modifier)} (T)</div>)}
           </section>}
           {specificActions.length === 0 && specificSections.abilities.length > 0 && <section className="companion-actions">
             <h5>Actions</h5>{specificSections.abilities.map(text => <p key={text}>{text}</p>)}

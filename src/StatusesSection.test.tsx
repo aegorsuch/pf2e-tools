@@ -3,7 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, onTestFinished } from 'vitest'
 import { activeBattleForm, favoredTerrainBenefits, protectCompanionApplies, protectCompanionTarget, savingThrowBreakdown } from './builder'
 import { DeviseAStratagemToggle, HuntPreyToggle, StatusesContent, StatusesSummary } from './StatusesSection'
-import { ProtectCompanionOptions, ZealousConvictionToggle } from './SpellsSection'
+import { ProtectCompanionOptions, SpiritOfTheBeastOptions, ZealousConvictionToggle } from './SpellsSection'
+import { SearchableSelect } from './SearchableSelect'
 import { fulminatingShotBonus } from './fulminatingShot'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
@@ -29,6 +30,17 @@ function findButton(node: ReactNode, label: string): (() => void) | undefined {
       ? () => (child.props.onClick as (event: { preventDefault: () => void; stopPropagation: () => void }) => void)(
         { preventDefault() {}, stopPropagation() {} })
       : findButton(child.props.children as ReactNode, label)
+  })
+  return result
+}
+
+function findSelect(node: ReactNode, label: string): ((event: { target: { value: string } }) => void) | undefined {
+  let result: ((event: { target: { value: string } }) => void) | undefined
+  Children.forEach(node, child => {
+    if (result || !isValidElement<Record<string, unknown>>(child)) return
+    result = (child.type === 'select' || child.type === SearchableSelect) && child.props['aria-label'] === label
+      ? child.props.onChange as typeof result
+      : findSelect(child.props.children as ReactNode, label)
   })
   return result
 }
@@ -467,11 +479,12 @@ it('toggles Entrench Melee from Statuses and summarizes it while active', () => 
   const entries = [armor, fighter]
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const markup = renderToStaticMarkup(<StatusesContent c={c} entries={entries} save={save} />)
-  expect(markup).toContain('Entrench Melee</label>')
-  expect(markup).not.toContain('Entrench Melee: Immortal Bastion Plate</label>')
-  const change = findToggle(StatusesContent({ c, entries, save }), 'Entrench Melee: Immortal Bastion Plate status')
-  if (!change) throw Error('Missing Entrench Melee status toggle')
-  change({ target: { checked: true } })
+  expect(markup).toContain('aria-label="Entrench Melee details: Entrench Melee"')
+  expect(markup).toContain('a +2 circumstance bonus to AC against melee attacks until the start of your next turn')
+  expect(markup).toContain('aria-label="Entrench Melee action"')
+  expect(markup).toContain('aria-label="Single Action"')
+  expect(markup).not.toContain('Entrench Melee: Immortal Bastion Plate')
+  findButton(StatusesContent({ c, entries, save }), 'Entrench Melee action')!()
   expect(c.armors?.[0].entrenchMeleeActive).toBe(true)
   const summary = StatusesSummary({ c, entries, save })
   expect(renderToStaticMarkup(summary)).toContain('Entrench Melee')
@@ -492,11 +505,33 @@ it('toggles Parry with one control that includes its AC bonus', () => {
   const content = StatusesContent({ c, entries: [weapon], save })
   const markup = renderToStaticMarkup(content)
   expect(markup).toContain('aria-label="Parry (+2 AC)"')
-  expect(markup).toContain('>Parry (+2 AC)</button>')
+  expect(markup).toContain('aria-label="Single Action"')
+  expect(markup).toContain('Parry (+2 AC)</button>')
+  expect(markup).not.toContain('✓')
   expect(findToggle(content, 'Parry (+2 AC) status')).toBeUndefined()
   findButton(content, 'Parry (+2 AC)')!()
   expect(c.parrying).toBe(true)
-  expect(renderToStaticMarkup(StatusesContent({ c, entries: [weapon], save }))).toContain('aria-pressed="true"')
+  const activeMarkup = renderToStaticMarkup(StatusesContent({ c, entries: [weapon], save }))
+  expect(activeMarkup).toContain('aria-pressed="true"')
+  expect(activeMarkup).toContain('aria-hidden="true">✓</span>')
+})
+
+it('locks Parry on for Whirlwind Stance while wielding a parry staff', () => {
+  const stance: ContentEntry = { id: 'whirlwind', name: 'Whirlwind Stance', systems: ['pf2e'], kind: 'feat',
+    source: 'official', level: 10, traits: ['Archetype', 'Flourish', 'Stance'],
+    description: 'You gain a +2 circumstance bonus to AC while in this stance.', data: {}, effects: [], updatedAt: 0 }
+  const staff: ContentEntry = { id: 'staff', name: 'Bo Staff', systems: ['pf2e'], kind: 'weapon',
+    source: 'official', level: 1, traits: ['Parry'], description: '', data: { weapon_type: 'Melee', hands: 2 },
+    effects: [], updatedAt: 0 }
+  const c: Character = { id: 'whirlwind-status', name: 'Test', systems: ['pf2e'], level: 10,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: stance.name, type: 'Archetype Feat', level: 10 }], activeStance: stance.name,
+    weapons: [{ id: staff.id, name: staff.name, potency: 0, striking: 0, runes: [] }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<StatusesContent c={c} entries={[stance, staff]} save={() => {}} />)
+  expect(markup).toContain('aria-label="Parry (+2 AC)" aria-pressed="true" disabled=""')
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[stance, staff]} save={() => {}} />))
+    .toContain('Parry')
 })
 
 it('deactivates selected Statuses from the summary header', () => {
@@ -525,12 +560,52 @@ it('tracks Badger Rage in Statuses on Badger companions only', () => {
     companions: [{ id: 'badger', name: 'Bristle', type: 'Badger' }, { id: 'horse', name: 'Buddy', type: 'Horse' }] }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const content = StatusesContent({ c, entries: [], save })
-  expect(renderToStaticMarkup(content)).toContain('aria-label="Badger Rage on Bristle status"')
+  const markup = renderToStaticMarkup(content)
+  expect(markup).toContain('aria-label="Badger Rage on Bristle"')
+  expect(markup).toContain('aria-label="Single Action"')
+  expect(markup).toContain('Badger Rage</button>')
   expect(renderToStaticMarkup(content)).not.toContain('Badger Rage on Buddy')
-  findToggle(content, 'Badger Rage on Bristle status')!({ target: { checked: true } })
+  findButton(content, 'Badger Rage on Bristle')!()
   expect(c.companions?.[0].badgerRageActive).toBe(true)
   expect(c.companions?.[1].badgerRageActive).toBeUndefined()
-  expect(renderToStaticMarkup(StatusesSummary({ c, entries: [], save }))).toContain('Badger Rage (Bristle)')
+  const summary = StatusesSummary({ c, entries: [], save })
+  expect(renderToStaticMarkup(summary)).toContain('Badger Rage (Bristle)</button>')
+  findButton(summary, 'Badger Rage (Bristle)')!()
+  expect(c.companions?.[0].badgerRageActive).toBe(false)
+})
+
+it('shows Mounted and Spirit of the Beast in Statuses for eligible companions', () => {
+  const spell: ContentEntry = { id: 'spirit', name: 'Spirit of the Beast', kind: 'spell', systems: ['pf2e'],
+    source: 'official', level: 2, traits: ['Focus'], description: '', data: { actions: 'Single Action' }, effects: [], updatedAt: 0 }
+  let c: Character = { id: 'companion-statuses', name: 'Test', systems: ['pf2e'], level: 10,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Cavalier Dedication', type: 'Archetype Feat', level: 2 }],
+    spells: [{ name: spell.name, rank: 2, cantrip: false }],
+    companions: [{ id: 'bear', type: 'Bear', name: 'Bristle' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const entries = [spell]
+  const content = () => StatusesContent({ c, entries, save })
+  expect(renderToStaticMarkup(content())).toContain('aria-label="Mounted on Bristle"')
+  expect(renderToStaticMarkup(content())).toContain('aria-label="Spirit of the Beast aspect on Bristle"')
+  findToggle(content(), 'Mounted on Bristle')!({ target: { checked: true } })
+  expect(c.mountedCompanionId).toBe('bear')
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={entries} save={save} />))
+    .toContain('Mounted (Bristle)</button>')
+  findButton(StatusesSummary({ c, entries, save }), 'Mounted (Bristle)')!()
+  expect(c.mountedCompanionId).toBeUndefined()
+
+  expect(renderToStaticMarkup(SpiritOfTheBeastOptions({ c, save, companionId: 'bear' })))
+    .toContain('aria-label="Spirit of the Beast aspect on Bristle"')
+  findSelect(SpiritOfTheBeastOptions({ c, save, companionId: 'bear' }), 'Spirit of the Beast aspect on Bristle')!
+    ({ target: { value: 'Might' } })
+  expect(c.companions?.[0].spiritAspect).toBe('Might')
+  const summary = StatusesSummary({ c, entries, save })
+  expect(renderToStaticMarkup(summary)).toContain('Spirit of the Beast (Bristle: Aspect of Might)</button>')
+  findButton(summary, 'Spirit of the Beast (Bristle: Aspect of Might)')!()
+  expect(c.companions?.[0].spiritAspect).toBeUndefined()
+  expect(renderToStaticMarkup(StatusesContent({ c: { ...c, spells: [] }, entries, save })))
+    .not.toContain('Spirit of the Beast aspect on Bristle')
 })
 
 it('shows Heroism in Statuses with a clickable two-action icon', () => {

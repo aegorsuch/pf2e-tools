@@ -3546,7 +3546,8 @@ export function parryValue(c: Character, entries: ContentEntry[]) {
     !['Twin Parry', 'Twin Parry (Avenger)', 'Defensive Gunner'].includes(entry.name))
   const hasWeapon = hasParryWeapon(c, entries)
   if (!hasWeapon) return 0
-  const featBonus = featEntries.reduce((best, entry) => Math.max(best, parryBonusFromText(entry.description)), 0)
+  const featBonus = featEntries.filter(entry => entry.name !== 'Whirlwind Stance')
+    .reduce((best, entry) => Math.max(best, parryBonusFromText(entry.description)), 0)
   const raisedHaftBonus = activeFeatsNamed(c, 'Raise Haft').length > 0
     && ownedWeapons(c, entries).some(weapon => weaponEquipped(c, entries, weapon)
       && weaponHands(entries, weapon, c) === 2 && hasParryTrait(weaponEntry(entries, weapon.name, weapon.id))) ? 2 : 0
@@ -3574,8 +3575,16 @@ export function parryValue(c: Character, entries: ContentEntry[]) {
 export const twinnedDefenseActive = (c: Character, entries: ContentEntry[]) =>
   featDisplayName(activeStance(c, entries)) === 'Twinned Defense Stance' && twinParryValue(c, entries) > 0
 
+export const whirlwindStanceActive = (c: Character, entries: ContentEntry[]) =>
+  featDisplayName(activeStance(c, entries)) === 'Whirlwind Stance'
+  && ownedWeapons(c, entries).some(weapon => {
+    const entry = weaponEntry(entries, weapon.name, weapon.id)
+    return weaponEquipped(c, entries, weapon) && /\bstaff\b/i.test(entry?.name ?? weapon.name) && hasParryTrait(entry)
+  })
+
 export const parryBonus = (c: Character, entries: ContentEntry[]) =>
-  Math.max(c.parrying ? parryValue(c, entries) : 0, twinnedDefenseActive(c, entries) ? twinParryValue(c, entries) : 0)
+  Math.max(c.parrying ? parryValue(c, entries) : 0, twinnedDefenseActive(c, entries) ? twinParryValue(c, entries) : 0,
+    whirlwindStanceActive(c, entries) ? 2 : 0)
 
 const TRADITION_SKILLS = [['Arcane', 'Arcana'], ['Divine', 'Religion'], ['Occult', 'Occultism'], ['Primal', 'Nature']] as const
 const HOLD_MARK_SKILLS: Record<string, string> = {

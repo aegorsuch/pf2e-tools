@@ -30,6 +30,9 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
     }
     case "Scrounger's Glee":
       return rank >= 1 ? [{ label: 'Healing', dice: 1 + Math.floor((rank - 1) / 2), sides: 4, type: 'HP' }] : []
+    case 'Soothe':
+      return rank >= 1 && spellcastingModifier !== undefined
+        ? [{ label: 'Healing', dice: rank, sides: 10, bonus: spellcastingModifier, type: 'HP' }] : []
     case 'Verdant Code':
       return rank >= 2 ? [{ label: 'Damage', dice: 2, sides: 6, type: 'piercing' }] : []
     case 'Wall of Fire':
@@ -591,7 +594,7 @@ export function SpellActions({ name, rank, entry, spellcastingModifier, actionOv
   return rolls.length ? <>{[...groups].map(([actions, damages]) => damages.length > 1
     ? <MultipleDamageRoll key={actions} name={name} damages={damages} actions={actions} />
     : <DamageRoll key={actions} name={name} damage={damages[0]} actions={actions} toggleResult />)}</>
-    : <><ActionIcon entry={entry} />{rank >= 1 && spellcastingModifier === undefined && ['Ancient Dust', 'Torturous Trauma'].includes(name)
+    : <><ActionIcon entry={entry} />{rank >= 1 && spellcastingModifier === undefined && ['Ancient Dust', 'Soothe', 'Torturous Trauma'].includes(name)
       && <small role="status">Spellcasting modifier unavailable.</small>}</>
 }
 

@@ -29,6 +29,11 @@ export const isCompanionEquipmentItem = (entry: ContentEntry) =>
 
 export const isBadgerCompanion = (companion: { type: string }) => /^(?:Riding )?Badger$/i.test(companion.type.trim())
 
+const COMPANION_MOUNT_FEATS = ['Cavalier Dedication', 'Mounted Parry', 'Mounted Shield', 'Born In The Saddle',
+  'Legendary Rider', 'Reckless Riding Lunge']
+export const hasCompanionMountOption = (c: Character, nativeMount?: boolean) =>
+  !!nativeMount || COMPANION_MOUNT_FEATS.some(name => activeFeatsNamed(c, name).length > 0)
+
 const bardingCatalogs = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
 const bardingFamily = (name: string) => /^Barding(?: \((?:Light|Heavy)[^)]*\))?$/i.test(name)
   ? 'Barding' : name.replace(/^Greater (?=Anti-Dragon Barding$)/i, '')

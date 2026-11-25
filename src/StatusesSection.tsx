@@ -1,8 +1,8 @@
-import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, selectedFeatEntry, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, wornArmor, type SectionProps } from './builder'
+import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, selectedFeatEntry, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, whirlwindStanceActive, wornArmor, type SectionProps } from './builder'
 import { grantedFeatSpells } from './featSpells'
 import { FavoredTerrainSelector, HardenFleshToggle, RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
-import { ActiveSpellActions, automatedSpellStatusControls, ProtectCompanionOptions, SpellEffectActions, ZealousConvictionToggle } from './SpellsSection'
+import { ActiveSpellActions, automatedSpellStatusControls, ProtectCompanionOptions, SpiritOfTheBeastOptions, SpellEffectActions, ZealousConvictionToggle } from './SpellsSection'
 import { EntryDescription } from './EntryDescription'
 import { SimplePoisons } from './GearSection'
 import { isAncestralEmbrace, isBastionNamedArmor, isIncendiaryArmor, isMountainArmor, mountainPoisonImmunities } from './namedArmor'
@@ -14,7 +14,23 @@ import { PURIFY_AIR_DESCRIPTION, purifyAirActive, purifyAirAvailable } from './f
 import { summonSpellName } from './summonedFiends'
 import { Fragment } from 'react'
 import type { ContentEntry } from './types'
-import { isBadgerCompanion } from './companions'
+import { companionAdvancementFor, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_NAME,
+  hasCompanionMountOption, isBadgerCompanion } from './companions'
+import { ActionIcon } from './ActionIcon'
+
+const entrenchMeleeEntry = (bonus: number): ContentEntry => ({
+  id: `action:entrench-melee:${bonus}`, systems: ['pf2e'], kind: 'trait', source: 'official', name: 'Entrench Melee',
+  level: 0, traits: ['Entrench'], effects: [], updatedAt: 0, data: { actions: 'Single Action' },
+  description: `Spend a single action to gain a +${bonus} circumstance bonus to AC against melee attacks until the start of your next turn. Circumstance bonuses to AC do not stack.`,
+})
+
+const companionLabel = (companion: NonNullable<SectionProps['c']['companions']>[number]) =>
+  companion.name || companion.type
+const spiritAspectStatusName = (companion: NonNullable<SectionProps['c']['companions']>[number]) =>
+  companion.spiritAspect
+    ? `Spirit of the Beast (${companionLabel(companion)}: ${companion.spiritAspect === 'Alpha'
+      ? 'Aspect of the Alpha' : `Aspect of ${companion.spiritAspect}`})`
+    : undefined
 
 const canDeviseAStratagem = (c: SectionProps['c']) => c.systems.includes('pf2e') && c.className === 'Investigator'
 
@@ -83,7 +99,8 @@ function entrenchMeleeActive(c: SectionProps['c'], entries: SectionProps['entrie
 
 function defenseToggles(c: SectionProps['c'], entries: SectionProps['entries']) {
   const shield = equippedShield(c)
-  const parry = parryValue(c, entries)
+  const whirlwind = whirlwindStanceActive(c, entries)
+  const parry = whirlwind ? 2 : parryValue(c, entries)
   const boneShield = boneShieldActive(c)
   return {
     shield, parry, boneShield,
@@ -91,7 +108,7 @@ function defenseToggles(c: SectionProps['c'], entries: SectionProps['entries']) 
       : shield && isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raise Shield',
     cantrip: knowsSpell(c, entries, 'Shield'),
     parryWeapon: hasParryWeapon(c, entries),
-    stanceParry: twinnedDefenseActive(c, entries),
+    stanceParry: twinnedDefenseActive(c, entries) || whirlwind,
   }
 }
 
@@ -113,6 +130,10 @@ export function StatusesSummary({ c, entries, save }: SectionProps) {
       ? [`Poison Weapon ${poisonTotal - poisonSpent}/${poisonTotal}${c.poisonWeaponActive ? ' (active)' : ''}`] : []),
     ...(c.companions ?? []).filter(companion => isBadgerCompanion(companion) && companion.badgerRageActive)
       .map(companion => `Badger Rage (${companion.name || companion.type})`),
+    ...(c.companions ?? []).filter(companion => companion.id === c.mountedCompanionId)
+      .map(companion => `Mounted (${companionLabel(companion)})`),
+    ...(knowsSpell(c, entries, 'Spirit of the Beast')
+      ? (c.companions ?? []).flatMap(companion => spiritAspectStatusName(companion) ?? []) : []),
     ...(entrenchMeleeActive(c, entries) ? ['Entrench Melee'] : []),
     ...(mountainPoisonImmunities(c).length ? ['Poison Immunity'] : []),
     ...((c.armors ?? []).some(armor => isIncendiaryArmor(armor.name) && armor.livingFlameActive) ? ['Living Flame'] : []),
@@ -143,6 +164,15 @@ export function StatusesSummary({ c, entries, save }: SectionProps) {
       : name === 'Entrench Melee'
         ? () => save({ armors: ownedArmors(c, entries).map(armor => armor.entrenchMeleeActive
           ? { ...armor, entrenchMeleeActive: false } : armor) })
+        : name.startsWith('Badger Rage (')
+          ? () => save({ companions: c.companions?.map(companion =>
+            `Badger Rage (${companion.name || companion.type})` === name
+              ? { ...companion, badgerRageActive: false } : companion) })
+        : name.startsWith('Mounted (')
+          ? () => save({ mountedCompanionId: undefined })
+        : name.startsWith('Spirit of the Beast (')
+          ? () => save({ companions: c.companions?.map(companion =>
+            spiritAspectStatusName(companion) === name ? { ...companion, spiritAspect: undefined } : companion) })
         : name === 'Tenacious Stance' ? () => save({ activeStance: undefined }) : undefined
     if (!toggle) return name
     return <button type="button" className="status-header-toggle" aria-label={name} aria-pressed="true"
@@ -181,6 +211,12 @@ export function HuntPreyToggle({ c, entries, save, summary = false }: SectionPro
 
 export function StatusesContent({ c, entries, save }: SectionProps) {
   const defense = defenseToggles(c, entries)
+  const companionStatuses = (c.companions ?? []).map((companion, index) => {
+    const advancement = companion.type === CONSTRUCT_COMPANION_NAME
+      ? constructCompanionAdvancement(c) : companionAdvancementFor(c, index)
+    const stats = companionStats(c, entries, companion.type, advancement, companion.id)
+    return { companion, mountable: hasCompanionMountOption(c, stats?.mount) }
+  })
   const grant = grantedFeatSpells(c, entries).find(spell => spell.source === 'Heroic Presence')
   const summonedUndead = c.summonedUndead
   const summonedFiend = c.summonedFiend
@@ -245,19 +281,27 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
     </> }] : []),
     ...(activeFeatsNamed(c, 'Harden Flesh').length
       ? [{ name: 'Harden Flesh', element: <HardenFleshToggle c={c} save={save} /> }] : []),
+    ...companionStatuses.filter(status => status.mountable).map(({ companion }) => ({
+      name: `Mounted (${companionLabel(companion)})`,
+      element: <label><input type="checkbox" aria-label={`Mounted on ${companionLabel(companion)}`}
+        checked={c.mountedCompanionId === companion.id}
+        onChange={event => save({ mountedCompanionId: event.target.checked ? companion.id : undefined,
+          ...(event.target.checked ? { mountedSummon: undefined } : {}) })} /> Mounted</label>,
+    })),
+    ...(knowsSpell(c, entries, 'Spirit of the Beast') ? companionStatuses.map(({ companion }) => ({
+      name: `Spirit of the Beast (${companionLabel(companion)})`,
+      element: <SpiritOfTheBeastOptions c={c} save={save} companionId={companion.id} />,
+    })) : []),
     ...(c.companions ?? []).filter(isBadgerCompanion).map(companion => {
       const name = companion.name || companion.type
       const active = !!companion.badgerRageActive
       const toggle = (checked: boolean) => save({ companions: c.companions?.map(current => current.id === companion.id
         ? { ...current, badgerRageActive: checked } : current) })
-      return { name: `Badger Rage (${name})`, element: <>
-        <input type="checkbox" aria-label={`Badger Rage on ${name} status`} checked={active}
-          onChange={event => toggle(event.target.checked)} />{' '}
-        <ActiveSpellActions name={`Badger Rage (${name})`} actions="Single Action">
-          <label><input type="checkbox" aria-label={`Badger Rage on ${name} active`} checked={active}
-            onChange={event => toggle(event.target.checked)} /> Active</label>
-        </ActiveSpellActions>
-      </> }
+      return { name: `Badger Rage (${name})`, element: <button type="button"
+        className="spell-action-button status-action-button" aria-label={`Badger Rage on ${name}`}
+        aria-pressed={active} onClick={() => toggle(!active)}>
+        {active && <span aria-hidden="true">✓</span>}<ActionIcon actions="Single Action" /> Badger Rage
+      </button> }
     }),
     ...(ancestralAvatarAvailable ? [{ name: 'Avatar', element: <>
       <input type="checkbox" aria-label="Avatar status" checked={ancestralAvatarActive}
@@ -274,14 +318,20 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       <EntryDescription name="Untamed Shift" entry={shiftEntry} entries={entries} character={c} />{' '}
       <SpellEffectActions c={c} entries={entries} save={save} entry={shiftEntry} name="Untamed Shift" />
     </> }] : []),
-    ...(entrenchArmors.length ? [{ name: 'Entrench Melee', element: <div>{entrenchArmors.map(armor => {
+    ...(entrenchArmors.length ? [{ name: 'Entrench Melee', element: <div className="status-action-group">{entrenchArmors.map(armor => {
       const entry = armorEntry(c, entries, armor.name, armor.id)
       const disabled = !armor.worn || !entry || !armorProficiencyRank(c, entries, entry) || !!armor.inheritorCloakRed
-      return <label key={armor.id}><input type="checkbox" aria-label={`Entrench Melee: ${armor.name} status`}
-        checked={!!armor.entrenchMeleeActive} disabled={disabled}
-        onChange={event => save({ armors: ownedArmors(c, entries).map(current => current.id === armor.id
-          ? { ...current, entrenchMeleeActive: event.target.checked } : current) })} />
-        {' '}Entrench Melee</label>
+      const active = !!armor.entrenchMeleeActive
+      const bonus = armor.name === 'Immortal Bastion Plate' ? 2 : 1
+      const update = () => save({ armors: ownedArmors(c, entries).map(current => current.id === armor.id
+        ? { ...current, entrenchMeleeActive: !active } : current) })
+      return <div key={armor.id} className="status-action-group">
+        <EntryDescription name="Entrench Melee" entry={entrenchMeleeEntry(bonus)} buttonLabel="Entrench Melee details" />
+        <button type="button" className="spell-action-button status-action-button"
+          aria-label="Entrench Melee action" aria-pressed={active} disabled={disabled} onClick={update}>
+          {active && <span aria-hidden="true">✓</span>}<ActionIcon actions="Single Action" /> Entrench Melee
+        </button>
+      </div>
     })}</div> }] : []),
     ...(mountainArmors.length ? [{ name: 'Poison Immunity', element: <div>{mountainArmors.map(armor => {
       const active = !!armor.mountainPoisonImmunityActive
@@ -367,10 +417,11 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
         checked={isSpellActive(c, entries, 'Shield')}
         onChange={event => save(spellActiveChange(c, 'Shield', event.target.checked))} /> Raise Shield Cantrip (+1 AC)</label> }] : []),
     ...(defense.parryWeapon && defense.parry > 0 ? [{ name: 'Parry', element: <button type="button"
-      className="spell-action-button status-parry-button" aria-label={`Parry (+${defense.parry} AC)`}
+      className="spell-action-button status-action-button" aria-label={`Parry (+${defense.parry} AC)`}
       aria-pressed={!!c.parrying || defense.stanceParry} disabled={defense.stanceParry}
       onClick={() => { if (!defense.stanceParry) save({ parrying: !c.parrying }) }}>
-      Parry (+{defense.parry} AC)</button> }] : []),
+      {(c.parrying || defense.stanceParry) && <span aria-hidden="true">✓</span>}
+      <ActionIcon actions="Single Action" /> Parry (+{defense.parry} AC)</button> }] : []),
     ...(['enfeebled', 'frightened', 'sickened', 'doomed'] as const).map(name => ({
       name, element: <span>
         <EntryDescription name={name[0].toUpperCase() + name.slice(1)} entry={conditionEntry(name)} entries={entries} character={c} />{' '}

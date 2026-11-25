@@ -1368,6 +1368,28 @@ it.each([['Heal Companion', 10], ['Heal Animal', 8]] as const)('scales both %s a
   }
 })
 
+it('rolls Soothe healing from its two-action button', () => {
+  const entry: ContentEntry = { id: 'soothe', name: 'Soothe', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions', tradition: 'Occult' },
+    effects: [], updatedAt: 1 }
+  const damage = { label: 'Healing', dice: 3, sides: 10, bonus: 4, type: 'HP' }
+  expect(spellDamage('Soothe', 3, 4)).toEqual([damage])
+  expect(spellActionRolls('Soothe', 3, entry, 4)).toEqual([{ damage, actions: 'Two Actions' }])
+  const markup = renderToStaticMarkup(<SpellActions name="Soothe" rank={3} entry={entry} spellcastingModifier={4} />)
+  expect(markup).toContain('aria-label="Roll Soothe: Healing"')
+  expect(markup).toContain('title="Two Actions; Healing: 3d10+4 HP"')
+
+  const setResult = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, setResult])
+  const button = Children.toArray(DamageRoll({ name: 'Soothe', damage, actions: 'Two Actions', toggleResult: true }).props.children)
+    .find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw Error('Missing Soothe healing roll')
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  button.props.onClick()
+  expect(Math.random).toHaveBeenCalledTimes(3)
+  expect(setResult).toHaveBeenCalledWith(7)
+})
+
 it('renders rank-scaled rollers beside owned spells and omits unavailable spell damage', () => {
   const c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Test', level: 19, className: 'Ranger',

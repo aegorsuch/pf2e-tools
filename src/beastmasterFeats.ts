@@ -46,7 +46,7 @@ export function beastmasterRequirementMissing(c: Character, entries: ContentEntr
 }
 
 export type BeastmasterManeuver = { name: string; actions: string; traits?: string; requirements?: string; description: string
-  damage?: { label: string; dice: number; sides: number; type: string } }
+  damage?: { label: string; dice: number; sides: number; type: string; bonus?: number } }
 
 // Activities and passive abilities the companion gains from Beastmaster feats it qualifies for
 export function beastmasterAbilities(c: Character, level: number, strength: number, specialized: boolean, companion: CompanionShape) {
@@ -55,6 +55,7 @@ export function beastmasterAbilities(c: Character, level: number, strength: numb
   const maneuvers: BeastmasterManeuver[] = []
   if (has('Sinking Jaws')) maneuvers.push({ name: 'Sinking Jaws', actions: 'Single Action',
     requirements: 'This companion has a creature grabbed or restrained with its jaws or fangs',
+    damage: { label: 'Damage', dice: 0, sides: 0, bonus: level + strength, type: 'piercing' },
     description: `This companion's grabbed or restrained foe takes ${level + strength} piercing damage (the companion's level plus its Strength modifier).` })
   if (has('Sweeping Tail')) maneuvers.push({ name: 'Sweeping Tail', actions: 'Two Actions',
     description: 'This companion makes two tail Strikes against different creatures within its reach, increasing its multiple attack penalty as normal. On a hit, it pushes a target back 5 feet or 10 feet on a critical hit. This is forced movement.' })

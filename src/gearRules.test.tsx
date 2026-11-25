@@ -17,7 +17,7 @@ import { fetchAonHits } from './aonQuery'
 import { mapAonHit, mapAonHits } from './aon'
 import pf2eSnapshot from '../public/data/aon-pf2e.json?raw'
 import type { Character, ContentEntry, HardlightGrade, OwnedWeapon } from './types'
-import { parryBonus, ringCapacity, ringCount, twinnedDefenseActive } from './builder'
+import { parryBonus, ringCapacity, ringCount, twinnedDefenseActive, whirlwindStanceActive } from './builder'
 import { canBeGiantWeapon, giantWeaponClumsy, isGiantWeapon, tradecraftTattooBonus } from './builder'
 import { GRAPPLING_MODULE, PARRYING_RUNE, SHOVING_MODULE } from './supplemental'
 import { groupHomebrew } from './HomebrewList'
@@ -3405,6 +3405,21 @@ it.each([
     expect(parryBonus({ ...c, weapons: [...c.weapons!, { id: 'sword', name: sword.name, potency: 0, striking: 0, runes: [] }] },
       [...entries, sword])).toBe(2)
   } finally { updateSettings(previous) }
+})
+
+it('locks Whirlwind Stance Parry on only while wielding a staff with the Parry trait', () => {
+  const stance = { ...content('feat', 'Whirlwind Stance', {}, 10, ['Archetype', 'Flourish', 'Stance']),
+    description: 'You gain a +2 circumstance bonus to AC while in this stance.' }
+  const staff = content('weapon', 'Bo Staff', { weapon_category: 'Simple', hands: 2, weapon_type: 'Melee' }, 1, ['Parry'])
+  const c: Character = { ...base, level: 10, activeStance: stance.name,
+    feats: [feat(stance.name, 10)], weapons: [{ id: 'staff', name: staff.name, potency: 0, striking: 0, runes: [] }] }
+  const entries = [stance, staff]
+  expect(whirlwindStanceActive(c, entries)).toBe(true)
+  expect(parryBonus(c, entries)).toBe(2)
+  expect(armorClass(c, entries) - armorClass({ ...c, activeStance: undefined }, entries)).toBe(2)
+  expect(parryBonus({ ...c, activeStance: undefined, parrying: true }, entries)).toBe(1)
+  expect(whirlwindStanceActive({ ...c, weapons: [{ ...c.weapons![0], stowed: true }] }, entries)).toBe(false)
+  expect(whirlwindStanceActive(c, [stance, { ...staff, traits: [] }])).toBe(false)
 })
 
 it('scales ring capacity with fingered hands, not prehensile tails, and counts quantities', () => {

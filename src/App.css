@@ -761,7 +761,8 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .spell-title > button, .spellbook-slot > button { font: inherit; padding: 0.1rem 0.2rem; }
 .spell-title label { white-space: nowrap; }
 .spell-action-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; min-width: 32px; min-height: 32px; padding: 0.1rem 0.2rem; font: inherit; vertical-align: middle; }
-.status-parry-button[aria-pressed='true'] { background: var(--accent, #7c6cf0); color: #fff; }
+.status-action-button[aria-pressed='true'] { background: var(--accent, #7c6cf0); color: #fff; }
+.status-action-group { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
 .status-header-toggle { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 0.15em; cursor: pointer; }
 .spell-title > button, .spell-title .spell-action-button, .spellbook-slot > button,
 .spellbook-slot > .rune > button, .spellbook-slot .spell-action-button { min-height: 2.5rem; }

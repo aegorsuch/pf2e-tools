@@ -802,6 +802,8 @@ describe('animal companions', () => {
     const stats = companionStats(owned, [bear], 'Bear', undefined, 'a')!
     expect(stats.beastmasterManeuvers.map(m => m.name)).toEqual(['Sinking Jaws'])
     expect(stats.beastmasterManeuvers[0].description).toContain(`${10 + stats.mods.str} piercing`)
+    expect(stats.beastmasterManeuvers[0].damage).toEqual({ label: 'Damage', dice: 0, sides: 0,
+      bonus: 10 + stats.mods.str, type: 'piercing' })
   })
 
   it('adds Pack Movement, Heightened Instincts and Call Companion notes', () => {
