@@ -175,7 +175,7 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
           .replace(/\bghost touch\b/gi, 'Astral')
         if (item.name !== "Hunter's Dawn") return text
         const astral = text.replace(/\[speed\]\(\/Equipment\.aspx\?ID=\d+\)/i, '[Astral](/Equipment.aspx?ID=2832)')
-        return DAWN_MELEE_FORMS.includes(base.name) ? astral : astral.replace(/\[ghost touch\]\([^)]+\)/i, 'Returning')
+        return astral.replace(/\[ghost touch\]\([^)]+\)/i, 'Returning')
       }
       const common = replaceDawnRunes(rawCommon)
       const section = replaceDawnRunes(rawSection)
@@ -186,7 +186,7 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
         ...(item.name === 'Scalding Gauntlets' ? ['Free-Hand'] : []),
         ...item.traits].map(trait => [trait.toLowerCase(), trait])).values()]
       const fixedRunes = fixed.named_weapon_runes.split(';').filter(Boolean)
-      const formRunes = item.name === "Hunter's Dawn" && !DAWN_MELEE_FORMS.includes(base.name)
+      const formRunes = item.name === "Hunter's Dawn"
         ? [...new Set([...fixedRunes.filter(rune => runeBase(rune) !== 'Ghost Touch'), 'Returning'])].join(';')
         : fixed.named_weapon_runes
       const data: ContentEntry['data'] = { ...base.data, url: item.data.url ?? '', sourceBook: item.data.sourceBook ?? '',

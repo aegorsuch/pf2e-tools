@@ -136,8 +136,7 @@ it.each([
     .filter(entry => entry.data.named_weapon_source === item.name && !entry.data.named_weapon_resolver_only)
   expect(forms).toHaveLength(4)
   expect(forms.find(entry => entry.data.named_weapon_base === 'Dart')?.data.range).toBe(40)
-  expect(forms.find(entry => entry.data.named_weapon_base === 'Club')?.description.toLowerCase()).toContain('ghost touch')
-  for (const form of forms.filter(entry => !['Club', 'Cruuk'].includes(String(entry.data.named_weapon_base)))) {
+    for (const form of forms) {
     expect(form.description).toContain('Returning')
     expect(form.description.toLowerCase()).not.toContain('ghost touch')
     expect(form.data.named_weapon_runes).toContain('Returning')
@@ -153,13 +152,8 @@ it.each([
       runes: expect.arrayContaining(['Flaming']),
     })
     expect(effective.runes).toContain(level >= 15 ? 'Astral (Greater)' : 'Astral')
-    if (['Club', 'Cruuk'].includes(String(entry.data.named_weapon_base))) {
-      expect(effective.runes).toContain('Ghost Touch')
-      expect(effective.runes).not.toContain('Returning')
-    } else {
-      expect(effective.runes).toContain('Returning')
-      expect(effective.runes).not.toContain('Ghost Touch')
-    }
+    expect(effective.runes).toContain('Returning')
+    expect(effective.runes).not.toContain('Ghost Touch')
     expect(effectiveWeapon(character, entries, weapon)?.runes).not.toContain('Quickstrike')
     const markup = renderToStaticMarkup(<WeaponList c={character} entries={entries} save={() => {}} />)
     expect(markup).toContain(`>Peachwood (${grade}-Grade)</button>`)
