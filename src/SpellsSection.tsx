@@ -1,6 +1,6 @@
 import { EntryDescription } from './EntryDescription'
 import { confirmRemoval } from './confirmRemoval'
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeBattleForm, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, investigatorMethodologies, isMagicHideActive, isSpellActive, knowsSpell, magicHideChange, proficiencyBonus, protectCompanionTarget, protectCompanionTargets, rogueRackets, signed, spellActiveChange, spellRemovalChange, untamedShiftChoices, type SectionProps } from './builder'
 import { ANIMAL_FEATURES, PERSISTENT_SPELLS } from './supplemental'
 import type { Character, ContentEntry } from './types'
@@ -465,13 +465,17 @@ export function ShirrenAllyToggle({ c, save }: Pick<SectionProps, 'c' | 'save'>)
   </label>
 }
 
-export function LashuntaAllyOptions({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
+export function LashuntaAllyOptions({ c, save, confirmDismiss = false }: Pick<SectionProps, 'c' | 'save'> & { confirmDismiss?: boolean }) {
   return <label>Summoned creature{' '}
     <select aria-label="Creature Ally summoned creature" value={c.lashuntaCreatureAlly ?? ''} onChange={event => {
       const value = event.target.value
       if (value !== '' && value !== 'Shotalashu' && value !== 'Squox') return
-      save({ lashuntaCreatureAlly: value || undefined,
+      const select = () => save({ lashuntaCreatureAlly: value || undefined,
+        ...(value ? { lashuntaCreatureAllyChoice: value } : {}),
         ...(c.mountedSummon?.startsWith('ally:') && c.mountedSummon !== `ally:${value}` ? { mountedSummon: undefined } : {}) })
+      if (confirmDismiss && c.lashuntaCreatureAlly && c.lashuntaCreatureAlly !== value)
+        confirmRemoval(`summoned ${c.lashuntaCreatureAlly}`, select)
+      else select()
     }}>
       <option value="">None</option>
       <option>Shotalashu</option>
@@ -855,14 +859,14 @@ export function SpiritOfTheBeastOptions({ c, save, companionId, disabled }: Pick
   </label>)}</div>
 }
 
-export function ActiveSpellActions({ name, entry, rank, actions: actionOverride, children }: {
-  name: string; entry?: ContentEntry; rank?: number; actions?: string; children: ReactNode
+export function ActiveSpellActions({ name, entry, rank, actions: actionOverride, children, buttonRef }: {
+  name: string; entry?: ContentEntry; rank?: number; actions?: string; children: ReactNode; buttonRef?: RefObject<HTMLButtonElement | null>
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const actions = actionOverride ?? (typeof entry?.data.actions === 'string' ? entry.data.actions : '')
   return <>
-    <button type="button" className="spell-action-button" aria-label={`${name} options`} aria-haspopup="dialog"
+    <button ref={buttonRef} type="button" className="spell-action-button" aria-label={`${name} options`} aria-haspopup="dialog"
       onClick={() => { dialog.current?.showModal(); dialog.current?.querySelector('h4')?.focus() }}>
       {actions ? <ActionIcon actions={actions} showOther /> : 'Options'}
     </button>
@@ -874,6 +878,45 @@ export function ActiveSpellActions({ name, entry, rank, actions: actionOverride,
       <p>{entry?.description || 'Description unavailable. Sync Archives of Nethys content to load it.'}</p>
       <form method="dialog"><button autoFocus>Close</button></form>
     </dialog>
+  </>
+}
+
+function SummonAnimalStatus({ c, save, entry, name, specialAlly }: Pick<SectionProps, 'c' | 'save'> & {
+  entry?: ContentEntry; name: ReactNode; specialAlly: boolean
+}) {
+  const action = useRef<HTMLButtonElement>(null)
+  const lashunta = specialAlly && c.ancestry === 'Lashunta'
+  const vesk = specialAlly && c.ancestry === 'Vesk'
+  const shirren = specialAlly && c.ancestry === 'Shirren'
+  const active = lashunta ? !!c.lashuntaCreatureAlly : vesk ? !!c.creatureAllyActive
+    : shirren ? !!c.shirrenCreatureAllyActive : !!c.activeSpells?.includes('Summon Animal')
+  const setActive = (next: boolean) => {
+    if (lashunta && next && !c.lashuntaCreatureAllyChoice && !c.lashuntaCreatureAlly) {
+      action.current?.click()
+      return
+    }
+    const change = () => {
+      if (lashunta) {
+        save({ lashuntaCreatureAlly: next ? c.lashuntaCreatureAlly ?? c.lashuntaCreatureAllyChoice : undefined,
+          ...(!next ? { lashuntaCreatureAllyChoice: c.lashuntaCreatureAlly,
+            ...(c.mountedSummon?.startsWith('ally:') ? { mountedSummon: undefined } : {}) } : {}) })
+      } else if (vesk || shirren) {
+        save({ ...(vesk ? { creatureAllyActive: next } : { shirrenCreatureAllyActive: next }),
+          ...(!next && c.mountedSummon === (vesk ? 'ally:Caypin' : 'ally:Emganat') ? { mountedSummon: undefined } : {}) })
+      } else save(spellActiveChange(c, 'Summon Animal', next))
+    }
+    if (!next && specialAlly) confirmRemoval(`summoned ${lashunta ? c.lashuntaCreatureAlly : vesk ? 'Caypin' : 'Kucharn'}`, change)
+    else change()
+  }
+  const toggle = (label: string, disabled = false) => <input type="checkbox" aria-label={label} checked={active} disabled={disabled}
+    onChange={event => setActive(event.target.checked)} />
+  return <>{toggle('Summon Animal status')}{' '}{name}{' '}
+    <ActiveSpellActions name="Summon Animal" entry={entry} actions="Three Actions" buttonRef={action}>
+      {lashunta && <LashuntaAllyOptions c={c} save={save} confirmDismiss />}
+      <label>{toggle('Summon Animal active', lashunta && !active && !c.lashuntaCreatureAllyChoice)} Active</label>
+      {vesk && <SourceNote source="Caypin" note="GM approval required: caypin is a beast, not an animal, and Creature Ally's rank 5 spell normally permits creatures of level 5 or lower." />}
+      {shirren && <SourceNote source="Emganat" note="GM approval required: kucharns do not have the animal trait required by Summon Animal." />}
+    </ActiveSpellActions>
   </>
 }
 
@@ -1412,13 +1455,8 @@ export function automatedSpellStatusControls({ c, entries, save }: SectionProps)
       && data.featSpells.some(grant => grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal')
     const entry = entries.find(candidate => candidate.kind === 'spell' && !candidate.deleted
       && candidate.name === 'Summon Animal' && candidate.systems.some(system => c.systems.includes(system)))
-    const toggle = specialAlly && c.ancestry === 'Vesk' ? <CaypinAllyToggle c={c} save={save} />
-      : specialAlly && c.ancestry === 'Shirren' ? <ShirrenAllyToggle c={c} save={save} />
-      : specialAlly && c.ancestry === 'Lashunta' ? <LashuntaAllyOptions c={c} save={save} />
-      : <label><input type="checkbox" aria-label="Summon Animal status" checked={!!c.activeSpells?.includes('Summon Animal')}
-        onChange={event => save(spellActiveChange(c, 'Summon Animal', event.target.checked))} /> Active</label>
-    controls.push({ name: 'Summon Animal', element: <>{toggle}{' '}{spellStatusName('Summon Animal')}{' '}
-      <ActiveSpellActions name="Summon Animal" entry={entry} actions="Three Actions">{toggle}</ActiveSpellActions></> })
+    controls.push({ name: 'Summon Animal', element: <SummonAnimalStatus c={c} save={save} entry={entry}
+      name={spellStatusName('Summon Animal')} specialAlly={specialAlly} /> })
   }
   if (knowsSpell(c, entries, 'Shield') || c.activeSpells?.includes('Shield')) {
     const active = isSpellActive(c, entries, 'Shield')
