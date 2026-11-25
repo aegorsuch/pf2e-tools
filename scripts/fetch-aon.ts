@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { AON_ENDPOINTS, fetchAonHits, type Hit } from '../src/aonQuery.ts'
-import { normalizeFiends, normalizePlants, normalizeUndead } from '../src/summonedFiends.ts'
+import { normalizeCelestials, normalizeFiends, normalizePlants, normalizeUndead } from '../src/summonedFiends.ts'
 
 // Snapshots AoN at build time: the browser can't query AoN's Elasticsearch directly from our origin (CORS).
 await mkdir('public/data', { recursive: true })
@@ -21,6 +21,18 @@ if (!result.hits?.hits) throw new Error('AoN fiends: missing creature data')
 const fiends = normalizeFiends(result.hits.hits)
 await writeFile('public/data/aon-fiends.json', JSON.stringify(fiends))
 console.log(`aon-fiends.json: ${fiends.length} entries`)
+const celestialResponse = await fetch(AON_ENDPOINTS.pf2e, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ size: 10000, query: { bool: { filter: [
+    { term: { category: 'creature' } }, { term: { trait: 'Celestial' } }, { range: { level: { lte: 15 } } },
+  ] } } }),
+})
+if (!celestialResponse.ok) throw new Error(`AoN celestials: HTTP ${celestialResponse.status}`)
+const celestialResult = await celestialResponse.json() as { hits?: { hits?: Hit[] } }
+if (!celestialResult.hits?.hits) throw new Error('AoN celestials: missing creature data')
+const celestials = normalizeCelestials(celestialResult.hits.hits)
+await writeFile('public/data/aon-celestials.json', JSON.stringify(celestials))
+console.log(`aon-celestials.json: ${celestials.length} entries`)
 const plantResponse = await fetch(AON_ENDPOINTS.pf2e, {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ size: 10000, query: { bool: { filter: [

@@ -26,7 +26,8 @@ export function fiendLevelLimit(rank: number) {
 
 export function fiendOptions(fiends: SummonedFiend[], rank: number, lineage?: string, requiredTrait?: string, highestOnly = false) {
   const maxLevel = fiendLevelLimit(rank)
-  const category: Record<string, string> = { Pitborn: 'demon', Hellspawn: 'devil', Grimspawn: 'daemon', Faultspawn: 'asura' }
+  const category: Record<string, string> = { Pitborn: 'demon', Hellspawn: 'devil', Grimspawn: 'daemon', Faultspawn: 'asura',
+    Angelkin: 'angel', Lawbringer: 'archon', Musetouched: 'azata' }
   const required = lineage ? category[lineage] : undefined
   if (maxLevel === undefined || lineage && !required) return []
   const eligible = fiends.filter(fiend => fiend.level <= maxLevel
@@ -36,6 +37,13 @@ export function fiendOptions(fiends: SummonedFiend[], rank: number, lineage?: st
   const highest = Math.max(...eligible.map(fiend => fiend.level))
   return eligible.filter(fiend => fiend.level === highest)
 }
+
+export function normalizeCelestials(hits: Hit[]): SummonedFiend[] {
+  return normalizeCreatures(hits, ['celestial'], /^(angel|archon|azata)$/i)
+}
+
+export const summonSpellName = (creature: Pick<SummonedFiend, 'traits'>) =>
+  creature.traits.some(trait => trait.toLowerCase() === 'celestial') ? 'Summon Celestial' : 'Summon Fiend'
 
 export function activeSummonedFiend(c: Character) {
   return c.summonedFiend

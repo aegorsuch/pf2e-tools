@@ -67,3 +67,10 @@ it('filters undead summons by rarity and spell rank', () => {
   expect(undeadOptions(creatures, 1).map(creature => creature.name)).toEqual(['Weak Zombie'])
   expect(undeadOptions(creatures, 5).map(creature => creature.name)).toEqual(['Skeleton Guard', 'Weak Zombie'])
 })
+
+it('limits celestial options to the highest eligible level when requested', () => {
+  const make = (id: string, level: number, trait: string) => ({ id, name: id, level, traits: ['Celestial', trait], url: '', abilities: [], saves: [], senses: '', skills: '', speed: '', resistances: '', weaknesses: '', attacks: [] })
+  const list = [make('a', 5, 'Angel'), make('b', 7, 'Angel'), make('c', 7, 'Archon'), make('d', 9, 'Angel')]
+  expect(fiendOptions(list, 6, 'Angelkin', undefined, true).map(item => item.id)).toEqual(['b'])
+  expect(fiendOptions(list, 6, 'Lawbringer', undefined, true).map(item => item.id)).toEqual(['c'])
+})

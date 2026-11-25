@@ -492,35 +492,38 @@ export function SummonFiendActions({ c, entries, save, entry, rank, lineageOnly 
   const titleId = useId()
   const [fiends, setFiends] = useState<SummonedFiend[]>()
   const [error, setError] = useState('')
+  const celestial = entry?.name === 'Summon Celestial'
+  const spellName = celestial ? 'Summon Celestial' : 'Summon Fiend'
+  const noun = celestial ? 'celestial' : 'fiend'
   const lineage = lineageOnly ? originalNephilimLineage(c, entries) ?? '' : undefined
-  const options = fiendOptions(fiends ?? [], rank, lineageOnly ? lineage || 'unknown' : undefined, requiredTrait, lineageOnly)
+  const options = fiendOptions(fiends ?? [], rank, lineageOnly ? lineage || 'unknown' : undefined, requiredTrait, true)
   const open = () => {
     dialog.current?.showModal()
     dialog.current?.querySelector('h4')?.focus()
     if (fiends) return
     setError('')
-    void fetch(`${import.meta.env.BASE_URL}data/aon-fiends.json`).then(response => {
+    void fetch(`${import.meta.env.BASE_URL}data/aon-${celestial ? 'celestials' : 'fiends'}.json`).then(response => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       return response.json() as Promise<SummonedFiend[]>
     }).then(data => {
-      if (!Array.isArray(data)) throw new Error('Invalid fiend catalog')
+      if (!Array.isArray(data)) throw new Error(`Invalid ${noun} catalog`)
       setFiends(data)
-    }).catch((failure: unknown) => setError(`Unable to load fiends: ${failure instanceof Error ? failure.message : String(failure)}`))
+    }).catch((failure: unknown) => setError(`Unable to load ${noun}s: ${failure instanceof Error ? failure.message : String(failure)}`))
   }
   return <>
-    <button type="button" className="spell-action-button" aria-label="Summon Fiend options" aria-haspopup="dialog" disabled={disabled} onClick={open}>
+    <button type="button" className="spell-action-button" aria-label={`${spellName} options`} aria-haspopup="dialog" disabled={disabled} onClick={open}>
       <ActionIcon actions="Three Actions" />
     </button>
     <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}
       onClick={event => { if (event.target === event.currentTarget) dialog.current?.close() }}>
-      <h4 id={titleId} tabIndex={-1}>Summon Fiend (Rank {rank})</h4>
-      {error ? <p role="alert">{error}</p> : !fiends ? <p role="status">Loading fiends...</p> : <SearchableSelect
-        label="Summoned fiend" aria-label="Summoned fiend" value={c.summonedFiend?.id ?? ''} alwaysSearchable
+      <h4 id={titleId} tabIndex={-1}>{spellName} (Rank {rank})</h4>
+      {error ? <p role="alert">{error}</p> : !fiends ? <p role="status">Loading {noun}s...</p> : <SearchableSelect
+        label={`Summoned ${noun}`} aria-label={`Summoned ${noun}`} value={c.summonedFiend?.id ?? ''} alwaysSearchable
         onChange={event => {
           const value = event.target.value
           const selected = options.find(fiend => fiend.id === value)
           if (value && !selected) return
-          const select = () => save({ summonedFiend: selected, ...spellActiveChange(c, 'Summon Fiend', !!selected),
+          const select = () => save({ summonedFiend: selected, ...spellActiveChange(c, spellName, !!selected),
             summonInnateRanks: { ...c.summonInnateRanks, fiend: selected && innate ? rank : undefined },
             ...(c.mountedSummon?.startsWith('fiend:') && c.mountedSummon !== `fiend:${selected?.id}` ? { mountedSummon: undefined } : {}) })
           if (c.summonedFiend && c.summonedFiend.id !== value) confirmRemoval(`summoned ${c.summonedFiend.name}`, select)
@@ -531,15 +534,15 @@ export function SummonFiendActions({ c, entries, save, entry, rank, lineageOnly 
           && <option value={c.summonedFiend.id} disabled>{c.summonedFiend.name} (unavailable)</option>}
         {options.map(fiend => <option key={fiend.id} value={fiend.id}>{fiend.name} (Level {fiend.level})</option>)}
       </SearchableSelect>}
-        <label><input type="checkbox" aria-label="Summon Fiend active" checked={!!c.summonedFiend}
+        <label><input type="checkbox" aria-label={`${spellName} active`} checked={!!c.summonedFiend}
           disabled={!c.summonedFiend}
           onChange={event => {
             if (event.target.checked || !c.summonedFiend) return
             confirmRemoval(`summoned ${c.summonedFiend.name}`, () => save({
-              summonedFiend: undefined, ...spellActiveChange(c, 'Summon Fiend', false),
+              summonedFiend: undefined, ...spellActiveChange(c, spellName, false),
               ...(c.mountedSummon?.startsWith('fiend:') ? { mountedSummon: undefined } : {}),
             }))
-          }} /> Summon Fiend{c.summonedFiend ? `: ${c.summonedFiend.name}` : ''}</label>
+          }} /> {spellName}{c.summonedFiend ? `: ${c.summonedFiend.name}` : ''}</label>
       <p>{entry?.description || 'Description unavailable. Sync Archives of Nethys content to load it.'}</p>
       <form method="dialog"><button autoFocus>Close</button></form>
     </dialog>
@@ -1368,7 +1371,7 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
                 ? <SummonUndeadActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
                 : slot.entry.name === 'Marvelous Mount'
                 ? <MarvelousMountActions c={c} save={save} entry={slot.entry} disabled={!slot.valid} />
-                : slot.entry.name === 'Summon Fiend'
+                : ['Summon Fiend', 'Summon Celestial'].includes(slot.entry.name)
                 ? <SummonFiendActions c={c} entries={entries} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
                 : slot.entry.name === 'Summon Plant or Fungus'
                 ? <SummonPlantActions c={c} save={save} entry={slot.entry} rank={castRank} disabled={!slot.valid} />
@@ -2174,7 +2177,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         actionControls={spell.name === 'Summon Undead'
           ? <SummonUndeadActions c={c} save={save} entry={entry} rank={rank} />
           : spell.name === 'Marvelous Mount' ? <MarvelousMountActions c={c} save={save} entry={entry} />
-          : spell.name === 'Summon Fiend' ? <SummonFiendActions c={c} entries={entries} save={save} entry={entry} rank={rank} />
+          : ['Summon Fiend', 'Summon Celestial'].includes(spell.name) ? <SummonFiendActions c={c} entries={entries} save={save} entry={entry} rank={rank} />
           : spell.name === 'Summon Plant or Fungus' ? <SummonPlantActions c={c} save={save} entry={entry} rank={rank} /> : undefined}
         inlineControls={inlineControls(spell.name, rank)} effectControls={effectControls(spell.name)}
         effectRank={activeRank(spell.name)} {...buffProps(spell.name)}
@@ -2292,7 +2295,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           actionControls={grant.entry.name === 'Summon Undead'
             ? <SummonUndeadActions c={c} save={save} entry={grant.entry} rank={grant.rank} />
             : grant.entry.name === 'Marvelous Mount' ? <MarvelousMountActions c={c} save={save} entry={grant.entry} />
-            : grant.entry.name === 'Summon Fiend' ? <SummonFiendActions c={c} entries={entries} save={save} entry={grant.entry} rank={grant.rank}
+            : ['Summon Fiend', 'Summon Celestial'].includes(grant.entry.name) ? <SummonFiendActions c={c} entries={entries} save={save} entry={grant.entry} rank={grant.rank}
               requiredTrait={grant.rule.condition === 'Devils only' ? 'devil' : undefined} />
               : grant.entry.name === 'Summon Plant or Fungus' ? <SummonPlantActions c={c} save={save} entry={grant.entry} rank={grant.rank} /> : undefined}
           inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
@@ -2579,7 +2582,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                     ? <SummonUndeadActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
                     : selectedEntry.name === 'Marvelous Mount'
                     ? <MarvelousMountActions c={c} save={save} entry={selectedEntry} disabled={!valid} />
-                    : selectedEntry.name === 'Summon Fiend'
+                    : ['Summon Fiend', 'Summon Celestial'].includes(selectedEntry.name)
                     ? <SummonFiendActions c={c} entries={entries} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
                     : selectedEntry.name === 'Summon Plant or Fungus'
                     ? <SummonPlantActions c={c} save={save} entry={selectedEntry} rank={rank} disabled={!valid} />
@@ -2691,7 +2694,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 : grant.entry.name === 'Summon Undead' ? <SummonUndeadActions c={c} save={save}
                   entry={grant.entry} rank={grant.rank} innate />
                 : grant.entry.name === 'Marvelous Mount' ? <MarvelousMountActions c={c} save={save} entry={grant.entry} />
-                : grant.entry.name === 'Summon Fiend' ? <SummonFiendActions c={c} entries={entries} save={save}
+                : ['Summon Fiend', 'Summon Celestial'].includes(grant.entry.name) ? <SummonFiendActions c={c} entries={entries} save={save}
                   entry={grant.entry} rank={grant.rank} innate lineageOnly={grant.source === 'Summon Nephilim Kin'}
                   requiredTrait={grant.rule.condition === 'Devils only' ? 'devil' : undefined} />
                 : grant.entry.name === 'Summon Plant or Fungus' ? <SummonPlantActions c={c} save={save} entry={grant.entry} rank={grant.rank} innate />
@@ -2791,7 +2794,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             ? <SummonUndeadActions c={c} save={save} entry={spell.entry} rank={spell.rank} />
             : spell.name === 'Marvelous Mount'
             ? <MarvelousMountActions c={c} save={save} entry={spell.entry} />
-            : spell.name === 'Summon Fiend'
+            : ['Summon Fiend', 'Summon Celestial'].includes(spell.name)
             ? <SummonFiendActions c={c} entries={entries} save={save} entry={spell.entry} rank={spell.rank} />
             : spell.name === 'Summon Plant or Fungus'
             ? <SummonPlantActions c={c} save={save} entry={spell.entry} rank={spell.rank} actions={spell.actions}

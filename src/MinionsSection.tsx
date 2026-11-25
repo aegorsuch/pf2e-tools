@@ -16,7 +16,7 @@ import { bardingOptions, equippedBarding, isCompanionEquipmentItem } from './com
 import { confirmRemoval } from './confirmRemoval'
 import { featAccess } from './featAccess'
 import { activeCaypinAlly, activeLashuntaAlly, activeShirrenAlly } from './featSpells'
-import { activeSummonedFiend, type SummonedFiend } from './summonedFiends'
+import { activeSummonedFiend, summonSpellName, type SummonedFiend } from './summonedFiends'
 import { creatureScaling, scaledDamage, scaledSummon } from './summonScaling'
 import { DroneFeatures } from './DroneFeatures'
 import { FOLLOWER_STAGES, FOLLOWER_TYPES, followerStage, followerStats } from './followers'
@@ -289,7 +289,7 @@ export function SummonedFiendCard({ fiend, save, c, entries = [], plant = false,
       ? { summonedPlant: undefined, ...(c?.mountedSummon === `plant:${fiend.id}` ? { mountedSummon: undefined } : {}) }
       : undead ? { summonedUndead: undefined, activeSpells: activeSpells?.filter(spell => spell !== 'Summon Undead'),
         ...(c?.mountedSummon === `undead:${fiend.id}` ? { mountedSummon: undefined } : {}) }
-        : { summonedFiend: undefined, activeSpells: activeSpells?.filter(spell => spell !== 'Summon Fiend'),
+        : { summonedFiend: undefined, activeSpells: activeSpells?.filter(spell => spell !== summonSpellName(fiend)),
           ...(c?.mountedSummon === `fiend:${fiend.id}` ? { mountedSummon: undefined } : {}) }))}>Dismiss</button>
   </details>
 }

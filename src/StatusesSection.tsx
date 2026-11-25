@@ -11,6 +11,7 @@ import { ANCESTRAL_AVATAR } from './battleForms'
 import { FULMINATING_SHOT_ELEMENTS, fulminatingShotBonus } from './fulminatingShot'
 import { confirmRemoval } from './confirmRemoval'
 import { PURIFY_AIR_DESCRIPTION, purifyAirActive, purifyAirAvailable } from './familiarAbilities'
+import { summonSpellName } from './summonedFiends'
 import { Fragment } from 'react'
 import type { ContentEntry } from './types'
 
@@ -109,7 +110,7 @@ export function StatusesSummary({ c, entries }: SectionProps) {
       ? isAncestralEmbrace(wornArmor(c, entries)?.name) ? ['Avatar'] : []
       : [name]),
     ...(c.summonedUndead ? ['Summon Undead'] : []),
-    ...(c.summonedFiend ? ['Summon Fiend'] : []),
+    ...(c.summonedFiend ? [summonSpellName(c.summonedFiend)] : []),
     ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Creature Ally').length
       && (c.ancestry === 'Vesk' && c.creatureAllyActive || c.ancestry === 'Shirren' && c.shirrenCreatureAllyActive
         || c.ancestry === 'Lashunta' && c.lashuntaCreatureAlly) ? ['Summon Animal'] : []),
@@ -373,15 +374,15 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
         }} /> Summon Undead: {summonedUndead.name}</label>,
     }] : []),
     ...(summonedFiend ? [{
-      name: 'Summon Fiend',
-      element: <label><input type="checkbox" aria-label="Summon Fiend status" checked
+      name: summonSpellName(summonedFiend),
+      element: <label><input type="checkbox" aria-label={`${summonSpellName(summonedFiend)} status`} checked
         onChange={event => {
           if (event.target.checked) return
           confirmRemoval(`summoned ${summonedFiend.name}`, () => save({
-            summonedFiend: undefined, activeSpells: c.activeSpells?.filter(spell => spell !== 'Summon Fiend'),
+            summonedFiend: undefined, activeSpells: c.activeSpells?.filter(spell => spell !== summonSpellName(summonedFiend)),
             ...(c.mountedSummon?.startsWith('fiend:') ? { mountedSummon: undefined } : {}),
           }))
-        }} /> Summon Fiend: {summonedFiend.name}</label>,
+        }} /> {summonSpellName(summonedFiend)}: {summonedFiend.name}</label>,
     }] : []),
     ...spellControls,
   ].sort((a, b) => a.name.localeCompare(b.name))
