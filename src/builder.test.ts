@@ -666,6 +666,34 @@ it('applies persistent Lizardfolk and Necromancer feat benefits to defenses, sen
     'Parthenogenic Hatchling +1 circumstance against diseases; a success becomes a critical success. If another ability would improve the save this way, a critical failure becomes a failure instead.')
 })
 
+it('scales Stormbreaker electricity shielding with character level', () => {
+  const armor = { ...entry('armor', 'Stormbreaker Armor', {
+    url: 'stormbreaker', armor_grade: 'Advanced', upgrade_slots: 1,
+  }, 10), systems: ['sf2e' as const] }
+  const upgrade = (name: string, level: number) => ({
+    ...entry('item', name, { item_subcategory: 'Armor Upgrades' }, level),
+    systems: ['sf2e' as const],
+  })
+  const entries = [
+    armor, upgrade('Energy Shielding (Commercial)', 8), upgrade('Energy Shielding (Tactical)', 12),
+    upgrade('Energy Shielding (Advanced)', 18),
+  ]
+  const c: Character = { ...base, systems: ['sf2e'], level: 10, armors: [
+    { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
+  ] }
+  const shielding = (level: number, grade: string) => resistances({ ...c, level }, entries)
+    .find(resistance => resistance.source === `Energy Shielding (${grade}) (Electricity)`)
+  expect(shielding(10, 'Commercial')).toEqual({
+    damage: 'Electricity', value: 5, source: 'Energy Shielding (Commercial) (Electricity)',
+  })
+  expect(shielding(12, 'Tactical')).toEqual({
+    damage: 'Electricity', value: 10, source: 'Energy Shielding (Tactical) (Electricity)',
+  })
+  expect(shielding(20, 'Advanced')).toEqual({
+    damage: 'Electricity', value: 15, source: 'Energy Shielding (Advanced) (Electricity)',
+  })
+})
+
 it('grants apparition sight from Apparition Sense only when the feat is active', () => {
   const c: Character = { ...base, feats: [{ name: 'Apparition Sense', type: 'Class Feat', level: 1 }] }
   expect(senses(c, [])).toContainEqual({

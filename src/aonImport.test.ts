@@ -37,7 +37,8 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
   const grades = ['Advanced', 'Superior', 'Elite', 'Ultimate', 'Paragon']
   const names = new Set(families.flatMap(name => [name, ...grades.map(grade => `${grade} ${name}`)]))
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
-  const upgrades = ['Jetpack', 'Force Field', 'Active Camouflage', 'Cloaking Device', 'Drift Drive Relay', 'Maneuvering Unit', 'Easypatcher']
+  const upgrades = ['Jetpack', 'Force Field', 'Active Camouflage', 'Cloaking Device', 'Drift Drive Relay',
+    'Maneuvering Unit', 'Easypatcher', 'Energized Spikes', 'Energy Shielding']
   const entries = mapAonHits(hits.filter(hit => {
     const name = String(hit._source?.name)
     return names.has(name) || upgrades.some(upgrade => name === upgrade || name.startsWith(`${upgrade} (`))
@@ -55,7 +56,7 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
     expect(effectiveArmor(character, entries, owned).name).toBe(`Superior ${name}`)
     const autoUpgrades = automaticSpecificArmorUpgrades({ ...character, level: 20 }, entries, armor!)
     expect(autoUpgrades.map(entry => entry.name)).toEqual(expect.arrayContaining(['Jetpack (Tactical)', 'Force Field (Paragon)']))
-    expect(autoUpgrades).toHaveLength(name === 'Clandestine Suit' || name === "Drifter's Jacket" ? 4
+    expect(autoUpgrades).toHaveLength(name === 'Clandestine Suit' || name === "Drifter's Jacket" || name === 'Stormbreaker Armor' ? 4
       : name === 'Retrieval Harness' ? 3 : 2)
     if (name === 'Clandestine Suit') expect(autoUpgrades.map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Active Camouflage (Advanced)', 'Cloaking Device (Tactical)']))
@@ -63,6 +64,13 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
       .toEqual(expect.arrayContaining(['Force Field (Paragon)', 'Drift Drive Relay (Advanced)', 'Maneuvering Unit (Superior)']))
     if (name === 'Retrieval Harness') expect(autoUpgrades.map(entry => entry.name))
       .toContain('Easypatcher (Advanced)')
+    if (name === 'Stormbreaker Armor') {
+      expect(autoUpgrades.map(entry => entry.name)).toEqual(expect.arrayContaining([
+        'Force Field (Paragon)', 'Energized Spikes (Advanced)', 'Energy Shielding (Advanced)',
+      ]))
+      expect(autoUpgrades.find(entry => entry.name === 'Energy Shielding (Advanced)')?.data.automatic_energy_type)
+        .toBe('electricity')
+    }
     expect(entries.filter(entry => names.has(entry.name)).every(isSpecificGear)).toBe(true)
   }
 })

@@ -3169,6 +3169,7 @@ const AUTOMATIC_ARMOR_UPGRADES = ['Jetpack', 'Force Field']
 const CLOAKING_ARMOR_UPGRADES = ['Active Camouflage', 'Cloaking Device']
 const DRIFTER_JACKET_ARMOR_UPGRADES = ['Drift Drive Relay', 'Maneuvering Unit']
 const RETRIEVAL_HARNESS_ARMOR_UPGRADES = ['Easypatcher']
+const STORMBREAKER_ARMOR_UPGRADES = ['Energized Spikes', 'Energy Shielding']
 const SF_UPGRADE_GRADES = 'Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon'
 export const AUTOMATIC_JETPACK_ID = 'automatic:jetpack'
 
@@ -3179,14 +3180,19 @@ export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEnt
   const upgrades = [...AUTOMATIC_ARMOR_UPGRADES,
     ...(family === 'Clandestine Suit' ? CLOAKING_ARMOR_UPGRADES : []),
     ...(family === "Drifter's Jacket" ? DRIFTER_JACKET_ARMOR_UPGRADES : []),
-    ...(family === 'Retrieval Harness' ? RETRIEVAL_HARNESS_ARMOR_UPGRADES : [])]
+    ...(family === 'Retrieval Harness' ? RETRIEVAL_HARNESS_ARMOR_UPGRADES : []),
+    ...(family === 'Stormbreaker Armor' ? STORMBREAKER_ARMOR_UPGRADES : [])]
   return upgrades.flatMap(base => {
     const pattern = new RegExp(`^${base}(?: \\((?:${SF_UPGRADE_GRADES})\\))?$`, 'i')
     const candidates = entries.filter(candidate => candidate.kind === 'item' && !candidate.deleted
       && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Armor Upgrades'
       && pattern.test(candidate.name) && candidate.level <= c.level)
       .sort((a, b) => b.level - a.level || Number(b.name.includes('(')) - Number(a.name.includes('(')))
-    return candidates[0] ? [candidates[0]] : []
+    const selected = candidates[0]
+    if (!selected) return []
+    return family === 'Stormbreaker Armor' && base === 'Energy Shielding'
+      ? [{ ...selected, data: { ...selected.data, automatic_energy_type: 'electricity' } }]
+      : [selected]
   })
 }
 
@@ -5986,7 +5992,16 @@ export function resistances(c: Character, entries: ContentEntry[]) {
     out.push({ damage: dragon.damage, value: 10, source: 'Dragon Transformation' })
   }
   const armor = wornArmor(c, entries)
-  if (armor) out.push(...energyNeutralizerResistances(c, armor.id))
+  if (armor) {
+    out.push(...energyNeutralizerResistances(c, armor.id))
+    const armorItem = armorEntry(c, entries, armor.name, armor.id)
+    const energyShielding = automaticSpecificArmorUpgrades(c, entries, armorItem)
+      .find(upgrade => upgrade.data.automatic_energy_type === 'electricity')
+    if (energyShielding) {
+      const value = /Advanced/i.test(energyShielding.name) ? 15 : /Tactical/i.test(energyShielding.name) ? 10 : 5
+      out.push({ damage: 'electricity', value, source: `${energyShielding.name} (Electricity)` })
+    }
+  }
   if (wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID) out.push(...inventorArmorResistances(c))
   const oaken = oakenResilience(c, entries)
   if (oaken) for (const damage of ['bludgeoning', 'piercing']) out.push({ damage, value: oaken.resistance, source: 'Oaken Resilience' })

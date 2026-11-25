@@ -551,13 +551,17 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, o
   const sameUpgrade = (a: ContentEntry, b: ContentEntry) =>
     a.name.replace(/\s*\([^)]*\)$/, '') === b.name.replace(/\s*\([^)]*\)$/, '')
   const automaticFor = (entry?: ContentEntry) => automaticUpgrades.find(automatic => !!entry && sameUpgrade(automatic, entry))
+  const automaticName = (entry: ContentEntry) => entry.data.automatic_energy_type === 'electricity'
+    ? `${entry.name} (Electricity)` : entry.name
   const options = catalog.filter(entry => !installed.some(item => item?.id === entry.id)
     && !automaticUpgrades.some(automatic => sameUpgrade(automatic, entry)))
     .sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
   const automaticOnly = automaticUpgrades.filter(automatic => !installed.some(item => item && sameUpgrade(automatic, item)))
   return <div className="gear-runes">
     {upgrades.map((id, index) => <span className="rune" key={`${id}:${index}`}>
-      <GearTag name={automaticFor(installed[index])?.name ?? installed[index]?.name ?? id} entry={automaticFor(installed[index]) ?? installed[index]}
+      <GearTag name={automaticFor(installed[index])
+        ? automaticName(automaticFor(installed[index])!) : installed[index]?.name ?? id}
+        entry={automaticFor(installed[index]) ?? installed[index]}
         kind="upgrade" onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />
       {jetpackSpeed(automaticFor(installed[index]) ?? installed[index]) > 0 && <button type="button" className={`spell-action-button${activeJetpack === id && worn ? ' on' : ''}`}
         aria-label={`${activeJetpack === id && worn ? 'Dismiss' : 'Activate'} ${automaticFor(installed[index])?.name ?? installed[index]?.name}`}
@@ -566,7 +570,7 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, o
         onClick={() => onToggleJetpack(id)}><ActionIcon actions="Single Action" /></button>}
     </span>)}
     {automaticOnly.map(entry => <span className="rune" key={`automatic:${entry.id}`}>
-      <GearTag name={entry.name} entry={entry} kind="upgrade" source={`Built into ${armorName}`} />
+      <GearTag name={automaticName(entry)} entry={entry} kind="upgrade" source={`Built into ${armorName}`} />
       {jetpackSpeed(entry) > 0 && <button type="button" className={`spell-action-button${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? ' on' : ''}`}
         aria-label={`${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? 'Dismiss' : 'Activate'} ${entry.name}`}
         aria-pressed={activeJetpack === AUTOMATIC_JETPACK_ID && worn} disabled={!worn}

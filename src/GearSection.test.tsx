@@ -2963,6 +2963,27 @@ it('auto-installs Retrieval Harness Easypatcher without using an upgrade slot', 
   expect(markup).toContain('Add armor upgrade')
 })
 
+it('auto-installs Stormbreaker electrical upgrades without using slots', () => {
+  const armor: ContentEntry = { ...weapon, id: 'stormbreaker', name: 'Stormbreaker Armor', kind: 'armor', systems: ['sf2e'],
+    level: 10, data: { url: 'stormbreaker', armor_category: 'Medium', ac: 4, armor_grade: 'Advanced', upgrade_slots: 1 } }
+  const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
+    systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
+  const upgrades = [
+    module('Jetpack (Tactical)', 19), module('Force Field (Paragon)', 19),
+    module('Energized Spikes (Advanced)', 19), module('Energy Shielding (Advanced)', 18),
+    module('Mobility Enhancer', 4),
+  ]
+  const c: Character = { ...character([]), systems: ['sf2e'], level: 20, armors: [
+    { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
+  ] }
+  const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
+  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(0)
+  expect(markup).toContain('Force Field (Paragon)')
+  expect(markup).toContain('Energized Spikes (Advanced)')
+  expect(markup).toContain('Energy Shielding (Advanced) (Electricity)')
+  expect(markup).toContain('Add armor upgrade')
+})
+
 it('places leveled SF2e and homebrew specific armor separately from standard armor', () => {
   const armor: ContentEntry = { ...weapon, kind: 'armor', systems: ['sf2e'], name: 'Carvesong', level: 9,
     data: { item_subcategory: 'Base Armor' } }
