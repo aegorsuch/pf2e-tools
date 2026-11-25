@@ -9326,8 +9326,7 @@ export function gearPickerEntries(entries: ContentEntry[], kind: 'weapon' | 'arm
         .filter((entry): entry is ContentEntry => !!entry) : []),
     ...(kind === 'weapon' ? [...hammerMultipistolEntries(entries),
       ...namedWeaponEntries(entries).filter(entry => !entry.data.named_weapon_resolver_only)] : [])])
-  return pool.filter(entry => !(kind === 'weapon' && entry.data.named_weapon_source === "Hunter's Dawn"
-    && !['Club', 'Cruuk'].includes(String(entry.data.named_weapon_base)))).map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'
+  return pool.map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'
     ? { ...entry, name: `Shobhad Longrifle (${entry.systems.includes('sf2e') ? 'Starfinder' : 'Pathfinder'})` } : entry).filter(entry => {
     if (seen.has(entry.name)) return false
     seen.add(entry.name)
@@ -9356,7 +9355,7 @@ export function combinationForms(entries: ContentEntry[], name: string) {
       const ranged = group.find(entry => entry.name.endsWith('(Ranged)'))
       if (melee && ranged) {
         for (const entry of [melee, ranged]) if (!index.has(entry.name)) index.set(entry.name, [melee, ranged])
-        if (melee.data.named_weapon_source) index.set(String(melee.data.named_weapon_source), [melee, ranged])
+        if (melee.data.named_weapon_source && !index.has(String(melee.data.named_weapon_source))) index.set(String(melee.data.named_weapon_source), [melee, ranged])
       }
     }
     combinationCache.set(entries, index)

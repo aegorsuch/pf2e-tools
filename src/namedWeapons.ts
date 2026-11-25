@@ -32,7 +32,7 @@ const BASES: Record<string, string[]> = {
   'Debilitating Dart': ['Dart'],
   "Freedom's Flame": ['Morningstar'],
   "Ghosthand's Comet": ["Ghosthand's Comet"],
-  "Hunter's Dawn": ['Club', 'Dart', 'Javelin'],
+  "Hunter's Dawn": ['Club', 'War Gavel', 'Cruuk', 'Javelin'],
   'Kortos Diamond': ['Longsword'],
   'Lamentation of the Faithless': ['Greatsword'],
   "Meloth's Lifedrinker (Improved)": ['Longsword'],
@@ -45,7 +45,7 @@ const BASES: Record<string, string[]> = {
   "Spear of the Destroyer's Flame": ['Longspear'],
   'Whisperer of Souls': ['Glaive'],
 }
-const DAWN_MELEE_FORMS = ['Club', 'Cruuk']
+const DAWN_MELEE_FORMS = ['Club', 'War Gavel', 'Cruuk']
 
 const ACTIONS: Record<string, { name: string; actions: string }[]> = {
   'Starday Night Special': [{ name: 'Lucky Bullet', actions: 'Free Action' }],
@@ -145,7 +145,7 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
   const items = entries.filter(entry => entry.kind === 'item' && !entry.deleted
     && entry.name !== 'Wintershot' && !/^Scalding Gauntlets \(/.test(entry.name) && entry.name !== "Meloth's Lifedrinker"
     && (entry.data.item_subcategory === 'Specific Magic Weapons' || entry.name === 'Wintershot (Artifact)' || !!BASES[entry.name]))
-  const result = items.flatMap(item => {
+  const generated = items.flatMap(item => {
     const sourceName = item.name === "Meloth's Lifedrinker (Improved)" ? "Meloth's Lifedrinker"
       : item.name === "Clear Cutter's Axe" ? "Clear Cutter's Hatchet" : item.name === 'Scalding Gauntlets' ? 'Scalding Gauntlet' : item.name
     const originalBase = (item.name === 'Serithtial' ? 'Longsword' : undefined)
@@ -236,16 +236,13 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
       return [{ ...entry, id: item.id, name: item.name, data: { ...data, named_weapon_resolver_only: true } }, entry]
     })
   })
-  const dawnClub = result.find(entry => entry.data.named_weapon_source === "Hunter's Dawn" && entry.data.named_weapon_base === 'Club'
-    && !entry.data.named_weapon_resolver_only)
-  const cruuk = dawnClub && entries.find(entry => entry.kind === 'weapon' && !entry.deleted && entry.name.toLowerCase() === 'cruuk'
-    && entry.systems.some(system => dawnClub.systems.includes(system)))
-  if (dawnClub && cruuk) result.push({ ...dawnClub, id: `${dawnClub.id}:cruuk`, name: "Hunter's Dawn (Cruuk)",
-    traits: [...new Map([...cruuk.traits.filter(trait => !/^(?:common|uncommon|rare|unique)$/i.test(trait)), ...dawnClub.traits.filter(trait => !cruuk.traits.some(t => t.toLowerCase() === trait.toLowerCase()))
-      .filter(trait => /^(?:unique|artifact|arcane|enchantment)$/i.test(trait))].map(trait => [trait.toLowerCase(), trait])).values()],
-    data: { ...dawnClub.data, ...Object.fromEntries(['damage', 'damage_type', 'weapon_type', 'weapon_category', 'weapon_group', 'hands', 'range', 'thrown_range']
-      .filter(key => cruuk.data[key] !== undefined).map(key => [key, cruuk.data[key]])), named_weapon_base: 'Cruuk' },
-    description: dawnClub.description.replace(/^Base weapon: Club\./, 'Base weapon: Cruuk.') })
+  const dawnForms = generated.filter(entry => entry.data.named_weapon_source === "Hunter's Dawn" && !entry.data.named_weapon_resolver_only)
+  const javelin = dawnForms.find(entry => entry.data.named_weapon_base === 'Javelin')
+  const dawnPairs = dawnForms.filter(entry => DAWN_MELEE_FORMS.includes(String(entry.data.named_weapon_base))).flatMap(melee => javelin
+    ? [{ ...melee, id: `${melee.id}:melee`, name: `${melee.name} (Melee)`, traits: [...melee.traits, 'Combination'] },
+      { ...javelin, id: `${melee.id}:ranged`, name: `${melee.name} (Ranged)`, traits: [...javelin.traits, 'Combination'] }] : [melee])
+  const result = [...generated.filter(entry => entry.data.named_weapon_source !== "Hunter's Dawn" || entry.data.named_weapon_resolver_only),
+    ...dawnPairs]
   const elemental = result.filter(entry => entry.data.named_weapon_source === 'Scalding Gauntlet' && !entry.data.named_weapon_resolver_only)
   return [...result, ...Object.entries(ELEMENTAL_GAUNTLETS).flatMap(([element, { rune, damage }]) => elemental.map((entry): ContentEntry => {
     const label = `${element} Gauntlet`

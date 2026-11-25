@@ -1439,7 +1439,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                   disabled={form !== activeCombinationForm && !canUseCombinationForm(form)}>{form}</option>)}
               </select>
             </label>}
-            {namedBases.length > 1 && (namedSource === "Hunter's Dawn" && a.entry?.data.named_weapon_base !== 'Cruuk' || namedSource === 'Serithtial' && !displayOnly) && <label>{namedSource === 'Serithtial' ? 'Blade form' : 'Weapon type'}{' '}
+            {namedBases.length > 1 && namedSource === 'Serithtial' && !displayOnly && <label>Blade form{' '}
               <select aria-label={`${namedSource} weapon type`} value={String(a.entry?.data.named_weapon_base)}
                 onChange={event => {
                   const base = event.target.value
