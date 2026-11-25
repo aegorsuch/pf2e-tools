@@ -69,13 +69,13 @@ export function EntryDescription({ name, entry, className, prerequisites, access
           && <> <ActionIcon entry={entry} actions={buttonActions} /></>}
         {grantSource && <> <small>({text(grantSource)})</small></>}
       </button>
-      <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}
+      {(!deferDetails || openRequested) && <dialog ref={dialog} className="entry-dialog" aria-labelledby={titleId}
         onClose={() => { setHistory([]); setOpenRequested(false) }}
         onClick={(event) => { if (event.target === event.currentTarget) dialog.current?.close() }}>
-        {(!deferDetails || openRequested) && <EntryDescriptionContents {...details} name={name} entry={entry} prerequisites={prerequisites}
+        <EntryDescriptionContents {...details} name={name} entry={entry} prerequisites={prerequisites}
           access={access} entries={entries} character={character} history={history} setHistory={setHistory} dialog={dialog} titleId={titleId}
-          includeChoiceSpell={openRequested} />}
-      </dialog>
+          includeChoiceSpell={openRequested} />
+      </dialog>}
     </>
   )
 }

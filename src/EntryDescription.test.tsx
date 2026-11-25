@@ -69,9 +69,9 @@ it('opens deferred details with focus, follows links, and resets on close', asyn
     entries={[source, target]} buttonLabel="Details" deferDetails />))
 
   const button = container.querySelector<HTMLButtonElement>('button')!
-  const dialog = container.querySelector<HTMLDialogElement>('dialog')!
-  expect(dialog.textContent).toBe('')
+  expect(container.querySelector('dialog')).toBeNull()
   await act(async () => button.click())
+  let dialog = container.querySelector<HTMLDialogElement>('dialog')!
   expect(dialog.open).toBe(true)
   expect(document.activeElement).toBe(dialog.querySelector('h4'))
   expect(dialog.textContent).toContain('Source rules.')
@@ -79,9 +79,10 @@ it('opens deferred details with focus, follows links, and resets on close', asyn
   await act(async () => next.click())
   expect(dialog.textContent).toContain('Next rules.')
   await act(async () => dialog.close())
-  expect(dialog.open).toBe(false)
-  expect(dialog.textContent).toBe('')
+  expect(container.querySelector('dialog')).toBeNull()
   await act(async () => button.click())
+  dialog = container.querySelector<HTMLDialogElement>('dialog')!
+  expect(dialog.open).toBe(true)
   expect(dialog.textContent).toContain('Source rules.')
   expect(dialog.textContent).not.toContain('Next rules.')
   await act(async () => root.unmount())
@@ -134,7 +135,7 @@ it.each([false, true])('shows the chosen spell in %s feat details', async (defer
     const render = (entry: ContentEntry, choice: string) => <EntryDescription name={entry.name} entry={entry} choice={choice}
       character={c} entries={[feat, spell]} deferDetails={deferred} />
     await act(async () => root.render(render(feat, 'Fear')))
-    expect(container.querySelector('dialog')?.textContent).not.toContain('Fear spell rules.')
+    expect(container.querySelector('dialog')?.textContent ?? '').not.toContain('Fear spell rules.')
     await act(async () => container.querySelector<HTMLButtonElement>('button')!.click())
     expect(container.querySelector('dialog')?.textContent).toContain('Mask rules.')
     expect(container.querySelector('dialog')?.textContent).toContain('Fear: Fear spell rules.')
@@ -232,6 +233,6 @@ it('opens deferred spell details inside a searchable picker without selecting th
   expect(document.activeElement).toBe(dialog.querySelector('h4'))
   expect(change).not.toHaveBeenCalled()
   await act(async () => dialog.close())
-  expect(picker.querySelector('dialog')?.textContent).toBe('')
+  expect(picker.querySelector('dialog')).toBeNull()
   await act(async () => root.unmount())
 })
