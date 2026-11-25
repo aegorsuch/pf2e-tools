@@ -9317,7 +9317,7 @@ export function gearPickerEntries(entries: ContentEntry[], kind: 'weapon' | 'arm
     ...(kind === 'weapon' ? [...hammerMultipistolEntries(entries),
       ...namedWeaponEntries(entries).filter(entry => !entry.data.named_weapon_resolver_only)] : [])])
   return pool.filter(entry => !(kind === 'weapon' && entry.data.named_weapon_source === "Hunter's Dawn"
-    && entry.data.named_weapon_base !== 'Club')).map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'
+    && !['Club', 'Cruuk'].includes(String(entry.data.named_weapon_base)))).map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'
     ? { ...entry, name: `Shobhad Longrifle (${entry.systems.includes('sf2e') ? 'Starfinder' : 'Pathfinder'})` } : entry).filter(entry => {
     if (seen.has(entry.name)) return false
     seen.add(entry.name)

@@ -9,7 +9,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { isAncestralEmbrace, isBastionNamedArmor, isIncendiaryArmor, isLibraryRobes, isMountainArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
-import { DamageRoll } from './SpellDamage'
+import { DamageRoll, MultipleDamageRoll } from './SpellDamage'
 import { ABILITY_LABEL, APEX_AUGMENTATIONS, MOBILITY_ENHANCER_SPEEDS, activeApexAugmentation, armorBulk, armorStrengthMet, installedApexAugmentations } from './builder'
 import { barbarianInstinct, classHandwrapKind, isGiantWeapon } from './builder'
 import { equipmentDisplayName, specificMagicItemName } from './equipmentGroups'
@@ -1508,6 +1508,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             </label>}
         </>
         const abilities = namedWeaponAbilities(a.entry)
+        const dawnMatch = /^(\d+)d(\d+)([+-]\d+)?/.exec(a.damage)
+        const dawnDamage = dawnMatch ? { dice: Number(dawnMatch[1]), sides: Number(dawnMatch[2]), bonus: Number(dawnMatch[3] ?? 0) } : undefined
         const namedWeaponNotes = <>
           {namedSource === 'Serithtial' && w.stowed && <small>Stowed form: Bastard Sword. Selected blade form resumes when wielded.</small>}
           {a.entry?.data.named_weapon_rules_missing && <small role="status">Named weapon enhancement details unavailable. Configure its runes and consult the item rules.</small>}
@@ -1517,6 +1519,14 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             && <small role="status">Wintershot activation details unavailable. Sync content or open its item description.</small>}
           {abilities.filter(ability => ability.name !== 'Summary').map(ability => <details key={ability.name}>
             <summary>{ability.name} <ActionIcon actions={ability.actions} />
+              {namedSource === "Hunter's Dawn" && ability.name === 'Activation 1' && dawnDamage
+                && <span onClick={event => event.stopPropagation()}><MultipleDamageRoll name="Hunter's Dawn javelin"
+                  actions={ability.actions ?? 'Single Action'} damages={[
+                    { label: 'Javelin', dice: dawnDamage.dice, sides: dawnDamage.sides, bonus: dawnDamage.bonus, type: 'piercing' },
+                    { label: 'Gazelle', dice: 2, sides: 6, bonus: dawnDamage.bonus, type: 'piercing' }]} /></span>}
+              {namedSource === "Hunter's Dawn" && ability.name === 'Activation 3'
+                && <span onClick={event => event.stopPropagation()}><DamageRoll name="Hunter's Dawn fire" actions={ability.actions ?? 'Single Action'}
+                  damage={{ label: 'Fire', dice: 6, sides: 6, type: 'fire' }} /></span>}
               {namedSource === 'Briar' && ability.name === 'Oaken Resilience' && <label onClick={event => event.stopPropagation()}>
                 {' '}<input type="checkbox" aria-label="Briar Oaken Resilience active" checked={!!w.briarOakenResilienceActive}
                   onChange={event => update(w.id, { briarOakenResilienceActive: event.target.checked })} /> Active

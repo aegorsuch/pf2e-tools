@@ -32,7 +32,7 @@ const BASES: Record<string, string[]> = {
   'Debilitating Dart': ['Dart'],
   "Freedom's Flame": ['Morningstar'],
   "Ghosthand's Comet": ["Ghosthand's Comet"],
-  "Hunter's Dawn": ['Club', 'Dart', 'Javelin'],
+  "Hunter's Dawn": ['Club', 'Cruuk', 'Dart', 'Javelin'],
   'Kortos Diamond': ['Longsword'],
   'Lamentation of the Faithless': ['Greatsword'],
   "Meloth's Lifedrinker (Improved)": ['Longsword'],
@@ -45,6 +45,8 @@ const BASES: Record<string, string[]> = {
   "Spear of the Destroyer's Flame": ['Longspear'],
   'Whisperer of Souls': ['Glaive'],
 }
+const DAWN_MELEE_FORMS = ['Club', 'Cruuk']
+
 const ACTIONS: Record<string, { name: string; actions: string }[]> = {
   'Starday Night Special': [{ name: 'Lucky Bullet', actions: 'Free Action' }],
   SLARP: [{ name: 'Sample Return', actions: 'Free Action' }],
@@ -173,7 +175,7 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
           .replace(/\bghost touch\b/gi, 'Astral')
         if (item.name !== "Hunter's Dawn") return text
         const astral = text.replace(/\[speed\]\(\/Equipment\.aspx\?ID=\d+\)/i, '[Astral](/Equipment.aspx?ID=2832)')
-        return base.name === 'Club' ? astral : astral.replace(/\[ghost touch\]\([^)]+\)/i, 'Returning')
+        return DAWN_MELEE_FORMS.includes(base.name) ? astral : astral.replace(/\[ghost touch\]\([^)]+\)/i, 'Returning')
       }
       const common = replaceDawnRunes(rawCommon)
       const section = replaceDawnRunes(rawSection)
@@ -184,7 +186,7 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
         ...(item.name === 'Scalding Gauntlets' ? ['Free-Hand'] : []),
         ...item.traits].map(trait => [trait.toLowerCase(), trait])).values()]
       const fixedRunes = fixed.named_weapon_runes.split(';').filter(Boolean)
-      const formRunes = item.name === "Hunter's Dawn" && base.name !== 'Club'
+      const formRunes = item.name === "Hunter's Dawn" && !DAWN_MELEE_FORMS.includes(base.name)
         ? [...new Set([...fixedRunes.filter(rune => runeBase(rune) !== 'Ghost Touch'), 'Returning'])].join(';')
         : fixed.named_weapon_runes
       const data: ContentEntry['data'] = { ...base.data, url: item.data.url ?? '', sourceBook: item.data.sourceBook ?? '',
@@ -213,7 +215,7 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
         data.hands = 2
         data.named_weapon_no_ammunition = true
       }
-      if (item.name === "Hunter's Dawn" && base.name !== 'Club') {
+      if (item.name === "Hunter's Dawn" && !DAWN_MELEE_FORMS.includes(base.name)) {
         const range = Number(base.data.thrown_range ?? base.data.range)
         if (range > 0) {
           if (Number(base.data.range) > 0) data.range = range * 2
