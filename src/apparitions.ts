@@ -1,4 +1,4 @@
-import type { Character } from './types'
+import type { Character } from './types.ts'
 
 export type Apparition = { id: string; name: string; skills: string[]; spells: { name: string; rank: number }[]; vessel?: string; url: string }
 type Hit = { _id: string; _source: { name: string; markdown?: string; text?: string } }

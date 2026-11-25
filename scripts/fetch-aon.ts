@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { AON_ENDPOINTS, fetchAonHits, type Hit } from '../src/aonQuery.ts'
+import { normalizeApparitions } from '../src/apparitions.ts'
 import { normalizeCelestials, normalizeFiends, normalizePlants, normalizeUndead } from '../src/summonedFiends.ts'
 
 // Snapshots AoN at build time: the browser can't query AoN's Elasticsearch directly from our origin (CORS).
@@ -33,6 +34,16 @@ if (!celestialResult.hits?.hits) throw new Error('AoN celestials: missing creatu
 const celestials = normalizeCelestials(celestialResult.hits.hits)
 await writeFile('public/data/aon-celestials.json', JSON.stringify(celestials))
 console.log(`aon-celestials.json: ${celestials.length} entries`)
+const apparitionResponse = await fetch(AON_ENDPOINTS.pf2e, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ size: 1000, query: { bool: { filter: [{ term: { category: 'apparition' } }] } } }),
+})
+if (!apparitionResponse.ok) throw new Error(`AoN apparitions: HTTP ${apparitionResponse.status}`)
+const apparitionResult = await apparitionResponse.json() as { hits?: { hits?: Hit[] } }
+if (!apparitionResult.hits?.hits) throw new Error('AoN apparitions: missing data')
+const apparitions = normalizeApparitions(apparitionResult.hits.hits as never)
+await writeFile('public/data/aon-apparitions.json', JSON.stringify(apparitions))
+console.log(`aon-apparitions.json: ${apparitions.length} entries`)
 const plantResponse = await fetch(AON_ENDPOINTS.pf2e, {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ size: 10000, query: { bool: { filter: [
