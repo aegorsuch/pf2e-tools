@@ -1613,7 +1613,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             </label>}
             {a.entry && !grantedClanWeapon && <GearAccess c={c} entries={entries} entry={a.entry} save={save} />}
             {attackSummaries.map(summary => <div key={summary.form ?? 'weapon'} className="col">
-              {summary.form && <strong>{summary.form} form</strong>}
+              {summary.form && <strong>{summary.form}</strong>}
               <div className="gear-stats">
                 <span><small>Attack</small><b><TotalBreakdown label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} breakdown={summary.attack.breakdown} signedTotal /></b></span>
                 {summary.attack.range > 0 && !inlineRange(summary) && !summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim()))
