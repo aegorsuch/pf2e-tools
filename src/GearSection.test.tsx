@@ -12,6 +12,7 @@ import { canEquipShield, equippedHands, equippedShield, hardwoodShield, ownedShi
 import { GearSystemFilter } from './GearSystemFilter'
 import { SearchableSelect } from './SearchableSelect'
 import { EntryDescription } from './EntryDescription'
+import { DamageRoll, MultipleDamageRoll } from './SpellDamage'
 import type { GearSystem } from './gearSystem'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
@@ -1728,6 +1729,16 @@ it('offers one Grisantian Hide choice and automatically displays its level-appro
   expect(save).toHaveBeenCalledTimes(1)
 })
 
+it('hides the material row on Highhelm Stronghold armor', () => {
+  const c: Character = { ...character([]), armors: [
+    { id: 'highhelm', name: 'Highhelm Stronghold Bastion Plate', worn: true, potency: 0, resilient: 0, runes: [] },
+  ] }
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} />)
+  expect(markup).not.toContain('aria-label="Armor material"')
+  expect(markup).not.toContain('aria-haspopup="dialog">Keep Stone')
+  expect(markup).not.toContain('>Material:</span>')
+})
+
 it('opens grade-specific weapon and armor material rules with the correct item level', () => {
   const item = (name: string, level: number, description: string): ContentEntry =>
     ({ ...weapon, id: name, kind: 'item', name, level, description })
@@ -2519,16 +2530,42 @@ it.each([false, true])('shows active unarmed property runes but hides fundamenta
     ancestry: 'Lizardfolk', handwraps: { potency: 2, striking: 1, runes: ['Decaying'] },
     weapons: [IRUXI_CLAWS, IRUXI_FANGS].map(entry => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })) }
   const entries = [IRUXI_CLAWS, IRUXI_FANGS,
-    { ...shifting, id: 'ghost-touch', name: 'Ghost Touch' },
+    { ...shifting, id: 'astral', name: 'Astral' },
     { ...shifting, id: 'decaying', name: 'Decaying' }]
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly={displayOnly} />)
-  expect(markup).toContain('>Ghost Touch</button>')
+  expect(markup).toContain('>Astral</button>')
   expect(markup).toContain('>Grievous</button>')
   expect(markup).toContain('>Decaying</button>')
   expect(markup).not.toContain('aria-label="Fundamental runes"')
   expect(markup).not.toContain('aria-label="Remove Grievous rune"')
-  expect(markup).not.toContain('aria-label="Remove Ghost Touch rune"')
+  expect(markup).not.toContain('aria-label="Remove Astral rune"')
   expect(markup).not.toContain('aria-label="Add property rune"')
+})
+
+it("scales Hunter's Dawn Activation 1 damage and lets Activation 3 hide its roll", () => {
+  const dawn: ContentEntry = {
+    ...weapon, id: 'dawn', name: "Hunter's Dawn (Gaff)", level: 5,
+    description: [
+      'Base weapon: Gaff.',
+      'On a successful hit, you deal 3d6 piercing damage.',
+      'Activate (one action) Frequency once per day; Effect First.',
+      'Activate (one action) Frequency once per day; Effect Second.',
+      'Activate (one action) Frequency once per day; Effect Third.',
+    ].join('\n\n'),
+    data: { ...weapon.data, damage: '1d6 piercing', weapon_type: 'Melee', weapon_category: 'Simple',
+      named_weapon: true, named_weapon_source: "Hunter's Dawn", named_weapon_base: 'Gaff',
+      named_weapon_potency: 3, named_weapon_striking: 2, named_weapon_runes: 'Astral;Returning',
+      named_weapon_material: 'Peachwood', artifact_activation_actions: 'Single Action;Single Action;Single Action' },
+  }
+  const owned: OwnedWeapon = { id: dawn.id, name: dawn.name, potency: 0, striking: 0, runes: [] }
+  const c = { ...character([]), level: 19, weapons: [owned] }
+  const tree = WeaponList({ c, entries: [dawn], save: () => {} })
+  const activationOne = findElement(tree, element =>
+    element.type === MultipleDamageRoll && element.props.name === "Hunter's Dawn javelin")
+  const activationThree = findElement(tree, element =>
+    element.type === DamageRoll && element.props.name === "Hunter's Dawn fire")
+  expect(activationOne?.props.damages).toMatchObject([{ dice: 4 }, { dice: 2 }])
+  expect(activationThree?.props.toggleResult).toBe(true)
 })
 
 it('keeps saved hardlight runes inactive and provides grade-based upgrade slots', () => {

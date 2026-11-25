@@ -1,18 +1,18 @@
 import { Children, Fragment, isValidElement, type ReactNode } from 'react'
 import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
-import { ADVANCED_TYPES, companionItemName, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY,
-  CONSTRUCT_COMPANION_NAME, hasConstructInnovation, minionFerocity, specializationOptions } from './companions'
+import { ADVANCED_TYPES, bardingOptions, companionItemName, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor,
+  companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME, equippedBarding,
+  hasConstructInnovation, isBadgerCompanion, isCompanionEquipmentItem, minionFerocity, specializationOptions } from './companions'
 import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, languageGroups, magicHideChange, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, spellDCText, summonedMounts, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
-import { CompanionSpellOptions, ProtectCompanionOptions, SpiritOfTheBeastOptions } from './SpellsSection'
+import { ActiveSpellActions, CompanionSpellOptions, ProtectCompanionOptions, SpiritOfTheBeastOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
 import { formatTraitLabel } from './GearTraits'
 import { DamageRoll } from './SpellDamage'
 import { newId } from './db'
 import { getSettings } from './settings'
 import { SearchableSelect } from './SearchableSelect'
-import { bardingOptions, equippedBarding, isCompanionEquipmentItem } from './companions'
 import { confirmRemoval } from './confirmRemoval'
 import { featAccess } from './featAccess'
 import { activeCaypinAlly, activeLashuntaAlly, activeShirrenAlly } from './featSpells'
@@ -462,21 +462,26 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
       const slotOptions = bySlot(slot, selected ? [selected.entryId] : [])
       const selectedEntry = selected && (slot === 'Barding'
         ? equippedBarding(entries, c.level, selected, size) : slotOptions.find(entry => entry.id === selected.entryId))
+      const choose = (event: { target: { value: string } }) => {
+        const entry = slotOptions.find(option => option.id === event.target.value)
+        if (entry) update(slot, { entryId: entry.id, name: entry.name, qty: 1 })
+      }
+      const picker = <SearchableSelect aria-label={`${companion.name || companion.type} ${slot} equipment`}
+        value={slot === 'Barding' ? selectedEntry?.id ?? '' : ''}
+        onClear={slot === 'Barding' && selectedEntry ? () => confirmRemoval(`"${selectedEntry.name}"`, () => update(slot, undefined)) : undefined}
+        optionCount={slotOptions.length} optionLevel={value => slotOptions.find(option => option.id === value)?.level}
+        renderDetails={value => {
+          const entry = slotOptions.find(option => option.id === value)
+          return entry && <EntryDescription name={itemName(entry.name)} entry={entry} entries={entries} character={c} buttonLabel="Details" deferDetails />
+        }} onChange={choose}>
+        <option value="">{slot === 'Barding' ? 'None' : `Choose ${slot.toLowerCase()}...`}</option>
+        {slotOptions.map(entry => <option key={entry.id} value={entry.id}>{itemName(entry.name)}</option>)}
+      </SearchableSelect>
       return <div key={slot} className="row companion-equipment-slot">
         <strong>{slot}</strong>
-        {selected ? itemTag(slot, selected, selectedEntry) : <SearchableSelect aria-label={`${companion.name || companion.type} ${slot} equipment`}
-          value="" optionCount={slotOptions.length} optionLevel={value => slotOptions.find(option => option.id === value)?.level}
-          renderDetails={value => {
-            const entry = slotOptions.find(option => option.id === value)
-            return entry && <EntryDescription name={itemName(entry.name)} entry={entry} entries={entries} character={c} buttonLabel="Details" deferDetails />
-          }}
-          onChange={event => {
-            const entry = slotOptions.find(option => option.id === event.target.value)
-            if (entry) update(slot, { entryId: entry.id, name: entry.name, qty: 1 })
-          }}>
-          <option value="">{slot === 'Barding' ? 'None' : `Choose ${slot.toLowerCase()}...`}</option>
-          {slotOptions.map(entry => <option key={entry.id} value={entry.id}>{itemName(entry.name)}</option>)}
-        </SearchableSelect>}
+        {slot === 'Barding'
+          ? <>{selected && !selectedEntry && itemTag(slot, selected, selectedEntry)}{picker}</>
+          : selected ? itemTag(slot, selected, selectedEntry) : picker}
       </div>
     })}
   </section>
@@ -993,7 +998,13 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                       <h5>Maneuvers</h5>
                       {maneuvers.map(maneuver => <div key={maneuver.name} className="companion-action">
                         <div className="companion-action-title">
-                          {maneuver.damage ? <DamageRoll key={`${maneuver.damage.dice}d${maneuver.damage.sides}`}
+                          {maneuver.name === 'Badger Rage' && isBadgerCompanion(comp)
+                            ? <ActiveSpellActions name={`Badger Rage (${comp.name || comp.type})`} actions={maneuver.actions}>
+                              <label><input type="checkbox" aria-label={`Badger Rage on ${comp.name || comp.type} active`}
+                                checked={!!comp.badgerRageActive}
+                                onChange={event => update(comp.id, { badgerRageActive: event.target.checked })} /> Active</label>
+                            </ActiveSpellActions>
+                            : maneuver.damage ? <DamageRoll key={`${maneuver.damage.dice}d${maneuver.damage.sides}`}
                             name={maneuver.name} damage={maneuver.damage} actions={maneuver.actions} toggleResult={maneuver.name === 'Primal Howl' || maneuver.name === 'Vicious Rend'} />
                             : maneuver.actions ? <ActionIcon actions={maneuver.actions} showOther />
                             : <small>Action cost unavailable</small>}

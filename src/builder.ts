@@ -6728,8 +6728,8 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const selectedAttacks = animalAttacks.filter((attack) => features.some((feature) => attack.name === `${feature} (Animal Feature)`))
   const shift = activeUntamedShiftEffects(c, entries)
   const untamedAttacks = [UNTAMED_CLAWS, UNTAMED_JAWS].filter(attack => shift.includes(attack === UNTAMED_CLAWS ? 'Claws' : 'Jaws'))
-  const cairnAttacks = cairnForm(c, entries) ? [CAIRN_FIST] : []
   const sparkAttacks = activeFeatsNamed(c, 'Spark Fist').length ? [SPARK_FIST] : []
+  const cairnAttacks = cairnForm(c, entries) && !sparkAttacks.length ? [CAIRN_FIST] : []
   const bestialAttacks = c.raging && barbarianInstinct(c, entries) === 'animal' && c.barbarianAnimal
     ? bestialWeapons.filter(attack => attack.id.startsWith(`bestial:${c.barbarianAnimal}:`)) : []
   const iruxiAttacks = activeFeatsNamed(c, 'Iruxi Armaments').flatMap(feat =>
@@ -7714,8 +7714,8 @@ function withBlessedArmament(c: Character, entries: ContentEntry[], weapon: Owne
 
 function withIruxiSpiritStrike(c: Character, weapon: OwnedWeapon): OwnedWeapon {
   return c.ancestry === 'Lizardfolk' && activeFeatsNamed(c, 'Iruxi Spirit Strike').length > 0
-    && !weapon.runes.some(rune => runeName(rune) === 'Ghost Touch')
-    ? { ...weapon, runes: [...weapon.runes, 'Ghost Touch'] } : weapon
+    && !weapon.runes.some(rune => runeBaseName(rune) === 'Astral')
+    ? { ...weapon, runes: [...weapon.runes, c.level >= 15 ? 'Astral (Greater)' : 'Astral'] } : weapon
 }
 
 export function livingWeaponRunes(weapon: OwnedWeapon) {

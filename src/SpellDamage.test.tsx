@@ -660,22 +660,30 @@ it('rolls verified Fireball, Void Warp, and Deathly Scream formulas at heightene
   expect(spellActionRolls('Fireball', 2, fireball)).toEqual([])
 })
 
-it('rolls Curse of Death damage for the selected stage and heightened rank', () => {
+it('rolls Curse of Death damage for all stages in one roll and scales with rank', () => {
   expect(spellDamage('Curse of Death', 4)).toEqual([])
-  expect(spellDamage('Curse of Death', 5)).toEqual([
-    { label: 'Stage 1 damage', dice: 4, sides: 6, type: 'void' },
-    { label: 'Stage 2 damage', dice: 8, sides: 6, type: 'void' },
-    { label: 'Stage 3 damage', dice: 12, sides: 6, type: 'void' },
-  ])
-  expect(spellDamage('Curse of Death', 8).map(damage => damage.dice)).toEqual([7, 11, 15])
+  expect(spellDamage('Curse of Death', 5)).toEqual([{
+    label: 'Damage', dice: 12, sides: 6, type: 'void',
+    outcomes: [{ label: 'Stage 1', dice: 4 }, { label: 'Stage 2', dice: 8 }, { label: 'Stage 3', dice: 12 }],
+  }])
+  expect(spellDamage('Curse of Death', 8)[0]).toMatchObject({
+    dice: 15, outcomes: [{ dice: 7 }, { dice: 11 }, { dice: 15 }],
+  })
   const entry: ContentEntry = { id: 'curse-of-death', name: 'Curse of Death', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 5, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
   const markup = renderToStaticMarkup(<SpellActions name="Curse of Death" rank={6} entry={entry} />)
-  expect(markup).toContain('aria-label="Curse of Death stage"')
-  expect(markup).toContain('aria-label="Roll Curse of Death: Stage 1 damage"')
-  expect(markup).toContain('title="Two Actions; Stage 1 damage: 5d6 void"')
-  vi.spyOn(Math, 'random').mockReturnValue(0)
-  expect(spellDamage('Curse of Death', 6).map(damage => rollSpellDamage(damage))).toEqual([5, 9, 13])
+  expect(markup).not.toContain('Curse of Death stage')
+  expect(markup).toContain('aria-label="Roll Curse of Death: Damage"')
+  expect(markup).toContain('title="Two Actions; Damage: 5d6 / 9d6 / 13d6 void"')
+  const save = vi.fn()
+  vi.mocked(useState).mockReturnValueOnce([undefined, save])
+  const tree = DamageRoll({ name: 'Curse of Death', damage: spellDamage('Curse of Death', 6)[0], actions: 'Two Actions' })
+  const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
+  if (!isValidElement<{ onClick: () => void }>(button)) throw Error('Missing Curse of Death roll')
+  const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+  button.props.onClick()
+  expect(random).toHaveBeenCalledTimes(13)
+  expect(save).toHaveBeenCalledWith([5, 9, 13])
 })
 
 it.each([

@@ -163,7 +163,13 @@ it.each([
     expect(markup).not.toContain('<label>Striking')
     expect(markup).not.toContain('aria-label="Fundamental runes"')
     expect(markup).toContain('[Astral](/Equipment.aspx?ID=2832)')
-    expect(markup).not.toMatch(/Ranged \(60 feet\)/)
+    expect(markup).toContain('Ranged (60 feet): Attack')
+    const javelinAttack = weaponAttack(character, entries, { ...owned("Hunter's Dawn (Javelin)"), id: weapon.id })
+    expect(javelinAttack).toMatchObject({
+      range: 60,
+      damage: expect.stringContaining(`${level >= 19 ? 4 : 3}d6`),
+    })
+    if (level === 19) expect(javelinAttack.damage).toContain('4d6')
     expect(markup).not.toContain('[speed](/Equipment.aspx?ID=304)')
     expect(JSON.stringify(character)).toBe(before)
   }

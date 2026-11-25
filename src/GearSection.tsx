@@ -6,7 +6,7 @@ import {
 import { newId } from './db'
 import { blessedShieldBenefit, canEquipShield, championBlessings, clanPistolRunes, equippedHands, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
-import { isAncestralEmbrace, isBastionNamedArmor, isIncendiaryArmor, isLibraryRobes, isMountainArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { isAncestralEmbrace, isBastionNamedArmor, isHighhelmPlate, isIncendiaryArmor, isLibraryRobes, isMountainArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { DamageRoll, MultipleDamageRoll } from './SpellDamage'
@@ -1269,19 +1269,20 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           : livingWeapon ? livingWeaponRunes({ ...w, ...shared }) : haft ? enhanced.runes : [...w.runes, ...grantedWeaponRunes] })
         const iruxiGranted = unarmed && c.ancestry === 'Lizardfolk' && activeFeatsNamed(c, 'Iruxi Spirit Strike').length > 0
           && !effectiveWeapon({ ...c, feats: c.feats.filter(feat => feat.name !== 'Iruxi Spirit Strike') }, entries, w)
-            .runes.some(rune => runeName(rune) === 'Ghost Touch')
+            .runes.some(rune => runeBaseName(rune) === 'Astral')
+        const iruxiRune = c.level >= 15 ? 'Astral (Greater)' : 'Astral'
         const ghostWrangler = !!c.raging && /^fist$/i.test(w.name) && isFeatEffectActive(c, 'Ghost Wrangler')
         const freeRunes = [...(builtIn?.runes.map(name => ({ name, source: `Built into ${String(a.entry?.data.named_weapon_source)}` })) ?? []),
           ...scaleRunes.map(name => ({ name, source: 'Granted by Scale of Igroon' })),
           ...clanRunes.map(name => ({ name, source: 'Granted by Clan Pistol' })),
           ...(freeShifting ? [{ name: 'Shifting', source: 'Granted by Living Weapon' }] : []),
           ...(blessed ? [{ name: blessed, source: 'Granted by Blessed Armament' }] : []),
-          ...(iruxiGranted ? [{ name: 'Ghost Touch', source: 'Granted by Iruxi Spirit Strike' }] : []),
+          ...(iruxiGranted ? [{ name: iruxiRune, source: 'Granted by Iruxi Spirit Strike' }] : []),
           ...(c.raging && c.spiritRage && barbarianInstinct(c, entries) === 'spirit'
-            && !iruxiGranted && !enhanced.runes.some(rune => runeName(rune) === 'Ghost Touch')
+            && !enhanced.runes.some(rune => runeName(rune) === 'Ghost Touch')
             ? [{ name: 'Ghost Touch', source: 'Granted by Spirit Rage' }] : []),
           ...(ghostWrangler && !(c.raging && c.spiritRage && barbarianInstinct(c, entries) === 'spirit')
-            && !iruxiGranted && !enhanced.runes.some(rune => runeName(rune) === 'Ghost Touch')
+            && !enhanced.runes.some(rune => runeName(rune) === 'Ghost Touch')
             ? [{ name: 'Ghost Touch', source: 'Granted by Ghost Wrangler' }] : []),
           ...(decaying ? [{ name: decaying, source: 'Granted by Osteo Armaments' }] : []),
           ...([CLAN_DAGGER.name, CLAN_DAGGER_DEXTERITY.name].includes(w.name) && c.level >= 5
@@ -1328,6 +1329,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             bonus: Number(oversizedDamage[3] ?? 0), type: oversizedDamage[4],
           }} />
         </span>
+        const dawnJavelin = namedSource === "Hunter's Dawn" ? { ...w, name: "Hunter's Dawn (Javelin)" } : undefined
+        const dawnJavelinEntry = dawnJavelin && weaponEntry(entries, dawnJavelin.name, dawnJavelin.id)
         const attackSummaries = (namedSource === 'Coldstar Pistols' && (!w.coldstarForm || w.coldstarForm === 'Paired')
           ? (['Flame', 'Frost'] as const).map(coldstarForm => {
             const formWeapon = { ...w, coldstarForm }
@@ -1344,7 +1347,9 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               : [{ form, weapon: formEnhanced, attack: formAttack }]
           })
           : namedSource === "Hunter's Dawn"
-          ? [{ form: undefined, weapon: enhanced, attack: a }]
+          ? [{ form: undefined, weapon: enhanced, attack: a },
+            ...(dawnJavelin && dawnJavelinEntry ? [{ form: 'Ranged', weapon: effectiveWeapon(c, entries, dawnJavelin),
+              attack: weaponAttack(c, entries, dawnJavelin) }] : [])]
           : canThrowMelee(a)
           ? [{ form: 'Melee', weapon: enhanced, attack: a },
             { form: 'Ranged', weapon: enhanced, attack: weaponAttack(c, entries, w, { thrown: true }) }]
@@ -1510,7 +1515,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                     { label: 'Gazelle', dice: 2, sides: 6, bonus: dawnDamage.bonus, type: 'piercing' }]} /></span>}
               {namedSource === "Hunter's Dawn" && ability.name === 'Activation 3'
                 && <span onClick={event => event.stopPropagation()}><DamageRoll name="Hunter's Dawn fire" actions={ability.actions ?? 'Single Action'}
-                  damage={{ label: 'Fire', dice: 6, sides: 6, type: 'fire' }} /></span>}
+                  toggleResult damage={{ label: 'Fire', dice: 6, sides: 6, type: 'fire' }} /></span>}
               {namedSource === 'Briar' && ability.name === 'Oaken Resilience' && <label onClick={event => event.stopPropagation()}>
                 {' '}<input type="checkbox" aria-label="Briar Oaken Resilience active" checked={!!w.briarOakenResilienceActive}
                   onChange={event => update(w.id, { briarOakenResilienceActive: event.target.checked })} /> Active
@@ -1708,7 +1713,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             </>}
             {!fixed && !upgradeWeapon && !(unarmed && handwraps?.kind === 'hardlight' && !iruxiGranted) && <Runes runes={livingWeapon ? shared.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(shared.potency))
               : (forms.length ? w.runes : enhanced.runes).filter((rune) => rune !== blessed && (!freeShifting || rune !== 'Shifting')
-                && (!iruxiGranted || runeName(rune) !== 'Ghost Touch')
+                && (!iruxiGranted || runeBaseName(rune) !== 'Astral')
                 && (!decaying || runeBaseName(rune) !== 'Decaying')
                 && !grantedWeaponRunes.some(grant => runeBaseName(grant) === runeBaseName(rune))
                 && !builtIn?.runes.includes(rune))}
@@ -2103,7 +2108,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               </div>
             )}
             <div className="row">
-              {isLibraryRobes(a.name) ? null : entry?.data.named_armor_material === 'Keep Stone' ? <div className="gear-runes"><span>Material:</span>
+              {isHighhelmPlate(a.name) || isLibraryRobes(a.name) ? null : entry?.data.named_armor_material === 'Keep Stone' ? <div className="gear-runes"><span>Material:</span>
                 <Material name="Keep Stone" entries={entries} equipment="Armor" source="Built into armor" />
               </div> : entry?.data.named_armor_material === 'Orichalcum' ? null
                 : entry?.data.named_armor_material ? <span>Material: {String(entry.data.named_armor_material)}</span>

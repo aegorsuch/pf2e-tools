@@ -16,6 +16,7 @@ import snapshot from '../public/data/aon-pf2e.json?raw'
 import { GearSystemFilter } from './GearSystemFilter'
 import type { GearSystem } from './gearSystem'
 import { SkillsSection } from './SkillsSection'
+import { processCharacterPicture } from './characterPictureData'
 
 const content = vi.hoisted(() => ({ entries: [] as ContentEntry[] }))
 vi.mock('dexie-react-hooks', () => ({ useLiveQuery: () => content.entries }))
@@ -35,6 +36,20 @@ it('shows active temporary HP in the collapsed Defense summary', () => {
   const render = (character: Character) => renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
   expect(render(c)).toMatch(/Hit Points \d+\+11/)
   expect(render({ ...c, raging: false })).not.toMatch(/Hit Points \d+\+/)
+})
+
+it('shows saved character pictures and rejects unsupported image files', async () => {
+  content.entries = []
+  const picture = { id: 'portrait-1', name: 'Character portrait', dataUrl: 'data:image/webp;base64,AA==' }
+  const c: Character = { id: 'picture-gallery', name: 'Test', systems: ['pf2e'], level: 1,
+    picture, abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  expect(markup).toContain('<strong>Picture</strong><span>Added</span>')
+  expect(markup).toContain('aria-label="Character picture"')
+  expect(markup).toContain('alt="Character portrait"')
+  await expect(processCharacterPicture(new File(['not an image'], 'portrait.svg', { type: 'image/svg+xml' })))
+    .rejects.toThrow('Choose a PNG, JPEG, or WebP picture.')
 })
 
 it('shows Devise a Stratagem toggle in the Investigator class header and Statuses', () => {
@@ -1588,7 +1603,7 @@ it('alphabetizes collapsible main sections without showing other feat slots', ()
     .map((match) => match[1])
   expect(headings).toEqual([
     'Ability Scores', 'Ancestry', 'Background', 'Class', 'Dedications', 'Defense', 'Deity', 'Equipment', 'Formulas',
-    'General Feats', 'Languages', 'Minions', 'Offense', 'Senses and Speed', 'Skill Feats', 'Skills', 'Statuses',
+    'General Feats', 'Languages', 'Minions', 'Offense', 'Picture', 'Senses and Speed', 'Skill Feats', 'Skills', 'Statuses',
   ])
   expect(markup.match(/<details class="character-section">/g)).toHaveLength(headings.length)
   expect(markup).not.toContain('Other Feat Slots')

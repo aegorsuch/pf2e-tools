@@ -36,7 +36,7 @@ import { matchesGearSystem, type GearSystem } from './gearSystem'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Bless', 'Cairn Form', 'Eat Fire', 'Enduring Might', 'Fly', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Summon Celestial', 'Tailwind']
-const STATUS_TRACKED_SPELL_EFFECTS = [...AUTOMATED_SPELL_EFFECTS, 'Animal Feature', 'Canopy Crawler', 'Marvelous Mount', 'Speak with Plants', 'Warning Stripes']
+const STATUS_TRACKED_SPELL_EFFECTS = [...AUTOMATED_SPELL_EFFECTS, 'Animal Feature', 'Canopy Crawler', 'Heroism', 'Marvelous Mount', 'Speak with Plants', 'Warning Stripes']
 
 function PharasmaSpellBonus({ c, entry, name, rank }: { c: Character; entry?: ContentEntry; name: string; rank: number }) {
   if (!hasDivineIntercession(c, 'Pharasma', 'moderate-boon') || rank < 1) return null
@@ -258,8 +258,9 @@ export function InnateSpellUses({ c, save, grant, additionalGrants = [] }: Pick<
       {pools.flatMap(pool => Array.from({ length: pool.uses.limit }, (_, index) => {
         const spent = pool.uses.spent.includes(index)
         const label = `${spent ? 'Restore' : 'Spend'} ${pool.grant.entry.name} (${pool.grant.source}) use ${index + 1}`
+        const description = [`Rank ${pool.grant.rank}`, pool.grant.rule.condition].filter(Boolean).join('; ')
         return <button key={`${pool.uses.key}:${index}`} type="button" className="focus-point"
-          aria-label={label} title={label} aria-pressed={!spent} onClick={() => {
+          aria-label={label} aria-description={description} title={`${label}; ${description}`} aria-pressed={!spent} onClick={() => {
             const next = new Set(pool.uses.spent)
             if (next.has(index)) next.delete(index)
             else next.add(index)
@@ -275,21 +276,20 @@ export function InnateSpellUses({ c, save, grant, additionalGrants = [] }: Pick<
 function groupedInnateSpells(c: Character, grants: ReturnType<typeof grantedFeatSpells>) {
   const grouped: ReturnType<typeof grantedFeatSpells>[] = []
   for (const grant of grants) {
-    const compatible = !grant.rule.shared && !grant.rule.condition && !!dailyInnateUses(c, grant)
+    const compatible = !grant.rule.shared && !!dailyInnateUses(c, grant)
     const match = compatible && grouped.find(group => {
       const first = group[0]
-      return !first.rule.shared && !first.rule.condition && !!dailyInnateUses(c, first)
+      return !first.rule.shared && !!dailyInnateUses(c, first)
         && first.rule.kind === grant.rule.kind
         && first.entry.name.toLowerCase() === grant.entry.name.toLowerCase()
-        && first.rank === grant.rank && first.rule.tradition?.toLowerCase() === grant.rule.tradition?.toLowerCase()
-        && first.rule.frequency?.toLowerCase() === grant.rule.frequency?.toLowerCase()
+        && first.rule.tradition?.toLowerCase() === grant.rule.tradition?.toLowerCase()
         && first.rule.ability === grant.rule.ability && first.rule.dc === grant.rule.dc
         && !group.some(existing => existing.usageKey === grant.usageKey)
     })
     if (match) match.push(grant)
     else grouped.push([grant])
   }
-  return grouped
+  return grouped.map(group => group.sort((a, b) => b.rank - a.rank))
 }
 
 export function ItemSpellUses({ c, save, spell }: Pick<SectionProps, 'c' | 'save'> & { spell: ItemSpell }) {
@@ -618,7 +618,7 @@ function MarvelousMountActions({ c, save, entry, disabled }: Pick<SectionProps, 
   return <button type="button" className="spell-action-button" aria-label={active ? 'Dismiss Marvelous Mount' : 'Summon Marvelous Mount'}
     aria-pressed={active} title={active ? 'Dismiss Marvelous Mount' : 'Summon Marvelous Mount'}
     disabled={disabled} onClick={() => save(spellActiveChange(c, 'Marvelous Mount', !active))}>
-    <ActionIcon entry={entry} showOther />
+    <ActionIcon entry={entry} showOther compactOther />
   </button>
 }
 
@@ -1453,7 +1453,7 @@ export function automatedSpellStatusControls({ c, entries, save }: SectionProps)
   const statusElement = (name: string, toggle: ReactNode) => {
     const entry = entries.find(candidate => candidate.kind === 'spell' && !candidate.deleted
       && candidate.name.toLowerCase() === name.toLowerCase() && candidate.systems.some(system => c.systems.includes(system)))
-    const actions = typeof entry?.data.actions === 'string' ? entry.data.actions : ''
+    const actions = name === 'Heroism' ? 'Two Actions' : typeof entry?.data.actions === 'string' ? entry.data.actions : ''
     return <>{toggle}{' '}{spellStatusName(name)}
       {name === 'Animal Feature'
         ? <> <SpellEffectActions c={c} entries={entries} save={save} entry={entry} name="Animal Feature" rank={Math.ceil(c.level / 2)} /></>

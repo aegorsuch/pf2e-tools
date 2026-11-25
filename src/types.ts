@@ -184,11 +184,18 @@ export interface ContentEntry {
   deleted?: boolean
 }
 
+export interface CharacterPicture {
+  id: string
+  name: string
+  dataUrl: string
+}
+
 export interface Character {
   id: string
   // Enabled rulesets; one or both
   systems: GameSystem[]
   name: string
+  picture?: CharacterPicture
   level: number
   ancestry?: string
   ethnicity?: string
@@ -476,6 +483,7 @@ export interface Character {
   summonInnateRanks?: { fiend?: number; plant?: number; undead?: number }
   // Companions and their equipped gear
   companions?: { id: string; name: string; type: string; equipment?: CompanionEquipmentSet; supportActive?: boolean;
+    badgerRageActive?: boolean;
     beastmasterAdvancement?: 'Nimble' | 'Savage'; beastmasterSpecializations?: Record<string, string>;
     auspiceServitor?: 'Celestial' | 'Fiend' | 'Monitor'; auspiceSubtype?: 'Angel' | 'Devil' | 'Psychopomp' | 'Other'; auspiceLanguage?: string;
     mascotLanguage?: string; mascotBannerAffixed?: boolean; paleHorse?: 'Fire' | 'Poison' | 'Void'; spiritAspect?: 'Might' | 'Swiftness' | 'Insight' | 'Alpha' }[]

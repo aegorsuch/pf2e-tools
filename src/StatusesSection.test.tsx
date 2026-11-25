@@ -21,6 +21,18 @@ function findToggle(node: ReactNode, label: string): ((event: { target: { checke
   return result
 }
 
+function findButton(node: ReactNode, label: string): (() => void) | undefined {
+  let result: (() => void) | undefined
+  Children.forEach(node, child => {
+    if (result || !isValidElement<Record<string, unknown>>(child)) return
+    result = child.type === 'button' && child.props['aria-label'] === label
+      ? () => (child.props.onClick as (event: { preventDefault: () => void; stopPropagation: () => void }) => void)(
+        { preventDefault() {}, stopPropagation() {} })
+      : findButton(child.props.children as ReactNode, label)
+  })
+  return result
+}
+
 it('changes favored terrain from statuses only after gaining Terrain Master', () => {
   let c: Character = { id: 'terrain-status', name: 'Test', systems: ['pf2e'], level: 11, className: 'Ranger',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -455,25 +467,86 @@ it('toggles Entrench Melee from Statuses and summarizes it while active', () => 
   const entries = [armor, fighter]
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const markup = renderToStaticMarkup(<StatusesContent c={c} entries={entries} save={save} />)
-  expect(markup).toContain('Entrench Melee: Immortal Bastion Plate')
-  const findChange = (node: ReactNode): ((event: { target: { checked: boolean } }) => void) | undefined => {
-    let result: ((event: { target: { checked: boolean } }) => void) | undefined
-    Children.forEach(node, child => {
-      if (!isValidElement<Record<string, unknown>>(child)) return
-      if (child.type === 'input' && child.props['aria-label'] === 'Entrench Melee: Immortal Bastion Plate status')
-        result = child.props.onChange as typeof result
-      else result ??= findChange(child.props.children as ReactNode)
-    })
-
-    return result
-  }
-  const change = findChange(StatusesContent({ c, entries, save }))
+  expect(markup).toContain('Entrench Melee</label>')
+  expect(markup).not.toContain('Entrench Melee: Immortal Bastion Plate</label>')
+  const change = findToggle(StatusesContent({ c, entries, save }), 'Entrench Melee: Immortal Bastion Plate status')
   if (!change) throw Error('Missing Entrench Melee status toggle')
   change({ target: { checked: true } })
   expect(c.armors?.[0].entrenchMeleeActive).toBe(true)
-  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={entries} save={save} />)).toContain('Entrench Melee')
-  change({ target: { checked: false } })
+  const summary = StatusesSummary({ c, entries, save })
+  expect(renderToStaticMarkup(summary)).toContain('Entrench Melee')
+  findButton(summary, 'Entrench Melee')!()
   expect(c.armors?.[0].entrenchMeleeActive).toBe(false)
+})
+
+it('toggles Parry with one control that includes its AC bonus', () => {
+  const weapon: ContentEntry = { id: 'parrying-weapon', name: 'Parrying Weapon', systems: ['pf2e'], kind: 'weapon',
+    source: 'official', level: 1, traits: ['Parry'], description: '', data: { weapon_type: 'Melee', hands: 2 },
+    effects: [], updatedAt: 1 }
+  let c: Character = { id: 'parry-status', name: 'Test', systems: ['pf2e'], level: 2, className: 'Fighter',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Raise Haft', type: 'Class Feat', level: 2 }],
+    equipment: [], weapons: [{ id: weapon.id, name: weapon.name, potency: 0, striking: 0, runes: [] }],
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const content = StatusesContent({ c, entries: [weapon], save })
+  const markup = renderToStaticMarkup(content)
+  expect(markup).toContain('aria-label="Parry (+2 AC)"')
+  expect(markup).toContain('>Parry (+2 AC)</button>')
+  expect(findToggle(content, 'Parry (+2 AC) status')).toBeUndefined()
+  findButton(content, 'Parry (+2 AC)')!()
+  expect(c.parrying).toBe(true)
+  expect(renderToStaticMarkup(StatusesContent({ c, entries: [weapon], save }))).toContain('aria-pressed="true"')
+})
+
+it('deactivates selected Statuses from the summary header', () => {
+  let c: Character = { id: 'status-header', name: 'Test', systems: ['pf2e'], level: 10, className: 'Fighter',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Stalwart Defender Dedication', type: 'Class Feat', level: 2 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    activeSpells: ['Cairn Form', 'Mountain Resilience'], activeStance: 'Tenacious Stance' }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  for (const name of ['Cairn Form', 'Mountain Resilience']) {
+    const button = findButton(StatusesSummary({ c, entries: [], save }), name)
+    expect(button).toBeTypeOf('function')
+    button!()
+    expect(c.activeSpells).not.toContain(name)
+  }
+  const stance = findButton(StatusesSummary({ c, entries: [], save }), 'Tenacious Stance')
+  expect(stance).toBeTypeOf('function')
+  stance!()
+  expect(c.activeStance).toBeUndefined()
+})
+
+it('tracks Badger Rage in Statuses on Badger companions only', () => {
+  let c: Character = { id: 'badger-status', name: 'Test', systems: ['pf2e'], level: 5,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'badger', name: 'Bristle', type: 'Badger' }, { id: 'horse', name: 'Buddy', type: 'Horse' }] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const content = StatusesContent({ c, entries: [], save })
+  expect(renderToStaticMarkup(content)).toContain('aria-label="Badger Rage on Bristle status"')
+  expect(renderToStaticMarkup(content)).not.toContain('Badger Rage on Buddy')
+  findToggle(content, 'Badger Rage on Bristle status')!({ target: { checked: true } })
+  expect(c.companions?.[0].badgerRageActive).toBe(true)
+  expect(c.companions?.[1].badgerRageActive).toBeUndefined()
+  expect(renderToStaticMarkup(StatusesSummary({ c, entries: [], save }))).toContain('Badger Rage (Bristle)')
+})
+
+it('shows Heroism in Statuses with a clickable two-action icon', () => {
+  let c: Character = { id: 'heroism-status', name: 'Test', systems: ['pf2e'], level: 5,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    spells: [{ name: 'Heroism', rank: 3, cantrip: false }] }
+  const heroism: ContentEntry = { id: 'heroism', name: 'Heroism', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 3, traits: [], description: '', data: {}, effects: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const content = StatusesContent({ c, entries: [heroism], save })
+  const markup = renderToStaticMarkup(content)
+  expect(markup).toContain('aria-label="Heroism options"')
+  expect(markup).toContain('aria-label="Two Actions"')
+  findToggle(content, 'Heroism status')!({ target: { checked: true } })
+  expect(c.activeSpells).toContain('Heroism')
 })
 
 it.each(['Breastplate of the Mountain', 'Full Plate of the Mountain', 'Bastion Plate of the Mountain'])(
@@ -620,10 +693,18 @@ it('lists raised shield, Shield cantrip, Bone Shield and Parry in Statuses', () 
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [], equipment: [], lores: [], languages: [],
     entryIds: [], extraSlots: [], updatedAt: 0, spells: [{ name: 'Shield', rank: 1, cantrip: true }] }
   const entries = [spell('Shield', ['Cantrip'])]
-  const save = () => {}
-  expect(findToggle(StatusesContent({ c, entries, save }), 'Raise Shield Cantrip status')).toBeTypeOf('function')
+  let saved: Partial<Character> = {}
+  const save = (change: Partial<Character>) => { saved = { ...saved, ...change } }
+  const content = StatusesContent({ c, entries, save })
+  const cantripToggle = findToggle(content, 'Raise Shield Cantrip status')
+  expect(cantripToggle).toBeTypeOf('function')
+  expect(findToggle(content, 'Shield status')).toBeUndefined()
+  cantripToggle!({ target: { checked: true } })
+  expect(saved.activeSpells).toEqual(['Shield'])
   const active = { ...c, activeSpells: ['Shield'] }
-  expect(renderToStaticMarkup(StatusesSummary({ c: active, entries, save }))).toContain('Raise Shield Cantrip')
+  const summary = renderToStaticMarkup(StatusesSummary({ c: active, entries, save }))
+  expect(summary).toContain('Raise Shield Cantrip (+1 AC)')
+  expect(summary.match(/Shield/g)).toHaveLength(1)
   const bone = { ...c, activeSpells: ['Bone Shield'], boneShieldRaised: true }
   expect(findToggle(StatusesContent({ c: bone, entries, save }), 'Raise Bone Shield status')).toBeTypeOf('function')
   expect(renderToStaticMarkup(StatusesSummary({ c: bone, entries, save }))).toContain('Raise Bone Shield')

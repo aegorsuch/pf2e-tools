@@ -191,9 +191,10 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
     case 'Curse of Death': {
       if (rank < 5) return []
       const heightened = rank - 5
-      return [4, 8, 12].map((dice, index) => ({
-        label: `Stage ${index + 1} damage`, dice: dice + heightened, sides: 6, type: 'void',
+      const outcomes = [4, 8, 12].map((dice, index) => ({
+        label: `Stage ${index + 1}`, dice: dice + heightened,
       }))
+      return [{ label: 'Damage', dice: outcomes[2].dice, sides: 6, type: 'void', outcomes }]
     }
     case 'Death Sentence':
       return rank >= 7 ? [{ label: 'Damage', dice: rank + 4, sides: 10, type: 'spirit' }] : []
@@ -570,17 +571,8 @@ function DreadMosquitoStormActions() {
 }
 
 function CurseOfDeathActions({ rank, actions }: { rank: number; actions?: string }) {
-  const [stage, setStage] = useState(1)
-  const damage = spellDamage('Curse of Death', rank)[stage - 1]
-  return <span>
-    <label>Curse of Death stage <select aria-label="Curse of Death stage" value={stage}
-      onChange={event => setStage(Number(event.target.value))}>
-      <option value={1}>Stage 1</option>
-      <option value={2}>Stage 2</option>
-      <option value={3}>Stage 3</option>
-    </select></label>
-    {damage && <DamageRoll key={stage} name="Curse of Death" damage={damage} actions={actions} toggleResult />}
-  </span>
+  const damage = spellDamage('Curse of Death', rank)[0]
+  return damage ? <DamageRoll name="Curse of Death" damage={damage} actions={actions} toggleResult /> : null
 }
 
 export function SpellActions({ name, rank, entry, spellcastingModifier, actionOverride }: { name: string; rank: number; entry?: ContentEntry; spellcastingModifier?: number; actionOverride?: string }) {

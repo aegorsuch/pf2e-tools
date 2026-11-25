@@ -250,6 +250,7 @@ it('retains Iron Fists traits and Cairn Form dice for Spark Fist', () => {
   const c: Character = { ...base, level: 19, feats: [
     { name: 'Spark Fist', type: 'Ancestry Feat', level: 5 }, { name: 'Iron Fists', type: 'Ancestry Feat', level: 1 }],
     spells: [{ name: cairn.name, rank: 4, cantrip: false }], activeSpells: [cairn.name] }
+  expect(ownedWeapons(c, [cairn]).some(weapon => weapon.name === 'Fist (Cairn Form)')).toBe(false)
   const spark = ownedWeapons(c, [cairn]).find(weapon => weapon.name === 'Spark Fist')!
   const attack = weaponAttack(c, [cairn], spark)
   expect(attack.damage).toBe('4d6+1 bludgeoning')
@@ -257,6 +258,9 @@ it('retains Iron Fists traits and Cairn Form dice for Spark Fist', () => {
   expect(attack.traits).not.toContain('Nonlethal')
   expect(attack.additionalDamage).toContainEqual(expect.objectContaining({ source: 'Spark Fist', value: '4 fire' }))
   expect(attack.criticalNote).toContain('stunned 1')
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[cairn]} save={() => {}} />)
+  expect(markup).toContain('Spark Fist')
+  expect(markup).not.toContain('>Fist (Cairn Form)</button>')
 })
 
 it.each(['Battleglove', 'Tactical Battleglove', 'Magnet-Directed Battleglove', 'Tekko-Kagi'])('optionally adds Finesse to free-hand weapon %s', name => {
@@ -3749,28 +3753,32 @@ it('adds the selected Iruxi Armaments attack and its ancestry-feat benefits', ()
   const attack = weaponAttack(c, [], fangs)
   expect(attack.damage).toBe('3d8+1 piercing')
   expect(attack.traits).not.toContain('Ghost Touch')
-  expect(effectiveWeapon(c, [], fangs).runes).toContain('Ghost Touch')
+  expect(effectiveWeapon(c, [], fangs).runes).toContain('Astral')
+  expect(effectiveWeapon(c, [], fangs).runes).not.toContain('Ghost Touch')
+  expect(effectiveWeapon({ ...c, level: 15 }, [], fangs).runes).toContain('Astral (Greater)')
   const fistEntry = content('weapon', 'Test Fist', { weapon_category: 'Unarmed', damage: '1d4 bludgeoning', hands: 1 }, 0, ['Unarmed'])
   const fist: OwnedWeapon = { id: fistEntry.id, name: fistEntry.name, potency: 0, striking: 0, runes: [] }
   expect(weaponAttack(c, [fistEntry], fist).traits).not.toContain('Ghost Touch')
-  expect(effectiveWeapon(c, [fistEntry], fist).runes).toEqual(['Grievous', 'Grappling', 'Ghost Touch'])
+  expect(effectiveWeapon(c, [fistEntry], fist).runes).toEqual(['Grievous', 'Grappling', 'Astral'])
   const weapon = content('weapon', 'Shortsword', { damage: '1d6 piercing', hands: 1 }, 0, [])
   const held: OwnedWeapon = { id: weapon.id, name: weapon.name, potency: 0, striking: 0, runes: [] }
   expect(weaponAttack(c, [weapon], held).traits).not.toContain('Ghost Touch')
   expect(effectiveWeapon(c, [weapon], held).runes).not.toContain('Ghost Touch')
-  expect(effectiveWeapon({ ...c, level: 12 }, [fistEntry], fist).runes).not.toContain('Ghost Touch')
+  expect(effectiveWeapon({ ...c, level: 12 }, [fistEntry], fist).runes).not.toContain('Astral')
   const withRune = { ...c, handwraps: { potency: 1, striking: 0, runes: ['Ghost Touch'] } }
-  expect(effectiveWeapon(withRune, [fistEntry], fist).runes).toEqual(['Grievous', 'Grappling', 'Ghost Touch'])
-  expect(effectiveWeapon({ ...c, ancestry: 'Human' }, [fistEntry], fist).runes).not.toContain('Ghost Touch')
-  expect(effectiveWeapon({ ...c, feats: [] }, [fistEntry], fist).runes).not.toContain('Ghost Touch')
+  expect(effectiveWeapon(withRune, [fistEntry], fist).runes).toEqual(['Grievous', 'Grappling', 'Ghost Touch', 'Astral'])
+  expect(effectiveWeapon({ ...c, ancestry: 'Human' }, [fistEntry], fist).runes).not.toContain('Astral')
+  expect(effectiveWeapon({ ...c, feats: [] }, [fistEntry], fist).runes).not.toContain('Astral')
   for (const choice of ['Claws', 'Fangs', 'Tail']) {
     const character = { ...c, feats: [feat('Iruxi Armaments', 1, choice), feat('Iruxi Spirit Strike', 13)] }
     const unarmed = ownedWeapons(character, []).find(candidate => candidate.name === choice)!
-    expect(effectiveWeapon(character, [], unarmed).runes).toContain('Ghost Touch')
+    expect(effectiveWeapon(character, [], unarmed).runes).toContain('Astral')
+    expect(effectiveWeapon(character, [], unarmed).runes).not.toContain('Ghost Touch')
     expect(weaponAttack(character, [], unarmed).traits).not.toContain('Ghost Touch')
   }
   const markup = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [fist] }} entries={[fistEntry]} save={() => {}} />)
   expect(markup).toContain('Granted by Iruxi Spirit Strike')
+  expect(markup).toContain('Astral')
   expect(markup).not.toContain('aria-label="Remove Ghost Touch rune"')
   expect(attack.criticalSpecialization).toBe(true)
   expect(featChoiceOptions('Iruxi Armaments', c, [], '')).toEqual(['Claws', 'Tail'])

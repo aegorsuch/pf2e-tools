@@ -14,6 +14,7 @@ import { PURIFY_AIR_DESCRIPTION, purifyAirActive, purifyAirAvailable } from './f
 import { summonSpellName } from './summonedFiends'
 import { Fragment } from 'react'
 import type { ContentEntry } from './types'
+import { isBadgerCompanion } from './companions'
 
 const canDeviseAStratagem = (c: SectionProps['c']) => c.systems.includes('pf2e') && c.className === 'Investigator'
 
@@ -94,7 +95,7 @@ function defenseToggles(c: SectionProps['c'], entries: SectionProps['entries']) 
   }
 }
 
-export function StatusesSummary({ c, entries }: SectionProps) {
+export function StatusesSummary({ c, entries, save }: SectionProps) {
   const defense = defenseToggles(c, entries)
   const stance = activeStance(c, entries)
   const poisonTotal = Math.max(0, Math.floor(c.level))
@@ -105,11 +106,13 @@ export function StatusesSummary({ c, entries }: SectionProps) {
     ...(c.raging ? ['Rage'] : []),
     ...(defense.shield && shieldRaised(c) ? [defense.shieldLabel] : []),
     ...(defense.boneShield ? (c.boneShieldRaised ? ['Raise Bone Shield'] : [])
-      : defense.cantrip && isSpellActive(c, entries, 'Shield') ? ['Raise Shield Cantrip'] : []),
+      : defense.cantrip && isSpellActive(c, entries, 'Shield') ? ['Raise Shield Cantrip (+1 AC)'] : []),
     ...(defense.parryWeapon && defense.parry > 0 && (c.parrying || defense.stanceParry) ? ['Parry'] : []),
     ...(stance ? [stance.name] : []),
     ...(activeFeatsNamed(c, 'Poison Weapon').length
       ? [`Poison Weapon ${poisonTotal - poisonSpent}/${poisonTotal}${c.poisonWeaponActive ? ' (active)' : ''}`] : []),
+    ...(c.companions ?? []).filter(companion => isBadgerCompanion(companion) && companion.badgerRageActive)
+      .map(companion => `Badger Rage (${companion.name || companion.type})`),
     ...(entrenchMeleeActive(c, entries) ? ['Entrench Melee'] : []),
     ...(mountainPoisonImmunities(c).length ? ['Poison Immunity'] : []),
     ...((c.armors ?? []).some(armor => isIncendiaryArmor(armor.name) && armor.livingFlameActive) ? ['Living Flame'] : []),
@@ -118,9 +121,11 @@ export function StatusesSummary({ c, entries }: SectionProps) {
     ...(c.hardenFleshActive && activeFeatsNamed(c, 'Harden Flesh').length ? ['Harden Flesh'] : []),
     ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Space Pirate Dedication').length
       && c.holoRogerActive ? ['Holo-Roger'] : []),
-    ...(c.activeSpells ?? []).flatMap(name => name === ANCESTRAL_AVATAR
-      ? isAncestralEmbrace(wornArmor(c, entries)?.name) ? ['Avatar'] : []
-      : [name]),
+    ...(c.activeSpells ?? []).flatMap(name => name === 'Shield' && defense.cantrip && !defense.boneShield
+      ? []
+      : name === ANCESTRAL_AVATAR
+        ? isAncestralEmbrace(wornArmor(c, entries)?.name) ? ['Avatar'] : []
+        : [name]),
     ...(c.summonedUndead ? ['Summon Undead'] : []),
     ...(c.summonedFiend ? [summonSpellName(c.summonedFiend)] : []),
     ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Creature Ally').length
@@ -132,12 +137,23 @@ export function StatusesSummary({ c, entries }: SectionProps) {
     ...(['frightened', 'sickened', 'enfeebled'] as const).flatMap(name =>
       conditionValue(c, name) ? [`${name[0].toUpperCase() + name.slice(1)} ${conditionValue(c, name)}`] : []),
   ]
+  const headerToggle = (name: string) => {
+    const toggle = name === 'Cairn Form' || name === 'Mountain Resilience'
+      ? () => save(spellActiveChange(c, name, false))
+      : name === 'Entrench Melee'
+        ? () => save({ armors: ownedArmors(c, entries).map(armor => armor.entrenchMeleeActive
+          ? { ...armor, entrenchMeleeActive: false } : armor) })
+        : name === 'Tenacious Stance' ? () => save({ activeStance: undefined }) : undefined
+    if (!toggle) return name
+    return <button type="button" className="status-header-toggle" aria-label={name} aria-pressed="true"
+      onClick={event => { event.preventDefault(); event.stopPropagation(); toggle() }}>{name}</button>
+  }
   const sorted = [...new Set(active)].sort((a, b) => a.localeCompare(b))
   return <summary className="character-section-summary"><strong>Statuses</strong>
     <span>{sorted.length ? sorted.map((name, index) => <Fragment key={name}>{index > 0 && ', '}
       {name === 'Parry' ? <span onClick={event => event.stopPropagation()}>
         <EntryDescription name="Parry" entry={parryTrait(c, entries)} entries={entries} character={c} deferDetails />
-      </span> : name}</Fragment>) : 'None active'}</span>
+      </span> : headerToggle(name)}</Fragment>) : 'None active'}</span>
   </summary>
 }
 
@@ -177,6 +193,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
     && entry.systems.some(system => c.systems.includes(system)))
   const ancestralAvatarActive = ancestralAvatarAvailable && !!c.activeSpells?.includes(ANCESTRAL_AVATAR)
   const spellControls = automatedSpellStatusControls({ c, entries, save })
+    .filter(control => control.name !== 'Shield' || !defense.cantrip || defense.boneShield)
   const untamedShift = knowsSpell(c, entries, 'Untamed Shift')
   const shiftEntry = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Untamed Shift'
     && entry.systems.some(system => c.systems.includes(system)))
@@ -190,7 +207,6 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   const zealousEntry = grant?.entry ?? entries.find(entry => entry.kind === 'spell' && !entry.deleted
     && entry.name === 'Zealous Conviction' && entry.systems.some(system => c.systems.includes(system)))
   const zealousRank = grant?.rank ?? c.zealousConvictionRank
-  const parryEntry = parryTrait(c, entries)
   const terrainEntry = selectedFeatEntry(c, entries, 'Favored Terrain') ?? FAVORED_TERRAIN
   const terrainActive = isFeatEffectActive(c, 'Favored Terrain')
   const terrainLocked = activeFeatsNamed(c, 'Terrain Master').length > 0
@@ -229,6 +245,20 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
     </> }] : []),
     ...(activeFeatsNamed(c, 'Harden Flesh').length
       ? [{ name: 'Harden Flesh', element: <HardenFleshToggle c={c} save={save} /> }] : []),
+    ...(c.companions ?? []).filter(isBadgerCompanion).map(companion => {
+      const name = companion.name || companion.type
+      const active = !!companion.badgerRageActive
+      const toggle = (checked: boolean) => save({ companions: c.companions?.map(current => current.id === companion.id
+        ? { ...current, badgerRageActive: checked } : current) })
+      return { name: `Badger Rage (${name})`, element: <>
+        <input type="checkbox" aria-label={`Badger Rage on ${name} status`} checked={active}
+          onChange={event => toggle(event.target.checked)} />{' '}
+        <ActiveSpellActions name={`Badger Rage (${name})`} actions="Single Action">
+          <label><input type="checkbox" aria-label={`Badger Rage on ${name} active`} checked={active}
+            onChange={event => toggle(event.target.checked)} /> Active</label>
+        </ActiveSpellActions>
+      </> }
+    }),
     ...(ancestralAvatarAvailable ? [{ name: 'Avatar', element: <>
       <input type="checkbox" aria-label="Avatar status" checked={ancestralAvatarActive}
         onChange={event => save(spellActiveChange(c, ANCESTRAL_AVATAR, event.target.checked))} />{' '}
@@ -251,7 +281,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
         checked={!!armor.entrenchMeleeActive} disabled={disabled}
         onChange={event => save({ armors: ownedArmors(c, entries).map(current => current.id === armor.id
           ? { ...current, entrenchMeleeActive: event.target.checked } : current) })} />
-        {' '}Entrench Melee: {armor.name}</label>
+        {' '}Entrench Melee</label>
     })}</div> }] : []),
     ...(mountainArmors.length ? [{ name: 'Poison Immunity', element: <div>{mountainArmors.map(armor => {
       const active = !!armor.mountainPoisonImmunityActive
@@ -336,14 +366,11 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       : defense.cantrip ? [{ name: 'Raise Shield Cantrip', element: <label><input type="checkbox" aria-label="Raise Shield Cantrip status"
         checked={isSpellActive(c, entries, 'Shield')}
         onChange={event => save(spellActiveChange(c, 'Shield', event.target.checked))} /> Raise Shield Cantrip (+1 AC)</label> }] : []),
-    ...(defense.parryWeapon && defense.parry > 0 ? [{ name: 'Parry', element: <><input type="checkbox" aria-label="Parry status"
-      checked={!!c.parrying || defense.stanceParry} disabled={defense.stanceParry}
-      onChange={event => { if (!defense.stanceParry) save({ parrying: event.target.checked }) }} />{' '}
-      <EntryDescription name="Parry" entry={parryEntry} entries={entries} character={c} /> (+{defense.parry} AC){' '}
-      <ActiveSpellActions name="Parry" entry={parryEntry} actions="Single Action">
-        <label><input type="checkbox" aria-label="Parry active in options" checked={!!c.parrying || defense.stanceParry}
-          disabled={defense.stanceParry} onChange={event => { if (!defense.stanceParry) save({ parrying: event.target.checked }) }} /> Parry</label>
-      </ActiveSpellActions></> }] : []),
+    ...(defense.parryWeapon && defense.parry > 0 ? [{ name: 'Parry', element: <button type="button"
+      className="spell-action-button status-parry-button" aria-label={`Parry (+${defense.parry} AC)`}
+      aria-pressed={!!c.parrying || defense.stanceParry} disabled={defense.stanceParry}
+      onClick={() => { if (!defense.stanceParry) save({ parrying: !c.parrying }) }}>
+      Parry (+{defense.parry} AC)</button> }] : []),
     ...(['enfeebled', 'frightened', 'sickened', 'doomed'] as const).map(name => ({
       name, element: <span>
         <EntryDescription name={name[0].toUpperCase() + name.slice(1)} entry={conditionEntry(name)} entries={entries} character={c} />{' '}

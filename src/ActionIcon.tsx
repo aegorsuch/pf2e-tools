@@ -9,15 +9,27 @@ const ACTIONS: Record<string, { count?: number; symbol?: 'free' | 'reaction' }> 
   'reaction': { symbol: 'reaction' },
 }
 
-export function ActionIcon({ entry, actions, showOther = false }: {
+export function ActionIcon({ entry, actions, showOther = false, compactOther = false }: {
   entry?: ContentEntry
   actions?: string
   showOther?: boolean
+  compactOther?: boolean
 }) {
   const value = actions ?? entry?.data.actions
   if (typeof value !== 'string' || !value.trim()) return null
   const parts = value.split(/(single action|one action|two actions|three actions|free action|reaction)/gi)
-  if (parts.length === 1) return showOther ? <>{value}</> : null
+  if (parts.length === 1) {
+    if (!showOther) return null
+    if (compactOther && /^10 minutes$/i.test(value.trim())) return (
+      <span className="action-cost" aria-label={value} title={value}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="action-icon">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <text x="12" y="15" textAnchor="middle" fill="currentColor" fontSize="7" fontWeight="700">10m</text>
+        </svg>
+      </span>
+    )
+    return <>{value}</>
+  }
 
   return (
     <span className="action-cost" aria-label={value} title={value}>

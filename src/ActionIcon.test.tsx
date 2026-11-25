@@ -29,6 +29,14 @@ it('renders action costs supplied directly for companion maneuvers', () => {
   expect(renderToStaticMarkup(<ActionIcon actions="10 minutes" showOther />)).toBe('10 minutes')
 })
 
+it('renders compact 10-minute activity icon without changing accessible cast-time label', () => {
+  const markup = renderToStaticMarkup(<ActionIcon actions="10 minutes" showOther compactOther />)
+  expect(markup).toContain('aria-label="10 minutes"')
+  expect(markup).toContain('<svg')
+  expect(markup).toContain('10m')
+  expect(markup).not.toContain('>10 minutes<')
+})
+
 it('formats picker action costs as inline symbols without redundant text', () => {
   expect(actionOptionLabel('Quick Draw', { ...entry, data: { actions: 'Single Action' } }))
     .toBe('Quick Draw ◆')

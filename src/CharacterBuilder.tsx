@@ -33,6 +33,7 @@ import { CheekPouches } from './CheekPouches'
 import { HighTechMedic } from './HighTechMedic'
 import { clearItemGlitching, setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
+import { CharacterPictures } from './CharacterPictures'
 import { isGrenade } from './formulas'
 import type { Character, ContentEntry, EntryKind } from './types'
 import { WORN_EQUIPMENT_GROUPS, equipmentDisplayName, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
@@ -962,6 +963,11 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
         <div className="character-section-content">
           <SkillsSection {...section} part="offense" />
         </div>
+      </DeferredDetails>
+      <DeferredDetails>
+        <summary className="character-section-summary"><strong>Picture</strong><span>{c.picture ? 'Added' : 'None'}</span></summary>
+        <DeferredContent>{() => <CharacterPictures picture={c.picture}
+          save={picture => save({ picture })} />}</DeferredContent>
       </DeferredDetails>
       <DeferredDetails>
         <SensesAndSpeedSummary {...section} />

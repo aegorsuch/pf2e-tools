@@ -2141,10 +2141,11 @@ it('combines matching daily innate spells without merging their saved use pools'
   expect(dailyInnateUses(c, grants()[1])?.remaining).toBe(1)
   const differentlyRanked = { ...second, spellGrants: second.spellGrants?.map(rule => ({ ...rule, rank: 4 })) }
   expect(renderToStaticMarkup(<SpellsSection c={c} entries={[first, differentlyRanked, entries[2]]} save={save} />)
-    .match(/aria-haspopup="dialog">Invisibility<\/button>/g)).toHaveLength(2)
+    .match(/aria-haspopup="dialog">Invisibility<\/button>/g)).toHaveLength(1)
   const restricted = { ...second, spellGrants: second.spellGrants?.map(rule => ({ ...rule, condition: 'Only at night' })) }
-  expect(renderToStaticMarkup(<SpellsSection c={c} entries={[first, restricted, entries[2]]} save={save} />)
-    .match(/aria-haspopup="dialog">Invisibility<\/button>/g)).toHaveLength(2)
+  const restrictedMarkup = renderToStaticMarkup(<SpellsSection c={c} entries={[first, restricted, entries[2]]} save={save} />)
+  expect(restrictedMarkup.match(/aria-haspopup="dialog">Invisibility<\/button>/g)).toHaveLength(1)
+  expect(restrictedMarkup).toContain('aria-description="Rank 2; Only at night"')
 })
 
 it('grants Kijimuna Whistle as a rank 5 primal innate spell once per day', () => {
@@ -2666,11 +2667,14 @@ it.each([[5, 10], [6, 10], [7, 20], [9, 20]] as const)(
   })
 
 it('adds Stonegate as an independent seventh-rank Magic Passage use without replacing existing uses', () => {
+  const previousConsolidate = getSettings().consolidateInnateTraditions
+  onTestFinished(() => updateSettings({ consolidateInnateTraditions: previousConsolidate }))
+  updateSettings({ consolidateInnateTraditions: true })
   const spell = { ...entry('Magic Passage', 'spell'), level: 5 }
   const other: ContentEntry = { ...entry('Passage Magic', 'feat'),
     spellGrants: [{ kind: 'innate', spells: [spell.name], rank: 5, frequency: 'once per day' }] }
   const stonegate = feat('Stonegate', 'You gain [_magic passage_](Spells.aspx?ID=1591) as a 7th-rank divine innate spell that you can cast once per day.', 17)
-  let c: Character = { ...base, level: 19, feats: [taken(other.name), taken(stonegate.name, 17)] }
+  let c: Character = { ...base, level: 19, innateTradition: 'Divine', feats: [taken(other.name), taken(stonegate.name, 17)] }
   const entries = [spell, other, stonegate]
   const grants = grantedFeatSpells(c, entries)
   expect(grants).toHaveLength(2)
@@ -2683,10 +2687,11 @@ it('adds Stonegate as an independent seventh-rank Magic Passage use without repl
   expect(dailyInnateUses(c, added)?.remaining).toBe(0)
   expect(dailyInnateUses(c, existing)?.remaining).toBe(1)
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(markup.match(/aria-haspopup="dialog">Magic Passage<\/button>/g)).toHaveLength(2)
+  expect(markup.match(/aria-haspopup="dialog">Magic Passage<\/button>/g)).toHaveLength(1)
+  expect(markup).toContain('1 of 2 uses remaining')
   expect(markup).toContain('Divine Spell Rank 7')
   expect(markup).toContain('20-foot-deep')
-  expect(markup).not.toContain('Only through barriers of earth or stone')
+  expect(markup).toContain('aria-description="Rank 7; Only through barriers of earth or stone"')
   expect(unresolvedFeatSpells(c, entries)).toEqual([])
 })
 

@@ -337,6 +337,12 @@
   padding: 8px 0;
 }
 
+.character-picture-content { display: flex; flex-direction: column; gap: 10px; }
+.character-picture-preview { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 0; }
+.character-picture-preview img { display: block; max-width: min(100%, 24rem); max-height: 24rem; object-fit: contain; background: var(--border); border-radius: 6px; }
+.character-picture-caption { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; overflow-wrap: anywhere; }
+.character-picture-caption button { min-height: 2.5rem; }
+
 .background-entry,
 .ancestry-entry {
   display: flex;
@@ -755,6 +761,8 @@ details.info > summary { cursor: pointer; font-size: 0.85em; }
 .spell-title > button, .spellbook-slot > button { font: inherit; padding: 0.1rem 0.2rem; }
 .spell-title label { white-space: nowrap; }
 .spell-action-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; min-width: 32px; min-height: 32px; padding: 0.1rem 0.2rem; font: inherit; vertical-align: middle; }
+.status-parry-button[aria-pressed='true'] { background: var(--accent, #7c6cf0); color: #fff; }
+.status-header-toggle { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 0.15em; cursor: pointer; }
 .spell-title > button, .spell-title .spell-action-button, .spellbook-slot > button,
 .spellbook-slot > .rune > button, .spellbook-slot .spell-action-button { min-height: 2.5rem; }
 .spell-remove { padding: 0.1rem 0.4rem; }

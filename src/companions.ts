@@ -27,6 +27,8 @@ export const CONSTRUCT_COMPANION_ENTRY: ContentEntry = {
 export const isCompanionEquipmentItem = (entry: ContentEntry) =>
   entry.kind === 'item' && String(entry.data.item_subcategory ?? '').toLowerCase() === 'companion items'
 
+export const isBadgerCompanion = (companion: { type: string }) => /^(?:Riding )?Badger$/i.test(companion.type.trim())
+
 const bardingCatalogs = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
 const bardingFamily = (name: string) => /^Barding(?: \((?:Light|Heavy)[^)]*\))?$/i.test(name)
   ? 'Barding' : name.replace(/^Greater (?=Anti-Dragon Barding$)/i, '')

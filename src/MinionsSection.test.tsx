@@ -8,7 +8,7 @@ import { activeBattleForm, armorClass, eligibleFeats, featChoiceOptions, featPre
 import { familiarAbilityEffects, familiarAbilityUnavailableReason } from './familiarAbilities'
 import { EntryDescription } from './EntryDescription'
 import { DamageRoll } from './SpellDamage'
-import { companionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME } from './companions'
+import { bardingOptions, companionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME } from './companions'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
@@ -1464,6 +1464,15 @@ it('selects alphabetized companion equipment and allows multiple Other items', (
   ]
   const tree = () => CompanionEquipmentSlots({ c, companion: c.companions![0], entries,
     save: patch => { c = { ...c, ...patch } } })
+  const bardingOptionsForCompanion = bardingOptions(entries, c.level, 'Medium')
+  const lightBarding = bardingOptionsForCompanion.find(entry => entry.name === 'Barding (Light)')!
+  const heavyBarding = bardingOptionsForCompanion.find(entry => entry.name === 'Barding (Heavy)')!
+  expect(findSelect(tree(), 'Buddy Barding equipment')).toBeTypeOf('function')
+  findSelect(tree(), 'Buddy Barding equipment')!({ target: { value: lightBarding.id } })
+  expect(c.companions?.[0].equipment?.Barding).toMatchObject({ entryId: lightBarding.id, name: 'Barding (Light)' })
+  expect(renderToStaticMarkup(tree())).toContain('>Barding (Light)</button>')
+  findSelect(tree(), 'Buddy Barding equipment')!({ target: { value: heavyBarding.id } })
+  expect(c.companions?.[0].equipment?.Barding).toMatchObject({ entryId: heavyBarding.id, name: 'Barding (Heavy)' })
   const collarSelect = findSelect(tree(), 'Buddy Collar equipment')
   if (!collarSelect) throw new Error('Missing companion collar slot')
   const emptyMarkup = renderToStaticMarkup(tree())
@@ -1475,7 +1484,7 @@ it('selects alphabetized companion equipment and allows multiple Other items', (
   expect(findButton(tree(), 'Increase Collar quantity')).toBeUndefined()
   expect(findSelect(tree(), 'Buddy Collar equipment')).toBeUndefined()
   expect(markup).not.toContain('Collar of Vigor')
-  expect(markup).toContain('<option value="" selected="">None</option>')
+  expect(markup).toContain('<option value="" selected="">Choose other equipment...</option>')
   expect(markup).toContain('aria-label="Remove Buddy Other: Steadyfoot Tassel"')
   expect(markup).toContain('aria-label="Buddy Add other equipment"')
   for (const name of ['Collar of Empathy', 'Steadyfoot Tassel']) {
@@ -1511,6 +1520,32 @@ it('selects alphabetized companion equipment and allows multiple Other items', (
   expect(c.companions?.[0].equipment?.Other).toEqual([
     { entryId: 'statuette', name: 'Hosteling Statuette', qty: 1 },
   ])
+})
+
+it('makes Badger Rage actionable and tracks it only on Badger companions', () => {
+  const badger: ContentEntry = { id: 'badger', systems: ['pf2e'], name: 'Badger', kind: 'companion', source: 'official',
+    level: 1, traits: ['Animal'], description: '', effects: [], updatedAt: 0,
+    data: { size: 'Small', hp: 8, strength: 2, dexterity: 1, constitution: 2, intelligence: -4, wisdom: 2,
+      charisma: 0, speed_raw: '25 feet, burrow 10 feet, climb 10 feet', skill: 'Survival',
+      companion_maneuver: 'Badger Rage', companion_maneuver_actions: 'Single Action',
+      companion_maneuver_traits: 'Concentrate, Emotion, Mental',
+      companion_maneuver_requirements: "The badger isn't fatigued or raging.",
+      companion_maneuver_description: 'The badger enters a state of pure rage that lasts for 1 minute.' },
+  }
+  const cat: ContentEntry = { ...badger, id: 'cat', name: 'Cat', data: { ...badger.data, companion_maneuver: '' } }
+  let c: Character = { id: 'badger-rage', systems: ['pf2e'], name: 'Test', level: 5,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'badger', name: 'Bristle', type: 'Badger' }, { id: 'cat', name: 'Mittens', type: 'Cat' }] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => MinionsContent({ c, entries: [badger, cat], save })
+  const markup = renderToStaticMarkup(tree())
+  expect(markup).toContain('aria-label="Badger Rage (Bristle) options"')
+  expect(markup).toContain('aria-label="Badger Rage on Bristle active"')
+  expect(markup).not.toContain('Badger Rage on Mittens')
+  findToggle(tree(), 'Badger Rage on Bristle active')!({ target: { checked: true } })
+  expect(c.companions?.[0].badgerRageActive).toBe(true)
+  expect(c.companions?.[1].badgerRageActive).toBeUndefined()
 })
 
 it('shows a pet only when Beast Trainer grants Pet', () => {
