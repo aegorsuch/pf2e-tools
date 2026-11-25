@@ -72,8 +72,8 @@ export function equipmentSkillBonuses(entry: ContentEntry, skill: string) {
 
 export const equipmentDisplayName = (name: string) => name.replace(/[\u2018\u2019]/g, "'")
   .replace(/^Orc Necksplitter$/, 'Orc Necksplitter Axe')
-  .replace(/\bStarday Night Special \(Gyrojet Pistol\)$/, 'Starday Night Special Gyrojet Pistol')
-  .replace(/\bStarday Night Special \(Rotating Pistol\)$/, 'Starday Night Special Rotating Pistol')
+  .replace(/\bStarday Night Special \((Gyrojet|Rotating|Semi-Auto) Pistol\)$/, 'Starday Night Special $1 Pistol')
+  .replace(/\bRaptorial Edge$/, 'Raptorial Edge Phase Cutlass')
   .replace(/^(Minor|Lesser|Moderate|Greater|Major|Supreme|True)\s+(.+)$/, '$2 ($1)')
 
 export function specificMagicItemName(entry: ContentEntry | undefined, name = entry?.name ?? '', owned = false) {

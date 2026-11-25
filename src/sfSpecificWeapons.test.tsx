@@ -86,6 +86,15 @@ it('displays the rotating pistol name without parentheses while preserving saved
   expect(weapon.name).toBe('Starday Night Special (Rotating Pistol)')
 })
 
+it('displays the semi-auto pistol name without parentheses while preserving saved identity and grade scaling', () => {
+  const weapon = owned('Starday Night Special (Semi-Auto Pistol)')
+  const html = renderToStaticMarkup(<WeaponList c={{ ...base, weapons: [weapon] }} entries={entries} save={() => {}} />)
+  expect(html).toContain('Starday Night Special Semi-Auto Pistol')
+  expect(html).not.toContain('Starday Night Special (Semi-Auto Pistol)')
+  expect(effectiveWeapon(base, entries, weapon).name).toBe('Superior Starday Night Special (Semi-Auto Pistol)')
+  expect(weapon.name).toBe('Starday Night Special (Semi-Auto Pistol)')
+})
+
 it('preserves Raptorial Edge modes, acid damage and permanently occupied upgrade slot', () => {
   const blade = owned('Raptorial Edge')
   const character = { ...base, weapons: [blade] }
@@ -104,4 +113,11 @@ it('preserves Raptorial Edge modes, acid damage and permanently occupied upgrade
     entries={[...entries, upgrade]} save={() => {}} />)
   expect(html).not.toContain('aria-label="Add weapon upgrade"')
   expect(html).toContain('Improved acid upgrade')
+})
+
+it('displays Raptorial Edge with its phase cutlass type without changing saved identity', () => {
+  const blade = owned('Raptorial Edge')
+  const html = renderToStaticMarkup(<WeaponList c={{ ...base, weapons: [blade] }} entries={entries} save={() => {}} />)
+  expect(html).toContain('Raptorial Edge Phase Cutlass')
+  expect(blade.name).toBe('Raptorial Edge')
 })
