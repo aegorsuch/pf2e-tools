@@ -105,11 +105,11 @@ export function familiarAbilitySlots(c: Character, entries: ContentEntry[], isWa
   const patronAbility = isWasp ? undefined : capacity.patronAbility
   const baseSelectableLimit = patronAbility ? capacity.selectableAbilityLimit : capacity.dailyAbilityLimit
   const specificFamiliars = isWasp || state.glyph || state.leshy ? [] : specificFamiliarOptions(c, entries)
-  const name = isWasp || state.glyph || state.leshy ? undefined : c.familiar?.specificFamiliar
+  const name = isWasp || state.glyph || state.leshy ? undefined : state.spiritFamiliar ? 'Spirit Familiar' : c.familiar?.specificFamiliar
   const selectedSpecificOption = specificFamiliars.find(option => key(option.entry.name) === key(name ?? ''))
   const selectedSpecific = selectedSpecificOption?.entry
   const activeSpecific = selectedSpecific && contentAccessGranted(c, selectedSpecific)
-    && specificFamiliarRequirement(selectedSpecific) > 0 && selectedSpecificOption?.available ? selectedSpecific : undefined
+    && (specificFamiliarRequirement(selectedSpecific) > 0 || state.spiritFamiliar) && selectedSpecificOption?.available ? selectedSpecific : undefined
   const selectableAbilityLimit = baseSelectableLimit - (activeSpecific ? selectedSpecificOption?.required ?? 0 : 0)
     - Number(!!emissaryAbility) - Number(!isWasp && state.leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0)
   return { patronAbility, dailyAbilityLimit: capacity.dailyAbilityLimit, specificFamiliars, selectedSpecific,
@@ -120,7 +120,6 @@ export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
   const state = familiarSelection(c)
   if (!state.familiar && !state.wasp) return []
   const data = state.wasp ? c.waspFamiliar : c.familiar
-  if (state.spiritFamiliar && (!data?.spiritManifested || data.spiritDestroyed)) return []
   const { activeSpecific, selectableAbilityLimit, emissaryAbility, leshySecret, leshyAbility } = familiarAbilitySlots(c, entries, state.wasp)
   const grants = activeSpecific
     ? specificFamiliarGrants(activeSpecific).abilities : state.glyph && !state.wasp ? GLYPH_FAMILIAR_ABILITIES
@@ -338,11 +337,17 @@ export function specificFamiliarRequirement(entry: ContentEntry): number {
   return fallback && fallback !== entry ? specificFamiliarRequirement(fallback) : 0
 }
 
+const SPIRIT_FAMILIAR_ID = 'fallback:specific-familiar:spirit-familiar'
+
 const FALLBACK_SPECIFIC_FAMILIARS: ContentEntry[] = [{
   id: 'fallback:specific-familiar:calligraphy-wyrm', name: 'Calligraphy Wyrm', kind: 'familiar', systems: ['pf2e'], source: 'official', level: 0,
   traits: ['Uncommon', 'Dragon'],
   description: 'Required Number of Abilities 6\n\nCalligraphy wyrms are curious dragons constantly in search of new lore and writing. They make natural allies for academics of all stripes, whether remaining in the towers of Cobyslarni or heading into fieldwork like the Pathfinder Society, but are also found working with witches contracted to draconic powers or wizards who\u2019ve somehow managed to impress the tiny creatures.\n\nWhile knowledgeable, calligraphy wyrms can also be know-it-alls. Their chirpy, high-pitched voices make this attitude humorous to some and insufferable to others.\n\nGranted Abilities darkvision, flier, manual dexterity, scent, skilled (arcana, society), speech\n\nInk Spray (one action, Arcane) Frequency once per 10 minutes; Effect The wyrm splatters ink in a 10-foot cone. Each creature in the area must attempt a Reflex save with a DC equal to its master\u2019s spell DC or class DC, whichever is higher. Critical Success The creature is unaffected. Success If the creature was invisible, it is concealed instead for 2 rounds. Failure As success, but for 1 minute. Critical Failure As success, but for 10 minutes. The creature is also blinded for 1 round or until it wipes the ink from its eyes using an Interact action.\n\nStylus Claws The wyrm has stylus-shaped claws that it can fill with its natural ink, using its claw as a pen without having to purchase ink.',
   data: { ability_type: 'Specific Familiar', required_abilities: 6, access: 'affiliation with Cobyslarni or the Pathfinder Society' }, effects: [], updatedAt: 0,
+}, {
+  id: 'fallback:specific-familiar:spirit-familiar', name: 'Spirit Familiar', kind: 'familiar', systems: ['pf2e'], source: 'official', level: 0,
+  traits: ['Spirit'], description: 'Required Number of Abilities 0\n\nAn apparition manifests as your familiar after daily preparations.',
+  data: { ability_type: 'Specific Familiar', required_abilities: 0 }, effects: [], updatedAt: 0,
 }, {
   id: 'homebrew:specific-familiar:nine-tailed-fox', name: 'Nine-Tailed Fox', kind: 'familiar', systems: ['pf2e'], source: 'homebrew', level: 0,
   traits: [], description: '', data: { ability_type: 'Specific Familiar', required_abilities: 1, granted_abilities: 'Scent' },
@@ -356,7 +361,12 @@ export function specificFamiliarOptions(c: Character, entries: ContentEntry[]) {
     - Number(state.leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0)
   const official = familiarAbilityEntries(entries, c).filter(isSpecificFamiliar)
   const known = new Set(official.map(entry => key(entry.name)))
-  return [...official, ...FALLBACK_SPECIFIC_FAMILIARS.filter(entry => c.systems.includes('pf2e') && !known.has(key(entry.name)))].map(entry => {
+  if (state.spiritFamiliar) {
+    const spirit = FALLBACK_SPECIFIC_FAMILIARS.find(entry => entry.id === SPIRIT_FAMILIAR_ID)!
+    return [{ entry: spirit, required: 0, available: true }]
+  }
+  return [...official, ...FALLBACK_SPECIFIC_FAMILIARS.filter(entry => entry.id !== SPIRIT_FAMILIAR_ID
+    && c.systems.includes('pf2e') && !known.has(key(entry.name)))].map(entry => {
     const required = Math.max(0, specificFamiliarRequirement(entry) - reduction)
     return { entry, required, available: abilities >= required }
   })

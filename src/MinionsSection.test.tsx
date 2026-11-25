@@ -921,28 +921,18 @@ it('shows clickable undead familiar rules and one daily ability', () => {
   expect(html).not.toContain('aria-label="Undead familiar name"')
 })
 
-it('tracks an Animist Spirit Familiar through manifestation, dispersal, and next daily preparations', () => {
-  let c: Character = {
+it('gives an Animist Spirit Familiar the Spirit Familiar specific familiar without manifestation controls', () => {
+  const c: Character = {
     id: 'animist-spirit-familiar', systems: ['pf2e'], name: 'Test', level: 1, className: 'Animist',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 18, cha: 10 },
     feats: [{ name: 'Spirit Familiar (Animist)', type: 'Class Feat', level: 1 }],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     familiar: { name: 'Battle Spirit', abilities: ['Flier'] },
   }
-  const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
-  const initialHtml = renderToStaticMarkup(tree())
-  expect(initialHtml).toContain('<h4>Spirit Familiar</h4>')
-  expect(initialHtml).toContain('aria-label="Spirit familiar ability"')
-  expect(initialHtml).toContain('aria-label="Remove Spirit familiar ability 1"')
-  expect(renderToStaticMarkup(tree())).toContain('aria-label="Spirit familiar manifested"')
-  expect(c.familiar?.spiritManifested).toBeUndefined()
-  findToggle(tree(), 'Spirit familiar manifested')?.({ target: { checked: true } })
-  expect(c.familiar?.spiritManifested).toBe(true)
-  findToggle(tree(), 'Spirit familiar manifested')?.({ target: { checked: false } })
-  expect(c.familiar?.spiritDestroyed).toBe(true)
-  findButton(tree(), 'Spirit familiar daily preparations')?.()
-  expect(c.familiar?.spiritDestroyed).toBe(false)
-  expect(c.familiar?.spiritManifested).toBe(false)
+  const html = renderToStaticMarkup(MinionsContent({ c, entries: familiarEntries, save: () => {} }))
+  expect(html).toContain('<h4>Spirit Familiar</h4>')
+  expect(html).toContain('aria-label="Remove Spirit familiar ability 1"')
+  expect(html).not.toMatch(/Apparition|Manifested after daily preparations|Spirit familiar manifested/)
 })
 
 it('selects, details, removes, and applies familiar abilities without exposing stored names', () => {

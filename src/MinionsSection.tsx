@@ -1242,27 +1242,6 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           </label>}
           {activeSpecific && specificSummary.map(text => <p key={text} className="companion-description">{text}</p>)}
           {isCrocodile && <small>Tiny crocodile familiar granted by Crocodile's Twin.</small>}
-          {spiritFamiliar && <>
-            <label>Apparition{' '}
-              <input aria-label="Spirit familiar apparition" value={data?.name ?? ''}
-                onChange={event => saveFamiliar({ name: event.target.value })} />
-            </label>
-            <div className="gear-traits"><span>Spirit</span></div>
-            <label><input type="checkbox" aria-label="Spirit familiar manifested"
-              checked={!!data?.spiritManifested && !data.spiritDestroyed}
-              disabled={!!data?.spiritDestroyed}
-              onChange={event => saveFamiliar(event.target.checked
-                ? { spiritManifested: true, spiritDestroyed: false }
-                : { spiritManifested: false, spiritDestroyed: true })} /> Manifested after daily preparations</label>
-            {data?.spiritDestroyed
-              ? <small>Destroyed or dispersed; apparition benefits return after next daily preparations.
-                <button type="button" aria-label="Spirit familiar daily preparations"
-                  onClick={() => saveFamiliar({ spiritDestroyed: false, spiritManifested: false })}>
-                  Next daily preparations
-                </button>
-              </small>
-              : !data?.spiritManifested && <small>Choose whether to manifest this familiar during daily preparations.</small>}
-          </>}
           {isWasp && <div className="gear-runes">{['Burrower', 'Flier'].map(name => {
             const entry = familiarAbilityEntry(name, familiarAbilityCatalog, c)
             return entry ? <EntryDescription key={name} name={name} entry={entry} entries={entries} character={c}

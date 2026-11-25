@@ -92,16 +92,15 @@ it('activates spell benefits only for valid familiar choices within the daily li
     .toEqual({ cantrip: false, batteryRank: undefined })
 })
 
-it('recognizes Animist Spirit Familiar and activates its familiar abilities only while manifested', () => {
+it('recognizes Animist Spirit Familiar and offers only the Spirit specific familiar', () => {
   const c: Character = { ...character, className: 'Animist', feats: [
     { name: 'Spirit Familiar (Animist)', type: 'Class Feat', level: 1 },
   ], familiar: { abilities: ['Flier'] } }
   expect(familiarSelection(c)).toMatchObject({ familiar: true, spiritFamiliar: true, dailyAbilityLimit: 2 })
-  expect(activeFamiliarAbilities(c, [ability('Flier', '')])).toEqual([])
-  const manifested = { ...c, familiar: { ...c.familiar, spiritManifested: true } }
-  expect(activeFamiliarAbilities(manifested, [ability('Flier', '')])).toEqual(['Flier'])
-  expect(activeFamiliarAbilities({ ...manifested, familiar: { ...manifested.familiar, spiritDestroyed: true } },
-    [ability('Flier', '')])).toEqual([])
+  expect(activeFamiliarAbilities(c, [ability('Flier', '')])).toEqual(['Flier'])
+  const options = specificFamiliarOptions(c, [])
+  expect(options.map(option => option.entry.name)).toEqual(['Spirit Familiar'])
+  expect(options[0].entry.traits).toContain('Spirit')
 })
 
 it('reserves one Witch familiar ability for the selected patron', () => {
