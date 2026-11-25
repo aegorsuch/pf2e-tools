@@ -1346,12 +1346,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 { form: 'Thrown', weapon: formEnhanced, attack: weaponAttack(c, entries, formWeapon, { thrown: true }) }]
               : [{ form, weapon: formEnhanced, attack: formAttack }]
           })
-          : namedSource === "Hunter's Dawn" && a.entry?.data.named_weapon_base !== 'Javelin' && weaponEntry(entries, "Hunter's Dawn (Javelin)")
-          ? (() => {
-            const javelinWeapon = { ...w, name: "Hunter's Dawn (Javelin)" }
-            return [{ form: 'Melee', weapon: enhanced, attack: a },
-              { form: 'Ranged', weapon: effectiveWeapon(c, entries, javelinWeapon), attack: weaponAttack(c, entries, javelinWeapon) }]
-          })()
+          : namedSource === "Hunter's Dawn"
+          ? [{ form: undefined, weapon: enhanced, attack: a }]
           : canThrowMelee(a)
           ? [{ form: 'Melee', weapon: enhanced, attack: a },
             { form: 'Ranged', weapon: enhanced, attack: weaponAttack(c, entries, w, { thrown: true }) }]
