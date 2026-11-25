@@ -39,6 +39,17 @@ export function parryTrait(c: SectionProps['c'], entries: SectionProps['entries'
     && entry.systems.some(system => c.systems.includes(system))) ?? PARRY
 }
 
+const CONDITION_RULES = {
+  enfeebled: 'Enfeebled applies a status penalty equal to its value to Strength-based rolls and DCs, including Strength-based melee attack rolls, damage rolls, and Athletics checks. It does not apply to checks based on other attributes.',
+  frightened: 'Frightened applies a status penalty equal to its value to all your checks and DCs. It decreases by 1 at the end of each of your turns.',
+  sickened: 'Sickened applies a status penalty equal to its value to all your checks and DCs. You can\'t willingly ingest anything, including elixirs and potions. Spend a single action retching to attempt a Fortitude save against the DC of the effect that made you sickened; on a success, reduce the value by 1 (2 on a critical success).',
+  doomed: 'Doomed reduces the value of the dying condition at which you die by your doomed value. If your maximum dying value reaches 0, you die instantly. Doomed decreases by 1 after a full night\'s rest.',
+} as const
+const conditionEntry = (name: keyof typeof CONDITION_RULES): ContentEntry => ({
+  id: `condition:${name}`, systems: ['pf2e'], kind: 'item', source: 'official', name: name[0].toUpperCase() + name.slice(1),
+  level: 0, traits: [], effects: [], updatedAt: 0, description: CONDITION_RULES[name], data: {},
+})
+
 const FAVORED_TERRAIN: ContentEntry = {
   id: 'feat:favored-terrain', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Favored Terrain',
   level: 2, traits: ['Ranger'], effects: [], updatedAt: 0,
@@ -333,15 +344,15 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
           disabled={defense.stanceParry} onChange={event => { if (!defense.stanceParry) save({ parrying: event.target.checked }) }} /> Parry</label>
       </ActiveSpellActions></> }] : []),
     ...(['enfeebled', 'frightened', 'sickened', 'doomed'] as const).map(name => ({
-      name, element: <label>
-        {name[0].toUpperCase() + name.slice(1)}{' '}
+      name, element: <span>
+        <EntryDescription name={name[0].toUpperCase() + name.slice(1)} entry={conditionEntry(name)} entries={entries} character={c} />{' '}
         <input type="number" min="0" step="1" aria-label={`${name[0].toUpperCase() + name.slice(1)} status`}
           value={conditionValue(c, name)} onChange={event => {
             const value = Number(event.target.value)
             if (!Number.isSafeInteger(value) || value < 0) return
             save({ conditions: { ...c.conditions, [name]: value } })
           }} />
-      </label>,
+      </span>,
     })),
     ...(c.className === 'Barbarian' || activeFeatsNamed(c, 'Barbarian Dedication').length
       ? [{ name: 'Rage', element: <RageToggle c={c} save={save} /> }] : []),
