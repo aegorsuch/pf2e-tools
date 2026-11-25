@@ -32,7 +32,7 @@ const BASES: Record<string, string[]> = {
   'Debilitating Dart': ['Dart'],
   "Freedom's Flame": ['Morningstar'],
   "Ghosthand's Comet": ["Ghosthand's Comet"],
-  "Hunter's Dawn": ['Gaff', 'Cruuk', 'Javelin'],
+  "Hunter's Dawn": ['Gaff', 'War Gavel', 'Cruuk', 'Javelin'],
   'Kortos Diamond': ['Longsword'],
   'Lamentation of the Faithless': ['Greatsword'],
   "Meloth's Lifedrinker (Improved)": ['Longsword'],
@@ -45,7 +45,7 @@ const BASES: Record<string, string[]> = {
   "Spear of the Destroyer's Flame": ['Longspear'],
   'Whisperer of Souls': ['Glaive'],
 }
-const DAWN_MELEE_FORMS = ['Gaff', 'Cruuk']
+const DAWN_MELEE_FORMS = ['Gaff', 'War Gavel', 'Cruuk']
 
 const ACTIONS: Record<string, { name: string; actions: string }[]> = {
   'Starday Night Special': [{ name: 'Lucky Bullet', actions: 'Free Action' }],
@@ -236,7 +236,8 @@ export function makeNamedWeaponEntries(entries: ContentEntry[], runes: { name: s
       return [{ ...entry, id: item.id, name: item.name, data: { ...data, named_weapon_resolver_only: true } }, entry]
     })
   })
-  const result = generated
+  const result = generated.map(entry => entry.data.named_weapon_source === "Hunter's Dawn" && entry.data.named_weapon_base === 'Javelin'
+    ? { ...entry, data: { ...entry.data, named_weapon_resolver_only: true } } : entry)
   const elemental = result.filter(entry => entry.data.named_weapon_source === 'Scalding Gauntlet' && !entry.data.named_weapon_resolver_only)
   return [...result, ...Object.entries(ELEMENTAL_GAUNTLETS).flatMap(([element, { rune, damage }]) => elemental.map((entry): ContentEntry => {
     const label = `${element} Gauntlet`

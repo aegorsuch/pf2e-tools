@@ -373,7 +373,10 @@ it('toggles Summon Celestial status and tracks Summon Fiend with its active summ
   const entries = [lineage, feat, celestial]
   const fiendToggle = findToggle(StatusesContent({ c, entries, save }), 'Summon Fiend status')
   if (!fiendToggle) throw Error('Missing summon status toggle')
-  expect(findToggle(StatusesContent({ c, entries, save }), 'Summon Celestial status')).toBeUndefined()
+  const castToggle = findToggle(StatusesContent({ c, entries, save }), 'Summon Celestial status')
+  if (!castToggle) throw Error('Missing cast Summon Celestial status toggle')
+  castToggle({ target: { checked: true } })
+  expect(c.activeSpells).toContain('Summon Celestial')
   c = { ...c, summonedFiend: { ...fiend, traits: ['Celestial'] } }
   const celestialToggle = findToggle(StatusesContent({ c, entries, save }), 'Summon Celestial status')
   if (!celestialToggle) throw Error('Missing celestial status toggle')
