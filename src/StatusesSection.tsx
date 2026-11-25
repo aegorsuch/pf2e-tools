@@ -338,11 +338,6 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
         checked={terrainActive} disabled={terrainLocked}
         onChange={event => save(featEffectChange(c, 'Favored Terrain', event.target.checked))} />{' '}
         <EntryDescription name="Favored Terrain" entry={terrainEntry} entries={entries} character={c} hideButtonActions />{' '}
-        <ActiveSpellActions name="Favored Terrain" entry={terrainEntry}>
-          <label><input type="checkbox" aria-label="Favored Terrain active in options" checked={terrainActive} disabled={terrainLocked}
-            onChange={event => save(featEffectChange(c, 'Favored Terrain', event.target.checked))} /> Favored Terrain</label>
-          <FavoredTerrainSelector c={c} save={save} />
-        </ActiveSpellActions>{' '}
         <FavoredTerrainSelector c={c} save={save} status /></> }] : []),
     ...(knowsSpell(c, entries, 'Protect Companion') || c.activeSpells?.includes('Protect Companion')
       ? [{ name: 'Protect Companion', element: <ProtectCompanionOptions c={c} save={save} entries={entries} showDetails /> }] : []),

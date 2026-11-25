@@ -30,6 +30,8 @@ it('changes favored terrain from statuses only after gaining Terrain Master', ()
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const render = () => renderToStaticMarkup(<StatusesContent c={c} entries={[]} save={save} />)
   expect(render()).toContain('aria-label="Favored Terrain status terrain"')
+  expect(render()).not.toContain('aria-label="Favored Terrain options"')
+  expect(render()).not.toMatch(/Favored Terrain<\/button>\s*<label>Favored Terrain/)
   expect(render()).toMatch(/aria-label="Favored Terrain status" disabled="" checked=""/)
   const selector = FavoredTerrainSelector({ c, save, status: true })!
   const select = Children.toArray(selector.props.children).find(child => isValidElement(child) && child.type === 'select')

@@ -167,7 +167,7 @@ it('selects Animal Feature effects from statuses with the active Persistent Anim
   }
 })
 
-it('opens status options for Hunt Prey, Parry, and Favored Terrain', async () => {
+it('opens status options for Hunt Prey and Parry, with Favored Terrain controlled inline', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
     this.setAttribute('open', '')
@@ -191,7 +191,7 @@ it('opens status options for Hunt Prey, Parry, and Favored Terrain', async () =>
   const root = createRoot(container)
   try {
     await act(async () => root.render(<Sheet />))
-    for (const name of ['Hunt Prey', 'Parry', 'Favored Terrain']) {
+    for (const name of ['Hunt Prey', 'Parry']) {
       const button = container.querySelector<HTMLButtonElement>(`[aria-label="${name} options"]`)!
       expect(button).toBeTruthy()
       await act(async () => button.click())
@@ -202,6 +202,8 @@ it('opens status options for Hunt Prey, Parry, and Favored Terrain', async () =>
     }
     expect(current.huntPreyActive).toBe(true)
     expect(current.parrying).toBe(true)
+    expect(container.querySelector('[aria-label="Favored Terrain options"]')).toBeNull()
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Favored Terrain status"]')!.click())
     expect(current.activeFeatEffects).toContain('Favored Terrain')
   } finally {
     await act(async () => root.unmount())

@@ -2020,6 +2020,10 @@ it('keeps movement terrain synchronized without a redundant feat selector and ap
   expect(beforeMaster).not.toContain('aria-label="Favored Terrain"')
   expect(beforeMaster).not.toContain('aria-label="In favored terrain"')
   expect(beforeMaster).not.toContain('ignore non-magical difficult terrain')
+  const noChoice = { ...c, level: 7, favoredTerrain: undefined, activeFeatEffects: ['Favored Terrain'],
+    feats: c.feats.map(feat => feat.name === 'Favored Terrain' ? { ...feat, choice: undefined } : feat) }
+  expect(renderToStaticMarkup(<SensesAndSpeed c={noChoice} entries={[ranger]} save={() => {}} />))
+    .not.toContain('Choose a Favored Terrain in your class feats')
 })
 
 it('allocates paid increases after Scrapper grants instead of spending earlier increases and invalidating the variant', () => {

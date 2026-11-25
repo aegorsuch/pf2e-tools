@@ -110,7 +110,7 @@ export function FavoredTerrainSelector({ c, save, status = false }: Pick<Section
   if (!activeFeatsNamed(c, 'Terrain Master').length || !activeFeatsNamed(c, 'Favored Terrain').length) return null
   const selected = selectedFavoredTerrain(c)
   const terrain = selected && FAVORED_TERRAINS.includes(selected) ? selected : ''
-  return <label>Favored Terrain{' '}
+  return <label>{!status && <>Favored Terrain{' '}</>}
     <select aria-label={status ? 'Favored Terrain status terrain' : 'Favored Terrain'} value={terrain} onChange={event => {
       if (FAVORED_TERRAINS.includes(event.target.value)) save(favoredTerrainChange(c, event.target.value))
     }}>
@@ -218,8 +218,6 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
     </>}
     {!!activeFeatsNamed(c, "Implement's Flight").length && <FeatEffectToggle c={c} save={save} name="Implement's Flight" label="Implement's Flight active"
       title="Fly while holding your implement." />}
-    {isFeatEffectActive(c, 'Favored Terrain') && !terrain
-      && <small role="status">Choose a Favored Terrain in your class feats before applying its benefits.</small>}
     <FavoredTerrainSelector c={c} save={save} />
     {terrain && <SourceNote source={`Favored Terrain (${terrain.terrain})`} note={`ignore non-magical difficult terrain.${
       terrain.enhanced ? (['Arctic', 'Desert'].includes(terrain.terrain)
