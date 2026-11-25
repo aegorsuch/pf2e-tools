@@ -32,12 +32,12 @@ it('imports actual SF2e armor grade AC, upgrade slots, and resilient bonuses fro
 })
 
 it('auto-upgrades requested Starfinder armor families and classifies them as specific gear', () => {
-  const families = ['Myrmidon Siegebreaker Plate', 'Rocketeer Armor', 'Carvesong', 'Clandestine Suit',
+  const families = ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Myrmidon Siegebreaker Plate', 'Rocketeer Armor', 'Carvesong', 'Clandestine Suit',
     "Drifter's Jacket", 'Stormbreaker Armor', 'Retrieval Harness']
   const grades = ['Advanced', 'Superior', 'Elite', 'Ultimate', 'Paragon']
   const names = new Set(families.flatMap(name => [name, ...grades.map(grade => `${grade} ${name}`)]))
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
-  const upgrades = ['Jetpack', 'Force Field', 'Active Camouflage', 'Cloaking Device', 'Drift Drive Relay',
+  const upgrades = ['Jetpack', 'Force Field', 'Aqua Jets', 'Active Camouflage', 'Cloaking Device', 'Drift Drive Relay',
     'Maneuvering Unit', 'Easypatcher', 'Energized Spikes', 'Energy Shielding',
     'Spell Gauntlet', 'Spell Refactoring Matrix']
   const entries = mapAonHits(hits.filter(hit => {
@@ -57,16 +57,17 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
     expect(effectiveArmor(character, entries, owned).name).toBe(`Superior ${name}`)
     const autoUpgrades = automaticSpecificArmorUpgrades({ ...character, level: 20 }, entries, armor!)
     expect(autoUpgrades.map(entry => entry.name)).toEqual(expect.arrayContaining(['Jetpack (Tactical)', 'Force Field (Paragon)']))
-    expect(autoUpgrades).toHaveLength(name === 'Clandestine Suit' || name === "Drifter's Jacket" || name === 'Stormbreaker Armor'
-      || name === 'Carvesong' ? 4
-      : name === 'Rocketeer Armor' ? 3
-      : name === 'Retrieval Harness' ? 3 : 2)
+    expect(autoUpgrades).toHaveLength(name === 'Clandestine Suit' || name === "Drifter's Jacket"
+      || name === 'Stormbreaker Armor' || name === 'Carvesong' ? 4
+      : name === 'Aquavarius Armor' || name === 'Rocketeer Armor' || name === 'Retrieval Harness' ? 3 : 2)
     if (name === 'Clandestine Suit') expect(autoUpgrades.map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Active Camouflage (Advanced)', 'Cloaking Device (Tactical)']))
     if (name === "Drifter's Jacket") expect(autoUpgrades.map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Force Field (Paragon)', 'Drift Drive Relay (Advanced)', 'Maneuvering Unit (Superior)']))
     if (name === 'Retrieval Harness') expect(autoUpgrades.map(entry => entry.name))
       .toContain('Easypatcher (Advanced)')
+    if (name === 'Aquavarius Armor') expect(autoUpgrades.map(entry => entry.name))
+      .toContain('Aqua Jets (Tactical)')
     if (name === 'Rocketeer Armor') expect(autoUpgrades.map(entry => entry.name))
       .toContain('Maneuvering Unit (Superior)')
     if (name === 'Stormbreaker Armor') {

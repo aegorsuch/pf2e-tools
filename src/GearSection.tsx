@@ -597,8 +597,8 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
         onClick={() => onToggleJetpack(id)}><ActionIcon actions="Single Action" /></button>}
     </span>)}
     {automaticOnly.map(entry => <span className="rune" key={`automatic:${entry.id}`}>
-      <GearTag name={automaticName(entry)} entry={entry} kind="upgrade" source={`Built into ${armorName}`} />
-      {!automaticArmorUpgradeUsesSlot(armorName, entry) && <small>Free (no upgrade slot)</small>}
+      <GearTag name={`${automaticName(entry)}${automaticArmorUpgradeUsesSlot(armorName, entry) ? '' : ' *'}`}
+        entry={entry} kind="upgrade" source={`Built into ${armorName}`} />
       {jetpackSpeed(entry) > 0 && <button type="button" className={`spell-action-button${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? ' on' : ''}`}
         aria-label={`${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? 'Dismiss' : 'Activate'} ${entry.name}`}
         aria-pressed={activeJetpack === AUTOMATIC_JETPACK_ID && worn} disabled={!worn}
@@ -2036,7 +2036,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           : originalDisplayEntry
         const displayEntryWithUnit = displayEntry?.name.replace(/^(?:Advanced|Superior|Elite|Ultimate|Paragon) /i, '') === "Drifter's Jacket"
           ? { ...displayEntry, description: [displayEntry.description,
-            'Includes a Maneuvering Unit at no extra cost; it uses no upgrade slot.'].filter(Boolean).join('\n\n') }
+              'Includes a Drift Drive Relay and Maneuvering Unit at no extra cost; neither uses an upgrade slot.'].filter(Boolean).join('\n\n') }
           : displayEntry
         const bonyPlates = a.id === BONY_PLATES_ID
         const body = !!entry?.data.attached

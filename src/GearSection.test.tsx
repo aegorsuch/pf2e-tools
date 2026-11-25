@@ -2889,9 +2889,9 @@ it.each([
   expect(c.armors?.[0].activeJetpack).toBeUndefined()
 })
 
-it('grants Clandestine Suit armor upgrades without using slots and activates its built-in jetpack', () => {
+it('reserves Clandestine Suit slots for its built-in Jetpack and Force Field', () => {
   const suit: ContentEntry = { ...weapon, id: 'clandestine', name: 'Clandestine Suit', kind: 'armor', systems: ['sf2e'],
-    level: 9, data: { url: 'clandestine', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 0 } }
+    level: 9, data: { url: 'clandestine', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 2 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
     systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
   const upgrades = [
@@ -2909,11 +2909,15 @@ it('grants Clandestine Suit armor upgrades without using slots and activates its
     return (component.type as (props: typeof component.props) => ReactNode)(component.props)
   }
   const markup = renderToStaticMarkup(tree())
+  expect(automaticArmorUpgradeSlotsUsed(suit)).toBe(2)
   expect(markup).toContain('Jetpack (Commercial)')
   expect(markup).toContain('Force Field (Advanced)')
-  expect(markup).toContain('Active Camouflage (Tactical)')
-  expect(markup).toContain('Cloaking Device (Commercial)')
+  expect(markup).toContain('Active Camouflage (Tactical) *')
+  expect(markup).toContain('Cloaking Device (Commercial) *')
+  expect(markup).not.toContain('Jetpack (Commercial) *')
+  expect(markup).not.toContain('Force Field (Advanced) *')
   expect(markup).not.toContain('Add armor upgrade')
+  expect(markup).not.toContain('Free (no upgrade slot)')
   expect(markup).not.toContain('Installed upgrades exceed available slots')
   expect(offensiveDefenseAttack(c, entries)).toBeDefined()
   const activate = findElement(upgradeContent(), element => element.props['aria-label'] === 'Activate Jetpack (Commercial)')!
@@ -2923,9 +2927,9 @@ it('grants Clandestine Suit armor upgrades without using slots and activates its
   })
 })
 
-it('auto-installs Drifter Jacket upgrades and reserves a slot only for its Force Field', () => {
+it('auto-installs Drifter Jacket upgrades, reserving slots for Jetpack and Force Field', () => {
   const jacket: ContentEntry = { ...weapon, id: 'drifters-jacket', name: "Drifter's Jacket", kind: 'armor', systems: ['sf2e'],
-    level: 10, description: 'A practical jacket.', data: { url: 'drifters-jacket', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 1 } }
+    level: 10, description: 'A practical jacket.', data: { url: 'drifters-jacket', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 2 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
     systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
   const upgrades = [
@@ -2937,13 +2941,15 @@ it('auto-installs Drifter Jacket upgrades and reserves a slot only for its Force
   ] }
   const entries = [jacket, ...upgrades]
   const markup = renderToStaticMarkup(ArmorList({ c, entries, save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(jacket)).toBe(1)
-  expect(markup).toContain('Drift Drive Relay (Commercial)')
-  expect(markup).toContain('Maneuvering Unit (Tactical)')
+  expect(automaticArmorUpgradeSlotsUsed(jacket)).toBe(2)
+  expect(markup).toContain('Drift Drive Relay (Commercial) *')
+  expect(markup).toContain('Maneuvering Unit (Tactical) *')
   expect(markup).toContain('Force Field (Superior)')
   expect(markup).toContain('Jetpack (Commercial)')
-  expect(markup).toContain('Includes a Maneuvering Unit at no extra cost; it uses no upgrade slot.')
-  expect(markup.match(/Free \(no upgrade slot\)/g)).toHaveLength(3)
+  expect(markup).not.toContain('Jetpack (Commercial) *')
+  expect(markup).not.toContain('Force Field (Superior) *')
+  expect(markup).toContain('Includes a Drift Drive Relay and Maneuvering Unit at no extra cost; neither uses an upgrade slot.')
+  expect(markup).not.toContain('Free (no upgrade slot)')
   expect(markup).not.toContain('Add armor upgrade')
 })
 
@@ -2959,10 +2965,11 @@ it('auto-installs Rocketeer Armor upgrades, reserving slots for Force Field and 
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
   expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(2)
-  expect(markup).toContain('Jetpack (Tactical)')
+  expect(markup).toContain('Jetpack (Tactical) *')
   expect(markup).toContain('Force Field (Advanced)')
   expect(markup).toContain('Maneuvering Unit (Tactical)')
-  expect(markup.match(/Free \(no upgrade slot\)/g)).toHaveLength(1)
+  expect(markup).not.toContain('Force Field (Advanced) *')
+  expect(markup).not.toContain('Maneuvering Unit (Tactical) *')
   expect(markup).not.toContain('Add armor upgrade')
 })
 
@@ -2991,7 +2998,7 @@ it('offers Acid, Cold, Electricity and Fire variants for Energy Shielding', () =
 
 it('auto-installs Retrieval Harness Easypatcher without using an upgrade slot', () => {
   const harness: ContentEntry = { ...weapon, id: 'retrieval-harness', name: 'Retrieval Harness', kind: 'armor', systems: ['sf2e'],
-    level: 10, data: { url: 'retrieval-harness', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 1 } }
+    level: 10, data: { url: 'retrieval-harness', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 3 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
     systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
   const upgrades = [
@@ -3002,12 +3009,16 @@ it('auto-installs Retrieval Harness Easypatcher without using an upgrade slot', 
     { id: harness.id, name: harness.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [harness, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(harness)).toBe(0)
-  expect(markup).toContain('Easypatcher (Advanced)')
+  expect(automaticArmorUpgradeSlotsUsed(harness)).toBe(2)
+  expect(markup).toContain('Easypatcher (Advanced) *')
+  expect(markup).toContain('Jetpack (Commercial)')
+  expect(markup).toContain('Force Field (Superior)')
+  expect(markup).not.toContain('Jetpack (Commercial) *')
+  expect(markup).not.toContain('Force Field (Superior) *')
   expect(markup).toContain('Add armor upgrade')
 })
 
-it('auto-installs Stormbreaker electrical upgrades and reserves a slot for its Force Field', () => {
+it('auto-installs Stormbreaker electrical upgrades and reserves slots for Jetpack and Force Field', () => {
   const armor: ContentEntry = { ...weapon, id: 'stormbreaker', name: 'Stormbreaker Armor', kind: 'armor', systems: ['sf2e'],
     level: 10, data: { url: 'stormbreaker', armor_category: 'Medium', ac: 4, armor_grade: 'Advanced', upgrade_slots: 2 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
@@ -3021,11 +3032,73 @@ it('auto-installs Stormbreaker electrical upgrades and reserves a slot for its F
     { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(1)
+  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(2)
+  expect(markup).not.toContain('Add armor upgrade')
+  expect(markup).toContain('Jetpack (Tactical)')
   expect(markup).toContain('Force Field (Paragon)')
   expect(markup).toContain('Energized Spikes (Advanced)')
-  expect(markup).toContain('Energy Shielding (Advanced) (Electricity)')
-  expect(markup).toContain('Add armor upgrade')
+  expect(markup).toContain('Energy Shielding (Advanced) (Electricity) *')
+  expect(markup).not.toContain('Jetpack (Tactical) *')
+  expect(markup).not.toContain('Force Field (Paragon) *')
+})
+
+it('auto-installs Aeon Guard Battle Dress Jetpack and Force Field using two upgrade slots', () => {
+  const armor: ContentEntry = { ...weapon, id: 'aeon-guard', name: 'Aeon Guard Battle Dress', kind: 'armor', systems: ['sf2e'],
+    level: 9, data: { url: 'aeon-guard-battle-dress', armor_category: 'Light', ac: 3, armor_grade: 'Commercial', upgrade_slots: 2 } }
+  const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
+    systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
+  const upgrades = [module('Jetpack (Tactical)', 9), module('Force Field (Advanced)', 7)]
+  const c: Character = { ...character([]), systems: ['sf2e'], level: 9, armors: [
+    { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
+  ] }
+  const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
+  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(2)
+  expect(markup).toContain('Jetpack (Tactical)')
+  expect(markup).toContain('Force Field (Advanced)')
+  expect(markup).not.toContain('Jetpack (Tactical) *')
+  expect(markup).not.toContain('Force Field (Advanced) *')
+  expect(markup).not.toContain('Add armor upgrade')
+})
+
+it('auto-installs Aquavarius Armor Aqua Jets free while reserving slots for Jetpack and Force Field', () => {
+  const armor: ContentEntry = { ...weapon, id: 'aquavarius-armor', name: 'Aquavarius Armor', kind: 'armor', systems: ['sf2e'],
+    level: 9, data: { url: 'aquavarius-armor', armor_category: 'Light', ac: 3, armor_grade: 'Commercial', upgrade_slots: 2 } }
+  const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
+    systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
+  const upgrades = [module('Jetpack (Tactical)', 9), module('Force Field (Advanced)', 7),
+    module('Aqua Jets (Tactical)', 17)]
+  const c: Character = { ...character([]), systems: ['sf2e'], level: 20, armors: [
+    { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
+  ] }
+  const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
+  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(2)
+  expect(markup).toContain('Aqua Jets (Tactical) *')
+  expect(markup).not.toContain('Jetpack (Tactical) *')
+  expect(markup).not.toContain('Force Field (Advanced) *')
+  expect(markup).not.toContain('Add armor upgrade')
+})
+
+it('marks all automatic Carvesong upgrades as slot-taking', () => {
+  const armor: ContentEntry = { ...weapon, id: 'carvesong', name: 'Carvesong', kind: 'armor', systems: ['sf2e'],
+    level: 9, data: { url: 'carvesong', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 4 } }
+  const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
+    systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
+  const upgrades = [module('Jetpack (Tactical)', 9), module('Force Field (Paragon)', 19),
+    module('Spell Gauntlet', 10), module('Spell Refactoring Matrix', 5)]
+  const c: Character = { ...character([]), systems: ['sf2e'], level: 20, armors: [
+    { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
+  ] }
+  const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
+  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(4)
+  expect(markup).toContain('Jetpack (Tactical)')
+  expect(markup).toContain('Force Field (Paragon)')
+  expect(markup).toContain('Spell Gauntlet')
+  expect(markup).toContain('Spell Refactoring Matrix')
+  expect(markup).not.toContain('Jetpack (Tactical) *')
+  expect(markup).not.toContain('Force Field (Paragon) *')
+  expect(markup).not.toContain('Spell Gauntlet *')
+  expect(markup).not.toContain('Spell Refactoring Matrix *')
+  expect(markup).not.toContain('Add armor upgrade')
 })
 
 it('places leveled SF2e and homebrew specific armor separately from standard armor', () => {

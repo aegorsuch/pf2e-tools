@@ -3165,20 +3165,23 @@ export function armorUpgradeSlots(entry?: ContentEntry) {
 export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
   const family = armor?.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   if (!armor?.systems.includes('sf2e')) return 0
-  if (family === 'Rocketeer Armor') return 2
-  return family === "Drifter's Jacket" || family === 'Stormbreaker Armor' ? 1 : 0
+  if (family === 'Carvesong') return 4
+  return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Clandestine Suit', "Drifter's Jacket", 'Retrieval Harness',
+    'Rocketeer Armor', 'Stormbreaker Armor']
+    .includes(family ?? '') ? 2 : 0
 }
 
 export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upgrade: ContentEntry) {
   const family = armorName?.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   const base = upgrade.name.replace(/\s*\([^)]*\)$/, '')
-  return family === "Drifter's Jacket" && base === 'Force Field'
-    || family === 'Rocketeer Armor' && ['Force Field', 'Maneuvering Unit'].includes(base)
-    || family === 'Stormbreaker Armor' && base === 'Force Field'
+  if (family === 'Carvesong') return true
+  if (['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Clandestine Suit', "Drifter's Jacket", 'Retrieval Harness',
+    'Stormbreaker Armor'].includes(family ?? '')) return ['Jetpack', 'Force Field'].includes(base)
+  return family === 'Rocketeer Armor' && ['Force Field', 'Maneuvering Unit'].includes(base)
 }
 
 const AUTOMATIC_UPGRADE_ARMORS = new Set([
-  'Myrmidon Siegebreaker Plate', 'Rocketeer Armor', 'Carvesong', 'Clandestine Suit',
+  'Aeon Guard Battle Dress', 'Aquavarius Armor', 'Myrmidon Siegebreaker Plate', 'Rocketeer Armor', 'Carvesong', 'Clandestine Suit',
   "Drifter's Jacket", 'Stormbreaker Armor', 'Retrieval Harness',
 ])
 const SPELL_ARMOR_FAMILIES = new Set(['Carveweave', 'Carvesong', 'Mageplate'])
@@ -3188,6 +3191,7 @@ const DRIFTER_JACKET_ARMOR_UPGRADES = ['Drift Drive Relay', 'Maneuvering Unit']
 const ROCKETEER_ARMOR_UPGRADES = ['Maneuvering Unit']
 const RETRIEVAL_HARNESS_ARMOR_UPGRADES = ['Easypatcher']
 const STORMBREAKER_ARMOR_UPGRADES = ['Energized Spikes', 'Energy Shielding']
+const AQUAVARIUS_ARMOR_UPGRADES = ['Aqua Jets']
 const SPELL_ARMOR_UPGRADES = ['Spell Gauntlet', 'Spell Refactoring Matrix']
 const SF_UPGRADE_GRADES = 'Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon'
 export const AUTOMATIC_JETPACK_ID = 'automatic:jetpack'
@@ -3204,6 +3208,7 @@ export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEnt
     ...(family === 'Rocketeer Armor' ? ROCKETEER_ARMOR_UPGRADES : []),
     ...(family === 'Retrieval Harness' ? RETRIEVAL_HARNESS_ARMOR_UPGRADES : []),
     ...(family === 'Stormbreaker Armor' ? STORMBREAKER_ARMOR_UPGRADES : []),
+    ...(family === 'Aquavarius Armor' ? AQUAVARIUS_ARMOR_UPGRADES : []),
     ...(spellArmor ? SPELL_ARMOR_UPGRADES : [])]
   return upgrades.flatMap(base => {
     const pattern = new RegExp(`^${base}(?: \\((?:${SF_UPGRADE_GRADES})\\))?$`, 'i')
