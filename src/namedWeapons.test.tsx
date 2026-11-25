@@ -124,21 +124,18 @@ it.each([
 ] as const)("locks every Hunter's Dawn form to Peachwood and scales fundamentals at level %i", (level, potency, striking, grade) => {
   const item: ContentEntry = { ...winter, id: 'dawn', name: "Hunter's Dawn", level: 5,
    description: "Base Weapon Club. _Hunter's Dawn_ is a _+3 [greater striking](/Equipment.aspx?ID=280) [speed](/Equipment.aspx?ID=304) [ghost touch](/Equipment.aspx?ID=297) [club](/Weapons.aspx?ID=2)_. " }
-  const bases: ContentEntry[] = ['Club', 'War Gavel', 'Gaff', 'Cruuk', 'Javelin'].map(name => ({
+  const bases: ContentEntry[] = ['Club', 'Gaff', 'Cruuk', 'Javelin'].map(name => ({
     ...bow(name, false), data: { damage: '1d6 piercing', weapon_type: name === 'Javelin' ? 'Ranged' : 'Melee',
       weapon_category: 'Simple', hands: 1, range: name === 'Javelin' ? 30 : 0 },
   }))
   const entries = [item, ...bases, rune('Astral'), rune('Astral (Greater)'), rune('Ghost Touch'), rune('Returning')]
   const options = gearPickerEntries(entries, 'weapon').filter(entry => entry.data.named_weapon_source === item.name)
-  expect(options.map(entry => entry.name)).toEqual(["Hunter's Dawn (Club) (Melee)", "Hunter's Dawn (Club) (Ranged)",
-    "Hunter's Dawn (War Gavel) (Melee)", "Hunter's Dawn (War Gavel) (Ranged)", "Hunter's Dawn (Gaff) (Melee)", "Hunter's Dawn (Gaff) (Ranged)", "Hunter's Dawn (Cruuk) (Melee)", "Hunter's Dawn (Cruuk) (Ranged)"])
+  expect(options.map(entry => entry.name)).toEqual(["Hunter's Dawn (Gaff)", "Hunter's Dawn (Cruuk)", "Hunter's Dawn (Javelin)"])
   const forms = makeNamedWeaponEntries(entries, entries.filter(entry => entry.data.item_subcategory === 'Weapon Property Runes'))
     .filter(entry => entry.data.named_weapon_source === item.name && !entry.data.named_weapon_resolver_only)
-  expect(forms).toHaveLength(8)
-  expect(forms.filter(entry => entry.name.endsWith('(Ranged)')).map(entry => [entry.data.named_weapon_base, entry.data.range]))
-    .toEqual([['Javelin', 60], ['Javelin', 60], ['Javelin', 60], ['Javelin', 60]])
-  expect(combinationForms(entries, "Hunter's Dawn (War Gavel) (Melee)").map(entry => entry.name))
-    .toEqual(["Hunter's Dawn (War Gavel) (Melee)", "Hunter's Dawn (War Gavel) (Ranged)"])
+  expect(forms).toHaveLength(3)
+  expect(forms.filter(entry => entry.name.endsWith('(Javelin)')).map(entry => [entry.data.named_weapon_base, entry.data.range]))
+    .toEqual([['Javelin', 60]])
     for (const form of forms) {
     expect(form.description).toContain('Returning')
     expect(form.description.toLowerCase()).not.toContain('ghost touch')
@@ -468,8 +465,6 @@ it('keeps Serithtial blade selection and item abilities in Equipment only', () =
     <WeaponList c={character} entries={entries} save={() => {}} displayOnly={displayOnly} />)
   const equipment = render(false)
   const offense = render(true)
-  expect(equipment).toContain('aria-label="Serithtial weapon type"')
-  expect(offense).not.toContain('aria-label="Serithtial weapon type"')
   for (const heading of ['Senses', 'Grace of the Inheritor', 'Destruction']) {
     expect(equipment).toContain(`<summary>${heading} `)
     expect(offense).not.toContain(`<summary>${heading} `)

@@ -23,7 +23,7 @@ import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSor
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { TotalBreakdown } from './TotalBreakdown'
-import { BRIAR_MAX_SHARPNESS, briarSharpnessPoints, namedWeaponAbilities, namedWeaponBases, namedWeaponEnhancements, namedWeaponStrikeNote, withNamedWeaponState } from './namedWeapons'
+import { BRIAR_MAX_SHARPNESS, briarSharpnessPoints, namedWeaponAbilities, namedWeaponEnhancements, namedWeaponStrikeNote, withNamedWeaponState } from './namedWeapons'
 import { installedHardlightUpgrades, isFeatEffectActive, raptorialEdgeImproved } from './builder'
 import { getSettings } from './settings'
 import { ARMIGER_ARMOR_ID, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
@@ -1260,7 +1260,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const plate = w.id === GAUNTLET.id ? gauntlet?.armor : undefined
         const builtIn = namedWeaponEnhancements(a.entry)
         const namedSource = String(a.entry?.data.named_weapon_source ?? '')
-        const namedBases = namedWeaponBases(a.entry)
         const automaticFundamentals = hasAutomaticWeaponFundamentals(c, entries, w)
         const lockFundamentals = automaticFundamentals || !!plate && isGrantedArmor(plate.id)
           && armorEntry(c, entries, plate.name, plate.id)?.data.automatic_fundamentals !== false
@@ -1437,20 +1436,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               }}>
                 {(['Melee', 'Ranged'] as const).map(form => <option key={form} value={form}
                   disabled={form !== activeCombinationForm && !canUseCombinationForm(form)}>{form}</option>)}
-              </select>
-            </label>}
-            {namedBases.length > 1 && namedSource === 'Serithtial' && !displayOnly && <label>Blade form{' '}
-              <select aria-label={`${namedSource} weapon type`} value={String(a.entry?.data.named_weapon_base)}
-                onChange={event => {
-                  const base = event.target.value
-                  if (!namedBases.includes(base)) return
-                  const name = `${namedSource} (${base})`
-                  const target = weaponEntry(entries, name)
-                  if (!target || equipped && (unknownHands || handsUsed - (hands ?? 0) + (weaponHands(entries, { ...w, name, handsHeld: undefined }, c) ?? handLimit + 1) > handLimit)) return
-                  update(w.id, { name, handsHeld: undefined })
-                }}>
-                {namedBases.map(base => <option key={base} value={base} disabled={equipped && (unknownHands
-                  || handsUsed - (hands ?? 0) + (weaponHands(entries, { ...w, name: `${namedSource} (${base})`, handsHeld: undefined }, c) ?? handLimit + 1) > handLimit)}>{base}</option>)}
               </select>
             </label>}
             {namedSource === 'Coldstar Pistols' && <label>Form{' '}<ActionIcon actions="Single Action" />
