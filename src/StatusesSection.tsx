@@ -40,14 +40,15 @@ export function parryTrait(c: SectionProps['c'], entries: SectionProps['entries'
 }
 
 const CONDITION_RULES = {
-  enfeebled: 'Enfeebled applies a status penalty equal to its value to Strength-based rolls and DCs, including Strength-based melee attack rolls, damage rolls, and Athletics checks. It does not apply to checks based on other attributes.',
-  frightened: 'Frightened applies a status penalty equal to its value to all your checks and DCs. It decreases by 1 at the end of each of your turns.',
-  sickened: 'Sickened applies a status penalty equal to its value to all your checks and DCs. You can\'t willingly ingest anything, including elixirs and potions. Spend a single action retching to attempt a Fortitude save against the DC of the effect that made you sickened; on a success, reduce the value by 1 (2 on a critical success).',
-  doomed: 'Doomed reduces the value of the dying condition at which you die by your doomed value. If your maximum dying value reaches 0, you die instantly. Doomed decreases by 1 after a full night\'s rest.',
+  enfeebled: "You're physically weakened. Enfeebled always includes a value. When you are enfeebled, you take a status penalty equal to the condition value to Strength-based rolls and DCs, including Strength-based melee attack rolls, Strength-based damage rolls, and Athletics checks.",
+  frightened: "You're gripped by fear and struggle to control your nerves. The frightened condition always includes a value. You take a status penalty equal to this value to all your checks and DCs. Unless specified otherwise, at the end of each of your turns, the value of your frightened condition decreases by 1.",
+  sickened: "You feel ill. Sickened always includes a value. You take a status penalty equal to this value on all your checks and DCs. You can't willingly ingest anything\u2014including elixirs and potions\u2014while sickened.\n\nYou can spend a single action retching in an attempt to recover, which lets you immediately attempt a Fortitude save against the DC of the effect that made you sickened. On a success, you reduce your sickened value by 1 (or by 2 on a critical success).",
+  doomed: "Your soul has been gripped by a powerful force that calls you closer to death. Doomed always includes a value. The dying value at which you die is reduced by your doomed value. If your maximum dying value is reduced to 0, you instantly die. When you die, you're no longer doomed.\n\nYour doomed value decreases by 1 each time you get a full night's rest.",
 } as const
+const CONDITION_IDS = { doomed: 67, enfeebled: 71, frightened: 76, sickened: 91 } as const
 const conditionEntry = (name: keyof typeof CONDITION_RULES): ContentEntry => ({
   id: `condition:${name}`, systems: ['pf2e'], kind: 'item', source: 'official', name: name[0].toUpperCase() + name.slice(1),
-  level: 0, traits: [], effects: [], updatedAt: 0, description: CONDITION_RULES[name], data: {},
+  level: 0, traits: [], effects: [], updatedAt: 0, description: CONDITION_RULES[name], data: { url: `/Conditions.aspx?ID=${CONDITION_IDS[name]}` },
 })
 
 const FAVORED_TERRAIN: ContentEntry = {
