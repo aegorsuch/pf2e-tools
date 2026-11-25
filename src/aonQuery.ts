@@ -1,5 +1,7 @@
 import type { EntryKind, GameSystem, SpellGrant } from './types.ts'
 import { parseWeaponModes } from './weaponModes.ts'
+import { plain } from './plain.ts'
+export { plain } from './plain.ts'
 
 // Verified live: both systems share one Elasticsearch host, split by index (pf2e: aon, sf2e: aonsf).
 export const AON_ENDPOINTS: Record<GameSystem, string> = {
@@ -77,14 +79,6 @@ export const CATEGORY_TO_KIND: Record<string, EntryKind> = {
   'familiar-specific': 'familiar',
   ...Object.fromEntries(Object.keys(SUBCLASS_CLASSES).map((category) => [category, 'subclass' as const])),
 }
-
-// Class feature summaries often omit the proficiency sentences, so keep the full text without markup
-export const plain = (md: string) => md
-  .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-  .replace(/<[^>]*>/g, ' ')
-  .replace(/[*_`]/g, '')
-  .replace(/\s+/g, ' ')
-  .trim()
 
 export function parseChoiceDescriptions(markdown: string) {
   const sections: { text: string; options: Record<string, string> }[] = []

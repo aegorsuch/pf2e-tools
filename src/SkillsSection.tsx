@@ -7,6 +7,7 @@ import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBo
 import { ArmorList, ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
+import { ActiveSpellActions } from './SpellsSection'
 import { CONDITIONAL_BONUSES } from './conditionalBonuses'
 import { droneCustomizationSlots, droneStats } from './drone'
 import { TotalBreakdown } from './TotalBreakdown'
@@ -107,7 +108,11 @@ export function RageToggle({ c, save, summary = false, entries = [] }: Pick<Sect
   const toggle = <span className="rage-status-toggle">
     <input type="checkbox" aria-label={summary ? 'Rage active' : 'Rage active (defense)'} checked={!!c.raging}
       onChange={(event) => save({ raging: event.target.checked })} />{' '}
-    <EntryDescription name="Rage" entry={rageEntry} entries={entries} character={c} hideButtonActions deferDetails />
+    <EntryDescription name="Rage" entry={rageEntry} entries={entries} character={c} hideButtonActions deferDetails />{' '}
+    {!summary && <ActiveSpellActions name="Rage" entry={rageEntry} actions="Free Action">
+      <label><input type="checkbox" aria-label="Rage active in options" checked={!!c.raging}
+        onChange={event => save({ raging: event.target.checked })} /> Active</label>
+    </ActiveSpellActions>}
   </span>
   return summary
     ? <span className="combat-summary-toggles" onClick={(event) => event.stopPropagation()}>{toggle}</span>

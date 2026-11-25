@@ -10,12 +10,21 @@ vi.mock('dexie-react-hooks', () => ({ useLiveQuery: (query: () => unknown) => {
   return result instanceof Promise ? undefined : result
 } }))
 vi.mock('./db', () => ({
-  db: { characters: { filter: () => ({ toArray: () => state.characters }) }, content: { toArray: () => [] } },
+  db: {
+    characters: { filter: () => ({ toArray: () => state.characters }) },
+    content: {
+      where: () => ({
+        equals: () => ({ toArray: () => [] }),
+        anyOf: () => ({ distinct: () => ({ toArray: () => [] }) }),
+      }),
+      toArray: () => [],
+    },
+  },
   ensureSupplementalContent: vi.fn().mockResolvedValue(undefined),
   newId: () => 'new-character', removeEntry: vi.fn(), saveEntry: vi.fn(),
 }))
-vi.mock('./catalogLoading', () => ({
-  loadRequiredCatalogs: vi.fn().mockResolvedValue(true),
+vi.mock('./catalogLoading', () => ({ loadRequiredCatalogs: vi.fn().mockResolvedValue(true) }))
+vi.mock('./catalogReading', () => ({
   readCatalog: (full: boolean, _enabled: unknown, key: string) => ({ entries: [], key, full }),
 }))
 vi.mock('./sync', () => ({

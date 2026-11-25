@@ -116,7 +116,9 @@ export function refocusRecovery(c: Character, entries: ContentEntry[], capacity:
 
 const spellAlias = (name: string) => name.toLowerCase() === 'pass without trace' ? 'vanishing tracks'
   : name.toLowerCase() === 'goodberry' ? 'cornucopia'
-    : name.toLowerCase() === 'phantom steed' ? 'marvelous mount' : name.toLowerCase()
+    : name.toLowerCase() === 'phantom steed' ? 'marvelous mount'
+      : name.toLowerCase() === 'sure strike' ? 'true strike'
+        : name.toLowerCase() === 'true strike' ? 'sure strike' : name.toLowerCase()
 const matchesSpell = (spell: ContentEntry, name: string) => spell.name.toLowerCase() === name.toLowerCase()
   || spell.name.toLowerCase() === spellAlias(name)
 

@@ -1,4 +1,4 @@
-import { plain } from './aonQuery.ts'
+import { plain } from './plain.ts'
 import type { Character, ContentEntry } from './types.ts'
 
 type Link = { name: string; start: number; end: number }

@@ -1,11 +1,11 @@
-import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, selectedFeatEntry, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, whirlwindStanceActive, wornArmor, type SectionProps } from './builder'
+import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, selectedFeatEntry, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, weaponEntry, whirlwindStanceActive, wornArmor, type SectionProps } from './builder'
 import { grantedFeatSpells } from './featSpells'
 import { FavoredTerrainSelector, HardenFleshToggle, RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
 import { ActiveSpellActions, automatedSpellStatusControls, ProtectCompanionOptions, SpiritOfTheBeastOptions, SpellEffectActions, ZealousConvictionToggle } from './SpellsSection'
 import { EntryDescription } from './EntryDescription'
 import { SimplePoisons } from './GearSection'
-import { isAncestralEmbrace, isBastionNamedArmor, isIncendiaryArmor, isMountainArmor, mountainPoisonImmunities } from './namedArmor'
+import { isAncestralEmbrace, isBastionNamedArmor, isImmortalBastion, isIncendiaryArmor, isMountainArmor, mountainPoisonImmunities } from './namedArmor'
 import { DamageRoll } from './SpellDamage'
 import { ANCESTRAL_AVATAR } from './battleForms'
 import { FULMINATING_SHOT_ELEMENTS, fulminatingShotBonus } from './fulminatingShot'
@@ -243,6 +243,14 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   const ancestralAvatarActive = ancestralAvatarAvailable && !!c.activeSpells?.includes(ANCESTRAL_AVATAR)
   const spellControls = automatedSpellStatusControls({ c, entries, save })
     .filter(control => control.name !== 'Shield' || !defense.cantrip || defense.boneShield)
+  const crimsonClawModes = (c.weapons ?? []).flatMap(weapon => {
+    const entry = weaponEntry(entries, weapon.name, weapon.id)
+    if (!/^crimson claw\b/i.test(entry?.name ?? '')) return []
+    const modes = entry?.weaponModes ?? []
+    const fire = modes.find(mode => mode.damageType.toLowerCase() === 'fire')
+    const slashing = modes.find(mode => mode.damageType.toLowerCase() === 'slashing')
+    return fire && slashing ? [{ weapon, modes, fire, slashing }] : []
+  })
   const untamedShift = knowsSpell(c, entries, 'Untamed Shift')
   const shiftEntry = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Untamed Shift'
     && entry.systems.some(system => c.systems.includes(system)))
@@ -261,6 +269,17 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   const terrainLocked = activeFeatsNamed(c, 'Terrain Master').length > 0
   const controls = [
     { name: 'Active stance', element: <StancesContent c={c} entries={entries} save={save} /> },
+    ...(crimsonClawModes.length ? [{ name: 'Crimson Claw', element: <div className="status-action-group">
+      {crimsonClawModes.map(({ weapon, modes, fire, slashing }) => {
+        const selected = modes.find(mode => mode.id === weapon.weaponMode) ?? modes[0] ?? fire
+        const fireSelected = selected.id === fire.id
+        return <label key={weapon.id}><input type="checkbox" aria-label={`Crimson Claw mode status: ${weapon.name}`}
+          checked={fireSelected} onChange={event => save({ weapons: (c.weapons ?? []).map(current =>
+            current.id === weapon.id ? { ...current, weaponMode: event.target.checked ? fire.id : slashing.id } : current) })} />
+          {' '}{weapon.name}: {fireSelected ? 'Fire' : 'Slashing'}
+        </label>
+      })}
+    </div> }] : []),
     ...(activeFeatsNamed(c, 'Heroic Defiance').length ? [{ name: 'Heroic Defiance', element: <>
       <input type="checkbox" aria-label="Heroic Defiance active" checked={isFeatEffectActive(c, 'Heroic Defiance')}
         onChange={event => save(featEffectChange(c, 'Heroic Defiance', event.target.checked))} />{' '}
@@ -335,15 +354,17 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       const entry = armorEntry(c, entries, armor.name, armor.id)
       const disabled = !armor.worn || !entry || !armorProficiencyRank(c, entries, entry) || !!armor.inheritorCloakRed
       const active = !!armor.entrenchMeleeActive
-      const bonus = armor.name === 'Immortal Bastion Plate' ? 2 : 1
-      const update = () => save({ armors: ownedArmors(c, entries).map(current => current.id === armor.id
-        ? { ...current, entrenchMeleeActive: !active } : current) })
+      const bonus = isImmortalBastion(armor.name) ? 2 : 1
+      const update = (entrenchMeleeActive: boolean) => save({ armors: ownedArmors(c, entries).map(current => current.id === armor.id
+        ? { ...current, entrenchMeleeActive } : current) })
       return <div key={armor.id} className="status-action-group">
-        <EntryDescription name="Entrench Melee" entry={entrenchMeleeEntry(bonus)} buttonLabel="Entrench Melee details" />
-        <button type="button" className="spell-action-button status-action-button"
-          aria-label="Entrench Melee action" aria-pressed={active} disabled={disabled} onClick={update}>
-          {active && <span aria-hidden="true">✓</span>}<ActionIcon actions="Single Action" /> Entrench Melee
-        </button>
+        <input type="checkbox" aria-label={`Entrench Melee active: ${armor.name}`} checked={active} disabled={disabled}
+          onChange={event => update(event.target.checked)} />
+        <EntryDescription name="Entrench Melee" entry={entrenchMeleeEntry(bonus)} />
+        <ActiveSpellActions name="Entrench Melee" entry={entrenchMeleeEntry(bonus)} actions="Single Action">
+          <label><input type="checkbox" aria-label={`Entrench Melee active in options: ${armor.name}`}
+            checked={active} disabled={disabled} onChange={event => update(event.target.checked)} /> Active</label>
+        </ActiveSpellActions>
       </div>
     })}</div> }] : []),
     ...(mountainArmors.length ? [{ name: 'Poison Immunity', element: <div>{mountainArmors.map(armor => {

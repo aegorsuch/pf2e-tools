@@ -1,5 +1,5 @@
 import type { Character, ContentEntry } from './types'
-import { armorEntry, ownedArmors, ownedShields, runeName, shieldEntry, weaponAttack, weaponEntry } from './builder'
+import { armorEntry, automaticSpecificArmorUpgrades, ownedArmors, ownedShields, runeName, shieldEntry, weaponAttack, weaponEntry } from './builder'
 import { withNamedWeaponState } from './namedWeapons'
 import { limitedSpellUses } from './featSpells'
 import { getSettings } from './settings'
@@ -14,6 +14,7 @@ export interface ItemSpell {
   actions?: string
   frequency?: string
   condition?: string
+  note?: string
   dc?: number
   attackBonus?: number
   usesSpellcasting: boolean
@@ -70,6 +71,7 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
   const eligible = (entry?: ContentEntry): entry is ContentEntry => !!entry && !entry.deleted
     && entry.systems.some(system => c.systems.includes(system))
   const sources = new Map<string, ContentEntry>()
+  const automaticArmorSources = new Map<string, string>()
   const add = (entry?: ContentEntry) => { if (eligible(entry) && !sources.has(entry.id)) sources.set(entry.id, entry) }
   const addRunes = (runes: string[]) => {
     for (const name of runes) add(entries.find(entry => entry.kind === 'item' && entry.name === runeName(name) && eligible(entry)))
@@ -83,7 +85,12 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
     addRunes(weapon.runes)
   }
   for (const armor of ownedArmors(c, entries)) if (armor.worn || isHighhelmPlate(armor.name) && armor.strongholdWallActive) {
-    add(armorEntry(c, entries, armor.name, armor.id))
+    const armorItem = armorEntry(c, entries, armor.name, armor.id)
+    add(armorItem)
+    if (armor.worn) for (const upgrade of automaticSpecificArmorUpgrades(c, entries, armorItem)) {
+      add(upgrade)
+      automaticArmorSources.set(upgrade.id, armor.id)
+    }
     addRunes(armor.runes)
   }
   for (const shield of ownedShields(c)) add(shieldEntry(entries, shield.name))
@@ -119,6 +126,14 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
         ...(costOverride ? { actions: ['', 'Single Action', 'Two Actions', 'Three Actions'][Number(costOverride)] } : {}) })
     }
     if (isHighhelmPlate(source.name)) addSpell('Wall of Stone', undefined, { actions: 'Three Actions' })
+    if (/^Cloaking Device(?: \((?:Commercial|Tactical)\))?$/i.test(source.name)) {
+      addSpell('Invisibility', Math.max(2, Math.ceil(c.level / 2)), {
+        actions: 'Single Action',
+        frequency: /\(Tactical\)$/i.test(source.name) ? 'three times per day' : 'once per day',
+        note: 'Invisible for 1 minute.',
+        usageKey: JSON.stringify([automaticArmorSources.get(source.id) ?? source.id, 'cloaking-device', 'invisibility']),
+      })
+    }
     for (const rule of source.spellGrants ?? []) for (const name of rule.spells) addSpell(name,
       rule.heightened ? Math.ceil(c.level / 2) : rule.rank, { frequency: rule.frequency, condition: rule.condition,
         usageKey: JSON.stringify([source.id, 'grant', rule.spells.map(normalized).sort(), rule.shared || rule.choice ? 'shared' : normalized(name)]) })

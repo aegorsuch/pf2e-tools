@@ -87,9 +87,35 @@ it('derives named bastion plate profiles and fixed runes even without rune catal
   expect(specificMagicItemName(found[1], found[1].name, true)).toBe('Bastion Plate of the Inheritor')
   expect(found.map(entry => [entry.data.named_armor_potency, entry.data.named_armor_resilient, entry.data.named_armor_runes,
     entry.data.bulk, entry.data.strength])).toEqual([
-    [2, 1, 'Fortification', 5, 5], [2, 1, '', 5, 4], [3, 2, 'Fortification (Greater)', 5, 5],
+    [2, 1, 'Fortification', 6, 5], [2, 1, '', 5, 4], [3, 2, 'Fortification (Greater)', 6, 5],
   ])
   expect(gearPickerEntries(bastionEntries, 'armor').map(entry => entry.name)).toContain('Immortal Bastion Plate')
+})
+
+it('generates Highhelm, Inheritor, and Immortal armor in Breastplate, Full Plate, and Bastion Plate profiles', () => {
+  const breastplate: ContentEntry = { ...hide, id: 'breastplate', name: 'Breastplate',
+    data: { ...hide.data, armor_category: 'Medium', armor_group: 'Plate' } }
+  const fullPlate: ContentEntry = { ...bastionPlate, id: 'full-plate', name: 'Full Plate' }
+  const catalog = [...bastionEntries, breastplate, fullPlate]
+  const names = ['Highhelm Stronghold Breastplate', 'Highhelm Stronghold Full Plate', 'Highhelm Stronghold Bastion Plate',
+    'Breastplate of the Inheritor', 'Full Plate of the Inheritor', 'Bastion Plate of the Inheritor',
+    'Immortal Breastplate', 'Immortal Full Plate', 'Immortal Bastion Plate']
+  const generated = makeNamedArmorEntries(catalog, [])
+  expect(generated.map(entry => entry.name)).toEqual(names)
+  expect(generated.map(entry => entry.data.named_armor_base)).toEqual([
+    'Breastplate', 'Full Plate', 'Bastion Plate', 'Breastplate', 'Full Plate', 'Bastion Plate',
+    'Breastplate', 'Full Plate', 'Bastion Plate',
+  ])
+  for (const armor of generated) {
+    expect(namedArmorAbilities(armor).find(ability => ability.name.startsWith('Activation'))?.actions)
+      .toBe(armor.name.startsWith('Highhelm') ? 'Three Actions'
+        : armor.name.startsWith('Immortal') ? 'Reaction' : 'Single Action')
+    const markup = renderToStaticMarkup(<ArmorList c={{ ...character, armors: [owned(armor.name)] }}
+      entries={catalog} save={() => {}} part="armor" />)
+    if (armor.name.startsWith('Highhelm')) expect(markup).toContain('aria-label="Activate Highhelm wall"')
+    if (armor.name.startsWith('Immortal')) expect(markup).toContain(`Use ${armor.name} survival`)
+  }
+  expect(gearPickerEntries(catalog, 'armor').map(entry => entry.name)).toEqual(expect.arrayContaining(names))
 })
 
 const bastionPlate: ContentEntry = { ...hide, id: 'bastion', name: 'Bastion Plate', traits: ['Bulwark', 'Entrench'],
@@ -540,7 +566,7 @@ it('shows ordinary armor descriptions without a Summary toggle', () => {
 it('derives named armor bases, fundamental runes, elven construction, and immutable source metadata', () => {
   const before = JSON.stringify(entries)
   expect(gearPickerEntries(entries, 'armor').filter(entry => entry.data.named_armor).map(entry => entry.name))
-    .toEqual([hideEmbraceName, bane.name, artifact.name])
+    .toEqual(['Ancestral Embrace Leather Armor', hideEmbraceName, bane.name, artifact.name])
   expect(armorEntry(character, entries, hideEmbraceName)?.data).toMatchObject({
     ac: 3, dex_cap: 2, named_armor_potency: 4, named_armor_resilient: 3,
     named_armor_rune_limit: 3, url: embrace.data.url, price: '',
@@ -656,9 +682,10 @@ it('uses source shield durability and preserves saved base stats without materia
   expect(makeNamedShieldEntry([{ ...scale, description: 'Unavailable rules.' }], scale.name)).toBeUndefined()
 })
 
-it('keeps only artifact Ancestral Embrace Hide Armor with a three-property-rune cap', () => {
+it('keeps Ancestral Embrace armor bases with a three-property-rune cap', () => {
   const armors = makeNamedArmorEntries(entries, [fortification, greaterFortification])
-  expect(armors.filter(a => a.name.includes('Ancestral Embrace')).map(a => a.name)).toEqual([hideEmbraceName])
+  expect(armors.filter(a => a.name.includes('Ancestral Embrace')).map(a => a.name))
+    .toEqual(['Ancestral Embrace Leather Armor', hideEmbraceName])
   const hideEmbrace = armors.find(a => a.name === hideEmbraceName)!
   expect(hideEmbrace.data.named_armor_base).toBe('Hide Armor')
   expect(hideEmbrace.data.named_armor_material).toBe('Orichalcum')

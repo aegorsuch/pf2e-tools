@@ -2,19 +2,29 @@ import type { Character, ContentEntry, OwnedArmor } from './types'
 import { automaticArmigerRunes } from './grantedArmor'
 
 const ANCESTRAL_HIDE = 'Ancestral Embrace Hide Armor'
-export const isAncestralEmbrace = (name?: string) => name === 'Ancestral Embrace' || name === ANCESTRAL_HIDE
-const PLATE_VARIANTS: Record<string, string[]> = {
+const ANCESTRAL_LEATHER = 'Ancestral Embrace Leather Armor'
+export const isAncestralEmbrace = (name?: string) =>
+  name === 'Ancestral Embrace' || name === ANCESTRAL_HIDE || name === ANCESTRAL_LEATHER
+const SCALING_PLATE_VARIANTS: Record<string, string[]> = {
   'Rebounding Breastplate': ['Rebounding Breastplate', 'Rebounding Full Plate', 'Rebounding Bastion Plate'],
   'Breastplate of the Mountain': ['Breastplate of the Mountain', 'Full Plate of the Mountain', 'Bastion Plate of the Mountain'],
   'Incendiary Plate': ['Incendiary Breastplate', 'Incendiary Full Plate', 'Incendiary Bastion Plate'],
 }
+const PLATE_VARIANTS: Record<string, string[]> = {
+  ...SCALING_PLATE_VARIANTS,
+  'Highhelm Stronghold Plate': ['Highhelm Stronghold Breastplate', 'Highhelm Stronghold Full Plate', 'Highhelm Stronghold Bastion Plate'],
+  'Bastion of the Inheritor': ['Breastplate of the Inheritor', 'Full Plate of the Inheritor', 'Bastion Plate of the Inheritor'],
+  'Immortal Bastion': ['Immortal Breastplate', 'Immortal Full Plate', 'Immortal Bastion Plate'],
+}
 const plateVariantNames = Object.values(PLATE_VARIANTS).flat()
+const scalingPlateVariantNames = Object.values(SCALING_PLATE_VARIANTS).flat()
 const isScalingPlateVariant = (name?: string) => !!name && plateVariantNames.includes(name)
+const isScalingPlateFamilyVariant = (name?: string) => !!name && scalingPlateVariantNames.includes(name)
 export const isMountainArmor = (name?: string) => !!name && PLATE_VARIANTS['Breastplate of the Mountain'].includes(name)
 export const isIncendiaryArmor = (name?: string) => !!name && PLATE_VARIANTS['Incendiary Plate'].includes(name)
 export const mountainPoisonImmunities = (c: Character) =>
   (c.armors ?? []).filter(armor => isMountainArmor(armor.name) && armor.mountainPoisonImmunityActive)
-const ARMORS = new Set(['Ancestral Embrace', ANCESTRAL_HIDE, "Slithermaw's Bane", "Slithermaw's Bane (Artifact)",
+const ARMORS = new Set(['Ancestral Embrace', ANCESTRAL_HIDE, ANCESTRAL_LEATHER, "Slithermaw's Bane", "Slithermaw's Bane (Artifact)",
   'Highhelm Stronghold Plate', 'Bastion of the Inheritor', 'Immortal Bastion', 'Library Robes', ...Object.keys(PLATE_VARIANTS)])
 const BASTION_NAMES: Record<string, string> = {
   'Highhelm Stronghold Plate': 'Highhelm Stronghold Bastion Plate',
@@ -23,13 +33,21 @@ const BASTION_NAMES: Record<string, string> = {
 }
 export const isBastionNamedArmor = (name?: string) =>
   !!name && (Object.hasOwn(BASTION_NAMES, name) || Object.values(BASTION_NAMES).includes(name)
+    || ['Highhelm Stronghold Breastplate', 'Highhelm Stronghold Full Plate',
+      'Breastplate of the Inheritor', 'Full Plate of the Inheritor',
+      'Immortal Breastplate', 'Immortal Full Plate'].includes(name)
     || name === 'Rebounding Bastion Plate' || name === 'Bastion Plate of the Mountain' || name === 'Incendiary Bastion Plate')
 export const INHERITOR_RUNE_FAMILIES = ['Advancing', 'Fortification', 'Moonweave', 'Sunweave'] as const
-export const isInheritorPlate = (name?: string) => name === 'Bastion Plate of the Inheritor' || name === 'Bastion of the Inheritor'
-export const isHighhelmPlate = (name?: string) => name === 'Highhelm Stronghold Bastion Plate' || name === 'Highhelm Stronghold Plate'
+export const isInheritorPlate = (name?: string) =>
+  !!name && ['Bastion Plate of the Inheritor', 'Full Plate of the Inheritor',
+    'Breastplate of the Inheritor', 'Bastion of the Inheritor'].includes(name)
+export const isHighhelmPlate = (name?: string) =>
+  !!name && ['Highhelm Stronghold Bastion Plate', 'Highhelm Stronghold Full Plate',
+    'Highhelm Stronghold Breastplate', 'Highhelm Stronghold Plate'].includes(name)
 export const isLibraryRobes = (name?: string) => name === 'Library Robes' || name === 'Library Scroll Robes'
 export const libraryRobesRank = (level: number) => level >= 19 ? 9 : level >= 15 ? 8 : level >= 12 ? 6 : 5
-export const isImmortalBastion = (name?: string) => name === 'Immortal Bastion Plate' || name === 'Immortal Bastion'
+export const isImmortalBastion = (name?: string) =>
+  !!name && ['Immortal Bastion Plate', 'Immortal Full Plate', 'Immortal Breastplate', 'Immortal Bastion'].includes(name)
 export const scalingBastionRuneFamilies = (name?: string): readonly string[] =>
   isIncendiaryArmor(name) ? ['Fortification', 'Moonweave', 'Sunweave', 'Energy-Resistant: Fire']
     : isInheritorPlate(name) || isScalingPlateVariant(name) ? INHERITOR_RUNE_FAMILIES : isImmortalBastion(name) ? INHERITOR_RUNE_FAMILIES : isHighhelmPlate(name) ? ['Fortification', 'Moonweave', 'Sunweave']
@@ -43,22 +61,25 @@ export function isNamedArmor(name: string) {
   return ARMORS.has(name) || isBastionNamedArmor(name) || isScalingPlateVariant(name)
 }
 
-const WEAVE_ARMORS = new Set([ANCESTRAL_HIDE, "Slithermaw's Bane"])
+const WEAVE_ARMORS = new Set([ANCESTRAL_HIDE, ANCESTRAL_LEATHER, "Slithermaw's Bane"])
 
 function ancestralEmbraceVariants(item: ContentEntry): (ContentEntry & { baseOverride?: string })[] {
-  return [{
-    ...item, id: `${item.id}:hide`, name: ANCESTRAL_HIDE, baseOverride: 'Hide Armor',
-    description: item.description.replace(/\bThis brightly colored\b/, 'This')
-      .replace(/\bleather armor\b/gi, 'hide armor').replace(/\bBase Armor\s+Leather Armor/i, 'Base Armor Hide Armor')
-      .replace(/\n\nThis /, '\n\nFashioned from thick hide, this '),
-  }]
+  return [
+    { ...item, id: `${item.id}:leather`, name: ANCESTRAL_LEATHER, baseOverride: 'Leather Armor' },
+    { ...item, id: `${item.id}:hide`, name: ANCESTRAL_HIDE, baseOverride: 'Hide Armor',
+      description: item.description.replace(/\bThis brightly colored\b/, 'This')
+        .replace(/\bleather armor\b/gi, 'hide armor').replace(/\bBase Armor\s+Leather Armor/i, 'Base Armor Hide Armor')
+        .replace(/\n\nThis /, '\n\nFashioned from thick hide, this ') },
+  ]
 }
 
 function plateVariants(item: ContentEntry): (ContentEntry & { baseOverride?: string })[] {
   return PLATE_VARIANTS[item.name].map((name, index) => {
     const baseOverride = ['Breastplate', 'Full Plate', 'Bastion Plate'][index]
-    return { ...item, id: `${item.id}:${baseOverride.toLowerCase().replaceAll(' ', '-')}`, name, baseOverride,
-      description: item.description.replace(/breastplate|full plate/gi, match =>
+    const id = baseOverride === 'Bastion Plate' && Object.hasOwn(BASTION_NAMES, item.name)
+      ? item.id : `${item.id}:${baseOverride.toLowerCase().replaceAll(' ', '-')}`
+    return { ...item, id, name, baseOverride,
+      description: item.description.replace(/bastion plate|breastplate|full plate/gi, match =>
         match[0] === 'B' ? baseOverride : baseOverride.toLowerCase()) }
   })
 }
@@ -96,27 +117,34 @@ export function makeNamedArmorEntries(entries: ContentEntry[], runes: { name: st
         ? entries.find(entry => entry.kind === 'item' && !entry.deleted && entry.name === 'Fortification'
           && entry.systems.includes('pf2e')) : undefined
       const thickening = fortification && /increasing its Bulk by (\d+) and the Strength (?:modifier )?[^.]+?by (\d+)/i.exec(fortification.description)
-      const fortifiedBastion = !isScalingPlateVariant(item.name) && isBastionNamedArmor(item.name) && fixed.some(rune => /^Fortification(?: \(Greater\))?$/.test(rune))
+      const hasFortification = !isScalingPlateFamilyVariant(item.name)
+        && fixed.some(rune => /^Fortification(?: \(Greater\))?$/.test(rune))
       const traits = [...new Set([...base.traits.filter(trait => !notNoisy || trait.toLowerCase() !== 'noisy'), ...item.traits])]
       return [{
         ...item, name: item.name === 'Library Robes' ? 'Library Scroll Robes' : BASTION_NAMES[item.name] ?? item.name, kind: 'armor' as const, traits,
         data: {
           ...base.data, ...item.data, price: item.data.price ?? '', item_subcategory: 'Specific Magic Armor',
-          ...(isScalingPlateVariant(item.name) ? { bulk: base.data.bulk } : {}),
+          ...(item.baseOverride ? {
+            ac: base.data.ac ?? item.data.ac, dex_cap: base.data.dex_cap ?? item.data.dex_cap,
+            strength: base.data.strength ?? item.data.strength, armor_category: base.data.armor_category ?? item.data.armor_category,
+            armor_group: base.data.armor_group ?? item.data.armor_group, bulk: base.data.bulk ?? item.data.bulk,
+            check_penalty: base.data.check_penalty ?? item.data.check_penalty,
+            speed_penalty: base.data.speed_penalty ?? item.data.speed_penalty,
+          } : {}),
           named_armor: true, named_armor_base: base.name,
           named_armor_potency: Number(enchantment[1]),
           named_armor_resilient: /\bmajor resilient\b/i.test(enchantment[2]) ? 3
             : /\bgreater resilient\b/i.test(enchantment[2]) ? 2 : /\bresilient\b/i.test(enchantment[2]) ? 1 : 0,
           named_armor_runes: fixed.join(';'),
-          ...(item.name === ANCESTRAL_HIDE ? { named_armor_rune_limit: 3 } : {}),
+          ...(isAncestralEmbrace(item.name) ? { named_armor_rune_limit: 3 } : {}),
           ...(quiet ? { check_penalty: 0 } : {}),
-          ...(!isScalingPlateVariant(item.name) && (thickening || fortifiedBastion) ? { bulk: fortifiedBastion && item.data.bulk !== undefined
-            ? Number(item.data.bulk) : Number(item.data.bulk ?? base.data.bulk) + Number(thickening?.[1] ?? 1),
+          ...(hasFortification ? { bulk: Number(item.baseOverride ? base.data.bulk : item.data.bulk ?? base.data.bulk)
+            + Number(thickening?.[1] ?? 1),
             strength: Number(base.data.strength) + Number(thickening?.[2] ?? 1) } : {}),
           ...(elven ? { named_armor_elven: true, named_armor_material: /\bhigh-grade elven chain\b/i.test(item.description) ? 'High-grade dawnsilver elven chain' : 'Dawnsilver elven chain' } : {}),
-          ...(WEAVE_ARMORS.has(item.name) || item.name === 'Immortal Bastion' || isInheritorPlate(item.name) || isScalingPlateVariant(item.name) ? { named_armor_material: 'Orichalcum' } : {}),
+          ...(WEAVE_ARMORS.has(item.name) || isImmortalBastion(item.name) || isInheritorPlate(item.name) || isScalingPlateVariant(item.name) ? { named_armor_material: 'Orichalcum' } : {}),
           ...(isHighhelmPlate(item.name) ? { named_armor_material: 'Keep Stone' } : {}),
-          ...(item.name === 'Immortal Bastion' || isInheritorPlate(item.name) || isHighhelmPlate(item.name) || isLibraryRobes(item.name) || isScalingPlateVariant(item.name) ? { automatic_fundamentals: true } : {}),
+          ...(isImmortalBastion(item.name) || isInheritorPlate(item.name) || isHighhelmPlate(item.name) || isLibraryRobes(item.name) || isScalingPlateVariant(item.name) ? { automatic_fundamentals: true } : {}),
           ...(item.name.startsWith('Rebounding ') ? { resistances: 'bludgeoning=5,piercing=5,slashing=5,force=10' } : {}),
           ...(isIncendiaryArmor(item.name) ? { resistances: 'fire=10' } : {}),
         },
@@ -145,7 +173,7 @@ export function scaledNamedArmorDescription(entry: ContentEntry, armor: OwnedArm
 }
 
 export function scaleAncestralEmbrace(entry: ContentEntry | undefined, level: number) {
-  if (!entry?.data.named_armor || entry.name !== ANCESTRAL_HIDE || level < 12) return entry
+  if (!entry?.data.named_armor || !isAncestralEmbrace(entry.name) || entry.name === 'Ancestral Embrace' || level < 12) return entry
   const runes = String(entry.data.named_armor_runes ?? '').split(';').filter(Boolean)
   return { ...entry, data: { ...entry.data,
     named_armor_runes: [...runes, level >= 18 ? 'Fortification (Greater)' : 'Fortification'].join(';'),
@@ -216,6 +244,7 @@ export function makeNamedShieldEntry(entries: ContentEntry[], name: string): Con
 
 const ACTIONS: Record<string, string[]> = {
   'Ancestral Embrace': ['Free Action', 'Free Action', 'Two Actions'],
+  [ANCESTRAL_LEATHER]: ['Free Action', 'Free Action', 'Two Actions'],
   [ANCESTRAL_HIDE]: ['Free Action', 'Free Action', 'Two Actions'],
   "Slithermaw's Bane": ['Reaction', ''],
   "Slithermaw's Bane (Artifact)": ['Reaction', 'Two Actions', 'Two Actions'],
@@ -223,11 +252,17 @@ const ACTIONS: Record<string, string[]> = {
   [SCALE_OF_IGROON_FORTRESS]: ['Single Action', 'Single Action', 'Free Action'],
   'Shadowed Scale, the Jungle Secret': ['Single Action', 'Single Action'],
   'Highhelm Stronghold Plate': ['Three Actions'],
+  'Highhelm Stronghold Breastplate': ['Three Actions'],
+  'Highhelm Stronghold Full Plate': ['Three Actions'],
   'Highhelm Stronghold Bastion Plate': ['Three Actions'],
   'Bastion of the Inheritor': ['Single Action'],
   'Bastion Plate of the Inheritor': ['Single Action'],
+  'Breastplate of the Inheritor': ['Single Action'],
+  'Full Plate of the Inheritor': ['Single Action'],
   'Immortal Bastion': ['Reaction', 'Reaction'],
   'Immortal Bastion Plate': ['Reaction', 'Reaction'],
+  'Immortal Breastplate': ['Reaction', 'Reaction'],
+  'Immortal Full Plate': ['Reaction', 'Reaction'],
   'Rebounding Breastplate': ['Single Action'],
   'Rebounding Full Plate': ['Single Action'],
   'Rebounding Bastion Plate': ['Single Action'],

@@ -2873,7 +2873,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             showOther={!/^10 minutes$/i.test(spell.actions.trim()) && !(spell.name === 'Creation' && /^1 minute$/i.test(spell.actions.trim()))} />
             : <SpellActions name={spell.name} entry={spell.entry} rank={spell.rank}
               spellcastingModifier={spell.usesSpellcasting && castAbility ? abilityMod(c.abilities[castAbility]) : undefined} />}
-          note={spell.entry ? note || undefined : <>{note && `${note}; `}
+          note={spell.entry ? (spell.note && note ? `${spell.note}; ${note}` : spell.note ?? note) : <>{spell.note && `${spell.note}; `}{note && `${note}; `}
             <span role="status">Spell data unavailable. Sync Archives of Nethys content to load it.</span>
           </>} />
         })}</ul>

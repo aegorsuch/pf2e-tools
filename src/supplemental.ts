@@ -609,6 +609,16 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
   const flyssa = entries.find((entry) => entry.id === 'aon:pf2e:weapon-285' && entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted)
   const laser = entries.filter(entry => entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted
     && entry.systems.includes('sf2e') && /^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?Laser Pistol$/.test(entry.name))
+  const laserRifles = entries.filter(entry => entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted
+    && entry.systems.includes('sf2e') && /^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?Laser Rifle$/.test(entry.name))
+  const focusRifles = laserRifles.map<ContentEntry>(entry => {
+    const grade = entry.name.replace(/Laser Rifle$/, '').trim()
+    return { ...entry, id: `homebrew:laser-focus-rifle${grade ? `:${grade.toLowerCase()}` : ''}`,
+      name: `${grade ? `${grade} ` : ''}Laser Focus Rifle`, source: 'homebrew' as const,
+      description: 'Precision lenses focus a laser rifle beam for long-range attacks.',
+      data: { ...entry.data, weapon_category: 'Martial', weapon_group: 'Sniper', range: 120, range_increment: 120,
+        weapon_grade_family: 'homebrew:laser-focus-rifle' }, updatedAt: 1 }
+  })
   const rapidLaser = laser.map<ContentEntry>(entry => {
     const grade = entry.name.replace(/Laser Pistol$/, '').trim()
     const { url: _url, ...data } = entry.data
@@ -644,7 +654,7 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
     ...flyssa, id: 'homebrew:seax', source: 'homebrew' as const, name: 'Seax',
     description: 'A broad-backed blade with a long cutting edge and a sharp point, carried as both a tool and a close-quarters weapon.',
     updatedAt: 1,
-  }] : []), ...rapidLaser, ...slarpRapid]
+  }] : []), ...focusRifles, ...rapidLaser, ...slarpRapid]
 }
 
 export const ANIMAL_FEATURE_CLAWS: ContentEntry = {

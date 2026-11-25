@@ -1,7 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { Character, ContentEntry } from './types'
-import { DISARMING_RUNE, GRAPPLING_MODULE, GRAPPLING_RUNE, PARRYING_RUNE, THROWING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HUNTERS_ARROWHEADS, KILLERS_BELT_MAJOR, homebrewCharacterOptions, homebrewCompanions, homebrewWeapons, migrateCopiedFeats, migrateMobileHunt, removeColdIronTusks } from './supplemental'
-import { sfSpecificWeapons } from './sfSpecificWeapons'
 import { normalizeAcolyte } from './backgrounds'
 
 export const db = new Dexie('2e-builder') as Dexie & {
@@ -17,6 +15,16 @@ db.version(1).stores({
 export const newId = () => crypto.randomUUID()
 
 export async function ensureSupplementalContent() {
+  const [supplemental, { sfSpecificWeapons }] = await Promise.all([
+    import('./supplemental'),
+    import('./sfSpecificWeapons'),
+  ])
+  const {
+    DISARMING_RUNE, GRAPPLING_MODULE, GRAPPLING_RUNE, PARRYING_RUNE, THROWING_RUNE,
+    SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HUNTERS_ARROWHEADS, KILLERS_BELT_MAJOR,
+    homebrewCharacterOptions, homebrewCompanions, homebrewWeapons, migrateCopiedFeats, migrateMobileHunt,
+    removeColdIronTusks,
+  } = supplemental
   await db.transaction('rw', db.content, db.characters, async () => {
     const tusks = await db.content.get('homebrew:cold-iron-tusks')
     if (tusks && !tusks.deleted) await removeEntry(tusks.id)

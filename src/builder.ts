@@ -19,7 +19,7 @@ import { RUNESMITH_RUNES } from './runesmithRunes'
 import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, FIRST_WORLD_ARMAMENTS, AUTOMATON_CLAW, AUTOMATON_PINCER, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ENERGY_BLAST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
-import { isAncestralEmbrace, isHighhelmPlate, isLibraryRobes, libraryRobesRank, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { isAncestralEmbrace, isHighhelmPlate, isImmortalBastion, isInheritorPlate, isLibraryRobes, libraryRobesRank, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
@@ -131,11 +131,12 @@ export function temporaryHpGrant(c: Character, entries: ContentEntry[]) {
     grants.push({ source: form.source, value: form.temporaryHp })
   }
   const armor = wornArmor(c, entries)
-  if (armor?.name === 'Immortal Bastion Plate') {
-    if (armor.immortalSurvivalActive) grants.push({ source: 'Immortal Bastion Plate survival', value: 100 })
+  if (armor && isImmortalBastion(armor.name)) {
+    const source = armor.name
+    if (armor.immortalSurvivalActive) grants.push({ source: `${source} survival`, value: 100 })
     const armorSource = armorEntry(c, entries, armor.name, armor.id)
     if (armor.entrenchMeleeActive && armorSource && armorProficiencyRank(c, entries, armorSource) > 0)
-      grants.push({ source: 'Immortal Bastion Plate Entrench Melee', value: 10 })
+      grants.push({ source: `${source} Entrench Melee`, value: 10 })
   }
   const value = Math.max(0, ...grants.map(grant => grant.value))
   return value ? { value, grants } : undefined
@@ -662,9 +663,10 @@ export function shieldAcBonus(c: Character, entries: ContentEntry[]) {
   return Math.max(raisedShieldBonus(c, entries), cover)
 }
 export const isBucklerShield = (name: string) => /buckler/i.test(name)
-export function shieldRaisedChange(c: Character, raised: boolean): Partial<Character> {
+export function shieldRaisedChange(c: Character, raised: boolean, entries?: ContentEntry[]): Partial<Character> {
   const shield = equippedShield(c)
   if (!shield) return {}
+  if (raised && entries && !canRaiseShield(c, entries, shield)) return {}
   return shieldChange(c, shield, { raised, ...(!raised ? { takingCover: false } : {}) })
 }
 export const shieldParagonActive = (c: Character) => !!equippedShield(c) && activeFeatsNamed(c, 'Shield Paragon').length > 0
@@ -1728,6 +1730,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && !(getSettings().disableBeastmasterWardenSpells && slot.category === 'archetype'
         && archetypesOf(e).includes('Beastmaster') && hasWardenChoice(e)
         && !wardenSpellOptions(e, entries, true).length)
+      && !(slot.category === 'archetype' && !!classTrait && traits.has(classTrait)
+        && featSelectionLevel(e, c, entries, 'class', slot) <= Math.min(slot.level, slot.maxFeatLevel ?? slot.level))
       && !(classCompanionStages.has(companionProgressionStage(e.name) ?? '') && !traits.has(classTrait ?? '')
         && (traits.has('archetype') || archetypesOf(e).length > 0)
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === e.name && (!feat.sourceId || feat.sourceId === e.id)))
@@ -3056,8 +3060,11 @@ export function starfinderArmorPenalties(c: Character, entries: ContentEntry[]) 
   const heavyConstruction = worn?.id === INVENTOR_ARMOR_ID && armorModifications(c).some(mod => mod.name === 'Heavy Construction')
   const mobility = activeFeatsNamed(c, 'Hellknight Mobility').length > 0 && armorCategory(armor) === 'Heavy'
   const iron = activeFeatsNamed(c, 'Unburdened Iron').length ? 5 : 0
-  const enhancer = worn && armorUpgradeSlots(armor) + (c.heritage === 'Mod Fanatic Android' && armor.data.upgrades_allowed !== false ? 1 : 0) > 0
-    && (worn.upgrades ?? []).slice(0, armorUpgradeSlots(armor) + (c.heritage === 'Mod Fanatic Android' && armor.data.upgrades_allowed !== false ? 1 : 0))
+  const upgradeLimit = Math.max(0, armorUpgradeSlots(armor)
+    + (c.heritage === 'Mod Fanatic Android' && armor.data.upgrades_allowed !== false ? 1 : 0)
+    - automaticArmorUpgradeSlotsUsed(armor))
+  const enhancer = worn && upgradeLimit > 0
+    && (worn.upgrades ?? []).slice(0, upgradeLimit)
       .some(id => entries.find(entry => entry.id === id)?.name === 'Mobility Enhancer') ? 5 : 0
   return { check, speed: heavyConstruction && meets ? 0 : Math.min(0, penalty + iron + enhancer + (meets ? mobility ? 10 : 5 : 0)) }
 }
@@ -3147,6 +3154,40 @@ export function armorUpgradeSlots(entry?: ContentEntry) {
   const slots = Number(entry.data.upgrade_slots)
   if (Number.isFinite(slots) && entry.data.upgrade_slots !== undefined) return slots
   return Number(/\bUpgrades\W{0,6}(\d+)/i.exec(entry.description ?? '')?.[1] ?? 0)
+}
+
+export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
+  const family = armor?.name.replace(/^(?:Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+  return armor?.systems.includes('sf2e') && family === "Drifter's Jacket" ? 1 : 0
+}
+
+const AUTOMATIC_UPGRADE_ARMORS = new Set([
+  'Myrmidon Siegebreaker Plate', 'Rocketeer Armor', 'Carvesong', 'Clandestine Suit',
+  "Drifter's Jacket", 'Stormbreaker Armor', 'Retrieval Harness',
+])
+const AUTOMATIC_ARMOR_UPGRADES = ['Jetpack', 'Force Field']
+const CLOAKING_ARMOR_UPGRADES = ['Active Camouflage', 'Cloaking Device']
+const DRIFTER_JACKET_ARMOR_UPGRADES = ['Drift Drive Relay', 'Maneuvering Unit']
+const RETRIEVAL_HARNESS_ARMOR_UPGRADES = ['Easypatcher']
+const SF_UPGRADE_GRADES = 'Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon'
+export const AUTOMATIC_JETPACK_ID = 'automatic:jetpack'
+
+export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEntry[], armor?: ContentEntry) {
+  if (!c.systems.includes('sf2e') || armor?.kind !== 'armor' || !armor.systems.includes('sf2e')) return []
+  const family = armor.name.replace(/^(?:Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+  if (!AUTOMATIC_UPGRADE_ARMORS.has(family)) return []
+  const upgrades = [...AUTOMATIC_ARMOR_UPGRADES,
+    ...(family === 'Clandestine Suit' ? CLOAKING_ARMOR_UPGRADES : []),
+    ...(family === "Drifter's Jacket" ? DRIFTER_JACKET_ARMOR_UPGRADES : []),
+    ...(family === 'Retrieval Harness' ? RETRIEVAL_HARNESS_ARMOR_UPGRADES : [])]
+  return upgrades.flatMap(base => {
+    const pattern = new RegExp(`^${base}(?: \\((?:${SF_UPGRADE_GRADES})\\))?$`, 'i')
+    const candidates = entries.filter(candidate => candidate.kind === 'item' && !candidate.deleted
+      && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Armor Upgrades'
+      && pattern.test(candidate.name) && candidate.level <= c.level)
+      .sort((a, b) => b.level - a.level || Number(b.name.includes('(')) - Number(a.name.includes('(')))
+    return candidates[0] ? [candidates[0]] : []
+  })
 }
 
 export function jetpackSpeed(entry?: ContentEntry) {
@@ -3294,14 +3335,22 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
   }
   if (magneticLevitatorsActive(c, entries)) movement.push(fixed('Fly', boostingTheBasics(c) ? 20 : 10, 'Magnetic Levitators'))
   const jetpackArmor = c.systems.includes('sf2e') ? wornArmor(c, entries) : undefined
-  const jetpackEntry = jetpackArmor?.activeJetpack ? entries.find(entry => entry.id === jetpackArmor.activeJetpack) : undefined
   const jetpackArmorEntry = jetpackArmor && armorEntry(c, entries, jetpackArmor.name, jetpackArmor.id)
-  const jetpackLimit = armorUpgradeSlots(jetpackArmorEntry)
+  const automaticJetpack = automaticSpecificArmorUpgrades(c, entries, jetpackArmorEntry)
+    .find(entry => jetpackSpeed(entry) > 0)
+  const automaticJetpackActive = jetpackArmor?.activeJetpack === AUTOMATIC_JETPACK_ID
+  const savedJetpack = jetpackArmor?.activeJetpack ? entries.find(entry => entry.id === jetpackArmor.activeJetpack) : undefined
+  const jetpackEntry = automaticJetpackActive || automaticJetpack && jetpackSpeed(savedJetpack) > 0
+    ? automaticJetpack : savedJetpack
+  const jetpackLimit = Math.max(0, armorUpgradeSlots(jetpackArmorEntry)
     + (c.heritage === 'Mod Fanatic Android' && jetpackArmorEntry?.data.upgrades_allowed !== false ? 1 : 0)
+    - automaticArmorUpgradeSlotsUsed(jetpackArmorEntry))
   const jetpackIndex = jetpackArmor?.upgrades?.findIndex(id => id === jetpackArmor.activeJetpack) ?? -1
   const jetpack = jetpackSpeed(jetpackEntry)
   if (jetpack && jetpackArmorEntry?.systems.includes('sf2e') && jetpackArmorEntry.data.upgrades_allowed !== false
-    && jetpackIndex >= 0 && jetpackIndex < jetpackLimit) movement.push(fixed('Fly', jetpack, jetpackEntry!.name))
+    && (automaticJetpackActive || jetpackIndex >= 0 && jetpackIndex < jetpackLimit)) {
+    movement.push(fixed('Fly', jetpack, jetpackEntry!.name))
+  }
   if (c.systems.includes('sf2e') && c.className === 'Solarian' && activeFeatsNamed(c, 'Defy Gravity').length
     && (c.solarianAttunement ?? 'Graviton') === 'Graviton') {
     movement.push(atLandSpeed('Fly', 'Defy Gravity'))
@@ -3670,12 +3719,18 @@ export function perceptionCircumstance(c: Character) {
 
 export const perceptionCircumstanceBonus = (c: Character) => perceptionCircumstance(c)?.value ?? 0
 
-export const initiativeBonus = (c: Character, entries: ContentEntry[]) =>
-  defenseSummary(c, entries).perception - perceptionCircumstanceBonus(c)
+export const initiativeBonus = (c: Character, entries: ContentEntry[]) => {
+  const armor = wornArmor(c, entries)
+  const armorSource = armor && armorEntry(c, entries, armor.name, armor.id)
+  const ponderousPenalty = armorSource?.traits.some(trait => trait.toLowerCase() === 'ponderous')
+    ? armorStrengthMet(c, armorSource) ? -1 : Math.min(-1, num(armorSource.data.check_penalty)) : 0
+  return defenseSummary(c, entries).perception - perceptionCircumstanceBonus(c)
     + Math.max(['Superior Sight', 'Incredible Initiative'].some((name) => activeFeatsNamed(c, name).length) ? 2 : 0,
       c.systems.includes('sf2e') && c.className === 'Operative' && c.level >= 7
         ? activeFeatsNamed(c, 'Incredible Initiative').length ? 3 : 2 : 0,
-      wornArmor(c, entries)?.material === 'Orichalcum' ? 1 : 0)
+      armor?.material === 'Orichalcum' ? 1 : 0)
+    + ponderousPenalty
+}
 
 export const RANKS = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 
@@ -6205,8 +6260,8 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   if (c.systems.includes('sf2e') && c.className === 'Operative' && activeFeatsNamed(c, 'Elusive Target').length)
     notes.push('Elusive Target: when a Strike targeting you fails, react to Step.')
   if (currentSpell) notes.push(`Current Spell: AC ${parts.reduce((sum, part) => sum + part.value, 0) + Math.max(0, 2 - best)} against ranged attacks; circumstance bonuses do not stack.`)
-  if (worn && rank > 0 && (worn.entrenchMeleeActive || worn.name === 'Bastion Plate of the Inheritor' && worn.inheritorCloakRed)) {
-    const bonus = worn.name === 'Immortal Bastion Plate' ? 2 : 1
+  if (worn && rank > 0 && (worn.entrenchMeleeActive || isInheritorPlate(worn.name) && worn.inheritorCloakRed)) {
+    const bonus = isImmortalBastion(worn.name) ? 2 : 1
     notes.push(`Entrench Melee: AC ${parts.reduce((sum, part) => sum + part.value, 0) + Math.max(0, bonus - best)} against melee attacks (+${bonus} circumstance; circumstance bonuses do not stack).`)
   }
   notes.push(...hellknightSkillNotes(c, 'AC').map(benefit => `${benefit.name}: ${benefit.description} Circumstance bonuses do not stack.`))
@@ -6577,11 +6632,13 @@ export function equippedWeaponHands(c: Character, entries: ContentEntry[]): numb
 }
 export function equippedHands(c: Character, entries: ContentEntry[]): number {
   const shield = equippedShield(c)
-  return equippedWeaponHands(c, entries) + Number(!!shield && shield.id !== 'granted-shield:chitinous' && !isBucklerShield(shield.name))
+  return equippedWeaponHands(c, entries) + Number(!!shield && shield.id !== 'granted-shield:chitinous'
+    && !isBucklerShield(shield.name) && !shieldBraceInstalled(c, entries, shield))
 }
 export function canEquipShield(c: Character, entries: ContentEntry[], shield: OwnedShield): boolean {
   if (shield.id === 'granted-shield:chitinous') return true
-  return equippedWeaponHands(c, entries) + Number(!isBucklerShield(shield.name)) <= totalHandCapacity(c)
+  return (shieldBraceInstalled(c, entries, shield)
+    || equippedWeaponHands(c, entries) + Number(!isBucklerShield(shield.name)) <= totalHandCapacity(c))
     && !ownedWeapons(c, entries).some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
       && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon, c) === undefined)
 }
@@ -6614,10 +6671,14 @@ function offensiveDefenseGrade(name: string, forceField: boolean) {
 
 export function offensiveDefenseAttack(c: Character, entries: ContentEntry[]) {
   if (!c.systems.includes('sf2e') || c.className !== 'Soldier' || !activeFeatsNamed(c, 'Offensive Defense').length) return undefined
-  const forceFields = (c.armors ?? []).filter(armor => armor.worn).flatMap(armor => armor.upgrades ?? [])
-    .flatMap(id => entries.find(entry => entry.id === id && !entry.deleted && entry.kind === 'item'
-      && entry.systems.includes('sf2e') && entry.data.item_subcategory === 'Armor Upgrades'
+  const forceFields = ownedArmors(c, entries).filter(armor => armor.worn).flatMap(armor => {
+    const armorItem = armorEntry(c, entries, armor.name, armor.id)
+    const saved = (armor.upgrades ?? []).flatMap(id => entries.find(entry => entry.id === id && !entry.deleted
+      && entry.kind === 'item' && entry.systems.includes('sf2e') && entry.data.item_subcategory === 'Armor Upgrades'
       && /^Force Field(?: \((?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon)\))?$/i.test(entry.name)) ?? [])
+    return [...saved, ...automaticSpecificArmorUpgrades(c, entries, armorItem)
+      .filter(entry => /^Force Field \(/i.test(entry.name) || entry.name === 'Force Field')]
+  })
   const shield = equippedShield(c)
   const shieldData = shield && shieldEntry(entries, shield.name)
   const hasTechShield = !!shieldData && !shieldData.deleted && shieldData.systems.includes('sf2e')
@@ -6838,6 +6899,9 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     if (shield) available.push({ ...(attachedWeapon ?? {
       id: `shield-bash:${shield.id}`, name: SHIELD_BASH.name, potency: 0, striking: 0, runes: [],
     }), attachedTo: shield.id })
+  }
+  if (available.some(weapon => /crimson claw/i.test(weapon.name))) {
+    return available.filter(weapon => weapon.name !== FIST.name)
   }
   if (available.some((weapon) => /\bgauntlets?\b/i.test(weapon.name))) {
     return available.filter((weapon) => weapon.id === favored?.id || weapon.name !== FIST.name && weapon.name !== IRON_FIST.name)
@@ -7360,6 +7424,22 @@ function namedArmorEntries(entries: ContentEntry[]) {
 
 export function shieldEntry(entries: ContentEntry[], name: string) {
   return byName(entries, 'shield', name) ?? makeNamedShieldEntry(entries, name)
+}
+
+export function shieldBraceEligible(entries: ContentEntry[], armor: ContentEntry | undefined, shield: OwnedShield) {
+  const shieldSource = shieldEntry(entries, shield.name)
+  return !!armor?.traits.some(trait => trait.toLowerCase() === 'shield brace')
+    && !!shieldSource?.traits.some(trait => ['compact', 'retractable'].includes(trait.toLowerCase()))
+}
+
+export function shieldBraceInstalled(c: Character, entries: ContentEntry[], shield: OwnedShield) {
+  const armor = wornArmor(c, entries)
+  return !!armor && armor.shieldBraceShieldId === shield.id
+    && shieldBraceEligible(entries, armorEntry(c, entries, armor.name, armor.id), shield)
+}
+
+export function canRaiseShield(c: Character, entries: ContentEntry[], shield: OwnedShield) {
+  return !shieldBraceInstalled(c, entries, shield) || equippedHands(c, entries) < totalHandCapacity(c)
 }
 
 export function ownedArmors(c: Character, entries: ContentEntry[]): OwnedArmor[] {
@@ -8000,7 +8080,9 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
   const upgrades = entry.data.special_weapon_source === 'SLARP' || name === 'SLARP Rapid Laser Pistol' ? ["Smuggler's Grip", 'Flaming Module']
     : name === 'Shuriken Drone' ? ['Retrieval Boosters']
     : name === 'Singing Spear' ? ['Retrieval Boosters', 'Loudener']
-    : name === 'Shock Pad' ? ['Shock Module'] : []
+    : name === 'Shock Pad' ? ['Shock Module']
+    : name === 'Rotolaser' ? ['Flaming Module']
+    : name === 'Pulse Gauntlet' ? ['Loudener'] : []
   return automaticUpgradeEntries(c, entries, upgrades)
 }
 
@@ -8309,8 +8391,24 @@ function inheritedHandWeaponTraits(c: Character, entries: ContentEntry[], weapon
     if (weaponDamage && damage && ['bludgeoning', 'b'].includes(damage.type) && damage.size >= weaponDamage.size) {
       traits.push('Versatile B')
     }
+    if (weaponDamage && damage && ['slashing', 's'].includes(damage.type) && damage.size >= weaponDamage.size) {
+      traits.push('Versatile S')
+    }
   }
   return [...new Set(traits)]
+}
+
+function inheritedFreeHandManeuvers(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  const entry = weaponEntry(entries, weapon.name, weapon.id)
+  if (!entry || !weaponEquipped(c, entries, weapon)
+    || !entry.traits.some(trait => /^free[- ]hand$/i.test(trait.trim()))) return []
+  const attacks = ownedWeapons(c, entries).filter(candidate => candidate.id !== weapon.id
+    && weaponCategory(weaponEntry(entries, candidate.name, candidate.id)) === 'Unarmed')
+  if (!attacks.some(attack => attack.id === FIST.id)) {
+    attacks.push({ id: FIST.id, name: FIST.name, potency: 0, striking: 0, runes: [] })
+  }
+  return [...new Set(attacks.flatMap(attack => weaponEntry(entries, attack.name, attack.id)?.traits ?? [])
+    .filter(trait => /^(?:grapple|parry|shove)$/i.test(trait.trim())))]
 }
 
 export function tailbladeInheritance(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
@@ -8408,6 +8506,17 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     entry = { ...OVERSIZED_THROW, data: { ...OVERSIZED_THROW.data, damage: `${dice}d10 bludgeoning` } }
   }
   entry = weaponWithMode(w, entry)
+  if (entry && /crimson claw/i.test(entry.name) && entry.traits.some(trait => /^analog$/i.test(trait))) {
+    const clawDamages = ownedWeapons(c, entries).filter(weapon => weapon.id !== w.id && /\bclaws?\b/i.test(weapon.name))
+      .map(weapon => damageDie(weaponAttack(c, entries, weapon, { skipHandInheritance: true }).damage))
+      .filter((damage): damage is NonNullable<typeof damage> => !!damage)
+    const highestClaw = clawDamages.sort((a, b) => b.size - a.size)[0]
+    const current = damageDie(String(entry.data.damage ?? ''))
+    if (highestClaw && current && highestClaw.size > current.size) {
+      entry = { ...entry, data: { ...entry.data,
+        damage: String(entry.data.damage).replace(/(\d+d)\d+/i, `$1${highestClaw.size}`) } }
+    }
+  }
   entry = weaponWithModifications(c, w, entry)
   if (entry && isTailblade(entry) && !options.skipTailbladeInheritance) {
     const inherited = tailbladeInheritance(c, entries, w).traits
@@ -8416,6 +8525,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   }
   if (entry && isHandCoverWeapon(entry) && !options.skipHandInheritance) {
     const inherited = inheritedHandWeaponTraits(c, entries, w)
+    const existing = new Set(entry.traits.map(trait => trait.toLowerCase()))
+    entry = { ...entry, traits: [...entry.traits, ...inherited.filter(trait => !existing.has(trait.toLowerCase()))] }
+  }
+  if (entry && !options.skipHandInheritance) {
+    const inherited = inheritedFreeHandManeuvers(c, entries, w)
     const existing = new Set(entry.traits.map(trait => trait.toLowerCase()))
     entry = { ...entry, traits: [...entry.traits, ...inherited.filter(trait => !existing.has(trait.toLowerCase()))] }
   }

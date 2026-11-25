@@ -22,7 +22,7 @@ it.skipIf(!existsSync(snapshot))('parses actual canonical armor, shield, and mas
   const shield: OwnedShield = { id: 'scale', name: 'Scale of Igroon', hardness: 0, hp: 0, raised: false, damage: 8 }
   const artifact = "Slithermaw's Bane (Artifact)"
   expect(catalog).toHaveLength(wanted.size)
-  expect(gearPickerEntries(catalog, 'armor').filter(entry => entry.data.named_armor)).toHaveLength(3)
+  expect(gearPickerEntries(catalog, 'armor').filter(entry => entry.data.named_armor)).toHaveLength(4)
   expect(effectiveArmor(character, catalog, owned('Ancestral Embrace'))).toMatchObject({ potency: 4, resilient: 3 })
   expect(effectiveArmor(character, catalog, owned(artifact))).toMatchObject({ potency: 3, resilient: 3, runes: ['Fortification (Greater)'] })
   expect(armorEntry(character, catalog, artifact)?.data).toMatchObject({ strength: 2, check_penalty: 0, bulk: 1.1 })

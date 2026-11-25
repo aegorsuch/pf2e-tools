@@ -77,6 +77,26 @@ it('changes favored terrain from statuses only after gaining Terrain Master', ()
   expect(render()).not.toContain('aria-label="Favored Terrain status terrain"')
 })
 
+it('switches Crimson Claw between Fire and Slashing from Statuses', () => {
+  let c: Character = { id: 'crimson-status', name: 'Test', systems: ['sf2e'], level: 1, feats: [],
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    weapons: [{ id: 'crimson-claw', name: 'Crimson Claw', potency: 0, striking: 0, runes: [] }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const entry: ContentEntry = { id: 'crimson-claw', name: 'Crimson Claw', systems: ['sf2e'], kind: 'weapon',
+    source: 'official', level: 1, traits: [], description: '', effects: [], updatedAt: 0,
+    data: { damage: '2d6 fire', hands: 1, weapon_type: 'Melee', weapon_category: 'Advanced' },
+    weaponModes: [
+      { id: 'mode-1', damageType: 'fire', traits: ['Powered'] },
+      { id: 'mode-2', damageType: 'slashing', traits: ['Analog'] },
+    ] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const toggle = findToggle(StatusesContent({ c, entries: [entry], save }), 'Crimson Claw mode status: Crimson Claw')!
+  toggle({ target: { checked: false } })
+  expect(c.weapons![0].weaponMode).toBe('mode-2')
+  expect(renderToStaticMarkup(<StatusesContent c={c} entries={[entry]} save={save} />))
+    .toContain('Crimson Claw: Slashing')
+})
+
 it.each([['Ranger', undefined], ['Ranger', 'Vindication'], ['Rogue', 'Avenger']] as const)(
   'shows Hunt Prey rules and retains the status toggle for %s', (className, subclass) => {
     let c: Character = { id: 'hunt-prey', name: 'Test', systems: ['pf2e'], level: 4, className, subclass,
@@ -479,12 +499,12 @@ it('toggles Entrench Melee from Statuses and summarizes it while active', () => 
   const entries = [armor, fighter]
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const markup = renderToStaticMarkup(<StatusesContent c={c} entries={entries} save={save} />)
-  expect(markup).toContain('aria-label="Entrench Melee details: Entrench Melee"')
+  expect(markup).toContain('aria-haspopup="dialog">Entrench Melee</button>')
   expect(markup).toContain('a +2 circumstance bonus to AC against melee attacks until the start of your next turn')
-  expect(markup).toContain('aria-label="Entrench Melee action"')
+  expect(markup).toContain('aria-label="Entrench Melee options"')
   expect(markup).toContain('aria-label="Single Action"')
   expect(markup).not.toContain('Entrench Melee: Immortal Bastion Plate')
-  findButton(StatusesContent({ c, entries, save }), 'Entrench Melee action')!()
+  findToggle(StatusesContent({ c, entries, save }), 'Entrench Melee active: Immortal Bastion Plate')!({ target: { checked: true } })
   expect(c.armors?.[0].entrenchMeleeActive).toBe(true)
   const summary = StatusesSummary({ c, entries, save })
   expect(renderToStaticMarkup(summary)).toContain('Entrench Melee')

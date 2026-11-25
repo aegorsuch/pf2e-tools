@@ -375,17 +375,20 @@ it.each(['Pulse Gauntlet', 'Crimson Claw'])('inherits fist and claw traits for g
   const allEntries = [...weapons, claw, tail]
   for (const weaponMode of name === 'Crimson Claw' ? ['mode-1', 'mode-2'] : [undefined]) {
     const attack = weaponAttack(c, allEntries, { ...owned, weaponMode })
-    expect(attack.traits).toEqual(expect.arrayContaining(['Parry', 'Trip', 'Versatile B']))
+    expect(attack.traits).toEqual(expect.arrayContaining([
+      'Parry', 'Trip', 'Versatile S', ...(name === 'Pulse Gauntlet' ? ['Versatile B'] : []),
+    ]))
     expect(attack.traits).not.toContain('Unarmed')
     expect(attack.traits).not.toContain('Nonlethal')
     expect(attack.traits).not.toContain('Sweep')
-    expect(attack.damage).toMatch(/^4d4/)
-    if (name === 'Crimson Claw') expect(attack.damage).toContain(weaponMode === 'mode-1' ? 'fire' : 'slashing')
+    if (name === 'Crimson Claw') expect(attack.damage).toMatch(weaponMode === 'mode-1' ? /^4d4 fire/ : /^4d6 slashing/)
+    else expect(attack.damage).toMatch(/^4d4/)
   }
   expect(hasParryWeapon(c, allEntries)).toBe(true)
   const withoutClaw = { ...c, feats: [] }
-  expect(weaponAttack(withoutClaw, allEntries, owned).traits).toContain('Versatile B')
+  if (name === 'Pulse Gauntlet') expect(weaponAttack(withoutClaw, allEntries, owned).traits).toContain('Versatile B')
   expect(weaponAttack(withoutClaw, allEntries, owned).traits).not.toContain('Parry')
+  if (name === 'Crimson Claw') expect(ownedWeapons(withoutClaw, allEntries).map(weapon => weapon.name)).not.toContain('Fists')
   expect(weaponAttack({ ...c, level: 1, feats: [{ name: 'Natural Claw', type: 'Ancestry Feat', level: 5 }] },
     allEntries, owned).traits).not.toContain('Parry')
   expect(ownedWeapons(c, allEntries).map(weapon => weapon.name)).toContain('Natural Claw')

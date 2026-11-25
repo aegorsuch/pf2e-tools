@@ -2,12 +2,11 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { db, ensureSupplementalContent, newId, removeEntry, saveEntry } from './db'
-import { characterSummary, hasRemainingFeatSelections } from './builder'
 import { characterDeityLores } from './backgrounds'
 import { CharacterFilters, filterCharacters, type CharacterFilterValues } from './CharacterFilters'
 import { DeleteIcon, EditIcon } from './Icons'
 import { confirmRemoval } from './confirmRemoval'
-import { loadRequiredCatalogs, readCatalog } from './catalogLoading'
+import { readCatalog } from './catalogReading'
 import { onAuthChange, signInWithGitHub, signOut, startAutoSync, supabase } from './sync'
 import type { ContentEntry, EntryKind, GameSystem } from './types'
 import { useSettings } from './settings'
@@ -20,6 +19,7 @@ const loadEffectsEditor = () => import('./EffectsEditor').then(m => ({ default: 
 const EffectsEditor = lazy(loadEffectsEditor)
 const loadHomebrewList = () => import('./HomebrewList').then(m => ({ default: m.HomebrewList }))
 const HomebrewList = lazy(loadHomebrewList)
+type CharacterListHelpers = Pick<typeof import('./builder'), 'characterSummary' | 'hasRemainingFeatSelections'>
 const KINDS: EntryKind[] = ['feat', 'weapon', 'armor', 'spell', 'ritual', 'item', 'ancestry', 'class', 'armorGroup', 'weaponGroup', 'background', 'heritage', 'deity', 'companion', 'familiar', 'subclass']
 const SYSTEMS: { id: GameSystem; label: string }[] = [
   { id: 'pf2e', label: 'Pathfinder 2e' },
@@ -88,6 +88,7 @@ export default function App() {
   const [refreshError, setRefreshError] = useState('')
   const [homebrewSearch, setHomebrewSearch] = useState('')
   const [characterFilters, setCharacterFilters] = useState<CharacterFilterValues>({ ancestry: '', className: '' })
+  const [characterListHelpers, setCharacterListHelpers] = useState<CharacterListHelpers | null>(null)
   const [catalogReady, setCatalogReady] = useState('')
   const [catalogFailure, setCatalogFailure] = useState<{ key: string; message: string }>()
   const [catalogRetry, setCatalogRetry] = useState(0)
@@ -104,6 +105,16 @@ export default function App() {
   const deityLores = useMemo(() => characterDeityLores(characters ?? []), [characters])
   const editingCharacter = characters?.find((c) => c.id === editingId)
   useEffect(() => {
+    let live = true
+    if (!characters?.length || editingId) return () => { live = false }
+    void import('./builder').then(({ characterSummary, hasRemainingFeatSelections }) => {
+      if (live) setCharacterListHelpers({ characterSummary, hasRemainingFeatSelections })
+    }).catch((error: unknown) => {
+      if (live) setStatus(`Could not load character summaries (${error instanceof Error ? error.message : String(error)})`)
+    })
+    return () => { live = false }
+  }, [characters?.length, editingId])
+  useEffect(() => {
     if (editingId && editingId === restoredCharacter.id && characters && !editingCharacter) {
       if (openCharacter(null)) setNavigationError('The previously opened character is no longer available.')
     }
@@ -117,7 +128,8 @@ export default function App() {
   useEffect(() => {
     let live = true
     if (!neededKey) return () => { live = false }
-    void loadRequiredCatalogs(neededKey.split(',') as GameSystem[], setStatus, () => live)
+    void import('./catalogLoading').then(({ loadRequiredCatalogs }) =>
+      loadRequiredCatalogs(neededKey.split(',') as GameSystem[], setStatus, () => live))
       .then(ready => { if (live && ready) setCatalogReady(requestKey) })
       .catch((error: unknown) => {
         if (live) setCatalogFailure({ key: requestKey, message: error instanceof Error ? error.message : String(error) })
@@ -131,18 +143,20 @@ export default function App() {
   const entries = catalog?.entries
 
   const homebrew = useMemo(() => entries?.filter((e) => e.source === 'homebrew') ?? [], [entries])
+  const hasRemainingFeatSelections = characterListHelpers?.hasRemainingFeatSelections
   const basicRemaining = useMemo(() => new Set((editingId ? [] : characters ?? [])
-    .filter(character => hasRemainingFeatSelections(character))
-    .map(character => character.id)), [characters, settings, editingId])
-  const needsFeatCatalog = !editingId && (characters ?? []).some(character => !basicRemaining.has(character.id))
+    .filter(character => hasRemainingFeatSelections?.(character))
+    .map(character => character.id)), [characters, settings, editingId, hasRemainingFeatSelections])
+  const needsFeatCatalog = !!hasRemainingFeatSelections && !editingId
+    && (characters ?? []).some(character => !basicRemaining.has(character.id))
   const featCatalog = useLiveQuery(async () => needsFeatCatalog ? await db.content.toArray() : undefined, [needsFeatCatalog])
   const remainingFeats = useMemo(() => {
     const remaining = new Set(basicRemaining)
-    if (!editingId && featCatalog) for (const character of characters ?? []) {
+    if (!editingId && featCatalog && hasRemainingFeatSelections) for (const character of characters ?? []) {
       if (!remaining.has(character.id) && hasRemainingFeatSelections(character, featCatalog)) remaining.add(character.id)
     }
     return remaining
-  }, [basicRemaining, characters, featCatalog, settings, editingId])
+  }, [basicRemaining, characters, featCatalog, hasRemainingFeatSelections, settings, editingId])
   const sortedCharacters = useMemo(() => filterCharacters(editingId ? [] : characters ?? [], characterFilters)
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
   [characters, characterFilters, editingId])
@@ -283,7 +297,8 @@ export default function App() {
       <ul className="character-list">
         {sortedCharacters.map((c) => (
           <li className="character-row" key={c.id}>
-            <span><b>{c.name}{remainingFeats.has(c.id) && <span title="Feat selections remaining" aria-label="Feat selections remaining"> *</span>}</b> - {characterSummary(c, entries ?? [])}</span>
+              <span><b>{c.name}{remainingFeats.has(c.id) && <span title="Feat selections remaining" aria-label="Feat selections remaining"> *</span>}</b>
+                {characterListHelpers && <> - {characterListHelpers.characterSummary(c, entries ?? [])}</>}</span>
             <span className="character-actions">
               <button type="button" className="icon-button" title="Edit character" aria-label={`Edit ${c.name}`}
                 onPointerEnter={() => void loadCharacterBuilder()} onFocus={() => void loadCharacterBuilder()}

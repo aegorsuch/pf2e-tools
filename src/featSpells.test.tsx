@@ -1586,11 +1586,16 @@ it('alphabetizes innate spell names independently of feat selection order', () =
 })
 
 it('grants Sure Strike from the Android Advanced Targeting System feat only', () => {
-  const entries = [entry('Sure Strike', 'spell')]
+  const source = { ...entry('Advanced Targeting System', 'feat'),
+    spellGrants: [{ kind: 'innate' as const, spells: ['True Strike'], rank: 1, tradition: 'arcane', frequency: 'once per day' }] }
+  const entries = [source, entry('Sure Strike', 'spell')]
   const android: Character = { ...base, ancestry: 'Android', feats: [taken('Advanced Targeting System')] }
   expect(grantedFeatSpells(android, entries).map(grant => [grant.entry.name, grant.rank, grant.rule.tradition, grant.rule.frequency]))
     .toEqual([['Sure Strike', 1, 'arcane', 'once per day']])
-  expect(grantedFeatSpells({ ...android, ancestry: 'Human' }, entries)).toEqual([])
+  expect(unresolvedFeatSpells(android, entries)).toEqual([])
+  expect(renderToStaticMarkup(<SpellsSection c={android} entries={entries} save={() => {}} />))
+    .not.toContain('Spell data unavailable')
+  expect(grantedFeatSpells({ ...android, ancestry: 'Human' }, [entry('Sure Strike', 'spell')])).toEqual([])
 })
 
 it('grants Pest Form at will from Ancestral Pest without helper text', () => {

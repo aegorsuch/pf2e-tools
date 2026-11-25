@@ -2743,6 +2743,18 @@ describe('defenses', () => {
     expect(ranksAt({ ...c, feats: [feat('Canny Acumen', 'Will')] }, data).Will).toBe(2)
     expect(ranksAt({ ...c, level: 17, feats: [feat('Canny Acumen', 'Will')] }, data).Will).toBe(3)
   })
+
+  it('applies Ponderous armor initiative penalties based on Strength and check penalty', () => {
+    const armor: ContentEntry = { ...entry('armor', 'Myrmidon Siegebreaker Plate', {
+      armor_category: 'Heavy', armor_group: 'Plate', strength: 2, check_penalty: -2,
+    }, 9, ['Ponderous']), systems: ['sf2e'] }
+    const owned = { id: 'myrmidon', name: armor.name, potency: 0, resilient: 0, runes: [], worn: true }
+    const c: Character = { ...base, systems: ['sf2e'], armors: [owned] }
+    const withoutArmor = { ...c, armors: [] }
+    expect(initiativeBonus(c, [armor]) - initiativeBonus(withoutArmor, [armor])).toBe(-2)
+    expect(initiativeBonus({ ...c, abilities: { ...c.abilities, str: 14 } }, [armor])
+      - initiativeBonus(withoutArmor, [armor])).toBe(-1)
+  })
 })
 
 describe('configured gear', () => {
@@ -3278,7 +3290,7 @@ it('keeps rune levels attached to rune-picker options', () => {
 })
 
 describe('archetype rules', () => {
-  it('prevents incompatible steed breeds across class and archetype slots but allows replacing the current breed', () => {
+  it('prevents incompatible steed breeds and hides class feats from archetype slots', () => {
     const dedication = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
     const breeds = ['Chiardmar Steed', 'Nidarrmar Steed'].map((name) =>
       entry('feat', name, { archetype: 'Cavalier', archetype_levels: 'Cavalier:8' }, 6, ['Champion']))
@@ -3295,7 +3307,8 @@ describe('archetype rules', () => {
       expect(eligibleFeats(data, c, { key: 'archetype:8:0', category: 'archetype', level: 8 })).not.toContain(incompatible)
       expect(eligibleFeats(data, c, { key: 'class:8:0', category: 'class', level: 8 })).not.toContain(incompatible)
       expect(eligibleFeats(data, c, { key: 'class:6:0', category: 'class', level: 6 })).toEqual(breeds)
-      expect(eligibleFeats(data, { ...c, feats: c.feats.slice(0, 1) }, { key: 'archetype:8:0', category: 'archetype', level: 8 })).toEqual(breeds)
+      expect(eligibleFeats(data, { ...c, feats: c.feats.slice(0, 1) },
+        { key: 'archetype:8:0', category: 'archetype', level: 8 })).toEqual([])
       for (const companions of [[], [{ id: 'wolf', type: 'Sarkorian Direwolf', name: 'Horse' }]]) {
         expect(eligibleFeats(data, { ...c, companions }, { key: 'class:6:0', category: 'class', level: 6 })).toEqual([])
       }
@@ -3348,18 +3361,32 @@ describe('archetype rules', () => {
       expect(eligibleFeats(data, complete, target).map((feat) => feat.name)).toContain('Medic Dedication')
     }
   })
-  it('offers additional Cavalier class feats at their archetype level without restricting their normal class access', () => {
+  it('keeps class feats out of archetype slots when character class can select them', () => {
     const cavalier = entry('feat', 'Cavalier Dedication', { archetype: 'Cavalier' }, 2, ['Archetype', 'Dedication'])
     const launch = entry('feat', 'Galloping Launch', { archetype: 'Cavalier', archetype_levels: 'Cavalier:6' }, 4, ['Ranger'])
     const data = [cavalier, launch]
-    const c = { ...has(cavalier.name), level: 6 }
+    const c = { ...has(cavalier.name), className: 'Ranger', level: 6 }
     expect(eligibleFeats(data, c, { key: 'archetype:4:0', category: 'archetype', level: 4 })).not.toContain(launch)
-    expect(eligibleFeats(data, c, { key: 'archetype:6:0', category: 'archetype', level: 6 })).toContain(launch)
-    expect(eligibleFeats(data, { ...c, feats: [] }, { key: 'archetype:6:0', category: 'archetype', level: 6 })).not.toContain(launch)
+    expect(eligibleFeats(data, c, { key: 'archetype:6:0', category: 'archetype', level: 6 })).not.toContain(launch)
+    expect(eligibleFeats(data, { ...c, className: 'Fighter' },
+      { key: 'archetype:6:0', category: 'archetype', level: 6 })).toContain(launch)
     const ranger: Character = { ...base, className: 'Ranger', level: 4, feats: [{ name: launch.name, type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
     expect(eligibleFeats(data, ranger, { key: 'class:4:0', category: 'class', level: 4 })).toContain(launch)
     expect(orphanedArchetypeFeats(ranger, data)).toEqual([])
     expect(orphanedArchetypeFeats({ ...ranger, feats: [{ ...ranger.feats[0], slot: 'archetype:6:0' }] }, data).map((feat) => feat.name)).toEqual([launch.name])
+  })
+  it('hides archetype access when character class already grants the feat', () => {
+    const mauler = entry('feat', 'Mauler Dedication', { archetype: 'Mauler' }, 2, ['Archetype', 'Dedication'])
+    const sweep = entry('feat', 'Unbalancing Sweep', { archetype: 'Mauler', archetype_levels: 'Mauler:14' },
+      12, ['Barbarian', 'Flourish'])
+    const data = [mauler, sweep]
+    const barbarian = { ...base, className: 'Barbarian', level: 14,
+      feats: [{ name: mauler.name, type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' }] }
+
+    expect(eligibleFeats(data, barbarian, { key: 'archetype:14:0', category: 'archetype', level: 14 })).not.toContain(sweep)
+    expect(eligibleFeats(data, barbarian, { key: 'class:12:0', category: 'class', level: 12 })).toContain(sweep)
+    expect(eligibleFeats(data, { ...barbarian, className: 'Fighter' },
+      { key: 'archetype:14:0', category: 'archetype', level: 14 })).toContain(sweep)
   })
 })
 

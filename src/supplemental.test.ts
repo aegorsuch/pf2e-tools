@@ -817,6 +817,30 @@ it('provides a martial rapid laser pistol with separate automatically improving 
     .toBe('Advanced Laser Pistol')
 })
 
+it('provides a scaling laser Focus Rifle in the Starfinder Sniper group', () => {
+  const laser: ContentEntry = { ...FIST, id: 'laser-rifle', name: 'Laser Rifle', systems: ['sf2e'], source: 'official',
+    kind: 'weapon', level: 0, traits: ['Tech'], data: {
+      weapon_category: 'Simple', weapon_group: 'Laser', weapon_type: 'Ranged', damage: '1d8 F',
+      hands: 2, range: 100, reload: 1, upgrade_slots: 1, weapon_ammunition: '10 charges',
+    } }
+  const advanced = { ...laser, id: 'advanced-laser-rifle', name: 'Advanced Laser Rifle', level: 4,
+    data: { ...laser.data, damage: '2d8 F', weapon_tracking: 1, upgrade_slots: 2 } }
+  const homebrew = homebrewWeapons([laser, advanced])
+  const focusRifle = homebrew.find(entry => entry.name === 'Laser Focus Rifle')!
+  const entries = [laser, advanced, ...homebrew]
+  expect(focusRifle).toMatchObject({ source: 'homebrew', traits: ['Tech'], data: {
+    weapon_category: 'Martial', weapon_group: 'Sniper', weapon_type: 'Ranged', damage: '1d8 F',
+    hands: 2, range: 120, range_increment: 120, reload: 1, upgrade_slots: 1,
+    weapon_ammunition: '10 charges', weapon_grade_family: 'homebrew:laser-focus-rifle',
+  } })
+  expect(gearPickerEntries(entries, 'weapon').map(entry => entry.name)).toContain('Laser Focus Rifle')
+  const weapon = { id: 'owned-focus-rifle', name: focusRifle.name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, level: 4, systems: ['sf2e'], weapons: [weapon] }
+  expect(weaponAttack(c, entries, weapon)).toMatchObject({
+    damage: '2d8 F', entry: { name: 'Advanced Laser Focus Rifle', data: { weapon_group: 'Sniper', range: 120 } },
+  })
+})
+
 it('provides a SLARP rapid pistol with its abilities and scaling weapon proficiency', () => {
   const laser: ContentEntry = { ...FIST, id: 'laser', name: 'Laser Pistol', systems: ['sf2e'], source: 'official',
     kind: 'weapon', level: 0, traits: ['Tech'], data: {

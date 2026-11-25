@@ -68,6 +68,33 @@ it('opens False Vitality controls at the item spell rank', () => {
   expect(html).toContain('aria-label="False Vitality active"')
 })
 
+it('adds scaling Invisibility from Clandestine Suit and scales Cloaking Device uses by upgrade grade', () => {
+  const suit: ContentEntry = { ...make('Clandestine Suit', 'armor'), systems: ['sf2e'], level: 9,
+    data: { url: 'clandestine', armor_grade: 'Advanced', upgrade_slots: 0 } }
+  const module = (name: string, level: number): ContentEntry => ({ ...make(name, 'item'), systems: ['sf2e'], level,
+    data: { item_subcategory: 'Armor Upgrades' } })
+  const commercial = module('Cloaking Device (Commercial)', 8)
+  const tactical = module('Cloaking Device (Tactical)', 10)
+  const invisibility: ContentEntry = { ...make('Invisibility', 'spell'), systems: ['sf2e'], level: 2 }
+  const armor = { id: 'clandestine-id', name: suit.name, potency: 0, resilient: 0, runes: [], worn: true }
+  const c: Character = { ...base, systems: ['sf2e'], level: 9, armors: [armor] }
+  const entries = [suit, commercial, tactical, invisibility]
+  const first = itemSpells(c, entries)[0]
+  expect(first).toMatchObject({
+    name: 'Invisibility', rank: 5, actions: 'Single Action', frequency: 'once per day',
+    note: 'Invisible for 1 minute.', usageKey: JSON.stringify([armor.id, 'cloaking-device', 'invisibility']),
+    source: { name: commercial.name },
+  })
+  const upgraded = itemSpells({ ...c, level: 10 }, entries)[0]
+  expect(upgraded).toMatchObject({ rank: 5, frequency: 'three times per day', source: { name: tactical.name } })
+  expect(upgraded.usageKey).toBe(first.usageKey)
+  const highest = itemSpells({ ...c, level: 20 }, entries)[0]
+  expect(highest).toMatchObject({ rank: 10, frequency: 'three times per day' })
+  const html = renderToStaticMarkup(<SpellsSection c={{ ...c, level: 10 }} entries={entries} save={() => {}} />)
+  expect(html).toContain('Invisible for 1 minute.')
+  expect(html).toContain('aria-label="3 of 3 uses remaining"')
+})
+
 it('keeps item-spell triggers in source rules rather than inline helper text', () => {
   const source = make("Hunter's Dawn", 'item')
   const condition = "You hit a creature with a ranged Strike with Hunter's Dawn"

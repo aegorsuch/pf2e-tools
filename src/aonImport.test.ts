@@ -1,9 +1,10 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { AON_IMPORT_VERSION, importFromAon, mapAonHits } from './aon'
-import { eligibleFeats } from './builder'
+import { automaticSpecificArmorUpgrades, effectiveArmor, eligibleFeats } from './builder'
+import { isSpecificGear } from './GearSection'
 import { groupHomebrew } from './HomebrewList'
 import { homebrewCharacterOptions, migrateCopiedFeats } from './supplemental'
-import type { Character } from './types'
+import type { Character, OwnedArmor } from './types'
 import sf2eSnapshot from '../public/data/aon-sf2e.json?raw'
 
 const stored = vi.hoisted(() => ({ bulkPut: vi.fn() }))
@@ -28,6 +29,42 @@ it('imports actual SF2e armor grade AC, upgrade slots, and resilient bonuses fro
     .toMatchObject({ ac: 3, armor_grade: 'Advanced', upgrade_slots: 1, grade_save_bonus: 1 })
   expect(entries.find(entry => entry.name === 'Elite Carvesong')?.data)
     .toMatchObject({ ac: 4, armor_grade: 'Elite', upgrade_slots: 2, grade_save_bonus: 2 })
+})
+
+it('auto-upgrades requested Starfinder armor families and classifies them as specific gear', () => {
+  const families = ['Myrmidon Siegebreaker Plate', 'Rocketeer Armor', 'Carvesong', 'Clandestine Suit',
+    "Drifter's Jacket", 'Stormbreaker Armor', 'Retrieval Harness']
+  const grades = ['Advanced', 'Superior', 'Elite', 'Ultimate', 'Paragon']
+  const names = new Set(families.flatMap(name => [name, ...grades.map(grade => `${grade} ${name}`)]))
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+  const upgrades = ['Jetpack', 'Force Field', 'Active Camouflage', 'Cloaking Device', 'Drift Drive Relay', 'Maneuvering Unit', 'Easypatcher']
+  const entries = mapAonHits(hits.filter(hit => {
+    const name = String(hit._source?.name)
+    return names.has(name) || upgrades.some(upgrade => name === upgrade || name.startsWith(`${upgrade} (`))
+  }), 'sf2e')
+
+  for (const name of families) {
+    const armor = entries.find(entry => entry.name === name)
+    expect(armor, `${name} base armor imported`).toBeDefined()
+    expect(isSpecificGear(armor!)).toBe(true)
+    const owned: OwnedArmor = { id: armor!.id, name, potency: 0, resilient: 0, runes: [], worn: true }
+    const character: Character = { id: name, systems: ['sf2e'], name, level: 11,
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [], equipment: [],
+      lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0, armors: [owned] }
+    expect(effectiveArmor({ ...character, level: armor!.level }, entries, owned).name).toBe(name)
+    expect(effectiveArmor(character, entries, owned).name).toBe(`Superior ${name}`)
+    const autoUpgrades = automaticSpecificArmorUpgrades({ ...character, level: 20 }, entries, armor!)
+    expect(autoUpgrades.map(entry => entry.name)).toEqual(expect.arrayContaining(['Jetpack (Tactical)', 'Force Field (Paragon)']))
+    expect(autoUpgrades).toHaveLength(name === 'Clandestine Suit' || name === "Drifter's Jacket" ? 4
+      : name === 'Retrieval Harness' ? 3 : 2)
+    if (name === 'Clandestine Suit') expect(autoUpgrades.map(entry => entry.name))
+      .toEqual(expect.arrayContaining(['Active Camouflage (Advanced)', 'Cloaking Device (Tactical)']))
+    if (name === "Drifter's Jacket") expect(autoUpgrades.map(entry => entry.name))
+      .toEqual(expect.arrayContaining(['Force Field (Paragon)', 'Drift Drive Relay (Advanced)', 'Maneuvering Unit (Superior)']))
+    if (name === 'Retrieval Harness') expect(autoUpgrades.map(entry => entry.name))
+      .toContain('Easypatcher (Advanced)')
+    expect(entries.filter(entry => names.has(entry.name)).every(isSpecificGear)).toBe(true)
+  }
 })
 
 it('imports fresh versioned snapshots rather than marking stale runtime-cached summaries as current', async () => {
