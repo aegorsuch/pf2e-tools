@@ -502,6 +502,7 @@ export function MinionsSummary({ c, entries = [] }: Pick<SectionProps, 'c'> & Pa
       }),
       ...(lashuntaAlly ? [`Summoned ${lashuntaAlly}`] : []),
       ...(activeShirrenAlly(c) ? ['Summoned Kucharn'] : []),
+      ...(c.activeSpells?.includes('Marvelous Mount') ? ['Marvelous Mount'] : []),
       ...(c.summonedPlant ? [`Summoned ${c.summonedPlant.name}`] : []),
       ...(c.summonedUndead ? [`Summoned ${c.summonedUndead.name}`] : []),
       ...(activeSummonedFiend(c) ? [`Summoned ${activeSummonedFiend(c)!.name}`] : [])]
@@ -708,6 +709,19 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
         {activeCaypinAlly(c) && <SummonedCreature c={c} entries={entries} save={save} name="Caypin" protectedByCompanion={protectedByCompanion} />}
         {lashuntaAlly && <SummonedCreature c={c} entries={entries} save={save} name={lashuntaAlly} protectedByCompanion={protectedByCompanion} />}
         {activeShirrenAlly(c) && <SummonedCreature c={c} entries={entries} save={save} name="Emganat" displayName="Kucharn" protectedByCompanion={protectedByCompanion} />}
+        {c.activeSpells?.includes('Marvelous Mount') && <details className="character-subsection" data-minion-name="Marvelous Mount" open>
+          <summary><h4>Marvelous Mount</h4></summary>
+          <div className="gear-traits"><span>Large</span></div>
+          <SummonedMountToggle c={c} entries={entries} save={save} mountKey="spell:Marvelous Mount" />
+          <section className="companion-actions"><h5>Defenses</h5><div className="gear-stats">
+            <span><small>Hit Points</small><b>10</b></span><span><small>Armor Class</small><b>20</b></span></div>
+            <div>Automatically fails all saves; disappears at 0 Hit Points.</div></section>
+          <section className="companion-actions"><h5>Speed</h5><div>40 feet</div></section>
+          <a href="https://2e.aonprd.com/Spells.aspx?ID=1594" target="_blank" rel="noreferrer">Marvelous Mount spell</a>
+          <button type="button" aria-label="Dismiss Marvelous Mount" onClick={() => confirmRemoval('Marvelous Mount', () => save({
+            activeSpells: c.activeSpells?.filter(spell => spell !== 'Marvelous Mount'),
+            ...(c.mountedSummon === 'spell:Marvelous Mount' ? { mountedSummon: undefined } : {}) }))}>Dismiss</button>
+        </details>}
         {c.summonedPlant && <SummonedFiendCard c={c} entries={entries} fiend={c.summonedPlant} plant save={save} protectedByCompanion={protectedByCompanion} />}
         {c.summonedUndead && <SummonedFiendCard c={c} entries={entries} fiend={c.summonedUndead} undead activeSpells={c.activeSpells} save={save} protectedByCompanion={protectedByCompanion} />}
         {activeSummonedFiend(c) && <SummonedFiendCard c={c} entries={entries} fiend={activeSummonedFiend(c)!} activeSpells={c.activeSpells} save={save} protectedByCompanion={protectedByCompanion} />}

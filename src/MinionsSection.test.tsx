@@ -2359,3 +2359,14 @@ it('removes Enlarge size choices for Large companions and disables casting on Hu
     expect(spells).not.toContain('aria-label="Enlarge Companion size"')
   }
 })
+
+it('shows an active Marvelous Mount in Minions with a Mounted toggle', () => {
+  const c: Character = { id: 'mount', name: 'Test', systems: ['pf2e'], level: 4, ancestry: 'Human',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [], activeSpells: ['Marvelous Mount'],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(summonedMounts(c, [])).toEqual([expect.objectContaining({ key: 'spell:Marvelous Mount', speed: '40 feet' })])
+  const minions = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  expect(minions).toContain('Marvelous Mount')
+  expect(minions).toContain('aria-label="Mounted on Marvelous Mount"')
+  expect(renderToStaticMarkup(<MinionsSection c={{ ...c, activeSpells: [] }} entries={[]} save={() => {}} />)).not.toContain('Marvelous Mount')
+})

@@ -3183,6 +3183,7 @@ export function summonedMounts(c: Character, entries: ContentEntry[]) {
   const creatures = [
     ...(ally ? [{ key: `ally:${ally}`, name: ally === 'Emganat' ? 'Kucharn' : ally,
       size: ALLY_MOUNTS[ally].size, speed: ALLY_MOUNTS[ally].speed }] : []),
+    ...(c.activeSpells?.includes('Marvelous Mount') ? [{ key: 'spell:Marvelous Mount', name: 'Marvelous Mount', size: 'Large', speed: '40 feet' }] : []),
     ...([['fiend', c.summonedFiend], ['plant', c.summonedPlant], ['undead', c.summonedUndead]] as const)
       .flatMap(([kind, creature]) => creature ? [{ key: `${kind}:${creature.id}`, name: creature.name,
         size: creature.traits.find(trait => /^(tiny|small|medium|large|huge|gargantuan)$/i.test(trait)) ?? '',
