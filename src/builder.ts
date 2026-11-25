@@ -1,3 +1,4 @@
+import { attunedApparitions, primaryApparition } from './apparitions'
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, GameSystem, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { ANCESTRAL_AVATAR, BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, ancestralAvatarForm, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm, pestBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
@@ -3904,6 +3905,10 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
       }
     }
   }
+  const vessel = primaryApparition(c)
+  if (vessel?.vessel) {
+    add(vessel.vessel, `${vessel.name} (primary apparition)`)
+  }
   if (c.className === 'Necromancer' && c.systems.includes('pf2e') && c.level >= 1) {
     add('Necrotic Bomb', 'Grave Spells')
     const fascination = subclassOptions(c, entries).find(entry => entry.name === selectedSubclass(c, entries))
@@ -3933,7 +3938,7 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
     addOrder(selectedSubclass(c, entries))
     for (const f of active) if (f.name === 'Order Magic') addOrder(f.choice)
   }
-  let points = 0
+  let points = vessel?.vessel ? (c.level >= 7 ? 1 : 0) + (c.level >= 15 ? 1 : 0) : 0
   let bonusPoints = 0
   for (const f of active) {
     const data = selectedFeatEntry(c, entries, f.name, f.sourceId)?.data
@@ -3995,7 +4000,8 @@ export function autoClassSkills(c: Character, entries: ContentEntry[]) {
     ...(rackets.includes('Mastermind') ? ['Society', ...(extra && SCRAPPER_SKILLS.includes(extra) ? [extra] : [])] : []),
     ...(rackets.includes('Avenger') ? ['Intimidation', 'Religion', 'Stealth'] : []),
   ]
-  return [...new Set([...fixed, ...(picked ? [picked] : []), ...subclassSkillGrants(c, entries), ...explored, ...divine, ...racketSkills])]
+  const apparitionSkills = attunedApparitions(c).flatMap(apparition => apparition.skills)
+  return [...new Set([...fixed, ...(picked ? [picked] : []), ...subclassSkillGrants(c, entries), ...explored, ...divine, ...racketSkills, ...apparitionSkills])]
 }
 
 export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {

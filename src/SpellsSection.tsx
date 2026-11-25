@@ -1,4 +1,5 @@
 import { EntryDescription } from './EntryDescription'
+import { apparitionLimit, attunedApparitions, primaryApparition, type Apparition } from './apparitions'
 import { confirmRemoval } from './confirmRemoval'
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeBattleForm, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, investigatorMethodologies, isMagicHideActive, isSpellActive, knowsSpell, magicHideChange, proficiencyBonus, protectCompanionTarget, protectCompanionTargets, rogueRackets, signed, spellActiveChange, spellRemovalChange, untamedShiftChoices, type SectionProps } from './builder'
@@ -1607,6 +1608,59 @@ export function spellCategoryAvailability(c: Character, entries: ContentEntry[],
     rituals: characterRituals(c, entries).ritualNames.length > 0 }
 }
 
+function ApparitionAttunement({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
+  const [catalog, setCatalog] = useState<Apparition[]>()
+  const [error, setError] = useState('')
+  useEffect(() => {
+    void fetch(`${import.meta.env.BASE_URL}data/aon-apparitions.json`).then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      return response.json() as Promise<Apparition[]>
+    }).then(data => {
+      if (!Array.isArray(data)) throw new Error('Invalid apparition catalog')
+      setCatalog(data)
+    }).catch((failure: unknown) => setError(`Unable to load apparitions: ${failure instanceof Error ? failure.message : String(failure)}`))
+  }, [])
+  const attuned = attunedApparitions(c)
+  const limit = apparitionLimit(c)
+  const primary = primaryApparition(c)
+  const attune = (index: number, id: string) => {
+    const next = [...attuned]
+    const chosen = catalog?.find(apparition => apparition.id === id)
+    if (chosen) next[index] = chosen
+    else next.splice(index, 1)
+    const list = next.filter(Boolean)
+    save({ attunedApparitions: list, primaryApparition: list.some(apparition => apparition.id === primary?.id) ? primary?.id : list[0]?.id })
+  }
+  return <section className="spell-slot-group">
+    <h6>Apparition Attunement</h6>
+    {error && <p role="alert">{error}</p>}
+    {Array.from({ length: limit }, (_, index) => {
+      const current = attuned[index]
+      return <label key={index}>Attuned apparition {index + 1}{' '}
+        <select aria-label={`Attuned apparition ${index + 1}`} value={current?.id ?? ''}
+          disabled={!catalog || index > attuned.length}
+          onChange={event => {
+            const id = event.target.value
+            if (current && current.id !== id) confirmRemoval(`apparition "${current.name}"`, () => attune(index, id))
+            else attune(index, id)
+          }}>
+          <option value="">{catalog ? 'Choose apparition...' : 'Loading...'}</option>
+          {current && !catalog?.some(apparition => apparition.id === current.id) && <option value={current.id}>{current.name}</option>}
+          {catalog?.filter(apparition => apparition.id === current?.id || !attuned.some(other => other.id === apparition.id)).map(apparition =>
+            <option key={apparition.id} value={apparition.id}>{apparition.name}</option>)}
+        </select>
+      </label>
+    })}
+    {attuned.length > 1 && <label>Primary apparition{' '}
+      <select aria-label="Primary apparition" value={primary?.id ?? ''} onChange={event => save({ primaryApparition: event.target.value })}>
+        {attuned.map(apparition => <option key={apparition.id} value={apparition.id}>{apparition.name}</option>)}
+      </select>
+    </label>}
+    {attuned.map(apparition => <small key={apparition.id}>{apparition.name}: {apparition.skills.join(', ')}
+      {apparition.id === primary?.id && apparition.vessel ? ` · Vessel spell: ${apparition.vessel}` : ''}</small>)}
+  </section>
+}
+
 export function AnimistApparitionSpells({ c, entries, save }: SectionProps) {
   const slots = animistApparitionSlots(c)
   if (!Object.keys(slots).length) return null
@@ -1621,11 +1675,15 @@ export function AnimistApparitionSpells({ c, entries, save }: SectionProps) {
     && entry.systems.some(system => c.systems.includes(system)))
   const spellById = new Map(availableSpells.map(entry => [entry.id, entry]))
   const spellByName = new Map(availableSpells.map(entry => [entry.name, entry]))
+  const highestRankCastable = Math.max(...Object.keys(slots).map(Number))
   const repertoire = casting.apparitionRepertoire ?? []
-  const repertoireEntries = [...new Set(repertoire)].flatMap(value => {
+  const granted = attunedApparitions(c).flatMap(apparition => apparition.spells
+    .filter(spell => spell.rank <= highestRankCastable).map(spell => spellByName.get(spell.name))).filter((entry): entry is ContentEntry => !!entry)
+  const grantedIds = new Set(granted.map(entry => entry.id))
+  const repertoireEntries = [...new Map([...granted, ...[...new Set(repertoire)].flatMap(value => {
     const entry = spellById.get(value) ?? spellByName.get(value)
     return entry ? [entry] : []
-  })
+  })].map(entry => [entry.id, entry])).values()]
   const repertoireIds = new Set(repertoireEntries.map(entry => entry.id))
   const cantripLimit = slots[0] ?? 0
   const cantripCount = repertoireEntries.filter(entry => entry.traits.some(trait => trait.toLowerCase() === 'cantrip')).length
@@ -1651,6 +1709,7 @@ export function AnimistApparitionSpells({ c, entries, save }: SectionProps) {
   const castSlots = Object.entries(slots).filter(([rank]) => Number(rank) > 0)
   return <section className="class-spell-slots">
     <h5>Apparition Spellcasting</h5>
+    <ApparitionAttunement c={c} save={save} />
     {(casting.apparitionSpentSlots?.length ?? 0) > 0 && <div className="row">
       <button type="button" aria-label="Reset apparition spell slots"
         title="Restore apparition spell slots during daily preparations."
@@ -1676,8 +1735,8 @@ export function AnimistApparitionSpells({ c, entries, save }: SectionProps) {
         </div>
         <span><small>Spell</small>{entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
           ? `Cantrip (Heightened Level ${Math.ceil(c.level / 2)})` : `Rank ${entry.level}`}</span>
-        <button type="button" className="spell-remove" aria-label={`Remove apparition spell ${entry.name}`}
-          onClick={() => confirmRemoval(`apparition spell "${entry.name}"`, () => removeSpell(entry))}>×</button>
+        {!grantedIds.has(entry.id) && <button type="button" className="spell-remove" aria-label={`Remove apparition spell ${entry.name}`}
+          onClick={() => confirmRemoval(`apparition spell "${entry.name}"`, () => removeSpell(entry))}>×</button>}
       </li>)}</ul>
     </section>
     {castSlots.map(([rankText, count]) => {

@@ -439,6 +439,8 @@ export interface Character {
   lashuntaCreatureAllyChoice?: 'Shotalashu' | 'Squox'
   holoRogerActive?: boolean
   summonedFiend?: import('./summonedFiends.ts').SummonedFiend
+  attunedApparitions?: import('./apparitions.ts').Apparition[]
+  primaryApparition?: string
   summonedPlant?: import('./summonedFiends.ts').SummonedFiend
   summonedUndead?: import('./summonedFiends.ts').SummonedFiend
   zealousConvictionRank?: number
