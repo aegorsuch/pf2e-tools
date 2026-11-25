@@ -3,7 +3,7 @@ import { Children, cloneElement, isValidElement, type ReactElement, type ReactNo
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, automaticArmorUpgradeSlotsUsed, canRaiseShield, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon, installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, automaticArmorUpgradeSlotsUsed, canRaiseShield, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon, installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, OVERSIZED_THROW } from './supplemental'
@@ -2925,7 +2925,7 @@ it('grants Clandestine Suit armor upgrades without using slots and activates its
 
 it('auto-installs Drifter Jacket upgrades and reserves a slot only for its Force Field', () => {
   const jacket: ContentEntry = { ...weapon, id: 'drifters-jacket', name: "Drifter's Jacket", kind: 'armor', systems: ['sf2e'],
-    level: 10, data: { url: 'drifters-jacket', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 1 } }
+    level: 10, description: 'A practical jacket.', data: { url: 'drifters-jacket', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 1 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
     systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
   const upgrades = [
@@ -2942,7 +2942,51 @@ it('auto-installs Drifter Jacket upgrades and reserves a slot only for its Force
   expect(markup).toContain('Maneuvering Unit (Tactical)')
   expect(markup).toContain('Force Field (Superior)')
   expect(markup).toContain('Jetpack (Commercial)')
+  expect(markup).toContain('Includes a Maneuvering Unit at no extra cost; it uses no upgrade slot.')
+  expect(markup.match(/Free \(no upgrade slot\)/g)).toHaveLength(3)
   expect(markup).not.toContain('Add armor upgrade')
+})
+
+it('auto-installs Rocketeer Armor upgrades, reserving slots for Force Field and Maneuvering Unit only', () => {
+  const armor: ContentEntry = { ...weapon, id: 'rocketeer-armor', name: 'Rocketeer Armor', kind: 'armor', systems: ['sf2e'],
+    level: 9, data: { url: 'rocketeer-armor', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 2 } }
+  const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
+    systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
+  const upgrades = [module('Jetpack (Tactical)', 9), module('Force Field (Advanced)', 7),
+    module('Maneuvering Unit (Tactical)', 9)]
+  const c: Character = { ...character([]), systems: ['sf2e'], level: 9, armors: [
+    { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
+  ] }
+  const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
+  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(2)
+  expect(markup).toContain('Jetpack (Tactical)')
+  expect(markup).toContain('Force Field (Advanced)')
+  expect(markup).toContain('Maneuvering Unit (Tactical)')
+  expect(markup.match(/Free \(no upgrade slot\)/g)).toHaveLength(1)
+  expect(markup).not.toContain('Add armor upgrade')
+})
+
+it('offers Acid, Cold, Electricity and Fire variants for Energy Shielding', () => {
+  const suit: ContentEntry = { ...weapon, id: 'energy-suit', name: 'Energy Suit', kind: 'armor', systems: ['sf2e'],
+    data: { armor_category: 'Light', ac: 2, upgrade_slots: 1 } }
+  const shielding: ContentEntry = { ...shifting, id: 'energy-shielding', name: 'Energy Shielding (Advanced)',
+    systems: ['sf2e'], level: 18, data: { item_subcategory: 'Armor Upgrades' } }
+  let c: Character = { ...character([]), systems: ['sf2e'], level: 20, armors: [
+    { id: suit.id, name: suit.name, potency: 0, resilient: 0, runes: [], upgrades: [shielding.id], worn: true },
+  ] }
+  const entries = [suit, shielding]
+  const tree = () => ArmorList({ c, entries, save: patch => { c = { ...c, ...patch } } })
+  const component = findElement(tree(), element => typeof element.type === 'function' && element.type.name === 'ArmorUpgrades')!
+  const content = (component.type as (props: typeof component.props) => ReactNode)(component.props)
+  const selector = findElement(content, element => element.props['aria-label'] === 'Energy Shielding type Energy Shielding (Advanced)')!
+  const markup = renderToStaticMarkup(selector)
+  for (const [type, label] of [['acid', 'Acid'], ['cold', 'Cold'], ['electricity', 'Electricity'], ['fire', 'Fire']])
+    expect(markup).toContain(`<option value="${type}">${label}</option>`)
+  ;(selector.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'fire' } })
+  expect(c.armors?.[0].energyShieldingTypes).toEqual({ [shielding.id]: 'fire' })
+  expect(resistances(c, entries)).toContainEqual({
+    damage: 'Fire', value: 15, source: 'Energy Shielding (Advanced) (Fire)',
+  })
 })
 
 it('auto-installs Retrieval Harness Easypatcher without using an upgrade slot', () => {

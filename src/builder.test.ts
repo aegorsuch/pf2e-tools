@@ -694,6 +694,20 @@ it('scales Stormbreaker electricity shielding with character level', () => {
   })
 })
 
+it.each(['acid', 'cold', 'electricity', 'fire'] as const)('applies Energy Shielding resistance to %s', type => {
+  const armor = { ...entry('armor', 'Suit', { upgrade_slots: 1 }, 1), systems: ['sf2e' as const] }
+  const shielding = { ...entry('item', 'Energy Shielding (Advanced)', { item_subcategory: 'Armor Upgrades' }, 18),
+    systems: ['sf2e' as const] }
+  const c: Character = { ...base, systems: ['sf2e'], armors: [{
+    id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [ ],
+    upgrades: [shielding.id], energyShieldingTypes: { [shielding.id]: type }, worn: true,
+  }] }
+  const displayType = `${type[0].toUpperCase()}${type.slice(1)}`
+  expect(resistances(c, [armor, shielding])).toContainEqual({
+    damage: displayType, value: 15, source: `Energy Shielding (Advanced) (${displayType})`,
+  })
+})
+
 it('grants apparition sight from Apparition Sense only when the feat is active', () => {
   const c: Character = { ...base, feats: [{ name: 'Apparition Sense', type: 'Class Feat', level: 1 }] }
   expect(senses(c, [])).toContainEqual({

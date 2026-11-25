@@ -1,5 +1,6 @@
 import { attunedApparitions, primaryApparition } from './apparitions'
 import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, GameSystem, HardlightGrade, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
+import { ENERGY_SHIELDING_TYPES } from './types'
 import { ANCESTRAL_AVATAR, BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, ancestralAvatarForm, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm, pestBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
@@ -131,6 +132,11 @@ export function temporaryHpGrant(c: Character, entries: ContentEntry[]) {
     grants.push({ source: form.source, value: form.temporaryHp })
   }
   const armor = wornArmor(c, entries)
+  if (armor?.activeForceField) {
+    const forceField = armorUpgradeEntries(c, entries, armor).find(entry => forceFieldStats(entry))
+    const hitPoints = forceFieldStats(forceField)?.hitPoints
+    if (forceField && hitPoints) grants.push({ source: forceField.name, value: hitPoints })
+  }
   if (armor && isImmortalBastion(armor.name)) {
     const source = armor.name
     if (armor.immortalSurvivalActive) grants.push({ source: `${source} survival`, value: 100 })
@@ -3157,31 +3163,48 @@ export function armorUpgradeSlots(entry?: ContentEntry) {
 }
 
 export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
-  const family = armor?.name.replace(/^(?:Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
-  return armor?.systems.includes('sf2e') && (family === "Drifter's Jacket" || family === 'Stormbreaker Armor') ? 1 : 0
+  const family = armor?.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+  if (!armor?.systems.includes('sf2e')) return 0
+  if (family === 'Rocketeer Armor') return 2
+  return family === "Drifter's Jacket" || family === 'Stormbreaker Armor' ? 1 : 0
+}
+
+export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upgrade: ContentEntry) {
+  const family = armorName?.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+  const base = upgrade.name.replace(/\s*\([^)]*\)$/, '')
+  return family === "Drifter's Jacket" && base === 'Force Field'
+    || family === 'Rocketeer Armor' && ['Force Field', 'Maneuvering Unit'].includes(base)
+    || family === 'Stormbreaker Armor' && base === 'Force Field'
 }
 
 const AUTOMATIC_UPGRADE_ARMORS = new Set([
   'Myrmidon Siegebreaker Plate', 'Rocketeer Armor', 'Carvesong', 'Clandestine Suit',
   "Drifter's Jacket", 'Stormbreaker Armor', 'Retrieval Harness',
 ])
+const SPELL_ARMOR_FAMILIES = new Set(['Carveweave', 'Carvesong', 'Mageplate'])
 const AUTOMATIC_ARMOR_UPGRADES = ['Jetpack', 'Force Field']
 const CLOAKING_ARMOR_UPGRADES = ['Active Camouflage', 'Cloaking Device']
 const DRIFTER_JACKET_ARMOR_UPGRADES = ['Drift Drive Relay', 'Maneuvering Unit']
+const ROCKETEER_ARMOR_UPGRADES = ['Maneuvering Unit']
 const RETRIEVAL_HARNESS_ARMOR_UPGRADES = ['Easypatcher']
 const STORMBREAKER_ARMOR_UPGRADES = ['Energized Spikes', 'Energy Shielding']
+const SPELL_ARMOR_UPGRADES = ['Spell Gauntlet', 'Spell Refactoring Matrix']
 const SF_UPGRADE_GRADES = 'Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon'
 export const AUTOMATIC_JETPACK_ID = 'automatic:jetpack'
 
 export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEntry[], armor?: ContentEntry) {
   if (!c.systems.includes('sf2e') || armor?.kind !== 'armor' || !armor.systems.includes('sf2e')) return []
-  const family = armor.name.replace(/^(?:Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
-  if (!AUTOMATIC_UPGRADE_ARMORS.has(family)) return []
-  const upgrades = [...AUTOMATIC_ARMOR_UPGRADES,
+  const family = armor.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+  const standardArmor = AUTOMATIC_UPGRADE_ARMORS.has(family)
+  const spellArmor = SPELL_ARMOR_FAMILIES.has(family)
+  if (!standardArmor && !spellArmor) return []
+  const upgrades = [...(standardArmor ? AUTOMATIC_ARMOR_UPGRADES : []),
     ...(family === 'Clandestine Suit' ? CLOAKING_ARMOR_UPGRADES : []),
     ...(family === "Drifter's Jacket" ? DRIFTER_JACKET_ARMOR_UPGRADES : []),
+    ...(family === 'Rocketeer Armor' ? ROCKETEER_ARMOR_UPGRADES : []),
     ...(family === 'Retrieval Harness' ? RETRIEVAL_HARNESS_ARMOR_UPGRADES : []),
-    ...(family === 'Stormbreaker Armor' ? STORMBREAKER_ARMOR_UPGRADES : [])]
+    ...(family === 'Stormbreaker Armor' ? STORMBREAKER_ARMOR_UPGRADES : []),
+    ...(spellArmor ? SPELL_ARMOR_UPGRADES : [])]
   return upgrades.flatMap(base => {
     const pattern = new RegExp(`^${base}(?: \\((?:${SF_UPGRADE_GRADES})\\))?$`, 'i')
     const candidates = entries.filter(candidate => candidate.kind === 'item' && !candidate.deleted
@@ -3201,6 +3224,46 @@ export function jetpackSpeed(entry?: ContentEntry) {
     || entry.data.item_subcategory !== 'Armor Upgrades') return 0
   return /^Jetpack(?: \(Commercial\))?$/i.test(entry.name) ? 20
     : /^Jetpack \(Tactical\)$/i.test(entry.name) ? 40 : 0
+}
+
+export function armorUpgradeEntries(c: Character, entries: ContentEntry[], armor: OwnedArmor) {
+  const armorItem = armorEntry(c, entries, armor.name, armor.id)
+  const automatic = automaticSpecificArmorUpgrades(c, entries, armorItem)
+  const limit = !armorItem || armorItem.data.upgrades_allowed === false ? 0
+    : Math.max(0, armorUpgradeSlots(armorItem)
+      + (c.heritage === 'Mod Fanatic Android' ? 1 : 0)
+      - automaticArmorUpgradeSlotsUsed(armorItem))
+  const installed = (armor.upgrades ?? []).slice(0, limit).flatMap(id => entries.find(entry =>
+    entry.id === id && !entry.deleted && entry.kind === 'item' && entry.systems.includes('sf2e')
+      && entry.data.item_subcategory === 'Armor Upgrades') ?? [])
+  return [...automatic, ...installed]
+}
+
+const FORCE_FIELD_GRADES = ['Commercial', 'Tactical', 'Advanced', 'Superior', 'Elite', 'Ultimate', 'Paragon']
+const FORCE_FIELD_STATS = [
+  { hitPoints: 6, regeneration: 2 },
+  { hitPoints: 14, regeneration: 3 },
+  { hitPoints: 20, regeneration: 4 },
+  { hitPoints: 26, regeneration: 5 },
+  { hitPoints: 32, regeneration: 6 },
+  { hitPoints: 37, regeneration: 7 },
+  { hitPoints: 42, regeneration: 8 },
+]
+
+export function forceFieldStats(entry?: ContentEntry) {
+  if (!entry || entry.kind !== 'item' || !entry.systems.includes('sf2e')
+    || entry.data.item_subcategory !== 'Armor Upgrades') return undefined
+  const match = /^Force Field(?: \((Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon)\))?$/i.exec(entry.name)
+  if (!match) return undefined
+  const grade = match[1] ?? 'Commercial'
+  const index = FORCE_FIELD_GRADES.findIndex(value => value.toLowerCase() === grade.toLowerCase())
+  return index < 0 ? undefined : FORCE_FIELD_STATS[index]
+}
+
+export function isEnergyShieldingUpgrade(entry?: ContentEntry) {
+  return !!entry && entry.kind === 'item' && entry.systems.includes('sf2e')
+    && entry.data.item_subcategory === 'Armor Upgrades'
+    && /^Energy Shielding(?: \((?:Commercial|Tactical|Advanced)\))?$/i.test(entry.name)
 }
 
 // Unconditional movement Speeds granted by ancestry and class feats
@@ -5994,12 +6057,12 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   const armor = wornArmor(c, entries)
   if (armor) {
     out.push(...energyNeutralizerResistances(c, armor.id))
-    const armorItem = armorEntry(c, entries, armor.name, armor.id)
-    const energyShielding = automaticSpecificArmorUpgrades(c, entries, armorItem)
-      .find(upgrade => upgrade.data.automatic_energy_type === 'electricity')
-    if (energyShielding) {
-      const value = /Advanced/i.test(energyShielding.name) ? 15 : /Tactical/i.test(energyShielding.name) ? 10 : 5
-      out.push({ damage: 'electricity', value, source: `${energyShielding.name} (Electricity)` })
+    for (const upgrade of armorUpgradeEntries(c, entries, armor).filter(isEnergyShieldingUpgrade)) {
+      const rawType = upgrade.data.automatic_energy_type ?? armor.energyShieldingTypes?.[upgrade.id]
+      const type = ENERGY_SHIELDING_TYPES.find(candidate => candidate === rawType)
+      if (!type) continue
+      const value = /Advanced/i.test(upgrade.name) ? 15 : /Tactical/i.test(upgrade.name) ? 10 : 5
+      out.push({ damage: type, value, source: `${upgrade.name} (${type[0].toUpperCase()}${type.slice(1)})` })
     }
   }
   if (wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID) out.push(...inventorArmorResistances(c))

@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { AON_IMPORT_VERSION, importFromAon, mapAonHits } from './aon'
-import { automaticSpecificArmorUpgrades, effectiveArmor, eligibleFeats } from './builder'
+import { automaticSpecificArmorUpgrades, boostSlots, classDifficultyClass, effectiveArmor, eligibleFeats } from './builder'
 import { isSpecificGear } from './GearSection'
 import { groupHomebrew } from './HomebrewList'
 import { homebrewCharacterOptions, migrateCopiedFeats } from './supplemental'
@@ -38,7 +38,8 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
   const names = new Set(families.flatMap(name => [name, ...grades.map(grade => `${grade} ${name}`)]))
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
   const upgrades = ['Jetpack', 'Force Field', 'Active Camouflage', 'Cloaking Device', 'Drift Drive Relay',
-    'Maneuvering Unit', 'Easypatcher', 'Energized Spikes', 'Energy Shielding']
+    'Maneuvering Unit', 'Easypatcher', 'Energized Spikes', 'Energy Shielding',
+    'Spell Gauntlet', 'Spell Refactoring Matrix']
   const entries = mapAonHits(hits.filter(hit => {
     const name = String(hit._source?.name)
     return names.has(name) || upgrades.some(upgrade => name === upgrade || name.startsWith(`${upgrade} (`))
@@ -56,7 +57,9 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
     expect(effectiveArmor(character, entries, owned).name).toBe(`Superior ${name}`)
     const autoUpgrades = automaticSpecificArmorUpgrades({ ...character, level: 20 }, entries, armor!)
     expect(autoUpgrades.map(entry => entry.name)).toEqual(expect.arrayContaining(['Jetpack (Tactical)', 'Force Field (Paragon)']))
-    expect(autoUpgrades).toHaveLength(name === 'Clandestine Suit' || name === "Drifter's Jacket" || name === 'Stormbreaker Armor' ? 4
+    expect(autoUpgrades).toHaveLength(name === 'Clandestine Suit' || name === "Drifter's Jacket" || name === 'Stormbreaker Armor'
+      || name === 'Carvesong' ? 4
+      : name === 'Rocketeer Armor' ? 3
       : name === 'Retrieval Harness' ? 3 : 2)
     if (name === 'Clandestine Suit') expect(autoUpgrades.map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Active Camouflage (Advanced)', 'Cloaking Device (Tactical)']))
@@ -64,6 +67,8 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
       .toEqual(expect.arrayContaining(['Force Field (Paragon)', 'Drift Drive Relay (Advanced)', 'Maneuvering Unit (Superior)']))
     if (name === 'Retrieval Harness') expect(autoUpgrades.map(entry => entry.name))
       .toContain('Easypatcher (Advanced)')
+    if (name === 'Rocketeer Armor') expect(autoUpgrades.map(entry => entry.name))
+      .toContain('Maneuvering Unit (Superior)')
     if (name === 'Stormbreaker Armor') {
       expect(autoUpgrades.map(entry => entry.name)).toEqual(expect.arrayContaining([
         'Force Field (Paragon)', 'Energized Spikes (Advanced)', 'Energy Shielding (Advanced)',
@@ -71,8 +76,43 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
       expect(autoUpgrades.find(entry => entry.name === 'Energy Shielding (Advanced)')?.data.automatic_energy_type)
         .toBe('electricity')
     }
+    if (name === 'Carvesong') expect(autoUpgrades.map(entry => entry.name))
+      .toEqual(expect.arrayContaining(['Spell Gauntlet', 'Spell Refactoring Matrix']))
     expect(entries.filter(entry => names.has(entry.name)).every(isSpecificGear)).toBe(true)
   }
+})
+
+it('adds Carveweave and Mageplate spell upgrades when character reaches item level', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+  const armorAndUpgrades = new Set(['Mageplate', 'Advanced Mageplate', 'Spell Gauntlet', 'Spell Refactoring Matrix'])
+  const entries = mapAonHits(hits.filter(hit => armorAndUpgrades.has(String(hit._source?.name))), 'sf2e')
+  const mageplate = entries.find(entry => entry.kind === 'armor' && entry.name === 'Mageplate')!
+  const advancedMageplate = entries.find(entry => entry.kind === 'armor' && entry.name === 'Advanced Mageplate')!
+  const carveweave = { ...mageplate, id: 'carveweave', name: 'Carveweave' }
+  const character: Character = { id: 'spell-armor', systems: ['sf2e'], name: 'Test', level: 10,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [], equipment: [],
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+
+  expect(effectiveArmor(character, entries, { id: mageplate.id, name: mageplate.name, potency: 0, resilient: 0,
+    runes: [], worn: true }).name)
+    .toBe('Advanced Mageplate')
+  for (const armor of [carveweave, mageplate, advancedMageplate]) {
+    expect(automaticSpecificArmorUpgrades({ ...character, level: 4 }, entries, armor)).toEqual([])
+    expect(automaticSpecificArmorUpgrades({ ...character, level: 5 }, entries, armor).map(entry => entry.name))
+      .toEqual(['Spell Refactoring Matrix'])
+    expect(automaticSpecificArmorUpgrades(character, entries, armor).map(entry => entry.name))
+      .toEqual(['Spell Gauntlet', 'Spell Refactoring Matrix'])
+  }
+})
+
+it('uses Charisma for Envoy class DC without manual key-attribute selection', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => ['Envoy', 'Envoy Expertise'].includes(String(hit._source?.name))), 'sf2e')
+  const character: Character = { id: 'envoy', systems: ['sf2e'], className: 'Envoy', name: 'Test', level: 9,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 18 }, feats: [], equipment: [],
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(boostSlots(character, entries).find(slot => slot.key === 'class')?.fixed).toBe('cha')
+  expect(classDifficultyClass(character, entries)).toBe(27)
 })
 
 it('imports fresh versioned snapshots rather than marking stale runtime-cached summaries as current', async () => {

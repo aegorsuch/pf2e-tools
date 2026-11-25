@@ -366,6 +366,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   if (system === 'sf2e' && kind === 'deity' && name === 'Zon-Shelyn') data.skill = 'Crafting, Intimidation'
   if (system === 'sf2e' && kind === 'class') {
     if (name === 'Soldier') data.attribute = 'Constitution'
+    if (name === 'Envoy') data.attribute = 'Charisma'
     if (name === 'Operative') data.attribute = 'Dexterity'
     if (name === 'Witchwarper') data.attribute = 'Intelligence, Charisma'
   }

@@ -17,6 +17,8 @@ import type { ContentEntry } from './types'
 import { companionAdvancementFor, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_NAME,
   hasCompanionMountOption, isBadgerCompanion } from './companions'
 import { ActionIcon } from './ActionIcon'
+import { AUTOMATIC_JETPACK_ID, armorUpgradeEntries, automaticSpecificArmorUpgrades, forceFieldStats, jetpackSpeed } from './builder'
+import type { OwnedArmor } from './types'
 
 const entrenchMeleeEntry = (bonus: number): ContentEntry => ({
   id: `action:entrench-melee:${bonus}`, systems: ['pf2e'], kind: 'trait', source: 'official', name: 'Entrench Melee',
@@ -112,8 +114,29 @@ function defenseToggles(c: SectionProps['c'], entries: SectionProps['entries']) 
   }
 }
 
+function armorDeviceStatuses(c: SectionProps['c'], entries: SectionProps['entries']) {
+  const armor = c.systems.includes('sf2e') ? wornArmor(c, entries) : undefined
+  const empty = { armor: undefined, jetpack: undefined, jetpackId: undefined, jetpackActive: false,
+    forceField: undefined, forceFieldStats: undefined, forceFieldActive: false }
+  if (!armor) return empty
+  const armorItem = armorEntry(c, entries, armor.name, armor.id)
+  const automatic = automaticSpecificArmorUpgrades(c, entries, armorItem)
+  const upgrades = armorUpgradeEntries(c, entries, armor)
+  const automaticJetpack = automatic.find(entry => jetpackSpeed(entry) > 0)
+  const jetpack = automaticJetpack ?? upgrades.find(entry => jetpackSpeed(entry) > 0)
+  const activeManualJetpack = upgrades.find(entry => entry.id === armor.activeJetpack && jetpackSpeed(entry) > 0)
+  const forceField = upgrades.find(entry => forceFieldStats(entry))
+  const stats = forceFieldStats(forceField)
+  return {
+    armor, jetpack, jetpackId: automaticJetpack ? AUTOMATIC_JETPACK_ID : jetpack?.id,
+    jetpackActive: armor.activeJetpack === AUTOMATIC_JETPACK_ID && !!automaticJetpack || !!activeManualJetpack,
+    forceField, forceFieldStats: stats, forceFieldActive: !!armor.activeForceField && !!stats,
+  }
+}
+
 export function StatusesSummary({ c, entries, save }: SectionProps) {
   const defense = defenseToggles(c, entries)
+  const armorDevices = armorDeviceStatuses(c, entries)
   const stance = activeStance(c, entries)
   const poisonTotal = Math.max(0, Math.floor(c.level))
   const poisonSpent = Math.max(0, Math.min(poisonTotal, Math.floor(c.simplePoisonsSpent ?? 0)))
@@ -135,6 +158,9 @@ export function StatusesSummary({ c, entries, save }: SectionProps) {
     ...(knowsSpell(c, entries, 'Spirit of the Beast')
       ? (c.companions ?? []).flatMap(companion => spiritAspectStatusName(companion) ?? []) : []),
     ...(entrenchMeleeActive(c, entries) ? ['Entrench Melee'] : []),
+    ...(armorDevices.jetpackActive && armorDevices.jetpack ? [armorDevices.jetpack.name] : []),
+    ...(armorDevices.forceFieldActive && armorDevices.forceFieldStats
+      ? [`Force Field (+${armorDevices.forceFieldStats.hitPoints} HP)`] : []),
     ...(mountainPoisonImmunities(c).length ? ['Poison Immunity'] : []),
     ...((c.armors ?? []).some(armor => isIncendiaryArmor(armor.name) && armor.livingFlameActive) ? ['Living Flame'] : []),
     ...(fulminatingShotBonus(c) ? [`Fulminating Shot (${fulminatingShotBonus(c)})`] : []),
@@ -224,6 +250,35 @@ export function HuntPreyToggle({ c, entries, save, summary = false }: SectionPro
 
 export function StatusesContent({ c, entries, save }: SectionProps) {
   const defense = defenseToggles(c, entries)
+  const armorDevices = armorDeviceStatuses(c, entries)
+  const updateArmorDevice = (patch: Pick<OwnedArmor, 'activeJetpack' | 'activeForceField'>) => {
+    const armor = armorDevices.armor
+    if (!armor) return
+    save({ armors: (c.armors ?? ownedArmors(c, entries)).map(current => current.id === armor.id
+      ? { ...current, ...patch } : current) })
+  }
+  const jetpackControl = armorDevices.jetpack && armorDevices.jetpackId
+    ? { name: 'Jetpack', element: <button type="button"
+      className={`spell-action-button status-action-button${armorDevices.jetpackActive ? ' on' : ''}`}
+      aria-label={`${armorDevices.jetpackActive ? 'Dismiss' : 'Activate'} ${armorDevices.jetpack.name}`}
+      aria-pressed={armorDevices.jetpackActive}
+      title={`${armorDevices.jetpackActive ? 'Deactivate' : 'Activate'} jetpack (1 minute)`}
+      onClick={() => updateArmorDevice({ activeJetpack: armorDevices.jetpackActive ? undefined : armorDevices.jetpackId })}>
+      {armorDevices.jetpackActive && <span aria-hidden="true">✓</span>}
+      <ActionIcon actions="Single Action" /> {armorDevices.jetpack.name}
+    </button> }
+    : undefined
+  const forceFieldControl = armorDevices.forceField && armorDevices.forceFieldStats
+    ? { name: 'Force Field', element: <button type="button"
+      className={`spell-action-button status-action-button${armorDevices.forceFieldActive ? ' on' : ''}`}
+      aria-label={`${armorDevices.forceFieldActive ? 'Dismiss' : 'Activate'} ${armorDevices.forceField.name}`}
+      aria-pressed={armorDevices.forceFieldActive}
+      title={`${armorDevices.forceFieldActive ? 'Deactivate' : 'Activate'} Force Field; ${armorDevices.forceFieldStats.hitPoints} HP, replenishes ${armorDevices.forceFieldStats.regeneration} HP at the start of your turn`}
+      onClick={() => updateArmorDevice({ activeForceField: !armorDevices.forceFieldActive })}>
+      {armorDevices.forceFieldActive && <span aria-hidden="true">✓</span>}
+      <ActionIcon actions="Single Action" /> {armorDevices.forceField.name} (+{armorDevices.forceFieldStats.hitPoints} HP)
+    </button> }
+    : undefined
   const companionStatuses = (c.companions ?? []).map((companion, index) => {
     const advancement = companion.type === CONSTRUCT_COMPANION_NAME
       ? constructCompanionAdvancement(c) : companionAdvancementFor(c, index)
@@ -269,6 +324,8 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   const terrainLocked = activeFeatsNamed(c, 'Terrain Master').length > 0
   const controls = [
     { name: 'Active stance', element: <StancesContent c={c} entries={entries} save={save} /> },
+    ...(jetpackControl ? [jetpackControl] : []),
+    ...(forceFieldControl ? [forceFieldControl] : []),
     ...(crimsonClawModes.length ? [{ name: 'Crimson Claw', element: <div className="status-action-group">
       {crimsonClawModes.map(({ weapon, modes, fire, slashing }) => {
         const selected = modes.find(mode => mode.id === weapon.weaponMode) ?? modes[0] ?? fire

@@ -92,6 +92,9 @@ export interface OwnedWeapon {
   coldstarForm?: 'Paired' | 'Flame' | 'Frost' | 'Merged'
   azlantiBond?: 0 | 1 | 2
 }
+export const ENERGY_SHIELDING_TYPES = ['acid', 'cold', 'electricity', 'fire'] as const
+export type EnergyShieldingType = typeof ENERGY_SHIELDING_TYPES[number]
+
 export interface OwnedArmor {
   id: string
   name: string
@@ -100,7 +103,9 @@ export interface OwnedArmor {
   resilient: number
   runes: string[]
   upgrades?: string[]
+  energyShieldingTypes?: Record<string, EnergyShieldingType>
   activeJetpack?: string
+  activeForceField?: boolean
   strongholdWallActive?: boolean
   strongholdWallUsed?: boolean
   inheritorCloakRed?: boolean

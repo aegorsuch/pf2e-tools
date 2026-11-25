@@ -1,7 +1,7 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, onTestFinished } from 'vitest'
-import { activeBattleForm, favoredTerrainBenefits, protectCompanionApplies, protectCompanionTarget, savingThrowBreakdown } from './builder'
+import { activeBattleForm, favoredTerrainBenefits, movementSpeeds, protectCompanionApplies, protectCompanionTarget, savingThrowBreakdown, temporaryHpGrant } from './builder'
 import { DeviseAStratagemToggle, HuntPreyToggle, StatusesContent, StatusesSummary } from './StatusesSection'
 import { ProtectCompanionOptions, SpiritOfTheBeastOptions, ZealousConvictionToggle } from './SpellsSection'
 import { SearchableSelect } from './SearchableSelect'
@@ -843,4 +843,39 @@ it('lists raised shield, Shield cantrip, Bone Shield and Parry in Statuses', () 
   const bone = { ...c, activeSpells: ['Bone Shield'], boneShieldRaised: true }
   expect(findToggle(StatusesContent({ c: bone, entries, save }), 'Raise Bone Shield status')).toBeTypeOf('function')
   expect(renderToStaticMarkup(StatusesSummary({ c: bone, entries, save }))).toContain('Raise Bone Shield')
+})
+
+it('activates armor Jetpack and Force Field from Statuses with movement and HP values', () => {
+  const jacket: ContentEntry = { id: 'drifters-jacket', name: "Drifter's Jacket", kind: 'armor', systems: ['sf2e'],
+    source: 'official', level: 10, traits: [], description: '', data: { armor_category: 'Light', upgrade_slots: 1 },
+    effects: [], updatedAt: 0 }
+  const module = (name: string, level: number): ContentEntry => ({ id: name, name, kind: 'item', systems: ['sf2e'],
+    source: 'official', level, traits: [], description: '', data: { item_subcategory: 'Armor Upgrades' }, effects: [], updatedAt: 0 })
+  const entries = [jacket, module('Jetpack (Tactical)', 19), module('Force Field (Paragon)', 19)]
+  let c: Character = { id: 'armor-devices', name: 'Test', systems: ['sf2e'], level: 20,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    armors: [{ id: jacket.id, name: jacket.name, potency: 0, resilient: 0, runes: [], worn: true }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const activateJetpack = findButton(StatusesContent({ c, entries, save }), 'Activate Jetpack (Tactical)')
+  expect(activateJetpack).toBeTypeOf('function')
+  activateJetpack!()
+  expect(c.armors?.[0].activeJetpack).toBe('automatic:jetpack')
+  expect(movementSpeeds(c, entries).find(speed => speed.name === 'Fly')).toMatchObject({
+    feet: 40, source: 'Jetpack (Tactical)',
+  })
+  expect(renderToStaticMarkup(StatusesContent({ c, entries, save }))).toContain('aria-label="Dismiss Jetpack (Tactical)"')
+
+  const activateForceField = findButton(StatusesContent({ c, entries, save }), 'Activate Force Field (Paragon)')
+  expect(activateForceField).toBeTypeOf('function')
+  activateForceField!()
+  expect(temporaryHpGrant(c, entries)?.value).toBe(42)
+  expect(renderToStaticMarkup(StatusesSummary({ c, entries, save }))).toContain('Force Field (+42 HP)')
+  const activeStatuses = renderToStaticMarkup(StatusesContent({ c, entries, save }))
+  expect(activeStatuses).toContain('aria-label="Dismiss Force Field (Paragon)"')
+  expect(activeStatuses).toContain('<span aria-hidden="true">✓</span>')
+
+  findButton(StatusesContent({ c, entries, save }), 'Dismiss Force Field (Paragon)')!()
+  expect(c.armors?.[0].activeForceField).toBe(false)
+  expect(temporaryHpGrant(c, entries)).toBeUndefined()
 })
