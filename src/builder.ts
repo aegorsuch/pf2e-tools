@@ -5443,7 +5443,8 @@ export function weaponRanks(c: Character, entries: ContentEntry[]) {
 function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeapon, entry = weaponEntry(entries, weapon.name, weapon.id), highestRank = false) {
   const category = weaponCategory(entry)
   const advancedTraining = category === 'Advanced' && weaponProficiencyGrants(c, entries)
-    .some((grant) => !grant.martial && grant.feat.choice?.trim().toLowerCase() === entry?.name.toLowerCase())
+    .some((grant) => !grant.martial && [entry?.name, entry?.data.named_weapon_base].some(name => typeof name === 'string'
+      && grant.feat.choice?.trim().toLowerCase() === name.toLowerCase()))
   const groupTraining = category === 'Advanced' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Advanced Weapon Training')
     .some(feat => feat.choice?.trim().toLowerCase() === String(entry?.data.weapon_group ?? '').trim().toLowerCase())
   const familiarity = entry ? weaponFamiliarity(c, entry, category, entries) : undefined
