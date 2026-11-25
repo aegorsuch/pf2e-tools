@@ -3158,7 +3158,7 @@ export function armorUpgradeSlots(entry?: ContentEntry) {
 
 export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
   const family = armor?.name.replace(/^(?:Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
-  return armor?.systems.includes('sf2e') && family === "Drifter's Jacket" ? 1 : 0
+  return armor?.systems.includes('sf2e') && (family === "Drifter's Jacket" || family === 'Stormbreaker Armor') ? 1 : 0
 }
 
 const AUTOMATIC_UPGRADE_ARMORS = new Set([

@@ -2963,9 +2963,9 @@ it('auto-installs Retrieval Harness Easypatcher without using an upgrade slot', 
   expect(markup).toContain('Add armor upgrade')
 })
 
-it('auto-installs Stormbreaker electrical upgrades without using slots', () => {
+it('auto-installs Stormbreaker electrical upgrades and reserves a slot for its Force Field', () => {
   const armor: ContentEntry = { ...weapon, id: 'stormbreaker', name: 'Stormbreaker Armor', kind: 'armor', systems: ['sf2e'],
-    level: 10, data: { url: 'stormbreaker', armor_category: 'Medium', ac: 4, armor_grade: 'Advanced', upgrade_slots: 1 } }
+    level: 10, data: { url: 'stormbreaker', armor_category: 'Medium', ac: 4, armor_grade: 'Advanced', upgrade_slots: 2 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
     systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
   const upgrades = [
@@ -2977,7 +2977,7 @@ it('auto-installs Stormbreaker electrical upgrades without using slots', () => {
     { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(0)
+  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(1)
   expect(markup).toContain('Force Field (Paragon)')
   expect(markup).toContain('Energized Spikes (Advanced)')
   expect(markup).toContain('Energy Shielding (Advanced) (Electricity)')
