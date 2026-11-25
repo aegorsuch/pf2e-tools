@@ -163,6 +163,7 @@ it.each([
     expect(markup).not.toContain('<label>Striking')
     expect(markup).not.toContain('aria-label="Fundamental runes"')
     expect(markup).toContain('[Astral](/Equipment.aspx?ID=2832)')
+    if (!entry.name.endsWith('(Javelin)')) expect(markup).toMatch(/Ranged \(60 feet\)/)
     expect(markup).not.toContain('[speed](/Equipment.aspx?ID=304)')
     expect(JSON.stringify(character)).toBe(before)
   }
