@@ -9,7 +9,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { isAncestralEmbrace, isBastionNamedArmor, isHighhelmPlate, isImmortalBastion, isInheritorPlate, isIncendiaryArmor, isLibraryRobes, isMountainArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
-import { DamageRoll, MultipleDamageRoll } from './SpellDamage'
+import { DamageRoll, MultipleDamageRoll, rollSpellDamage } from './SpellDamage'
 import { ABILITY_LABEL, APEX_AUGMENTATIONS, MOBILITY_ENHANCER_SPEEDS, activeApexAugmentation, armorBulk, armorStrengthMet, installedApexAugmentations } from './builder'
 import { barbarianInstinct, classHandwrapKind, isGiantWeapon } from './builder'
 import { equipmentDisplayName, specificMagicItemName } from './equipmentGroups'
@@ -255,6 +255,21 @@ export function Augmentations({ c, entries, save }: SectionProps) {
         </select></label>}
       </li>
     })}</ul>
+    {installable.length > 0 && <div className="augmentation-add"><SearchableSelect aria-label="Add augmentation" value="" primaryDetails
+      optionLevel={value => shownOptions.find(entry => entry.id === value)?.level}
+      renderDetails={value => {
+        const entry = shownOptions.find(option => option.id === value)
+        return entry && <span className="picker-spell-name"><EntryDescription name={entry.name} entry={entry} entries={entries}
+          character={c} buttonSuffix={` (level ${entry.level})`} deferDetails /></span>
+      }}
+      filters={installable.some(isApex) && <label><input type="checkbox" checked={apexOnly} onChange={event => setApexOnly(event.target.checked)} /> Apex only</label>} onChange={event => {
+      const chosen = installable.find(entry => entry.id === event.target.value)
+      if (!chosen) return
+      save({ augmentations: [...installed, { id: newId(), entryId: chosen.id, name: chosen.name, slot: augmentationExemption(chosen) ?? 'standard' }] })
+    }}>
+      <option value="">+</option>
+      {shownOptions.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (level {entry.level})</option>)}
+    </SearchableSelect></div>}
     {!!activeFeatsNamed(c, 'Thresher Ko-1 Frame').length && <>
       <label>Dermal plating grade{' '}<select aria-label="Dermal plating grade" value={dermalGrade.name} onChange={event => {
         const grade = DERMAL_GRADES.find(option => option.name === event.target.value && option.level <= c.level)
@@ -275,21 +290,6 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       {apexInstalled.map(item => <option key={item.id} value={item.id}>{item.name} ({ABILITY_LABEL[APEX_AUGMENTATIONS[item.name].ability]})</option>)}
       <option value="none">None</option>
     </select></label>}
-    {installable.length > 0 && <SearchableSelect label="Augmentation" aria-label="Choose augmentation" value="" primaryDetails
-      optionLevel={value => shownOptions.find(entry => entry.id === value)?.level}
-      renderDetails={value => {
-        const entry = shownOptions.find(option => option.id === value)
-        return entry && <span className="picker-spell-name"><EntryDescription name={entry.name} entry={entry} entries={entries}
-          character={c} buttonSuffix={` (level ${entry.level})`} deferDetails /></span>
-      }}
-      filters={installable.some(isApex) && <label><input type="checkbox" checked={apexOnly} onChange={event => setApexOnly(event.target.checked)} /> Apex only</label>} onChange={event => {
-      const chosen = installable.find(entry => entry.id === event.target.value)
-      if (!chosen) return
-      save({ augmentations: [...installed, { id: newId(), entryId: chosen.id, name: chosen.name, slot: augmentationExemption(chosen) ?? 'standard' }] })
-    }}>
-      <option value="">Add augmentation...</option>
-      {shownOptions.map(entry => <option value={entry.id} key={entry.id}>{entry.name} (level {entry.level})</option>)}
-    </SearchableSelect>}
   </section>
 }
 
@@ -546,6 +546,27 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, eff
   </div>
 }
 
+function EnergizedSpikesRoll({ entry, energy, onRoll }: {
+  entry: ContentEntry; energy?: EnergizedSpikesEnergy; onRoll?: () => void
+}) {
+  const [result, setResult] = useState<{ value: number; type: string }>()
+  const dice = entry.name.includes('(Advanced)') ? 8 : entry.name.includes('(Tactical)') ? 5 : 2
+  return <span>
+    <select aria-label="Roll Energized Spikes damage" value="" onChange={event => {
+      const type = event.target.value
+      if (type !== 'piercing' && !ENERGIZED_SPIKES_ENERGIES.some(candidate => candidate === type)) return
+      setResult({ value: rollSpellDamage({ label: 'Damage', dice, sides: 4, type }), type })
+      onRoll?.()
+    }}>
+      <option value="">Roll damage...</option>
+      <option value="piercing">Piercing{!energy ? ' (uncharged)' : ''}</option>
+      {ENERGIZED_SPIKES_ENERGIES.map(type =>
+        <option key={type} value={type}>{type[0].toUpperCase()}{type.slice(1)}{energy === type ? ' (charged)' : ''}</option>)}
+    </select>
+    {result && <output aria-live="polite" aria-label="Energized Spikes damage result"> {result.value} {result.type}</output>}
+  </span>
+}
+
 export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, energyShieldingTypes, energizedSpikesEnergy,
   onToggleJetpack, onEnergizedSpikesEnergyChange, onChange,
   automaticUpgrades = [], armorName = 'armor' }: {
@@ -571,23 +592,8 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
     /^Drift Drive Relay(?:\s*\([^)]*\))?$/i.test(entry?.name ?? '')
   const energizedSpikesControl = (entry?: ContentEntry) => {
     if (!entry || entry.name.replace(/\s*\([^)]*\)$/, '') !== 'Energized Spikes') return null
-    const dice = entry.name.includes('(Advanced)') ? 8 : entry.name.includes('(Tactical)') ? 5 : 2
-    return <>
-      <label>Charged by{' '}
-        <select aria-label="Energized Spikes charged energy" value={energizedSpikesEnergy ?? ''}
-          onChange={event => {
-            const energy = ENERGIZED_SPIKES_ENERGIES.find(candidate => candidate === event.target.value)
-            onEnergizedSpikesEnergyChange?.(energy)
-          }}>
-          <option value="">Uncharged (piercing)</option>
-          {ENERGIZED_SPIKES_ENERGIES.map(energy =>
-            <option key={energy} value={energy}>{energy[0].toUpperCase()}{energy.slice(1)}</option>)}
-        </select>
-      </label>
-      <DamageRoll name="Energized Spikes" damage={{ label: 'Damage', dice, sides: 4,
-        type: energizedSpikesEnergy ?? 'piercing' }} toggleResult preserveDamage
-        onRoll={() => onEnergizedSpikesEnergyChange?.(undefined)} />
-    </>
+    return <EnergizedSpikesRoll entry={entry} energy={energizedSpikesEnergy}
+      onRoll={() => onEnergizedSpikesEnergyChange?.(undefined)} />
   }
   const options = catalog.filter(entry => !isEnergyShieldingUpgrade(entry) && !installed.some(item => item?.id === entry.id)
     && !(isDriftDriveRelay(entry) && installed.some(isDriftDriveRelay))

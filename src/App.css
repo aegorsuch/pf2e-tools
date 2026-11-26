@@ -534,6 +534,13 @@
 .equipment-group-heading h4 { flex: 1; min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .equipment-group-heading .icon-button { flex: none; width: 2.75rem; height: 2.75rem; }
 .equipment-group > ul { margin-block: 0.5rem 0; }
+.augmentation-add .searchable-select-control > .feat-picker-button {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.5rem;
+  text-align: center;
+}
 .equipment-search > .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .companion-other-equipment { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .companion-other-equipment > label { display: inline-flex; align-items: center; gap: 0.3rem; }

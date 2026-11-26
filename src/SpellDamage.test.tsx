@@ -291,13 +291,13 @@ it('offers Quantum Negation damage by target level without calculating save outc
   const button = Children.toArray(tree.props.children).find(child => isValidElement(child) && child.type === 'button')
   if (!isValidElement<{ onClick: () => void }>(button)) throw new Error('Missing Quantum Negation roll')
   button.props.onClick()
-  expect(setResults).toHaveBeenCalledWith([9999, 25, 20])
-  vi.mocked(useState).mockReturnValueOnce([[9999, 25, 20], setResults])
+  expect(setResults).toHaveBeenCalledWith({ damages, results: [9999, 25, 20] })
+  vi.mocked(useState).mockReturnValueOnce([{ damages, results: [9999, 25, 20] }, setResults])
   const result = renderToStaticMarkup(<MultipleDamageRoll name={entry.name} damages={damages} actions="Two Actions" />)
   for (const text of ['Target level 13 or lower: 9999', 'Target level 14-16: 25', 'Target level 17 or higher: 20']) {
     expect(result).toContain(text)
   }
-  vi.mocked(useState).mockReturnValueOnce([[9999, 25, 20], setResults])
+  vi.mocked(useState).mockReturnValueOnce([{ damages, results: [9999, 25, 20] }, setResults])
   const shown = MultipleDamageRoll({ name: entry.name, damages, actions: 'Two Actions' })
   const clear = Children.toArray(shown.props.children).find(child => isValidElement(child) && child.type === 'button')
   if (!isValidElement<{ onClick: () => void }>(clear)) throw new Error('Missing clear button')

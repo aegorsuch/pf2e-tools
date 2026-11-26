@@ -3,7 +3,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { EntryDescription } from './EntryDescription'
 import { ActionIcon } from './ActionIcon'
 import { RUNESMITH_RUNES } from './runesmithRunes'
-import { DamageRoll, rollSpellDamage, rollTreehealerHealing } from './SpellDamage'
+import { DamageRoll, MultipleDamageRoll, rollSpellDamage, rollTreehealerHealing } from './SpellDamage'
 import { PickerDialog } from './PickerDialog'
 import { DeferredContent, DeferredDetails } from './DeferredDetails'
 import { sortPickerOptions } from './PickerSort'
@@ -35,25 +35,33 @@ interface FeatSlotsProps extends SectionProps {
 
 function ConstellationVortexRoll({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
   const [weapons, setWeapons] = useState(1)
+  const [result, setResult] = useState<{ damage: number; type: string; fire?: number; shatter: number }>()
   const solarWeapon = ownedWeapons(c, entries).find(weapon => weapon.id === 'sf2e:solarian:solar-weapon')
-  if (!solarWeapon) return null
-  const damage = /^(\d+)d(\d+)(?:[+-]\d+)?\s+(\w+)/i.exec(weaponAttack(c, entries, solarWeapon).damage)
-  if (!damage) return null
-  const scaling = Math.floor((c.level - 6) / 3)
-  const photon = c.solarianAttunement === 'Photon'
-  const bonus = (weapons - 1) * (1 + 2 * scaling) + (photon ? 0 : weapons * (2 + scaling))
-  const type = damage[3]
-  return <>
-    <label>Weapons{' '}<select aria-label="Constellation Vortex weapons" value={weapons} onChange={event => {
-      const count = Number(event.target.value)
-      if (count >= 1 && count <= 3 && Number.isInteger(count)) setWeapons(count)
-    }}>{[1, 2, 3].map(count => <option key={count} value={count}>{count}</option>)}</select></label>
-    <DamageRoll name="Constellation Vortex" actions="Single Action" showLabel toggleResult preserveDamage
-      damage={{ label: 'Vortex damage', dice: Number(damage[1]), sides: Number(damage[2]), type, bonus,
-        ...(photon ? { additional: { dice: 0, sides: 0, bonus: weapons * (1 + scaling), type: 'fire' } } : {}) }} />
-    <DamageRoll name="Constellation Vortex" toggleResult preserveDamage
-      damage={{ label: 'Shatter damage', dice: 0, sides: 0, bonus: c.level + weapons, type }} />
-  </>
+  const damage = solarWeapon && /^(\d+)d(\d+)(?:[+-]\d+)?\s+(\w+)/i.exec(weaponAttack(c, entries, solarWeapon).damage)
+  const roll = (count: number) => {
+    if (!damage) return
+    const scaling = Math.floor((c.level - 6) / 3)
+    const photon = c.solarianAttunement === 'Photon'
+    const bonus = (count - 1) * (1 + 2 * scaling) + (photon ? 0 : count * (2 + scaling))
+    setResult({ damage: rollSpellDamage({ label: 'Vortex damage', dice: Number(damage[1]), sides: Number(damage[2]),
+      type: damage[3], bonus }), type: damage[3], ...(photon ? { fire: count * (1 + scaling) } : {}),
+      shatter: c.level + count })
+  }
+  return <span>
+    <button type="button" className="spell-action-button" disabled={!damage && !result}
+      aria-label={result ? 'Hide Constellation Vortex results' : 'Roll Constellation Vortex: Damage'}
+      onClick={() => { if (result) setResult(undefined); else roll(weapons) }}><ActionIcon actions="Single Action" /></button>
+    {result && <>
+      <label>Weapons{' '}<select aria-label="Constellation Vortex weapons" value={weapons} onChange={event => {
+        const count = Number(event.target.value)
+        if (count >= 1 && count <= 3 && Number.isInteger(count)) { setWeapons(count); roll(count) }
+      }}>{[1, 2, 3].map(count => <option key={count} value={count}>{count}</option>)}</select></label>
+      <output aria-live="polite" aria-label="Constellation Vortex: Damage results">
+        {' '}Vortex damage: {result.damage} {result.type}{result.fire !== undefined && ` + ${result.fire} fire`};
+        {' '}Shatter damage: {result.shatter} {result.type}
+      </output>
+    </>}
+  </span>
 }
 
 function TreehealerRoll() {
@@ -819,7 +827,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     access={descriptionEntry ? featAccess(c, descriptionEntry) : access}
                     grantSource={arcanaChoiceEntry ? selection?.name : grantSource}
                     deferDetails={!!onSearch}
-                    buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showTreehealerRoll || showBattlePrayerRoll || showPiercingDoom || showAcidicSpitRoll || showTenthLifeRoll || showInscribedBlast || showCoreCannon}
+                    buttonActions={training?.actions} hideButtonActions={!!solarDamage || showFeatActionControls || showWrathRoll || showTreehealerRoll || showBattlePrayerRoll || showPiercingDoom || showAcidicSpitRoll || showTenthLifeRoll || showInscribedBlast || showCoreCannon}
                     descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                       : selection?.choice && DOMAIN_FEATS.includes(selection.name)
                         ? domainSpellDescription(c, entries, selection.name, selection.choice)
@@ -864,28 +872,24 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   {solarDamage === 'Black Hole' && <DamageRoll name="Black Hole" actions="Two Actions" toggleResult
                     disabled={(c.solarianAttunement ?? 'Graviton') !== 'Graviton'}
                     damage={{ label: 'Damage', dice: Math.floor(c.level / 2), sides: 8, type: 'bludgeoning' }} />}
-                  {solarDamage === 'Supernova' && ([15, 30] as const).map(distance =>
-                    <DamageRoll key={distance} name="Supernova" actions="Two Actions" showLabel toggleResult
+                  {solarDamage === 'Supernova' &&
+                    <MultipleDamageRoll name="Supernova" actions="Two Actions"
                       disabled={(c.solarianAttunement ?? 'Graviton') !== 'Photon'}
-                      damage={{ label: `${distance}-foot damage`, dice: c.level, sides: distance === 15 ? 8 : 6, type: 'fire' }} />)}
-                  {solarDamage === 'Plasma Ejection' && <>
-                    <DamageRoll name="Plasma Ejection" actions="Two Actions" toggleResult
+                      damages={([15, 30] as const).map(distance => ({
+                        label: `${distance}-foot damage`, dice: c.level, sides: distance === 15 ? 8 : 6, type: 'fire' }))} />}
+                  {solarDamage === 'Plasma Ejection' &&
+                    <MultipleDamageRoll name="Plasma Ejection" actions="Two Actions"
                       disabled={c.solarianAttunement === 'Unattuned'}
-                      damage={{ label: 'Damage', dice: Math.floor(c.level / 2) + 1,
-                        sides: c.solarianAttunement === 'Photon' ? 8 : 6, type: 'fire' }} />
-                    <DamageRoll name="Plasma Ejection" toggleResult disabled={c.solarianAttunement === 'Unattuned'}
-                      damage={{ label: 'Critical failure persistent damage', dice: 1, sides: 8, type: 'electricity' }} />
-                  </>}
+                      damages={[{ label: 'Damage', dice: Math.floor(c.level / 2) + 1,
+                        sides: c.solarianAttunement === 'Photon' ? 8 : 6, type: 'fire' },
+                      { label: 'Critical failure persistent damage', dice: 1, sides: 8, type: 'electricity' }]} />}
                   {solarDamage === 'Constellation Vortex' && <ConstellationVortexRoll c={c} entries={entries} />}
-                  {solarDamage === 'Big Bang' && <>
-                    <DamageRoll name="Big Bang" actions="Three Actions" toggleResult
+                  {solarDamage === 'Big Bang' &&
+                    <MultipleDamageRoll name="Big Bang" actions="Three Actions"
                       disabled={c.solarianAttunement !== 'Photon'}
-                      damage={{ label: 'Damage', dice: c.level - 4, sides: 6, type: 'fire' }} />
-                    <DamageRoll name="Big Bang" toggleResult
-                      damage={{ label: 'Failure persistent damage', dice: 2, sides: 6, type: 'fire' }} />
-                    <DamageRoll name="Big Bang" toggleResult
-                      damage={{ label: 'Critical failure persistent damage', dice: 4, sides: 6, type: 'fire' }} />
-                  </>}
+                      damages={[{ label: 'Damage', dice: c.level - 4, sides: 6, type: 'fire' },
+                        { label: 'Failure persistent damage', dice: 2, sides: 6, type: 'fire' },
+                        { label: 'Critical failure persistent damage', dice: 4, sides: 6, type: 'fire' }]} />}
                   {solarDamage === 'Singularity' && <DamageRoll name="Singularity" actions="Three Actions" toggleResult
                     disabled={(c.solarianAttunement ?? 'Graviton') !== 'Graviton'}
                     damage={{ label: 'Damage', dice: 10 + 2 * Math.floor((c.level - 14) / 2), sides: 8, type: 'void' }} />}

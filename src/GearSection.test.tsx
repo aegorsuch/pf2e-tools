@@ -3547,21 +3547,18 @@ it('prevents installing more than one grade of Drift Drive Relay', () => {
   expect(markup).not.toContain('Add armor upgrade')
 })
 
-it('rolls Energized Spikes using their grade and clears their stored charge', () => {
-  for (const [grade, level, dice] of [['Commercial', 4, 2], ['Tactical', 12, 5], ['Advanced', 19, 8]] as const) {
+it('shows a single Energized Spikes damage selector for each grade', () => {
+  for (const [grade, level] of [['Commercial', 4], ['Tactical', 12], ['Advanced', 19]] as const) {
     const item: ContentEntry = { ...shifting, id: `spikes-${grade}`, name: `Energized Spikes (${grade})`, level,
       systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } }
-    let charged: string | undefined = 'electricity'
     const tree = ArmorUpgrades({ entries: [item], upgrades: [], limit: 2, worn: true,
       onToggleJetpack: () => {}, onChange: () => {},
-      onEnergizedSpikesEnergyChange: energy => { charged = energy }, energizedSpikesEnergy: 'electricity',
+      onEnergizedSpikesEnergyChange: () => {}, energizedSpikesEnergy: 'electricity',
       automaticUpgrades: [item] })
-    const roll = findElement(tree, element => element.type === DamageRoll)
-    if (!roll) throw new Error('Missing Energized Spikes damage roll')
-    expect(roll.props.damage).toMatchObject({ dice, sides: 4, type: 'electricity' })
-    ;(roll.props.onRoll as () => void)()
-    expect(charged).toBeUndefined()
-    expect(renderToStaticMarkup(tree)).toContain('aria-label="Energized Spikes charged energy"')
+    const markup = renderToStaticMarkup(tree)
+    expect(markup).toContain('aria-label="Roll Energized Spikes damage"')
+    expect(markup).toContain('Electricity (charged)')
+    expect(markup).not.toContain('Charged by')
   }
 })
 

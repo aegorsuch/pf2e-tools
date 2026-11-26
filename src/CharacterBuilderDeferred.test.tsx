@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
 import { CharacterBuilder, ClassPick, HeritagePick } from './CharacterBuilder'
 import { FeatSlots } from './FeatSlots'
+import { ArmorUpgrades, Augmentations } from './GearSection'
 import { plannedSlots } from './builder'
 import type { Character, ContentEntry } from './types'
 
@@ -184,14 +185,113 @@ it('rolls Solarian feat damage with the selected attunement', async () => {
   const root = createRoot(container)
   try {
     await act(async () => root.render(<FeatSlots c={c} entries={[feat]} categories={['class']} save={() => {}} />))
+    const row = container.querySelector<HTMLButtonElement>('[aria-label="Roll Plasma Ejection: Damage"]')!.closest('li')!
+    expect([...row.querySelectorAll('.action-cost')].filter(icon => !icon.closest('dialog'))).toHaveLength(1)
     random.mockClear()
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Roll Plasma Ejection: Damage"]')!.click())
-    expect(container.querySelector('[aria-label="Plasma Ejection: Damage result"]')?.textContent).toContain('4 fire')
-    expect(random).toHaveBeenCalledTimes(4)
+    expect(container.querySelector('[aria-label="Plasma Ejection: Damage results"]')?.textContent).toContain('4 fire')
+    expect(container.querySelector('[aria-label="Plasma Ejection: Damage results"]')?.textContent).toContain('1 electricity')
+    expect(random).toHaveBeenCalledTimes(5)
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Hide Plasma Ejection results"]')!.click())
+    expect(container.querySelector('[aria-label="Plasma Ejection: Damage results"]')).toBeNull()
+    expect(random).toHaveBeenCalledTimes(5)
   } finally {
     await act(async () => root.unmount())
     container.remove()
     random.mockRestore()
+    vi.unstubAllGlobals()
+  }
+})
+
+it.each([
+  ['Supernova', 8, 'Photon', '15-foot damage: 8 fire', '30-foot damage: 8 fire'],
+  ['Big Bang', 14, 'Photon', 'Damage: 10 fire', 'Critical failure persistent damage: 4 fire'],
+] as const)('rolls and hides all %s effects with one action', async (name, level, attunement, first, second) => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+  const feat: ContentEntry = { id: name, systems: ['sf2e'], kind: 'feat', source: 'official', name, level,
+    traits: ['Solarian'], description: '', data: { actions: name === 'Big Bang' ? 'Three Actions' : 'Two Actions' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: name, name, systems: ['sf2e'], className: 'Solarian', level,
+    solarianAttunement: attunement, abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name, type: 'Class Feat', level, slot: `class:${level}:0` }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<FeatSlots c={c} entries={[feat]} categories={['class']} save={() => {}} />))
+    const button = container.querySelector<HTMLButtonElement>(`[aria-label="Roll ${name}: Damage"]`)!
+    expect([...button.closest('li')!.querySelectorAll('.action-cost')].filter(icon => !icon.closest('dialog'))).toHaveLength(1)
+    await act(async () => button.click())
+    const output = container.querySelector(`[aria-label="${name}: Damage results"]`)!
+    expect(output.textContent).toContain(first)
+    expect(output.textContent).toContain(second)
+    const rolls = random.mock.calls.length
+    await act(async () => button.click())
+    expect(container.querySelector(`[aria-label="${name}: Damage results"]`)).toBeNull()
+    expect(random).toHaveBeenCalledTimes(rolls)
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    random.mockRestore()
+    vi.unstubAllGlobals()
+  }
+})
+
+it.each([['Commercial', 2], ['Tactical', 5], ['Advanced', 8]] as const)(
+  'rolls %s Energized Spikes when choosing damage type', async (grade, dice) => {
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const item: ContentEntry = { id: grade, name: `Energized Spikes (${grade})`, systems: ['sf2e'], kind: 'item',
+      source: 'official', level: 1, traits: [], description: '', data: { item_subcategory: 'Armor Upgrades' }, effects: [], updatedAt: 0 }
+    const clear = vi.fn()
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+    try {
+      await act(async () => root.render(<ArmorUpgrades entries={[item]} upgrades={[]} automaticUpgrades={[item]}
+        limit={1} worn energizedSpikesEnergy="fire" onEnergizedSpikesEnergyChange={clear} onChange={() => {}} onToggleJetpack={() => {}} />))
+      const select = container.querySelector<HTMLSelectElement>('[aria-label="Roll Energized Spikes damage"]')!
+      await act(async () => { select.value = 'fire'; select.dispatchEvent(new Event('change', { bubbles: true })) })
+      expect(container.querySelector('[aria-label="Energized Spikes damage result"]')?.textContent).toContain(`${dice} fire`)
+      expect(clear).toHaveBeenCalledWith(undefined)
+      expect(random).toHaveBeenCalledTimes(dice)
+      await act(async () => { select.value = 'piercing'; select.dispatchEvent(new Event('change', { bubbles: true })) })
+      expect(container.querySelector('[aria-label="Energized Spikes damage result"]')?.textContent).toContain(`${dice} piercing`)
+    } finally {
+      await act(async () => root.unmount())
+      container.remove()
+      random.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  },
+)
+
+it('opens augmentation picker from plus below installed augmentations and installs a choice', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const entry: ContentEntry = { id: 'wings', name: 'Ultralight Wings', systems: ['sf2e'], kind: 'item',
+    source: 'official', level: 1, traits: [], description: '', data: { item_category: 'Augmentations' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'augment', name: 'Test', systems: ['sf2e'], level: 5,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    augmentations: [{ id: 'existing', entryId: 'old', name: 'Existing implant', slot: 'standard' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = vi.fn()
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<Augmentations c={c} entries={[entry]} save={save} />))
+    const add = container.querySelector<HTMLButtonElement>('button[aria-label="Add augmentation"]')!
+    expect(add.textContent).toBe('+')
+    expect(add.compareDocumentPosition(container.querySelector('li')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+    await act(async () => add.click())
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Select Ultralight Wings (level 1)"]')!.click())
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ augmentations: expect.arrayContaining([
+      expect.objectContaining({ entryId: 'wings', name: 'Ultralight Wings' }),
+    ]) }))
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
     vi.unstubAllGlobals()
   }
 })
@@ -213,20 +313,18 @@ it('rolls Constellation Vortex damage and shatter with selected weapon count', a
     const render = async (character: Character) => act(async () => root.render(
       <FeatSlots c={character} entries={[feat]} categories={['class']} save={() => {}} />))
     await render(c)
+    const roll = () => container.querySelector<HTMLButtonElement>('[aria-label="Roll Constellation Vortex: Damage"]')!
+    expect(container.querySelector('[aria-label="Constellation Vortex weapons"]')).toBeNull()
+    await act(async () => roll().click())
     const count = container.querySelector<HTMLSelectElement>('[aria-label="Constellation Vortex weapons"]')!
-    const roll = () => container.querySelector<HTMLButtonElement>('[aria-label="Roll Constellation Vortex: Vortex damage"]')!
-    expect(roll().title).toContain('2d8+3 slashing')
+    expect(container.querySelector('[aria-label="Constellation Vortex: Damage results"]')?.textContent).toContain('5 slashing')
     await act(async () => { count.value = '3'; count.dispatchEvent(new Event('change', { bubbles: true })) })
-    expect(roll().title).toContain('2d8+15 slashing')
-    await act(async () => roll().click())
-    expect(container.querySelector('[aria-label="Constellation Vortex: Vortex damage result"]')?.textContent).toContain('17 slashing')
-    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Roll Constellation Vortex: Shatter damage"]')!.click())
-    expect(container.querySelector('[aria-label="Constellation Vortex: Shatter damage result"]')?.textContent).toContain('12 slashing')
+    expect(container.querySelector('[aria-label="Constellation Vortex: Damage results"]')?.textContent).toContain('17 slashing')
+    expect(container.querySelector('[aria-label="Constellation Vortex: Damage results"]')?.textContent).toContain('12 slashing')
     await render({ ...c, solarianAttunement: 'Photon' })
-    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Hide Constellation Vortex: Vortex damage result"]')!.click())
-    expect(roll().title).toContain('2d8+6 slashing + 6 fire')
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Hide Constellation Vortex results"]')!.click())
     await act(async () => roll().click())
-    expect(container.querySelector('[aria-label="Constellation Vortex: Vortex damage result"]')?.textContent).toContain('8 slashing + 6 fire')
+    expect(container.querySelector('[aria-label="Constellation Vortex: Damage results"]')?.textContent).toContain('8 slashing + 6 fire')
     await render({ ...c, level: 5 })
     expect(container.querySelector('[aria-label="Constellation Vortex weapons"]')).toBeNull()
   } finally {

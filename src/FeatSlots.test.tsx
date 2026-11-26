@@ -305,7 +305,7 @@ it('rolls Solarian feat damage at the current level and attunement', () => {
   expect(graviton).toContain('Damage: 4d8 bludgeoning')
   expect(graviton).toContain('Damage: 5d6 fire')
   expect(graviton).toContain('Critical failure persistent damage: 1d8 electricity')
-  expect(graviton).toMatch(/disabled=""[^>]*aria-label="Roll Supernova: 15-foot damage"/)
+  expect(graviton).toMatch(/disabled=""[^>]*aria-label="Roll Supernova: Damage"/)
   const photon = render({ ...c, solarianAttunement: 'Photon' })
   expect(photon).toContain('15-foot damage: 8d8 fire')
   expect(photon).toContain('30-foot damage: 8d6 fire')

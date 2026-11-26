@@ -531,15 +531,15 @@ export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll,
   const displayedDamage = snapshot ? result.damage : damage
   const title = damageTitle(damage)
   return <span>
-    <button type="button" disabled={disabled} className={actions ? 'spell-action-button' : undefined}
+    <button type="button" disabled={disabled && !(toggleResult && result !== undefined)} className={actions ? 'spell-action-button' : undefined}
       aria-label={toggleResult && result !== undefined ? `Hide ${name}: ${damage.label} result`
         : `Roll ${name}: ${damage.label}${damage.additional?.label ? ` and ${damage.additional.label}` : ''}`} title={`${actions ? `${actions}; ` : ''}${title}`}
       onClick={() => {
-        if (disabled) return
         if (toggleResult && result !== undefined) {
           setResult(undefined)
           return
         }
+        if (disabled) return
         onRoll?.()
         const rolled = rollDamage(damage)
         setResult(preserveDamage ? { damage, result: rolled } : rolled)
@@ -553,15 +553,16 @@ export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll,
   </span>
 }
 
-export function MultipleDamageRoll({ name, damages, actions }: { name: string; damages: Damage[]; actions: string }) {
-  const [results, setResults] = useState<DamageResult[]>()
+export function MultipleDamageRoll({ name, damages, actions, disabled }: { name: string; damages: Damage[]; actions: string; disabled?: boolean }) {
+  const [rolled, setRolled] = useState<{ damages: Damage[]; results: DamageResult[] }>()
   return <span>
-    <button type="button" className="spell-action-button" aria-label={`${results ? 'Hide' : 'Roll'} ${name}${results ? ' results' : ': Damage'}`}
+    <button type="button" className="spell-action-button" disabled={disabled && !rolled}
+      aria-label={`${rolled ? 'Hide' : 'Roll'} ${name}${rolled ? ' results' : ': Damage'}`}
       title={`${actions}; ${damages.map(damageTitle).join('; ')}`}
-      onClick={() => setResults(results ? undefined : damages.map(rollDamage))}><ActionIcon actions={actions} /></button>
-    {results && <output aria-live="polite" aria-label={`${name}: Damage results`}>
-      {damages.map((damage, index) => <span key={`${damage.label}:${index}`}>
-        {index > 0 && '; '}{damage.label}:<DamageResultText damage={damage} result={results[index]} showPrimaryLabel={false} />
+      onClick={() => { if (rolled) setRolled(undefined); else if (!disabled) setRolled({ damages, results: damages.map(rollDamage) }) }}><ActionIcon actions={actions} /></button>
+    {rolled && <output aria-live="polite" aria-label={`${name}: Damage results`}>
+      {rolled.damages.map((damage, index) => <span key={`${damage.label}:${index}`}>
+        {index > 0 && '; '}{damage.label}:<DamageResultText damage={damage} result={rolled.results[index]} showPrimaryLabel={false} />
         {damage.note && ` (${damage.note})`}
       </span>)}
     </output>}
