@@ -20,6 +20,7 @@ import { activeSummonedFiend, summonSpellName, type SummonedFiend } from './summ
 import { creatureScaling, scaledDamage, scaledSummon } from './summonScaling'
 import { DroneFeatures } from './DroneFeatures'
 import { TurretFeatures } from './MechanicFeatures'
+import { turretName } from './mechanicTurret'
 import { FOLLOWER_STAGES, FOLLOWER_TYPES, followerStage, followerStats } from './followers'
 import { isPurchasableMinibot, minibotUpgradeCost, minibotUpgradeOptions, servoShellMinibotMaxHp } from './servoshell'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityEffects, familiarAbilityEntries, familiarAbilitySlots, familiarMedicRank,
@@ -533,7 +534,7 @@ export function MinionsSummary({ c, entries = [] }: Pick<SectionProps, 'c'> & Pa
     <strong>Minions</strong>
     <span>{[...companions.map((_, index) => companionTitle(c, index)),
       ...(c.systems.includes('sf2e') && mechanicExocortexes(c).includes('Drone') ? ['Drone'] : []),
-      ...(c.systems.includes('sf2e') && mechanicExocortexes(c).includes('Turret') ? ['Turret'] : []),
+      ...(c.systems.includes('sf2e') && mechanicExocortexes(c).includes('Turret') ? [turretName(c)] : []),
       ...(servoShell ? ['Personal Minibot'] : []),
       ...(familiarState ? [`${familiarName} (${familiarState.selectedCount}/${familiarState.totalCount})`] : []),
       ...(waspState ? [`Wasp Familiar (${waspState.selectedCount}/${waspState.totalCount})`] : []),
@@ -847,8 +848,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           <summary><h4>Drone</h4></summary>
           <DroneFeatures c={c} entries={entries} save={save} />
         </details>}
-        {c.systems.includes('sf2e') && mechanicExocortexes(c).includes('Turret') && <details className="character-subsection" data-minion-name="Turret" open>
-          <summary><h4>Turret</h4></summary>
+        {c.systems.includes('sf2e') && mechanicExocortexes(c).includes('Turret') && <details className="character-subsection" data-minion-name={turretName(c)} open>
+          <summary><h4>{turretName(c)}</h4></summary>
           <TurretFeatures c={c} entries={entries} save={save} />
         </details>}
         {servoShell && <ServoShellMinibot c={c} entries={entries} save={save} />}

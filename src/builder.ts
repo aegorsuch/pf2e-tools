@@ -2352,6 +2352,16 @@ export function augmentationBaseDailyUses(entry: ContentEntry) {
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number,
   category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === 'Adaptive Visual Receptors' && c.systems.includes('sf2e')) {
+    const level = index >= 0 ? featTakenLevel(c.feats[index]) : Number(slotKey.split(':')[1]) || c.level
+    const prior = { ...c, level, feats: c.feats.filter((feat, i) => i !== index
+      && (featTakenLevel(feat) < level || featTakenLevel(feat) === level && (index < 0 || i < index))) }
+    const vision = senses(prior, entries).map(sense => sense.value.toLowerCase())
+    if (vision.some(value => value.includes('darkvision'))) return []
+    const next = vision.some(value => value.includes('low-light vision')) ? 'Darkvision' : 'Low-Light Vision'
+    const used = c.feats.some((feat, i) => i !== index && feat.name === name && feat.choice === next)
+    return used ? [] : [next]
+  }
   if (name === 'Enhanced Senses' && c.systems.includes('sf2e')) return enhancedSensesOptions(c, entries)
   if (name === 'Versatile Technomancer' && c.systems.includes('sf2e')) return versatileTechnomancerLanguageOptions(c)
   if (name === 'Versatile Firmware' && c.systems.includes('sf2e') && c.className === 'Technomancer') {
@@ -5191,7 +5201,13 @@ function ancestralSkillLores(c: Character, entries: ContentEntry[], selections =
     const source = selectedFeatEntry(c, entries, selection.name, selection.sourceId)
     const ancestry = source?.traits.find(trait => ancestryFeatTraits(c).includes(trait.toLowerCase()))
       ?? (!source && !selection.sourceId ? c.ancestry : undefined)
-    return ancestry ? [`${titleCase(ancestry)} Lore`] : []
+    if (!ancestry) return []
+    const choice = c.automaticFeatChoices?.[automaticFeatChoiceKey('Ancestral Skills', 'Additional Lore')]
+    if (getSettings().ysokiAncestralLorePlaces && c.systems.includes('sf2e')
+      && ancestry.toLowerCase() === 'ysoki' && choice && ['Ysoki', 'Akiton', 'Golarion', 'Absalom Station'].includes(choice)) {
+      return [`${choice} Lore`]
+    }
+    return [`${titleCase(ancestry)} Lore`]
   })
 }
 
@@ -5680,7 +5696,10 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
   for (const feat of c.feats) {
     if (entries.length && featTakenLevel(feat) <= c.level) {
       const grantedFeats = tokens(selectedFeatEntry(c, entries, feat.name, feat.sourceId)?.data.grants_feats)
-      for (const name of grantedFeats) grants.push({ name, source: feat.name, level: featTakenLevel(feat) })
+      for (const name of grantedFeats) {
+        if (feat.name === 'Ancestral Skills' && name === 'Additional Lore' && ancestralSkillLores(c, entries, [feat]).length) continue
+        grants.push({ name, source: feat.name, level: featTakenLevel(feat) })
+      }
     }
     const grant = ancestrySkillGrant(c, entries, feat.name)
     if (grant?.feat && featTakenLevel(feat) <= c.level) grants.push({ name: grant.feat, source: feat.name, level: featTakenLevel(feat) })
@@ -8920,7 +8939,7 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     'Volt Thrower': 'Shock Module', 'Zero Emitter': 'Frost Module',
   }
   const turret = entry.id === 'mechanic:turret'
-  const upgrades = turret ? entry.data.turret_array === 'Plasma' ? ['Flaming Module', 'Shock Module']
+  const upgrades = turret ? entry.data.turret_array === 'Plasma' ? ['Flaming Module', 'Shock Module', 'Glarecaster']
     : [turretModule[String(entry.data.turret_array)]].filter((module): module is string => !!module)
     : entry.data.special_weapon_source === 'SLARP' || name === 'SLARP Rapid Laser Pistol' ? ["Smuggler's Grip", 'Flaming Module']
     : entry.data.special_weapon_source === 'Starday Night Special' ? ["Smuggler's Grip"]
@@ -8935,7 +8954,7 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     : name === 'Plasma Sword' ? ['Flaming Module', 'Shock Module', 'Glarecaster']
     : name === 'Plasma Doshko' ? ['Flaming Module', 'Shock Module', 'Glarecaster', 'Suppression Matrix']
     : name === 'Plasma Array' ? ['Flaming Module', 'Shock Module']
-    : name === 'Plasma Caster' ? ["Smuggler's Grip", 'Flaming Module', 'Shock Module']
+    : name === 'Plasma Caster' ? ["Smuggler's Grip", 'Flaming Module', 'Shock Module', 'Glarecaster']
     : name === 'Rotolaser' ? ['Flaming Module']
     : name === 'Pulse Gauntlet' ? ['Loudener']
     : /^Tail\s*Blade$/i.test(name) ? [c.className === 'Soldier' ? 'Suppression Matrix' : 'Fear Projector'] : []

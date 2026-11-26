@@ -40,6 +40,17 @@ const character = (feats: Character['feats'], livingWeapon = false): Character =
   weapons: [{ id: 'w', name: 'Longsword', potency: 3, striking: 1, runes: ['Wounding', 'Flaming'], livingWeapon }],
 })
 
+it('shows a clickable weapon group even when the weapon has no traits', () => {
+  const grouped = { ...weapon, data: { ...weapon.data, weapon_group: 'Sword' } }
+  const group: ContentEntry = { ...weapon, id: 'sword-group', kind: 'weaponGroup', name: 'Sword',
+    description: 'Sword critical specialization.' }
+  for (const displayOnly of [false, true]) {
+    const markup = renderToStaticMarkup(<WeaponList c={character([])} entries={[grouped, group]} save={() => {}} displayOnly={displayOnly} />)
+    expect(markup).toContain('aria-haspopup="dialog">Sword</button>')
+    expect(markup).toContain('Sword critical specialization.')
+  }
+})
+
 it('grants and scales requested Starfinder weapon upgrades without duplicating saved upgrades', () => {
   const upgrades = [
     ["Smuggler's Grip (Commercial)", 2], ["Smuggler's Grip (Tactical)", 6],
@@ -101,12 +112,13 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(at('Rotolaser', 15)).toEqual(['Flaming Module (Tactical)'])
     expect(at('Plasma Array', 8)).toEqual(['Flaming Module (Commercial)', 'Shock Module (Commercial)'])
     expect(at('Plasma Array', 15)).toEqual(['Flaming Module (Tactical)', 'Shock Module (Tactical)'])
-    expect(at('Plasma Caster', 6)).toEqual(["Smuggler's Grip (Tactical)"])
+    expect(at('Plasma Caster', 4)).toEqual(["Smuggler's Grip (Commercial)"])
+    expect(at('Plasma Caster', 6)).toEqual(["Smuggler's Grip (Tactical)", 'Glarecaster (Commercial)'])
     expect(at('Tactical Plasma Caster', 8)).toEqual([
-      "Smuggler's Grip (Tactical)", 'Flaming Module (Commercial)', 'Shock Module (Commercial)',
+      "Smuggler's Grip (Tactical)", 'Flaming Module (Commercial)', 'Shock Module (Commercial)', 'Glarecaster (Commercial)',
     ])
     expect(at('Plasma Caster', 15)).toEqual([
-      "Smuggler's Grip (Tactical)", 'Flaming Module (Tactical)', 'Shock Module (Tactical)',
+      "Smuggler's Grip (Tactical)", 'Flaming Module (Tactical)', 'Shock Module (Tactical)', 'Glarecaster (Tactical)',
     ])
     expect(at('Pulse Gauntlet', 8)).toEqual(['Loudener (Commercial)'])
     expect(at('Pulse Gauntlet', 15)).toEqual(['Loudener (Tactical)'])
@@ -150,6 +162,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(casterHtml).toContain("Smuggler&#x27;s Grip (Tactical)")
     expect(casterHtml).toContain('Flaming Module (Commercial)')
     expect(casterHtml).not.toContain('Shock Module (Commercial)')
+    expect(casterHtml).not.toContain('Glarecaster (Commercial)')
     expect(casterHtml).not.toContain('Installed upgrades exceed available slots.')
     expect(casterHtml).not.toContain('Add weapon upgrade')
     const savedShock = owned('Plasma Caster', ['Shock Module (Commercial)'])

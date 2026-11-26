@@ -30,3 +30,24 @@ it('uses the equipment system definition and reports missing custom definitions 
   expect(markup).toContain('Description unavailable.')
   expect(markup).toContain('aria-haspopup="dialog">Custom Trait</button>')
 })
+
+it('shows weapon groups alongside traits with the correct system critical specialization', () => {
+  const entries = [
+    { ...trait('Plasma', 'Pathfinder group.'), kind: 'weaponGroup' as const },
+    { ...trait('Plasma', 'Starfinder plasma critical effect.', ['sf2e']), kind: 'weaponGroup' as const },
+    trait('Tech', 'Tech rules.', ['sf2e']),
+  ]
+  const markup = renderToStaticMarkup(<GearTraits entries={entries} traits={['Tech']} weaponGroup="Plasma" system="sf2e" />)
+  expect(markup).toContain('aria-haspopup="dialog">Plasma</button>')
+  expect(markup).toContain('Starfinder plasma critical effect.')
+  expect(markup).not.toContain('Pathfinder group.')
+  expect(markup).not.toContain('Level 0')
+  expect(markup.indexOf('>Plasma</button>')).toBeLessThan(markup.indexOf('>Tech</button>'))
+})
+
+it('uses the Smuggler’s Grip description for its Concealed trait when no trait definition exists', () => {
+  const grip = { ...trait("Smuggler's Grip (Tactical)", 'The weapon gains the concealed trait.', ['sf2e']), kind: 'item' as const }
+  const markup = renderToStaticMarkup(<GearTraits entries={[grip]} traits={['Concealed']} system="sf2e" />)
+  expect(markup).toContain('The weapon gains the concealed trait.')
+  expect(markup).not.toContain('Description unavailable.')
+})

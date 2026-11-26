@@ -1260,6 +1260,43 @@ it('applies sensory upgrades and ancestry-specific burrowing', () => {
   expect(movementSpeeds({ ...c, level: 8 }, [ancestry, burrow]).some(speed => speed.name === 'Burrow')).toBe(false)
 })
 
+it('offers Adaptive Visual Receptors variants in progression order without duplicates', () => {
+  const c: Character = { ...base, systems: ['sf2e'], level: 5, feats: [] }
+  const first = { name: 'Adaptive Visual Receptors', type: 'Ancestry Feat', level: 1,
+    slot: 'ancestry:1:0', choice: 'Low-Light Vision' }
+  expect(featChoiceOptions(first.name, c, [], first.slot)).toEqual(['Low-Light Vision'])
+  const selected = { ...c, feats: [first] }
+  expect(featChoiceOptions(first.name, selected, [], 'ancestry:5:0')).toEqual(['Darkvision'])
+  expect(senses({ ...selected, feats: [...selected.feats, { ...first, slot: 'ancestry:5:0', takenLevel: 5,
+    choice: 'Darkvision' }] }, [])).toContainEqual({ value: 'Darkvision', source: first.name })
+  expect(senses({ ...selected, level: 1, feats: [...selected.feats, { ...first, slot: 'ancestry:5:0', takenLevel: 5,
+    choice: 'Darkvision' }] }, [])).not.toContainEqual(expect.objectContaining({ value: 'Darkvision' }))
+  const ancestry = { ...entry('ancestry', 'Ysoki', { vision: 'Low-Light Vision' }), systems: ['sf2e' as const] }
+  expect(featChoiceOptions(first.name, { ...c, ancestry: 'Ysoki' }, [ancestry], first.slot)).toEqual(['Darkvision'])
+})
+
+it('allows Ysoki Ancestral Skills to use a chosen home Lore without duplicating its grant', () => {
+  const previous = getSettings()
+  try {
+    updateSettings({ ysokiAncestralLorePlaces: true })
+    const feat = { ...entry('feat', 'Ancestral Skills', { grants_feats: 'Additional Lore' }, 1, ['Ysoki']), systems: ['sf2e' as const] }
+    const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', level: 7, feats: [
+      { name: feat.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', sourceId: feat.id },
+    ] }
+    const key = automaticFeatChoiceKey('Ancestral Skills', 'Additional Lore')
+    c.automaticFeatChoices = { [key]: 'Akiton' }
+    expect(featLores(c, [feat])).toContain('Akiton Lore')
+    expect(featLores(c, [feat])).not.toContain('Ysoki Lore')
+    expect(ranksAt(c, [feat])['Akiton Lore']).toBe(3)
+    expect(automaticFeatGrants(c, [feat]).filter(grant => grant.source === feat.name && grant.name === 'Additional Lore'))
+      .toEqual([expect.objectContaining({ choice: 'Akiton' })])
+    updateSettings({ ysokiAncestralLorePlaces: false })
+    expect(featLores(c, [feat])).toContain('Ysoki Lore')
+  } finally {
+    updateSettings(previous)
+  }
+})
+
 it('offers Enhanced Senses choices from installed precise and imprecise senses', () => {
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', level: 5, feats: [
     { name: 'Enhanced Olfactory System', type: 'Ancestry Feat', level: 1 },

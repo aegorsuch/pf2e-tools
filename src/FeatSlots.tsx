@@ -262,7 +262,10 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
       && (grant.name === 'Additional Lore' || grant.name === 'Augmented Body' && !getSettings().singleAugmentedBody || grant.name === 'Assurance' && (grant.source.startsWith('Exceptional Artisan (') || grant.source === 'Test-Subject Ysoki' || grant.source === 'Gnome Obsession' || grant.source === 'From the Shadows Leadership Perk' || grant.source.startsWith('Effortless Influencer ('))
         || !c.feats.some((feat) => feat.name === grant.name && featTakenLevel(feat) <= c.level))
       && !backgroundFeats.some((feat) => feat.name === grant.name))
-    .map(grant => ({ ...grant, fixedLore: grant.name === 'Additional Lore' && !!grant.choice, choice: grant.choice
+    .map(grant => ({ ...grant, fixedLore: grant.name === 'Additional Lore' && !!grant.choice
+      && !(grant.source === 'Ancestral Skills' && c.ancestry === 'Ysoki' && c.systems.includes('sf2e')
+        && getSettings().ysokiAncestralLorePlaces
+        && ['Ysoki', 'Akiton', 'Golarion', 'Absalom Station'].includes(grant.choice)), choice: grant.choice
       ?? c.automaticFeatChoices?.[grant.choiceKey ?? automaticFeatChoiceKey(grant.source, grant.name)] }))
     .filter((grant, index, all) => {
       if (grant.name === 'Shield Block') {
@@ -276,7 +279,8 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
       const key = grant.choice.trim().replace(/\s+lore$/i, '').toLowerCase()
       const matches = all.filter(other => other.name === 'Additional Lore'
         && other.choice?.trim().replace(/\s+lore$/i, '').toLowerCase() === key)
-      const preferred = matches.find(other => other.source !== 'Ancestral Skills') ?? matches[0]
+      const preferred = matches.find(other => other.source === 'Ancestral Skills' && !other.fixedLore)
+        ?? matches.find(other => other.source !== 'Ancestral Skills') ?? matches[0]
       return all.indexOf(preferred) === index
     })
   const memories = !categories || categories.includes('skill')
@@ -567,7 +571,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   }
 
   const multi = new Set(slots.map((slot) => slot.category)).size > 1
-  const alphabeticalSkills = categories?.length === 1 && categories[0] === 'skill'
   const grantedCount = backgroundFeats.length + automaticFeats.length + memories.length
   const rows = [
     ...backgroundFeats.map(feat => ({ kind: 'background' as const, level: 1, feat })),
@@ -575,7 +578,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     ...memories,
     ...slots.map((slot, index) => ({ kind: 'slot' as const, level: slot.level, slot, index })),
   ].sort((a, b) => {
-    if (!alphabeticalSkills && a.level !== b.level) return a.level - b.level
+    if (a.level !== b.level) return a.level - b.level
     if (categories?.length !== 1 || !['archetype', 'general', 'skill'].includes(categories[0])) return 0
     const aFeat = a.kind === 'slot' ? c.feats.find(feat => feat.slot === a.slot.key) : a.feat
     const bFeat = b.kind === 'slot' ? c.feats.find(feat => feat.slot === b.slot.key) : b.feat
@@ -589,12 +592,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
       <ul className="feat-slot-list">
         {rows.map((row, rowIndex) => {
           const newLevel = rowIndex === 0 || rows[rowIndex - 1].level !== row.level
-          const heading = !multi && !alphabeticalSkills && newLevel
+          const heading = !multi && newLevel
             ? <li className="feat-level-heading">Level {String(row.level).padStart(2, '0')}</li> : null
           if (row.kind === 'memory') return <Fragment key={`memory:${row.index}`}>
             {heading}
             <li className={`feat-slot-row automatic-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
-              {alphabeticalSkills && <span>L{String(row.level).padStart(2, '0')}</span>}
               <EntryDescription character={c} name="Assurance" entry={featsByName.get('Assurance')} entries={entries}
                 className="feat-name" grantSource="Carry Their Memories (temporary)" deferDetails={!!onSearch} />
               <CarryTheirMemoriesChoice c={c} entries={entries} save={save} index={row.index} />
@@ -611,9 +613,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             return <Fragment key={`${row.kind}:${feat.name}:${row.kind === 'automatic' ? row.feat.choiceKey ?? `${row.feat.source}:${row.feat.choice ?? ''}` : ''}`}>
               {heading}
               <li className={`feat-slot-row ${background ? 'background' : 'automatic'}-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
-                {alphabeticalSkills && <span>L{String(row.level).padStart(2, '0')}</span>}
                 {background && grantedType(feat.name) !== 'Skill Feat' && multi && <span>L{String(row.level).padStart(2, '0')} Background {grantedType(feat.name)}</span>}
-                {!(row.kind === 'automatic' && feat.name === 'Additional Lore' && row.feat.source === 'Nephilim Lore') && <EntryDescription character={c} name={`${displayName(feat.name)}${row.kind === 'automatic' && row.feat.choice ? ` (${row.feat.choice})` : ''}`}
+                {!(row.kind === 'automatic' && feat.name === 'Additional Lore'
+                  && (row.feat.source === 'Nephilim Lore' || row.feat.source === 'Ancestral Skills' && !row.feat.fixedLore
+                    && c.ancestry === 'Ysoki' && c.systems.includes('sf2e') && getSettings().ysokiAncestralLorePlaces
+                    && ['Ysoki', 'Akiton', 'Golarion', 'Absalom Station'].includes(row.feat.choice ?? '')))
+                  && <EntryDescription character={c} name={`${displayName(feat.name)}${row.kind === 'automatic' && row.feat.choice ? ` (${row.feat.choice})` : ''}`}
                   entry={entry} choice={row.kind === 'automatic' ? row.feat.choice : undefined} entries={entries} className="feat-name" access={entry ? featAccess(c, entry) : undefined}
                   grantSource={row.kind === 'automatic' ? row.feat.source : c.background} deferDetails={!!onSearch} />}
                 {row.kind === 'automatic' && !row.feat.fixedLore && <AutomaticFeatChoice c={c} entries={entries} save={save}
@@ -634,9 +639,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const selection = c.feats[featIndex]
           const selectedChoices = selection ? featChoiceOptions(selection.name, c, entries, s.key, featIndex, s.category) : undefined
           const selectedChoice = selection && (['Elemental Wrath', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', 'Tattooed Historian Dedication', 'Captain Dedication', 'Carry Their Memories',
-            'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Core Attunement', 'Divine Warrior', 'Primal Warrior', 'Eye for Treasure', 'Expressive Face', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body', 'Historian', 'Distant Telepath'].includes(selection.name)
+            'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Core Attunement', 'Divine Warrior', 'Primal Warrior', 'Eye for Treasure', 'Expressive Face', "Officer's Medical Training", 'Shiny', 'Additional Arms', 'Augmented Body', 'Historian', 'Distant Telepath'].includes(selection.name)
             || c.systems.includes('sf2e') && ['Lashunta', 'Shirren'].includes(c.ancestry ?? '') && ['Creature Shape', 'Creature Ally'].includes(selection.name)
             || isFixedAncestralWeaponFamiliarity(c, entries, selection)) ? undefined
+            : selection?.name === 'Adaptive Visual Receptors' ? ['Low-Light Vision', 'Darkvision'].includes(selection.choice ?? '')
+              ? selection.choice : selectedChoices?.[0]
             : selection?.name === 'Enhanced Senses' ? enhancedSensesChoice(c, entries, featIndex) ?? selection.choice
               : selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
           const selectedLabel = selection?.name === 'Versatile Rogue' && selectedChoice === 'Mastermind' && c.rogueRacketSkills?.Mastermind
@@ -826,7 +833,6 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             <Fragment key={s.key}>
             {heading}
             <li className={`feat-slot-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
-              {alphabeticalSkills && <span>L{String(row.level).padStart(2, '0')}</span>}
               {multi && <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>}
               {houseDedication ? (
                 <EntryDescription character={c} name={houseDedication.name} entry={currentEntry} entries={entries} className="feat-name"

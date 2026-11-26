@@ -37,7 +37,7 @@ import { boostingTheBasics } from './mechanicMods'
 import { warmaskSource, warmaskItemBonus } from './warmask'
 import { complexSimplicityTraits, hasWeaponRuneCapacity, weaponModificationOptions, weaponModificationSlots, type WeaponModificationSlot } from './inventorWeapon'
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
-import { turretWeapon } from './mechanicTurret'
+import { turretName, turretWeapon } from './mechanicTurret'
 import { clearItemGlitching, enduringGrenadeMods, enduringWeaponMods, setEnduringMod } from './mechanicEnduring'
 import { namedArmorEnhancements, namedArmorRuneLimit } from './namedArmor'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
@@ -1256,8 +1256,10 @@ function WeaponTraits({ attack, entries }: { attack: ReturnType<typeof weaponAtt
   const thrown = attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim()))
   const range = thrown ? attack.thrownRange || attack.range : 0
   const traits = range ? attack.traits.map(trait => /^thrown(?:\s|$)/i.test(trait.trim()) ? `Thrown ${range}` : trait) : attack.traits
+  const weaponGroup = typeof attack.entry?.data.weapon_group === 'string' ? attack.entry.data.weapon_group : undefined
+  if (!traits.length && !weaponGroup) return null
   return <>
-    <GearTraits traits={traits} entries={entries} system={attack.entry?.systems[0]} />
+    <GearTraits traits={traits} entries={entries} system={attack.entry?.systems[0]} weaponGroup={weaponGroup} />
     {thrown && !range && attack.thrownRangeBonus > 0 && <SourceNote source="Strong Arm" note={`Thrown range increases by ${attack.thrownRangeBonus} feet.`} />}
   </>
 }
@@ -1314,7 +1316,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
     && (!weapon.attachedTo || weaponEquipped(c, entries, weapon)))
     .sort((x, y) => equipmentDisplayName(x.name === SPARK_FIST.name ? FIST.name : x.name)
       .localeCompare(equipmentDisplayName(y.name === SPARK_FIST.name ? FIST.name : y.name)))
-  const displayNames = new Map<string, string>([['mechanic-turret-card', 'Mechanic Turret']])
+  const displayNames = new Map<string, string>([['mechanic-turret-card', turretName(c)]])
   const handsUsed = equippedHands(c, entries)
   const unknownHands = weapons.some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
     && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon, c) === undefined)
@@ -1708,7 +1710,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             && <small>{legacyPouchWeapon ? 'Retrieve this weapon from your cheek pouch first.' : 'Weapon hands unavailable.'}</small>}
           {attackSummaries.map(summary => <div key={summary.form ?? 'weapon'}>
             <small>{attackLine(summary)}</small>
-            {summary.attack.traits.length > 0 && <WeaponTraits attack={summary.attack} entries={entries} />}
+            <WeaponTraits attack={summary.attack} entries={entries} />
           </div>)}
           {(a.criticalNote || typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect) && <small>
             {a.criticalNote && a.criticalNoteSource && <SourceNote source={a.criticalNoteSource} note={a.criticalNote} inlineSource={false} />}
@@ -1739,9 +1741,9 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               {attackSummaries.length > 1 ? <div className="weapon-form-summaries">
                 {attackSummaries.map(summary => <div key={summary.form ?? 'weapon'}>
                   <small>{attackLine(summary)}</small>
-                  {summary.attack.traits.length > 0 && <div onClick={event => event.stopPropagation()}>
+                  <div onClick={event => event.stopPropagation()}>
                     <WeaponTraits attack={summary.attack} entries={entries} />
-                  </div>}
+                  </div>
                 </div>)}
               </div> : <small>{attackLine(attackSummaries[0])}</small>}
               {(a.criticalNote || typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect) && <small>
@@ -1794,7 +1796,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 <span><small>Proficiency</small>{signed(summary.attack.prof)}</span>
                 <span><small>Item</small>{signed(summary.attack.item)}</span>
               </div>
-              {attackSummaries.length === 1 && summary.attack.traits.length > 0 && <WeaponTraits attack={summary.attack} entries={entries} />}
+              {attackSummaries.length === 1 && <WeaponTraits attack={summary.attack} entries={entries} />}
             </div>)}
             {!solarCrystals && !(upgradeWeapon && a.entry && !linkedSource) && <AttackUpgrades attack={a} />}
             {namedWeaponNotes}
@@ -1918,12 +1920,12 @@ export function TurretWeapon({ c, entries, save, displayOnly }: SectionProps & {
   if (!turret) return null
   const { entry, weapon, attack } = turret
   const damageUpgrades = [...upgradeDamageSummary(attack), ...mechanicDamageSummary(c, weapon, attack), ...attack.additionalDamage]
-  return <div className="gear-card col" aria-label="Mechanic Turret">
-    <strong>Mechanic Turret</strong>
-    <small>Attack <TotalBreakdown label="Mechanic Turret attack" breakdown={attack.breakdown} signedTotal />;
+  return <div className="gear-card col" aria-label={entry.name}>
+    <strong>{entry.name}</strong>
+    <small>Attack <TotalBreakdown label={`${entry.name} attack`} breakdown={attack.breakdown} signedTotal />;
       Damage {attack.damage}{damageUpgrades.map(upgrade => <Fragment key={upgrade.source}> + {upgrade.value}
         <SourceNote source={upgrade.source} note={upgrade.note} inlineSource={false} /></Fragment>)}; range {attack.range} feet.</small>
-    {attack.traits.length > 0 && <GearTraits traits={attack.traits} entries={entries} system={entry.systems[0]} />}
+    <WeaponTraits attack={attack} entries={entries} />
     {displayOnly && <AttackUpgrades attack={attack} />}
     {!displayOnly && <>
       <WeaponUpgrades entries={entries} weapon={entry} upgrades={c.mechanicTurretUpgrades ?? []}

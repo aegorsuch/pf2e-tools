@@ -18,6 +18,7 @@ export interface Settings {
   // House rule: the character's Lore skills also rank up for free as the level allows
   autoLores: boolean
   deityLore: boolean
+  ysokiAncestralLorePlaces: boolean
   // Variant rule: Free Archetype grants an archetype feat at every even level
   freeArchetype: boolean
   ignoreArchetypeFeatMinimums: boolean
@@ -106,7 +107,7 @@ const DEFAULTS: Settings = {
   singleAdditionalArms: true, singleAugmentedBody: true, singleDistantTelepath: true, adoptedDwarfClanDagger: true,
   disableAdoptedAncestry: true, disableAncientElfMultitalented: true, disableBeastmasterWardenSpells: true,
   exclusiveCyborgHearts: true, cyberbornTestSubjectFeat: true, autoClassSkills: false, sf2eDeitySkills: true, orderExplorerSkills: true,
-  autoLores: false, deityLore: true, freeArchetype: true, ignoreArchetypeFeatMinimums: true, rangerSnarecrafter: false,
+  autoLores: false, deityLore: true, ysokiAncestralLorePlaces: true, freeArchetype: true, ignoreArchetypeFeatMinimums: true, rangerSnarecrafter: false,
   warriorLegendClearTheWay: true, orcTattooedHistorian: true, dwarfStalwartDefender: true,
   bardAnimalTrainer: true, bardBeastmaster: true, bardCavalier: true, envoyFieldAgent: true, envoyAugmented: true, mysticFieldAgent: true,
   mysticXenoDruid: true, mechanicFieldAgent: true, mechanicAugmented: true, mechanicGrenadier: true,

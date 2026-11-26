@@ -46,6 +46,11 @@ export function turretArray(c: Character) {
   if (!name || !turretArrays(c).some(candidate => candidate === name)) return undefined
   return ALL_TURRET_ARRAYS[name]
 }
+export function turretName(c: Character) {
+  const name = c.mechanicTurretArray
+  if (!name || !turretArray(c)) return 'Turret'
+  return `${name === 'Plasma' ? 'Plasma Array' : name} Turret`
+}
 export const TURRET_GRADES = Object.keys(HARDLIGHT_GRADES) as HardlightGrade[]
 
 export function turretWeapon(c: Character, entries: ContentEntry[]) {
@@ -56,7 +61,7 @@ export function turretWeapon(c: Character, entries: ContentEntry[]) {
   const grade = TURRET_GRADES[Math.max(TURRET_GRADES.indexOf(saved), TURRET_GRADES.indexOf(automaticHardlightGrade(c.level)))]
   const { potency, striking, upgrades } = HARDLIGHT_GRADES[grade]
   const entry: ContentEntry = {
-    id: 'mechanic:turret', name: 'Mechanic Turret', kind: 'weapon',
+    id: 'mechanic:turret', name: turretName(c), kind: 'weapon',
     source: c.mechanicTurretArray === 'Plasma' ? 'homebrew' : 'official', systems: ['sf2e'],
     level: c.level, traits: [array.trait], description: '', effects: [], updatedAt: 0,
     data: { weapon_category: 'Martial', weapon_type: 'Ranged', weapon_group: array.group, turret_array: c.mechanicTurretArray ?? '',

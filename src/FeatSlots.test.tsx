@@ -908,7 +908,7 @@ it('keeps a saved adopted ancestry disabled only for an unmet specific Access re
   expect(c.feats[0].choice).toBe(ancestry.name)
 })
 
-it('shows one Additional Lore per skill and prefers the specific ancestry source', () => {
+it('keeps one Additional Lore per skill while allowing the Ysoki Ancestral Skills choice', () => {
   const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Ysoki', level: 7,
     feats: [
       { name: 'Ancestral Skills', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
@@ -917,10 +917,13 @@ it('shows one Additional Lore per skill and prefers the specific ancestry source
     ] }
   for (const feats of [c.feats, [...c.feats].reverse()]) {
     const markup = renderToStaticMarkup(<FeatSlots c={{ ...c, feats }} entries={[]} categories={['skill']} save={() => {}} />)
-    expect(markup.match(/>Additional Lore \(Ysoki\) <small>/g)).toHaveLength(1)
+    expect(markup.match(/>Additional Lore \(Ysoki\)<\/option>/g)).toHaveLength(1)
     expect(markup).toContain('Additional Lore (Lao Shu Po)')
-    expect(markup).toContain('Ysoki Lore')
-    expect(markup).not.toContain('Ancestral Skills')
+    expect(markup).toContain('Ancestral Skills')
+    expect(markup).toContain('aria-label="Ancestral Skills Additional Lore"')
+    expect(markup).toContain('Additional Lore (Akiton)')
+    expect(markup).toContain('Additional Lore (Golarion)')
+    expect(markup).toContain('Additional Lore (Absalom Station)')
   }
   const earlier = renderToStaticMarkup(<FeatSlots c={{ ...c, level: 1 }} entries={[]} categories={['skill']} save={() => {}} />)
   expect(earlier).toContain('Additional Lore (Ysoki)')
@@ -1704,7 +1707,7 @@ it('lists Ysoki Ancestral Magic at level nine, when Irradiate becomes available'
   expect(ninthPicker).toMatch(/<optgroup label="L09">[^]*Ancestral Magic \(Irradiate\)/)
 })
 
-it.each([['Adaptive Visual Receptors', 1], ['Additional Arms', 9]])('does not request or display a choice for repeatable %s', (name, level) => {
+it.each([['Additional Arms', 9]])('does not request or display a choice for repeatable %s', (name, level) => {
   const receptors: ContentEntry = { id: 'receptors', name, kind: 'feat',
     systems: ['sf2e'], source: 'official', level, traits: ['Cyborg'], description: '',
     data: { repeatable: true }, effects: [], updatedAt: 0 }
@@ -1715,6 +1718,19 @@ it.each([['Adaptive Visual Receptors', 1], ['Additional Arms', 9]])('does not re
   const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[receptors]} categories={['ancestry']} save={() => {}} />)
   expect(markup).not.toContain(`${name} choice`)
   expect(markup).not.toContain('old choice')
+})
+
+it('shows Adaptive Visual Receptors vision variants in the ancestry feat picker', () => {
+  const receptors: ContentEntry = { id: 'receptors', name: 'Adaptive Visual Receptors', kind: 'feat',
+    systems: ['sf2e'], source: 'official', level: 1, traits: ['Cyborg'], description: '',
+    data: { repeatable: true }, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], heritage: 'Cyborg', level: 5, feats: [
+    { name: receptors.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: 'Low-Light Vision' },
+  ] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[receptors]} categories={['ancestry']} save={() => {}} />)
+  expect(markup).toContain('Adaptive Visual Receptors (Low-Light Vision)')
+  expect(markup).toContain('Adaptive Visual Receptors (Darkvision)')
+  expect(markup).not.toContain('Adaptive Visual Receptors choice')
 })
 
 it('keeps Snare Crafting and its grant source inside one description button', () => {
@@ -2064,8 +2080,8 @@ it('keeps general feats by level and alphabetizes skill grants before empty slot
   expect(skill).not.toContain('>Untrained Improvisation <small>')
   expect(skill).not.toContain('Granted Skill Feat')
   expect(skill).toContain('>Experienced Tracker <small>(Greenwatch Initiate)</small></button>')
-  expect(skill.indexOf('>Experienced Tracker <small>')).toBeLessThan(skill.indexOf('Clear L06 Skill'))
-  expect(skill).toContain('<span>L08</span><button')
+  expect(skill.indexOf('Clear L06 Skill')).toBeLessThan(skill.indexOf('>Experienced Tracker <small>'))
+  expect(skill).toContain('>Level 08</li>')
   expect(render({ ...c, level: 7 }, ['skill', 'general'])).not.toContain('automatic-feat-row')
   expect(render({ ...c, feats: [] }, ['skill', 'general'])).not.toContain('automatic-feat-row')
 })
@@ -2535,7 +2551,7 @@ it('lists Close Quarters Whirling Swipe as granted while allowing manual selecti
     { key: 'class:1:0', category: 'class', level: 1 })).toContain(whirlingSwipe)
 })
 
-it('alphabetizes skill feats from all sources across acquisition levels', () => {
+it('groups skill feats by acquisition level and alphabetizes all sources within each level', () => {
   const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Elf', level: 2, background: 'Scholar',
     extraSlots: [{ category: 'skill', level: 1, count: 3 }],
     feats: [
@@ -2551,15 +2567,15 @@ it('alphabetizes skill feats from all sources across acquisition levels', () => 
   const assurance: ContentEntry = { ...background, id: 'assurance', name: 'Assurance', kind: 'feat',
     traits: ['General', 'Skill'], data: {} }
   const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[background, assurance]} save={() => {}} categories={['skill']} />)
-  const names = ['>Aardvark</button>', '>Acrobatics</button>', '>Assurance (Deception)</button>', '>Blend In <small>',
-    '>Lie to Me <small>', '>Zebra</button>', 'aria-label="L01 Skill feat"']
+  const names = ['Level 01', '>Acrobatics</button>', '>Assurance (Deception)</button>', '>Blend In <small>',
+    '>Lie to Me <small>', '>Zebra</button>', 'aria-label="L01 Skill feat"', 'Level 02', '>Aardvark</button>']
   for (const name of names) expect(markup).toContain(name)
   const positions = names.map(name => markup.indexOf(name))
   expect(positions).toEqual([...positions].sort((a, b) => a - b))
   expect(markup.slice(markup.indexOf('>Acrobatics</button>'), markup.indexOf('>Assurance (Deception)</button>')))
     .toContain('Remove L01 Skill extra feat slot 1')
-  expect(markup).toContain('<span>L01</span>')
-  expect(markup).toContain('<span>L02</span>')
+  expect(markup).not.toContain('<span>L01</span>')
+  expect(markup).not.toContain('<span>L02</span>')
 })
 
 it('prefixes ancestry slots and feat options with zero-padded levels', () => {
@@ -2602,7 +2618,7 @@ it('sorts the current background skill feat with selected skill feats', () => {
   const markup = render(c)
   expect(markup).not.toContain('Background Skill Feat')
   expect(markup).toContain('Survey Wildlife')
-  expect(markup.indexOf('Quick Draw')).toBeLessThan(markup.indexOf('Survey Wildlife'))
+  expect(markup.indexOf('Survey Wildlife')).toBeLessThan(markup.indexOf('Quick Draw'))
   expect(render({ ...c, background: undefined })).not.toContain('Survey Wildlife')
 })
 

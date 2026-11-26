@@ -485,6 +485,20 @@ it('imports full companion introductions while keeping stat blocks separate', as
     .toBe('Fallback')
 })
 
+it('imports weapon groups with full critical specialization descriptions', async () => {
+  const markdown = 'Critical specialization effect.\n\nComplete final sentence.'
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }
+    const category = body.query.bool.filter.find(filter => filter.term)?.term?.category
+    const hits = category === 'weapon-group' ? [{ _id: 'plasma',
+      _source: { category, name: 'Plasma', summary: 'Critical...', markdown } }] : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const entries = mapAonHits(await fetchAonHits('sf2e', fetchFn), 'sf2e')
+  expect(entries).toEqual([expect.objectContaining({ kind: 'weaponGroup', name: 'Plasma',
+    description: 'Critical specialization effect.\n\nComplete final sentence.' })])
+})
+
 it('loads companion maneuver action costs, requirements, and descriptions from AoN', async () => {
   const fetchFn: typeof fetch = async (_input, init) => {
     const body = JSON.parse(String(init?.body)) as {

@@ -161,7 +161,7 @@ function EntryDescriptionContents({ name, entry, choice, prerequisites, access, 
   const choiceSpellName = technomancerHackName ?? choiceSpell?.name
   return (
     <>
-        <h4 id={titleId} tabIndex={-1}>{title(history.length ? active?.name ?? name : name)}{featActions && <> <ActionIcon entry={active} /></>}{active && active.kind !== 'trait' && <small> (Level {active.level}{rarity ? `; ${rarity}` : ''})</small>}</h4>
+        <h4 id={titleId} tabIndex={-1}>{title(history.length ? active?.name ?? name : name)}{featActions && <> <ActionIcon entry={active} /></>}{active && !['trait', 'weaponGroup'].includes(active.kind) && <small> (Level {active.level}{rarity ? `; ${rarity}` : ''})</small>}</h4>
         {!history.length && !!prerequisites?.missing.length && <p className="feat-prerequisite-note" role="status">
           Prerequisites unmet: {text(prerequisites.missing.join('; '))}
         </p>}

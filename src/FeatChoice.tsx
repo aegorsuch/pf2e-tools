@@ -70,6 +70,24 @@ export function AutomaticFeatChoice({ c, entries, save, name, source, choice, ch
 }) {
   if (name === 'Additional Lore') {
     const key = choiceKey ?? automaticFeatChoiceKey(source, name)
+    if (source === 'Ancestral Skills' && c.ancestry === 'Ysoki' && c.systems.includes('sf2e')
+      && getSettings().ysokiAncestralLorePlaces && (!choice || ['Ysoki', 'Akiton', 'Golarion', 'Absalom Station'].includes(choice))) {
+      const options = ['Ysoki', 'Akiton', 'Golarion', 'Absalom Station']
+      const feat = entries.find(entry => entry.kind === 'feat' && entry.name === name && entry.systems.includes('sf2e') && !entry.deleted)
+      return <>
+        <SearchableSelect aria-label="Ancestral Skills Additional Lore" alwaysSearchable value={choice ?? 'Ysoki'}
+          renderDetails={() => <EntryDescription character={c} name={name} entry={feat} entries={entries}
+            buttonLabel="Details" className="picker-details" deferDetails />}
+          onChange={event => {
+            const selected = event.target.value
+            if (!options.includes(selected)) return
+            save({ automaticFeatChoices: { ...c.automaticFeatChoices, [key]: selected } })
+          }}>
+          {options.map(option => <option key={option} value={option}>Additional Lore ({option})</option>)}
+        </SearchableSelect>
+        {' '}<small>({source})</small>
+      </>
+    }
     if (source === 'Nephilim Lore') {
       const fixedPlane = nephilimLineageLore(c, entries)
       const planes = fixedPlane ? [fixedPlane] : PLANAR_LORE_CHOICES

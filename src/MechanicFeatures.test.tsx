@@ -444,17 +444,27 @@ it('calculates turret defenses and selected array', () => {
 it('offers the homebrew plasma turret with scaling damage and upgrade modules', () => {
   const previous = getSettings()
   const c: Character = { ...mechanic, level: 15, subclass: 'Turret', mechanicTurretArray: 'Plasma' }
-  const modules: ContentEntry[] = ['Flaming', 'Shock'].map(name => ({
-    id: name, name: `${name} Module (Tactical)`, kind: 'item', systems: ['sf2e'], source: 'official',
-    level: 15, traits: [], description: '', data: { item_subcategory: 'Weapon Upgrades' }, effects: [], updatedAt: 0,
+  const modules: ContentEntry[] = [
+    ['Flaming Module (Commercial)', 8], ['Flaming Module (Tactical)', 15],
+    ['Shock Module (Commercial)', 8], ['Shock Module (Tactical)', 15],
+    ['Glarecaster (Commercial)', 5], ['Glarecaster (Tactical)', 12],
+  ].map(([name, level]) => ({
+    id: String(name), name: String(name), kind: 'item', systems: ['sf2e'], source: 'official',
+    level: Number(level), traits: [], description: '', data: { item_subcategory: 'Weapon Upgrades' }, effects: [], updatedAt: 0,
   }))
   try {
     updateSettings({ plasmaTurret: true, automaticSfWeaponUpgrades: true })
     expect(turretArrays(c)).toContain('Plasma')
     expect(turretWeapon(c, modules)?.entry.data).toMatchObject({ damage: '3d8 fire', weapon_group: 'Plasma', range: 60 })
     expect(turretWeapon(c, modules)?.attack.upgrades.map(upgrade => upgrade.name)).toEqual([
-      'Flaming Module (Tactical)', 'Shock Module (Tactical)',
+      'Flaming Module (Tactical)', 'Shock Module (Tactical)', 'Glarecaster (Tactical)',
     ])
+    expect(turretWeapon({ ...c, level: 5 }, modules)?.attack.upgrades.map(upgrade => upgrade.name))
+      .toEqual(['Glarecaster (Commercial)'])
+    expect(turretWeapon({ ...c, level: 8, mechanicTurretUpgrades: ['other'] }, modules)?.attack.upgrades.map(upgrade => upgrade.name))
+      .toEqual(['Flaming Module (Commercial)', 'Shock Module (Commercial)'])
+    expect(turretWeapon({ ...c, mechanicTurretUpgrades: ['Glarecaster (Commercial)'] }, modules)?.attack.upgrades.map(upgrade => upgrade.name))
+      .toEqual(['Glarecaster (Tactical)', 'Flaming Module (Tactical)', 'Shock Module (Tactical)'])
     expect(renderToStaticMarkup(<TurretFeatures c={c} entries={modules} save={() => {}} />)).toContain('>Plasma</option>')
     updateSettings({ plasmaTurret: false })
     expect(turretArrays(c)).not.toContain('Plasma')
@@ -523,7 +533,7 @@ it('offers only active Expansive Arrays and preserves saved choices across level
   expect(turretWeapon(c, [])?.entry.data).toMatchObject({ damage: '3d8 void', weapon_group: 'Void', range: 60 })
   expect(renderToStaticMarkup(<FeatChoice c={c} entries={mechanicFeatCatalog} save={() => {}} index={1} />)).toBe('')
   const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
-  expect(html).toContain('data-minion-name="Turret"')
+  expect(html).toContain('data-minion-name="Void Array Turret"')
   expect(html).toContain('aria-label="Expansive Array 4"')
   expect(renderToStaticMarkup(<MinionsSummary c={c} entries={[]} />)).toContain('Turret')
   expect(turretArrays({ ...c, level: 10 }).slice(-2)).toEqual(['Mental Array', 'Poison Array'])
@@ -579,7 +589,7 @@ it('calculates turret grade, weapon proficiency, specialization and active mods 
   expect(turret.entry.data.upgrade_slots).toBe(4)
   const html = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly />)
   expect(html).not.toContain('Hands used:')
-  expect(html).toContain('Mechanic Turret')
+  expect(html).toContain('Laser Beam Turret')
   expect(html).toContain('3d8+10 cold')
   for (const displayOnly of [true, false]) {
     const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly={displayOnly} />)
@@ -597,14 +607,42 @@ it('calculates turret grade, weapon proficiency, specialization and active mods 
     .toContain('3 cold splash')
 })
 
-it('alphabetizes the turret with other offense weapons', () => {
+it.each([
+  ['Chaingun', 'Chaingun Turret'], ['Disintegrator', 'Disintegrator Turret'],
+  ['Laser Beam', 'Laser Beam Turret'], ['Plasma', 'Plasma Array Turret'],
+  ['Thunderclap', 'Thunderclap Turret'], ['Volt Thrower', 'Volt Thrower Turret'],
+  ['Zero Emitter', 'Zero Emitter Turret'],
+] as const)('names the %s turret consistently across weapon and minion displays', (array, name) => {
+  const previous = getSettings().plasmaTurret
+  try {
+    updateSettings({ plasmaTurret: true })
+    const c: Character = { ...mechanic, subclass: 'Turret', mechanicTurretArray: array }
+    const turret = turretWeapon(c, [])!
+    expect(turret.entry.name).toBe(name)
+    expect(turret.weapon.id).toBe('mechanic:turret')
+    for (const displayOnly of [false, true]) {
+      const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} displayOnly={displayOnly} />)
+      expect(markup).toContain(`aria-label="${name}"`)
+      expect(markup).toContain(`>${name}</strong>`)
+    }
+    expect(renderToStaticMarkup(<MinionsSummary c={c} />)).toContain(name)
+    expect(renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />))
+      .toContain(`data-minion-name="${name}"`)
+  } finally { updateSettings({ plasmaTurret: previous }) }
+})
+
+it('alphabetizes the turret by its selected array with other offense weapons', () => {
   const c: Character = { ...mechanic, subclass: 'Turret', mechanicTurretArray: 'Laser Beam', weapons: [
     { id: 'z', name: 'Zeta Gun', potency: 0, striking: 0, runes: [] },
     { id: 'a', name: 'Alpha Gun', potency: 0, striking: 0, runes: [] },
+    { id: 'k', name: 'Kappa Gun', potency: 0, striking: 0, runes: [] },
   ] }
   const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} displayOnly />)
-  expect(markup.indexOf('Alpha Gun')).toBeLessThan(markup.indexOf('Mechanic Turret'))
-  expect(markup.indexOf('Mechanic Turret')).toBeLessThan(markup.indexOf('Zeta Gun'))
+  expect(markup.indexOf('Kappa Gun')).toBeLessThan(markup.indexOf('Laser Beam Turret'))
+  expect(markup.indexOf('Laser Beam Turret')).toBeLessThan(markup.indexOf('Zeta Gun'))
+  const chaingun = renderToStaticMarkup(<WeaponList c={{ ...c, mechanicTurretArray: 'Chaingun' }} entries={[]} save={() => {}} displayOnly />)
+  expect(chaingun.indexOf('Alpha Gun')).toBeLessThan(chaingun.indexOf('Chaingun Turret'))
+  expect(chaingun.indexOf('Chaingun Turret')).toBeLessThan(chaingun.indexOf('Kappa Gun'))
 })
 
 it('applies Magnetic Levitators only while its armor is worn', () => {
