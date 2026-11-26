@@ -1661,6 +1661,32 @@ it('shows orbital crystals without rune controls or core crystal ratings on sola
   expect(markup).not.toContain('Striking (')
 })
 
+it('shows each solar crystal once in both equipment and offense', () => {
+  const previous = getSettings().automaticSfWeaponUpgrades
+  updateSettings({ automaticSfWeaponUpgrades: true })
+  try {
+    const crystals = ['Gluon (Superior)', 'Quasar', 'Photon (Tactical)', 'Graviton (Tactical)'].map((name): ContentEntry =>
+      ({ ...weapon, id: name, name, kind: 'item', systems: ['sf2e'], level: 13, data: { item_subcategory: 'Orbital Crystal' } }))
+    const c: Character = { ...character([]), systems: ['sf2e'], className: 'Solarian', level: 20,
+      solarianAttunement: 'Photon', solarianOrbitalCrystals: ['Gluon (Superior)'], weapons: [] }
+    for (const displayOnly of [false, true]) {
+      const render = (character: Character) => renderToStaticMarkup(
+        <WeaponList c={character} entries={crystals} save={() => {}} displayOnly={displayOnly} />)
+        .split(displayOnly ? '<div class="gear-card">' : '<details class="gear-card"')
+        .find(card => card.includes('>Solar Weapon</button>'))!
+      const photon = render(c)
+      for (const name of ['Gluon (Superior)', 'Quasar', 'Photon (Tactical)'])
+        expect(photon.split(`>${name}</button>`)).toHaveLength(2)
+      expect(photon).not.toContain('>Graviton (Tactical)</button>')
+      const graviton = render({ ...c, solarianAttunement: 'Graviton' })
+      expect(graviton.split('>Graviton (Tactical)</button>')).toHaveLength(2)
+      expect(graviton).not.toContain('>Photon (Tactical)</button>')
+    }
+  } finally {
+    updateSettings({ automaticSfWeaponUpgrades: previous })
+  }
+})
+
 it.each(['Lesser', 'Moderate', 'Major'] as const)('protects installed %s reinforcement while Blessed Shield is selected', rune => {
   const c: Character = { ...character([]), className: 'Champion', level: 10, blessing: 'Blessed Shield',
     shield: { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false, reinforcingRune: rune } }

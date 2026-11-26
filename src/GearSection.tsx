@@ -1745,7 +1745,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               </div>
               {attackSummaries.length === 1 && summary.attack.traits.length > 0 && <WeaponTraits attack={summary.attack} entries={entries} />}
             </div>)}
-            {!(upgradeWeapon && a.entry && !linkedSource) && <AttackUpgrades attack={a} />}
+            {!solarCrystals && !(upgradeWeapon && a.entry && !linkedSource) && <AttackUpgrades attack={a} />}
             {namedWeaponNotes}
             {!!crushing && <small>{`Critical hit: clumsy ${crushing} and enfeebled ${crushing} until the end of your next turn.`}</small>}
             {strength && <>
