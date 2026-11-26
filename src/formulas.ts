@@ -101,6 +101,12 @@ export function isCauldronConsumable(entry: ContentEntry) {
     && !featRarity(entry)
 }
 
+export function withBreachingGrenades(c: Character, entry: ContentEntry | undefined) {
+  if (!entry || !isGrenade(entry) || entry.traits.some(trait => formulaKey(trait) === 'razing')
+    || !c.feats.some(feat => feat.name === 'Breaching Grenades' && featTakenLevel(feat) <= c.level)) return entry
+  return { ...entry, traits: [...entry.traits, 'Razing'] }
+}
+
 export function isGrenade(entry: ContentEntry) {
   return !entry.deleted && entry.kind === 'item' && entry.traits.some(trait => formulaKey(trait) === 'grenade')
 }

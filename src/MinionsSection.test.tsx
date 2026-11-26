@@ -2509,3 +2509,15 @@ it('checks Soldier Synchronization class feature prerequisites and hides the Fin
   expect(check(c)).toEqual({ missing: [], manual: [] })
   expect(check({ ...c, className: 'Mystic' }).missing).toHaveLength(1)
 })
+
+it('adds the razing trait to grenades with Breaching Grenades', async () => {
+  const { withBreachingGrenades } = await import('./formulas')
+  const grenade: ContentEntry = { id: 'g', name: 'Frag Grenade', kind: 'item', systems: ['sf2e'], source: 'official', level: 1,
+    traits: ['Grenade'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'bg', name: 'Test', systems: ['sf2e'], level: 12,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Breaching Grenades', type: 'Archetype Feat', level: 12, slot: 'archetype:12:0' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(withBreachingGrenades(c, grenade)?.traits).toEqual(['Grenade', 'Razing'])
+  expect(withBreachingGrenades({ ...c, feats: [] }, grenade)).toBe(grenade)
+})

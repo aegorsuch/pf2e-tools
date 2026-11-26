@@ -36,7 +36,7 @@ import { ItemTroubleshoot } from './ItemTroubleshoot'
 import { TechnomancerFeatures } from './TechnomancerFeatures'
 import { GREATER_CROSS_PLATFORM_APPLICATION_FEAT, VERSATILE_FIRMWARE_FEAT } from './technomancer'
 import { CharacterPictures } from './CharacterPictures'
-import { isGrenade } from './formulas'
+import { isGrenade, withBreachingGrenades } from './formulas'
 import type { Character, ContentEntry, EntryKind } from './types'
 import { WORN_EQUIPMENT_GROUPS, equipmentDisplayName, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
 import { DivineIntercessions } from './intercessionPicker'
@@ -279,7 +279,7 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
         && activeFeatsNamed(c, 'Tattooed Historian Dedication').length > 0
         || item.name === SHADOWED_SCALE_MASK && hasMagicWarriorMask(c)
       return <li key={`${item.name}-${index}`}>
-      <EntryDescription name={item.name} entry={entry} className="equipment-name" /> <ActionIcon entry={entry} />{item.qty > 1 && <span> x{item.qty}</span>}{' '}
+      <EntryDescription name={item.name} entry={withBreachingGrenades(c, entry)} className="equipment-name" /> <ActionIcon entry={entry} />{item.qty > 1 && <span> x{item.qty}</span>}{' '}
       <KillersBeltRoll name={item.name} entry={entry} />
       {!locked && <button onClick={() => confirmRemoval(`gear "${item.name}"`, () => {
         const nextMods = { ...c.mechanicGrenadeMods }

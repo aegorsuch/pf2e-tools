@@ -17,7 +17,7 @@ import { adoptedAncestryText, selectedFeatEntry } from './featChoices'
 import { GearTraits } from './GearTraits'
 import { gearAccess } from './gearAccess'
 import { ActionIcon } from './ActionIcon'
-import { formulaKey, gadgetLimits, grenadeLimits, isGrenade, isMunitionsAmmunition, isMunitionsConsumable, knownFormulas, munitionsLimits } from './formulas'
+import { formulaKey, gadgetLimits, grenadeLimits, isGrenade, withBreachingGrenades, isMunitionsAmmunition, isMunitionsConsumable, knownFormulas, munitionsLimits } from './formulas'
 import { SearchableSelect } from './SearchableSelect'
 import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
 import { GearSystemFilter } from './GearSystemFilter'
@@ -996,7 +996,7 @@ export function GrenadeSpecialist({ c, entries, save }: SectionProps) {
           }} /> Used</label>
       </div>
       {grenade && <>
-        <EntryDescription name={grenade.name} entry={grenade} />
+        <EntryDescription name={grenade.name} entry={withBreachingGrenades(c, grenade)} />
         <GrenadeMods c={c} grenade={grenade} itemKey={key} save={save} label={`Prepared grenade ${index + 1}`} />
       </>}
       </div>
