@@ -3246,7 +3246,7 @@ export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
   if (!armor?.systems.includes('sf2e')) return 0
   if (family === 'Carvesong') return 4
   if (family === "Drifter's Jacket") return 3
-  return ['Aeon Guard Battle Dress', 'Aquavarius Armor',
+  return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Clandestine Suit',
     'Myrmidon Siegebreaker Plate', 'Retrieval Harness',
     'Rocketeer Armor', 'Stormbreaker Armor']
     .includes(family ?? '') ? 2 : 0
@@ -3257,7 +3257,7 @@ export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upg
   const base = upgrade.name.replace(/\s*\([^)]*\)$/, '')
   if (family === 'Carvesong') return true
   if (family === 'Aquavarius Armor') return ['Force Field', 'Energy Shielding'].includes(base)
-  if (['Aeon Guard Battle Dress', "Drifter's Jacket",
+  if (['Aeon Guard Battle Dress', 'Clandestine Suit', "Drifter's Jacket",
     'Myrmidon Siegebreaker Plate', 'Retrieval Harness', 'Stormbreaker Armor'].includes(family ?? ''))
     return ['Jetpack', 'Force Field'].includes(base) || family === "Drifter's Jacket" && base === 'Active Camouflage'
   return family === 'Rocketeer Armor' && ['Force Field', 'Maneuvering Unit'].includes(base)
