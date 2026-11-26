@@ -1238,7 +1238,7 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
     .find(([size]) => seconds % size === 0) : undefined
   const range = value('range_text', 'range')
   const targets = value('area', 'targets', 'target')
-  const save = value('saving_throw', 'save', 'saving_throw_dc')
+  const save = name === 'Supercharge Prism' ? 'Reflex' : value('saving_throw', 'save', 'saving_throw_dc')
   const tracks = name === 'Vanishing Tracks'
   const instant = [
     'Distracting Decoy', 'Heal Animal', 'Heal Companion', 'Slime Spit', 'Snare Hopping',
@@ -1261,6 +1261,7 @@ function spellMetadataBase(entry?: ContentEntry, rank = entry?.level ?? 0, c?: C
       : /^\d+$/.test(range) ? Number(range) === 0 ? 'Touch' : `${range} feet` : range.replace(/^touch$/i, 'Touch'),
     save: save === '—' ? /\b(?:basic )?(?:Fortitude|Reflex|Will)(?= (?:saving throws?|saves?))/i.exec(entry?.description ?? '')?.[0] ?? save : save,
     targets: name === 'Beastmaster Trance' && getSettings().singleAnimalCompanion ? 'Your animal companion'
+      : name === 'Supercharge Prism' ? '20-foot line'
       : name === 'Bramble Bush' ? '5-foot cube'
       : name === 'Magic Passage' ? `5-foot-wide, 10-foot-tall, ${rank >= 7 ? 20 : 10}-foot-deep section of wooden, plaster, or stone wall`
       : name === 'Pummeling Rubble' ? '15-foot cone'

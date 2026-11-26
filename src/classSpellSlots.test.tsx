@@ -328,6 +328,8 @@ it('makes the Viper greater hack Supercharge Prism rollable', () => {
   expect(html).toContain('aria-label="Roll Supercharge Prism: Damage"')
   expect(html).toContain('10d6 force')
   expect(html).toContain('10d6 temporary HP')
+  expect(html).toContain('Reflex')
+  expect(html).toContain('20-foot line')
 })
 
 it('adds Cache Caster as a highest-rank cache-only slot and Root Access as a tenth-rank slot', () => {

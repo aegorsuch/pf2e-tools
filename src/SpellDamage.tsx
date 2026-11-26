@@ -301,9 +301,9 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
     case 'Supercharge Prism':
       return rank >= 5 ? [
         { label: 'Damage', dice: rank + 1, sides: 6, type: 'force',
-          note: 'Critical success: unaffected; success: half damage; failure: full damage; critical failure: double damage' },
+          note: '20-foot line; Reflex save. Critical success: unaffected; success: half damage; failure: full damage; critical failure: double damage' },
         { label: 'Temporary HP', dice: rank + 1, sides: 6, type: 'temporary HP',
-          note: 'Granted to allies in the area for 1 minute' },
+          note: '20-foot line; granted to allies in the area for 1 minute' },
       ] : []
     case 'Rocket Dash':
       return rank >= 6 ? [{ label: 'Damage', dice: 6 + 2 * Math.floor((rank - 6) / 2), sides: 12, type: 'fire',
