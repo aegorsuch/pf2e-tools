@@ -525,6 +525,27 @@ export function datajackBonus(c: Character, entries: ContentEntry[]) {
   const granted = testSubjectDatajack(c)
   return [...installed, ...(granted ? [granted] : [])].sort((a, b) => b.bonus - a.bonus)[0]
 }
+export function pilotingEquipmentBonus(c: Character, entries: ContentEntry[]) {
+  if (!c.systems.includes('sf2e')) return undefined
+  const interfaces = (c.augmentations ?? []).flatMap(item => {
+    const entry = entries.find(candidate => candidate.id === item.entryId && !candidate.deleted
+      && candidate.kind === 'item' && candidate.systems.includes('sf2e')
+      && candidate.data.item_category === 'Augmentations'
+      && /^homebrew:piloting-interface-(?:commercial|tactical|advanced)$/.test(candidate.id))
+    const value = Number(entry?.data.piloting_item_bonus)
+    return entry && Number.isFinite(value) && value > 0
+      ? [{ source: entry.name, value, tactical: !entry.id.endsWith('-commercial') }] : []
+  })
+  const armor = wornArmor(c, entries)
+  const instruments = armor ? armorUpgradeEntries(c, entries, armor).flatMap(entry => {
+    const match = /^Piloting Instruments(?: \((Commercial|Commericial|Tactical|Advanced)\))?$/i.exec(entry.name)
+    if (!match) return []
+    const grade = match[1]?.toLowerCase()
+    const value = grade === 'advanced' ? 3 : grade === 'tactical' ? 2 : 1
+    return [{ source: entry.name, value, tactical: value >= 2 }]
+  }) : []
+  return [...interfaces, ...instruments].sort((a, b) => b.value - a.value)[0]
+}
 export function officerEducationSlots(c: Character) {
   let unslotted = 0
   return activeFeatsNamed(c, "Officer's Education").slice(0, 2).map(feat => ({
@@ -5750,7 +5771,7 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
     grants.push({ name: 'Hefty Hauler', source: 'Talon Transporter', level: sourceLevel('Talon Transporter') })
   }
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Solar Shield').length
-    && !grants.some(grant => grant.name === 'Shield Block')) {
+    && !grants.some(grant => grant.name === 'Shield Block' && grant.source === 'Solar Shield')) {
     grants.push({ name: 'Shield Block', source: 'Solar Shield', level: sourceLevel('Solar Shield') })
   }
   return grants

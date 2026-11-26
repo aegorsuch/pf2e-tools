@@ -7,7 +7,7 @@ import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, 
 import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
-import { KILLERS_BELT_MAJOR, SUPERIOR_DATAJACK } from './supplemental'
+import { ADVANCED_PILOTING_INSTRUMENTS, KILLERS_BELT_MAJOR, PILOTING_INTERFACES, SUPERIOR_DATAJACK } from './supplemental'
 import { INITIATE_TRAINING } from './featChoices'
 import { SearchableSelect } from './SearchableSelect'
 
@@ -1471,6 +1471,55 @@ it('applies the installed Superior Datajack only to system access', () => {
     save={() => {}} part="skills" />)).not.toContain('when accessing a system with the datajack')
 })
 
+it('applies Datajack item bonuses when connected without stacking other item bonuses', () => {
+  const plushie: ContentEntry = { ...mechanic, id: 'plushie', kind: 'item', name: "Programmer's Plushie (Advanced)" }
+  const c: Character = { ...base, systems: ['sf2e'], level: 15, className: 'Mechanic',
+    augmentations: [{ id: 'jack', entryId: SUPERIOR_DATAJACK.id, name: SUPERIOR_DATAJACK.name, slot: 'standard' }] }
+  const row = (character: Character) => renderToStaticMarkup(
+    <SkillsSection c={character} entries={[mechanic, SUPERIOR_DATAJACK, plushie]} save={() => {}} part="skills" />,
+  ).split('class="skill-name">Computers')[1].split('class="skill-name">')[0]
+  const total = (character: Character) => Number(/<b>\+?(-?\d+)/.exec(row(character))![1])
+  expect(total(c)).toBe(total({ ...c, datajackConnected: false }) + 3)
+  expect(row(c)).toContain('Datajack connected')
+  expect(total({ ...c, equipment: [{ name: plushie.name, qty: 1 }] })).toBe(total(c))
+  expect(total({ ...c, augmentations: [] })).toBe(total({ ...c, datajackConnected: false }))
+})
+
+it('applies installed Piloting Interface grade bonuses and preserves the tactical benefit', () => {
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic' }
+  const row = (character: Character, entries = PILOTING_INTERFACES) => renderToStaticMarkup(
+    <SkillsSection c={character} entries={[mechanic, ...entries]} save={() => {}} part="skills" />,
+  ).split('class="skill-name">Piloting')[1].split('class="skill-name">')[0]
+  const total = (character: Character, entries = PILOTING_INTERFACES) => Number(/<b>\+?(-?\d+)/.exec(row(character, entries))![1])
+  const installed = (entry: ContentEntry): Character => ({ ...c,
+    augmentations: [{ id: 'interface', entryId: entry.id, name: entry.name, slot: 'standard' }] })
+  const [commercial, tactical, advanced] = PILOTING_INTERFACES
+  expect(total(installed(commercial))).toBe(total(c) + 1)
+  expect(total(installed(tactical))).toBe(total(c) + 2)
+  expect(total(installed(advanced))).toBe(total(c) + 3)
+  expect(row(installed(tactical))).toContain('Ignore the usual Piloting penalties for Stunt and three-action Drive')
+  expect(row(installed(commercial))).not.toContain('Ignore the usual Piloting penalties')
+  expect(total(installed(tactical), [{ ...tactical, deleted: true }])).toBe(total(c))
+  expect(builder.pilotingEquipmentBonus({ ...installed(tactical), systems: ['pf2e'] }, [tactical])).toBeUndefined()
+})
+
+it('applies Piloting Instruments only while installed in worn armor without stacking implants', () => {
+  const armor: ContentEntry = { ...mechanic, id: 'armor', kind: 'armor', name: 'Test Armor',
+    data: { armor_category: 'Light', upgrade_slots: 1 } }
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic',
+    armors: [{ id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [],
+      worn: true, upgrades: [ADVANCED_PILOTING_INSTRUMENTS.id] }] }
+  const entries = [mechanic, armor, ADVANCED_PILOTING_INSTRUMENTS, ...PILOTING_INTERFACES]
+  const total = (character: Character) => {
+    const markup = renderToStaticMarkup(<SkillsSection c={character} entries={entries} save={() => {}} part="skills" />)
+    return Number(/<b>\+?(-?\d+)/.exec(markup.split('class="skill-name">Piloting')[1])![1])
+  }
+  const baseline = { ...c, armors: [{ ...c.armors![0], worn: false }] }
+  expect(total(c)).toBe(total(baseline) + 3)
+  expect(total({ ...c, augmentations: [{ id: 'interface', entryId: PILOTING_INTERFACES[1].id,
+    name: PILOTING_INTERFACES[1].name, slot: 'standard' }] })).toBe(total(c))
+})
+
 it('omits specified use toggles from Offense while retaining unrelated ones', () => {
   const removed = ['Rat Retinal HUD', 'Sensor Mask', 'Fire Crystal Beam', 'Slip From Sight', 'Wormhole Warren',
     'Dense Weave Musculature', 'Flying Rocket Punch', 'Uncanny Dash']
@@ -2447,6 +2496,17 @@ it('applies Eclectic Obsession only while active and only to a chosen Lore', () 
   expect(builder.temporarySkillTrainings({ ...c, feats: [{ ...c.feats[0], choice: 'Athletics' }] }, entries)[0].skill).toBeUndefined()
   ;(findButtons(tree()).get('Herbalism Lore Trained')!.onClick as () => void)()
   expect(builder.temporarySkillTrainings(c, entries)[0].skill).toBe('Herbalism Lore')
+})
+
+it.each(['Vesk Lore', 'Damoritosh Lore', 'Pact Worlds Lore'] as const)('shows temporary Stellar Nomad %s without granting permanent prerequisites', lore => {
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Kasatha', heritage: 'Stellar Nomad Kasatha',
+    stellarNomadLore: lore, lores: [] }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="skills" />)
+  expect(markup).toContain(`aria-label="${lore} Trained"`)
+  expect(markup).toContain('Stellar Nomad Kasatha')
+  expect(ranksAt(c, [])[lore] ?? 0).toBe(0)
+  const absent = renderToStaticMarkup(<SkillsSection c={{ ...c, heritage: undefined }} entries={[]} save={() => {}} part="skills" />)
+  expect(absent).not.toContain(`aria-label="${lore} Trained"`)
 })
 
 it('applies Current Spell AC without stacking circumstance bonuses and annotates its conditional saves', () => {

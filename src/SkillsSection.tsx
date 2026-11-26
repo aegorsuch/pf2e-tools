@@ -14,7 +14,7 @@ import { TotalBreakdown } from './TotalBreakdown'
 import { warmaskSource, warmaskItemBonus } from './warmask'
 import { armorModifications, armorOverdriveActive } from './inventorArmor'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
-import { apexSkillBonus, deityLabel, temporaryHpGrant, tenaciousStanceActive, warriorLegendWeakness, wornArmor } from './builder'
+import { apexSkillBonus, deityLabel, pilotingEquipmentBonus, temporaryHpGrant, tenaciousStanceActive, warriorLegendWeakness, wornArmor } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { getSettings } from './settings'
 import { backgroundLoreChoiceOptions, backgroundLoreSlots, backgroundSkillSlots, chosenLoreFeats, normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
@@ -280,10 +280,13 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const permanentRanks = ranksAt(c, entries)
   const heritages = new Set(characterHeritages(c, entries).map(heritage => heritage.name))
   const temporaryTrainings = temporarySkillTrainings(c, entries)
+  const nomadLore = c.level >= 1 && c.systems.includes('sf2e') && c.ancestry === 'Kasatha'
+    && c.heritage === 'Stellar Nomad Kasatha' ? c.stellarNomadLore : undefined
   const ranks = temporaryTrainings.reduce((result, training) => training.skill
-    ? { ...result, [training.skill]: Math.max(result[training.skill] ?? 0, training.rank) } : result, permanentRanks)
+    ? { ...result, [training.skill]: Math.max(result[training.skill] ?? 0, training.rank) } : result, { ...permanentRanks })
+  if (nomadLore) ranks[nomadLore] = Math.max(ranks[nomadLore] ?? 0, 1)
   const trainedLores = trainedFeatLores(c, entries)
-  const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...trainedLores.map(grant => grant.name), ...deityGrantedLores(c), ...autoClassSkills(c, entries).filter((s) => / lore$/i.test(s)), ...activeFeatsNamed(c, "Officer's Medical Training").flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) && (ranks[feat.choice] ?? 0) > 0 ? [feat.choice] : []), ...backgroundSkills(bg, c).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
+  const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...(nomadLore ? [nomadLore] : []), ...featLores(c, entries), ...trainedLores.map(grant => grant.name), ...deityGrantedLores(c), ...autoClassSkills(c, entries).filter((s) => / lore$/i.test(s)), ...activeFeatsNamed(c, "Officer's Medical Training").flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) && (ranks[feat.choice] ?? 0) > 0 ? [feat.choice] : []), ...backgroundSkills(bg, c).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
   const picks = c.skillPicks ?? []
   const budget = editingSkills ? skillRankBudget(c, entries) : { trained: 0, expert: 0, master: 0, legendary: 0 }
   const remaining = budget.trained
@@ -508,8 +511,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const additionalSkillGear = s.name === 'Acrobatics' ? antigravHarnessBonus(c, entries)
       : s.name === 'Athletics' ? ephemeralExoskeletonBonus(c, entries)
         : s.name === 'Computers' ? programmersPlushieBonus(c, entries) : undefined
+    const pilotingInterface = s.name === 'Piloting' ? pilotingEquipmentBonus(c, entries) : undefined
+    const datajack = s.name === 'Computers' ? datajackBonus(c, entries) : undefined
     const item = s.name === 'Perception' ? perceptionItemBonus(c, entries)
-      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0, pack?.value ?? 0, skillGear?.value ?? 0, additionalSkillGear?.value ?? 0, apexSkillBonus(c, s.name))
+      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0, pack?.value ?? 0, skillGear?.value ?? 0, additionalSkillGear?.value ?? 0, pilotingInterface?.value ?? 0, c.datajackConnected !== false ? datajack?.bonus ?? 0 : 0, apexSkillBonus(c, s.name))
     const athleticRush = s.name === 'Athletics' && isSpellActive(c, entries, 'Athletic Rush')
     const ferocious = s.name === 'Athletics' && form?.source === 'Untamed Form' && !!activeFeatsNamed(c, 'Ferocious Shape').length
     const meyelsMelody = s.name === 'Performance' && activeFeatsNamed(c, "Meyel's Melody").length > 0
@@ -541,7 +546,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         - statusPenalty + status + (circumstance?.value ?? 0)
     const conditionalTotal = (bonus: number) => signed(total + Math.max(circumstance?.value ?? 0, bonus) - (circumstance?.value ?? 0))
     const itemTotal = (bonus: number) => signed(total + Math.max(0, bonus - item))
-    const datajack = s.name === 'Computers' ? datajackBonus(c, entries) : undefined
     const forestIncrease = ink ? Math.max(item, ink.value + 1) - item : 0
     const skillLabel = s.name === `${c.deity} Lore` && deityEntry ? `${deityLabel(deityEntry)} Lore` : s.name
     return (
@@ -620,6 +624,10 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               note={`${itemTotal(tool.bonus)} when used as a toolkit (+${tool.bonus} item; item bonuses do not stack).`} />)}
           {!!datajack?.bonus && <SourceNote inlineSource={false} source={datajack.name}
             note={`${itemTotal(datajack.bonus)} when accessing a system with the datajack (+${datajack.bonus} item; item bonuses do not stack).`} />}
+          {!!datajack?.bonus && <label> Datajack connected <input type="checkbox" aria-label="Datajack connected"
+            checked={c.datajackConnected !== false} onChange={event => save({ datajackConnected: event.target.checked })} /></label>}
+          {pilotingInterface && <SourceNote inlineSource={false} source={pilotingInterface.source}
+            note={`+${pilotingInterface.value} item bonus; item bonuses do not stack. Take Control as a free action once per turn unless it normally takes multiple actions.${pilotingInterface.tactical ? ' Ignore the usual Piloting penalties for Stunt and three-action Drive.' : ''}`} />}
           {s.name === 'Crafting' && dwarvenAxe && <SourceNote inlineSource={false} source="Axe of the Dwarven Lords"
             note={`${itemTotal(4)} to Craft armor, jewelry, metalwork, stonework, snares, traps, and weapons while carrying the axe (+4 item; item bonuses do not stack).`} />}
           {arrowhead && <SourceNote inlineSource={false} source={arrowhead.source}
@@ -642,6 +650,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               note={training.feat.name === 'Eclectic Obsession'
                 ? 'Temporary proficiency for 10 minutes or until you critically fail a check with this Lore; cannot qualify for skill increases or permanent options.'
                 : 'Temporary proficiency until daily preparations; cannot qualify for skill increases or permanent options.'} />)}
+          {nomadLore === s.name && permanentRank < 1 && <SourceNote inlineSource={false} source="Stellar Nomad Kasatha"
+            note="Temporary proficiency while following the studied edict or anathema; cannot qualify for skill increases or permanent options." />}
           {s.name === 'Fortitude' && !!activeFeatsNamed(c, 'Radiation Resistant').length && <SourceNote inlineSource={false}
             source="Radiation Resistant" note={`${conditionalTotal(1)} against radiation effects (+1 circumstance).`} />}
           {s.name === 'Crafting' && !!activeFeatsNamed(c, 'Tinkering Fingers').length && <SourceNote inlineSource={false}

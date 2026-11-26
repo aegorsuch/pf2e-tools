@@ -19,7 +19,7 @@ import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './bu
 import { animistApparitionSlots, avengerClericSpellSlots, avengerEldritchCastingClass, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, knownSpellNames, selectedGrantedSpellNames, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
-import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
+import { itemSpells, itemSpellUses, itemSpellUsesChange, type ItemSpell } from './itemSpells'
 import { DeferredDetails } from './DeferredDetails'
 import { specificMagicItemName } from './equipmentGroups'
 import { getSettings } from './settings'
@@ -349,7 +349,7 @@ export function ItemSpellUses({ c, save, spell }: Pick<SectionProps, 'c' | 'save
   const uses = itemSpellUses(c, spell)
   if (!uses) return null
   return spellUseTracker(`${spell.name} (${specificMagicItemName(spell.source)})`, uses,
-    spent => save({ itemSpellUses: { ...c.itemSpellUses, [uses.key]: spent } }))
+    spent => save(itemSpellUsesChange(c, spell, spent)))
 }
 
 function spellUseTracker(label: string, uses: NonNullable<ReturnType<typeof limitedSpellUses>>,

@@ -915,6 +915,35 @@ it('shares Presence Intensifier use pips between augmentations and spells', () =
   }
 })
 
+it('shares Tactical Cloaking Skin uses between augmentation and item spell trackers', () => {
+  const skin: ContentEntry = { ...shifting, id: 'skin', name: 'Cloaking Skin (Tactical)', systems: ['sf2e'],
+    level: 10, data: { item_category: 'Augmentations', item_activation_action_ids: '175-cloak' } }
+  const feat = { name: 'Finely Tuned', type: 'Archetype Feat', level: 6, choice: skin.name }
+  let c: Character = { ...character([feat]), systems: ['sf2e'], level: 10, weapons: [],
+    augmentations: [{ id: 'installed', entryId: skin.id, name: skin.name, slot: 'standard' }] }
+  let tree: ReactNode = null
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const markup = () => {
+    function Inspect() {
+      tree = Augmentations({ c, entries: [skin], save })
+      return tree
+    }
+    return renderToStaticMarkup(<Inspect />)
+  }
+  expect(markup()).toContain('aria-label="4 of 4 uses remaining"')
+  ;(findElement(tree, element => element.type === 'button'
+    && element.props['aria-label'] === 'Spend Cloaking Skin (Tactical) use 3')!.props.onClick as () => void)()
+  const spell = itemSpells(c, [skin])[0]
+  expect(itemSpellUses(c, spell)).toMatchObject({ remaining: 3, spent: [2] })
+  const tracker = ItemSpellUses({ c, save, spell })
+  ;(findElement(tracker, element => element.type === 'button'
+    && element.props['aria-label'] === 'Spend Invisibility (Cloaking Skin (Tactical)) use 4')!.props.onClick as () => void)()
+  expect(markup()).toContain('aria-label="2 of 4 uses remaining"')
+  ;(findElement(tree, element => element.type === 'button'
+    && element.props['aria-label'] === 'Remove Cloaking Skin (Tactical) augmentation')!.props.onClick as () => void)()
+  expect(c.itemSpellUses).toEqual({})
+})
+
 it('omits biotech upgrade helper text from granted and installed augmentations', () => {
   const c: Character = { ...character([
     { name: 'Biotech OS Upgrade', type: 'Class Feat', level: 1 },

@@ -146,24 +146,32 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
 const NONE_LORES: string[] = []
 
 const TEST_SUBJECT_ADAPTATIONS = ['Cybernetic Augmentation', 'Extra Limbs', 'Psychic Augmentation', 'Radioactive'] as const
+const STELLAR_NOMAD_LORES = ['Vesk Lore', 'Damoritosh Lore', 'Pact Worlds Lore'] as const
 
 export function HeritagePick({ c, entries, save }: SectionProps) {
   const canChooseAdaptation = c.systems.includes('sf2e') && c.ancestry === 'Ysoki'
   const variants = TEST_SUBJECT_ADAPTATIONS.map(adaptation => ({
     adaptation, name: `Test-Subject Ysoki (${adaptation})`,
   }))
+  const nomadVariants = STELLAR_NOMAD_LORES.map(lore => ({ lore, name: `Stellar Nomad Kasatha (${lore})` }))
   const options = heritagesFor(entries, c.ancestry)
     .filter(entry => !getSettings().disableAncientElfMultitalented || entry.name !== 'Ancient Elf')
     .flatMap(entry => canChooseAdaptation && entry.name === 'Test-Subject Ysoki' && entry.systems.includes('sf2e')
       ? [...(c.heritage === entry.name && !c.testSubjectAdaptation ? [entry] : []),
         ...variants.map(variant => ({ ...entry, name: variant.name }))]
-      : [entry])
+      : c.systems.includes('sf2e') && c.ancestry === 'Kasatha' && entry.name === 'Stellar Nomad Kasatha'
+        && entry.systems.includes('sf2e') ? [entry, ...nomadVariants.map(variant => ({ ...entry, name: variant.name }))]
+        : [entry])
   const value = canChooseAdaptation && c.heritage === 'Test-Subject Ysoki' && c.testSubjectAdaptation
-    ? variants.find(variant => variant.adaptation === c.testSubjectAdaptation)?.name ?? c.heritage : c.heritage
+    ? variants.find(variant => variant.adaptation === c.testSubjectAdaptation)?.name ?? c.heritage
+    : c.heritage === 'Stellar Nomad Kasatha' && c.stellarNomadLore
+      ? nomadVariants.find(variant => variant.lore === c.stellarNomadLore)?.name ?? c.heritage : c.heritage
   return <Pick label="Heritage" kind="heritage" ancestry={c.ancestry} value={value} options={options}
     onChange={name => {
       const variant = variants.find(option => option.name === name)
-      save({ heritage: variant ? 'Test-Subject Ysoki' : name, testSubjectAdaptation: variant?.adaptation })
+      const nomad = nomadVariants.find(option => option.name === name)
+      save({ heritage: variant ? 'Test-Subject Ysoki' : nomad ? 'Stellar Nomad Kasatha' : name,
+        testSubjectAdaptation: variant?.adaptation, stellarNomadLore: nomad?.lore })
     }} />
 }
 
@@ -671,7 +679,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
         </summary>
         <DeferredContent>{() => <div className="character-section-content">
           <div className="row">
-            <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined, ethnicity: undefined, testSubjectAdaptation: undefined })} />
+            <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined, ethnicity: undefined, testSubjectAdaptation: undefined, stellarNomadLore: undefined })} />
             <HeritagePick {...section} />
               {ethnicities.length > 0 && <SearchableSelect label="Ethnicity" aria-label="Ethnicity" value={selectedEthnicity} onChange={(e) => save({ ethnicity: e.target.value || undefined })}>
                 <option value="">Not specified</option>

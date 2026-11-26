@@ -265,6 +265,11 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
     .map(grant => ({ ...grant, fixedLore: grant.name === 'Additional Lore' && !!grant.choice, choice: grant.choice
       ?? c.automaticFeatChoices?.[grant.choiceKey ?? automaticFeatChoiceKey(grant.source, grant.name)] }))
     .filter((grant, index, all) => {
+      if (grant.name === 'Shield Block') {
+        const earliest = all.filter(other => other.name === grant.name)
+          .reduce((first, other) => other.level < first.level ? other : first)
+        return all.indexOf(earliest) === index
+      }
       if (grant.name === 'Augmented Body' && getSettings().singleAugmentedBody)
         return all.findIndex(other => other.name === grant.name) === index
       if (grant.name !== 'Additional Lore' || !grant.choice) return true
@@ -570,7 +575,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     ...slots.map((slot, index) => ({ kind: 'slot' as const, level: slot.level, slot, index })),
   ].sort((a, b) => {
     if (a.level !== b.level) return a.level - b.level
-    if (categories?.length !== 1 || !['general', 'skill'].includes(categories[0])) return 0
+    if (categories?.length !== 1 || !['archetype', 'general', 'skill'].includes(categories[0])) return 0
     const aFeat = a.kind === 'slot' ? c.feats.find(feat => feat.slot === a.slot.key) : a.feat
     const bFeat = b.kind === 'slot' ? c.feats.find(feat => feat.slot === b.slot.key) : b.feat
     if (!aFeat || !bFeat) return Number(!aFeat) - Number(!bFeat)
@@ -708,7 +713,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               ? isClassArchetypeFeat(o) : !isClassArchetypeFeat(o)))
             && (!picksType || (type === 'dedication') === isDedication(o)))
           const sortValue = search[`${s.key}:sort`]
-          const sort = sortValue === 'name' || sortValue === 'level' ? sortValue : suggestible ? 'suggested' : 'level'
+          const sort = sortValue === 'name' || sortValue === 'level' ? sortValue
+            : picksType && type === 'dedication' ? 'name' : suggestible ? 'suggested' : 'level'
           const optionLevels = new Map<string, number>()
           const byLevel = (option: ContentEntry) => {
             let level = optionLevels.get(option.id)
@@ -764,7 +770,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             ? hellknightTrainingBenefit(c, selection.name, selection.choice) : undefined
           const extra = !standardKeys.has(s.key) && !granted
           const label = `L${String(s.level).padStart(2, '0')} ${LABEL[s.displayCategory ?? s.category]}`
-          const grantSource = s.key === TORAG_BOON_FEAT_SLOT ? 'Torag boon' : undefined
+          const grantSource = s.key === TORAG_BOON_FEAT_SLOT ? 'Torag boon' : s.redundantFeat ? s.grantedBy : undefined
           const emptyLabel = grantSource ? `Empty (${grantSource})`
             : s.redundantFeat || s.grantedAncestry && s.grantedBy !== 'Social Chameleon' ? `Empty (${s.grantedBy})`
               : s.grantedFeat === 'Canny Acumen' ? '- empty -' : s.grantedFeat || '- empty -'

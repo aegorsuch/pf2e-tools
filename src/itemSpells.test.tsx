@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it } from 'vitest'
-import { mapAonHit } from './aon'
+import { mapAonHit, mapAonHits } from './aon'
 import snapshot from '../public/data/aon-pf2e.json?raw'
 import sfSnapshot from '../public/data/aon-sf2e.json?raw'
 import { itemSpells, itemSpellUses } from './itemSpells'
@@ -92,6 +92,33 @@ it('grants Presence Intensifier Suggestion with its daily house rule and Finely 
   } finally {
     updateSettings({ presenceIntensifierDaily: previous })
   }
+})
+
+it.each([
+  ['Commercial', 2, 1], ['Tactical', 2, 3], ['Advanced', 4, 3],
+] as const)('adds %s Cloaking Skin Invisibility with grade-based shared uses', (grade, rank, limit) => {
+  const entries = mapAonHits(sfHits.filter(hit => /^(?:Cloaking Skin(?: \([^)]*\))?|Invisibility)$/.test(String(hit._source?.name))), 'sf2e')
+  const skin = entries.find(entry => entry.name === `Cloaking Skin (${grade})`)!
+  expect(skin).toBeDefined()
+  let c: Character = { ...base, systems: ['sf2e'], augmentations: [
+    { id: 'skin', entryId: skin.id, name: skin.name, slot: 'standard' },
+  ], augmentationDailyUses: { skin: true }, augmentationExtraDailyUses: { skin: true } }
+  const feat = { name: 'Finely Tuned', type: 'Archetype Feat', level: 6, choice: skin.name }
+  const getSpell = () => itemSpells(c, entries).find(spell => spell.source.id === skin.id)!
+  let spell = getSpell()
+  expect(spell).toMatchObject({ name: 'Invisibility', rank, actions: 'Single Action' })
+  expect(itemSpellUses(c, spell)).toMatchObject({ limit, remaining: limit - 1, spent: [0] })
+  c = { ...c, feats: [feat] }
+  spell = getSpell()
+  expect(itemSpellUses(c, spell)).toMatchObject({ limit: limit + 1, remaining: limit - 1, spent: [0, limit] })
+  const tracker = ItemSpellUses({ c, spell, save: patch => { c = { ...c, ...patch } } })
+  findUseButton(tracker, `Restore Invisibility (${skin.name}) use 1`)!()
+  expect(itemSpellUses(c, getSpell())?.remaining).toBe(limit)
+  c = { ...c, feats: [] }
+  expect(itemSpellUses(c, getSpell())?.spent).not.toContain(limit)
+  c = { ...c, feats: [feat] }
+  expect(itemSpellUses(c, getSpell())?.spent).toContain(limit)
+  expect(itemSpells({ ...c, augmentations: [] }, entries)).toEqual([])
 })
 
 it('opens False Vitality controls at the item spell rank', () => {

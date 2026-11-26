@@ -2454,6 +2454,22 @@ it('alphabetizes selected feat rows within each level without moving their slot 
   expect(markup.slice(markup.indexOf('>Aardvark</button>'))).toContain('Add L02 Class feat slot')
 })
 
+it('defaults dedication choices to alphabetical order while retaining level sorting', () => {
+  const c: Character = { ...emptyRanger(), level: 8 }
+  const feat = (name: string, level: number): ContentEntry => ({ id: name, systems: ['pf2e'], kind: 'feat',
+    source: 'official', name: `${name} Dedication`, level, traits: ['Archetype', 'Dedication'],
+    description: '', data: { archetype: name }, effects: [], updatedAt: 0 })
+  const entries = [feat('Zulu', 2), feat('Alpha', 4)]
+  const render = (sort?: string) => renderToStaticMarkup(<FeatSlots c={c} entries={entries} save={() => {}}
+    categories={['archetype']} onSearch={() => {}}
+    search={{ 'archetype:8:0:open': '1', 'archetype:8:0:type': 'dedication', ...(sort ? { 'archetype:8:0:sort': sort } : {}) }} />)
+  const alphabetical = render()
+  expect(alphabetical.indexOf('L08 Dedication: Alpha Dedication')).toBeGreaterThan(-1)
+  expect(alphabetical.indexOf('L08 Dedication: Alpha Dedication')).toBeLessThan(alphabetical.indexOf('L08 Dedication: Zulu Dedication'))
+  const level = render('level')
+  expect(level.indexOf('L08 Dedication: Zulu Dedication')).toBeLessThan(level.indexOf('L08 Dedication: Alpha Dedication'))
+})
+
 it('lists class-granted Shield Block as a non-removable general feat', () => {
   const c: Character = { ...emptyRanger(), className: 'Champion', level: 1 }
   const feature: ContentEntry = {
@@ -2478,6 +2494,32 @@ it('lists class-granted Shield Block as a non-removable general feat', () => {
   expect(backgroundMarkup).not.toContain('automatic-feat-row')
   expect(backgroundMarkup).toContain('background-feat-row')
   expect(backgroundMarkup).toContain('aria-label="Add L01 General feat slot"')
+})
+
+it('replaces duplicate Shield Ace Shield Block and labels the selected replacement with its source', () => {
+  const feat = (name: string, level: number, traits: string[], data: ContentEntry['data'] = {}): ContentEntry => ({
+    id: name, name, level, traits, data, kind: 'feat', source: 'official', systems: ['sf2e'],
+    description: '', effects: [], updatedAt: 0,
+  })
+  const entries = [feat('Shield Block', 1, ['General']), feat('Incredible Initiative', 1, ['General']),
+    feat('Solar Shield', 1, ['Solarian']),
+    feat('Shield Ace Dedication', 2, ['Archetype', 'Dedication'], { grants_feats: 'Shield Block, Quick Repair' })]
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], className: 'Solarian', level: 2, feats: [
+    { name: 'Solar Shield', type: 'Class Feat', level: 1, slot: 'class:1:0' },
+    { name: 'Shield Ace Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+  ] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => FeatSlots({ c, entries, save, categories: ['general'] })
+  const replacement = plannedSlots(c, entries).find(slot => slot.redundantFeat === 'Shield Block')!
+  expect(replacement).toMatchObject({ grantedBy: 'Shield Ace Dedication', level: 2 })
+  expect(featSectionGrants(c, entries, ['general']).automaticFeats.filter(grant => grant.name === 'Shield Block'))
+    .toMatchObject([{ source: 'Solar Shield' }])
+  expect(renderToStaticMarkup(tree())).toContain('Empty (Shield Ace Dedication)')
+  findSelect(tree(), 'L02 General feat')!({ target: { value: 'Incredible Initiative' } })
+  expect(c.feats.find(feat => feat.slot === replacement.key)?.name).toBe('Incredible Initiative')
+  expect(renderToStaticMarkup(tree())).toContain('Incredible Initiative <small>(Shield Ace Dedication)</small>')
+  expect(plannedSlots({ ...c, feats: c.feats.filter(feat => feat.name !== 'Solar Shield') }, entries)
+    .some(slot => slot.redundantFeat === 'Shield Block')).toBe(false)
 })
 
 it('lists Close Quarters Whirling Swipe as granted while allowing manual selection for other Soldier styles', () => {

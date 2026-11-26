@@ -256,6 +256,26 @@ export const SUPERIOR_DATAJACK: ContentEntry = {
   effects: [], updatedAt: 1,
 }
 
+export const PILOTING_INTERFACES: ContentEntry[] = [
+  { grade: 'Commercial', level: 5, price: 1600, bonus: 1 },
+  { grade: 'Tactical', level: 11, price: 13000, bonus: 2 },
+  { grade: 'Advanced', level: 17, price: 140000, bonus: 3 },
+].map(({ grade, level, price, bonus }) => ({
+  id: `homebrew:piloting-interface-${grade.toLowerCase()}`, systems: ['sf2e'], kind: 'item', source: 'homebrew',
+  name: `Piloting Interface (${grade})`, level, traits: ['Tech'],
+  description: `This cybernetic interface connects your nervous system to a vehicle's controls. You gain a +${bonus} item bonus to Piloting checks. Once per turn, you can Take Control as a free action unless it normally takes multiple actions.${grade !== 'Commercial' ? ' You ignore the usual Piloting penalties for Stunt and the three-action Drive.' : ''}`,
+  data: { item_category: 'Augmentations', item_subcategory: 'Cybernetics', sourceBook: 'Homebrew', price, piloting_item_bonus: bonus },
+  effects: [], updatedAt: 1,
+}))
+
+export const ADVANCED_PILOTING_INSTRUMENTS: ContentEntry = {
+  id: 'homebrew:piloting-instruments-advanced', systems: ['sf2e'], kind: 'item', source: 'homebrew',
+  name: 'Piloting Instruments (Advanced)', level: 17, traits: ['Tech'],
+  description: 'These armor-mounted instruments connect to your vehicle. You gain a +3 item bonus to Piloting checks. Once per turn, you can Take Control as a free action unless it normally takes multiple actions. You ignore the usual Piloting penalties for Stunt and the three-action Drive.',
+  data: { item_category: 'Upgrades', item_subcategory: 'Armor Upgrades', sourceBook: 'Homebrew', price: 140000, bulk: 1 },
+  effects: [], updatedAt: 1,
+}
+
 export const GAUNTLET: ContentEntry = {
   ...HAFT_STRIKER_WEAPON, id: 'supplemental:full-plate-gauntlet', name: 'Gauntlet',
   traits: ['Agile', 'Free-Hand'],

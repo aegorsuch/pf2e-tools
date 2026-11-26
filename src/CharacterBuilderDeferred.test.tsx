@@ -9,6 +9,40 @@ import { ArmorUpgrades, Augmentations } from './GearSection'
 import { plannedSlots } from './builder'
 import type { Character, ContentEntry, EnergizedSpikesEnergy } from './types'
 
+it('selects and persists Stellar Nomad Lore heritage variants', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  let c: Character = { id: 'nomad', name: 'Test', systems: ['sf2e'], level: 1, ancestry: 'Kasatha',
+    heritage: 'Stellar Nomad Kasatha', abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const heritage: ContentEntry = { id: 'nomad', name: 'Stellar Nomad Kasatha', kind: 'heritage', systems: ['sf2e'],
+    source: 'official', level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 0 }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const render = async () => act(async () => root.render(<HeritagePick c={c} entries={[heritage]} save={patch => { c = { ...c, ...patch } }} />))
+  try {
+    await render()
+    const select = container.querySelector<HTMLSelectElement>('select[aria-label="Heritage"]')!
+    await act(async () => select.dispatchEvent(new FocusEvent('focusin', { bubbles: true })))
+    for (const lore of ['Vesk Lore', 'Damoritosh Lore', 'Pact Worlds Lore'] as const) {
+      const value = `Stellar Nomad Kasatha (${lore})`
+      expect([...select.options].some(option => option.value === value)).toBe(true)
+      await act(async () => { select.value = value; select.dispatchEvent(new Event('change', { bubbles: true })) })
+      expect(c.heritage).toBe('Stellar Nomad Kasatha')
+      expect(c.stellarNomadLore).toBe(lore)
+      c = JSON.parse(JSON.stringify(c))
+      await render()
+      expect(select.value).toBe(value)
+    }
+    await act(async () => { select.value = 'Stellar Nomad Kasatha'; select.dispatchEvent(new Event('change', { bubbles: true })) })
+    expect(c.stellarNomadLore).toBeUndefined()
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
 it('filters the character class picker by system without losing the selected class', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {

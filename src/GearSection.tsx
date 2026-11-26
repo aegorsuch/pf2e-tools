@@ -47,7 +47,7 @@ import { ANCESTRAL_AVATAR } from './battleForms'
 import { spellActiveChange } from './builder'
 import { shieldEntry } from './builder'
 import { augmentationLimitSources, intensifiedElementDamage, inventiveOffensiveOptions, ranksAt, testSubjectDatajack } from './builder'
-import { itemSpells, itemSpellUses, presenceIntensifierUsageKey } from './itemSpells'
+import { cloakingSkinUsageKey, itemSpells, itemSpellUses, itemSpellUsesChange, presenceIntensifierUsageKey } from './itemSpells'
 import { AUTOMATIC_JETPACK_ID, armorUpgradeSlots, automaticArmorUpgradeSlotsUsed, automaticSpecificArmorUpgrades, jetpackSpeed } from './builder'
 import { weaponGradeFamily } from './builder'
 import { isDuplicateVeskAttack, tailbladeInheritance } from './builder'
@@ -166,7 +166,8 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const [apexOnly, setApexOnly] = useState(false)
   if (!c.systems.includes('sf2e')) return null
   const installed = c.augmentations ?? []
-  const presenceSpells = installed.some(item => item.name === 'Presence Intensifier') ? itemSpells(c, entries) : []
+  const augmentationSpells = installed.some(item => item.name === 'Presence Intensifier' || /^Cloaking Skin(?: \(|$)/i.test(item.name))
+    ? itemSpells(c, entries) : []
   const worn = c.armors?.find(armor => armor.worn)
   const wornEntry = worn && armorEntry(c, entries, worn.name, worn.id)
   const wingsRestricted = !!wornEntry && !['Light', 'Unarmored'].includes(armorCategory(wornEntry) ?? '')
@@ -207,18 +208,17 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       const dailyUsed = !!c.augmentationDailyUses?.[item.id]
       const tuned = activeFeatsNamed(c, 'Finely Tuned').some(feat => feat.choice === item.name)
       const extraUsed = !!c.augmentationExtraDailyUses?.[item.id]
-      const presenceSpell = presenceSpells.find(spell => spell.usageKey === presenceIntensifierUsageKey(item.id))
-      const presenceUses = presenceSpell && itemSpellUses(c, presenceSpell)
+      const itemSpell = augmentationSpells.find(spell => [presenceIntensifierUsageKey(item.id), cloakingSkinUsageKey(item.id)].includes(spell.usageKey))
+      const spellUses = itemSpell && itemSpellUses(c, itemSpell)
       return <li key={item.id}><div className="rune"><EntryDescription name={item.name} entry={entry} entries={entries} />
-        {presenceUses ? <span className="focus-tracker" role="group"
-          aria-label={`${presenceUses.remaining} of ${presenceUses.limit} uses remaining`}>
-          {Array.from({ length: presenceUses.limit }, (_, index) => {
-            const spent = presenceUses.spent.includes(index)
+        {spellUses && itemSpell ? <span className="focus-tracker" role="group"
+          aria-label={`${spellUses.remaining} of ${spellUses.limit} uses remaining`}>
+          {Array.from({ length: spellUses.limit }, (_, index) => {
+            const spent = spellUses.spent.includes(index)
             const action = `${spent ? 'Restore' : 'Spend'} ${item.name} use ${index + 1}`
             return <button key={index} type="button" className="focus-point" aria-label={action} title={action}
-              aria-pressed={!spent} onClick={() => save({ itemSpellUses: { ...c.itemSpellUses,
-                [presenceUses.key]: spent ? presenceUses.spent.filter(value => value !== index) : [...presenceUses.spent, index],
-              } })} />
+              aria-pressed={!spent} onClick={() => save(itemSpellUsesChange(c, itemSpell,
+                spent ? spellUses.spent.filter(value => value !== index) : [...spellUses.spent, index]))} />
           })}
         </span> : entry && hasDailyAugmentationActivation(entry) && <span className="focus-tracker" role="group"
           aria-label={`${Number(!dailyUsed) + Number(tuned && !extraUsed)} of ${tuned ? 2 : 1} uses remaining`}>
@@ -241,6 +241,7 @@ export function Augmentations({ c, entries, save }: SectionProps) {
             delete augmentationExtraDailyUses[item.id]
             const itemSpellUses = { ...c.itemSpellUses }
             delete itemSpellUses[presenceIntensifierUsageKey(item.id)]
+            delete itemSpellUses[cloakingSkinUsageKey(item.id)]
             save({ augmentations: installed.filter(existing => existing.id !== item.id), augmentationDailyUses, augmentationExtraDailyUses, itemSpellUses })
           })}>×</button></div>
         {/^Ultralight Wings\b/i.test(item.name) && <label>{' '}<input type="checkbox" aria-label={`Deploy ${item.name}`}

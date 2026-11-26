@@ -224,6 +224,7 @@ export interface Character {
   arcaneThesis?: 'Improved Familiar Attunement' | 'Metamagical Experimentation' | 'Spell Blending' | 'Spell Substitution' | 'Staff Nexus'
   heritage?: string
   testSubjectAdaptation?: 'Cybernetic Augmentation' | 'Extra Limbs' | 'Psychic Augmentation' | 'Radioactive'
+  stellarNomadLore?: 'Vesk Lore' | 'Damoritosh Lore' | 'Pact Worlds Lore'
   activeHandPair?: number
   ysokiDailyUses?: { contaminate?: boolean; retinalHud?: boolean }
   dailyFeatUses?: Record<string, boolean>
@@ -327,6 +328,7 @@ export interface Character {
   augmentations?: { id: string; entryId: string; name: string; slot: string; speed?: string; deployed?: boolean }[]
   augmentationDailyUses?: Record<string, boolean>
   augmentationExtraDailyUses?: Record<string, boolean>
+  datajackConnected?: boolean
   hardpointWeaponId?: string
   dermalPlating?: { grade?: HardlightGrade; raised?: boolean; damaged?: boolean }
   secondaryPowerSourceIds?: string[]

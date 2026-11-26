@@ -18,14 +18,34 @@ export interface ItemSpell {
   dc?: number
   attackBonus?: number
   usesSpellcasting: boolean
+  augmentationUses?: { id: string; baseLimit: number }
+}
+
+function savedItemSpellUses(c: Character, spell: ItemSpell) {
+  const saved = c.itemSpellUses?.[spell.usageKey]
+  if (saved || !spell.augmentationUses) return saved
+  const { id, baseLimit } = spell.augmentationUses
+  return [...(c.augmentationDailyUses?.[id] ? [0] : []),
+    ...(c.augmentationExtraDailyUses?.[id] ? [baseLimit] : [])]
 }
 
 export function itemSpellUses(c: Character, spell: ItemSpell) {
-  const uses = limitedSpellUses(spell.frequency, c.itemSpellUses?.[spell.usageKey])
+  const saved = savedItemSpellUses(c, spell)
+  const limit = limitedSpellUses(spell.frequency)?.limit
+  const uses = limitedSpellUses(spell.frequency, spell.augmentationUses && limit !== undefined
+    ? saved?.filter(index => index < limit) : saved)
   return uses && { key: spell.usageKey, ...uses }
 }
 
+export function itemSpellUsesChange(c: Character, spell: ItemSpell, spent: number[]) {
+  const limit = limitedSpellUses(spell.frequency)?.limit
+  const hidden = spell.augmentationUses && limit !== undefined
+    ? (savedItemSpellUses(c, spell) ?? []).filter(index => index >= limit) : []
+  return { itemSpellUses: { ...c.itemSpellUses, [spell.usageKey]: [...spent, ...hidden] } }
+}
+
 export const presenceIntensifierUsageKey = (id: string) => JSON.stringify([id, 'presence-intensifier', 'suggestion'])
+export const cloakingSkinUsageKey = (id: string) => JSON.stringify([id, 'cloaking-skin', 'invisibility'])
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const normalized = (text: string) => text.replace(/[\u2018\u2019]/g, "'").toLowerCase()
@@ -185,6 +205,22 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
     }
   }
   if (c.systems.includes('sf2e')) for (const augmentation of c.augmentations ?? []) {
+    if (/^Cloaking Skin(?: \((Commercial|Tactical|Advanced)\))?$/i.test(augmentation.name)) {
+      const source = entries.find(entry => entry.id === augmentation.entryId && entry.name === augmentation.name
+        && entry.kind === 'item' && eligible(entry))
+      if (!source) continue
+      const advanced = /\(Advanced\)$/i.test(source.name)
+      const baseLimit = /\((Tactical|Advanced)\)$/i.test(source.name) ? 3 : 1
+      const tuned = activeFeatsNamed(c, 'Finely Tuned').some(feat => feat.choice === augmentation.name)
+      const count = baseLimit + Number(tuned)
+      const frequency = ['once per day', 'twice per day', 'three times per day', 'four times per day'][count - 1]
+      const spell = index.spells.get('invisibility')?.find(entry => eligible(entry) && entry.systems.includes('sf2e'))
+      out.push({ source, name: spell?.name ?? 'Invisibility', entry: spell,
+        usageKey: cloakingSkinUsageKey(augmentation.id), augmentationUses: { id: augmentation.id, baseLimit },
+        rank: Math.max(minimumRank, advanced ? 4 : 2), actions: 'Single Action', frequency,
+        note: 'Invisible for up to 1 minute.', usesSpellcasting: false })
+      continue
+    }
     if (augmentation.name !== 'Presence Intensifier') continue
     const source = entries.find(entry => entry.id === augmentation.entryId && entry.name === augmentation.name
       && entry.kind === 'item' && eligible(entry))
