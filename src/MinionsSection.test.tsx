@@ -2521,3 +2521,15 @@ it('adds the razing trait to grenades with Breaching Grenades', async () => {
   expect(withBreachingGrenades(c, grenade)?.traits).toEqual(['Grenade', 'Razing'])
   expect(withBreachingGrenades({ ...c, feats: [] }, grenade)).toBe(grenade)
 })
+
+it('grants a fly Speed and a Wing unarmed attack only while Skyfire Wings is active', () => {
+  const c: Character = { id: 'sky', name: 'Test', systems: ['sf2e'], level: 10, ancestry: 'Human',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    spells: [{ name: 'Skyfire Wings', rank: 3, cantrip: false }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(ownedWeapons(c, []).some(weapon => weapon.name === 'Wing')).toBe(false)
+  expect(movementSpeeds(c, []).some(speed => speed.name === 'Fly')).toBe(false)
+  const active = { ...c, activeSpells: ['Skyfire Wings'] }
+  expect(ownedWeapons(active, []).some(weapon => weapon.name === 'Wing')).toBe(true)
+  expect(movementSpeeds(active, []).find(speed => speed.name === 'Fly')?.feet).toBeGreaterThanOrEqual(20)
+})

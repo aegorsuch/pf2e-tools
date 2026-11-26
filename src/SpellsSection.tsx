@@ -36,7 +36,7 @@ import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { FORCE_FIELD_PGA_RESISTANCE_TYPES, TECHNOMANCER_LANGUAGE_RULES } from './technomancer'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
-const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Bless', 'Bonding Charge', 'Cairn Form', 'Eat Fire', 'Enduring Might', 'Fly', 'Force-FieldPGA', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magnetic Tuning', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Repair Protocols', 'Stormwind Flight', 'Supercharge Armor', 'Summon Celestial', 'Tailwind']
+const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Bless', 'Bonding Charge', 'Cairn Form', 'Eat Fire', 'Enduring Might', 'Fly', 'Force-FieldPGA', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magnetic Tuning', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Repair Protocols', 'Skyfire Wings', 'Stormwind Flight', 'Supercharge Armor', 'Summon Celestial', 'Tailwind']
 const STATUS_TRACKED_SPELL_EFFECTS = [...AUTOMATED_SPELL_EFFECTS, 'Animal Feature', 'Canopy Crawler', 'Heroism', 'Marvelous Mount', 'Speak with Plants', 'Warning Stripes']
 const SLOT_INCREASE_FEATS = ['Cantrip Expansion', 'Arcane Breadth', 'Divine Breadth', 'Perfect Encore', 'Deep Lore',
   'Faceless Trickster', "Archwizard's Might", 'Bloodline Perfection', 'Maker of Miracles', 'Mind over Matter',

@@ -200,6 +200,13 @@ export const ENERGY_BLAST: ContentEntry = {
   data: { ...FIST.data, weapon_type: 'Ranged', damage: '3d8 fire', range: 120 },
 }
 
+export const SKYFIRE_WING: ContentEntry = {
+  ...FIST, id: 'supplemental:skyfire-wing', name: 'Wing', systems: ['sf2e'],
+  traits: ['Backswing', 'Reach', 'Unarmed'],
+  description: 'Skyfire Wings grants a wing unarmed attack dealing fire damage. On a critical hit, the target takes persistent electricity damage.',
+  data: { ...FIST.data, damage: '1d8 fire' },
+}
+
 export const AUTOMATON_PINCER: ContentEntry = {
   ...FIST, id: 'supplemental:automaton-pincer', name: 'Pincer', systems: ['pf2e'],
   traits: ['Grapple', 'Unarmed'],
@@ -720,7 +727,7 @@ export const HARDLIGHT_GRADES: Record<HardlightGrade, { potency: number; strikin
 }
 
 export const SUPPLEMENTAL_WEAPONS = [HAFT_STRIKER_WEAPON, OVERSIZED_THROW, FIST, IRON_FIST, CAIRN_FIST, SPARK_FIST, ORC_TUSKS, TENGU_BITE, TENGU_DOGFANG_BITE,
-  IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, AUTOMATON_CLAW, AUTOMATON_PINCER, ...FIRST_WORLD_ARMAMENTS, ENERGY_BLAST,
+  IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, AUTOMATON_CLAW, AUTOMATON_PINCER, ...FIRST_WORLD_ARMAMENTS, ENERGY_BLAST, SKYFIRE_WING,
   CLAN_PISTOL, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, UNTAMED_CLAWS, UNTAMED_JAWS, GAUNTLET]
 
 export function homebrewCompanions(entries: ContentEntry[]): ContentEntry[] {

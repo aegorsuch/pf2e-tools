@@ -17,7 +17,7 @@ import { contentAccessGranted, featRarity, spellAccessGranted } from './featAcce
 import { spellResolution } from './spellDefense'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
 import { RUNESMITH_RUNES } from './runesmithRunes'
-import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, FIRST_WORLD_ARMAMENTS, AUTOMATON_CLAW, AUTOMATON_PINCER, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ENERGY_BLAST, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
+import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, FIRST_WORLD_ARMAMENTS, AUTOMATON_CLAW, AUTOMATON_PINCER, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ENERGY_BLAST, SKYFIRE_WING, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
 import { isAncestralEmbrace, isHighhelmPlate, isImmortalBastion, isInheritorPlate, isLibraryRobes, libraryRobesRank, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
@@ -3572,6 +3572,7 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     ...(features.includes('Wings') ? [atLandSpeed('Fly', 'Animal Feature')] : []),
     ...(isSpellActive(c, entries, 'Stormwind Flight') ? [atLandSpeed('Fly', 'Stormwind Flight')] : []),
     ...(isSpellActive(c, entries, 'Fly') ? [{ ...atLandSpeed('Fly', 'Fly'), feet: Math.max(20, land) }] : []),
+    ...(isSpellActive(c, entries, 'Skyfire Wings') ? [{ ...atLandSpeed('Fly', 'Skyfire Wings'), feet: Math.max(20, land) }] : []),
     ...(activeUntamedShiftEffects(c, entries).includes('Wings') ? [fixed('Fly', 30, 'Untamed Shift')] : [])]
   if (c.systems.includes('pf2e') && ranksAt(c, entries).Athletics >= 4) {
     for (const [feat, mode] of [['Quick Climb', 'Climb'], ['Quick Swim', 'Swim']] as const) {
@@ -6730,7 +6731,7 @@ export const armorClass = (c: Character, entries: ContentEntry[]) => armorClassB
 const DWARF_CLAN_PISTOL_ID = 'granted-weapon:dwarf:clan-pistol'
 const DWARF_CLAN_DAGGER_ID = 'granted-weapon:dwarf:clan-dagger'
 
-const iruxiAttackIds = new Set([IRUXI_CLAWS.id, IRUXI_FANGS.id, IRUXI_TAIL.id, AUTOMATON_CLAW.id, AUTOMATON_PINCER.id, ...FIRST_WORLD_ARMAMENTS.map(entry => entry.id), ENERGY_BLAST.id, TENGU_BITE.id, TENGU_DOGFANG_BITE.id])
+const iruxiAttackIds = new Set([IRUXI_CLAWS.id, IRUXI_FANGS.id, IRUXI_TAIL.id, AUTOMATON_CLAW.id, AUTOMATON_PINCER.id, ...FIRST_WORLD_ARMAMENTS.map(entry => entry.id), ENERGY_BLAST.id, SKYFIRE_WING.id, TENGU_BITE.id, TENGU_DOGFANG_BITE.id])
 const nephilimAttackBase: ContentEntry = { ...FIST, systems: ['pf2e'],
   description: 'Bestial Manifestation grants this unarmed attack.',
   data: { ...FIST.data, url: 'https://2e.aonprd.com/Feats.aspx?ID=4548' } }
@@ -7303,6 +7304,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     feat.choice === 'Claw' ? [AUTOMATON_CLAW] : feat.choice === 'Pincer' ? [AUTOMATON_PINCER] : []) : []
   const fadrimAttacks = c.systems.includes('pf2e') ? activeFeatsNamed(c, 'First World Armaments').flatMap(feat =>
     FIRST_WORLD_ARMAMENTS.filter(entry => entry.name === feat.choice)) : []
+  const skyfireWings = c.systems.includes('sf2e') && isSpellActive(c, entries, 'Skyfire Wings') ? [SKYFIRE_WING] : []
   const energyBlasts = c.systems.includes('pf2e') && c.coreCannonActive && activeFeatsNamed(c, 'Core Cannon').length ? [ENERGY_BLAST] : []
   const nephilimSelected = c.systems.includes('pf2e') ? activeFeatsNamed(c, 'Bestial Manifestation').flatMap(feat =>
     nephilimAttacks.filter(entry => entry.name === feat.choice)) : []
@@ -7327,6 +7329,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (weapon.name !== CAIRN_FIST.name || cairnAttacks.length > 0)
     && (weapon.name !== SPARK_FIST.name || sparkAttacks.length > 0)
     && (weapon.id !== ENERGY_BLAST.id || energyBlasts.length > 0)
+    && (weapon.id !== SKYFIRE_WING.id || skyfireWings.length > 0)
     && (!bestialWeapon(weapon.id) || bestialAttacks.some(attack => attack.id === weapon.id))
     && (!ysokiJaws.some(entry => entry.id === weapon.id) || nativeJaws.some(entry => entry.id === weapon.id))
     && (weapon.id !== shirrenJaws.id || shirrenAttacks.length > 0)
@@ -7342,7 +7345,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (![...animalAttacks, UNTAMED_CLAWS, UNTAMED_JAWS].some((entry) => entry.name === weapon.name)
       || [...selectedAttacks, ...untamedAttacks].some((entry) => entry.name === weapon.name)))
     .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
-  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...automatonAttacks, ...fadrimAttacks, ...energyBlasts, ...nephilimSelected, ...tenguBite, ...nativeJaws, ...shirrenAttacks, ...brutalAttacks, ...predatoryAttacks, ...witchSelected, ...venomousJaws,
+  for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...automatonAttacks, ...fadrimAttacks, ...energyBlasts, ...skyfireWings, ...nephilimSelected, ...tenguBite, ...nativeJaws, ...shirrenAttacks, ...brutalAttacks, ...predatoryAttacks, ...witchSelected, ...venomousJaws,
     ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []),
     ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...bestialAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
     if (!available.some((weapon) => iruxiAttackIds.has(entry.id) || witchAttackIds.has(entry.id) || nephilimAttacks.some(attack => attack.id === entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {
@@ -7510,6 +7513,8 @@ function selectedClassSpellSlots(c: Character) {
 
 export const isSpellActive = (c: Character, entries: ContentEntry[], name: string) =>
   !!c.activeSpells?.includes(name) && knowsSpell(c, entries, name)
+
+const skyfireDice = (c: Character) => { const rank = Math.ceil(c.level / 2); return rank >= 9 ? 4 : rank >= 7 ? 3 : rank >= 5 ? 2 : 1 }
 
 export function dinosaurForm(c: Character, entries: ContentEntry[]) {
   return c.dinosaurForm && isSpellActive(c, entries, 'Dinosaur Form')
@@ -8982,6 +8987,10 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     entry = { ...fist, data: { ...fist.data, damage: `${cairn.dice}d6 bludgeoning` } }
   }
   if (entry && w.id === ENERGY_BLAST.id) entry = { ...entry, data: { ...entry.data, damage: c.level >= 20 ? '4d8 fire' : '3d8 fire' } }
+  if (entry && w.id === SKYFIRE_WING.id) {
+    const dice = skyfireDice(c)
+    entry = { ...entry, data: { ...entry.data, damage: `${dice}d8 fire` } }
+  }
   if (sparkFist && (activeFeatsNamed(c, 'Iron Fists').length || activeFeatsNamed(c, 'Iron Fist').length) && entry) {
     entry = { ...entry, traits: [...new Set([...entry.traits, 'Shove'])] }
   }
@@ -9356,6 +9365,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         note: 'On a critical hit, deal 1 persistent poison damage per weapon damage die.' }] : []),
       ...(w.id === ENERGY_BLAST.id ? [{ source: 'Core Cannon', value: '3d6 force',
         note: 'Critical hit: 10 persistent fire damage. Striking and property runes have no effect.' }] : []),
+      ...(w.id === SKYFIRE_WING.id ? [{ source: 'Skyfire Wings', value: `${2 * skyfireDice(c)} persistent electricity (critical hit)`,
+        note: 'On a critical hit, the target takes persistent electricity damage.' }] : []),
       ...(sparkFist ? [{ source: 'Spark Fist', value: `${dice} fire`,
         note: `Activate with one action, once per minute, until the end of your next turn. Each successful fist Strike also deals ${dice} fire damage to you.` }] : []),
       ...((w.id === 'sf2e:solarian:solar-weapon' || w.id === 'sf2e:solarian:twin-weapon')
