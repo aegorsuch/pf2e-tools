@@ -71,7 +71,7 @@ export async function ensureSupplementalContent() {
         'homebrew:ignition-divine', 'homebrew:tailwind-divine',
         'homebrew:persistent-magic-hide', 'homebrew:mobile-hunter', 'homebrew:divine-warrior', 'homebrew:primal-warrior', 'homebrew:instinctive-support',
         'homebrew:ears-of-the-forest-druid', 'homebrew:ears-of-the-forest-ranger', 'homebrew:opening-stance-ranger',
-        'homebrew:versatile-envoy'].includes(entry.id)
+        'homebrew:versatile-envoy', 'homebrew:versatile-operative'].includes(entry.id)
         || entry.id.startsWith('homebrew:laser-focus-rifle') || entry.id.startsWith('homebrew:liminal-focus-rifle'))
         && existing.updatedAt === 1 && !existing.deleted) await db.content.put(entry)
     }

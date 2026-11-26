@@ -43,10 +43,27 @@ const staleVersatileEnvoy = {
   updatedAt: 1,
 }
 
+const staleVersatileOperative = {
+  id: 'homebrew:versatile-operative',
+  name: 'Versatile Operative',
+  kind: 'feat',
+  source: 'homebrew',
+  systems: ['sf2e'],
+  level: 10,
+  traits: ['Operative'],
+  description: '',
+  data: { class: 'Operative' },
+  effects: [],
+  updatedAt: 1,
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
-  mocks.content.get.mockImplementation(async (id: string) =>
-    id === staleVersatileEnvoy.id ? { ...staleVersatileEnvoy } : undefined)
+  mocks.content.get.mockImplementation(async (id: string) => {
+    if (id === staleVersatileEnvoy.id) return { ...staleVersatileEnvoy }
+    if (id === staleVersatileOperative.id) return { ...staleVersatileOperative }
+    return undefined
+  })
 })
 
 it('refreshes bundled Versatile Envoy metadata in existing installs', async () => {
@@ -67,6 +84,15 @@ it('preserves user-edited Versatile Envoy content', async () => {
 
   expect(mocks.content.put).not.toHaveBeenCalledWith(expect.objectContaining({
     id: staleVersatileEnvoy.id,
+  }))
+})
+
+it('refreshes bundled Versatile Operative metadata in existing installs', async () => {
+  await ensureSupplementalContent()
+
+  expect(mocks.content.put).toHaveBeenCalledWith(expect.objectContaining({
+    id: staleVersatileOperative.id,
+    data: expect.objectContaining({ repeatable: true }),
   }))
 })
 
