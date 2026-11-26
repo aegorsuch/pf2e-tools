@@ -525,7 +525,7 @@ export function augmentationLimit(c: Character) {
 }
 export function augmentationLimitUsed(c: Character) {
   // Saved feat-specific slots now count as ordinary implants.
-  return (c.augmentations ?? []).filter(item => !['apex', 'exempt'].includes(item.slot)).length
+  return (c.augmentations ?? []).filter(item => item.slot !== 'exempt').length
 }
 export function augmentationExemption(entry: ContentEntry) {
   if (entry.traits.some(trait => trait.toLowerCase() === 'apex')) return 'apex'
@@ -535,8 +535,8 @@ export function augmentationExemption(entry: ContentEntry) {
 export function canInstallAugmentation(c: Character, entry: ContentEntry, slot: string) {
   if (entry.kind !== 'item' || entry.deleted || !entry.systems.includes('sf2e')
     || String(entry.data.item_category).toLowerCase() !== 'augmentations') return false
-  if (augmentationExemption(entry)) return true
-  return slot === 'standard' && augmentationLimitUsed(c) < augmentationLimit(c)
+  if (augmentationExemption(entry) === 'exempt') return true
+  return (slot === 'standard' || slot === 'apex') && augmentationLimitUsed(c) < augmentationLimit(c)
 }
 export function solarianShield(c: Character): OwnedShield | undefined {
   if (!activeFeatsNamed(c, 'Solar Shield').length) return undefined

@@ -231,7 +231,7 @@ export function Augmentations({ c, entries, save }: SectionProps) {
             secondaryPowerSourceIds: selectedPower.filter(id => id !== item.id) }))}>×</button></div>
         {biotechUpgrade && String(entry?.data.item_subcategory ?? '').toLowerCase() === 'cybernetics' && <SourceNote inlineSource={false}
           source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
-        {' '}<small>({item.slot === 'apex' ? 'apex' : item.slot === 'exempt' ? 'item exemption' : 'implant limit'})</small>
+        {item.slot !== 'standard' && <>{' '}<small>({item.slot === 'apex' ? 'apex' : 'item exemption'})</small></>}
         {/^Ultralight Wings\b/i.test(item.name) && <label>{' '}<input type="checkbox" aria-label={`Deploy ${item.name}`}
           checked={!!item.deployed} disabled={wingsRestricted && !item.deployed}
           onChange={event => save({ augmentations: installed.map(existing => existing.id === item.id

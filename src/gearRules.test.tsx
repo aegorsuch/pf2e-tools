@@ -2161,7 +2161,7 @@ it('adds Adapted Augmentations to normal capacity and counts legacy adapted impl
     { id: 'legacy-body', entryId: implant.id, name: implant.name, slot: 'body:0' },
     { id: 'legacy-adapted', entryId: implant.id, name: implant.name, slot: 'adapted' }] }
   expect(canInstallAugmentation(full, implant, 'standard')).toBe(false)
-  expect(canInstallAugmentation(full, { ...implant, traits: ['Apex'] }, 'standard')).toBe(true)
+  expect(canInstallAugmentation(full, { ...implant, traits: ['Apex'] }, 'standard')).toBe(false)
   expect(canInstallAugmentation(full, { ...implant, description: "This augmentation doesn't count against your implant limit." }, 'standard')).toBe(true)
   const markup = renderToStaticMarkup(<Augmentations c={full} entries={[implant]} save={() => {}} />)
   expect(markup).toContain('aria-label="Augmentation capacity">6/6</small>')
