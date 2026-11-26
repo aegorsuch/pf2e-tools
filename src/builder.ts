@@ -3481,6 +3481,7 @@ const ANCESTRY_MOVEMENT_FEATS: Record<string, Record<string, number>> = {
   'Tree Climber (Goblin)': { Climb: 10 }, "True Dragon's Flight": { Fly: 20 }, 'Warren Digger': { Burrow: 15 },
 }
 
+export const RESIST_ENERGY_TYPES = ['acid', 'cold', 'electricity', 'fire', 'sonic']
 export const MOBILITY_ENHANCER_SPEEDS = ['Burrow', 'Climb', 'Fly', 'Swim']
 export const mobilityEnhancers = (c: Character) => (c.augmentations ?? []).filter(item => /^Mobility Enhancer\b/.test(item.name))
   .map(item => ({ ...item, bonus: /\(Advanced\)$/.test(item.name) ? 15 : /\(Tactical\)$/.test(item.name) ? 10 : 5 }))
@@ -6329,6 +6330,11 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   if (c.systems.includes('sf2e') && c.activeSpells?.includes('Force-FieldPGA')
     && knowsSpell(c, entries, 'Force-FieldPGA') && forceFieldPgaResistance) {
     out.push({ damage: forceFieldPgaResistance, value: 2 * Math.ceil(c.level / 2), source: 'Force-FieldPGA' })
+  }
+  const resistEnergyType = RESIST_ENERGY_TYPES.find(type => type === c.resistEnergyType)
+  if (resistEnergyType && isSpellActive(c, entries, 'Resist Energy')) {
+    const rank = Math.ceil(c.level / 2)
+    out.push({ damage: resistEnergyType, value: rank >= 7 ? 15 : rank >= 4 ? 10 : 5, source: 'Resist Energy' })
   }
   const juggernaut = activeFeatsNamed(c, 'Unstoppable Juggernaut').length > 0
   const ragingResistance = Math.max(0, (juggernaut ? 8 : 3) + abilityMod(c.abilities.con))

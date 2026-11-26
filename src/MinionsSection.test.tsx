@@ -2533,3 +2533,14 @@ it('grants a fly Speed and a Wing unarmed attack only while Skyfire Wings is act
   expect(ownedWeapons(active, []).some(weapon => weapon.name === 'Wing')).toBe(true)
   expect(movementSpeeds(active, []).find(speed => speed.name === 'Fly')?.feet).toBeGreaterThanOrEqual(20)
 })
+
+it('applies a toggled Resist Energy as resistance of the chosen type', async () => {
+  const { resistances } = await import('./builder')
+  const c: Character = { id: 're', name: 'Test', systems: ['pf2e'], level: 8, ancestry: 'Human',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    spells: [{ name: 'Resist Energy', rank: 2, cantrip: false }], resistEnergyType: 'cold',
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(resistances(c, []).some(item => item.source === 'Resist Energy')).toBe(false)
+  expect(resistances({ ...c, activeSpells: ['Resist Energy'] }, [])).toContainEqual(
+    expect.objectContaining({ damage: 'Cold', value: 10 }))
+})

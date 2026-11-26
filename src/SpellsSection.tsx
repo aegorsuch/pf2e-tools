@@ -8,7 +8,7 @@ import type { Character, ContentEntry } from './types'
 import { featTakenLevel, grantedWardenSpells, selectedFeatEntry, spellWardenLabel } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { DamageRoll, SpellActions, SpellDamageRolls, spellActionRolls, spellDamage } from './SpellDamage'
-import { intensifiedElementDamage } from './builder'
+import { intensifiedElementDamage, RESIST_ENERGY_TYPES } from './builder'
 import { companionAdvancementFor, companionStats } from './companions'
 import { classInnateTradition, dailyInnateUses, innateTraditionOptions, gnomeHeritageCantripOptions, gnomeHeritageTradition, grantedFeatSpells, investigatorEsotericaCantripOptions, mageAutomatonOptions, originalNephilimLineage, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
 import { fiendOptions, plantOptions, undeadOptions, type SummonedFiend } from './summonedFiends'
@@ -36,7 +36,7 @@ import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { FORCE_FIELD_PGA_RESISTANCE_TYPES, TECHNOMANCER_LANGUAGE_RULES } from './technomancer'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
-const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Bless', 'Bonding Charge', 'Cairn Form', 'Eat Fire', 'Enduring Might', 'Fly', 'Force-FieldPGA', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magnetic Tuning', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Repair Protocols', 'Skyfire Wings', 'Stormwind Flight', 'Supercharge Armor', 'Summon Celestial', 'Tailwind']
+const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Bless', 'Bonding Charge', 'Cairn Form', 'Eat Fire', 'Enduring Might', 'Fly', 'Force-FieldPGA', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magnetic Tuning', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Repair Protocols', 'Resist Energy', 'Skyfire Wings', 'Stormwind Flight', 'Supercharge Armor', 'Summon Celestial', 'Tailwind']
 const STATUS_TRACKED_SPELL_EFFECTS = [...AUTOMATED_SPELL_EFFECTS, 'Animal Feature', 'Canopy Crawler', 'Heroism', 'Marvelous Mount', 'Speak with Plants', 'Warning Stripes']
 const SLOT_INCREASE_FEATS = ['Cantrip Expansion', 'Arcane Breadth', 'Divine Breadth', 'Perfect Encore', 'Deep Lore',
   'Faceless Trickster', "Archwizard's Might", 'Bloodline Perfection', 'Maker of Miracles', 'Mind over Matter',
@@ -1522,6 +1522,14 @@ export function automatedSpellStatusControls({ c, entries, save }: SectionProps)
             <option key={type} value={type}>{type[0].toUpperCase() + type.slice(1)}</option>)}
         </select>
       </label>}
+      {name === 'Resist Energy' && <label> Resistance type{' '}
+        <select aria-label="Resist Energy type" value={c.resistEnergyType ?? ''} onChange={event => {
+          save({ resistEnergyType: RESIST_ENERGY_TYPES.find(type => type === event.target.value) })
+        }}>
+          <option value="">Choose damage type</option>
+          {RESIST_ENERGY_TYPES.map(type => <option key={type} value={type}>{type[0].toUpperCase() + type.slice(1)}</option>)}
+        </select>
+      </label>}
       {name === 'Animal Feature'
         ? <> <SpellEffectActions c={c} entries={entries} save={save} entry={entry} name="Animal Feature" rank={Math.ceil(c.level / 2)} /></>
         : actions && <> <ActiveSpellActions name={name} entry={entry} actions={actions}>{toggle}</ActiveSpellActions></>}
@@ -2090,6 +2098,14 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           <option key={type} value={type}>{type[0].toUpperCase() + type.slice(1)}</option>)}
       </select>
     </label>
+    : name === 'Resist Energy' ? <label> Resistance type{' '}
+      <select aria-label="Resist Energy type" value={c.resistEnergyType ?? ''} onChange={event => {
+        save({ resistEnergyType: RESIST_ENERGY_TYPES.find(type => type === event.target.value) })
+      }}>
+        <option value="">Choose damage type</option>
+        {RESIST_ENERGY_TYPES.map(type => <option key={type} value={type}>{type[0].toUpperCase() + type.slice(1)}</option>)}
+      </select>
+      </label>
     : name === 'Oaken Resilience' && (grownOfOakSpell
       ? <small>Cast rank {grownOfOakSpell.rank}</small>
       : <label>Cast rank{' '}
