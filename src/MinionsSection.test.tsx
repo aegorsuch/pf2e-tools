@@ -758,9 +758,10 @@ it('shows Squox specific familiar grants and Squox Tricks for a Starfinder Techn
     familiar: { specificFamiliar: 'Squox', abilities: [] },
   }
   const markup = renderToStaticMarkup(MinionsContent({ c, entries: [], save: () => {} }))
-  expect(markup).toContain('<h4>Squox Familiar</h4> (2/2)')
+  expect(markup).toContain('<h4>Squox Familiar</h4> (3/3)')
   expect(markup).toContain('Scent (imprecise, 30 feet)')
   expect(markup).toContain('Climb 25 feet')
+  expect(markup).toContain('<h5>Skills</h5><div>Acrobatics +9 (T)</div>')
   expect(markup).toContain('Squox Tricks')
   expect(markup).toContain('Disarm or Trip with its tail')
 })

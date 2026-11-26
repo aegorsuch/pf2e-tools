@@ -6,7 +6,7 @@ import { contentAccessGranted } from './featAccess'
 
 export const FAMILIAR_RESISTANCE_TYPES = ['acid', 'cold', 'electricity', 'fire', 'poison', 'sonic'] as const
 export const FAMILIAR_SKILLS = [
-  'Arcana', 'Athletics', 'Crafting', 'Deception', 'Diplomacy', 'Intimidation', 'Medicine',
+  'Acrobatics', 'Arcana', 'Athletics', 'Crafting', 'Deception', 'Diplomacy', 'Intimidation', 'Medicine',
   'Nature', 'Occultism', 'Performance', 'Religion', 'Society', 'Survival', 'Thievery',
 ]
 
@@ -372,7 +372,7 @@ const FALLBACK_SPECIFIC_FAMILIARS: ContentEntry[] = [{
   id: 'homebrew:specific-familiar:squox', name: 'Squox', kind: 'familiar', systems: ['sf2e'], source: 'homebrew', level: 0,
   traits: ['Tiny', 'Animal'],
   description: 'A highly adaptable vulpine mammal native to Castrovel, known for its elaborate calls and fondness for shiny objects.',
-  data: { ability_type: 'Specific Familiar', required_abilities: 2, granted_abilities: 'Scent, Climber' },
+  data: { ability_type: 'Specific Familiar', required_abilities: 2, granted_abilities: 'Scent, Climber, Skilled (Acrobatics)' },
   effects: [], updatedAt: 0,
 }]
 
