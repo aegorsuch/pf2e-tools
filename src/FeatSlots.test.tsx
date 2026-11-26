@@ -3019,6 +3019,25 @@ const emptyRanger = (): Character => ({
 })
 
 it.each([
+  ['Solarian', 'solarianShieldAce', 'Shield Ace Dedication', 'archetype:2:g104'],
+  ['Mechanic', 'mechanicGrenadier', 'Grenadier Dedication', 'archetype:2:g100'],
+] as const)('labels %s house-rule dedications with their class', (className, setting, name, slot) => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ [setting]: true })
+  const dedication: ContentEntry = { id: name, name, kind: 'feat', source: 'official', systems: ['sf2e'],
+    level: 2, traits: ['Archetype', 'Dedication'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], className, level: 2,
+    feats: [{ name, type: 'Archetype Feat', level: 2, slot }] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[dedication]} categories={['archetype']} save={() => {}} />)
+  expect(markup).toContain(`${name} <small>(${className})</small>`)
+  const ordinary = { ...c, feats: [{ name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }] }
+  updateSettings({ [setting]: false })
+  const ordinaryMarkup = renderToStaticMarkup(<FeatSlots c={ordinary} entries={[dedication]} categories={['archetype']} save={() => {}} />)
+  expect(ordinaryMarkup).not.toContain(`${name} <small>(${className})</small>`)
+})
+
+it.each([
   ['Envoy', 'envoyFieldAgent'],
   ['Mystic', 'mysticFieldAgent'],
   ['Mechanic', 'mechanicFieldAgent'],

@@ -620,6 +620,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             </Fragment>
           }
           const { slot: s } = row
+          const houseDedication = homebrewDedication(s.key)
           const current = c.feats.find((f) => f.slot === s.key)?.name ?? (c.skippedFeatSlots?.includes(s.key) ? 'N/A' : '')
           const featIndex = c.feats.findIndex((f) => f.slot === s.key)
           const selection = c.feats[featIndex]
@@ -769,7 +770,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               : s.grantedFeat === 'Canny Acumen' ? '- empty -' : s.grantedFeat || '- empty -'
           const lastSlot = slots.filter((slot) => slot.category === s.category && slot.level === s.level).length === 1
           const classDedication = s.key === 'class:2:0' && !!s.grantedFeat
-          const locked = !!homebrewDedication(s.key) || classDedication
+          const locked = !!houseDedication || classDedication
           const requiredGrant = s.key === 'skill:4:0' || !!s.grantedFeat || !!s.redundantFeat || !!s.grantedAncestry || s.grantedBy === 'Versatile Rogue' || s.grantedBy === 'Versatile Investigator' || s.grantedBy === "Investigator's Skillful Lessons" || s.grantedBy === 'Eldritch Trickster' || s.grantedBy === 'Order Explorer' || s.grantedBy === "Officer's Education" || s.grantedBy === "Mechanic's Ingenuity" || s.grantedBy === "Operative's Specialization" || s.grantedBy === 'Versatile Operative' || s.grantedBy === 'Sniper' || s.grantedBy === 'Social Chameleon' || s.grantedBy === 'Natural Performer' || s.grantedBy === 'Pitborn' || s.grantedBy === 'Captain Dedication' || s.grantedBy === 'Scion of Many Planes' || s.grantedBy === 'In Another Life'
           const automaticOrderFeat = s.grantedBy === 'Order Explorer' && !!current
             && (() => {
@@ -817,8 +818,10 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             {heading}
             <li className={`feat-slot-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
               {multi && <span>{label}{s.category === 'skill' ? ' Feats' : ''}</span>}
-              {homebrewDedication(s.key) ? (
-                <EntryDescription character={c} name={homebrewDedication(s.key)!.name} entry={currentEntry} entries={entries} className="feat-name" prerequisites={prerequisites} access={access} deferDetails={!!onSearch} />
+              {houseDedication ? (
+                <EntryDescription character={c} name={houseDedication.name} entry={currentEntry} entries={entries} className="feat-name"
+                  grantSource={'className' in houseDedication ? houseDedication.className : undefined}
+                  prerequisites={prerequisites} access={access} deferDetails={!!onSearch} />
               ) : current ? (
                 current === 'N/A' ? <span>N/A</span> : <>
                   <EntryDescription character={c} name={descriptionName} entry={descriptionEntry}

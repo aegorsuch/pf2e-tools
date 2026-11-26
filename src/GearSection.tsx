@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeBaseName, runeName, canBeOsteoArmament, osteoArmamentRune, activeBattleForm, withoutBattleForm, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
   activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, hasDailyAugmentationActivation, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, isSolarianCrystalWeapon, solarianCoreCrystals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, type SectionProps,
@@ -465,12 +465,12 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
   )
 }
 
-function GearTag({ name, entry, onRemove, source = 'Granted by Living Weapon', kind = 'rune' }: {
-  name: string; entry?: ContentEntry; onRemove?: () => void; source?: string; kind?: 'rune' | 'material' | 'upgrade'
+function GearTag({ name, entry, onRemove, source = 'Granted by Living Weapon', kind = 'rune', dialogContent }: {
+  name: string; entry?: ContentEntry; onRemove?: () => void; source?: string; kind?: 'rune' | 'material' | 'upgrade'; dialogContent?: ReactNode
 }) {
   return (
     <div className="rune" title={onRemove ? undefined : source}>
-      <EntryDescription name={name} entry={entry} />
+      <EntryDescription name={name} entry={entry} dialogContent={dialogContent} />
       {onRemove && <button type="button" aria-label={`Remove ${name} ${kind}`} onClick={() => confirmRemoval(`"${name}" ${kind}`, onRemove)}>×</button>}
     </div>
   )
@@ -632,19 +632,17 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
     {displayUpgrades.map(item => {
       if (item.kind === 'automatic') return <span className="rune" key={`automatic:${item.entry.id}:${item.entry.data.automatic_energy_type ?? ''}`}>
         <GearTag name={`${automaticName(item.entry)}${automaticArmorUpgradeUsesSlot(armorName, item.entry) ? '' : ' *'}`}
-          entry={item.entry} kind="upgrade" source={`Built into ${armorName}`} />
+          entry={item.entry} kind="upgrade" source={`Built into ${armorName}`} dialogContent={energizedSpikesControl(item.entry)} />
         {jetpackSpeed(item.entry) > 0 && <button type="button" className={`spell-action-button${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? ' on' : ''}`}
           aria-label={`${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? 'Dismiss' : 'Activate'} ${item.entry.name}`}
           aria-pressed={activeJetpack === AUTOMATIC_JETPACK_ID && worn} disabled={!worn}
           title={`${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? 'Dismiss' : 'Activate'} jetpack (1 minute; cannot lift while encumbered${jetpackSpeed(item.entry) === 20 ? '; off-guard while hovering' : ''})`}
           onClick={() => onToggleJetpack(AUTOMATIC_JETPACK_ID)}><ActionIcon actions="Single Action" /></button>}
-        {energizedSpikesControl(item.entry)}
       </span>
       const { id, index, entry, automatic } = item
       return <span className="rune" key={`${id}:${index}`}>
-        <GearTag name={item.name} entry={automatic ?? entry} kind="upgrade"
+        <GearTag name={item.name} entry={automatic ?? entry} kind="upgrade" dialogContent={energizedSpikesControl(automatic ?? entry)}
           onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />
-      {energizedSpikesControl(automatic ?? entry)}
       {jetpackSpeed(automatic ?? entry) > 0 && <button type="button" className={`spell-action-button${activeJetpack === id && worn ? ' on' : ''}`}
         aria-label={`${activeJetpack === id && worn ? 'Dismiss' : 'Activate'} ${automatic?.name ?? entry?.name}`}
         aria-pressed={activeJetpack === id && worn} disabled={!worn || index >= limit}

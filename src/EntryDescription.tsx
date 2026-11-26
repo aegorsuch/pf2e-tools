@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react'
 import type { Character, ContentEntry } from './types'
 import type { PrerequisiteCheck } from './featPrerequisites'
 import { ignoresFeatPrerequisites } from './featPrerequisites'
@@ -37,7 +37,7 @@ function featIndex(entries: ContentEntry[]) {
 
 type EntryDescriptionProps = {
   name: string; entry?: ContentEntry; choice?: string; className?: string; prerequisites?: PrerequisiteCheck; access?: FeatAccessCheck; buttonLabel?: string; buttonSuffix?: string; buttonActions?: string; hideButtonActions?: boolean; grantSource?: string; descriptionNote?: string; entries?: ContentEntry[]; character?: Character
-  deferDetails?: boolean
+  deferDetails?: boolean; dialogContent?: ReactNode
 }
 
 export function EntryDescription({ name, entry, className, prerequisites, access, buttonLabel, buttonSuffix, buttonActions, hideButtonActions, grantSource, entries, character, deferDetails, ...details }: EntryDescriptionProps) {
@@ -85,7 +85,7 @@ export function EntryDescription({ name, entry, className, prerequisites, access
   )
 }
 
-function EntryDescriptionContents({ name, entry, choice, prerequisites, access, descriptionNote, entries, character, history, setHistory, dialog, titleId, includeChoiceSpell }: EntryDescriptionProps & {
+function EntryDescriptionContents({ name, entry, choice, prerequisites, access, descriptionNote, dialogContent, entries, character, history, setHistory, dialog, titleId, includeChoiceSpell }: EntryDescriptionProps & {
   history: ContentEntry[]; setHistory: Dispatch<SetStateAction<ContentEntry[]>>
   dialog: RefObject<HTMLDialogElement | null>; titleId: string; includeChoiceSpell: boolean
 }) {
@@ -181,6 +181,7 @@ function EntryDescriptionContents({ name, entry, choice, prerequisites, access, 
             && <> {text(domainSpellDescription(character, entries, 'Domain Initiate', training.choice))}</>}
         </p>}
         {!history.length && descriptionNote && <p>{text(descriptionNote)}</p>}
+        {!history.length && dialogContent}
         {!!leads?.length && <p>Leads to: {leads.map((link, index) => <span key={`${link.url}:${index}`}>
           {index > 0 && ', '}{link.target
             ? <button type="button" onClick={() => { const target = link.target; if (target) setHistory(previous => [...previous, target]); dialog.current?.querySelector('h4')?.focus() }}>{title(link.name, link.target)}</button>

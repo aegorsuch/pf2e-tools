@@ -238,9 +238,14 @@ it.each([
   }
 })
 
-it.each([['Commercial', 2], ['Tactical', 5], ['Advanced', 8]] as const)(
-  'rolls %s Energized Spikes when choosing damage type', async (grade, dice) => {
+it.each([
+  ['Commercial', 2, false], ['Tactical', 5, true], ['Advanced', 8, false],
+] as const)(
+  'opens %s Energized Spikes and rolls selected damage', async (grade, dice, installed) => {
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+      this.setAttribute('open', '')
+    } })
     const random = vi.spyOn(Math, 'random').mockReturnValue(0)
     const item: ContentEntry = { id: grade, name: `Energized Spikes (${grade})`, systems: ['sf2e'], kind: 'item',
       source: 'official', level: 1, traits: [], description: '', data: { item_subcategory: 'Armor Upgrades' }, effects: [], updatedAt: 0 }
@@ -249,9 +254,13 @@ it.each([['Commercial', 2], ['Tactical', 5], ['Advanced', 8]] as const)(
     document.body.append(container)
     const root = createRoot(container)
     try {
-      await act(async () => root.render(<ArmorUpgrades entries={[item]} upgrades={[]} automaticUpgrades={[item]}
+      await act(async () => root.render(<ArmorUpgrades entries={[item]} upgrades={installed ? [item.id] : []} automaticUpgrades={installed ? [] : [item]}
         limit={1} worn energizedSpikesEnergy="fire" onEnergizedSpikesEnergyChange={clear} onChange={() => {}} onToggleJetpack={() => {}} />))
-      const select = container.querySelector<HTMLSelectElement>('[aria-label="Roll Energized Spikes damage"]')!
+      expect(container.querySelector('dialog[open]')).toBeNull()
+      const button = [...container.querySelectorAll<HTMLButtonElement>('button')].find(candidate => candidate.textContent?.includes(item.name))!
+      await act(async () => button.click())
+      const dialog = container.querySelector<HTMLDialogElement>('dialog[open]')!
+      const select = dialog.querySelector<HTMLSelectElement>('[aria-label="Roll Energized Spikes damage"]')!
       await act(async () => { select.value = 'fire'; select.dispatchEvent(new Event('change', { bubbles: true })) })
       expect(container.querySelector('[aria-label="Energized Spikes damage result"]')?.textContent).toContain(`${dice} fire`)
       expect(clear).toHaveBeenCalledWith(undefined)
