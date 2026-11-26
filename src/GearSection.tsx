@@ -564,8 +564,10 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
     a.name.replace(/\s*\([^)]*\)$/, '') === b.name.replace(/\s*\([^)]*\)$/, '')
   const automaticFor = (entry?: ContentEntry) => automaticUpgrades.find(automatic => !!entry
     && !isEnergyShieldingUpgrade(automatic) && sameUpgrade(automatic, entry))
-  const automaticName = (entry: ContentEntry) => entry.data.automatic_energy_type === 'electricity'
-    ? `${entry.name} (Electricity)` : entry.name
+  const automaticName = (entry: ContentEntry) => {
+    const type = ENERGY_SHIELDING_TYPES.find(candidate => candidate === entry.data.automatic_energy_type)
+    return type ? `${entry.name} (${type[0].toUpperCase()}${type.slice(1)})` : entry.name
+  }
   const energizedSpikesControl = (entry?: ContentEntry) => {
     if (!entry || entry.name.replace(/\s*\([^)]*\)$/, '') !== 'Energized Spikes') return null
     const dice = entry.name.includes('(Advanced)') ? 8 : entry.name.includes('(Tactical)') ? 5 : 2

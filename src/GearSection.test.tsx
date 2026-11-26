@@ -3,7 +3,7 @@ import { Children, cloneElement, isValidElement, type ReactElement, type ReactNo
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, ArmorUpgrades, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, armorUpgradeSlots as resolvedArmorUpgradeSlots, automaticArmorUpgradeSlotsUsed, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon, installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, armorUpgradeSlots as resolvedArmorUpgradeSlots, automaticArmorUpgradeSlotsUsed, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon, installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, parryValue, resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, OVERSIZED_THROW } from './supplemental'
@@ -2744,6 +2744,7 @@ it('automatically installs hardlight grapple and shove modules at level 8 withou
     const fist17 = ownedWeapons(level17, entries).find(item => item.name === 'Fist')!
     expect(installedWeaponUpgrades(level17, entries, fist17).map(item => item.name)).toContain('Protection Grid (Tactical)')
     expect(hasParryWeapon(level17, entries)).toBe(true)
+    expect(parryValue(level17, entries)).toBe(2)
     updateSettings({ automaticSfWeaponUpgrades: false })
     expect(installedWeaponUpgrades(c, entries, fist).map(item => item.name)).toEqual(['Grappling Module'])
     expect(weaponAttack(c, entries, fist).traits).not.toContain('Shove')
@@ -3005,7 +3006,7 @@ it('rolls Energized Spikes using their grade and clears their stored charge', ()
 
 it('auto-installs Drifter Jacket upgrades, reserving slots for Jetpack, Force Field, and Active Camouflage', () => {
   const jacket: ContentEntry = { ...weapon, id: 'drifters-jacket', name: "Drifter's Jacket", kind: 'armor', systems: ['sf2e'],
-    level: 10, description: 'A practical jacket.', data: { url: 'drifters-jacket', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 2 } }
+    level: 10, description: 'A practical jacket.', data: { url: 'drifters-jacket', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 1 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
     systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
   const upgrades = [
@@ -3017,6 +3018,7 @@ it('auto-installs Drifter Jacket upgrades, reserving slots for Jetpack, Force Fi
   ] }
   const entries = [jacket, ...upgrades]
   const markup = renderToStaticMarkup(ArmorList({ c, entries, save: () => {} }))
+  expect(resolvedArmorUpgradeSlots(jacket)).toBe(2)
   expect(automaticArmorUpgradeSlotsUsed(jacket)).toBe(3)
   expect(markup).toContain('Drift Drive Relay (Commercial) *')
   expect(markup).toContain('Maneuvering Unit (Tactical) *')
@@ -3146,21 +3148,26 @@ it('auto-installs Aeon Guard Battle Dress Jetpack and Force Field using two upgr
   expect(markup).not.toContain('Add armor upgrade')
 })
 
-it('auto-installs Aquavarius Armor Aqua Jets free while reserving slots for Jetpack and Force Field', () => {
+it('auto-installs Aquavarius Armor Aqua Jets and cold Energy Shielding without Jetpack', () => {
   const armor: ContentEntry = { ...weapon, id: 'aquavarius-armor', name: 'Aquavarius Armor', kind: 'armor', systems: ['sf2e'],
     level: 9, data: { url: 'aquavarius-armor', armor_category: 'Light', ac: 3, armor_grade: 'Commercial', upgrade_slots: 2 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
     systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
   const upgrades = [module('Jetpack (Tactical)', 9), module('Force Field (Advanced)', 7),
-    module('Aqua Jets (Tactical)', 17)]
+    module('Aqua Jets (Tactical)', 17), module('Energy Shielding (Advanced)', 18)]
   const c: Character = { ...character([]), systems: ['sf2e'], level: 20, armors: [
     { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
   expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(2)
   expect(markup).toContain('Aqua Jets (Tactical) *')
-  expect(markup).not.toContain('Jetpack (Tactical) *')
+  expect(markup).toContain('Energy Shielding (Advanced) (Cold)')
+  expect(markup).not.toContain('Jetpack (Tactical)')
   expect(markup).not.toContain('Force Field (Advanced) *')
+  expect(markup).not.toContain('Energy Shielding (Advanced) (Cold) *')
+  expect(resistances(c, [armor, ...upgrades])).toContainEqual({
+    damage: 'Cold', value: 15, source: 'Energy Shielding (Advanced) (Cold)',
+  })
   expect(markup).not.toContain('Add armor upgrade')
 })
 

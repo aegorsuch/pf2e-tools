@@ -3235,9 +3235,10 @@ export function armorUpgradeSlots(entry?: ContentEntry) {
   const family = entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   if (entry.systems.includes('sf2e') && family === 'Stormbreaker Armor'
     && (entry.data.armor_grade === 'Paragon' || /^Paragon /i.test(entry.name))) return 4
+  const additionalSlots = entry.systems.includes('sf2e') && family === "Drifter's Jacket" ? 1 : 0
   const slots = Number(entry.data.upgrade_slots)
-  if (Number.isFinite(slots) && entry.data.upgrade_slots !== undefined) return slots
-  return Number(/\bUpgrades\W{0,6}(\d+)/i.exec(entry.description ?? '')?.[1] ?? 0)
+  if (Number.isFinite(slots) && entry.data.upgrade_slots !== undefined) return slots + additionalSlots
+  return Number(/\bUpgrades\W{0,6}(\d+)/i.exec(entry.description ?? '')?.[1] ?? 0) + additionalSlots
 }
 
 export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
@@ -3255,7 +3256,8 @@ export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upg
   const family = armorName?.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   const base = upgrade.name.replace(/\s*\([^)]*\)$/, '')
   if (family === 'Carvesong') return true
-  if (['Aeon Guard Battle Dress', 'Aquavarius Armor', "Drifter's Jacket",
+  if (family === 'Aquavarius Armor') return ['Force Field', 'Energy Shielding'].includes(base)
+  if (['Aeon Guard Battle Dress', "Drifter's Jacket",
     'Myrmidon Siegebreaker Plate', 'Retrieval Harness', 'Stormbreaker Armor'].includes(family ?? ''))
     return ['Jetpack', 'Force Field'].includes(base) || family === "Drifter's Jacket" && base === 'Active Camouflage'
   return family === 'Rocketeer Armor' && ['Force Field', 'Maneuvering Unit'].includes(base)
@@ -3272,7 +3274,7 @@ const DRIFTER_JACKET_ARMOR_UPGRADES = ['Active Camouflage', 'Drift Drive Relay',
 const ROCKETEER_ARMOR_UPGRADES = ['Maneuvering Unit']
 const RETRIEVAL_HARNESS_ARMOR_UPGRADES = ['Easypatcher']
 const STORMBREAKER_ARMOR_UPGRADES = ['Energized Spikes', 'Energy Shielding']
-const AQUAVARIUS_ARMOR_UPGRADES = ['Aqua Jets']
+const AQUAVARIUS_ARMOR_UPGRADES = ['Aqua Jets', 'Energy Shielding']
 const SPELL_ARMOR_UPGRADES = ['Spell Gauntlet', 'Spell Refactoring Matrix']
 const SF_UPGRADE_GRADES = 'Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon'
 export const AUTOMATIC_JETPACK_ID = 'automatic:jetpack'
@@ -3283,7 +3285,9 @@ export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEnt
   const standardArmor = AUTOMATIC_UPGRADE_ARMORS.has(family)
   const spellArmor = SPELL_ARMOR_FAMILIES.has(family)
   if (!standardArmor && !spellArmor) return []
-  const upgrades = [...(standardArmor ? AUTOMATIC_ARMOR_UPGRADES : []),
+  const upgrades = [...(standardArmor
+    ? family === 'Aquavarius Armor' ? ['Force Field'] : AUTOMATIC_ARMOR_UPGRADES
+    : []),
     ...(family === 'Clandestine Suit' ? CLOAKING_ARMOR_UPGRADES : []),
     ...(family === "Drifter's Jacket" ? DRIFTER_JACKET_ARMOR_UPGRADES : []),
     ...(family === 'Rocketeer Armor' ? ROCKETEER_ARMOR_UPGRADES : []),
@@ -3299,8 +3303,10 @@ export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEnt
       .sort((a, b) => b.level - a.level || Number(b.name.includes('(')) - Number(a.name.includes('(')))
     const selected = candidates[0]
     if (!selected) return []
-    return family === 'Stormbreaker Armor' && base === 'Energy Shielding'
-      ? [{ ...selected, data: { ...selected.data, automatic_energy_type: 'electricity' } }]
+    const automaticEnergyType = family === 'Stormbreaker Armor' ? 'electricity'
+      : family === 'Aquavarius Armor' ? 'cold' : undefined
+    return base === 'Energy Shielding' && automaticEnergyType
+      ? [{ ...selected, data: { ...selected.data, automatic_energy_type: automaticEnergyType } }]
       : [selected]
   })
 }

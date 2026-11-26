@@ -14,6 +14,7 @@ import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
 import { TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
 import { SearchableSelect } from './SearchableSelect'
+import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 
 let previousPlanning: boolean
 beforeEach(() => {
@@ -75,6 +76,22 @@ it('offers Field Agent extra Lore only when Starfinder Lore was already trained'
     <StarfinderFieldAgentLoreChoice c={character} entries={[]} save={() => {}} />)
   expect(render(c)).toContain('aria-label="Starfinder Field Agent additional Lore"')
   expect(render({ ...c, lores: [] })).toBe('')
+})
+
+it('offers Versatile Envoy again in the class feat picker with unused leadership styles', () => {
+  const feat = homebrewCharacterOptions([]).find(entry => entry.name === 'Versatile Envoy')!
+  const styles = STARFINDER_SUBCLASSES.filter(style => style.data.class === 'Envoy')
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], className: 'Envoy', level: 12,
+    feats: [{ name: feat.name, type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'From the Shadows' }] }
+  const entries = [...styles, feat]
+  const tree = () => FeatSlots({ c, entries, categories: ['class'], save: patch => { c = { ...c, ...patch } },
+    search: { 'class:12:0:open': '1' }, onSearch: () => {} })
+  expect(renderToStaticMarkup(tree())).toContain('L12 Class: Versatile Envoy (Guns Blazing)')
+  expect(renderToStaticMarkup(tree())).not.toContain('L12 Class: Versatile Envoy (From the Shadows)')
+  findButton(tree(), 'L12 Class: Versatile Envoy (Guns Blazing)')!()
+  expect(c.feats).toContainEqual(expect.objectContaining({
+    name: feat.name, slot: 'class:12:0', choice: 'Guns Blazing',
+  }))
 })
 
 it('reuses picker prerequisite results when search changes', () => {
