@@ -1,4 +1,4 @@
-import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, crimsonClawUsesVersatileSlashing, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, selectedFeatEntry, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldRaiseLabel, showParryControl, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, weaponEntry, whirlwindStanceActive, wornArmor, type SectionProps } from './builder'
+import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, crimsonClawUsesVersatileSlashing, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, ownedWeapons, parryValue, selectedFeatEntry, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldRaiseLabel, showParryControl, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, weaponAttack, weaponEntry, weaponHeld, whirlwindStanceActive, wornArmor, type SectionProps } from './builder'
 import { activeCatAlly, grantedFeatSpells } from './featSpells'
 import { FavoredTerrainSelector, HardenFleshToggle, RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
@@ -20,6 +20,18 @@ import { companionAdvancementFor, companionStats, constructCompanionAdvancement,
 import { ActionIcon } from './ActionIcon'
 import { AUTOMATIC_JETPACK_ID, armorUpgradeEntries, automaticSpecificArmorUpgrades, forceFieldAlwaysActive, forceFieldStats, jetpackSpeed } from './builder'
 import type { OwnedArmor } from './types'
+import { weaponBoostChange, weaponBoostDamage } from './weaponBoost'
+
+function boostWeapons(c: SectionProps['c'], entries: SectionProps['entries']) {
+  if (!c.systems.includes('sf2e')) return []
+  return ownedWeapons(c, entries).flatMap(weapon => {
+    const active = !!c.boostedWeaponIds?.includes(weapon.id)
+    if (!active && !weaponHeld(c, entries, weapon)) return []
+    const attack = weaponAttack(c, entries, weapon)
+    const damage = weaponBoostDamage(attack.entry, attack.traits)
+    return damage ? [{ weapon, damage, active }] : []
+  })
+}
 
 const entrenchMeleeEntry = (bonus: number): ContentEntry => ({
   id: `action:entrench-melee:${bonus}`, systems: ['pf2e'], kind: 'trait', source: 'official', name: 'Entrench Melee',
@@ -170,6 +182,7 @@ export function StatusesSummary({ c, entries, save }: SectionProps) {
     ...(mountainPoisonImmunities(c).length ? ['Poison Immunity'] : []),
     ...((c.armors ?? []).some(armor => isIncendiaryArmor(armor.name) && armor.livingFlameActive) ? ['Living Flame'] : []),
     ...(fulminatingShotBonus(c) ? [`Fulminating Shot (${fulminatingShotBonus(c)})`] : []),
+    ...boostWeapons(c, entries).filter(boost => boost.active).map(({ weapon, damage }) => `Boost (${weapon.name}: ${damage})`),
     ...(purifyAirActive(c) ? ['Purify Air'] : []),
     ...(c.hardenFleshActive && activeFeatsNamed(c, 'Harden Flesh').length ? ['Harden Flesh'] : []),
     ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Space Pirate Dedication').length
@@ -352,6 +365,14 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   const terrainLocked = activeFeatsNamed(c, 'Terrain Master').length > 0
   const controls = [
     { name: 'Active stance', element: <StancesContent c={c} entries={entries} save={save} /> },
+    ...boostWeapons(c, entries).map(({ weapon, damage, active }) => ({
+      name: `Boost (${weapon.name}: ${weapon.id})`,
+      element: <button type="button" className={`spell-action-button status-action-button${active ? ' on' : ''}`}
+        aria-label={`Boost: ${weapon.name}`} aria-pressed={active}
+        onClick={() => save(weaponBoostChange(c, weapon.id, !active))}>
+        {active && <span aria-hidden="true">✓</span>} Boost ({weapon.name}: {damage}) <ActionIcon actions="Single Action" />
+      </button>,
+    })),
     ...(jetpackControl ? [jetpackControl] : []),
     ...(forceFieldControl ? [forceFieldControl] : []),
     ...(crimsonClawModes.length ? [{ name: 'Crimson Claw', element: <div className="status-action-group">

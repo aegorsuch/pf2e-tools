@@ -1273,6 +1273,14 @@ it('offers Adaptive Visual Receptors variants in progression order without dupli
     choice: 'Darkvision' }] }, [])).not.toContainEqual(expect.objectContaining({ value: 'Darkvision' }))
   const ancestry = { ...entry('ancestry', 'Ysoki', { vision: 'Low-Light Vision' }), systems: ['sf2e' as const] }
   expect(featChoiceOptions(first.name, { ...c, ancestry: 'Ysoki' }, [ancestry], first.slot)).toEqual(['Darkvision'])
+  const darkvision = { ...entry('feat', 'Ancestral Darkvision', { grants_vision: 'Darkvision' }), systems: ['sf2e' as const] }
+  const alreadyDark = { ...c, ancestry: 'Ysoki', feats: [
+    { name: darkvision.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:1' },
+  ] }
+  expect(featChoiceOptions(first.name, alreadyDark, [ancestry, darkvision], first.slot))
+    .toEqual(['Low-Light Vision', 'Darkvision'])
+  expect(featChoiceOptions(first.name, { ...alreadyDark, feats: [...alreadyDark.feats, first] },
+    [ancestry, darkvision], 'ancestry:5:0')).toEqual(['Darkvision'])
 })
 
 it('allows Ysoki Ancestral Skills to use a chosen home Lore without duplicating its grant', () => {
@@ -1290,6 +1298,10 @@ it('allows Ysoki Ancestral Skills to use a chosen home Lore without duplicating 
     expect(ranksAt(c, [feat])['Akiton Lore']).toBe(3)
     expect(automaticFeatGrants(c, [feat]).filter(grant => grant.source === feat.name && grant.name === 'Additional Lore'))
       .toEqual([expect.objectContaining({ choice: 'Akiton' })])
+    const ysokiLore = { ...entry('feat', 'Ysoki Lore', { grants_feats: 'Additional Lore' }, 1, ['Ysoki']), systems: ['sf2e' as const] }
+    const withLore = { ...c, feats: [...c.feats, { name: 'Ysoki Lore', type: 'Ancestry Feat', level: 1, sourceId: ysokiLore.id }] }
+    expect(automaticFeatGrants(withLore, [feat, ysokiLore]).filter(grant => grant.source === 'Ysoki Lore' && grant.name === 'Additional Lore'))
+      .toEqual([expect.objectContaining({ choice: 'Ysoki' })])
     updateSettings({ ysokiAncestralLorePlaces: false })
     expect(featLores(c, [feat])).toContain('Ysoki Lore')
   } finally {

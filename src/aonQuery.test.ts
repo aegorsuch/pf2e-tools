@@ -499,6 +499,18 @@ it('imports weapon groups with full critical specialization descriptions', async
     description: 'Critical specialization effect.\n\nComplete final sentence.' })])
 })
 
+it('preserves the Boost damage die when importing weapon traits', async () => {
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }
+    const category = body.query.bool.filter.find(filter => filter.term)?.term?.category
+    const hits = category === 'weapon' ? [{ _id: 'plasma-caster', _source: { category, name: 'Plasma Caster',
+      trait: ['Boost', 'Tech'], markdown: '<traits><trait label="Boost 1d10" /><trait label="Tech" /></traits>' } }] : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const entries = mapAonHits(await fetchAonHits('sf2e', fetchFn), 'sf2e')
+  expect(entries[0].traits).toContain('Boost d10')
+})
+
 it('loads companion maneuver action costs, requirements, and descriptions from AoN', async () => {
   const fetchFn: typeof fetch = async (_input, init) => {
     const body = JSON.parse(String(init?.body)) as {

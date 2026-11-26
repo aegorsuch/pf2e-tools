@@ -45,6 +45,33 @@ function findSelect(node: ReactNode, label: string): ((event: { target: { value:
   return result
 }
 
+it('toggles Boost independently for each held weapon and shows active damage in statuses', () => {
+  const caster: ContentEntry = { id: 'caster', name: 'Advanced Plasma Caster', systems: ['sf2e'], kind: 'weapon',
+    source: 'official', level: 8, traits: ['Boost d10'], description: '', effects: [], updatedAt: 0,
+    data: { damage: '2d8 fire', hands: 1, weapon_type: 'Ranged', weapon_category: 'Martial' } }
+  const glove: ContentEntry = { ...caster, id: 'glove', name: 'Battleglove', level: 1, traits: ['Boost d4'] }
+  let c: Character = { id: 'boost-status', name: 'Test', systems: ['sf2e'], level: 10, feats: [],
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    weapons: [caster, glove].map(entry => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })),
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const entries = [caster, glove]
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  findButton(StatusesContent({ c, entries, save }), 'Boost: Advanced Plasma Caster')!()
+  expect(c.boostedWeaponIds).toEqual(['caster'])
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={entries} save={save} />)).toContain('Boost (Advanced Plasma Caster: 2d10)')
+  expect(renderToStaticMarkup(<StatusesContent c={c} entries={entries} save={save} />))
+    .toContain('aria-label="Boost: Advanced Plasma Caster" aria-pressed="true"')
+  findButton(StatusesContent({ c, entries, save }), 'Boost: Battleglove')!()
+  expect(c.boostedWeaponIds).toEqual(['caster', 'glove'])
+  findButton(StatusesContent({ c, entries, save }), 'Boost: Advanced Plasma Caster')!()
+  expect(c.boostedWeaponIds).toEqual(['glove'])
+  c = { ...c, weapons: c.weapons?.map(item => item.id === 'glove' ? { ...item, stowed: true } : item) }
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={entries} save={save} />)).toContain('Boost (Battleglove')
+  findButton(StatusesContent({ c, entries, save }), 'Boost: Battleglove')!()
+  expect(c.boostedWeaponIds).toEqual([])
+  expect(renderToStaticMarkup(<StatusesContent c={c} entries={entries} save={save} />)).not.toContain('Boost (Battleglove')
+})
+
 it('changes favored terrain from statuses only after gaining Terrain Master', () => {
   let c: Character = { id: 'terrain-status', name: 'Test', systems: ['pf2e'], level: 11, className: 'Ranger',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },

@@ -411,7 +411,11 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const fixed = fixedLabel(entry.name, entry.id)
     const label = `${actionOptionLabel(displayName(entry.name), entry)}${fixed ? ` (${fixed})` : ''}${unlocks?.length ? ` (Unlocks ${unlocks.map(displayName).join(', ')})` : ''}${pairs?.length ? ` (Pairs with ${pairs.map(displayName).join(', ')})` : ''}${rarity ? ` (${rarity})` : ''}${unmet ? ` * Missing ${prerequisites.missing.join('; ')}` : prerequisites.manual.length ? ' (check prerequisites)' : ''}${accessMissing
       ? ` * Access: ${access.requirement}` : ''}`
-    const allChoices = ['Ancestral Magic', 'Otherworldly Acumen'].includes(entry.name)
+    const ysokiLoreVariants = entry.name === 'Ancestral Skills' && c.systems.includes('sf2e')
+      && c.ancestry === 'Ysoki' && getSettings().ysokiAncestralLorePlaces
+      && entry.traits.some(trait => trait.toLowerCase() === 'ysoki')
+    const allChoices = ysokiLoreVariants ? ['Ysoki Lore', 'Akiton Lore', 'Golarion Lore', 'Absalom Station Lore']
+      : ['Ancestral Magic', 'Otherworldly Acumen'].includes(entry.name)
       || entry.name === 'Ancestral Cantrip' && !fixed
       ? [...new Set((featSpellOptions(c, entries, { name: entry.name, type: 'Ancestry Feat', level: entry.level,
         slot: slot.key, takenLevel: slot.level, sourceId: entry.id }) ?? []).map(spell => spell.name))]
@@ -501,6 +505,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     const changedAncestry = slot.grantedBy === 'Social Chameleon' && category === 'general'
       && c.feats.find(feat => feat.slot === key)?.choice !== option?.choice
     const ancestryKey = key.replace(/^general:/, 'ancestry:')
+    const previous = c.feats.find(feat => feat.slot === key)
     const feats = c.feats.filter((f) => f.slot !== key && !(changedAncestry && f.slot === ancestryKey))
     const entryIds = [...c.entryIds]
     if (option) {
@@ -510,12 +515,18 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           || ['Ancestral Cantrip', 'Ancestral Magic', 'Ancestral Weapon Familiarity'].includes(entry.name) ? { sourceId: entry.id } : {}),
         ...(key === 'ancestry:1:elders-deeds'
           ? { takenLevel: featTakenLevel(activeFeatsNamed(c, "Inscribed with Elders' Deeds")[0]) }
-          : slot.level !== Number(key.split(':')[1]) ? { takenLevel: slot.level } : {}), ...(choice ? { choice } : {}) })
+          : slot.level !== Number(key.split(':')[1]) ? { takenLevel: slot.level } : {}),
+        ...(entry.name === 'Ancestral Skills' && choice && / Lore$/.test(choice)
+          ? previous?.name === entry.name && previous.choice ? { choice: previous.choice } : {}
+          : choice ? { choice } : {}) })
       if (!entryIds.includes(entry.id)) entryIds.push(entry.id)
     }
     const skippedFeatSlots = (c.skippedFeatSlots ?? []).filter((slot) => slot !== key)
     if ((category === 'archetype' || category === 'ancestry' || key === 'skill:4:0') && name === 'N/A') skippedFeatSlots.push(key)
     saveFeatChanges({ feats, entryIds, skippedFeatSlots,
+      ...(option?.entry.name === 'Ancestral Skills' && option.choice && / Lore$/.test(option.choice)
+        ? { automaticFeatChoices: { ...c.automaticFeatChoices,
+          [automaticFeatChoiceKey('Ancestral Skills', 'Additional Lore')]: option.choice.replace(/ Lore$/, '') } } : {}),
       ...(option?.mastermindSkill ? { rogueRacketSkills: { ...c.rogueRacketSkills, Mastermind: option.mastermindSkill } } : {}),
       ...(option?.methodologySkill && option.choice ? {
         subclassSkillChoices: { ...c.subclassSkillChoices, [`Investigator:${option.choice}`]: option.methodologySkill },
@@ -642,8 +653,12 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Core Attunement', 'Divine Warrior', 'Primal Warrior', 'Eye for Treasure', 'Expressive Face', "Officer's Medical Training", 'Shiny', 'Additional Arms', 'Augmented Body', 'Historian', 'Distant Telepath'].includes(selection.name)
             || c.systems.includes('sf2e') && ['Lashunta', 'Shirren'].includes(c.ancestry ?? '') && ['Creature Shape', 'Creature Ally'].includes(selection.name)
             || isFixedAncestralWeaponFamiliarity(c, entries, selection)) ? undefined
+            : selection?.name === 'Ancestral Skills' && c.ancestry === 'Ysoki' && c.systems.includes('sf2e')
+              && getSettings().ysokiAncestralLorePlaces && (!selection.sourceId
+                || entries.some(entry => entry.id === selection.sourceId && entry.traits.some(trait => trait.toLowerCase() === 'ysoki')))
+              ? `${c.automaticFeatChoices?.[automaticFeatChoiceKey('Ancestral Skills', 'Additional Lore')] ?? 'Ysoki'} Lore`
             : selection?.name === 'Adaptive Visual Receptors' ? ['Low-Light Vision', 'Darkvision'].includes(selection.choice ?? '')
-              ? selection.choice : selectedChoices?.[0]
+              ? selection.choice : selectedChoices?.length === 1 ? selectedChoices[0] : undefined
             : selection?.name === 'Enhanced Senses' ? enhancedSensesChoice(c, entries, featIndex) ?? selection.choice
               : selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
           const selectedLabel = selection?.name === 'Versatile Rogue' && selectedChoice === 'Mastermind' && c.rogueRacketSkills?.Mastermind

@@ -51,3 +51,11 @@ it('uses the Smuggler’s Grip description for its Concealed trait when no trait
   expect(markup).toContain('The weapon gains the concealed trait.')
   expect(markup).not.toContain('Description unavailable.')
 })
+
+it('shows Boost as an activation button without losing its rules', () => {
+  const markup = renderToStaticMarkup(<GearTraits entries={[trait('Boost', 'Boost rules.', ['sf2e'])]}
+    traits={['Boost d4']} system="sf2e" boost={{ active: true, toggle: () => {} }} />)
+  expect(markup).toContain('class="gear-trait boost-toggle" aria-pressed="true">Boost d4</button>')
+  expect(markup).toContain('aria-label="Details: Boost d4"')
+  expect(markup).toContain('Boost rules.')
+})

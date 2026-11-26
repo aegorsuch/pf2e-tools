@@ -2357,7 +2357,10 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     const prior = { ...c, level, feats: c.feats.filter((feat, i) => i !== index
       && (featTakenLevel(feat) < level || featTakenLevel(feat) === level && (index < 0 || i < index))) }
     const vision = senses(prior, entries).map(sense => sense.value.toLowerCase())
-    if (vision.some(value => value.includes('darkvision'))) return []
+    if (vision.some(value => value.includes('darkvision'))) {
+      const used = new Set(c.feats.flatMap((feat, i) => i !== index && feat.name === name && feat.choice ? [feat.choice] : []))
+      return ['Low-Light Vision', 'Darkvision'].filter(choice => !used.has(choice))
+    }
     const next = vision.some(value => value.includes('low-light vision')) ? 'Darkvision' : 'Low-Light Vision'
     const used = c.feats.some((feat, i) => i !== index && feat.name === name && feat.choice === next)
     return used ? [] : [next]
@@ -5697,7 +5700,8 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
     if (entries.length && featTakenLevel(feat) <= c.level) {
       const grantedFeats = tokens(selectedFeatEntry(c, entries, feat.name, feat.sourceId)?.data.grants_feats)
       for (const name of grantedFeats) {
-        if (feat.name === 'Ancestral Skills' && name === 'Additional Lore' && ancestralSkillLores(c, entries, [feat]).length) continue
+        if (name === 'Additional Lore' && (feat.name === 'Ancestral Skills' && ancestralSkillLores(c, entries, [feat]).length
+          || feat.name !== 'Dwarven Lore' && ancestryLoreGrant(c, entries, feat.name))) continue
         grants.push({ name, source: feat.name, level: featTakenLevel(feat) })
       }
     }

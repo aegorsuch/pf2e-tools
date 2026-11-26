@@ -1731,6 +1731,52 @@ it('shows Adaptive Visual Receptors vision variants in the ancestry feat picker'
   expect(markup).toContain('Adaptive Visual Receptors (Low-Light Vision)')
   expect(markup).toContain('Adaptive Visual Receptors (Darkvision)')
   expect(markup).not.toContain('Adaptive Visual Receptors choice')
+  const ysoki: ContentEntry = { ...receptors, id: 'ysoki', name: 'Ysoki', kind: 'ancestry',
+    traits: [], data: { vision: 'Low-Light Vision' } }
+  const dark: ContentEntry = { ...receptors, id: 'ancestral-darkvision', name: 'Ancestral Darkvision',
+    traits: ['Ysoki'], data: { grants_vision: 'Darkvision' } }
+  const withDarkvision: Character = { ...c, ancestry: 'Ysoki', feats: [
+    { name: dark.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+  ] }
+  const withDarkvisionMarkup = renderToStaticMarkup(<FeatSlots c={withDarkvision}
+    entries={[receptors, ysoki, dark]} categories={['ancestry']} save={() => {}} />)
+  expect(withDarkvisionMarkup).toContain('Adaptive Visual Receptors (Low-Light Vision)')
+  expect(withDarkvisionMarkup).toContain('Adaptive Visual Receptors (Darkvision)')
+  const legacy: Character = { ...withDarkvision, feats: [...withDarkvision.feats,
+    { name: receptors.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:5:0' },
+    { name: receptors.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:9:0' }] }
+  const legacyMarkup = renderToStaticMarkup(<FeatSlots c={{ ...legacy, level: 9 }}
+    entries={[receptors, ysoki, dark]} categories={['ancestry']} save={() => {}} />)
+  expect(legacyMarkup).not.toContain('Adaptive Visual Receptors (Low-Light Vision)')
+  expect(legacyMarkup).not.toContain('Adaptive Visual Receptors (Darkvision)')
+})
+
+it('offers Ysoki Ancestral Skills lore variants in the ancestry picker', () => {
+  const feat: ContentEntry = { id: 'ysoki-skills', name: 'Ancestral Skills', kind: 'feat',
+    systems: ['sf2e'], source: 'official', level: 1, traits: ['Ysoki'],
+    description: 'Option(s): Society, Stealth', data: {}, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Ysoki', level: 1, feats: [] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[feat]} categories={['ancestry']} save={() => {}} />)
+  expect(markup).toContain('Ancestral Skills (Akiton Lore)')
+  expect(markup).toContain('Ancestral Skills (Golarion Lore)')
+  expect(markup).toContain('Ancestral Skills (Absalom Station Lore)')
+})
+
+it('saves an Ancestral Skills lore variant without losing its skill choice', () => {
+  const feat: ContentEntry = { id: 'ysoki-skills', name: 'Ancestral Skills', kind: 'feat',
+    systems: ['sf2e'], source: 'official', level: 1, traits: ['Ysoki'],
+    description: 'Option(s): Society, Stealth', data: {}, effects: [], updatedAt: 0 }
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Ysoki', level: 7,
+    feats: [{ name: feat.name, type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0', choice: 'Society', sourceId: feat.id }] }
+  const entries = [feat]
+  const tree = () => FeatSlots({ c, entries, categories: ['ancestry'],
+    search: { 'ancestry:1:0:open': '1' }, onSearch: () => {},
+    save: patch => { c = { ...c, ...patch } } })
+  findButton(tree(), 'L01 Ancestry: Ancestral Skills (Akiton Lore)')!()
+  expect(c.automaticFeatChoices?.[automaticFeatChoiceKey('Ancestral Skills', 'Additional Lore')]).toBe('Akiton')
+  expect(c.feats[0]).toMatchObject({ name: feat.name, choice: 'Society' })
+  expect(ranksAt(c, entries)['Akiton Lore']).toBe(3)
+  expect(renderToStaticMarkup(tree())).toContain('Ancestral Skills (Akiton Lore)')
 })
 
 it('keeps Snare Crafting and its grant source inside one description button', () => {

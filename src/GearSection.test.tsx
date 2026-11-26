@@ -51,6 +51,27 @@ it('shows a clickable weapon group even when the weapon has no traits', () => {
   }
 })
 
+it('toggles Boost from the weapon trait and displays its extra damage', () => {
+  const caster: ContentEntry = { ...weapon, id: 'caster', name: 'Advanced Plasma Caster', systems: ['sf2e'],
+    level: 8, traits: ['Boost d10'], data: { weapon_category: 'Martial', weapon_type: 'Ranged',
+      damage: '2d8 fire', hands: 1 } }
+  let c: Character = { ...character([]), systems: ['sf2e'], level: 10,
+    weapons: [{ id: 'caster', name: caster.name, potency: 0, striking: 0, runes: [] }] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => WeaponList({ c, entries: [caster], save, displayOnly: true })
+  const boost = () => findElement(tree(), element => !!element.props.boost)?.props.boost as
+    { active: boolean; toggle: () => void }
+  expect(boost().active).toBe(false)
+  boost().toggle()
+  expect(c.boostedWeaponIds).toEqual(['caster'])
+  expect(boost().active).toBe(true)
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[caster]} save={save} displayOnly />)
+  expect(markup).toContain('+ 2d10')
+  expect(markup).toContain('don&#x27;t double this damage on a critical hit')
+  boost().toggle()
+  expect(c.boostedWeaponIds).toEqual([])
+})
+
 it('grants and scales requested Starfinder weapon upgrades without duplicating saved upgrades', () => {
   const upgrades = [
     ["Smuggler's Grip (Commercial)", 2], ["Smuggler's Grip (Tactical)", 6],

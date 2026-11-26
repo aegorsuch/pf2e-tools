@@ -305,6 +305,7 @@ export interface Character {
   activeStance?: string
   intensifiedElement?: { element: 'Earth' | 'Fire' | 'Metal' | 'Water' | 'Wood'; legendary?: boolean; used?: boolean }
   activeFeatEffects?: string[]
+  boostedWeaponIds?: string[]
   fulminatingShotActive?: boolean
   fulminatingShotElement?: import('./fulminatingShot.js').FulminatingShotElement
   conditions?: { frightened?: number; sickened?: number; enfeebled?: number; doomed?: number }

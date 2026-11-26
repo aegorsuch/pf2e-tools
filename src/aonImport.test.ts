@@ -8,6 +8,7 @@ import type { Character, OwnedArmor } from './types'
 import sf2eSnapshot from '../public/data/aon-sf2e.json?raw'
 import pf2eSnapshot from '../public/data/aon-pf2e.json?raw'
 import { getSettings, updateSettings } from './settings'
+import { weaponBoostDamage } from './weaponBoost'
 
 const stored = vi.hoisted(() => ({ bulkPut: vi.fn() }))
 vi.mock('./db', () => ({
@@ -18,6 +19,19 @@ vi.mock('./db', () => ({
   ensureSupplementalContent: async () => {},
 }))
 afterEach(() => vi.unstubAllGlobals())
+
+it('imports Boost dice for every Plasma Caster grade', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => /^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?Plasma Caster$/
+    .test(String(hit._source?.name))), 'sf2e')
+  expect(entries).toHaveLength(8)
+  for (const entry of entries) {
+    expect(entry.traits).toContain('Boost d10')
+    expect(weaponBoostDamage(entry, entry.traits)).toBe(
+      /^(Elite|Ultimate) /.test(entry.name) ? '3d10' : /^Paragon /.test(entry.name) ? '4d10'
+        : /^(Advanced|Superior) /.test(entry.name) ? '2d10' : '1d10')
+  }
+})
 
 it('imports both feats granted by Shield Ace Dedication', () => {
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)

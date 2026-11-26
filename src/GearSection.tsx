@@ -38,6 +38,7 @@ import { warmaskSource, warmaskItemBonus } from './warmask'
 import { complexSimplicityTraits, hasWeaponRuneCapacity, weaponModificationOptions, weaponModificationSlots, type WeaponModificationSlot } from './inventorWeapon'
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
 import { turretName, turretWeapon } from './mechanicTurret'
+import { weaponBoostChange, weaponBoostDamage } from './weaponBoost'
 import { clearItemGlitching, enduringGrenadeMods, enduringWeaponMods, setEnduringMod } from './mechanicEnduring'
 import { namedArmorEnhancements, namedArmorRuneLimit } from './namedArmor'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
@@ -1252,14 +1253,16 @@ export function MechanicWeaponMods({ c, weapon, attack, save, allowUnarmed = fal
   </div>
 }
 
-function WeaponTraits({ attack, entries }: { attack: ReturnType<typeof weaponAttack>; entries: ContentEntry[] }) {
+function WeaponTraits({ attack, entries, boost }: { attack: ReturnType<typeof weaponAttack>; entries: ContentEntry[];
+  boost?: { active: boolean; disabled?: boolean; toggle: () => void } }) {
   const thrown = attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim()))
   const range = thrown ? attack.thrownRange || attack.range : 0
   const traits = range ? attack.traits.map(trait => /^thrown(?:\s|$)/i.test(trait.trim()) ? `Thrown ${range}` : trait) : attack.traits
   const weaponGroup = typeof attack.entry?.data.weapon_group === 'string' ? attack.entry.data.weapon_group : undefined
   if (!traits.length && !weaponGroup) return null
   return <>
-    <GearTraits traits={traits} entries={entries} system={attack.entry?.systems[0]} weaponGroup={weaponGroup} />
+    <GearTraits traits={traits} entries={entries} system={boost ? 'sf2e' : attack.entry?.systems[0]} weaponGroup={weaponGroup}
+      boost={weaponBoostDamage(attack.entry, traits) ? boost : undefined} />
     {thrown && !range && attack.thrownRangeBonus > 0 && <SourceNote source="Strong Arm" note={`Thrown range increases by ${attack.thrownRangeBonus} feet.`} />}
   </>
 }
@@ -1333,6 +1336,9 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         onPick={(e) => saveWeapons([...savedWeapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [], stowed: true }])} />}
       {[...sorted.map((w) => {
         const a = weaponAttack(c, entries, w)
+        const boostActive = !!c.boostedWeaponIds?.includes(w.id)
+        const boost = c.systems.includes('sf2e') ? { active: boostActive, disabled: !boostActive && !weaponHeld(c, entries, w),
+          toggle: () => save(weaponBoostChange(c, w.id, !boostActive)) } : undefined
         const crimsonClawModes = /\bcrimson claw\b/i.test(a.entry?.name ?? '') ? (() => {
           const modes = a.entry?.weaponModes ?? []
           const fire = modes.find(mode => mode.damageType.toLowerCase() === 'fire')
@@ -1519,7 +1525,9 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           : [{ form: undefined, weapon: enhanced, attack: a },
             ...(c.raging && activeFeatsNamed(c, 'Raging Thrower').length && a.thrownRange > 0
               ? [{ form: 'Thrown', weapon: enhanced, attack: weaponAttack(c, entries, w, { thrown: true }) }] : [])])
-          .map(summary => ({ ...summary, inactive: !!forms.length
+          .map(summary => {
+            const boostDamage = boost && boostActive ? weaponBoostDamage(summary.attack.entry, summary.attack.traits) : undefined
+            return { ...summary, inactive: !!forms.length
             && (summary.form === 'Thrown' ? 'Melee' : summary.form) !== activeCombinationForm,
             attackForm: summary.form ?? (summary.attack.entry
             ? isRanged(summary.attack.entry) ? 'Ranged' : 'Melee' : undefined),
@@ -1528,9 +1536,13 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             ...damageRuneSummary(summary.weapon, summary.attack, entries, !!forms.length || card),
             ...upgradeDamageSummary(summary.attack),
             ...mechanicDamageSummary(c, w, summary.attack),
+            ...(boostDamage
+              ? [{ source: 'Boost', value: boostDamage,
+                note: "Applies to the next damaging attack until the end of your next turn; don't double this damage on a critical hit." }] : []),
             ...(intensified ? [{ source: 'Intensified Element Stance', value: `${intensified.dice}d6 ${intensified.type} (conditional)`,
               note: `Only against ${intensified.targets}.` }] : []),
-          ] }))
+          ] }
+          })
         const inlineRange = (summary: (typeof attackSummaries)[number]) =>
           summary.attack.range > 0 && (summary.attackForm === 'Ranged' || summary.attackForm === 'Thrown')
         const attackLine = (summary: (typeof attackSummaries)[number]) => <>
@@ -1710,7 +1722,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             && <small>{legacyPouchWeapon ? 'Retrieve this weapon from your cheek pouch first.' : 'Weapon hands unavailable.'}</small>}
           {attackSummaries.map(summary => <div key={summary.form ?? 'weapon'}>
             <small>{attackLine(summary)}</small>
-            <WeaponTraits attack={summary.attack} entries={entries} />
+            <WeaponTraits attack={summary.attack} entries={entries} boost={boost} />
           </div>)}
           {(a.criticalNote || typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect) && <small>
             {a.criticalNote && a.criticalNoteSource && <SourceNote source={a.criticalNoteSource} note={a.criticalNote} inlineSource={false} />}
@@ -1742,7 +1754,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 {attackSummaries.map(summary => <div key={summary.form ?? 'weapon'}>
                   <small>{attackLine(summary)}</small>
                   <div onClick={event => event.stopPropagation()}>
-                    <WeaponTraits attack={summary.attack} entries={entries} />
+                    <WeaponTraits attack={summary.attack} entries={entries} boost={boost} />
                   </div>
                 </div>)}
               </div> : <small>{attackLine(attackSummaries[0])}</small>}
@@ -1796,7 +1808,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 <span><small>Proficiency</small>{signed(summary.attack.prof)}</span>
                 <span><small>Item</small>{signed(summary.attack.item)}</span>
               </div>
-              {attackSummaries.length === 1 && <WeaponTraits attack={summary.attack} entries={entries} />}
+              {attackSummaries.length === 1 && <WeaponTraits attack={summary.attack} entries={entries} boost={boost} />}
             </div>)}
             {!solarCrystals && !(upgradeWeapon && a.entry && !linkedSource) && <AttackUpgrades attack={a} />}
             {namedWeaponNotes}
