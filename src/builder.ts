@@ -3,7 +3,7 @@ import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, GameSystem, H
 import { ENERGY_SHIELDING_TYPES } from './types'
 import { ANCESTRAL_AVATAR, BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, ancestralAvatarForm, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm, pestBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
-import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
+import { DRAGON_SPIT_ENERGY_BY_CANTRIP, INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, EXTRAPLANAR_SUPPLICATION_SPELLS, KITSUNE_SPELL_FAMILIARITY_CANTRIPS, activeCaypinAlly, activeLashuntaAlly, activeShirrenAlly, ancestralMagicAvailable, automaticFeatChoiceKey, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
 import { GODCLAW_DOMAINS, HELLKNIGHT_FAVORED_WEAPONS, ORDER_TRAINING_FEATS, PYRE_ENERGY_TYPES, hellknightBenefitActive, hellknightOrder, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
 import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore, PROFESSION_LORES } from './backgrounds'
@@ -1853,6 +1853,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       && (e.name !== 'Order Explorer' || orderExplorerOk || c.feats.some((f) => f.slot === slot.key && f.name === e.name))
       && (e.name !== 'Versatile Rogue' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name))
+      && (e.name !== 'Versatile Envoy' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
+        || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name))
       && (e.name !== 'Mercy' || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name)
         || c.feats.filter(feat => feat.name === 'Mercy' && feat.slot !== slot.key).length < 3
           && !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
@@ -2123,6 +2125,12 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     return commonLoreOptions([...c.lores.map(item => item.name), ...(lore ? [lore] : [])], c.deity)
   }
   if (name === 'Leshy Familiar' && c.systems.includes('pf2e')) return ['Plant', 'Fungus']
+  if (name === 'Dragon Spit' && c.systems.includes('pf2e')) {
+    return [...new Set(entries.filter(entry => entry.kind === 'spell' && !entry.deleted && entry.systems.includes('pf2e')
+      && Object.hasOwn(DRAGON_SPIT_ENERGY_BY_CANTRIP, entry.name)
+      && entry.traits.some(trait => trait.toLowerCase() === 'cantrip')).map(entry => entry.name))]
+      .sort((a, b) => a.localeCompare(b))
+  }
   if (c.systems.includes('pf2e') && ['Divine Emissary', 'Leshy Familiar Secrets'].includes(name)) {
     const highest = Math.max(0, ...Object.entries(classSpellSlots(c) ?? c.spellcasting?.slots ?? {})
       .filter(([rank, count]) => Number(rank) > 0 && count > 0).map(([rank]) => Number(rank)))
@@ -5423,8 +5431,8 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   const pirate = c.systems.includes('sf2e') ? activeFeatsNamed(c, 'Space Pirate Dedication')
     .find(feat => featTakenLevel(feat) < beforeLevel) : undefined
   const pirateLevel = pirate && featTakenLevel(pirate)
-  const piratePrior = pirate ? ancestrySkillBefore(c, entries, c.feats.indexOf(pirate)).Piloting ?? 0 : 0
-  const pirateRank = pirate ? Math.min(2, piratePrior + 1) : 0
+  const piratePrior = pirate ? ancestrySkillBefore(c, entries, c.feats.indexOf(pirate)) : {}
+  const pirateRank = pirate ? Math.min(2, (piratePrior.Piloting ?? 0) + 1) : 0
   const ancestral = activeFeatsNamed(c, 'Ancestral Skills').find(feat => featTakenLevel(feat) < beforeLevel)
   const ancestralLevel = ancestral && featTakenLevel(ancestral)
   const ancestrySkills = ancestral ? ancestralSkills(c, entries) : []
@@ -5473,7 +5481,10 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
       }
     }
     if (l === scrapperLevel) for (const [name, rank] of Object.entries(scrapperGrants)) ranks[name] = Math.max(ranks[name] ?? 0, rank)
-    if (l === pirateLevel) ranks.Piloting = Math.max(ranks.Piloting ?? 0, pirateRank)
+    if (l === pirateLevel) {
+      ranks.Piloting = Math.max(ranks.Piloting ?? 0, pirateRank)
+      if (piratePrior.Intimidation === 1) ranks.Intimidation = Math.max(ranks.Intimidation ?? 0, 2)
+    }
     for (const grant of initiateGrants.filter(grant => grant.level === l)) ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, 2)
     if (l === ancestralLevel) for (const name of ancestrySkills) ranks[name] = Math.max(ranks[name] ?? 0, 1)
   }

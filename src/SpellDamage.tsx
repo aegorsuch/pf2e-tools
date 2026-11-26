@@ -6,8 +6,11 @@ type Damage = { label: string; dice: number; sides: number; type: string; bonus?
   additional?: { dice: number; sides: number; type: string; label?: string; bonus?: number }; outcomes?: { label: string; dice: number }[]
   components?: { dice: number; sides: number; type: string }[]; note?: string }
 type DamageResult = number | number[] | { primary: number; additional: number }
+type DragonBreathEnergy = 'acid' | 'cold' | 'electricity' | 'fire'
+const isDragonBreathEnergy = (energy: string | undefined): energy is DragonBreathEnergy =>
+  energy === 'acid' || energy === 'cold' || energy === 'electricity' || energy === 'fire'
 
-export function spellDamage(name: string, rank: number, spellcastingModifier?: number): Damage[] {
+export function spellDamage(name: string, rank: number, spellcastingModifier?: number, energyType?: string): Damage[] {
   switch (name) {
     case 'Animal Allies':
       return rank >= 1 ? [{ label: 'Damage', dice: 3 * rank, sides: 4, type: 'piercing' }] : []
@@ -136,6 +139,9 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
     case 'Caustic Blast':
       return rank >= 1 ? [{ label: 'Damage', dice: 1 + Math.floor((rank - 1) / 2), sides: 8, type: 'acid',
         note: `Critical failure: ${1 + Math.floor((rank - 1) / 2)} persistent acid` }] : []
+    case 'Dragon Breath':
+      return rank >= 3 && isDragonBreathEnergy(energyType)
+        ? [{ label: 'Damage', dice: 5 + 2 * (rank - 3), sides: 6, type: energyType }] : []
     case 'Electric Arc':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 4, type: 'electricity' }] : []
     case 'Frostbite':
@@ -446,7 +452,8 @@ export function WarpWorldRoll({ rank }: { rank: number }) {
 }
 
 export function spellActionRolls(name: string, rank: number, entry?: ContentEntry, spellcastingModifier?: number) {
-  const rolls = spellDamage(name, rank, spellcastingModifier)
+  const rolls = spellDamage(name, rank, spellcastingModifier,
+    typeof entry?.data.dragon_breath_energy === 'string' ? entry.data.dragon_breath_energy : undefined)
   if (name === 'Sun Blade') return rolls.map(damage => ({ damage, actions: 'Two Actions' }))
   if (name === 'Lay on Hands') return rolls.map(damage => ({ damage, actions: 'Single Action' }))
   if (name === "Vindicator's Mark") return rolls.map((damage, index) => ({ damage, actions: index === 0 ? 'Two Actions' : 'One Action' }))
@@ -598,8 +605,10 @@ export function SpellActions({ name, rank, entry, spellcastingModifier, actionOv
       && <small role="status">Spellcasting modifier unavailable.</small>}</>
 }
 
-export function SpellDamageRolls({ name, rank, spellcastingModifier }: { name: string; rank: number; spellcastingModifier?: number }) {
+export function SpellDamageRolls({ name, rank, spellcastingModifier, energyType }: {
+  name: string; rank: number; spellcastingModifier?: number; energyType?: string
+}) {
   if (name === 'Curse of Death' && rank >= 5) return <CurseOfDeathActions rank={rank} />
-  return <>{spellDamage(name, rank, spellcastingModifier).map((damage) =>
+  return <>{spellDamage(name, rank, spellcastingModifier, energyType).map((damage) =>
     <DamageRoll key={`${damage.label}:${damage.dice}`} name={name} damage={damage} />)}</>
 }

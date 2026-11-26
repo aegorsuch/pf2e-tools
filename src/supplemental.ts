@@ -287,7 +287,7 @@ export function migrateMobileHunt(c: Character): Character {
 }
 
 export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[] {
-  const nimbleClasses = ['Champion', 'Fighter', 'Gunslinger', 'Monk', 'Operative', 'Ranger', 'Rogue', 'Swashbuckler']
+  const nimbleClasses = ['Champion', 'Envoy', 'Fighter', 'Gunslinger', 'Monk', 'Operative', 'Ranger', 'Rogue', 'Swashbuckler']
   const guardbreakClasses = ['Champion', 'Cleric', 'Commander', 'Druid', 'Exemplar', 'Fighter', 'Guardian', 'Inventor', 'Runesmith']
   const poison = entries.find((entry) => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
     && entry.name === 'Poison Resistance' && entry.level === 2 && entry.traits.includes('Druid'))
@@ -379,8 +379,8 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     ...wizardFamiliarCopies,
     ...copiedClassFeats,
     { ...homebrewFeat('versatile-envoy', 'Versatile Envoy', 10, ['Envoy'],
-      'Choose a different Envoy leadership style from the one you selected at 1st level. You gain its associated trained skill and Leadership Perk.',
-      { class: 'Envoy' }), systems: ['sf2e'] },
+      'Choose a different Envoy leadership style you do not already have. You gain its associated trained skill and Leadership Perk.\n\nSpecial: You can select this feat multiple times, choosing a different leadership style each time.',
+      { class: 'Envoy', repeatable: true }), systems: ['sf2e'] },
     { ...homebrewFeat('versatile-operative', 'Versatile Operative', 10, ['Operative'],
       'Choose a different Operative specialization from the one you selected at 1st level. You gain its associated trained skill and a skill feat for that skill. If you choose Sniper, you also gain its bonus class feat.',
       { class: 'Operative' }), systems: ['sf2e'] },

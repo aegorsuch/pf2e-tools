@@ -7,6 +7,12 @@ const WARDEN_TIERS: Record<string, string> = {
   'Masterful Warden': 'Master',
   'Peerless Warden': 'Peerless',
 }
+export const DRAGON_SPIT_ENERGY_BY_CANTRIP = {
+  'Caustic Blast': 'acid',
+  'Electric Arc': 'electricity',
+  Ignition: 'fire',
+  Frostbite: 'cold',
+} as const
 type NamedFeat = Pick<Character['feats'][number], 'name'> & Partial<Character['feats'][number]>
 export const featTakenLevel = (feat: Character['feats'][number]) => feat.takenLevel ?? (Number(feat.slot?.split(':')[1]) || feat.level)
 

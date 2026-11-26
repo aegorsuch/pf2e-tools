@@ -356,6 +356,25 @@ it('shows conditional and alternative damage for cantrips in one action roll', (
   expect(spellDamage('Imaginary Weapon', 5)[1]).toMatchObject({ dice: 10, sides: 6 })
 })
 
+it('rolls Dragon Breath at selected Dragon Spit energy and heightened rank', () => {
+  const dragonBreath: ContentEntry = { id: 'dragon-breath', name: 'Dragon Breath', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 3, traits: [], description: '',
+    data: { actions: 'Two Actions', dragon_breath_energy: 'electricity' }, effects: [], updatedAt: 1 }
+  expect(spellDamage('Dragon Breath', 3, undefined, 'acid')).toEqual([
+    { label: 'Damage', dice: 5, sides: 6, type: 'acid' },
+  ])
+  expect(spellDamage('Dragon Breath', 6, undefined, 'cold')).toEqual([
+    { label: 'Damage', dice: 11, sides: 6, type: 'cold' },
+  ])
+  expect(spellDamage('Dragon Breath', 3)).toEqual([])
+  expect(spellDamage('Dragon Breath', 2, undefined, 'fire')).toEqual([])
+  expect(spellActionRolls('Dragon Breath', 3, dragonBreath)).toMatchObject([
+    { actions: 'Two Actions', damage: { dice: 5, sides: 6, type: 'electricity' } },
+  ])
+  expect(renderToStaticMarkup(<SpellActions name="Dragon Breath" rank={3} entry={dragonBreath} />))
+    .toContain('5d6 electricity')
+})
+
 it('uses the character spellcasting ability for cantrip damage in the spell list', () => {
   const entry: ContentEntry = { id: 'trauma', name: 'Torturous Trauma', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: ['Cantrip'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

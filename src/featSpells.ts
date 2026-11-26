@@ -1,4 +1,4 @@
-import { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
+import { DRAGON_SPIT_ENERGY_BY_CANTRIP, INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
 import type { Character, ContentEntry, SpellGrant } from './types'
 import { warmaskSource } from './warmask'
 import { characterHeritages } from './heritages'
@@ -13,7 +13,7 @@ export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Doma
 export const KITSUNE_SPELL_FAMILIARITY_CANTRIPS = ['Daze', 'Forbidding Ward', 'Ghost Sound']
 export function isInnateSpellChoice(entry: ContentEntry) {
   return ['Ancestral Cantrip', 'Ancestral Magic', 'Bone Magic', 'Creature Ally', 'Creature Shape',
-    'First World Magic', 'Kitsune Spell Familiarity', 'Mask of Power', 'Otherworldly Acumen',
+    'Dragon Spit', 'First World Magic', 'Kitsune Spell Familiarity', 'Mask of Power', 'Otherworldly Acumen',
     'Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon', 'Touch of the Sea'].includes(entry.name)
     || !!entry.spellGrants?.some(grant => grant.kind === 'innate' && grant.choice)
 }
@@ -259,6 +259,12 @@ export function witchLessonOptions(c: Character, entries: ContentEntry[], feat: 
 
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   if (['Fiendish Magic', 'Celestial Magic', 'Summon Nephilim Kin'].includes(feat.name)) return undefined
+  if (feat.name === 'Dragon Spit' && c.systems.includes('pf2e')) {
+    return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e')
+      && Object.hasOwn(DRAGON_SPIT_ENERGY_BY_CANTRIP, spell.name)
+      && spell.traits.some(trait => trait.toLowerCase() === 'cantrip'))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
   if (feat.name === 'Otherworldly Acumen' && c.systems.includes('pf2e')) {
     return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e') && spell.level === 2
       && !spell.traits.some(trait => /^(?:cantrip|focus|uncommon|rare|unique)$/i.test(trait))
@@ -563,6 +569,28 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (feat.name === 'Dragon Spit' && c.systems.includes('pf2e')) {
+      const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'arcane', frequency: 'at will', heightened: true },
+        rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
+      continue
+    }
+    if (feat.name === 'Dragon Prince' && c.systems.includes('pf2e')) {
+      const dragonSpit = c.feats.find(other => other.name === 'Dragon Spit' && featTakenLevel(other) <= c.level)
+      const energy = dragonSpit?.choice && Object.entries(DRAGON_SPIT_ENERGY_BY_CANTRIP)
+        .find(([cantrip]) => cantrip === dragonSpit.choice)?.[1]
+      const spell = energy && matchingSpells(entries, 'Dragon Breath').find(entry => entry.systems.includes('pf2e'))
+      if (spell && energy) out.push({
+        entry: { ...spell, data: { ...spell.data, dragon_breath_energy: energy } },
+        source: feat.name,
+        rule: { kind: 'innate', spells: [spell.name], tradition: 'arcane', frequency: 'once per day',
+          condition: `Use the ${energy} breath to match ${dragonSpit?.choice} from Dragon Spit` },
+        rank: spell.level + Math.max(0, Math.floor((c.level - 9) / 3)),
+        usageKey: JSON.stringify([selection, feat.name, 'dragon breath']),
+      })
+      continue
+    }
     if (c.systems.includes('sf2e') && feat.name.toLowerCase().replace(/[-\s]+/g, ' ').trim() === 'press gang the soul') {
       const entry = matchingSpells(entries, 'Wisp Ally').find(spell => spell.systems.includes('sf2e'))
       if (entry) out.push({ entry, source: feat.name,
@@ -1115,6 +1143,14 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
   }
   return [...missingBoonSpells, ...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
+    if (feat.name === 'Dragon Spit' && c.systems.includes('pf2e') && feat.choice
+      && !matchingSpells(entries, feat.choice).some(entry => entry.systems.includes('pf2e'))) {
+      return [{ name: feat.choice, source }]
+    }
+    if (feat.name === 'Dragon Prince' && c.systems.includes('pf2e')
+      && !matchingSpells(entries, 'Dragon Breath').some(entry => entry.systems.includes('pf2e'))) {
+      return [{ name: 'Dragon Breath', source }]
+    }
     if (feat.name === 'Build the First Walls' && c.systems.includes('pf2e')) {
       return matchingSpells(entries, 'Wall of Stone').some(entry => entry.systems.includes('pf2e'))
         ? [] : [{ name: 'Wall of Stone', source }]

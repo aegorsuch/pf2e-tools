@@ -32,6 +32,7 @@ it('checks Space Pirate prerequisites and grants Piloting based on prior trainin
   expect(featPrerequisiteChecker({ ...c, skillPicks: ['Intimidation'] }, [feat], 2)(feat).missing).toEqual([])
   expect(ranksAt(c, [feat]).Piloting).toBe(1)
   expect(ranksAt({ ...c, skillPicks: ['Piloting'] }, [feat]).Piloting).toBe(2)
+  expect(ranksAt({ ...c, skillPicks: ['Intimidation'] }, [feat]).Intimidation).toBe(2)
   expect(ranksAt({ ...c, level: 3, skillIncreases: { 3: 'Piloting' } }, [feat]).Piloting).toBe(2)
   expect(ranksAt({ ...c, skillPicks: ['Piloting'], level: 7, skillIncreases: { 7: 'Piloting' } }, [feat]).Piloting).toBe(3)
   expect(ranksAt({ ...c, level: 1 }, [feat]).Piloting ?? 0).toBe(0)
@@ -1069,10 +1070,10 @@ it.each(['class', 'background'] as const)('adds one reusable trained slot when E
   expect(ranksAt(legacy, entries)).toMatchObject({ Performance: 1, Diplomacy: 1 })
 })
 
-it.each(['Champion', 'Fighter', 'Gunslinger', 'Monk', 'Operative', 'Ranger', 'Rogue', 'Swashbuckler'])(
+it.each(['Champion', 'Envoy', 'Fighter', 'Gunslinger', 'Monk', 'Operative', 'Ranger', 'Rogue', 'Swashbuckler'])(
   'offers Nimble Athlete only with actual expert Athletics for %s', className => {
     const feat = homebrewCharacterOptions([]).find(entry => entry.name === 'Nimble Athlete')!
-    const c: Character = { ...base, systems: [className === 'Operative' ? 'sf2e' : 'pf2e'],
+    const c: Character = { ...base, systems: ['Operative', 'Envoy'].includes(className) ? ['sf2e'] : ['pf2e'],
       className, level: 4, rankOverrides: { Athletics: 2 } }
     const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
     expect(eligibleFeats([feat], c, slot)).toContain(feat)

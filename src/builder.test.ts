@@ -8,6 +8,7 @@ import { coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting, wizardSchoolBookSpells } from './builder'
 import { hasRemainingFeatSelections } from './builder'
+import { homebrewCharacterOptions } from './supplemental'
 import { maxEtchedRunes, runicRepertoireSize } from './runesmithRunes'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 import type { Character, ContentEntry } from './types'
@@ -1273,7 +1274,8 @@ describe('subclass skill grants', () => {
     const lightMastery = { ...entry('classFeature', 'Light Armor Mastery', { class: 'Envoy' }, 19),
       description: 'Your proficiency rank for light armor and unarmored defense increases to master.' }
     const styles = STARFINDER_SUBCLASSES.filter(style => style.data.class === 'Envoy')
-    const entries = [envoy, ...styles, lightExpertise, lightMastery]
+    const versatileFeat = homebrewCharacterOptions([]).find(entry => entry.name === 'Versatile Envoy')!
+    const entries = [envoy, ...styles, lightExpertise, lightMastery, versatileFeat]
     const versatile: Character['feats'][number] = {
       name: 'Versatile Envoy', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'From the Shadows',
     }
@@ -1282,6 +1284,22 @@ describe('subclass skill grants', () => {
 
     expect(featChoiceOptions('Versatile Envoy', c, entries, versatile.slot!, 0)).toContain('Guns Blazing')
     expect(featChoiceOptions('Versatile Envoy', c, entries, versatile.slot!, 0)).not.toContain('From the Front')
+    const secondPick: Character['feats'][number] = {
+      ...versatile, level: 12, slot: 'class:12:0', choice: 'Guns Blazing',
+    }
+    const repeated = { ...c, feats: [versatile, secondPick] }
+    const remainingStyles = featChoiceOptions('Versatile Envoy', repeated, entries, 'class:14:0')!
+    expect(remainingStyles).not.toContain('From the Front')
+    expect(remainingStyles).not.toContain('From the Shadows')
+    expect(remainingStyles).not.toContain('Guns Blazing')
+    expect(eligibleFeats(entries, c, { key: 'class:12:0', category: 'class', level: 12 })).toContain(versatileFeat)
+    const alreadyChosen = new Set([versatile.choice])
+    const allStylesSelected = { ...c, feats: [versatile, ...styles.filter(style =>
+      style.name !== 'From the Front' && !alreadyChosen.has(style.name)).map((style, index) => ({
+      ...versatile, level: 12 + index * 2, slot: `class:${12 + index * 2}:0`, choice: style.name,
+    }))] }
+    expect(eligibleFeats(entries, allStylesSelected, { key: 'class:20:0', category: 'class', level: 20 }))
+      .not.toContain(versatileFeat)
     expect(subclassSkillGrants(c, entries)).toEqual(['Athletics', 'Stealth'])
     expect(automaticFeatGrants(c, entries)).toContainEqual({
       name: 'Assurance', choice: 'Stealth', source: 'From the Shadows Leadership Perk', level: 10,

@@ -1991,7 +1991,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   }
   const controls = (name: string, rank = Math.ceil(c.level / 2), spellcastingModifier?: number, spell?: ContentEntry) => <>
     {!spellActionRolls(name, rank, spell ?? entries.find(entry => entry.kind === 'spell' && entry.name === name), spellcastingModifier).length
-      && <SpellDamageRolls name={name} rank={rank} spellcastingModifier={spellcastingModifier} />}
+      && <SpellDamageRolls name={name} rank={rank} spellcastingModifier={spellcastingModifier}
+        energyType={typeof spell?.data.dragon_breath_energy === 'string' ? spell.data.dragon_breath_energy : undefined} />}
   </>
   const effectControls = (name: string) => name === 'Oaken Resilience' && (grownOfOakSpell
       ? <small>Cast rank {grownOfOakSpell.rank}</small>
