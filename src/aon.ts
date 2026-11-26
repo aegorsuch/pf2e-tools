@@ -466,6 +466,12 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     if (spell) data.grants_focus_spells = plain(spell)
   }
   if (kind === 'heritage' && parent) data.ancestry = parent[1]
+  if (system === 'sf2e' && kind === 'item' && text(s.item_category).toLowerCase() === 'augmentations') {
+    const actionIds = [...markdown.matchAll(/<document\b[^>]*\bid="actions--([^"]+)"/gi)]
+      .map(([, actionId]) => actionId)
+    if (actionIds.length) data.item_activation_action_ids = actionIds.join(',')
+    data.item_daily_uses = /\b(?:once|twice|(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+times?)\s+per day\b/i.test(markdown)
+  }
   if (usesFullItemRules(s)) {
     const actions = text(s.markdown).split(/\n\s*\n/)
       .filter(paragraph => /^\*\*Activate\b/.test(paragraph.trim()))

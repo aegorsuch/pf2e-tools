@@ -27,7 +27,7 @@ vi.mock('dexie', () => ({
 }))
 
 import { ensureSupplementalContent } from './db'
-import { FIST, homebrewWeapons } from './supplemental'
+import { FIST, homebrewWeapons, PLASMA_ARRAY } from './supplemental'
 
 const staleVersatileEnvoy = {
   id: 'homebrew:versatile-envoy',
@@ -94,6 +94,12 @@ it('refreshes bundled Versatile Operative metadata in existing installs', async 
     id: staleVersatileOperative.id,
     data: expect.objectContaining({ repeatable: true }),
   }))
+})
+
+it('installs the bundled Plasma Array in existing databases', async () => {
+  await ensureSupplementalContent()
+
+  expect(mocks.content.add).toHaveBeenCalledWith(PLASMA_ARRAY)
 })
 
 it('refreshes generated Focus Rifle traits in existing installs', async () => {

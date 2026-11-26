@@ -52,14 +52,19 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     systems: ['sf2e' as const], data: { item_subcategory: 'Weapon Upgrades' } }))
   const sfWeapon = (name: string): ContentEntry => ({ ...weapon, id: name, name, systems: ['sf2e'],
     traits: ['Tech'], data: { weapon_category: 'Martial', damage: '1d6 F', hands: 1, upgrade_slots: 4 } })
-  const weapons = ['SLARP Rapid Laser Pistol', 'Shuriken Drone', 'Singing Spear', 'Battleglove', 'Crimson Claw', 'Shock Pad', 'Shock Truncheon', 'Plasma Sword', 'Rotolaser',
-    'Pulse Gauntlet', 'Tailblade', 'Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle', 'Other'].map(sfWeapon)
+  const weapons = ['SLARP Rapid Laser Pistol', 'Shuriken Drone', 'Singing Spear', 'Battleglove', 'Doshko', 'Plasma Doshko', 'Plasma Array',
+    'Crimson Claw', 'Shock Pad', 'Shock Truncheon', 'Plasma Sword', 'Rotolaser',
+    'Pulse Gauntlet', 'Tailblade', 'Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle', 'Other']
+    .map(name => {
+      const entry = sfWeapon(name)
+      return name === 'Plasma Array' ? { ...entry, data: { ...entry.data, upgrade_slots: 3 } } : entry
+    })
   weapons.push({ ...sfWeapon('Starday Night Special (Semi-Auto Pistol)'),
     data: { ...sfWeapon('Starday Night Special (Semi-Auto Pistol)').data, special_weapon_source: 'Starday Night Special' } })
   const entries = [...weapons, ...upgrades]
   const owned = (name: string, ids: string[] = []): OwnedWeapon => ({ id: name, name, potency: 0, striking: 0, runes: [], upgrades: ids })
-  const at = (name: string, level: number, ids: string[] = []) => installedWeaponUpgrades(
-    { ...character([]), systems: ['sf2e'], level }, entries, owned(name, ids)).map(item => item.name)
+  const at = (name: string, level: number, ids: string[] = [], className = 'Fighter') => installedWeaponUpgrades(
+    { ...character([]), systems: ['sf2e'], level, className }, entries, owned(name, ids)).map(item => item.name)
   const previous = getSettings().automaticSfWeaponUpgrades
   try {
     updateSettings({ automaticSfWeaponUpgrades: true })
@@ -76,6 +81,15 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(at('Battleglove', 4)).toEqual(['Suppression Matrix (Commercial)'])
     expect(at('Battleglove', 13)).toEqual(['Suppression Matrix (Commercial)'])
     expect(at('Battleglove', 14)).toEqual(['Suppression Matrix (Tactical)'])
+    expect(at('Doshko', 3)).toEqual([])
+    expect(at('Doshko', 4)).toEqual(['Suppression Matrix (Commercial)'])
+    expect(at('Doshko', 14)).toEqual(['Suppression Matrix (Tactical)'])
+    expect(at('Plasma Doshko', 8)).toEqual([
+      'Flaming Module (Commercial)', 'Shock Module (Commercial)', 'Glarecaster (Commercial)', 'Suppression Matrix (Commercial)',
+    ])
+    expect(at('Plasma Doshko', 15)).toEqual([
+      'Flaming Module (Tactical)', 'Shock Module (Tactical)', 'Glarecaster (Tactical)', 'Suppression Matrix (Tactical)',
+    ])
     expect(at('Crimson Claw', 8)).toEqual(['Flaming Module (Commercial)'])
     expect(at('Shock Pad', 8)).toEqual(['Shock Module (Commercial)'])
     expect(at('Shock Pad', 15)).toEqual(['Shock Module (Tactical)'])
@@ -83,12 +97,17 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(at('Plasma Sword', 8)).toEqual(['Flaming Module (Commercial)', 'Shock Module (Commercial)', 'Glarecaster (Commercial)'])
     expect(at('Rotolaser', 8)).toEqual(['Flaming Module (Commercial)'])
     expect(at('Rotolaser', 15)).toEqual(['Flaming Module (Tactical)'])
+    expect(at('Plasma Array', 8)).toEqual(['Flaming Module (Commercial)', 'Shock Module (Commercial)'])
+    expect(at('Plasma Array', 15)).toEqual(['Flaming Module (Tactical)', 'Shock Module (Tactical)'])
     expect(at('Pulse Gauntlet', 8)).toEqual(['Loudener (Commercial)'])
     expect(at('Pulse Gauntlet', 15)).toEqual(['Loudener (Tactical)'])
     expect(at('Tailblade', 4)).toEqual([])
     expect(at('Tailblade', 5)).toEqual(['Fear Projector (Commercial)'])
     expect(at('Tailblade', 11)).toEqual(['Fear Projector (Commercial)'])
     expect(at('Tailblade', 12)).toEqual(['Fear Projector (Tactical)'])
+    expect(at('Tailblade', 5, [], 'Soldier')).toEqual(['Suppression Matrix (Commercial)'])
+    expect(at('Tailblade', 13, [], 'Soldier')).toEqual(['Suppression Matrix (Commercial)'])
+    expect(at('Tailblade', 14, [], 'Soldier')).toEqual(['Suppression Matrix (Tactical)'])
     for (const name of ['Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle'])
       expect(at(name, 15)).toEqual(['Flaming Module (Tactical)', 'Glarecaster (Tactical)', "Sniper's Scope (Tactical)"])
     expect(at('Other', 20)).toEqual([])
@@ -98,6 +117,21 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(html).toContain('Flaming Module (Tactical)')
     expect(html).toContain("Smuggler&#x27;s Grip (Tactical)")
     expect(html).not.toContain('Remove Flaming Module (Tactical) upgrade')
+    const doshko = entries.find(entry => entry.name === 'Doshko')!
+    const oneSlotDoshko = { ...doshko, data: { ...doshko.data, upgrade_slots: 1 } }
+    const doshkoCharacter = { ...character([]), systems: ['sf2e' as const], level: 8,
+      weapons: [owned('Doshko')] }
+    const doshkoHtml = renderToStaticMarkup(<WeaponList c={doshkoCharacter}
+      entries={[...entries.filter(entry => entry.id !== doshko.id), oneSlotDoshko]} save={() => {}} />)
+    expect(doshkoHtml).toContain('Suppression Matrix (Commercial)')
+    expect(doshkoHtml).not.toContain('Add weapon upgrade')
+    const plasmaArrayHtml = renderToStaticMarkup(<WeaponList
+      c={{ ...character([]), systems: ['sf2e'], level: 8, weapons: [owned('Plasma Array')] }}
+      entries={entries} save={() => {}} />)
+    expect(plasmaArrayHtml).toContain('Flaming Module (Commercial)')
+    expect(plasmaArrayHtml).toContain('Shock Module (Commercial)')
+    expect(plasmaArrayHtml).toContain('Add weapon upgrade')
+    expect(plasmaArrayHtml).not.toContain('Installed upgrades exceed available slots.')
     updateSettings({ automaticSfWeaponUpgrades: false })
     expect(at('Shock Pad', 15)).toEqual([])
   } finally { updateSettings({ automaticSfWeaponUpgrades: previous }) }
@@ -712,6 +746,48 @@ it('lists non-removable granted augmentations without using implant slots', () =
   expect(removed).not.toContain('Autorecognition Lens')
 })
 
+it('tracks daily-use augmentation pips and removes spent state with the augmentation', () => {
+  const augmentation: ContentEntry = { ...weapon, id: 'artificial-immortalizer', name: 'Artificial Immortalizer',
+    kind: 'item', level: 17, systems: ['sf2e'], data: { item_category: 'Augmentations',
+      item_activation_action_ids: '179-life-buffer' } }
+  const nonDaily: ContentEntry = { ...augmentation, id: 'speed-suspension', name: 'Speed Suspension',
+    data: { item_category: 'Augmentations', item_daily_uses: false } }
+  let c: Character = { ...character([]), systems: ['sf2e'], augmentations: [
+    { id: 'installed-immortalizer', entryId: augmentation.id, name: augmentation.name, slot: 'standard' },
+    { id: 'installed-suspension', entryId: nonDaily.id, name: nonDaily.name, slot: 'standard' },
+  ] }
+  let tree: ReactNode = null
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const markup = () => {
+    function Inspect() {
+      tree = Augmentations({ c, entries: [augmentation, nonDaily], save })
+      return tree
+    }
+    return renderToStaticMarkup(<Inspect />)
+  }
+  const initialMarkup = markup()
+  expect(initialMarkup).toContain('aria-label="1 of 1 uses remaining"')
+  expect(initialMarkup).not.toContain('Spend Speed Suspension use')
+  const spend = findElement(tree, element => element.type === 'button'
+    && element.props['aria-label'] === 'Spend Artificial Immortalizer use 1')!
+  ;(spend.props.onClick as () => void)()
+  expect(c.augmentationDailyUses?.['installed-immortalizer']).toBe(true)
+  expect(markup()).toContain('aria-label="0 of 1 uses remaining"')
+  const restore = findElement(tree, element => element.type === 'button'
+    && element.props['aria-label'] === 'Restore Artificial Immortalizer use 1')!
+  ;(restore.props.onClick as () => void)()
+  expect(c.augmentationDailyUses?.['installed-immortalizer']).toBe(false)
+  markup()
+  const spendAgain = findElement(tree, element => element.type === 'button'
+    && element.props['aria-label'] === 'Spend Artificial Immortalizer use 1')!
+  ;(spendAgain.props.onClick as () => void)()
+  const remove = findElement(tree, element => element.type === 'button'
+    && element.props['aria-label'] === 'Remove Artificial Immortalizer augmentation')!
+  ;(remove.props.onClick as () => void)()
+  expect(c.augmentations?.map(item => item.id)).toEqual(['installed-suspension'])
+  expect(c.augmentationDailyUses).toEqual({})
+})
+
 it('omits biotech upgrade helper text from granted and installed augmentations', () => {
   const c: Character = { ...character([
     { name: 'Biotech OS Upgrade', type: 'Class Feat', level: 1 },
@@ -916,7 +992,7 @@ it('reserves a free hand for shields, but not bucklers, and switches generated s
   expect(equippedShield(c)).toBeUndefined()
 })
 
-it('hides the Shield Brace selector on Myrmidon Siegebreaker Plate', () => {
+it('hides the Shield Brace selector and Implacable helper text on Myrmidon Siegebreaker Plate', () => {
   const armor: ContentEntry = { ...weapon, id: 'myrmidon-armor', kind: 'armor', name: 'Myrmidon Siegebreaker Plate',
     systems: ['sf2e'], traits: ['Shield Brace', 'Implacable'], data: { armor_category: 'Heavy', armor_group: 'Plate',
       ac: 6, dex_cap: 0, strength: 2, check_penalty: -2 } }
@@ -941,26 +1017,33 @@ it('hides the Shield Brace selector on Myrmidon Siegebreaker Plate', () => {
   expect(selector).toBeUndefined()
   const markup = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} part="armor" />)
   expect(markup).not.toContain('aria-label="Shield Brace: Myrmidon Siegebreaker Plate"')
-  expect(markup).toContain('Implacable: the first time each turn an action would be lost')
+  expect(markup).toContain('Implacable')
+  expect(markup).not.toContain('action would be lost to stunned or paralyzed')
 })
 
 it('auto-installs Myrmidon Siegebreaker Plate upgrades and reserves slots for both', () => {
   const armor: ContentEntry = { ...weapon, id: 'myrmidon-siegebreaker', name: 'Myrmidon Siegebreaker Plate',
     kind: 'armor', systems: ['sf2e'], level: 9,
-    data: { url: 'myrmidon-siegebreaker-plate', armor_category: 'Heavy', ac: 6, upgrade_slots: 2 } }
+    data: { url: 'myrmidon-siegebreaker-plate', armor_category: 'Heavy', ac: 6, strength: 10,
+      speed_penalty: -10, upgrade_slots: 2 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
     systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
-  const upgrades = [module('Jetpack (Tactical)', 9), module('Force Field (Paragon)', 19)]
+  const upgrades = [module('Jetpack (Tactical)', 9), module('Force Field (Paragon)', 19), module('Mobility Enhancer', 0)]
   const c: Character = { ...character([]), systems: ['sf2e'], level: 20, armors: [
     { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const tree = ArmorList({ c, entries: [armor, ...upgrades], save: () => {} })
   const markup = renderToStaticMarkup(tree)
-  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(2)
+  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(3)
   expect(markup).toContain('Jetpack (Tactical)')
   expect(markup).toContain('Force Field (Paragon)')
+  expect(markup).toContain('Mobility Enhancer')
   expect(markup).not.toContain('Jetpack (Tactical) *')
   expect(markup).not.toContain('Force Field (Paragon) *')
+  expect(markup).not.toContain('Mobility Enhancer *')
+  expect(automaticArmorUpgradeUsesSlot(armor.name, upgrades[2])).toBe(true)
+  expect(automaticSpecificArmorUpgrades(c, [armor, ...upgrades], armor).map(item => item.name))
+    .toContain('Mobility Enhancer')
   expect(markup).not.toContain('Add armor upgrade')
   const component = findElement(tree, element => typeof element.type === 'function' && element.type.name === 'ArmorUpgrades')!
   const content = (component.type as (props: typeof component.props) => ReactNode)(component.props)
@@ -3017,6 +3100,7 @@ it('reserves Clandestine Suit slots for its built-in Jetpack and Force Field', (
   const upgrades = [
     module('Jetpack (Commercial)', 5), module('Force Field (Advanced)', 7),
     module('Active Camouflage (Tactical)', 9), module('Cloaking Device (Commercial)', 8),
+    module('Drift Drive Relay (Commercial)', 9),
   ]
   let c: Character = { ...character([{ name: 'Offensive Defense', type: 'Class Feat', level: 6 }]),
     systems: ['sf2e'], className: 'Soldier', level: 9, armors: [
@@ -3029,14 +3113,17 @@ it('reserves Clandestine Suit slots for its built-in Jetpack and Force Field', (
     return (component.type as (props: typeof component.props) => ReactNode)(component.props)
   }
   const markup = renderToStaticMarkup(tree())
-  expect(automaticArmorUpgradeSlotsUsed(suit)).toBe(2)
+  expect(automaticArmorUpgradeSlotsUsed(suit)).toBe(3)
   expect(markup).toContain('Jetpack (Commercial)')
   expect(markup).toContain('Force Field (Advanced)')
+  expect(markup).toContain('Drift Drive Relay (Commercial)')
   expect(markup).not.toContain('Jetpack (Commercial) *')
   expect(markup).not.toContain('Force Field (Advanced) *')
+  expect(markup).not.toContain('Drift Drive Relay (Commercial) *')
+  expect(automaticArmorUpgradeUsesSlot(suit.name, upgrades[4])).toBe(true)
   expect(markup).toContain('Active Camouflage (Tactical) *')
   expect(markup).toContain('Cloaking Device (Commercial) *')
-  expect(resolvedArmorUpgradeSlots(suit) - automaticArmorUpgradeSlotsUsed(suit)).toBe(0)
+  expect(Math.max(0, resolvedArmorUpgradeSlots(suit) - automaticArmorUpgradeSlotsUsed(suit))).toBe(0)
   expect(markup).not.toContain('Add armor upgrade')
   expect(markup).not.toContain('Free (no upgrade slot)')
   expect(markup).not.toContain('Installed upgrades exceed available slots')
@@ -3048,7 +3135,7 @@ it('reserves Clandestine Suit slots for its built-in Jetpack and Force Field', (
   })
 })
 
-it('leaves two Paragon Clandestine Suit upgrade slots, or three for Mod Fanatic Androids', () => {
+it('leaves one Paragon Clandestine Suit upgrade slot, or two for Mod Fanatic Androids', () => {
   const suit: ContentEntry = { ...weapon, id: 'paragon-clandestine', name: 'Paragon Clandestine Suit',
     kind: 'armor', systems: ['sf2e'], level: 20,
     data: { armor_grade: 'Paragon', upgrade_slots: 2 } }
@@ -3059,12 +3146,24 @@ it('leaves two Paragon Clandestine Suit upgrade slots, or three for Mod Fanatic 
     armors: [{ id: suit.id, name: suit.name, potency: 0, resilient: 0, runes: [], worn: true,
       upgrades: upgrades.map(upgrade => upgrade.id) }] })
   expect(resolvedArmorUpgradeSlots(suit)).toBe(4)
-  expect(automaticArmorUpgradeSlotsUsed(suit)).toBe(2)
+  expect(automaticArmorUpgradeSlotsUsed(suit)).toBe(3)
   expect(armorUpgradeEntries(characterWith(), entries, characterWith().armors![0]).map(entry => entry.id))
-    .toEqual(['extra-1', 'extra-2'])
+    .toEqual(['extra-1'])
   const android = characterWith('Mod Fanatic Android')
   expect(armorUpgradeEntries(android, entries, android.armors![0]).map(entry => entry.id))
-    .toEqual(['extra-1', 'extra-2', 'extra-3'])
+    .toEqual(['extra-1', 'extra-2'])
+})
+
+it('prevents installing more than one grade of Drift Drive Relay', () => {
+  const commercial: ContentEntry = { ...shifting, id: 'relay-commercial', name: 'Drift Drive Relay (Commercial)',
+    systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } }
+  const advanced: ContentEntry = { ...commercial, id: 'relay-advanced', name: 'Drift Drive Relay (Advanced)' }
+  const tree = ArmorUpgrades({ entries: [commercial, advanced], upgrades: [commercial.id], limit: 2, worn: true,
+    onToggleJetpack: () => {}, onEnergyShieldingTypeChange: () => {}, onChange: () => {} })
+  const markup = renderToStaticMarkup(tree)
+  expect(markup).toContain('Drift Drive Relay (Commercial)')
+  expect(markup).not.toContain('Drift Drive Relay (Advanced)')
+  expect(markup).not.toContain('Add armor upgrade')
 })
 
 it('rolls Energized Spikes using their grade and clears their stored charge', () => {

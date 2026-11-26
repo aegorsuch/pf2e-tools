@@ -139,6 +139,7 @@ export function equipmentFitsGroup(entry: ContentEntry, group: EquipmentGroupNam
 }
 
 export function equipmentGroupName(entry?: ContentEntry, name = entry?.name ?? '', savedGroup?: EquipmentGroupName | 'Belts' | 'Waist'): EquipmentGroupName {
+  if (entry?.kind === 'item' && entry.traits.some(trait => trait.toLowerCase() === 'grenade')) return 'Grenades'
   if ((!savedGroup || savedGroup === 'Gloves' || savedGroup === 'Hands') && /\bhandwraps?\b/i.test(name)) return 'Handwraps'
   if ((!savedGroup || savedGroup === 'Other equipment') && entry?.kind === 'item'
     && /\b(?:kit|toolkit|medkit|tools)(?:\b|s\b)/i.test(name)) return 'Toolkits'

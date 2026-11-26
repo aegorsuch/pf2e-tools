@@ -942,28 +942,43 @@ it('keeps companion and granted general-feat choices out of feat rows', () => {
   }
 })
 
-it('offers Finely Tuned variants for distinct common installed augmentations', () => {
+it('offers Finely Tuned only for distinct common augmentations with daily activations', () => {
   const finelyTuned = { name: 'Finely Tuned', type: 'Class Feat', level: 6, slot: 'class:6:0' }
-  const common: ContentEntry = { id: 'common', systems: ['sf2e'], kind: 'item', source: 'official', name: 'Common implant',
-    level: 1, traits: [], description: '', data: { item_category: 'Augmentations' }, effects: [], updatedAt: 0 }
+  const common: ContentEntry = { id: 'hypernerves', systems: ['sf2e'], kind: 'item', source: 'official', name: 'Hypernerves',
+    level: 1, traits: [], description: '', data: { item_category: 'Augmentations',
+      item_activation_action_ids: '182-engange-hypernerves' }, effects: [], updatedAt: 0 }
+  const cloakingSkin: ContentEntry = { ...common, id: 'cloaking-skin', name: 'Cloaking Skin (Advanced)',
+    data: { item_category: 'Augmentations', item_activation_action_ids: '175-cloak' } }
+  const speedSuspension: ContentEntry = { ...common, id: 'speed-suspension', name: 'Speed Suspension',
+    data: { item_category: 'Augmentations' } }
+  const artificialImmortalizer: ContentEntry = { ...common, id: 'artificial-immortalizer', name: 'Artificial Immortalizer',
+    level: 17, traits: ['Apex'], data: { item_category: 'Augmentations', item_activation_action_ids: '179-life-buffer' } }
+  const nonDaily: ContentEntry = { ...common, id: 'non-daily', name: 'Non-daily implant',
+    data: { item_category: 'Augmentations', item_activation_action_ids: '473-animated-limb' } }
   const uncommon: ContentEntry = { ...common, id: 'uncommon', name: 'Uncommon implant', traits: ['Uncommon'] }
   let c: Character = { ...base, systems: ['sf2e'], level: 8, feats: [finelyTuned],
     augmentations: [
       { id: 'one', entryId: common.id, name: common.name, slot: 'standard' },
-      { id: 'two', entryId: uncommon.id, name: uncommon.name, slot: 'standard' },
+      { id: 'two', entryId: cloakingSkin.id, name: cloakingSkin.name, slot: 'standard' },
+      { id: 'three', entryId: speedSuspension.id, name: speedSuspension.name, slot: 'standard' },
+      { id: 'four', entryId: nonDaily.id, name: nonDaily.name, slot: 'standard' },
+      { id: 'five', entryId: uncommon.id, name: uncommon.name, slot: 'standard' },
+      { id: 'six', entryId: artificialImmortalizer.id, name: artificialImmortalizer.name, slot: 'standard' },
     ] }
-  const catalog = [common, uncommon]
+  const catalog = [common, cloakingSkin, speedSuspension, artificialImmortalizer, nonDaily, uncommon]
   const tree = (index = 0) => FeatChoice({
     c, entries: catalog, index, save: patch => { c = { ...c, ...patch } },
   })
-  expect(featChoiceOptions('Finely Tuned', c, catalog, finelyTuned.slot, 0)).toEqual(['Common implant'])
-  expect(renderToStaticMarkup(tree())).toContain('Common implant')
-  findSelect(tree())!.onChange({ target: { value: 'Common implant' } })
-  expect(c.feats[0].choice).toBe('Common implant')
+  expect(featChoiceOptions('Finely Tuned', c, catalog, finelyTuned.slot, 0))
+    .toEqual(['Artificial Immortalizer', 'Cloaking Skin (Advanced)', 'Hypernerves'])
+  expect(renderToStaticMarkup(tree())).toContain('Hypernerves')
+  findSelect(tree())!.onChange({ target: { value: 'Hypernerves' } })
+  expect(c.feats[0].choice).toBe('Hypernerves')
 
   c = { ...c, feats: [...c.feats, { ...finelyTuned, slot: 'class:6:1' }] }
-  expect(featChoiceOptions('Finely Tuned', c, catalog, 'class:6:1', 1)).toEqual([])
-  expect(renderToStaticMarkup(tree(1))).toContain('No common installed augmentations')
+  expect(featChoiceOptions('Finely Tuned', c, catalog, 'class:6:1', 1))
+    .toEqual(['Artificial Immortalizer', 'Cloaking Skin (Advanced)'])
+  expect(renderToStaticMarkup(tree(1))).toContain('Cloaking Skin (Advanced)')
 })
 
 it('hides manual casting configuration for noncasters and collapses the spell section', () => {

@@ -31,6 +31,18 @@ it('removes only Starfinder Society membership from Field Agent Dedication prere
     .toContain('Starfinder Field Agent Dedication')
 })
 
+it('preserves augmentation action references and item-level daily frequencies', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => ['Hypernerves', 'Speed Suspension', 'Cloaking Skin']
+    .includes(String(hit._source?.name))), 'sf2e')
+  const hypernerves = entries.find(entry => entry.name === 'Hypernerves')!
+  expect(hypernerves.data.item_activation_action_ids).toContain('182-engange-hypernerves')
+  expect(hypernerves.data.item_daily_uses).toBe(false)
+  expect(entries.find(entry => entry.name === 'Speed Suspension')?.data.item_activation_action_ids).toBeUndefined()
+  expect(entries.find(entry => entry.name === 'Speed Suspension')?.data.item_daily_uses).toBe(false)
+  expect(entries.find(entry => entry.name === 'Cloaking Skin')?.data.item_daily_uses).toBe(true)
+})
+
 it('maps Dragon Spit to four fixed cantrip variants', () => {
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(pf2eSnapshot)
   const entries = mapAonHits(hits.filter(hit => hit._source?.name === 'Dragon Spit'), 'pf2e')
@@ -80,7 +92,7 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
   const names = new Set(families.flatMap(name => [name, ...grades.map(grade => `${grade} ${name}`)]))
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
   const upgrades = ['Jetpack', 'Force Field', 'Aqua Jets', 'Active Camouflage', 'Cloaking Device', 'Drift Drive Relay',
-    'Maneuvering Unit', 'Easypatcher', 'Adrenal Autoinjectors', 'Energized Spikes', 'Energy Shielding',
+    'Mobility Enhancer', 'Maneuvering Unit', 'Easypatcher', 'Adrenal Autoinjectors', 'Energized Spikes', 'Energy Shielding',
     'Spell Gauntlet', 'Spell Refactoring Matrix']
   const entries = mapAonHits(hits.filter(hit => {
     const name = String(hit._source?.name)
@@ -101,12 +113,16 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
     expect(autoUpgrades.map(entry => entry.name)).toContain('Force Field (Paragon)')
     if (name === 'Aquavarius Armor') expect(autoUpgrades.map(entry => entry.name)).not.toContain('Jetpack (Tactical)')
     else expect(autoUpgrades.map(entry => entry.name)).toContain('Jetpack (Tactical)')
-    expect(autoUpgrades).toHaveLength(name === "Drifter's Jacket" ? 5
-      : name === 'Clandestine Suit' || name === 'Stormbreaker Armor' || name === 'Carvesong' ? 4
+    expect(autoUpgrades).toHaveLength(name === "Drifter's Jacket" || name === 'Clandestine Suit' ? 5
+      : name === 'Myrmidon Siegebreaker Plate' || name === 'Aquavarius Armor' || name === 'Rocketeer Armor' ? 3
+      : name === 'Stormbreaker Armor' || name === 'Carvesong' ? 4
       : name === 'Retrieval Harness' ? 4
-      : name === 'Aquavarius Armor' || name === 'Rocketeer Armor' ? 3 : 2)
+      : 2)
     if (name === 'Clandestine Suit') expect(autoUpgrades.map(entry => entry.name))
-      .toEqual(expect.arrayContaining(['Active Camouflage (Advanced)', 'Cloaking Device (Tactical)']))
+      .toEqual(expect.arrayContaining(['Active Camouflage (Advanced)', 'Cloaking Device (Tactical)',
+        'Drift Drive Relay (Advanced)']))
+    if (name === 'Myrmidon Siegebreaker Plate')
+      expect(autoUpgrades.map(entry => entry.name)).toContain('Mobility Enhancer')
     if (name === "Drifter's Jacket") expect(autoUpgrades.map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Force Field (Paragon)', 'Active Camouflage (Advanced)',
         'Drift Drive Relay (Advanced)', 'Maneuvering Unit (Superior)']))

@@ -2189,6 +2189,23 @@ export function enhancedSensesChoice(c: Character, entries: ContentEntry[], inde
   return native && options.includes(native) ? native : undefined
 }
 
+// AoN snapshots include item links, but not child action-page frequency text.
+const DAILY_AUGMENTATION_ACTION_IDS = new Set([
+  '175-cloak', '176-gaze', '178-regenerate', '179-life-buffer', '182-engange-hypernerves',
+  '183-strength-of-the-colossi', '277-adrenal-boost', '292-raise-mental-defenses', '463-bloat',
+  '465-glitterburst', '467-skunk-it', '474-solid-state-memory', '475-self-correct',
+  '476-rapid-emf-charge', '482-spew-acid', '483-drift-charge', '484-hellsight',
+  '486-engage-overdrive', '489-draining-touch', '495-necrotize-blood',
+])
+
+export function hasDailyAugmentationActivation(entry: ContentEntry) {
+  const actionIds = String(entry.data.item_activation_action_ids ?? '').split(',').map(actionId => actionId.trim())
+  return entry.data.item_daily_uses === true
+    || /\b(?:once|twice|(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+times?)\s+per day\b/i
+      .test(String(entry.data.markdown ?? ''))
+    || actionIds.some(actionId => DAILY_AUGMENTATION_ACTION_IDS.has(actionId))
+}
+
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number,
   category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
@@ -2250,6 +2267,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       const entry = entries.find(candidate => candidate.id === augmentation.entryId)
       return entry && entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
         && String(entry.data.item_category).toLowerCase() === 'augmentations' && !featRarity(entry)
+        && hasDailyAugmentationActivation(entry)
         && !alreadyChosen.has(augmentation.name) ? [augmentation.name] : []
     }))].sort((a, b) => a.localeCompare(b))
   }
@@ -3286,9 +3304,11 @@ export function starfinderArmorPenalties(c: Character, entries: ContentEntry[]) 
   const upgradeLimit = Math.max(0, armorUpgradeSlots(armor)
     + (c.heritage === 'Mod Fanatic Android' && armor.data.upgrades_allowed !== false ? 1 : 0)
     - automaticArmorUpgradeSlotsUsed(armor))
-  const enhancer = worn && upgradeLimit > 0
-    && (worn.upgrades ?? []).slice(0, upgradeLimit)
-      .some(id => entries.find(entry => entry.id === id)?.name === 'Mobility Enhancer') ? 5 : 0
+  const isMobilityEnhancer = (entry?: ContentEntry) =>
+    entry?.name.replace(/\s*\([^)]*\)$/, '') === 'Mobility Enhancer'
+  const enhancer = worn && (automaticSpecificArmorUpgrades(c, entries, armor).some(isMobilityEnhancer)
+    || upgradeLimit > 0 && (worn.upgrades ?? []).slice(0, upgradeLimit)
+      .some(id => isMobilityEnhancer(entries.find(entry => entry.id === id)))) ? 5 : 0
   return { check, speed: heavyConstruction && meets ? 0 : Math.min(0, penalty + iron + enhancer + (meets ? mobility ? 10 : 5 : 0)) }
 }
 
@@ -3394,10 +3414,9 @@ export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
   if (!armor?.systems.includes('sf2e')) return 0
   if (SPELL_ARMOR_FAMILIES.has(family ?? '')) return 4
   if (family === "Drifter's Jacket") return 3
-  return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Clandestine Suit',
-    'Myrmidon Siegebreaker Plate', 'Retrieval Harness',
-    'Rocketeer Armor', 'Stormbreaker Armor']
-    .includes(family ?? '') ? family === 'Retrieval Harness' ? 3 : 2 : 0
+  if (['Clandestine Suit', 'Myrmidon Siegebreaker Plate', 'Retrieval Harness'].includes(family ?? '')) return 3
+  return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Rocketeer Armor', 'Stormbreaker Armor']
+    .includes(family ?? '') ? 2 : 0
 }
 
 export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upgrade: ContentEntry) {
@@ -3408,6 +3427,8 @@ export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upg
   if (['Aeon Guard Battle Dress', 'Clandestine Suit', "Drifter's Jacket",
     'Myrmidon Siegebreaker Plate', 'Retrieval Harness', 'Stormbreaker Armor'].includes(family ?? ''))
     return ['Jetpack', 'Force Field'].includes(base) || family === "Drifter's Jacket" && base === 'Active Camouflage'
+      || family === 'Clandestine Suit' && base === 'Drift Drive Relay'
+      || family === 'Myrmidon Siegebreaker Plate' && base === 'Mobility Enhancer'
       || family === 'Retrieval Harness' && base === 'Adrenal Autoinjectors'
   return family === 'Rocketeer Armor' && ['Force Field', 'Maneuvering Unit'].includes(base)
 }
@@ -3419,7 +3440,9 @@ const AUTOMATIC_UPGRADE_ARMORS = new Set([
 const SPELL_ARMOR_FAMILIES = new Set(['Carveweave', 'Carvesong', 'Mageplate'])
 const AUTOMATIC_ARMOR_UPGRADES = ['Jetpack', 'Force Field']
 const CLOAKING_ARMOR_UPGRADES = ['Active Camouflage', 'Cloaking Device']
+const CLANDESTINE_ARMOR_UPGRADES = ['Drift Drive Relay']
 const DRIFTER_JACKET_ARMOR_UPGRADES = ['Active Camouflage', 'Drift Drive Relay', 'Maneuvering Unit']
+const MYRMIDON_ARMOR_UPGRADES = ['Mobility Enhancer']
 const ROCKETEER_ARMOR_UPGRADES = ['Maneuvering Unit']
 const RETRIEVAL_HARNESS_ARMOR_UPGRADES = ['Easypatcher', 'Adrenal Autoinjectors']
 const STORMBREAKER_ARMOR_UPGRADES = ['Energized Spikes', 'Energy Shielding']
@@ -3438,7 +3461,9 @@ export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEnt
     ? family === 'Aquavarius Armor' ? ['Force Field'] : AUTOMATIC_ARMOR_UPGRADES
     : []),
     ...(family === 'Clandestine Suit' ? CLOAKING_ARMOR_UPGRADES : []),
+  ...(family === 'Clandestine Suit' ? CLANDESTINE_ARMOR_UPGRADES : []),
     ...(family === "Drifter's Jacket" ? DRIFTER_JACKET_ARMOR_UPGRADES : []),
+  ...(family === 'Myrmidon Siegebreaker Plate' ? MYRMIDON_ARMOR_UPGRADES : []),
     ...(family === 'Rocketeer Armor' ? ROCKETEER_ARMOR_UPGRADES : []),
     ...(family === 'Retrieval Harness' ? RETRIEVAL_HARNESS_ARMOR_UPGRADES : []),
     ...(family === 'Stormbreaker Armor' ? STORMBREAKER_ARMOR_UPGRADES : []),
@@ -7030,6 +7055,8 @@ export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon, c?: Ch
   const original = withNamedWeaponState(weaponEntry(entries, weapon.name), weapon)
   const entry = c ? weaponWithModifications(c, weapon, original) : original
   if (!entry) return undefined
+  if (c?.systems.includes('sf2e') && getSettings().plasmaCasterOneHanded
+    && entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '') === 'Plasma Caster') return 1
   if (weaponCategory(entry) === 'Unarmed'
     || [...entry.traits, ...tokens(entry.data.trait)].some(trait => /^(?:unarmed|free[- ]hand)$/i.test(trait))) return 0
   if (String(entry.data.hands).trim() === '2' && c?.systems.includes('sf2e')
@@ -8639,13 +8666,15 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     : name === 'Knife' ? ['Retrieval Boosters']
     : name === 'Shuriken Drone' ? ['Retrieval Boosters']
     : name === 'Singing Spear' ? ['Retrieval Boosters', 'Loudener']
-    : name === 'Battleglove' ? ['Suppression Matrix']
+    : name === 'Battleglove' || name === 'Doshko' ? ['Suppression Matrix']
     : name === 'Crimson Claw' ? ['Flaming Module']
     : name === 'Shock Pad' || name === 'Shock Truncheon' ? ['Shock Module']
-    : name === 'Plasma Sword' || name === 'Plasma Doshko' ? ['Flaming Module', 'Shock Module', 'Glarecaster']
+    : name === 'Plasma Sword' ? ['Flaming Module', 'Shock Module', 'Glarecaster']
+    : name === 'Plasma Doshko' ? ['Flaming Module', 'Shock Module', 'Glarecaster', 'Suppression Matrix']
+    : name === 'Plasma Array' ? ['Flaming Module', 'Shock Module']
     : name === 'Rotolaser' ? ['Flaming Module']
     : name === 'Pulse Gauntlet' ? ['Loudener']
-    : /^Tail\s*Blade$/i.test(name) ? ['Fear Projector'] : []
+    : /^Tail\s*Blade$/i.test(name) ? [c.className === 'Soldier' ? 'Suppression Matrix' : 'Fear Projector'] : []
   return automaticUpgradeEntries(c, entries, upgrades)
 }
 

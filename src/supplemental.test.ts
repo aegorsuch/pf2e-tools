@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import type { Character, ContentEntry } from './types'
-import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, homebrewCharacterOptions, homebrewWeapons, IRON_FIST, migrateMobileHunt, ORC_TUSKS, OVERSIZED_THROW } from './supplemental'
+import { ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, homebrewCharacterOptions, homebrewWeapons, IRON_FIST, migrateMobileHunt, ORC_TUSKS, OVERSIZED_THROW, PLASMA_ARRAY } from './supplemental'
 import { automaticFeatGrants, backgroundSkills, boostSlots, effectiveWeapon, eligibleFeats, eligibleWeaponRunes, featChoiceOptions, gearPickerEntries, handwrapRuneOptions, installedWeaponUpgrades, isLockedWeapon, ownedWeapons, weaponAttack, weaponCategory } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { FeatSlots } from './FeatSlots'
@@ -807,6 +807,17 @@ it('provides a martial rapid laser pistol with separate automatically improving 
     entry: { name: 'Advanced Rapid Laser Pistol', data: { upgrade_slots: 2, weapon_ammunition: '6 charges' } } })
   expect(weaponAttack(c, entries, { id: 'other', name: laser.name, potency: 0, striking: 0, runes: [] }).entry?.name)
     .toBe('Advanced Laser Pistol')
+})
+
+it('provides the Plasma Array homebrew weapon with its specified ranged stats', () => {
+  expect(PLASMA_ARRAY).toMatchObject({
+    id: 'homebrew:plasma-array', source: 'homebrew', kind: 'weapon', systems: ['sf2e'],
+    name: 'Plasma Array', traits: ['Automatic', 'Tech'],
+    data: { weapon_category: 'Martial', weapon_group: 'Plasma', weapon_type: 'Ranged', damage: '1d8 F',
+      bulk: 2, hands: 2, range: 30, reload: 1, upgrade_slots: 3, weapon_ammunition: '10 charges', price: 60 },
+  })
+  expect(PLASMA_ARRAY.description).toContain('Expend 1')
+  expect(gearPickerEntries([PLASMA_ARRAY], 'weapon')).toEqual([PLASMA_ARRAY])
 })
 
 it('provides a scaling laser Focus Rifle in the Starfinder Sniper group', () => {

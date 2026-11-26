@@ -238,6 +238,16 @@ export const CLAN_DAGGER_DEXTERITY: ContentEntry = {
     url: 'https://2e.aonprd.com/Weapons.aspx?ID=387' },
 }
 
+export const PLASMA_ARRAY: ContentEntry = {
+  id: 'homebrew:plasma-array', systems: ['sf2e'], kind: 'weapon', source: 'homebrew',
+  name: 'Plasma Array', level: 0, traits: ['Automatic', 'Tech'],
+  description: 'Price 60 credits. Damage 1d8 F. Bulk 2. Hands 2. Range 30 feet. Reload 1. One user-selectable upgrade slot remains after the automatic Flaming Module and Shock Module each use a slot. Magazine 10 charges. Expend 1.\n\nA plasma array fires multiple beams of plasma at once. This massive assault rifle has a set of rotating barrels that prevent overheating when spewing auto-fire.',
+  data: { weapon_category: 'Martial', weapon_group: 'Plasma', weapon_type: 'Ranged', damage: '1d8 F',
+    bulk: 2, hands: 2, range: 30, reload: 1, upgrade_slots: 3, weapon_ammunition: '10 charges',
+    price: 60, sourceBook: 'Homebrew' },
+  effects: [], updatedAt: 1,
+}
+
 export const GAUNTLET: ContentEntry = {
   ...HAFT_STRIKER_WEAPON, id: 'supplemental:full-plate-gauntlet', name: 'Gauntlet',
   traits: ['Agile', 'Free-Hand'],

@@ -4,7 +4,7 @@ export const WORN_EQUIPMENT_GROUPS = [
   'Face', 'Feet', 'Gloves', 'Hands', 'Handwraps', 'Head', 'Headband', 'Headwear', 'Mask', 'Neck', 'Necklaces', 'Rings', 'Shoulders',
   'Throat', 'Torso', 'Wrists', 'Other Worn Items',
 ] as const
-export const EQUIPMENT_GROUPS = ['Arrows', 'Bolts', 'Bullets', 'Grafts', 'Other equipment', 'Poisons', 'Tattoos', 'Toolkits', ...WORN_EQUIPMENT_GROUPS] as const
+export const EQUIPMENT_GROUPS = ['Arrows', 'Bolts', 'Bullets', 'Grafts', 'Grenades', 'Other equipment', 'Poisons', 'Tattoos', 'Toolkits', ...WORN_EQUIPMENT_GROUPS] as const
 export type EquipmentGroupName = typeof EQUIPMENT_GROUPS[number]
 export type EntryKind =
   | 'feat' | 'weapon' | 'armor' | 'spell' | 'ritual' | 'item' | 'ancestry' | 'class'
@@ -324,6 +324,7 @@ export interface Character {
   poisonWeaponActive?: boolean
   apexAugmentationId?: string
   augmentations?: { id: string; entryId: string; name: string; slot: string; speed?: string; deployed?: boolean }[]
+  augmentationDailyUses?: Record<string, boolean>
   hardpointWeaponId?: string
   dermalPlating?: { grade?: HardlightGrade; raised?: boolean; damaged?: boolean }
   secondaryPowerSourceIds?: string[]

@@ -2,7 +2,7 @@ import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQue
 import { mapAonHit } from './aon'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, enhancedSensesChoice, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, characterAncestryLabel, characterSummary, subclassOptions, subclassSkillChoice, subclassSkillGrants, selectedSubclass, investigatorSkillfulLessonSkills, availableOrders, featLores, trainedFeatLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange, syncClassArchetypeDedication, warriorLegendWeakness, parryValue, temporaryHpGrant } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, enhancedSensesChoice, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, characterAncestryLabel, characterSummary, subclassOptions, subclassSkillChoice, subclassSkillGrants, selectedSubclass, investigatorSkillfulLessonSkills, availableOrders, featLores, trainedFeatLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, automaticSpecificArmorUpgrades, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, weaponHands, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange, syncClassArchetypeDedication, warriorLegendWeakness, parryValue, temporaryHpGrant } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { automaticFeatChoiceKey, coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
@@ -4276,10 +4276,35 @@ it('applies Starfinder Mobility Enhancer armor upgrades and augmentations to spe
     armors: [{ id: 'a', name: armor.name, potency: 0, resilient: 0, runes: [], worn: true, upgrades: ['enhancer'] }] }
   expect(starfinderArmorPenalties({ ...c, armors: [{ ...c.armors![0], upgrades: [] }] }, [armor, upgrade]).speed).toBe(-10)
   expect(starfinderArmorPenalties(c, [armor, upgrade]).speed).toBe(-5)
+  const myrmidon: ContentEntry = { ...armor, id: 'myrmidon', name: 'Myrmidon Siegebreaker Plate',
+    data: { ...armor.data, upgrade_slots: 2 } }
+  const builtInEnhancer = { ...upgrade, id: 'built-in-enhancer' }
+  const armored: Character = { ...c, abilities: { ...c.abilities, str: 18 },
+    armors: [{ ...c.armors![0], id: myrmidon.id, name: myrmidon.name, upgrades: [] }] }
+  expect(automaticSpecificArmorUpgrades(armored, [myrmidon, builtInEnhancer], myrmidon).map(item => item.name))
+    .toContain('Mobility Enhancer')
+  expect(starfinderArmorPenalties(armored, [myrmidon, builtInEnhancer]).speed).toBe(0)
   const winged: Character = { ...base, systems: ['sf2e'], level: 11, feats: [{ name: 'Basic Insectile Flight', type: 'Ancestry Feat', level: 1 }],
     augmentations: [{ id: 'm', entryId: 'x', name: 'Mobility Enhancer (Tactical)', slot: 'standard' }] }
   expect(movementSpeeds(winged, []).find(move => move.name === 'Fly')?.feet)
     .toBe(movementSpeeds({ ...winged, augmentations: [] }, []).find(move => move.name === 'Fly')!.feet + 10)
+})
+
+it('treats Plasma Caster as one-handed when its house rule is enabled', () => {
+  const c: Character = { ...base, systems: ['sf2e'] }
+  const previous = getSettings().plasmaCasterOneHanded
+  try {
+    updateSettings({ plasmaCasterOneHanded: true })
+    for (const name of ['Plasma Caster', 'Tactical Plasma Caster', 'Paragon Plasma Caster']) {
+      const plasmaCaster: ContentEntry = { ...entry('weapon', name, { hands: 2 }), systems: ['sf2e'] }
+      const owned = { id: name, name, potency: 0, striking: 0, runes: [] }
+      expect(weaponHands([plasmaCaster], owned, c)).toBe(1)
+    }
+    updateSettings({ plasmaCasterOneHanded: false })
+    const plasmaCaster: ContentEntry = { ...entry('weapon', 'Plasma Caster', { hands: 2 }), systems: ['sf2e'] }
+    expect(weaponHands([plasmaCaster], { id: plasmaCaster.name, name: plasmaCaster.name,
+      potency: 0, striking: 0, runes: [] }, c)).toBe(2)
+  } finally { updateSettings({ plasmaCasterOneHanded: previous }) }
 })
 
 it('applies Speed Suspension grades and Augmented Mobility to augmentation-granted movement', () => {

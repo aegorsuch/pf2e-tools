@@ -69,6 +69,7 @@ export interface Settings {
   consolidateInnateTraditions: boolean
   uniqueInnateSpellChoices: boolean
   automaticSfWeaponUpgrades: boolean
+  plasmaCasterOneHanded: boolean
   studentOfApotheosisStrengthWisdom: boolean // Kept for compatibility with saved settings.
   // House rule: General Training and Advanced General Training can each be selected once
   singleTrainingFeats: boolean
@@ -107,7 +108,7 @@ const DEFAULTS: Settings = {
   commanderBeastmaster: true, druidBeastmaster: true, rangerBeastmaster: true, championFormNoFlight: true,
   generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true,
   innateHighestMental: true, avengerEldritchHighestMental: true, innateAutoHeighten: true,
-  consolidateInnateTraditions: true, uniqueInnateSpellChoices: true, automaticSfWeaponUpgrades: true,
+  consolidateInnateTraditions: true,   uniqueInnateSpellChoices: true, automaticSfWeaponUpgrades: true, plasmaCasterOneHanded: true,
   studentOfApotheosisStrengthWisdom: true, singleTrainingFeats: true, inventorFirearmAccess: true,
   inventorArmorGauntlets: true, bucklerMeleeFinesse: true, freeHandFinesse: true, staffAcrobatSpear: true,
   staffAcrobatNoPrerequisites: true, whirlwindStanceNoPrerequisites: true, unarmedCountsAsWeapons: true,

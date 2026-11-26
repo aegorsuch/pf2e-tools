@@ -1090,20 +1090,23 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
   const item = (name: string, category: string): ContentEntry => ({ id: name, name, kind: 'item',
     systems: ['pf2e'], source: 'official', level: 1, traits: [], description: '', data: { item_category: category }, effects: [], updatedAt: 0 })
   content.entries = [item('Caligni Eyes', 'Grafts'), item('Spider Lily', 'Tattoos'), item('Rope', 'Adventuring Gear'),
+    { ...item('Frag Grenade', 'Alchemical Items'), traits: ['Grenade'] },
     { ...item('Black Adder Venom', 'Alchemical Items'), traits: ['Poison', 'Injury'] }]
   const c: Character = { id: 'equipment-order', systems: ['pf2e', 'sf2e'], name: 'Test', level: 1,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: ['Poison Weapon', 'Cheek Pouches', 'Gadget Specialist', 'Grenade Specialist', 'Munitions Crafter']
       .map(name => ({ name, type: 'Class Feat', level: 1 })),
-    equipment: ['Spider Lily', 'Rope', 'Caligni Eyes', 'Arrows', 'Bolts', 'Bullets', 'Black Adder Venom'].map(name => ({ name, qty: 1 })),
+    equipment: [...['Spider Lily', 'Rope', 'Caligni Eyes', 'Arrows', 'Bolts', 'Bullets', 'Black Adder Venom']
+      .map(name => ({ name, qty: 1 })), { name: 'Frag Grenade', qty: 1, group: 'Other equipment' }],
     lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   try {
     const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
     const equipment = markup.slice(markup.indexOf('<strong>Equipment</strong>'), markup.indexOf('<strong>Formulas</strong>'))
     const headers = [...equipment.matchAll(/<h4>([^<]+)(?:<small\b[^>]*>[^<]*<\/small>)?<\/h4>/g)].map(match => match[1].trim())
     expect(headers).toEqual(['Armor', 'Arms', 'Arrows', 'Augmentations', 'Backpacks', 'Belt', 'Body', 'Bolts', 'Boots', 'Bracelets', 'Bullets',
-      'Chest', 'Cloaks', 'Clothing', 'Eyes', 'Eyewear', 'Face', 'Feet', 'Gadgets', 'Gloves', 'Grafts', 'Grenade Specialist', 'Hands', 'Handwraps', 'Head', 'Headband', 'Headwear',
-      'Mask', 'Munitions', 'Neck', 'Necklaces', 'Other equipment', 'Other Worn Items', 'Poisons', 'Rings', 'Shield', 'Shoulders', 'Tattoos', 'Throat', 'Toolkits', 'Torso', 'Weapons', 'Wrists'])
+      'Chest', 'Cloaks', 'Clothing', 'Eyes', 'Eyewear', 'Face', 'Feet', 'Gadgets', 'Gloves', 'Grafts', 'Grenade Specialist',
+      'Grenades', 'Hands', 'Handwraps', 'Head', 'Headband', 'Headwear', 'Mask', 'Munitions', 'Neck', 'Necklaces',
+      'Other equipment', 'Other Worn Items', 'Poisons', 'Rings', 'Shield', 'Shoulders', 'Tattoos', 'Throat', 'Toolkits', 'Torso', 'Weapons', 'Wrists'])
     expect(equipment).not.toContain('Cheek Pouches')
     expect(equipment).not.toContain('Store in cheek pouch')
     expect(equipment.slice(equipment.indexOf('<h4>Grafts</h4>'), equipment.indexOf('<h4>Handwraps</h4>'))).toContain('Caligni Eyes')
@@ -1120,6 +1123,10 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
     expect(equipment).toContain('Add Armor')
     expect(equipment).toContain('Add Shield')
     expect(equipment).toContain('Add Weapon')
+    const grenades = equipment.slice(equipment.indexOf('<h4>Grenades</h4>'), equipment.indexOf('<h4>Mask</h4>'))
+    expect(grenades).toContain('Frag Grenade')
+    expect(equipment.slice(equipment.indexOf('<h4>Other equipment</h4>'), equipment.indexOf('<h4>Other Worn Items</h4>')))
+      .not.toContain('Frag Grenade')
   } finally { content.entries = [] }
 })
 
@@ -1129,7 +1136,7 @@ it('keeps empty Equipment categories available with accessible plus controls and
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-  for (const category of ['Tattoos', 'Grafts', 'Toolkits', ...WORN_EQUIPMENT_GROUPS]) {
+  for (const category of ['Tattoos', 'Grafts', 'Grenades', 'Toolkits', ...WORN_EQUIPMENT_GROUPS]) {
     expect(markup).toContain(`aria-label="Add ${category}" title="Add ${category}" aria-expanded="false"`)
     expect(markup).not.toContain(`aria-label="Search ${category.toLowerCase()}"`)
   }
