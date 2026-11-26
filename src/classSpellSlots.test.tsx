@@ -1,10 +1,12 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { animistApparitionSlots, classRepertoireRows, classSpellcasting, classSpellSlots, eligibleFeats, knowsSpell, languageAllowance } from './builder'
+import { animistApparitionSlots, classExtraSlots, classRepertoireRows, classSpellcasting, classSpellSlots, eligibleFeats, knowsSpell,
+  languageAllowance } from './builder'
 import { AnimistApparitionSpells, SpellsSection } from './SpellsSection'
 import { SearchableSelect } from './SearchableSelect'
 import { homebrewCharacterOptions } from './supplemental'
+import { TECHNOMANCER_LANGUAGE_RULES } from './technomancer'
 import type { Character, ContentEntry } from './types'
 
 const base: Character = {
@@ -273,18 +275,20 @@ it('renders automatically computed slots without manual slot controls or saved s
   expect(html).not.toContain('type="number"')
 })
 
-it('shows remaining spell slots and combines slot increase sources under one note', () => {
+it('shows selected spell slots and combines slot increase sources under one note', () => {
   const c: Character = { ...base, level: 2, feats: [
     { name: 'Cantrip Expansion', type: 'Class Feat', level: 2 },
     { name: 'Familiar', type: 'Class Feat', level: 1 },
   ], familiar: { abilities: ['Cantrip Connection'] },
-    spellcasting: { ability: 'cha', tradition: 'Occult', rank: 1, slots: {}, spentSlots: ['1:0'] } }
+    spellcasting: { ability: 'cha', tradition: 'Occult', rank: 1, slots: {}, spentSlots: ['1:0'],
+      prepared: { '1:0': 'Selected Spell' } } }
   const cantripConnection: ContentEntry = { ...baseEntry('Cantrip Connection'), kind: 'familiar',
     data: { ability_type: 'Master' }, description: 'You must be able to prepare cantrips or add them to your repertoire.' }
-  const entries = [{ ...baseEntry('Bard'), data: { tradition: 'Occult' } }, cantripConnection]
+  const selectedSpell: ContentEntry = { ...baseEntry('Selected Spell'), kind: 'spell', level: 1, data: { tradition: 'Occult' } }
+  const entries = [{ ...baseEntry('Bard'), data: { tradition: 'Occult' } }, cantripConnection, selectedSpell]
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
-  expect(html).toContain('Cantrips (Heightened Level 1) (8/8)')
-  expect(html).toContain('Spell Rank 1 (2/3 slots)')
+  expect(html).toContain('Cantrips (Heightened Level 1) (0/8)')
+  expect(html).toContain('Spell Rank 1 (1/3 slots)')
   expect(html).toContain('title="+2 Cantrip Expansion; +1 Cantrip Connection (Cantrip slots)"')
   expect(html).toContain('aria-label="Cantrip slots note"')
 })
@@ -300,6 +304,53 @@ it('adds the selected Technomancer programming language spell cache automaticall
   expect(html).toContain('Supercharge Weapon')
   expect(html).toContain('Caustic Conversion')
   expect(html).toContain('Electrotether')
+})
+
+it('adds Cache Caster as a highest-rank cache-only slot and Root Access as a tenth-rank slot', () => {
+  const language = 'DPS++'
+  const cacheNames = TECHNOMANCER_LANGUAGE_RULES[language].spellCache
+  const cacheCaster: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 14,
+    technomancerProgrammingLanguage: language,
+    feats: [{ name: 'Cache Caster', type: 'Class Feat', level: 14 }],
+    spells: [{ name: 'Outside Cache', entryId: 'outside-cache', rank: 7, cantrip: false }],
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: {}, prepared: { '7:0': 'Outside Cache' } } }
+  const entries: ContentEntry[] = [
+    ...cacheNames.map((name, index): ContentEntry => ({ ...baseEntry(name), id: `cache-${index}`, kind: 'spell',
+      systems: ['sf2e'], level: index + 1, data: { tradition: 'Arcane' } })),
+    { ...baseEntry('Outside Cache'), id: 'outside-cache', kind: 'spell', systems: ['sf2e'], level: 7,
+      data: { tradition: 'Arcane' } },
+  ]
+  const baseSlots = classSpellSlots({ ...cacheCaster, feats: [] })!
+  const rank = Math.max(...Object.keys(baseSlots).map(Number))
+  const extra = classExtraSlots(cacheCaster, entries).find(slot => slot.source === 'Cache Caster')
+  expect(extra).toMatchObject({ rank, allowedSpells: cacheNames })
+  expect(classSpellSlots(cacheCaster)?.[rank]).toBe(baseSlots[rank] + 1)
+
+  const html = renderToStaticMarkup(<SpellsSection c={cacheCaster} entries={entries} save={() => {}} />)
+  const cacheOptions = new RegExp(`<select aria-label="Spell Rank ${rank} slot ${baseSlots[rank] + 1}"[^>]*>([\\s\\S]*?)<\\/select>`)
+    .exec(html)?.[1] ?? ''
+  expect(cacheOptions).not.toBe('')
+  expect(cacheOptions).toContain(cacheNames[rank - 1])
+  expect(cacheOptions).not.toContain(cacheNames[7])
+  expect(cacheOptions).not.toContain(cacheNames[8])
+  expect(cacheOptions).not.toContain('Outside Cache')
+  expect(html).toContain(`Spell Rank ${rank} (1/${baseSlots[rank] + 1} slots)`)
+
+  const rootAccess: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 20,
+    feats: [{ name: 'Root Access', type: 'Class Feat', level: 20 }] }
+  expect(classSpellSlots(rootAccess)?.[10]).toBe(2)
+})
+
+it('adds the Cache Caster slot to flexible Technomancer manual slots', () => {
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 14,
+    technomancerProgrammingLanguage: 'DPS++',
+    feats: [{ name: 'Flexible Spellcaster Dedication', type: 'Archetype Feat', level: 2 },
+      { name: 'Cache Caster', type: 'Class Feat', level: 14 }],
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1,
+      slots: { 0: 5, 1: 2, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2, 7: 2 } } }
+  expect(classSpellSlots(c)).toBeUndefined()
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('Spell Rank 7 (0/3 slots)')
 })
 
 it('adds Cleric Divine Font slots at the highest spell rank, restricted to Heal or Harm', () => {

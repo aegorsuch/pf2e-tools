@@ -40,15 +40,19 @@ const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Bless', 'Cairn Form', 'Eat Fi
 const STATUS_TRACKED_SPELL_EFFECTS = [...AUTOMATED_SPELL_EFFECTS, 'Animal Feature', 'Canopy Crawler', 'Heroism', 'Marvelous Mount', 'Speak with Plants', 'Warning Stripes']
 const SLOT_INCREASE_FEATS = ['Cantrip Expansion', 'Arcane Breadth', 'Divine Breadth', 'Perfect Encore', 'Deep Lore',
   'Faceless Trickster', "Archwizard's Might", 'Bloodline Perfection', 'Maker of Miracles', 'Mind over Matter',
-  'Mortem Ultimatum', 'Oracular Providence', 'Patron\'s Truth', 'Quantum Research', "Hierophant's Power"]
+  'Mortem Ultimatum', 'Oracular Providence', 'Patron\'s Truth', 'Quantum Research', "Hierophant's Power",
+  'Cache Caster', 'Root Access']
 
 function spellSlotCounts(c: Character, entries: ContentEntry[]) {
   const automatic = classSpellSlots(c)
   const slots = classRepertoireRows(c) ?? automatic ?? c.spellcasting?.slots ?? {}
+  const manualCacheSlots = automatic === undefined
+    ? classExtraSlots(c, entries).filter(extra => extra.source === 'Cache Caster') : []
   const benefits = familiarSpellBenefits(c, entries, automatic ?? slots)
   const counts: Record<number, number> = {}
   for (let rank = 0; rank <= 10; rank++)
     counts[rank] = Math.max(0, Math.min(20, Math.trunc(Number(slots[rank]) || 0)))
+      + Number(manualCacheSlots.some(extra => extra.rank === rank))
       + Number(rank === 0 && benefits.cantrip) + Number(rank === benefits.batteryRank)
   return counts
 }
@@ -1351,15 +1355,12 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
     </div>
     {[...new Set(known.map(slot => slot.rank))].map(rank => {
       const count = (slots[rank] ?? 0) + Number(rank === 0 && benefits.cantrip)
-      const slotKeys = Array.from({ length: count }, (_, index) => `${rank}:${index}`)
-      if (rank === 0 && benefits.cantrip) slotKeys.push('familiar-cantrip-connection')
-      const available = slotKeys
-        .filter(key => !sc.spentSlots?.includes(key)).length
+      const selectedCount = known.filter(slot => slot.rank === rank && (slot.granted || slot.value)).length
       const title = rank === 0 ? `Cantrips (Heightened Level ${Math.ceil(c.level / 2)})`
         : `Spell Rank ${rank}`
       const sourceLabel = rank === 0 ? 'Cantrip slots' : `Rank ${rank} slots`
       return <section className="spell-slot-group" key={rank}>
-        <h5>{title} ({available}/{count}{rank === 0 ? '' : ' slots'})
+        <h5>{title} ({selectedCount}/{count}{rank === 0 ? '' : ' slots'})
           {slotIncreaseNotesByRank.get(rank)?.length
             && <SourceNote source={sourceLabel} note={slotIncreaseNotesByRank.get(rank)!.join('; ')} />}</h5>
         <SpellColumns />
@@ -1597,13 +1598,14 @@ export function SpellsSummary({ c, entries, data }: Pick<SectionProps, 'c' | 'en
   const benefits = familiarSpellBenefits(c, entries, baseSlots ?? c.spellcasting?.slots ?? {})
   const witchwarper = witchwarperParadox(c)
   const slots = classRepertoireRows(c) ?? (classSpellcasting(c, entries)?.traditions.length ? c.spellcasting?.slots : undefined)
-  const extraSlots = baseSlots ? classExtraSlots(c, entries) : []
+  const extraSlots = baseSlots !== undefined || c.className === 'Technomancer' ? classExtraSlots(c, entries) : []
   const choices = witchwarper ? witchwarperRepertoireSlots(c, benefits.cantrip).map(slot => !!(slot.granted || slot.value))
     : slots ? Array.from({ length: 11 }, (_, rank) => {
       const baseCount = Math.max(0, Math.min(20, Math.trunc(Number(slots[rank]) || 0)))
       const extras = extraSlots.filter(slot => slot.rank === rank)
-      const count = baseCount + Number(rank === 0 && benefits.cantrip) + Number(rank === benefits.batteryRank)
-      const normalCount = baseCount - extras.length
+      const manualCacheCount = baseSlots === undefined ? extras.filter(slot => slot.source === 'Cache Caster').length : 0
+      const count = baseCount + manualCacheCount + Number(rank === 0 && benefits.cantrip) + Number(rank === benefits.batteryRank)
+      const normalCount = baseCount - extras.length + manualCacheCount
       return Array.from({ length: count }, (_, index) => {
         const extra = extras[index - (count - extras.length)]
         const key = extra?.key ?? (index === normalCount && rank === 0 && benefits.cantrip
@@ -1906,7 +1908,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     && activeFeatsNamed(c, 'Bloodrager Dedication').some(feat => feat.choice === 'Arcane' || feat.choice === 'Divine')
   const warrior = c.className === 'Champion' ? activeFeatsNamed(c, 'Divine Warrior')[0]
     : c.className === 'Ranger' ? activeFeatsNamed(c, 'Primal Warrior')[0] : undefined
-  const extraSlots = automaticSlots ? classExtraSlots(c, entries) : []
+  const extraSlots = automaticSlots !== undefined || technomancer ? classExtraSlots(c, entries) : []
   const avengerTraditionSwitch = !avengerCastingClass && !!c.spellcasting && rogueRackets(c, entries).includes('Avenger')
     && /^(occult|divine)$/i.test(c.spellcasting.tradition)
   const traditions = warrior ? [warrior.name === 'Divine Warrior' ? 'Divine' : 'Primal']
@@ -2293,9 +2295,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     })
   }, [druidAvailable, witchAvailable, dirge, c, entries, warrior, preparedClass, selectedTradition, spellIndex, bard,
     bloodrager, avengerCleric, programmedSpellEntries])
+  const manualCacheSlots = automaticSlots === undefined
+    ? extraSlots.filter(extra => extra.source === 'Cache Caster') : []
   const classSlotRanks = Array.from({ length: 11 }, (_, rank) => ({
     rank,
     count: Math.max(0, Math.min(20, Math.trunc(Number(sc?.slots[rank]) || 0)))
+      + Number(manualCacheSlots.some(extra => extra.rank === rank))
       + Number(rank === 0 && benefits.cantrip) + Number(rank === benefits.batteryRank),
   })).filter(item => item.count > 0)
   const slotIncreaseNotesByRank = useMemo(() => spellSlotIncreaseNotes(c, entries), [c, entries])
@@ -2555,8 +2560,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           const title = cantrip ? `Cantrips (Heightened Level ${Math.ceil(c.level / 2)})` : `Spell Rank ${rank}`
           const { options, choices } = preparedOptions[rank]
           const extras = extraSlots.filter(slot => slot.rank === rank)
+          const manualCacheCount = automaticSlots === undefined
+            ? extras.filter(slot => slot.source === 'Cache Caster').length : 0
           const normalCount = Math.max(0, Math.min(20, Math.trunc(Number(sc.slots[rank]) || 0)))
-            - extras.length
+            - extras.length + manualCacheCount
           const slotKeyForIndex = (index: number) => {
             const extra = extras[index - (count - extras.length)]
             const slotKey = extra?.key ?? (index === normalCount && cantrip && benefits.cantrip
@@ -2564,12 +2571,14 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 ? `familiar-spell-battery:${rank}` : `${rank}:${index}`)
             return { extra, slotKey }
           }
-          const available = Array.from({ length: count }, (_, index) => slotKeyForIndex(index).slotKey)
-            .filter(key => !sc.spentSlots?.includes(key)).length
+          const selectedCount = Array.from({ length: count }, (_, index) => {
+            const { extra, slotKey } = slotKeyForIndex(index)
+            return !!extra?.spell || !!sc.prepared?.[slotKey]
+          }).filter(Boolean).length
           const increaseNotes = slotIncreaseNotesByRank.get(rank)
           const sourceLabel = cantrip ? 'Cantrip slots' : `Rank ${rank} slots`
           return <section className="spell-slot-group" key={rank}>
-            <h5>{title} ({available}/{count}{cantrip ? '' : ' slots'})
+            <h5>{title} ({selectedCount}/{count}{cantrip ? '' : ' slots'})
               {increaseNotes?.length && <SourceNote source={sourceLabel} note={increaseNotes.join('; ')} />}
               {necromancer && <> <DirgeRankButton rank={rank} onOpen={openDirge} /></>}
               {(wizard || wizardSpellbookSlots.some(slot => slot.rank === rank)) && <>
@@ -2596,7 +2605,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               const spent = !bloodrager && (sc.spentSlots?.includes(slotKey) ?? false)
               const extraOptions = extra?.allowedSpells?.flatMap(name => {
                 const entry = spellIndex.byName.get(name)
-                return entry && spellAccessGranted(c, entry) ? [{ name: entry.name, entryId: entry.id,
+                const cacheRankAllowed = extra.source !== 'Cache Caster'
+                  || !!entry && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip') && entry.level <= rank
+                return entry && cacheRankAllowed && spellAccessGranted(c, entry) ? [{ name: entry.name, entryId: entry.id,
                   baseRank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }] : []
               }) ?? []
               const fixedOption = extra?.spell && selectedEntry ? { name: selectedEntry.name, entryId: selectedEntry.id,

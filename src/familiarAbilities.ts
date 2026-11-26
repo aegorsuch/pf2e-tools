@@ -10,6 +10,9 @@ export const FAMILIAR_SKILLS = [
   'Nature', 'Occultism', 'Performance', 'Religion', 'Society', 'Survival', 'Thievery',
 ]
 
+export const SQUOX_TRICKS_DESCRIPTION = 'A squox can Disarm or Trip with its tail using Acrobatics instead of Athletics, without a free hand. ' +
+  'Against an off-guard target, it can attempt either maneuver against creatures up to two sizes larger and gains a +2 circumstance bonus.'
+
 const key = (name: string) => name.trim().toLocaleLowerCase()
 
 export const GLYPH_FAMILIAR_ABILITIES = ['Construct', 'Flier', 'Tough']
@@ -185,7 +188,14 @@ export function familiarAbilityEntries(entries: ContentEntry[], c: Character) {
     traits: [], description: `Your familiar has the ${name.toLowerCase()} trait instead of the animal trait.`,
     data: { ability_type: 'Leshy Familiar' }, effects: [], updatedAt: 0,
   })) : []
-  return emissary.length || leshy.length || leshyForms.length ? [...base, ...emissary, ...leshy, ...leshyForms] : base
+  const squoxTricks: ContentEntry[] = c.systems.includes('sf2e') && !base.some(entry => key(entry.name) === 'squox tricks'
+    && key(String(entry.data.ability_type ?? '')) === 'specific familiar - squox') ? [{
+    id: 'homebrew:specific-familiar:squox-tricks', systems: ['sf2e'], kind: 'familiar' as const, source: 'homebrew' as const,
+    name: 'Squox Tricks', level: 1, traits: [], description: SQUOX_TRICKS_DESCRIPTION,
+    data: { ability_type: 'Specific Familiar - Squox' }, effects: [], updatedAt: 0,
+  }] : []
+  return emissary.length || leshy.length || leshyForms.length || squoxTricks.length
+    ? [...base, ...emissary, ...leshy, ...leshyForms, ...squoxTricks] : base
 }
 
 function baseFamiliarAbilityEntries(entries: ContentEntry[], c: Character) {
@@ -358,6 +368,12 @@ const FALLBACK_SPECIFIC_FAMILIARS: ContentEntry[] = [{
   id: 'homebrew:specific-familiar:nine-tailed-fox', name: 'Nine-Tailed Fox', kind: 'familiar', systems: ['pf2e'], source: 'homebrew', level: 0,
   traits: [], description: '', data: { ability_type: 'Specific Familiar', required_abilities: 1, granted_abilities: 'Scent' },
   effects: [], updatedAt: 0,
+}, {
+  id: 'homebrew:specific-familiar:squox', name: 'Squox', kind: 'familiar', systems: ['sf2e'], source: 'homebrew', level: 0,
+  traits: ['Tiny', 'Animal'],
+  description: 'A highly adaptable vulpine mammal native to Castrovel, known for its elaborate calls and fondness for shiny objects.',
+  data: { ability_type: 'Specific Familiar', required_abilities: 2, granted_abilities: 'Scent, Climber' },
+  effects: [], updatedAt: 0,
 }]
 
 export function specificFamiliarOptions(c: Character, entries: ContentEntry[]) {
@@ -376,7 +392,7 @@ export function specificFamiliarOptions(c: Character, entries: ContentEntry[]) {
     return [{ entry: undead, required: 0, available: true }]
   }
   return [...official, ...FALLBACK_SPECIFIC_FAMILIARS.filter(entry => entry.id !== SPIRIT_FAMILIAR_ID && entry.id !== UNDEAD_FAMILIAR_ID
-    && c.systems.includes('pf2e') && !known.has(key(entry.name)))].map(entry => {
+    && entry.systems.some(system => c.systems.includes(system)) && !known.has(key(entry.name)))].map(entry => {
     const required = Math.max(0, specificFamiliarRequirement(entry) - reduction)
     return { entry, required, available: abilities >= required }
   })

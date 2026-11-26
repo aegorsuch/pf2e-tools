@@ -22,7 +22,8 @@ import { DroneFeatures } from './DroneFeatures'
 import { FOLLOWER_STAGES, FOLLOWER_TYPES, followerStage, followerStats } from './followers'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityEffects, familiarAbilityEntries, familiarAbilitySlots, familiarMedicRank,
   familiarAbilityEntry, familiarAbilityUnavailableReason, GLYPH_FAMILIAR_ABILITIES, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds,
-  isDivineEmissaryAbility, PURIFY_AIR_DESCRIPTION, specificFamiliarAbilityName, specificFamiliarGrantedLabels, specificFamiliarSections } from './familiarAbilities'
+  isDivineEmissaryAbility, PURIFY_AIR_DESCRIPTION, SQUOX_TRICKS_DESCRIPTION, specificFamiliarAbilityName, specificFamiliarGrantedLabels,
+  specificFamiliarSections } from './familiarAbilities'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
@@ -176,7 +177,7 @@ const SUMMONED_CREATURES = {
     perception: 6, senses: 'Low-light vision, scent (imprecise) 30 feet',
     skills: ['Acrobatics +6', 'Stealth +6', 'Thievery +6'], speed: '25 feet, climb 20 feet',
     attacks: [{ name: 'Jaws', traits: 'agile, finesse', bonus: 6, damage: '1d4 piercing' }],
-    specials: [{ name: 'Squox Tricks', description: 'Use Acrobatics to Disarm or Trip with its tail without a free hand. Against off-guard targets, it can attempt either against creatures up to two sizes larger and gains a +2 circumstance bonus.' }],
+    specials: [{ name: 'Squox Tricks', description: SQUOX_TRICKS_DESCRIPTION }],
     url: 'https://2e.aonsrd.com/creatures/98-squox',
   },
   Shotalashu: {

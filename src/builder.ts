@@ -30,7 +30,7 @@ import { isWitchwarper, witchwarperParadox, witchwarperRepertoireSlots, witchwar
 import { familiarSelection, familiarSpellBenefits, purifyAirActive } from './familiarAbilities'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
-import { versatileTechnomancerLanguageOptions } from './technomancer'
+import { TECHNOMANCER_LANGUAGE_RULES, versatileTechnomancerLanguageOptions } from './technomancer'
 import { boostingTheBasics } from './mechanicMods'
 import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
@@ -2844,6 +2844,18 @@ export function classExtraSlots(c: Character, entries: ContentEntry[] = []) {
   const extras: ClassSpellSlotExtra[] = c.className === 'Bard' && c.systems.includes('pf2e')
     ? bardRepertoire(c).extras : necromancerExtraSlots(c)
   extras.push(...wizardCurriculumExtras(c, entries))
+  if (c.className === 'Technomancer' && c.systems.includes('sf2e') && activeFeatsNamed(c, 'Cache Caster').length) {
+    const slots = classSpellSlots(c) ?? c.spellcasting?.slots ?? {}
+    const rank = Math.max(0, ...Object.entries(slots)
+      .filter(([slotRank, count]) => Number(slotRank) > 0 && count > 0).map(([slotRank]) => Number(slotRank)))
+    if (rank > 0) extras.push({
+      key: `cache-caster:${rank}`,
+      rank,
+      source: 'Cache Caster',
+      allowedSpells: c.technomancerProgrammingLanguage
+        ? TECHNOMANCER_LANGUAGE_RULES[c.technomancerProgrammingLanguage].spellCache : [],
+    })
+  }
   if (c.systems.includes('pf2e') && c.className === 'Champion' && activeFeatsNamed(c, 'Divine Warrior').length)
     extras.push({ key: 'divine-warrior:divine-lance', rank: 0, spell: 'Divine Lance', source: 'Divine Warrior' },
       { key: 'divine-warrior:protect-companion', rank: 0, spell: 'Protect Companion', source: 'Divine Warrior' })
@@ -2887,6 +2899,15 @@ export function classSpellSlots(c: Character): Record<number, number> | undefine
     if (c.className === 'Cleric' && c.level >= 1) {
       const rank = Math.min(9, Math.ceil(c.level / 2))
       slots[rank] = (slots[rank] ?? 0) + clericDivineFontSlotCount(c)
+    }
+    if (c.className === 'Technomancer' && c.systems.includes('sf2e')) {
+      if (activeFeatsNamed(c, 'Cache Caster').length) {
+        const rank = Math.max(0, ...Object.entries(slots)
+          .filter(([slotRank, count]) => Number(slotRank) > 0 && count > 0).map(([slotRank]) => Number(slotRank)))
+        if (rank > 0) slots[rank] = (slots[rank] ?? 0) + 1
+      }
+      if (c.level >= 20 && activeFeatsNamed(c, 'Root Access').length)
+        slots[10] = (slots[10] ?? 0) + 1
     }
     return slots
   }

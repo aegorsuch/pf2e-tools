@@ -749,6 +749,22 @@ it('shows the built-in Calligraphy Wyrm picker, header, granted abilities and ac
   expect(markup).toContain('towers of Cobyslarni')
 })
 
+it('shows Squox specific familiar grants and Squox Tricks for a Starfinder Technomancer', () => {
+  const c: Character = {
+    id: 'squox-familiar', systems: ['sf2e'], name: 'Test', level: 5, className: 'Technomancer',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { specificFamiliar: 'Squox', abilities: [] },
+  }
+  const markup = renderToStaticMarkup(MinionsContent({ c, entries: [], save: () => {} }))
+  expect(markup).toContain('<h4>Squox Familiar</h4> (2/2)')
+  expect(markup).toContain('Scent (imprecise, 30 feet)')
+  expect(markup).toContain('Climb 25 feet')
+  expect(markup).toContain('Squox Tricks')
+  expect(markup).toContain('Disarm or Trip with its tail')
+})
+
 it('shows Beastmaster Bond range based on Nature proficiency only for animal companions', () => {
   const c: Character = {
     id: 'bond', systems: ['pf2e'], name: 'Test', level: 15, className: 'Ranger',

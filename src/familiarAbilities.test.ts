@@ -247,6 +247,20 @@ it('offers the homebrew Nine-Tailed Fox with one required ability and granted Sc
   expect(activeFamiliarAbilities(wizard, [ability('Tough', '')])).toEqual(['Tough', 'Scent'])
 })
 
+it('offers Squox only in Starfinder and applies its specific familiar grants and trick', () => {
+  const starfinder: Character = { ...character, systems: ['sf2e'], className: 'Technomancer',
+    feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }],
+    familiar: { specificFamiliar: 'Squox', abilities: [] } }
+  const squox = specificFamiliarOptions(starfinder, []).find(option => option.entry.name === 'Squox')
+  expect(squox).toMatchObject({ required: 2, available: true, entry: { source: 'homebrew', traits: ['Tiny', 'Animal'] } })
+  expect(specificFamiliarOptions(character, []).some(option => option.entry.name === 'Squox')).toBe(false)
+  expect(specificFamiliarGrants(squox?.entry).abilities).toEqual(['Scent', 'Climber'])
+  expect(activeFamiliarAbilities(starfinder, [])).toEqual(['Scent', 'Climber'])
+  const trick = familiarAbilityEntries([], starfinder).find(entry => entry.name === 'Squox Tricks')
+  expect(trick).toMatchObject({ systems: ['sf2e'], data: { ability_type: 'Specific Familiar - Squox' } })
+  expect(trick?.description).toContain('Disarm or Trip with its tail')
+})
+
 it('splits a specific familiar into summary and unique actions', () => {
   const wyrm = ability('Calligraphy Wyrm', 'Calligraphy wyrms are curious dragons.\n\nGranted Abilities darkvision, flier, speech\n\nInk Spray Arcane Frequency once per 10 minutes; Effect The wyrm splatters ink.\n\nStylus Claws The wyrm has stylus-shaped claws.')
   expect(specificFamiliarSections(wyrm)).toEqual({ summary: ['Calligraphy wyrms are curious dragons.'],
