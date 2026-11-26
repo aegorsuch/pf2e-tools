@@ -15,7 +15,7 @@ import { getSettings } from './settings'
 import { SearchableSelect } from './SearchableSelect'
 import { confirmRemoval } from './confirmRemoval'
 import { featAccess } from './featAccess'
-import { activeCaypinAlly, activeLashuntaAlly, activeShirrenAlly } from './featSpells'
+import { activeCatAlly, activeCaypinAlly, activeLashuntaAlly, activeShirrenAlly } from './featSpells'
 import { activeSummonedFiend, summonSpellName, type SummonedFiend } from './summonedFiends'
 import { creatureScaling, scaledDamage, scaledSummon } from './summonScaling'
 import { DroneFeatures } from './DroneFeatures'
@@ -144,6 +144,20 @@ function familiarDisplayState(c: Character, entries: ContentEntry[], isWasp = fa
 const specificFamiliarHeader = (name: string) => /\bfamiliar$/i.test(name) ? name : `${name} Familiar`
 
 const SUMMONED_CREATURES = {
+  Leopard: {
+    level: 2, traits: ['Medium', 'Animal'],
+    abilities: [3, 4, 2, -4, 1, -2], hp: 30, ac: 18, saves: [8, 10, 5],
+    perception: 7, senses: 'Low-light vision, scent (imprecise) 30 feet',
+    skills: ['Acrobatics +8', 'Athletics +7', 'Stealth +8 (+11 in undergrowth)'], speed: '30 feet, climb 20 feet',
+    attacks: [{ name: 'Jaws', traits: 'finesse', bonus: 10, damage: '1d10+3 piercing plus Grab' },
+      { name: 'Claw', traits: 'agile, finesse', bonus: 10, damage: '1d6+3 slashing' }],
+    specials: [
+      { name: 'Maul', actions: 'Single Action', description: 'Make two claw Strikes against a creature grabbed by the leopard; increase the multiple attack penalty after both attacks.' },
+      { name: 'Pounce', actions: 'Single Action', description: 'Stride and Strike at the end of the movement; if hidden at the start, remain hidden until after the Strike.' },
+      { name: 'Sneak Attack', description: 'Deal 1d4 extra precision damage to off-guard creatures.' },
+    ],
+    url: 'https://2e.aonprd.com/Monsters.aspx?ID=2865',
+  },
   Emganat: {
     level: 3, traits: ['Medium', 'Kucharn'],
     abilities: [2, 4, 1, 0, 0, -2], hp: 38, ac: 18, saves: [8, 11, 7],
@@ -205,8 +219,10 @@ const SUMMONED_CREATURES = {
 
 function scaledAlly(name: keyof typeof SUMMONED_CREATURES, c: Character) {
   const creature = SUMMONED_CREATURES[name]
-  if (!getSettings().innateAutoHeighten) return creature
-  const target = Math.max(creature.level, Math.min(15, 2 * Math.max(5, Math.ceil(c.level / 2)) - 5))
+  const autoHeighten = getSettings().innateAutoHeighten
+  if (!autoHeighten && name !== 'Leopard') return creature
+  const rank = autoHeighten ? Math.max(5, Math.ceil(c.level / 2)) : 5
+  const target = Math.max(creature.level, Math.min(15, 2 * rank - 5))
   const { ac, checks, skills, hp, attack, damage, ability } = creatureScaling(creature.level, target)
   return { ...creature, level: target, hp: creature.hp + hp, ac: creature.ac + ac,
     abilities: creature.abilities.map(value => value >= 0 ? value + ability : value),
@@ -237,6 +253,8 @@ function SummonedCreature({ name, displayName = name, protectedByCompanion = fal
   const creature: ReturnType<typeof scaledAlly> & { languages?: string; resistances?: string } = scaledAlly(name, c)
   return <details className="character-subsection" open>
     <summary><h4>Summoned {displayName}</h4></summary>
+    {name === 'Leopard' && <SourceNote source="Creature Ally"
+      note="Leopard statistics are scaled using creature-building benchmarks to the maximum level for the spell rank; this is custom scaling, not standard summon rules." />}
     <div className="gear-traits"><span>Level {creature.level}</span>{creature.traits.map(trait => <span key={trait}>{trait}</span>)}</div>
     <SummonedMountToggle c={c} entries={entries} save={save} mountKey={`ally:${name}`} />
     <div className="gear-stats">{ABILITIES.map((ability, index) =>
@@ -520,6 +538,7 @@ export function MinionsSummary({ c, entries = [] }: Pick<SectionProps, 'c'> & Pa
       ...(familiarState ? [`${familiarName} (${familiarState.selectedCount}/${familiarState.totalCount})`] : []),
       ...(waspState ? [`Wasp Familiar (${waspState.selectedCount}/${waspState.totalCount})`] : []),
       ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
+      ...(activeCatAlly(c) ? ['Summoned Cat'] : []),
       ...Array.from({ length: followerCount(c) }, (_, index) => {
         return followerTitle(c, index)
       }),
@@ -805,6 +824,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
       <div className="character-section-content minions-section-content">
         <SortedMinionSections>
         {activeCaypinAlly(c) && <SummonedCreature c={c} entries={entries} save={save} name="Caypin" protectedByCompanion={protectedByCompanion} />}
+        {activeCatAlly(c) && <SummonedCreature c={c} entries={entries} save={save} name="Leopard" displayName="Cat" protectedByCompanion={protectedByCompanion} />}
         {lashuntaAlly && <SummonedCreature c={c} entries={entries} save={save} name={lashuntaAlly} protectedByCompanion={protectedByCompanion} />}
         {activeShirrenAlly(c) && <SummonedCreature c={c} entries={entries} save={save} name="Emganat" displayName="Kucharn" protectedByCompanion={protectedByCompanion} />}
         {c.activeSpells?.includes('Marvelous Mount') && <details className="character-subsection" data-minion-name="Marvelous Mount" open>

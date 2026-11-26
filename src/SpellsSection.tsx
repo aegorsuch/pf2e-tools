@@ -511,6 +511,16 @@ export function CaypinAllyToggle({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
   </label>
 }
 
+export function CatAllyToggle({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
+  return <label><input type="checkbox" aria-label="Summoned Cat active" checked={!!c.creatureAllyActive}
+    onChange={event => {
+      const active = event.target.checked
+      const change = () => save({ creatureAllyActive: active })
+      if (active) change()
+      else confirmRemoval('summoned Cat', change)
+    }} /> Active</label>
+}
+
 export function ShirrenAllyToggle({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
   return <label><input type="checkbox" aria-label="Summoned Kucharn active" checked={!!c.shirrenCreatureAllyActive}
     onChange={event => save({ shirrenCreatureAllyActive: event.target.checked,
@@ -953,8 +963,9 @@ function SummonAnimalStatus({ c, save, entry, name, specialAlly }: Pick<SectionP
   const action = useRef<HTMLButtonElement>(null)
   const lashunta = specialAlly && c.ancestry === 'Lashunta'
   const vesk = specialAlly && c.ancestry === 'Vesk'
+  const pahtra = specialAlly && c.ancestry === 'Pahtra'
   const shirren = specialAlly && c.ancestry === 'Shirren'
-  const active = lashunta ? !!c.lashuntaCreatureAlly : vesk ? !!c.creatureAllyActive
+  const active = lashunta ? !!c.lashuntaCreatureAlly : vesk || pahtra ? !!c.creatureAllyActive
     : shirren ? !!c.shirrenCreatureAllyActive : !!c.activeSpells?.includes('Summon Animal')
   const setActive = (next: boolean) => {
     if (lashunta && next && !c.lashuntaCreatureAllyChoice && !c.lashuntaCreatureAlly) {
@@ -966,12 +977,13 @@ function SummonAnimalStatus({ c, save, entry, name, specialAlly }: Pick<SectionP
         save({ lashuntaCreatureAlly: next ? c.lashuntaCreatureAlly ?? c.lashuntaCreatureAllyChoice : undefined,
           ...(!next ? { lashuntaCreatureAllyChoice: c.lashuntaCreatureAlly,
             ...(c.mountedSummon?.startsWith('ally:') ? { mountedSummon: undefined } : {}) } : {}) })
-      } else if (vesk || shirren) {
-        save({ ...(vesk ? { creatureAllyActive: next } : { shirrenCreatureAllyActive: next }),
-          ...(!next && c.mountedSummon === (vesk ? 'ally:Caypin' : 'ally:Emganat') ? { mountedSummon: undefined } : {}) })
+      } else if (vesk || pahtra || shirren) {
+        save({ ...(vesk || pahtra ? { creatureAllyActive: next } : { shirrenCreatureAllyActive: next }),
+          ...(!next && (vesk && c.mountedSummon === 'ally:Caypin'
+            || shirren && c.mountedSummon === 'ally:Emganat') ? { mountedSummon: undefined } : {}) })
       } else save(spellActiveChange(c, 'Summon Animal', next))
     }
-    if (!next && specialAlly) confirmRemoval(`summoned ${lashunta ? c.lashuntaCreatureAlly : vesk ? 'Caypin' : 'Kucharn'}`, change)
+    if (!next && specialAlly) confirmRemoval(`summoned ${lashunta ? c.lashuntaCreatureAlly : vesk ? 'Caypin' : pahtra ? 'Cat' : 'Kucharn'}`, change)
     else change()
   }
   const toggle = (label: string, disabled = false) => <input type="checkbox" aria-label={label} checked={active} disabled={disabled}
@@ -1541,7 +1553,7 @@ export function automatedSpellStatusControls({ c, entries, save }: SectionProps)
     <input type="checkbox" aria-label={`${name} status`} checked={name === 'Magic Hide' ? isMagicHideActive(c, entries) : !!c.activeSpells?.includes(name)}
       onChange={event => save(name === 'Magic Hide' ? magicHideChange(c, event.target.checked) : spellActiveChange(c, name, event.target.checked))} />) }))
   if (names.has('Summon Animal')) {
-    const specialAlly = c.systems.includes('sf2e') && ['Vesk', 'Shirren', 'Lashunta'].includes(c.ancestry ?? '')
+    const specialAlly = c.systems.includes('sf2e') && ['Vesk', 'Shirren', 'Lashunta', 'Pahtra'].includes(c.ancestry ?? '')
       && data.featSpells.some(grant => grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal')
     const entry = entries.find(candidate => candidate.kind === 'spell' && !candidate.deleted
       && candidate.name === 'Summon Animal' && candidate.systems.some(system => c.systems.includes(system)))
@@ -2919,6 +2931,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 && grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal'
                 ? <ActiveSpellActions name={grant.entry.name} entry={grant.entry} rank={grant.rank} actions="Three Actions">
                   <CaypinAllyToggle c={c} save={save} />
+                </ActiveSpellActions>
+                : c.systems.includes('sf2e') && c.ancestry === 'Pahtra'
+                && grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal'
+                ? <ActiveSpellActions name={grant.entry.name} entry={grant.entry} rank={grant.rank} actions="Three Actions">
+                  <CatAllyToggle c={c} save={save} />
                 </ActiveSpellActions>
                 : c.systems.includes('sf2e') && c.ancestry === 'Shirren'
                 && grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal'

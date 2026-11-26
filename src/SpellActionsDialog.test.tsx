@@ -124,6 +124,51 @@ it('tracks Summon Animal and Creature Ally in statuses', async () => {
   }
 })
 
+it('activates and dismisses a Pahtra cat through Summon Animal status', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+  const initial: Character = { id: 'pahtra-summon', name: 'Test', systems: ['sf2e'], level: 13, ancestry: 'Pahtra',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Creature Ally', type: 'Ancestry Feat', level: 13, choice: 'Summon Animal' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const spell: ContentEntry = { id: 'summon', name: 'Summon Animal', systems: ['sf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: ['Summon'], description: '', data: { tradition: 'Primal' }, effects: [], updatedAt: 0 }
+  let current = initial
+  function Sheet() {
+    const [c, setC] = useState(initial)
+    current = c
+    const save = (patch: Partial<Character>) => setC(previous => ({ ...previous, ...patch }))
+    return <><StatusesSummary c={c} entries={[spell]} save={save} />
+      <StatusesContent c={c} entries={[spell]} save={save} /><MinionsSection c={c} entries={[spell]} save={save} />
+      <SpellsSection c={c} entries={[spell]} save={save} /></>
+  }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<Sheet />))
+    const toggle = container.querySelector<HTMLInputElement>('[aria-label="Summon Animal status"]')!
+    await act(async () => toggle.click())
+    expect(current.creatureAllyActive).toBe(true)
+    expect(container.textContent).toContain('Summoned Cat')
+    const spellToggle = container.querySelector<HTMLInputElement>('[aria-label="Summoned Cat active"]')!
+    expect(spellToggle.checked).toBe(true)
+    confirm.mockReturnValueOnce(false)
+    await act(async () => spellToggle.click())
+    expect(current.creatureAllyActive).toBe(true)
+    expect(spellToggle.checked).toBe(true)
+    await act(async () => spellToggle.click())
+    expect(confirm).toHaveBeenCalled()
+    expect(current.creatureAllyActive).toBe(false)
+    expect(container.textContent).not.toContain('Summoned Cat')
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  }
+})
+
 it('keeps Lashunta summon selection and status toggles in sync', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   const confirm = vi.spyOn(window, 'confirm')

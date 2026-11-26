@@ -127,6 +127,11 @@ export function activeCaypinAlly(c: Character) {
     && c.feats.some(feat => feat.name === 'Creature Ally' && feat.choice === 'Summon Animal' && featTakenLevel(feat) <= c.level)
 }
 
+export function activeCatAlly(c: Character) {
+  return !!c.creatureAllyActive && c.systems.includes('sf2e') && c.ancestry === 'Pahtra'
+    && c.feats.some(feat => feat.name === 'Creature Ally' && feat.choice === 'Summon Animal' && featTakenLevel(feat) <= c.level)
+}
+
 export function activeLashuntaAlly(c: Character) {
   return c.systems.includes('sf2e') && c.ancestry === 'Lashunta'
     && c.feats.some(feat => feat.name === 'Creature Ally' && featTakenLevel(feat) <= c.level)
@@ -1011,11 +1016,13 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
     }
     if (feat.name === 'Creature Ally' || feat.name === 'Creature Shape') {
       const entry = featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
-      const tradition = c.systems.includes('sf2e') && c.ancestry === 'Vesk'
+      const tradition = c.systems.includes('sf2e') && (c.ancestry === 'Vesk'
+        || c.ancestry === 'Pahtra' && feat.name === 'Creature Ally')
         ? 'primal' : String(entry?.data.tradition ?? '').split(/,\s*/)[0]
       if (entry) out.push({ entry, source: feat.name,
         rule: { kind: 'innate', spells: [entry.name], tradition: tradition || undefined, frequency: 'once per day',
-          condition: feat.name === 'Creature Ally' ? 'The summoned creature must be one of your ancestry\'s creatures'
+          condition: feat.name === 'Creature Ally' ? c.ancestry === 'Pahtra' && c.systems.includes('sf2e')
+            ? 'Cat only' : 'The summoned creature must be one of your ancestry\'s creatures'
             : 'Transform only into a battle form that matches your ancestral creature; use your normal AC if higher' },
         rank: feat.name === 'Creature Ally' ? 5 : 8, usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
       continue

@@ -1,5 +1,5 @@
 import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, crimsonClawUsesVersatileSlashing, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, selectedFeatEntry, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, weaponEntry, whirlwindStanceActive, wornArmor, type SectionProps } from './builder'
-import { grantedFeatSpells } from './featSpells'
+import { activeCatAlly, grantedFeatSpells } from './featSpells'
 import { FavoredTerrainSelector, HardenFleshToggle, RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
 import { ActiveSpellActions, automatedSpellStatusControls, ProtectCompanionOptions, SpiritOfTheBeastOptions, SpellEffectActions, ZealousConvictionToggle } from './SpellsSection'
@@ -181,7 +181,8 @@ export function StatusesSummary({ c, entries, save }: SectionProps) {
     ...(c.summonedUndead ? ['Summon Undead'] : []),
     ...(c.summonedFiend ? [summonSpellName(c.summonedFiend)] : []),
     ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Creature Ally').length
-      && (c.ancestry === 'Vesk' && c.creatureAllyActive || c.ancestry === 'Shirren' && c.shirrenCreatureAllyActive
+      && (c.ancestry === 'Vesk' && c.creatureAllyActive || activeCatAlly(c)
+        || c.ancestry === 'Shirren' && c.shirrenCreatureAllyActive
         || c.ancestry === 'Lashunta' && c.lashuntaCreatureAlly) ? ['Summon Animal'] : []),
     ...c.activeFeatEffects ?? [],
     ...(c.zealousConvictionRank !== undefined ? ['Zealous Conviction'] : []),

@@ -553,6 +553,38 @@ it('grants Lashunta Creature Ally as occult Summon Animal and shows the selected
   expect(minions()).not.toContain('Summoned Shotalashu')
 })
 
+it('summons a scaled cat for Pahtra Creature Ally at the selected spell rank', () => {
+  const previous = getSettings().innateAutoHeighten
+  updateSettings({ innateAutoHeighten: false })
+  onTestFinished(() => updateSettings({ innateAutoHeighten: previous }))
+  const spell: ContentEntry = { id: 'summon-animal', name: 'Summon Animal', kind: 'spell', systems: ['sf2e'],
+    source: 'official', level: 1, traits: ['Summon'], description: '', data: { tradition: 'Arcane, Primal' },
+    effects: [], updatedAt: 0 }
+  const entries = [spell]
+  const c: Character = { id: 'pahtra', name: 'Test', systems: ['sf2e'], level: 13, ancestry: 'Pahtra',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Creature Ally', type: 'Ancestry Feat', level: 13, choice: 'Summon Animal' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0, creatureAllyActive: true }
+  const minions = (character: Character) => renderToStaticMarkup(<MinionsSection c={character} entries={entries} save={() => {}} />)
+  expect(grantedFeatSpells(c, entries)).toContainEqual(expect.objectContaining({ entry: spell, rank: 5,
+    rule: expect.objectContaining({ tradition: 'primal', condition: 'Cat only' }) }))
+  expect(minions(c)).toContain('Summoned Cat')
+  expect(minions(c)).toContain('<span>Level 5</span>')
+  expect(minions(c)).toContain('Leopard abilities and statistics')
+  expect(minions(c)).toContain('1d10+8 piercing plus Grab')
+  expect(minions(c)).toContain('custom scaling')
+  expect(renderToStaticMarkup(<MinionsSummary c={c} />)).toContain('Summoned Cat')
+  for (const inactive of [{ ...c, creatureAllyActive: false }, { ...c, level: 12 },
+    { ...c, feats: [] }, { ...c, ancestry: 'Vesk' },
+    { ...c, feats: [{ ...c.feats[0], choice: 'Summon Dragon' }] }]) {
+    expect(minions(inactive)).not.toContain('Summoned Cat')
+  }
+  updateSettings({ innateAutoHeighten: true })
+  expect(grantedFeatSpells(c, entries)[0].rank).toBe(7)
+  expect(minions(c)).toContain('<span>Level 9</span>')
+  expect(minions({ ...c, level: 20 })).toContain('<span>Level 15</span>')
+})
+
 it('allows riding only larger current summons and uses their movement modes', () => {
   const c: Character = { id: 'rider', name: 'Test', systems: ['sf2e'], level: 13, ancestry: 'Lashunta',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
