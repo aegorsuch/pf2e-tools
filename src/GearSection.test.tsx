@@ -13,7 +13,7 @@ import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, OVERSIZED_THROW } from './supplemental'
 import { getSettings, updateSettings } from './settings'
-import { canEquipShield, equippedHands, equippedShield, hardwoodShield, ownedShields, shieldAcBonus, shieldBraceEligible, shieldBraceInstalled, shieldEquipChange, shieldRaisedChange } from './builder'
+import { canEquipShield, equippedHands, equippedOtherShield, equippedShield, hardwoodShield, ownedShields, shieldAcBonus, shieldBraceEligible, shieldBraceInstalled, shieldEquipChange, shieldRaisedChange, shieldStats } from './builder'
 import { GearSystemFilter } from './GearSystemFilter'
 import { SearchableSelect } from './SearchableSelect'
 import { EntryDescription } from './EntryDescription'
@@ -1145,27 +1145,32 @@ it('hides the Shield Brace selector and Implacable helper text on Myrmidon Siege
   expect(markup).not.toContain('action would be lost to stunned or paralyzed')
 })
 
-it('auto-installs Myrmidon Siegebreaker Plate upgrades and reserves slots for both', () => {
+it('auto-installs Myrmidon Siegebreaker Plate upgrades and reserves a slot for its Flechette Launcher', () => {
   const armor: ContentEntry = { ...weapon, id: 'myrmidon-siegebreaker', name: 'Myrmidon Siegebreaker Plate',
     kind: 'armor', systems: ['sf2e'], level: 9,
     data: { url: 'myrmidon-siegebreaker-plate', armor_category: 'Heavy', ac: 6, strength: 10,
       speed_penalty: -10, upgrade_slots: 2 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
     systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
-  const upgrades = [module('Jetpack (Tactical)', 9), module('Force Field (Paragon)', 19), module('Mobility Enhancer', 0)]
+  const upgrades = [module('Jetpack (Tactical)', 9), module('Force Field (Paragon)', 19), module('Mobility Enhancer', 0),
+    module('Flechette Launcher (Elite)', 19)]
   const c: Character = { ...character([]), systems: ['sf2e'], level: 20, armors: [
     { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const tree = ArmorList({ c, entries: [armor, ...upgrades], save: () => {} })
   const markup = renderToStaticMarkup(tree)
-  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(3)
+  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(4)
   expect(markup).toContain('Jetpack (Tactical)')
   expect(markup).toContain('Force Field (Paragon)')
   expect(markup).toContain('Mobility Enhancer')
+  expect(markup).toContain('Flechette Launcher (Elite)')
+  expect(markup).not.toContain('Flechette Launcher (Elite) *')
+  expect(markup).toContain('Built-in upgrades exceed available armor upgrade slots.')
   expect(markup).not.toContain('Jetpack (Tactical) *')
   expect(markup).not.toContain('Force Field (Paragon) *')
   expect(markup).not.toContain('Mobility Enhancer *')
   expect(automaticArmorUpgradeUsesSlot(armor.name, upgrades[2])).toBe(true)
+  expect(automaticArmorUpgradeUsesSlot(armor.name, upgrades[3])).toBe(true)
   expect(automaticSpecificArmorUpgrades(c, [armor, ...upgrades], armor).map(item => item.name))
     .toContain('Mobility Enhancer')
   expect(markup).not.toContain('Add armor upgrade')
@@ -1447,7 +1452,51 @@ it('does not offer Solar Shield bash or attached weapons, including saved attach
     const armor = renderToStaticMarkup(<ArmorList c={state} entries={entries} save={save} part="shield" />)
     expect(armor).not.toContain('Shield Bash (default)')
     expect(armor).not.toContain('Shield Boss')
+    expect(armor).not.toContain('Shield rune')
+    expect(armor).not.toContain('Material')
   }
+})
+
+it.each(['Phase Shield', 'Commercial Phase Shield', 'Paragon Phase Shield'])(
+  'does not apply saved attachments, materials or runes to %s', name => {
+    const shield: OwnedShield = { id: 'phase', name, hardness: 5, hp: 10, damage: 0, equipped: true, raised: false,
+      material: { name: 'Silver Shield', hardness: 20, hp: 100 }, reinforcingRune: 'Supreme',
+      attachedWeapon: { id: 'boss', name: 'Shield Boss', potency: 0, striking: 0, runes: [] } }
+    const boss = { ...weapon, name: 'Shield Boss', systems: ['sf2e' as const] }
+    const c: Character = { ...character([]), systems: ['sf2e'], shield, weapons: [
+      { id: 'legacy-boss', name: 'Shield Boss', potency: 0, striking: 0, runes: [], attachedTo: shield.id },
+    ] }
+    const markup = renderToStaticMarkup(<ArmorList c={c} entries={[boss]} save={() => {}} part="shield" />)
+    expect(markup).not.toContain('Attached weapon')
+    expect(markup).not.toContain('Shield rune')
+    expect(markup).not.toContain('Silver Shield')
+    expect(shieldStats(shield)).toEqual({ hardness: 5, hp: 10 })
+    expect(ownedWeapons(c, [boss]).some(item => item.attachedTo === shield.id)).toBe(false)
+  })
+
+it('keeps the Myrmidon Phase Shield equipped and hand-free while armor is worn', () => {
+  const armor: ContentEntry = { ...weapon, id: 'myrmidon', name: 'Myrmidon Siegebreaker Plate', kind: 'armor',
+    systems: ['sf2e'], traits: ['Shield Brace'], data: { armor_category: 'Heavy' } }
+  const phase: ContentEntry = { ...weapon, id: 'phase', name: 'Phase Shield', kind: 'shield',
+    systems: ['sf2e'], traits: ['Retractable'], data: { ac: 2 } }
+  const rifle: ContentEntry = { ...weapon, id: 'rifle', name: 'Rifle', systems: ['sf2e'], data: { hands: 2, damage: '1d8 piercing' } }
+  const shield: OwnedShield = { id: 'shield', name: 'Phase Shield', hardness: 5, hp: 10, damage: 0, raised: false, equipped: false }
+  let c: Character = { ...character([]), systems: ['sf2e'], shield,
+    armors: [{ id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true, shieldBraceShieldId: shield.id }],
+    weapons: [{ id: 'rifle-owned', name: 'Rifle', potency: 0, striking: 0, runes: [] }] }
+  const entries = [armor, phase, rifle]
+  expect(equippedOtherShield(c)?.id).toBe(shield.id)
+  expect(equippedHands(c, entries)).toBe(2)
+  expect(canEquipShield(c, entries, shield)).toBe(true)
+  expect(shieldEquipChange(c, shield, false)).toEqual({})
+  c = { ...c, ...shieldRaisedChange(c, true, entries, shield) }
+  expect(c.shield?.raised).toBe(true)
+  expect(shieldAcBonus(c, entries)).toBe(2)
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} part="shield" />)
+  expect(markup).not.toContain('aria-label="Equipped Phase Shield"')
+  const unworn = { ...c, armors: [{ ...c.armors![0], worn: false }], shield: { ...c.shield!, equipped: false } }
+  expect(equippedOtherShield(unworn)).toBeUndefined()
+  expect(canEquipShield(unworn, entries, shield)).toBe(false)
 })
 
 it('keeps Solar Shield available alongside a held shield', () => {

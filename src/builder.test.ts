@@ -66,6 +66,24 @@ it('grants Technomancers Junkomancer Dedication independently of free archetype'
   expect(keys()).not.toContain('archetype:2:g103')
 })
 
+it('grants Solarians Shield Ace Dedication independently of free archetype', ({ onTestFinished }) => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ solarianShieldAce: true, freeArchetype: true })
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Solarian', level: 2 }
+  const keys = (character = c) => plannedSlots(character).map(slot => slot.key)
+  expect(activeHomebrewDedications(c)).toContainEqual(expect.objectContaining({
+    name: 'Shield Ace Dedication', slot: 'archetype:2:g104', replacesFreeArchetype: false,
+  }))
+  expect(keys()).toEqual(expect.arrayContaining(['archetype:2:g104', 'archetype:2:0']))
+  expect(keys({ ...c, level: 1 })).not.toContain('archetype:2:g104')
+  expect(keys({ ...c, className: 'Soldier' })).not.toContain('archetype:2:g104')
+  updateSettings({ freeArchetype: false })
+  expect(keys()).toContain('archetype:2:g104')
+  updateSettings({ solarianShieldAce: false })
+  expect(keys()).not.toContain('archetype:2:g104')
+})
+
 it('applies Warrior of Legend armor and spear/polearm proficiency rules', () => {
   const fighter = entry('class', 'Fighter', {
     attack_proficiency: 'Trained in simple weapons, Trained in martial weapons',

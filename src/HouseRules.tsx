@@ -42,6 +42,8 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
     description: 'Operatives automatically gain Starfinder Field Agent Dedication at level 2.' },
   { key: 'solarianFieldAgent', label: 'Solarian Starfinder Field Agent Dedication',
     description: 'Solarians automatically gain Starfinder Field Agent Dedication at level 2.' },
+  { key: 'solarianShieldAce', label: 'Solarian Shield Ace Dedication',
+    description: 'Solarians gain Shield Ace Dedication for free at level 2.' },
   { key: 'soldierFieldAgent', label: 'Soldier Starfinder Field Agent Dedication',
     description: 'Soldiers automatically gain Starfinder Field Agent Dedication at level 2.' },
   { key: 'soldierGrenadier', label: 'Soldier Grenadier Dedication',

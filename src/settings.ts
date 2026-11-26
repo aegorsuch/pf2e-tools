@@ -53,6 +53,7 @@ export interface Settings {
   technomancerJunkomancer: boolean
   operativeFieldAgent: boolean
   solarianFieldAgent: boolean
+  solarianShieldAce: boolean
   soldierFieldAgent: boolean
   // House rule: Soldiers get Grenadier Dedication in a locked level-2 slot
   soldierGrenadier: boolean
@@ -108,7 +109,7 @@ const DEFAULTS: Settings = {
   mysticXenoDruid: true, mechanicFieldAgent: true, mechanicAugmented: true, mechanicGrenadier: true,
   androidAugmented: true,
   technomancerGrenadier: true, technomancerJunkomancer: true, operativeFieldAgent: true,
-  solarianFieldAgent: true, soldierFieldAgent: true, soldierGrenadier: true, technomancerFieldAgent: true,
+  solarianFieldAgent: true, solarianShieldAce: true, soldierFieldAgent: true, soldierGrenadier: true, technomancerFieldAgent: true,
   technomancerAugmented: true, witchwarperFieldAgent: true, championCavalier: false, commanderCavalier: true,
   commanderCaptain: true, druidCavalier: false, rangerCavalier: true, championBeastmaster: true,
   commanderBeastmaster: true, druidBeastmaster: true, rangerBeastmaster: true, championFormNoFlight: true,

@@ -4,7 +4,7 @@ import {
   activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, hasDailyAugmentationActivation, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, isSolarianCrystalWeapon, solarianCoreCrystals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, type SectionProps,
 } from './builder'
 import { newId } from './db'
-import { armorUpgradeEntries, armorUpgradeEntry, automaticArmorUpgradeUsesSlot, blessedShieldBenefit, canEquipShield, canRaiseShield, championBlessings, clanPistolRunes, energyShieldingVariantId, equippedHands, equippedOtherShield, forceFieldStats, isEnergyShieldingUpgrade, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldBraceEligible, shieldEquipChange, weaponEntry } from './builder'
+import { armorUpgradeEntries, armorUpgradeEntry, automaticArmorUpgradeUsesSlot, blessedShieldBenefit, canEquipShield, canRaiseShield, championBlessings, clanPistolRunes, energyShieldingVariantId, equippedHands, equippedOtherShield, forceFieldStats, isEnergyShieldingUpgrade, myrmidonPhaseShield, scaleOfIgroonWeaponRunes, shieldAllowsAttachments, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldBraceEligible, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { isAncestralEmbrace, isBastionNamedArmor, isHighhelmPlate, isImmortalBastion, isInheritorPlate, isIncendiaryArmor, isLibraryRobes, isMountainArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
@@ -2059,7 +2059,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
   ], ...(c.activeSpells?.includes(ANCESTRAL_AVATAR) && !next.some(armor => armor.worn && isAncestralEmbrace(armor.name))
     ? spellActiveChange(c, ANCESTRAL_AVATAR, false) : {}), ...extra })
   const update = (id: string, patch: Partial<OwnedArmor>) => saveArmors(armors.map((a) => (a.id === id ? { ...a, ...patch } : a)))
-  const shield = c.shield
+  const shield = ownedShields(c).find(item => item.id === c.shield?.id)
   const shieldUpgrades = !shield || shieldAllowsUpgrades(shield)
   const grantedShields = ownedShields(c).filter(shield => shield.id !== c.shield?.id)
   const equipped = equippedShield(c)
@@ -2298,7 +2298,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                       ...(a.activeForceField && !armorUpgradeEntries(c, entries, { ...a, upgrades })
                           .some(upgrade => forceFieldStats(upgrade)) ? { activeForceField: false } : {}) })
                     }} />}
-              {sf2eArmor && entry && /\bStormbreaker Armor(?: \((?:Cold|Fire)\))?$/i.test(entry.name)
+              {sf2eArmor && entry && /\b(?:Stormbreaker Armor(?: \((?:Cold|Fire)\))?|Myrmidon Siegebreaker Plate)$/i.test(entry.name)
                 && automaticArmorUpgradeSlotsUsed(entry) > armorUpgradeSlots(entry) + (c.heritage === 'Mod Fanatic Android' ? 1 : 0)
                 && <small role="status">Built-in upgrades exceed available armor upgrade slots.</small>}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
@@ -2332,7 +2332,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
           <header className="row">
             <strong><EntryDescription name={specificMagicItemName(shieldEntry(entries, shield.name), shield.name, true)} entry={shieldEntry(entries, shield.name)}
               className="equipment-name" /></strong>
-            <ShieldEquipped c={c} entries={entries} save={save} shield={shield} />
+            {!myrmidonPhaseShield(c, shield) && <ShieldEquipped c={c} entries={entries} save={save} shield={shield} />}
             <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
               <input type="checkbox" checked={equipped?.id === shield.id && shieldRaised(c)}
                 disabled={equippedOtherShield(c)?.id !== shield.id || shieldParagonActive(c)
@@ -2340,7 +2340,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                 onChange={(e) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, e.target.checked, entries, shield)) }} />
               {isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
           </header>
-          <ShieldAttachment c={c} entries={entries} save={save} shield={shield} />
+          {shieldAllowsAttachments(shield) && <ShieldAttachment c={c} entries={entries} save={save} shield={shield} />}
           {shieldUpgrades && <div className="row">
             {shield.material ? <div className="gear-runes"><span>Material</span>
               <GearTag name={shield.material.name} kind="material"
@@ -2410,7 +2410,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         {grantedShield.id !== 'granted-shield:chitinous' && grantedShield.id !== 'granted-shield:solarian'
           && <ShieldAttachment c={c} entries={entries} save={save} shield={grantedShield} />}
         <ShieldDurability c={c} entries={entries} shield={grantedShield} />
-        {grantedShield.id !== 'granted-shield:chitinous' && <ShieldRune rune={grantedShield.reinforcingRune} entries={entries}
+        {grantedShield.id !== 'granted-shield:chitinous' && shieldAllowsUpgrades(grantedShield) && <ShieldRune rune={grantedShield.reinforcingRune} entries={entries}
           granted={blessedShieldBenefit(c, grantedShield, entries)?.rune}
           locked={grantedShield.id === 'granted-shield:inventor' || championBlessings(c).includes('Blessed Shield')}
           onChange={reinforcingRune => save(shieldChange(c, grantedShield, { reinforcingRune }))} />}

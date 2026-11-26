@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { AON_IMPORT_VERSION, importFromAon, mapAonHits } from './aon'
-import { armorUpgradeSlots, automaticArmorUpgradeSlotsUsed, automaticSpecificArmorUpgrades, automaticWeaponUpgrades, boostSlots, classDifficultyClass, effectiveArmor, effectiveWeapon, eligibleFeats, gearPickerEntries, resistances } from './builder'
+import { armorUpgradeSlots, automaticArmorUpgradeSlotsUsed, automaticFeatGrants, automaticSpecificArmorUpgrades, automaticWeaponUpgrades, boostSlots, classDifficultyClass, effectiveArmor, effectiveWeapon, eligibleFeats, gearPickerEntries, resistances } from './builder'
 import { isSpecificGear } from './GearSection'
 import { groupHomebrew } from './HomebrewList'
 import { homebrewCharacterOptions, migrateCopiedFeats } from './supplemental'
@@ -18,6 +18,20 @@ vi.mock('./db', () => ({
   ensureSupplementalContent: async () => {},
 }))
 afterEach(() => vi.unstubAllGlobals())
+
+it('imports both feats granted by Shield Ace Dedication', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => hit._source?.name === 'Shield Ace Dedication'), 'sf2e')
+  expect(entries[0].data.grants_feats).toBe('Shield Block, Quick Repair')
+  const c: Character = { id: 'shield-ace', name: 'Test', systems: ['sf2e'], className: 'Solarian', level: 2,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Shield Ace Dedication', type: 'Dedication Feat', level: 2, slot: 'archetype:2:g104' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(automaticFeatGrants(c, entries)).toEqual(expect.arrayContaining([
+    expect.objectContaining({ name: 'Shield Block', source: 'Shield Ace Dedication' }),
+    expect.objectContaining({ name: 'Quick Repair', source: 'Shield Ace Dedication' }),
+  ]))
+})
 
 it.each(['Cold', 'Fire'] as const)('resolves old %s Stormbreaker variants as standard armor', energy => {
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
@@ -145,7 +159,7 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
   const upgrades = ['Jetpack', 'Force Field', 'Aqua Jets', 'Active Camouflage', 'Cloaking Device', 'Drift Drive Relay',
     'Mobility Enhancer', 'Maneuvering Unit', 'Easypatcher', 'Adrenal Autoinjectors', 'Energized Spikes', 'Energy Shielding',
-    'Spell Gauntlet', 'Spell Refactoring Matrix']
+    'Spell Gauntlet', 'Spell Refactoring Matrix', 'Flechette Launcher']
   const entries = mapAonHits(hits.filter(hit => {
     const name = String(hit._source?.name)
     return names.has(name) || upgrades.some(upgrade => name === upgrade || name.startsWith(`${upgrade} (`))
@@ -166,8 +180,8 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
     if (name === 'Aquavarius Armor') expect(autoUpgrades.map(entry => entry.name)).not.toContain('Jetpack (Tactical)')
     else expect(autoUpgrades.map(entry => entry.name)).toContain('Jetpack (Tactical)')
     expect(autoUpgrades).toHaveLength(name === 'Stormbreaker Armor' ? 7 : name === "Drifter's Jacket" || name === 'Clandestine Suit' ? 5
-      : name === 'Myrmidon Siegebreaker Plate' || name === 'Aquavarius Armor' || name === 'Rocketeer Armor' ? 3
-      : name === 'Carvesong' ? 4
+      : name === 'Aquavarius Armor' || name === 'Rocketeer Armor' ? 3
+      : name === 'Carvesong' || name === 'Myrmidon Siegebreaker Plate' ? 4
       : name === 'Retrieval Harness' ? 4
       : 2)
     if (name === 'Clandestine Suit') expect(autoUpgrades.map(entry => entry.name))
@@ -175,6 +189,11 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
         'Drift Drive Relay (Advanced)']))
     if (name === 'Myrmidon Siegebreaker Plate' || name === 'Stormbreaker Armor')
       expect(autoUpgrades.map(entry => entry.name)).toContain('Mobility Enhancer')
+    if (name === 'Myrmidon Siegebreaker Plate') {
+      for (const [level, grade] of [[9, 'Tactical'], [11, 'Advanced'], [15, 'Superior'], [19, 'Elite']] as const)
+        expect(automaticSpecificArmorUpgrades({ ...character, level }, entries, armor!).map(entry => entry.name))
+          .toContain(`Flechette Launcher (${grade})`)
+    }
     if (name === "Drifter's Jacket") expect(autoUpgrades.map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Force Field (Paragon)', 'Active Camouflage (Advanced)',
         'Drift Drive Relay (Advanced)', 'Maneuvering Unit (Superior)']))

@@ -390,7 +390,8 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
       Object.assign(data, languageGrantRules(text(s.markdown)))
     }
     const feats = featGrants(text(s.markdown))
-    if (feats.length) data.grants_feats = feats.join(';')
+    if (system === 'sf2e' && name === 'Shield Ace Dedication' && !feats.includes('Quick Repair')) feats.push('Quick Repair')
+    if (feats.length) data.grants_feats = feats.join(', ')
   }
   const land = (s.speed as { land?: unknown } | undefined)?.land
   if (typeof land === 'number') data.speed = land

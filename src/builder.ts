@@ -636,8 +636,15 @@ export function inventorBuckler(c: Character): OwnedShield | undefined {
     reinforcingRune: installed && (!automatic || SHIELD_RUNES[installed].level > SHIELD_RUNES[automatic].level) ? installed : automatic,
     attachedWeapon: c.inventorBuckler?.attachedWeapon }
 }
+export function myrmidonPhaseShield(c: Character, shield?: OwnedShield) {
+  return !!shield && shield.id === c.shield?.id && c.systems.includes('sf2e')
+    && /^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?Phase Shield$/i.test(shield.name)
+    && (c.armors ?? []).some(armor => armor.worn
+      && /^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?Myrmidon Siegebreaker Plate$/i.test(armor.name))
+}
 export function ownedShields(c: Character): OwnedShield[] {
-  return [c.shield, hardwoodShield(c), inventorBuckler(c), solarianShield(c), chitinousShield(c)].filter((shield): shield is OwnedShield => !!shield)
+  const shield = c.shield && myrmidonPhaseShield(c, c.shield) ? { ...c.shield, equipped: true } : c.shield
+  return [shield, hardwoodShield(c), inventorBuckler(c), solarianShield(c), chitinousShield(c)].filter((item): item is OwnedShield => !!item)
 }
 export function shieldChange(c: Character, shield: OwnedShield,
   patch: Partial<Pick<OwnedShield, 'equipped' | 'raised' | 'takingCover' | 'damage' | 'reinforcingRune' | 'attachedWeapon'>>): Partial<Character> {
@@ -650,7 +657,11 @@ export function shieldChange(c: Character, shield: OwnedShield,
 type ShieldStatsInput = Pick<OwnedShield, 'hardness' | 'hp' | 'material' | 'reinforcingRune'> & Partial<Pick<OwnedShield, 'id' | 'name'>>
 
 export function shieldAllowsUpgrades(shield: { name?: string }) {
-  return !isScaleOfIgroonShield(shield.name)
+  return !isScaleOfIgroonShield(shield.name) && !/^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?Phase Shield$|^Solar Shield$/i.test(shield.name ?? '')
+}
+
+export function shieldAllowsAttachments(shield: { name?: string }) {
+  return !/^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?Phase Shield$|^Solar Shield$/i.test(shield.name ?? '')
 }
 
 export function blessedShieldBenefit(c: Character, shield: ShieldStatsInput, entries: ContentEntry[] = []) {
@@ -693,6 +704,8 @@ export function shieldMaterial(entry: ContentEntry): NonNullable<OwnedShield['ma
 }
 export function equippedOtherShield(c: Character) {
   const shields = ownedShields(c)
+  const linked = shields.find(shield => myrmidonPhaseShield(c, shield))
+  if (linked) return linked
   const generated = shields.find(shield => shield.id !== c.shield?.id && !['granted-shield:chitinous', 'granted-shield:solarian'].includes(shield.id)
     && (shield.equipped ?? !c.shield))
   return generated ? generated
@@ -704,7 +717,7 @@ export function equippedShield(c: Character) {
   return solar?.equipped && solar.raised ? solar : equippedOtherShield(c) ?? (solar?.equipped ? solar : undefined)
 }
 export function shieldEquipChange(c: Character, shield: OwnedShield, equipped: boolean): Partial<Character> {
-  if (['granted-shield:chitinous', 'granted-shield:solarian'].includes(shield.id) && !equipped) return {}
+  if ((['granted-shield:chitinous', 'granted-shield:solarian'].includes(shield.id) || myrmidonPhaseShield(c, shield)) && !equipped) return {}
   const previous = equippedShield(c)?.id
   const change: Partial<Character> = {}
   for (const current of [shield, ...ownedShields(c).filter(item => item.id !== shield.id)]) {
@@ -783,6 +796,7 @@ export const HOMEBREW_DEDICATIONS = [
   { setting: 'mechanicGrenadier', className: 'Mechanic', name: 'Grenadier Dedication', slot: 'archetype:2:g100', replacesFreeArchetype: false },
   { setting: 'technomancerGrenadier', className: 'Technomancer', name: 'Grenadier Dedication', slot: 'archetype:2:g101', replacesFreeArchetype: false },
   { setting: 'technomancerJunkomancer', className: 'Technomancer', name: 'Junkomancer Dedication', slot: 'archetype:2:g103', replacesFreeArchetype: false },
+  { setting: 'solarianShieldAce', className: 'Solarian', name: 'Shield Ace Dedication', slot: 'archetype:2:g104', replacesFreeArchetype: false },
   { setting: 'technomancerAugmented', className: 'Technomancer', name: 'Augmented Dedication', slot: 'archetype:2:g82', replacesFreeArchetype: false },
   { setting: 'androidAugmented', ancestry: 'Android', system: 'sf2e', name: 'Augmented Dedication',
     slot: 'archetype:2:g80', replacesFreeArchetype: false },
@@ -3508,7 +3522,8 @@ export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
   if (!armor?.systems.includes('sf2e')) return 0
   if (SPELL_ARMOR_FAMILIES.has(family ?? '')) return 4
   if (family === "Drifter's Jacket") return 3
-  if (['Clandestine Suit', 'Myrmidon Siegebreaker Plate', 'Retrieval Harness'].includes(family ?? '')) return 3
+  if (['Clandestine Suit', 'Retrieval Harness'].includes(family ?? '')) return 3
+  if (family === 'Myrmidon Siegebreaker Plate') return 4
   if (family === 'Stormbreaker Armor') return 5
   return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Rocketeer Armor']
     .includes(family ?? '') ? 2 : 0
@@ -3523,7 +3538,7 @@ export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upg
     'Myrmidon Siegebreaker Plate', 'Retrieval Harness', 'Stormbreaker Armor'].includes(family ?? ''))
     return ['Jetpack', 'Force Field'].includes(base) || family === "Drifter's Jacket" && base === 'Active Camouflage'
       || family === 'Clandestine Suit' && base === 'Drift Drive Relay'
-      || family === 'Myrmidon Siegebreaker Plate' && base === 'Mobility Enhancer'
+      || family === 'Myrmidon Siegebreaker Plate' && ['Mobility Enhancer', 'Flechette Launcher'].includes(base)
       || family === 'Stormbreaker Armor' && base === 'Mobility Enhancer'
       || family === 'Stormbreaker Armor' && base === 'Energy Shielding'
         && ['cold', 'fire'].includes(String(upgrade.data.automatic_energy_type))
@@ -3540,7 +3555,7 @@ const AUTOMATIC_ARMOR_UPGRADES = ['Jetpack', 'Force Field']
 const CLOAKING_ARMOR_UPGRADES = ['Active Camouflage', 'Cloaking Device']
 const CLANDESTINE_ARMOR_UPGRADES = ['Drift Drive Relay']
 const DRIFTER_JACKET_ARMOR_UPGRADES = ['Active Camouflage', 'Drift Drive Relay', 'Maneuvering Unit']
-const MYRMIDON_ARMOR_UPGRADES = ['Mobility Enhancer']
+const MYRMIDON_ARMOR_UPGRADES = ['Mobility Enhancer', 'Flechette Launcher']
 const ROCKETEER_ARMOR_UPGRADES = ['Maneuvering Unit']
 const RETRIEVAL_HARNESS_ARMOR_UPGRADES = ['Easypatcher', 'Adrenal Autoinjectors']
 const STORMBREAKER_ARMOR_UPGRADES = ['Energized Spikes', 'Energy Shielding', 'Mobility Enhancer']
@@ -7348,10 +7363,10 @@ export function equippedWeaponHands(c: Character, entries: ContentEntry[]): numb
 export function equippedHands(c: Character, entries: ContentEntry[]): number {
   const shield = equippedOtherShield(c)
   return equippedWeaponHands(c, entries) + Number(!!shield && !['granted-shield:chitinous', 'granted-shield:solarian'].includes(shield.id)
-    && !isBucklerShield(shield.name) && !shieldBraceInstalled(c, entries, shield))
+    && !isBucklerShield(shield.name) && !myrmidonPhaseShield(c, shield) && !shieldBraceInstalled(c, entries, shield))
 }
 export function canEquipShield(c: Character, entries: ContentEntry[], shield: OwnedShield): boolean {
-  if (['granted-shield:chitinous', 'granted-shield:solarian'].includes(shield.id)) return true
+  if (['granted-shield:chitinous', 'granted-shield:solarian'].includes(shield.id) || myrmidonPhaseShield(c, shield)) return true
   return (shieldBraceInstalled(c, entries, shield)
     || equippedWeaponHands(c, entries) + Number(!isBucklerShield(shield.name)) <= totalHandCapacity(c))
     && !ownedWeapons(c, entries).some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
@@ -7363,7 +7378,7 @@ const canOversizedThrow = (c: Character, entries: ContentEntry[]) => {
   const capacity = totalHandCapacity(c)
   const shield = equippedOtherShield(c)
   let occupiedHands = Number(!!shield && !['granted-shield:chitinous', 'granted-shield:solarian'].includes(shield.id)
-    && !isBucklerShield(shield.name))
+    && !isBucklerShield(shield.name) && !myrmidonPhaseShield(c, shield))
   for (const weapon of c.weapons ?? []) {
     if (weapon.name === OVERSIZED_THROW.name || weapon.attachedTo || !weaponEquipped(c, entries, weapon)) continue
     const hands = weaponHands(entries, weapon, c)
@@ -7468,6 +7483,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const activeSolarian = c.systems.includes('sf2e') && (solarian || dedication) && attunement !== 'Unattuned'
   const weapons = [...carriedWeapons(c, entries).filter(weapon => weapon.id !== OFFENSIVE_DEFENSE_WEAPON_ID
     && weapon.attachedTo !== 'granted-shield:solarian'
+    && !(weapon.attachedTo && c.shield?.id === weapon.attachedTo && !shieldAllowsAttachments(c.shield))
     && (!SOLARIAN_CRYSTAL_WEAPON_IDS.includes(weapon.id) || activeSolarian
       && (weapon.id !== 'sf2e:solarian:twin-weapon' || solarian && activeFeatsNamed(c, 'Twin Weapons').length > 0)
       && (weapon.id !== solarianFlare.id || solarian || activeFeatsNamed(c, 'Solar Flare').length > 0))
@@ -7619,7 +7635,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     }
   }
   for (const shield of ownedShields(c)) {
-    if (shield.id === 'granted-shield:chitinous' || shield.id === 'granted-shield:solarian') continue
+    if (shield.id === 'granted-shield:chitinous' || !shieldAllowsAttachments(shield)) continue
     const attachedWeapon = shieldAttachedWeapon(shield)
     if (shield) available.push({ ...(attachedWeapon ?? {
       id: `shield-bash:${shield.id}`, name: SHIELD_BASH.name, potency: 0, striking: 0, runes: [],
@@ -8005,6 +8021,7 @@ export function canAttachWeapon(entries: ContentEntry[], weapon: OwnedWeapon) {
 }
 export const SHIELD_ATTACHED_WEAPONS = ['Shield Boss', 'Shield Pistol', 'Shield Spikes'] as const
 export function shieldAttachmentOptions(shield: Pick<OwnedShield, 'name'>) {
+  if (!shieldAllowsAttachments(shield)) return []
   return SHIELD_ATTACHED_WEAPONS.filter(name => !isScaleOfIgroonShield(shield.name) || name !== 'Shield Pistol')
 }
 function shieldAttachedWeapon(shield: OwnedShield) {
@@ -8014,7 +8031,7 @@ function shieldAttachedWeapon(shield: OwnedShield) {
 }
 export function shieldAttachmentSource(c: Character, weapon: OwnedWeapon) {
   return ownedShields(c).find(shield => {
-    if (shield.id === 'granted-shield:solarian') return false
+    if (!shieldAllowsAttachments(shield)) return false
     const attached = shieldAttachedWeapon(shield)
     return shield.id === weapon.attachedTo && (attached?.id === weapon.id
       || !attached && weapon.id === `shield-bash:${shield.id}` && weapon.name === SHIELD_BASH.name)
@@ -8182,7 +8199,7 @@ export function shieldBraceInstalled(c: Character, entries: ContentEntry[], shie
 }
 
 export function canRaiseShield(c: Character, entries: ContentEntry[], shield: OwnedShield) {
-  return !shieldBraceInstalled(c, entries, shield) || equippedHands(c, entries) < totalHandCapacity(c)
+  return myrmidonPhaseShield(c, shield) || !shieldBraceInstalled(c, entries, shield) || equippedHands(c, entries) < totalHandCapacity(c)
 }
 
 export function ownedArmors(c: Character, entries: ContentEntry[]): OwnedArmor[] {
