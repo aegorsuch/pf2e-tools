@@ -2569,3 +2569,14 @@ it('scales solar weapon core crystals by level and limits orbital crystals to it
   expect(installedWeaponUpgrades({ ...c, level: 2 }, entries, { ...weapon, upgrades: ['o1', 'o2'] }).map(item => item.id)).toEqual(['o1'])
   expect(installedWeaponUpgrades(c, entries, { ...weapon, upgrades: ['o1', 'o2'] })).toHaveLength(2)
 })
+
+it('gives Kasatha four hands and Skyfire Wings takes one pair', async () => {
+  const { totalHandCapacity } = await import('./builder')
+  const c: Character = { id: 'ks', name: 'Test', systems: ['sf2e'], level: 6, ancestry: 'Kasatha',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    spells: [{ name: 'Skyfire Wings', rank: 3, cantrip: false }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(totalHandCapacity(c)).toBe(4)
+  expect(totalHandCapacity({ ...c, activeSpells: ['Skyfire Wings'] })).toBe(2)
+  expect(totalHandCapacity({ ...c, ancestry: 'Human', activeSpells: ['Skyfire Wings'] })).toBe(0)
+})

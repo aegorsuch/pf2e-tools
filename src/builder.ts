@@ -7019,7 +7019,7 @@ export function weaponHeld(c: Character, entries: ContentEntry[], weapon: OwnedW
 
 export function totalArmHands(c: Character) {
   const additionalArms = activeFeatsNamed(c, 'Additional Arms').length
-  return 2 * (1 + Number(testSubjectAdaptation(c) === 'Extra Limbs')
+  return 2 * (1 + Number(testSubjectAdaptation(c) === 'Extra Limbs') + Number(c.systems.includes('sf2e') && c.ancestry === 'Kasatha')
     + (getSettings().singleAdditionalArms ? Math.min(1, additionalArms) : additionalArms))
 }
 
@@ -7080,7 +7080,9 @@ export function totalHandCapacity(c: Character) {
   const tail = activeFeatsNamed(c, 'Prehensile Tail').length > 0
     || c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Horizon Seeker Vesk'
   const limb = activeFeatsNamed(c, 'Prehensile Limbs').length > 0
-  return arms + Number(tail) + Number(limb && !(tail && (ancestryFeatTraits(c).includes('ysoki')
+  const wings = c.systems.includes('sf2e') && !!c.activeSpells?.includes('Skyfire Wings')
+    && !!c.spells?.some(spell => spell.name === 'Skyfire Wings')
+  return Math.max(0, arms - (wings ? 2 : 0)) + Number(tail) + Number(limb && !(tail && (ancestryFeatTraits(c).includes('ysoki')
     || c.ancestry === 'Vesk' && c.heritage === 'Horizon Seeker Vesk')))
 }
 
