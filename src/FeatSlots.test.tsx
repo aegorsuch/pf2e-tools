@@ -290,6 +290,55 @@ it('provides Tenth Life healing at the current level', () => {
   expect(render({ ...c, level: 16 })).not.toContain('aria-label="Roll Tenth Life: Healing"')
 })
 
+it('rolls Solarian feat damage at the current level and attunement', () => {
+  const feats: ContentEntry[] = ['Black Hole', 'Supernova', 'Plasma Ejection'].map(name => ({
+    id: name, systems: ['sf2e'], kind: 'feat', source: 'official', name, level: 4, traits: ['Solarian'],
+    description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 0,
+  }))
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], className: 'Solarian', level: 8,
+    solarianAttunement: 'Graviton', feats: feats.map((feat, index) => ({
+      name: feat.name, type: 'Class Feat', level: 4 + index * 2, slot: `class:${4 + index * 2}:0`,
+    })) }
+  const render = (character: Character) => renderToStaticMarkup(
+    <FeatSlots c={character} entries={feats} categories={['class']} save={() => {}} />)
+  const graviton = render(c)
+  expect(graviton).toContain('Damage: 4d8 bludgeoning')
+  expect(graviton).toContain('Damage: 5d6 fire')
+  expect(graviton).toContain('Critical failure persistent damage: 1d8 electricity')
+  expect(graviton).toMatch(/disabled=""[^>]*aria-label="Roll Supernova: 15-foot damage"/)
+  const photon = render({ ...c, solarianAttunement: 'Photon' })
+  expect(photon).toContain('15-foot damage: 8d8 fire')
+  expect(photon).toContain('30-foot damage: 8d6 fire')
+  expect(photon).toContain('Damage: 5d8 fire')
+  expect(photon).toMatch(/disabled=""[^>]*aria-label="Roll Black Hole: Damage"/)
+  expect(render({ ...c, level: 20, solarianAttunement: 'Photon' })).toContain('15-foot damage: 20d8 fire')
+  expect(render({ ...c, level: 3 })).not.toContain('aria-label="Roll Black Hole: Damage"')
+  expect(render({ ...c, solarianAttunement: 'Unattuned' }))
+    .toMatch(/disabled=""[^>]*aria-label="Roll Plasma Ejection: Damage"/)
+})
+
+it('provides Big Bang and Singularity damage at the correct attunement and level', () => {
+  const feats: ContentEntry[] = ['Big Bang', 'Singularity'].map(name => ({
+    id: name, systems: ['sf2e'], kind: 'feat', source: 'official', name, level: 14, traits: ['Solarian'],
+    description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 0,
+  }))
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], className: 'Solarian', level: 14,
+    solarianAttunement: 'Photon', feats: [{ name: 'Big Bang', type: 'Class Feat', level: 14, slot: 'class:14:0' }] }
+  const render = (character: Character) => renderToStaticMarkup(
+    <FeatSlots c={character} entries={feats} categories={['class']} save={() => {}} />)
+  const photon = render(c)
+  expect(photon).toContain('Damage: 10d6 fire')
+  expect(photon).toContain('Failure persistent damage: 2d6 fire')
+  expect(photon).toContain('Critical failure persistent damage: 4d6 fire')
+  const singularity: Character = { ...c, feats: [{ name: 'Singularity', type: 'Class Feat', level: 14, slot: 'class:14:0' }] }
+  expect(render(singularity)).toMatch(/disabled=""[^>]*aria-label="Roll Singularity: Damage"/)
+  const graviton = render({ ...singularity, level: 17, solarianAttunement: 'Graviton' })
+  expect(graviton).toContain('Damage: 12d8 void')
+  expect(render({ ...c, solarianAttunement: 'Graviton' })).toMatch(/disabled=""[^>]*aria-label="Roll Big Bang: Damage"/)
+  expect(render({ ...c, level: 20 })).toContain('Damage: 16d6 fire')
+  expect(render({ ...c, level: 13 })).not.toContain('aria-label="Roll Big Bang: Damage"')
+})
+
 it('adds a Treehealer healing roll to the selected feat', () => {
   const treehealer: ContentEntry = { id: 'treehealer', systems: ['pf2e'], kind: 'feat', source: 'official',
     name: 'Treehealer', level: 17, traits: ['Elf'], description: 'Heal a plant creature.', data: {},

@@ -8,7 +8,7 @@ import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDispl
   automaticArmorUpgradeSlotsUsed, automaticArmorUpgradeUsesSlot, automaticSpecificArmorUpgrades,
   armorUpgradeEntries, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon,
   installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, parryValue,
-  resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
+  resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped, weaponHands } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, OVERSIZED_THROW } from './supplemental'
@@ -1328,6 +1328,82 @@ it('counts one tail hand even if both Ysoki versions were previously selected', 
   expect(totalHandCapacity(c)).toBe(3)
   expect(totalHandCapacity({ ...c, feats: [] })).toBe(2)
   expect(totalHandCapacity({ ...c, feats: [limb] })).toBe(3)
+})
+
+it('keeps Solar Flare and Solar Shield hand-free alongside equipped weapons', () => {
+  const sword = { ...weapon, name: 'Sword', systems: ['sf2e' as const], data: { hands: 1, damage: '1d8 slashing' } }
+  let c: Character = { ...character([{ name: 'Prehensile Tail', type: 'Ancestry Feat', level: 5 },
+    { name: 'Solar Shield', type: 'Class Feat', level: 1 }]), systems: ['sf2e'], className: 'Solarian',
+    solarianAttunement: 'Photon', solarianShield: { equipped: true }, weapons: [
+      { id: 'one', name: 'Sword', potency: 0, striking: 0, runes: [] },
+      { id: 'two', name: 'Sword', potency: 0, striking: 0, runes: [], stowed: true },
+    ] }
+  const entries = [sword]
+  const flare = ownedWeapons(c, entries).find(item => item.name === 'Solar Flare')!
+  expect(weaponHands(entries, flare, c)).toBe(0)
+  expect(weaponEquipped(c, entries, flare)).toBe(true)
+  expect(weaponEquipped(c, entries, { ...flare, stowed: true })).toBe(true)
+  for (const displayOnly of [false, true]) {
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+    expect(markup).toContain('Solar Flare')
+    expect(markup).not.toContain('aria-label="Equipped Solar Flare"')
+  }
+  expect(totalHandCapacity(c)).toBe(3)
+  expect(equippedHands(c, entries)).toBe(2)
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => WeaponList({ c, entries, save, displayOnly: true })
+  expect(renderToStaticMarkup(tree())).not.toContain('hands unavailable')
+  const equip = findElement(tree(), element => element.props['aria-label'] === 'Equipped Sword' && !element.props.checked)!
+  expect(equip.props.disabled).toBe(false)
+  ;(equip.props.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: true } })
+  expect(equippedHands(c, entries)).toBe(3)
+  const solarShield = ownedShields(c).find(shield => shield.name === 'Solar Shield')!
+  expect(canEquipShield(c, entries, solarShield)).toBe(true)
+  expect(equippedHands({ ...c, solarianShield: { equipped: false } }, entries)).toBe(3)
+  const withoutTail = { ...c, feats: c.feats.filter(feat => feat.name !== 'Prehensile Tail'),
+    weapons: c.weapons!.filter(item => item.id !== 'two') }
+  expect(totalHandCapacity(withoutTail)).toBe(2)
+  expect(equippedHands(withoutTail, entries)).toBe(2)
+  expect(canEquipShield(withoutTail, entries, solarShield)).toBe(true)
+})
+
+it('keeps saved Solar Flare wielded while attuned and preserves it while unattuned', () => {
+  const sword = { ...weapon, name: 'Sword', systems: ['sf2e' as const], data: { hands: 1, damage: '1d8 slashing' } }
+  const flare = { id: 'sf2e:solarian:flare', name: 'Solar Flare', potency: 0, striking: 0, runes: [], stowed: true }
+  let c: Character = { ...character([]), systems: ['sf2e'], className: 'Solarian', solarianAttunement: 'Photon',
+    weapons: [flare, { id: 'sword', name: 'Sword', potency: 0, striking: 0, runes: [], stowed: true }] }
+  const entries = [sword]
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  expect(weaponEquipped(c, entries, ownedWeapons(c, entries).find(item => item.id === flare.id)!)).toBe(true)
+  c = { ...c, solarianAttunement: 'Unattuned' }
+  expect(ownedWeapons(c, entries).some(item => item.id === flare.id)).toBe(false)
+  const tree = WeaponList({ c, entries, save })
+  expect(renderToStaticMarkup(tree)).not.toContain('Solar Flare')
+  const equip = findElement(tree, element => element.props['aria-label'] === 'Equipped Sword')!
+  ;(equip.props.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: true } })
+  expect(c.weapons?.find(item => item.id === flare.id)).toEqual(flare)
+  c = { ...c, solarianAttunement: 'Graviton' }
+  expect(weaponEquipped(c, entries, ownedWeapons(c, entries).find(item => item.id === flare.id)!)).toBe(true)
+})
+
+it('does not offer Solar Shield bash or attached weapons, including saved attachments', () => {
+  const boss: ContentEntry = { ...weapon, name: 'Shield Boss', systems: ['sf2e'], data: { hands: 1, damage: '1d6 bludgeoning' } }
+  const savedShield = { raised: true, attachedWeapon: { id: 'boss', name: 'Shield Boss', potency: 0, striking: 0, runes: [] } }
+  const c: Character = { ...character([{ name: 'Solar Shield', type: 'Class Feat', level: 1 }]),
+    systems: ['sf2e'], className: 'Solarian', solarianAttunement: 'Photon',
+    solarianShield: savedShield,
+    weapons: [{ id: 'old-boss', name: 'Shield Boss', potency: 0, striking: 0, runes: [], attachedTo: 'granted-shield:solarian' }] }
+  const entries = [boss]
+  const save = () => {}
+  const shield = ownedShields(c).find(item => item.name === 'Solar Shield')!
+  expect(shield.attachedWeapon).toBeUndefined()
+  for (const attunement of ['Photon', 'Graviton', 'Unattuned'] as const) {
+    const state = { ...c, solarianAttunement: attunement }
+    expect(ownedWeapons(state, entries).some(item => item.attachedTo === shield.id)).toBe(false)
+    const armor = renderToStaticMarkup(<ArmorList c={state} entries={entries} save={save} part="shield" />)
+    expect(armor).not.toContain('Shield Bash (default)')
+    expect(armor).not.toContain('Shield Boss')
+  }
 })
 
 it('allows an Ord tail to pair with a hand without adding a fourth hand', () => {

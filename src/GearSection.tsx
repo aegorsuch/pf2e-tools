@@ -1227,7 +1227,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
       && !entries.some(entry => entry.kind === 'weapon' && entry.id === weapon.id && entry.data.granted_by_heritage)),
       ...(c.weapons ?? []).filter((weapon) =>
       (isDuplicateVeskAttack(c, entries, weapon) || weapon.id === 'sf2e:soldier:offensive-defense'
-        || isAutomaticUnarmed(weapon.name) || weapon.id === 'sf2e:pahtra:claw' || weapon.name === HAFT_STRIKER_WEAPON.name || weapon.id === GAUNTLET.id || weapon.id === OVERSIZED_THROW.id)
+        || isAutomaticUnarmed(weapon.name) || isSolarianCrystalWeapon(weapon) || weapon.id === 'sf2e:pahtra:claw' || weapon.name === HAFT_STRIKER_WEAPON.name || weapon.id === GAUNTLET.id || weapon.id === OVERSIZED_THROW.id)
         && !weapons.some((visible) => visible.id === weapon.id))],
     ...extra,
   })
@@ -1483,7 +1483,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           summary.attack.range > 0 && (summary.attackForm === 'Ranged' || summary.attackForm === 'Thrown')
         const attackLine = (summary: (typeof attackSummaries)[number]) => <>
           {summary.attackForm && `${summary.attackForm}${inlineRange(summary) ? ` (${summary.attack.range} feet)` : ''}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
-          {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.strikeNote && <SourceNote
+          {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.attack.propulsiveShield && <SourceNote
+            source="Propulsive Shield" note="+1 damage per weapon damage die while the solar shield is raised." />}{summary.strikeNote && <SourceNote
             source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
             note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
             <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
@@ -2235,7 +2236,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                 <span><small>Category</small>{String(entry.data.armor_category ?? armorCategory(entry))}</span>
                 <span><small>Bulk</small>{String(armorBulk(c, entry, a.worn) ?? '—')}
                   {armorBulk(c, entry, a.worn) !== entry.data.bulk
-                    && <SourceNote source="Walking Armory" note="Armor Bulk reduced by 1, minimum 1, because your Strength meets its requirement." />}</span>
+                    && (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Solar Rampart').length
+                      ? <SourceNote source="Solar Rampart" note="Worn armor Bulk reduced by 1, minimum 1." />
+                      : <SourceNote source="Walking Armory" note="Armor Bulk reduced by 1, minimum 1, because your Strength meets its requirement." />)}</span>
                 <span><small>Group</small>{String(entry.data.armor_group || '—')}</span>
                 <span><small>Speed</small>{hasStrengthRequirement
                   ? `${penalty(speedPenalty)} ft (${penalty(effectiveSpeedPenalty)} ft)`
@@ -2403,7 +2406,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             {grantedShield.id === 'granted-shield:chitinous' ? 'Raise Chitinous Shield'
               : isBucklerShield(grantedShield.name) ? 'Raise Buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
         </header>
-        {grantedShield.id !== 'granted-shield:chitinous' && <ShieldAttachment c={c} entries={entries} save={save} shield={grantedShield} />}
+        {grantedShield.id !== 'granted-shield:chitinous' && grantedShield.id !== 'granted-shield:solarian'
+          && <ShieldAttachment c={c} entries={entries} save={save} shield={grantedShield} />}
         <ShieldDurability c={c} entries={entries} shield={grantedShield} />
         {grantedShield.id !== 'granted-shield:chitinous' && <ShieldRune rune={grantedShield.reinforcingRune} entries={entries}
           granted={blessedShieldBenefit(c, grantedShield, entries)?.rune}

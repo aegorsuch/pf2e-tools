@@ -6,7 +6,7 @@ import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOpt
 import { getSettings, updateSettings } from './settings'
 import { characterHeritages } from './heritages'
 import { automaticFeatChoiceKey, coreAttunementOptions, grantedFeatSpells } from './featSpells'
-import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
+import { apexSkillBonus, armorEntry, armorUpgradeSlots, effectiveArmor, gearPickerEntries, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting, wizardSchoolBookSpells } from './builder'
 import { hasRemainingFeatSelections } from './builder'
 import { homebrewCharacterOptions } from './supplemental'
@@ -717,6 +717,36 @@ it('scales Stormbreaker electricity shielding with character level', () => {
     ...entry('item', name, { item_subcategory: 'Armor Upgrades' }, level),
     systems: ['sf2e' as const],
   })
+
+  const variantTest = (energy: 'Cold' | 'Fire') => {
+    const armor = { ...entry('armor', 'Stormbreaker Armor', {
+      url: 'stormbreaker', armor_grade: 'Advanced', upgrade_slots: 0,
+    }, 10), systems: ['sf2e' as const] }
+    const improved = { ...armor, id: 'paragon-stormbreaker', name: 'Paragon Stormbreaker Armor', level: 20,
+      data: { ...armor.data, armor_grade: 'Paragon', upgrade_slots: 2 } }
+    const shielding = { ...entry('item', 'Energy Shielding (Advanced)', { item_subcategory: 'Armor Upgrades' }, 18),
+      systems: ['sf2e' as const] }
+    const spikes = { ...entry('item', 'Energized Spikes (Advanced)', { item_subcategory: 'Armor Upgrades' }, 19),
+      systems: ['sf2e' as const] }
+    const entries = [armor, improved, shielding, spikes]
+    const variant = gearPickerEntries(entries, 'armor').find(item => item.name === `Stormbreaker Armor (${energy})`)
+    expect(variant).toMatchObject({ source: 'homebrew', data: { stormbreaker_energy: energy.toLowerCase() } })
+    const owned = { id: 'owned', name: variant!.name, potency: 0, resilient: 0, runes: [], worn: true }
+    const c: Character = { ...base, systems: ['sf2e'], level: 20, armors: [owned] }
+    const scaled = effectiveArmor(c, entries, owned)
+    expect(scaled.name).toBe(`Paragon Stormbreaker Armor (${energy})`)
+    const resolved = armorEntry(c, entries, scaled.name, scaled.id)!
+    expect(armorUpgradeSlots(resolved)).toBe(4)
+    expect(automaticSpecificArmorUpgrades(c, entries, resolved)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'Energy Shielding (Advanced)', data: expect.objectContaining({ automatic_energy_type: energy.toLowerCase() }) }),
+      expect.objectContaining({ name: 'Energized Spikes (Advanced)' }),
+    ]))
+    expect(resistances(c, entries)).toContainEqual({ damage: energy, value: 15,
+      source: `Energy Shielding (Advanced) (${energy})` })
+    expect(resistances({ ...c, armors: [{ ...owned, worn: false }] }, entries).some(item => item.damage === energy)).toBe(false)
+  }
+  variantTest('Cold')
+  variantTest('Fire')
   const entries = [
     armor, upgrade('Energy Shielding (Commercial)', 8), upgrade('Energy Shielding (Tactical)', 12),
     upgrade('Energy Shielding (Advanced)', 18),

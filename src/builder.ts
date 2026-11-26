@@ -3353,7 +3353,8 @@ export function armorStrengthMet(c: Character, armor: ContentEntry, allowConstit
 }
 
 export function armorBulk(c: Character, armor: ContentEntry, worn: boolean) {
-  return worn && isSoldier(c) && armorStrengthMet(c, armor, false) && num(armor.data.bulk) > 1
+  const rampart = c.systems.includes('sf2e') && activeFeatsNamed(c, 'Solar Rampart').length > 0
+  return worn && (rampart || isSoldier(c) && armorStrengthMet(c, armor, false)) && num(armor.data.bulk) > 1
     ? Math.max(1, num(armor.data.bulk) - 1) : armor.data.bulk
 }
 
@@ -3423,13 +3424,15 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
   const form = activeBattleForm(c, entries)
   const armorPenalty = form ? 0 : starfinderArmorPenalties(c, entries).speed
   const fortressShieldPenalty = equippedShield(c)?.name === SCALE_OF_IGROON_FORTRESS ? -10 : 0
+  const circumstance = [
+    { source: 'Solar Wind (circumstance)', feet: c.systems.includes('sf2e')
+      && activeFeatsNamed(c, 'Solar Wind').length && c.solarianAttunement === 'Photon' ? 10 : 0 },
+    { source: 'Trailblazing Stride (circumstance)', feet: hellknightBenefitActive(c, 'Trailblazing Stride') ? 10 : 0 },
+  ].sort((a, b) => b.feet - a.feet)[0]
   return [...(fleet ? [{ source: fleet, feet: 5 }] : []),
-    ...(c.systems.includes('sf2e') && c.className === 'Solarian' && activeFeatsNamed(c, 'Solar Wind').length
-      && (c.solarianAttunement ?? 'Graviton') === 'Photon'
-      ? [{ source: 'Solar Wind (circumstance)', feet: 10 }] : []),
+    ...(circumstance.feet ? [circumstance] : []),
     ...(c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Briskwander Vesk'
       ? [{ source: 'Briskwander Vesk', feet: 5 }] : []),
-    ...(hellknightBenefitActive(c, 'Trailblazing Stride') ? [{ source: 'Trailblazing Stride (circumstance)', feet: 10 }] : []),
     ...['Nimble Elf', 'Primal Nimbleness'].filter((name) => activeFeatsNamed(c, name).length).map((source) => ({ source, feet: 5 })),
     ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Nimble Hooves').length
       && !activeFeatsNamed(c, 'Nimble Elf').length
@@ -3477,7 +3480,7 @@ export function magneticLevitatorsActive(c: Character, entries: ContentEntry[]) 
 
 export function armorUpgradeSlots(entry?: ContentEntry) {
   if (!entry) return 0
-  const family = entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+  const family = armorUpgradeFamily(entry.name)
   if (entry.systems.includes('sf2e') && ['Stormbreaker Armor', 'Clandestine Suit'].includes(family)
     && (entry.data.armor_grade === 'Paragon' || /^Paragon /i.test(entry.name))) return 4
   const additionalSlots = entry.systems.includes('sf2e') && (family === "Drifter's Jacket" || family === 'Retrieval Harness') ? 1 : 0
@@ -3487,7 +3490,7 @@ export function armorUpgradeSlots(entry?: ContentEntry) {
 }
 
 export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
-  const family = armor?.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+  const family = armor && armorUpgradeFamily(armor.name)
   if (!armor?.systems.includes('sf2e')) return 0
   if (SPELL_ARMOR_FAMILIES.has(family ?? '')) return 4
   if (family === "Drifter's Jacket") return 3
@@ -3498,7 +3501,7 @@ export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
 }
 
 export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upgrade: ContentEntry) {
-  const family = armorName?.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+  const family = armorName && armorUpgradeFamily(armorName)
   const base = upgrade.name.replace(/\s*\([^)]*\)$/, '')
   if (SPELL_ARMOR_FAMILIES.has(family ?? '')) return true
   if (family === 'Aquavarius Armor') return ['Force Field', 'Energy Shielding'].includes(base)
@@ -3530,9 +3533,14 @@ const SPELL_ARMOR_UPGRADES = ['Spell Gauntlet', 'Spell Refactoring Matrix', 'Jet
 const SF_UPGRADE_GRADES = 'Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon'
 export const AUTOMATIC_JETPACK_ID = 'automatic:jetpack'
 
+function armorUpgradeFamily(name: string) {
+  return name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+    .replace(/^(Stormbreaker Armor) \((?:Cold|Fire)\)$/i, '$1')
+}
+
 export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEntry[], armor?: ContentEntry) {
   if (!c.systems.includes('sf2e') || armor?.kind !== 'armor' || !armor.systems.includes('sf2e')) return []
-  const family = armor.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+  const family = armorUpgradeFamily(armor.name)
   const standardArmor = AUTOMATIC_UPGRADE_ARMORS.has(family)
   const spellArmor = SPELL_ARMOR_FAMILIES.has(family)
   if (!standardArmor && !spellArmor) return []
@@ -3557,7 +3565,7 @@ export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEnt
       .sort((a, b) => b.level - a.level || Number(b.name.includes('(')) - Number(a.name.includes('(')))
     const selected = candidates[0]
     if (!selected) return []
-    const automaticEnergyType = family === 'Stormbreaker Armor' ? 'electricity'
+    const automaticEnergyType = family === 'Stormbreaker Armor' ? armor.data.stormbreaker_energy ?? 'electricity'
       : family === 'Aquavarius Armor' ? 'cold' : undefined
     return base === 'Energy Shielding' && automaticEnergyType
       ? [{ ...selected, data: { ...selected.data, automatic_energy_type: automaticEnergyType } }]
@@ -3795,7 +3803,7 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     && (automaticJetpackActive || jetpackIndex >= 0 && jetpackIndex < jetpackLimit)) {
     movement.push(fixed('Fly', jetpack, jetpackEntry!.name))
   }
-  if (c.systems.includes('sf2e') && c.className === 'Solarian' && activeFeatsNamed(c, 'Defy Gravity').length
+  if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Defy Gravity').length
     && (c.solarianAttunement ?? 'Graviton') === 'Graviton') {
     movement.push(atLandSpeed('Fly', 'Defy Gravity'))
   }
@@ -6211,6 +6219,8 @@ function baseArmorRanks(c: Character, entries: ContentEntry[]) {
 
 export function armorRanks(c: Character, entries: ContentEntry[]) {
   const ranks = baseArmorRanks(c, entries)
+  if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Solar Rampart').length)
+    ranks.Heavy = Math.max(ranks.Heavy, 1, ranks.Medium >= 2 ? ranks.Medium : 0)
   if (rogueRackets(c, entries).some(racket => racket === 'Ruffian' || racket === 'Avenger')) ranks.Medium = Math.max(ranks.Medium, ranks.Light, 1)
   if (envoyLeadershipStyles(c, entries).some(({ entry }) => entry.name === 'From the Front'))
     ranks.Medium = Math.max(ranks.Medium, ranks.Light)
@@ -6299,6 +6309,8 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   const armor = wornArmor(c, entries)
   const item = armorSaveBonus(c, entries)
   const researched = researchedSpellResistance(c, entries)
+  const mindward = name === 'Will' && c.systems.includes('sf2e') && activeFeatsNamed(c, 'Mindward Shield').length
+    && equippedShield(c)?.id === 'granted-shield:solarian' && shieldRaised(c) ? raisedShieldBonus(c, entries) : 0
   const parts: TotalPart[] = [
     { label: ABILITY_LABEL[ability[name]], value: abilityMod(c.abilities[ability[name]]) },
     { label: 'Proficiency', value: proficiencyBonus(rank, c.level), note: RANKS[rank] },
@@ -6307,6 +6319,7 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
   ]
   if (isFeatEffectActive(c, 'Heroic Defiance'))
     parts.push({ label: 'Heroic Defiance (status)', value: 1 })
+  if (mindward) parts.push({ label: 'Mindward Shield (circumstance)', value: mindward })
   if (c.raging && isFeatEffectActive(c, 'Desperate Wrath'))
     parts.push({ label: 'Desperate Wrath', value: -1 })
   const clumsy = name === 'Reflex' ? giantWeaponClumsy(c, entries) : 0
@@ -6341,7 +6354,7 @@ export function savingThrowBreakdown(c: Character, entries: ContentEntry[], name
     ...(activeFeatsNamed(c, 'Inured to Alchemy').length
       ? ['Inured to Alchemy: against alchemical poisons, drugs, or addiction, a successful save reduces the stage by 2 and a critical success by 3; reduce each improvement by 1 for virulent afflictions.'] : []),
     ...(name === 'Will' && c.raging && activeFeatsNamed(c, 'Perfect Clarity').length
-      ? [`Perfect Clarity: reroll a failed or critically failed Will save at ${signed(total + 2)} (+2 circumstance), use the better result, then end Rage.`] : []),
+      ? [`Perfect Clarity: reroll a failed or critically failed Will save at ${signed(total + Math.max(0, 2 - mindward))} (+2 circumstance), use the better result, then end Rage.`] : []),
     ...(c.raging && activeFeatsNamed(c, 'Draconic Arrogance').length
       ? [`Draconic Arrogance: ${signed(total + 2)} against emotion effects (+2 status; status bonuses do not stack).`] : []),
     ...(c.raging && barbarianInstinct(c, entries) === 'superstition'
@@ -7157,8 +7170,8 @@ export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon, c?: Ch
     && activeFeatsNamed(c, "Damoritosh's Grip").length > 0) return 1
   if (weaponCanUseTwoHands(entry) && weapon.handsHeld) return weapon.handsHeld
   if (String(entry.data.hands).trim() === '1 or 2') return 1
-  const match = /^([12])(?:\+)?$/.exec(String(entry.data.hands ?? '').trim())
-  return match ? Number(match[1]) : undefined
+  const match = /^(0|[12]\+?)$/.exec(String(entry.data.hands ?? '').trim())
+  return match ? Number(match[1].replace('+', '')) : undefined
 }
 
 export function hardpointWeaponEligible(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): boolean {
@@ -7278,11 +7291,11 @@ export function equippedWeaponHands(c: Character, entries: ContentEntry[]): numb
 }
 export function equippedHands(c: Character, entries: ContentEntry[]): number {
   const shield = equippedShield(c)
-  return equippedWeaponHands(c, entries) + Number(!!shield && shield.id !== 'granted-shield:chitinous'
+  return equippedWeaponHands(c, entries) + Number(!!shield && !['granted-shield:chitinous', 'granted-shield:solarian'].includes(shield.id)
     && !isBucklerShield(shield.name) && !shieldBraceInstalled(c, entries, shield))
 }
 export function canEquipShield(c: Character, entries: ContentEntry[], shield: OwnedShield): boolean {
-  if (shield.id === 'granted-shield:chitinous') return true
+  if (['granted-shield:chitinous', 'granted-shield:solarian'].includes(shield.id)) return true
   return (shieldBraceInstalled(c, entries, shield)
     || equippedWeaponHands(c, entries) + Number(!isBucklerShield(shield.name)) <= totalHandCapacity(c))
     && !ownedWeapons(c, entries).some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
@@ -7293,7 +7306,8 @@ const canOversizedThrow = (c: Character, entries: ContentEntry[]) => {
   if (c.level < 4 || !c.raging || !activeFeatsNamed(c, 'Oversized Throw').length) return false
   const capacity = totalHandCapacity(c)
   const shield = equippedShield(c)
-  let occupiedHands = Number(!!shield && shield.id !== 'granted-shield:chitinous' && !isBucklerShield(shield.name))
+  let occupiedHands = Number(!!shield && !['granted-shield:chitinous', 'granted-shield:solarian'].includes(shield.id)
+    && !isBucklerShield(shield.name))
   for (const weapon of c.weapons ?? []) {
     if (weapon.name === OVERSIZED_THROW.name || weapon.attachedTo || !weaponEquipped(c, entries, weapon)) continue
     const hands = weaponHands(entries, weapon, c)
@@ -7392,7 +7406,15 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   if (form) return form.attacks.map(entry => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] }))
   const heritageAttacks = grantedAttackEntries(entries).heritage
   const selectedHeritages = new Set(characterHeritages(c, entries).map(heritage => heritage.name))
+  const solarian = c.className === 'Solarian'
+  const dedication = activeFeatsNamed(c, 'Solarian Dedication').length > 0
+  const attunement = c.solarianAttunement ?? 'Graviton'
+  const activeSolarian = c.systems.includes('sf2e') && (solarian || dedication) && attunement !== 'Unattuned'
   const weapons = [...carriedWeapons(c, entries).filter(weapon => weapon.id !== OFFENSIVE_DEFENSE_WEAPON_ID
+    && weapon.attachedTo !== 'granted-shield:solarian'
+    && (!SOLARIAN_CRYSTAL_WEAPON_IDS.includes(weapon.id) || activeSolarian
+      && (weapon.id !== 'sf2e:solarian:twin-weapon' || solarian && activeFeatsNamed(c, 'Twin Weapons').length > 0)
+      && (weapon.id !== solarianFlare.id || solarian || activeFeatsNamed(c, 'Solar Flare').length > 0))
     && !isDuplicateVeskAttack(c, entries, weapon) && !heritageAttacks.some(entry => entry.id === weapon.id))]
   for (const entry of heritageAttacks.filter(entry => selectedHeritages.has(String(entry.data.granted_by_heritage))
     && entry.systems.some(system => c.systems.includes(system)))) {
@@ -7418,10 +7440,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
       weapons.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
   }
-  const solarian = c.className === 'Solarian'
-  const dedication = activeFeatsNamed(c, 'Solarian Dedication').length > 0
-  const attunement = c.solarianAttunement ?? 'Graviton'
-  if ((solarian || dedication) && attunement !== 'Unattuned') {
+  if (activeSolarian) {
     const primaryConfig = c.solarianWeapon
     const primary = { ...solarianWeaponEntry(false),
       traits: ['Attuned', 'Martial', 'Solarian', ...(primaryConfig?.traits ?? [])],
@@ -7544,7 +7563,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     }
   }
   for (const shield of ownedShields(c)) {
-    if (shield.id === 'granted-shield:chitinous') continue
+    if (shield.id === 'granted-shield:chitinous' || shield.id === 'granted-shield:solarian') continue
     const attachedWeapon = shieldAttachedWeapon(shield)
     if (shield) available.push({ ...(attachedWeapon ?? {
       id: `shield-bash:${shield.id}`, name: SHIELD_BASH.name, potency: 0, striking: 0, runes: [],
@@ -7939,6 +7958,7 @@ function shieldAttachedWeapon(shield: OwnedShield) {
 }
 export function shieldAttachmentSource(c: Character, weapon: OwnedWeapon) {
   return ownedShields(c).find(shield => {
+    if (shield.id === 'granted-shield:solarian') return false
     const attached = shieldAttachedWeapon(shield)
     return shield.id === weapon.attachedTo && (attached?.id === weapon.id
       || !attached && weapon.id === `shield-bash:${shield.id}` && weapon.name === SHIELD_BASH.name)
@@ -8059,12 +8079,21 @@ export function armorDisplayName(armor: Pick<OwnedArmor, 'name' | 'material'>, e
 }
 
 export function armorEntry(c: Character, entries: ContentEntry[], name: string, armorId?: string) {
+  const variant = /^(.*Stormbreaker Armor) \((Cold|Fire)\)$/i.exec(name)
   const resolvedName = name === 'Ancestral Embrace' ? 'Ancestral Embrace Hide Armor'
-    : name === 'Library Robes' ? 'Library Scroll Robes' : name
+    : name === 'Library Robes' ? 'Library Scroll Robes' : variant ? variant[1] : name
   const entry = characterArmorGrants(c, entries).find(entry => entry.name === resolvedName && (!armorId || entry.id === armorId))
     ?? byName(entries, 'armor', resolvedName)
     ?? namedArmorEntries(entries).find(entry => entry.name === resolvedName)
-  return scaleInheritorPlate(scaleAncestralEmbrace(entry, c.level), c.level)
+  const resolved = scaleInheritorPlate(scaleAncestralEmbrace(entry, c.level), c.level)
+  return resolved && variant && resolved.systems.includes('sf2e') ? stormbreakerVariant(resolved, variant[2].toLowerCase() as 'cold' | 'fire') : resolved
+}
+
+function stormbreakerVariant(entry: ContentEntry, energy: 'cold' | 'fire'): ContentEntry {
+  const label = energy === 'cold' ? 'Cold' : 'Fire'
+  return { ...entry, id: `${entry.id}:${energy}`, name: `${entry.name} (${label})`, source: 'homebrew',
+    description: entry.description.replace(/high-voltage electricity/gi, `${energy} energy`).replace(/electricity/gi, energy),
+    data: { ...entry.data, stormbreaker_energy: energy } }
 }
 
 function characterArmorGrants(c: Character, entries: ContentEntry[]) {
@@ -8173,7 +8202,9 @@ export function effectiveArmor(c: Character, entries: ContentEntry[], armor: Own
     const improved = c.systems.includes('sf2e') && !isGrantedArmor(armor.id) && source.data.armor_grade
       && typeof family === 'string' ? armorGrades(entries, family)
         .find(candidate => candidate.level > source.level && candidate.level <= c.level) : undefined
-    return { ...armor, name: improved?.name ?? armor.name, potency: 0, resilient: 0, runes: [] }
+    const variant = /\((Cold|Fire)\)$/i.exec(armor.name)
+    return { ...armor, name: improved ? `${improved.name}${variant && source.data.stormbreaker_energy ? ` (${variant[1]})` : ''}` : armor.name,
+      potency: 0, resilient: 0, runes: [] }
   }
   const grant = characterArmorGrants(c, entries).find(entry => entry.id === armor.id)
   if (grant) {
@@ -9207,6 +9238,9 @@ export function tailbladeInheritance(c: Character, entries: ContentEntry[], weap
 export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeapon, options: { thrown?: boolean; skipTailbladeInheritance?: boolean; skipHandInheritance?: boolean } = {}) {
   const upgrades = installedWeaponUpgrades(c, entries, w)
   w = effectiveWeapon(c, entries, w)
+  const propulsiveShield = w.id === solarianFlare.id && c.systems.includes('sf2e')
+    && activeFeatsNamed(c, 'Propulsive Shield').length > 0
+    && equippedShield(c)?.id === 'granted-shield:solarian' && shieldRaised(c)
   if (combinationForms(entries, w.name).length || PLAYING_CARD_WEAPONS.some(card => card.id === w.id)) {
     w = { ...w, runes: w.runes.filter(rune => weaponRuneApplies(entries, w, rune)) }
   }
@@ -9265,17 +9299,14 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   if (entry && w.id === solarianFlare.id) {
     const attunement = c.solarianAttunement ?? 'Graviton'
     const distant = activeFeatsNamed(c, 'Distant Flare').length > 0
-    const propulsive = activeFeatsNamed(c, 'Propulsive Shield').length > 0
-      && activeFeatsNamed(c, 'Solar Shield').length > 0
-      && c.solarianShield?.raised
-    const rangeBoost = (distant ? 15 : 0) + (propulsive ? 10 : 0)
+    const rangeBoost = (distant ? 15 : 0) + (propulsiveShield ? 10 : 0)
     entry = attunement === 'Photon'
       ? { ...entry, data: { ...entry.data,
-        damage: propulsive ? '1d6 fire' : '1d6 fire',
+        damage: '1d6 fire',
         range: 30 + rangeBoost, range_increment: 30 + rangeBoost } }
       : attunement === 'Graviton'
         ? { ...entry, data: { ...entry.data,
-          damage: propulsive ? '1d8 bludgeoning' : '1d8 bludgeoning',
+          damage: '1d8 bludgeoning',
           range: 15 + rangeBoost, range_increment: 15 + rangeBoost } }
         : entry
   }
@@ -9516,7 +9547,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ? conditionValue(c, 'doomed') : 0
   const damageBonus = (formAttack && form ? (formAttack.data.form_damage_bonus === undefined ? form.damageBonus : num(formAttack.data.form_damage_bonus)) + (dragonFormAttack && !dragonDamage && !elementalDamage && !spiritDamage ? rageDamage : 0) : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + (dragonDamage || elementalDamage || spiritDamage ? 0 : rageDamage)
     + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
-  ) + (scionTransformation && !ranged ? 2 : 0) + warriorLegendDamage - damagePenalty
+  ) + (scionTransformation && !ranged ? 2 : 0) + warriorLegendDamage - damagePenalty + (propulsiveShield ? dice : 0)
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
     c.level >= 4 && hasActiveFeatVariant(c, 'Favored Weapon Jousting') && isFavoredWeapon(c, entries, livingSource?.name ?? w.name)
@@ -9532,7 +9563,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const baseRange = options.thrown && thrown ? thrownRange : num(entry?.data.range)
   const range = ranged && baseRange > 0
     ? (baseRange + (strongArm ? 10 : 0) + (mechanicMods?.longRange ? boostingTheBasics(c) ? 60 : 30 : 0)) * (w.runes.some(rune => runeBaseName(rune).toLowerCase() === 'impossible') ? 2 : 1)
-      * (activeFeatsNamed(c, 'Far Shot').length ? 2 : 1) : 0
+      * (activeFeatsNamed(c, 'Far Shot').length ? 2 : 1)
+      * (w.id === solarianFlare.id && c.systems.includes('sf2e') && activeFeatsNamed(c, 'Homing Mote').length ? 3 : 1) : 0
   const style = soldierStyle(c)
   const areaTrait = entry?.traits.find(trait => /^area(?:\s|$)/i.test(trait))
   const automatic = traits.some(trait => /^automatic(?:\s|$)/i.test(trait))
@@ -9651,11 +9683,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ...(gluonCrystal ? [{ source: gluonCrystal.name,
         value: `1d${gluonCrystal.level >= 15 ? 10 : gluonCrystal.level >= 12 ? 8 : gluonCrystal.level >= 9 ? 6 : 4} persistent bleed`,
         note: 'On a critical hit, the target is clumsy 1 until it recovers from this bleed damage.' }] : []),
-      ...(w.id === solarianFlare.id && activeFeatsNamed(c, 'Propulsive Shield').length > 0
-        && c.solarianShield?.raised
-        ? [{ source: 'Propulsive Shield',
-          value: `1 ${(c.solarianAttunement ?? 'Graviton') === 'Photon' ? 'fire' : 'bludgeoning'} per weapon damage die`,
-          note: 'Propulsive Shield adds 1 damage per solar flare damage die.' }] : [])])],
+      ])],
     traits: [...new Set([...(entry?.traits ?? []).filter(trait => !(c.systems.includes('sf2e')
       && c.className === 'Operative' && c.subclass === 'Sniper' && isRanged(entry)
       && String(entry?.data.weapon_group ?? '').toLowerCase() === 'sniper'
@@ -9686,15 +9714,15 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       || c.systems.includes('sf2e') && c.className === 'Operative' && c.level >= 5 && rank >= 2
       || c.systems.includes('sf2e') && c.className === 'Mechanic' && c.level >= 5 && rank >= 2
       || isSoldier(c) && c.level >= 5 && traits.some(trait => /^(?:area|automatic)(?:\s|$)/i.test(trait))),
+    propulsiveShield,
     criticalNote: w.id === venomousVeskJaws.id ? `${dice} persistent poison damage on a critical hit.`
       : formAttack?.data.critical_bleed ? `${formAttack.data.critical_bleed} persistent bleed on a critical hit.`
-      : w.id === solarianFlare.id && activeFeatsNamed(c, 'Propulsive Shield').length > 0
-        && c.solarianShield?.raised && (c.solarianAttunement ?? 'Graviton') === 'Photon'
+      : propulsiveShield && (c.solarianAttunement ?? 'Graviton') === 'Photon'
         ? '1d8 persistent fire damage on a critical hit.'
       : w.id === solarianFlare.id && (c.solarianAttunement ?? 'Graviton') === 'Photon'
         ? '1d6 persistent fire damage on a critical hit.'
       : w.id === solarianFlare.id && (c.solarianAttunement ?? 'Graviton') === 'Graviton'
-        ? 'Attempt to Trip the target as a free action, even without a free hand or adjacency.'
+        ? `Attempt to Trip the target as a free action, even without a free hand or adjacency.${propulsiveShield ? ' +2 circumstance bonus to the Trip attempt.' : ''}`
       : cairn ? `On a critical hit, Fortitude save against ${classDifficultyClass(c, entries) ?? 'your class DC'} or stunned 1 for 1 round.` : undefined,
     ability,
     mod,
@@ -9727,6 +9755,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ],
       notes: [
         `Multiple attack penalty: 0/${signed(-mapStep)}/${signed(-2 * mapStep)}${agileGrace ? ' (Agile Grace)' : agile ? ' (Agile)' : ''}.`,
+        ...(w.id === solarianFlare.id && c.systems.includes('sf2e') && activeFeatsNamed(c, 'Homing Mote').length
+          ? ['Homing Mote: ignore the target’s concealment and cover within the first range increment.'] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack
           && (ranged && !traits.some(trait => /^area(?:\s|$)/i.test(trait))
             || c.subclass === 'Striker' && !ranged && (category === 'Unarmed' || weaponHands(entries, w, c) === 1)
@@ -10315,7 +10345,10 @@ export function gearPickerEntries(entries: ContentEntry[], kind: 'weapon' | 'arm
         .filter((entry): entry is ContentEntry => !!entry) : []),
     ...(kind === 'weapon' ? [...hammerMultipistolEntries(entries),
       ...namedWeaponEntries(entries).filter(entry => !entry.data.named_weapon_resolver_only)] : [])])
-  return pool.map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'
+  const stormbreaker = kind === 'armor' ? pool.find(entry => entry.name === 'Stormbreaker Armor'
+    && entry.systems.includes('sf2e')) : undefined
+  const options = stormbreaker ? [...pool, stormbreakerVariant(stormbreaker, 'cold'), stormbreakerVariant(stormbreaker, 'fire')] : pool
+  return options.map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'
     ? { ...entry, name: `Shobhad Longrifle (${entry.systems.includes('sf2e') ? 'Starfinder' : 'Pathfinder'})` } : entry).filter(entry => {
     if (seen.has(entry.name)) return false
     seen.add(entry.name)

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { mapAonHit } from './aon'
-import { armorBulk, armorStrengthMet, automaticFeatGrants, boostSlots, classDifficultyClass, equippedWeaponHands, offensiveDefenseAttack, ranksAt, resistances, starfinderArmorPenalties, subclassOptions, weaponAttack, weaponHands } from './builder'
+import { armorBulk, armorRanks, armorStrengthMet, automaticFeatGrants, boostSlots, classDifficultyClass, equippedWeaponHands, movementSpeeds, offensiveDefenseAttack, ownedWeapons, ranksAt, resistances, savingThrowBreakdown, solarianShield, speed, starfinderArmorPenalties, subclassOptions, weaponAttack, weaponHands } from './builder'
 import { ERUDITE_LORE_KEY } from './soldier'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
@@ -58,6 +58,91 @@ it('uses Constitution for armor requirements but requires actual Strength for th
   expect(armorBulk(strong, armor, false)).toBe(3)
   expect(armorBulk(strong, { ...armor, data: { ...armor.data, bulk: 1 } }, true)).toBe(1)
   expect(starfinderArmorPenalties({ ...c, className: 'Mechanic' }, [armor])).toEqual({ check: -2, speed: -10 })
+})
+
+it('applies Solar Rampart heavy armor proficiency and worn Bulk reduction', () => {
+  const solarian: ContentEntry = { ...soldier, id: 'solarian', name: 'Solarian',
+    data: { defense_proficiency: 'Trained in light armor, trained in medium armor, trained in unarmored defense' } }
+  const feature = (name: string, level: number, rank: string): ContentEntry => ({ ...solarian, id: name, name,
+    kind: 'classFeature', level, data: { class: 'Solarian' },
+    description: `Your proficiency ranks for light armor, medium armor, and unarmored defense increase to ${rank}.` })
+  const entries = [solarian, feature('Armor Expertise', 11, 'expert'), feature('Armor Mastery', 17, 'master')]
+  const c: Character = { ...base, className: 'Solarian', level: 2,
+    feats: [{ name: 'Solar Rampart', type: 'Class Feat', level: 2 }] }
+  expect(armorRanks(c, entries).Heavy).toBe(1)
+  expect(armorRanks({ ...c, level: 11 }, entries).Heavy).toBe(2)
+  expect(armorRanks({ ...c, level: 17 }, entries).Heavy).toBe(3)
+  expect(armorRanks({ ...c, level: 1 }, entries).Heavy).toBe(0)
+  expect(armorRanks({ ...c, feats: [] }, entries).Heavy).toBe(0)
+  expect(armorBulk(c, armor, true)).toBe(2)
+  expect(armorBulk(c, { ...armor, data: { ...armor.data, bulk: 2 } }, true)).toBe(1)
+  expect(armorBulk(c, { ...armor, data: { ...armor.data, bulk: 1 } }, true)).toBe(1)
+  expect(armorBulk(c, armor, false)).toBe(3)
+  expect(armorBulk({ ...c, level: 1 }, armor, true)).toBe(3)
+})
+
+it('applies Mindward Shield only while the solar shield is raised and equipped', () => {
+  const c: Character = { ...base, className: 'Solarian', level: 8,
+    feats: [{ name: 'Solar Shield', type: 'Class Feat', level: 1 }, { name: 'Mindward Shield', type: 'Class Feat', level: 8 }],
+    solarianShield: { equipped: true, raised: true } }
+  const will = savingThrowBreakdown(c, [], 'Will')
+  expect(will.parts).toContainEqual({ label: 'Mindward Shield (circumstance)', value: 1 })
+  expect(will.total).toBe(savingThrowBreakdown({ ...c, solarianShield: { raised: false } }, [], 'Will').total + 1)
+  expect(savingThrowBreakdown({ ...c, solarianShield: { raised: true, equipped: false } }, [], 'Will').total).toBe(will.total - 1)
+  expect(savingThrowBreakdown({ ...c, solarianAttunement: 'Unattuned' }, [], 'Will').total).toBe(will.total - 1)
+  expect(savingThrowBreakdown({ ...c, level: 7 }, [], 'Will').parts.some(part => part.label.startsWith('Mindward'))).toBe(false)
+  expect(savingThrowBreakdown(c, [], 'Reflex').parts.some(part => part.label.startsWith('Mindward'))).toBe(false)
+})
+
+it.each([[1, 1, 7], [8, 4, 21], [9, 5, 23], [20, 10, 45]])(
+  'scales Solar Shield hardness and HP automatically at level %i', (level, hardness, hp) => {
+    const c: Character = { ...base, className: 'Solarian', level,
+      feats: [{ name: 'Solar Shield', type: 'Class Feat', level: 1 }] }
+    expect(solarianShield(c)).toMatchObject({ hardness, hp })
+  })
+
+it('applies Propulsive Shield to flare damage and range only while the solar shield is raised', () => {
+  const c: Character = { ...base, className: 'Solarian', level: 13,
+    feats: [{ name: 'Solar Shield', type: 'Class Feat', level: 1 },
+      { name: 'Distant Flare', type: 'Class Feat', level: 2 }, { name: 'Propulsive Shield', type: 'Class Feat', level: 8 }],
+    solarianShield: { raised: true } }
+  const flare = ownedWeapons(c, []).find(item => item.name === 'Solar Flare')!
+  const graviton = weaponAttack(c, [], flare)
+  expect(graviton).toMatchObject({ damage: '3d8+3 bludgeoning', range: 40, propulsiveShield: true })
+  expect(graviton.criticalNote).toContain('+2 circumstance bonus')
+  expect(weaponAttack({ ...c, solarianAttunement: 'Photon' }, [], flare))
+    .toMatchObject({ damage: '3d6+3 fire', range: 55, criticalNote: '1d8 persistent fire damage on a critical hit.' })
+  expect(weaponAttack({ ...c, solarianShield: { raised: false } }, [], flare))
+    .toMatchObject({ damage: '3d8 bludgeoning', range: 30, propulsiveShield: false })
+  expect(weaponAttack({ ...c, solarianShield: { raised: true, equipped: false } }, [], flare).propulsiveShield).toBe(false)
+})
+
+it('applies Solar Wind and Defy Gravity by active attunement, including archetype users', () => {
+  const c: Character = { ...base, level: 8, solarianAttunement: 'Photon', feats: [
+    { name: 'Solar Wind', type: 'Class Feat', level: 8 }, { name: 'Defy Gravity', type: 'Class Feat', level: 8 },
+  ] }
+  expect(speed(c, [])).toBe(35)
+  expect(movementSpeeds(c, []).some(item => item.source === 'Defy Gravity')).toBe(false)
+  const graviton: Character = { ...c, solarianAttunement: 'Graviton' }
+  expect(speed(graviton, [])).toBe(25)
+  expect(movementSpeeds(graviton, [])).toContainEqual(expect.objectContaining({ name: 'Fly', feet: 25, source: 'Defy Gravity' }))
+  expect(movementSpeeds({ ...graviton, solarianAttunement: 'Unattuned' }, [])
+    .some(item => item.source === 'Defy Gravity')).toBe(false)
+  expect(speed({ ...c, level: 7 }, [])).toBe(25)
+})
+
+it('triples the solar flare increment with Homing Mote after other range increases', () => {
+  const c: Character = { ...base, className: 'Solarian', level: 18, solarianAttunement: 'Photon',
+    solarianShield: { raised: true }, feats: [
+      { name: 'Solar Shield', type: 'Class Feat', level: 1 }, { name: 'Distant Flare', type: 'Class Feat', level: 2 },
+      { name: 'Propulsive Shield', type: 'Class Feat', level: 8 }, { name: 'Homing Mote', type: 'Class Feat', level: 18 },
+    ] }
+  const flare = ownedWeapons(c, []).find(item => item.name === 'Solar Flare')!
+  const attack = weaponAttack(c, [], flare)
+  expect(attack.range).toBe(165)
+  expect(attack.breakdown.notes).toContain('Homing Mote: ignore the target’s concealment and cover within the first range increment.')
+  expect(weaponAttack({ ...c, solarianAttunement: 'Graviton' }, [], flare).range).toBe(120)
+  expect(weaponAttack({ ...c, level: 17 }, [], flare).range).toBe(55)
 })
 
 it('keeps normal Dexterity Strikes separate from Constitution area DCs and doubles Action Hero cone range', () => {

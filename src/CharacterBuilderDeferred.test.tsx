@@ -170,6 +170,73 @@ it('rolls Tenth Life healing using six d8s and half the character level', async 
   }
 })
 
+it('rolls Solarian feat damage with the selected attunement', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+  const feat: ContentEntry = { id: 'plasma-ejection', systems: ['sf2e'], kind: 'feat', source: 'official',
+    name: 'Plasma Ejection', level: 4, traits: ['Solarian'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'solar-roll', name: 'Test', systems: ['sf2e'], className: 'Solarian', level: 6,
+    solarianAttunement: 'Photon', abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: feat.name, type: 'Class Feat', level: 4, slot: 'class:4:0' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<FeatSlots c={c} entries={[feat]} categories={['class']} save={() => {}} />))
+    random.mockClear()
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Roll Plasma Ejection: Damage"]')!.click())
+    expect(container.querySelector('[aria-label="Plasma Ejection: Damage result"]')?.textContent).toContain('4 fire')
+    expect(random).toHaveBeenCalledTimes(4)
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    random.mockRestore()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('rolls Constellation Vortex damage and shatter with selected weapon count', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+  const feat: ContentEntry = { id: 'constellation-vortex', systems: ['sf2e'], kind: 'feat', source: 'official',
+    name: 'Constellation Vortex', level: 6, traits: ['Solarian'], description: '', data: { actions: 'Single Action' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'vortex', name: 'Test', systems: ['sf2e'], className: 'Solarian', level: 9,
+    solarianAttunement: 'Graviton', solarianWeapon: { damageType: 'Slashing' },
+    abilities: { str: 18, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: feat.name, type: 'Class Feat', level: 6, slot: 'class:6:0' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    const render = async (character: Character) => act(async () => root.render(
+      <FeatSlots c={character} entries={[feat]} categories={['class']} save={() => {}} />))
+    await render(c)
+    const count = container.querySelector<HTMLSelectElement>('[aria-label="Constellation Vortex weapons"]')!
+    const roll = () => container.querySelector<HTMLButtonElement>('[aria-label="Roll Constellation Vortex: Vortex damage"]')!
+    expect(roll().title).toContain('2d8+3 slashing')
+    await act(async () => { count.value = '3'; count.dispatchEvent(new Event('change', { bubbles: true })) })
+    expect(roll().title).toContain('2d8+15 slashing')
+    await act(async () => roll().click())
+    expect(container.querySelector('[aria-label="Constellation Vortex: Vortex damage result"]')?.textContent).toContain('17 slashing')
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Roll Constellation Vortex: Shatter damage"]')!.click())
+    expect(container.querySelector('[aria-label="Constellation Vortex: Shatter damage result"]')?.textContent).toContain('12 slashing')
+    await render({ ...c, solarianAttunement: 'Photon' })
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Hide Constellation Vortex: Vortex damage result"]')!.click())
+    expect(roll().title).toContain('2d8+6 slashing + 6 fire')
+    await act(async () => roll().click())
+    expect(container.querySelector('[aria-label="Constellation Vortex: Vortex damage result"]')?.textContent).toContain('8 slashing + 6 fire')
+    await render({ ...c, level: 5 })
+    expect(container.querySelector('[aria-label="Constellation Vortex weapons"]')).toBeNull()
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    random.mockRestore()
+    vi.unstubAllGlobals()
+  }
+})
+
 it('shows ancestry feat progress beside the ancestry name', () => {
   const c: Character = {
     id: 'ancestry-progress', systems: ['pf2e'], name: 'Gnome', level: 5, ancestry: 'Gnome', heritage: 'Sensate Gnome',

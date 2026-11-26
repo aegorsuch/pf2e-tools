@@ -93,7 +93,12 @@ it('offers Guardbreak at level 4 to Shield Block classes only when its prerequis
     { name: 'Shield Block', type: 'General Feat', level: 1 },
   ] }, slot)).not.toContain(feat)
   expect(eligibleFeats(entries, fighter, { ...slot, level: 2 })).not.toContain(feat)
-  expect(feat.traits).toEqual(['Champion', 'Cleric', 'Commander', 'Druid', 'Exemplar', 'Fighter', 'Guardian', 'Inventor', 'Runesmith'])
+  const solarian: Character = { ...fighter, systems: ['sf2e'], className: 'Solarian' }
+  expect(eligibleFeats([feat], solarian, slot)).not.toContain(feat)
+  expect(eligibleFeats([feat], { ...solarian, feats: [
+    { name: 'Solar Shield', type: 'Class Feat', level: 1 },
+  ] }, slot)).toContain(feat)
+  expect(feat.traits).toEqual(['Champion', 'Cleric', 'Commander', 'Druid', 'Exemplar', 'Fighter', 'Guardian', 'Inventor', 'Runesmith', 'Solarian'])
 })
 
 it('offers Desperate Warden as a level 1 Druid and Ranger free action', () => {

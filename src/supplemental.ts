@@ -313,7 +313,7 @@ export function migrateMobileHunt(c: Character): Character {
 
 export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[] {
   const nimbleClasses = ['Champion', 'Envoy', 'Fighter', 'Gunslinger', 'Monk', 'Operative', 'Ranger', 'Rogue', 'Swashbuckler']
-  const guardbreakClasses = ['Champion', 'Cleric', 'Commander', 'Druid', 'Exemplar', 'Fighter', 'Guardian', 'Inventor', 'Runesmith']
+  const guardbreakClasses = ['Champion', 'Cleric', 'Commander', 'Druid', 'Exemplar', 'Fighter', 'Guardian', 'Inventor', 'Runesmith', 'Solarian']
   const poison = entries.find((entry) => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
     && entry.name === 'Poison Resistance' && entry.level === 2 && entry.traits.includes('Druid'))
   const simplicity = entries.find((entry) => entry.kind === 'feat' && entry.source === 'official' && !entry.deleted
@@ -416,10 +416,10 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     { ...homebrewFeat('nimble-athlete', 'Nimble Athlete', 4, nimbleClasses,
       'Homebrew class feat. You use the higher of your Strength or Dexterity modifiers for Athletics checks and Athletics DCs. This includes combat maneuvers such as Grapple, Trip, Shove, Disarm, and Reposition, as well as climbing, swimming, and jumping.\n\nThis does not change your damage, carrying capacity, or Strength prerequisites.',
       { class: nimbleClasses.join(', '), prerequisite: 'expert in Athletics' }), systems: ['pf2e', 'sf2e'] },
-    homebrewFeat('guardbreak', 'Guardbreak', 4, guardbreakClasses,
+    { ...homebrewFeat('guardbreak', 'Guardbreak', 4, guardbreakClasses,
       'Prerequisite: Shield Block. Requirements: You are adjacent to an opponent.\n\nRaise your Shield and make an attack roll against the opponent using a shield bash or a melee weapon attached to your shield. On a success, the opponent is off-guard to your next melee Strike. On a critical success, the opponent is off-guard to all your melee attacks until the end of your next turn.',
       { class: guardbreakClasses.join(', '), actions: 'Single Action', prerequisite: 'Shield Block',
-        requirements: 'You are adjacent to an opponent.' }),
+        requirements: 'You are adjacent to an opponent.' }), systems: ['pf2e', 'sf2e'] },
     homebrewFeat('desperate-warden', 'Desperate Warden', 1, ['Druid', 'Ranger'],
       "Frequency: once per day. Trigger: You begin your turn and have no Focus Points.\n\nYou call out to primal spirits in a plea for their aid. You gain 1 Focus Point, which you can spend only to cast a warden spell. If you don't spend this Focus Point by the end of this turn, it is lost.",
       { class: 'Druid, Ranger', actions: 'Free Action', frequency: 'once per day',

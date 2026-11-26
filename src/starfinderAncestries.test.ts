@@ -587,9 +587,7 @@ it('provides Solarian attunement, solar weapons, twin weapons, flare, and Solar 
   expect(weaponAttack(extended, [], extendedFlare)).toMatchObject({
     range: 55,
   })
-  expect(weaponAttack(extended, [], extendedFlare).additionalDamage).toContainEqual(expect.objectContaining({
-    source: 'Propulsive Shield',
-  }))
+  expect(weaponAttack(extended, [], extendedFlare).damage).toBe('3d6+3 fire')
   expect(speed({ ...extended, feats: [...extended.feats, { name: 'Solar Wind', type: 'Class Feat', level: 8 }] }, [])).toBe(35)
   expect(movementSpeeds({ ...extended, feats: [...extended.feats, { name: 'Defy Gravity', type: 'Class Feat', level: 8 }],
     solarianAttunement: 'Graviton' }, [])).toContainEqual(expect.objectContaining({ name: 'Fly', feet: 25, source: 'Defy Gravity' }))

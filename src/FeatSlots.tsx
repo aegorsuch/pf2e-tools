@@ -7,7 +7,7 @@ import { DamageRoll, rollSpellDamage, rollTreehealerHealing } from './SpellDamag
 import { PickerDialog } from './PickerDialog'
 import { DeferredContent, DeferredDetails } from './DeferredDetails'
 import { sortPickerOptions } from './PickerSort'
-import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, byName, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, enhancedSensesChoice, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, knownSpellNames, matchesSkill, plannedSlots, ranksAt, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassOptions, subclassSkillChoice, temporarySkillTrainings, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, byName, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, enhancedSensesChoice, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, knownSpellNames, matchesSkill, ownedWeapons, plannedSlots, ranksAt, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassOptions, subclassSkillChoice, temporarySkillTrainings, weaponAttack, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice, StarfinderFieldAgentLoreChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -31,6 +31,29 @@ interface FeatSlotsProps extends SectionProps {
   pickerEligibility?: (slot: PlannedSlot) => ContentEntry[]
   pickerVariantCache?: Map<string, FeatOption[]>
   plannedFeatSlots?: PlannedSlot[]
+}
+
+function ConstellationVortexRoll({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
+  const [weapons, setWeapons] = useState(1)
+  const solarWeapon = ownedWeapons(c, entries).find(weapon => weapon.id === 'sf2e:solarian:solar-weapon')
+  if (!solarWeapon) return null
+  const damage = /^(\d+)d(\d+)(?:[+-]\d+)?\s+(\w+)/i.exec(weaponAttack(c, entries, solarWeapon).damage)
+  if (!damage) return null
+  const scaling = Math.floor((c.level - 6) / 3)
+  const photon = c.solarianAttunement === 'Photon'
+  const bonus = (weapons - 1) * (1 + 2 * scaling) + (photon ? 0 : weapons * (2 + scaling))
+  const type = damage[3]
+  return <>
+    <label>Weapons{' '}<select aria-label="Constellation Vortex weapons" value={weapons} onChange={event => {
+      const count = Number(event.target.value)
+      if (count >= 1 && count <= 3 && Number.isInteger(count)) setWeapons(count)
+    }}>{[1, 2, 3].map(count => <option key={count} value={count}>{count}</option>)}</select></label>
+    <DamageRoll name="Constellation Vortex" actions="Single Action" showLabel toggleResult preserveDamage
+      damage={{ label: 'Vortex damage', dice: Number(damage[1]), sides: Number(damage[2]), type, bonus,
+        ...(photon ? { additional: { dice: 0, sides: 0, bonus: weapons * (1 + scaling), type: 'fire' } } : {}) }} />
+    <DamageRoll name="Constellation Vortex" toggleResult preserveDamage
+      damage={{ label: 'Shatter damage', dice: 0, sides: 0, bonus: c.level + weapons, type }} />
+  </>
 }
 
 function TreehealerRoll() {
@@ -634,6 +657,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             && !!activeFeatsNamed(c, currentEntry.name).length
           const showTenthLifeRoll = c.systems.includes('sf2e') && currentEntry?.name === 'Tenth Life'
             && !!activeFeatsNamed(c, currentEntry.name).length
+          const solarDamage = c.systems.includes('sf2e') && currentEntry
+            && ['Black Hole', 'Supernova', 'Plasma Ejection', 'Constellation Vortex', 'Big Bang', 'Singularity'].includes(currentEntry.name)
+            && activeFeatsNamed(c, currentEntry.name).length ? currentEntry.name : undefined
           const access = currentEntry ? featAccess(c, currentEntry) : undefined
           const ambiguous = new Set(sources.map((entry) => String(entry.data.prerequisite ?? ''))).size > 1
           const ruleGranted = activeFeatsNamed(c, current).some(feat => feat.slot === s.key)
@@ -835,6 +861,34 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     damage={{ label: 'Damage', dice: c.level >= 16 ? 11 : 8, sides: 6, type: 'acid' }} />}
                   {showTenthLifeRoll && <DamageRoll name="Tenth Life" actions="Reaction" toggleResult
                     damage={{ label: 'Healing', dice: 6, sides: 8, bonus: Math.floor(c.level / 2), type: 'HP' }} />}
+                  {solarDamage === 'Black Hole' && <DamageRoll name="Black Hole" actions="Two Actions" toggleResult
+                    disabled={(c.solarianAttunement ?? 'Graviton') !== 'Graviton'}
+                    damage={{ label: 'Damage', dice: Math.floor(c.level / 2), sides: 8, type: 'bludgeoning' }} />}
+                  {solarDamage === 'Supernova' && ([15, 30] as const).map(distance =>
+                    <DamageRoll key={distance} name="Supernova" actions="Two Actions" showLabel toggleResult
+                      disabled={(c.solarianAttunement ?? 'Graviton') !== 'Photon'}
+                      damage={{ label: `${distance}-foot damage`, dice: c.level, sides: distance === 15 ? 8 : 6, type: 'fire' }} />)}
+                  {solarDamage === 'Plasma Ejection' && <>
+                    <DamageRoll name="Plasma Ejection" actions="Two Actions" toggleResult
+                      disabled={c.solarianAttunement === 'Unattuned'}
+                      damage={{ label: 'Damage', dice: Math.floor(c.level / 2) + 1,
+                        sides: c.solarianAttunement === 'Photon' ? 8 : 6, type: 'fire' }} />
+                    <DamageRoll name="Plasma Ejection" toggleResult disabled={c.solarianAttunement === 'Unattuned'}
+                      damage={{ label: 'Critical failure persistent damage', dice: 1, sides: 8, type: 'electricity' }} />
+                  </>}
+                  {solarDamage === 'Constellation Vortex' && <ConstellationVortexRoll c={c} entries={entries} />}
+                  {solarDamage === 'Big Bang' && <>
+                    <DamageRoll name="Big Bang" actions="Three Actions" toggleResult
+                      disabled={c.solarianAttunement !== 'Photon'}
+                      damage={{ label: 'Damage', dice: c.level - 4, sides: 6, type: 'fire' }} />
+                    <DamageRoll name="Big Bang" toggleResult
+                      damage={{ label: 'Failure persistent damage', dice: 2, sides: 6, type: 'fire' }} />
+                    <DamageRoll name="Big Bang" toggleResult
+                      damage={{ label: 'Critical failure persistent damage', dice: 4, sides: 6, type: 'fire' }} />
+                  </>}
+                  {solarDamage === 'Singularity' && <DamageRoll name="Singularity" actions="Three Actions" toggleResult
+                    disabled={(c.solarianAttunement ?? 'Graviton') !== 'Graviton'}
+                    damage={{ label: 'Damage', dice: 10 + 2 * Math.floor((c.level - 14) / 2), sides: 8, type: 'void' }} />}
                 </>
               ) : popup ? (
                 <button type="button" className="feat-name feat-picker-button" aria-label={`${label} feat`} aria-haspopup="dialog" aria-expanded={open}
