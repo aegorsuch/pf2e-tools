@@ -329,7 +329,23 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </label>
     </span>
   }
-  if (['Eye for Treasure', 'Expressive Face', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body', 'Finely Tuned', 'Historian', 'Experienced Laborer', 'Distant Telepath'].includes(feat.name)) return null
+  if (feat.name === 'Finely Tuned' && c.systems.includes('sf2e')) {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    const ordinal = c.feats.slice(0, index).filter(existing => existing.name === feat.name).length + 1
+    const label = `Finely Tuned augmentation ${ordinal}`
+    return <label>Augmentation{' '}
+      <select aria-label={label} value={feat.choice ?? ''} onChange={event => {
+        const choice = event.target.value || undefined
+        if (choice && !options.includes(choice)) return
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+      }}>
+        <option value="">{options.length ? 'Choose augmentation' : 'No common installed augmentations'}</option>
+        {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
+        {options.map(option => <option key={option}>{option}</option>)}
+      </select>
+    </label>
+  }
+  if (['Eye for Treasure', 'Expressive Face', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body', 'Historian', 'Experienced Laborer', 'Distant Telepath'].includes(feat.name)) return null
   if (['Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', "Officer's Education"].includes(feat.name)) return null
   if (feat.name === 'Elemental Wrath') return null
   if (['Unconventional Weaponry', 'Tengu Weapon Familiarity', 'Surki Weapon Familiarity'].includes(feat.name)) {

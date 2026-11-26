@@ -942,6 +942,30 @@ it('keeps companion and granted general-feat choices out of feat rows', () => {
   }
 })
 
+it('offers Finely Tuned variants for distinct common installed augmentations', () => {
+  const finelyTuned = { name: 'Finely Tuned', type: 'Class Feat', level: 6, slot: 'class:6:0' }
+  const common: ContentEntry = { id: 'common', systems: ['sf2e'], kind: 'item', source: 'official', name: 'Common implant',
+    level: 1, traits: [], description: '', data: { item_category: 'Augmentations' }, effects: [], updatedAt: 0 }
+  const uncommon: ContentEntry = { ...common, id: 'uncommon', name: 'Uncommon implant', traits: ['Uncommon'] }
+  let c: Character = { ...base, systems: ['sf2e'], level: 8, feats: [finelyTuned],
+    augmentations: [
+      { id: 'one', entryId: common.id, name: common.name, slot: 'standard' },
+      { id: 'two', entryId: uncommon.id, name: uncommon.name, slot: 'standard' },
+    ] }
+  const catalog = [common, uncommon]
+  const tree = (index = 0) => FeatChoice({
+    c, entries: catalog, index, save: patch => { c = { ...c, ...patch } },
+  })
+  expect(featChoiceOptions('Finely Tuned', c, catalog, finelyTuned.slot, 0)).toEqual(['Common implant'])
+  expect(renderToStaticMarkup(tree())).toContain('Common implant')
+  findSelect(tree())!.onChange({ target: { value: 'Common implant' } })
+  expect(c.feats[0].choice).toBe('Common implant')
+
+  c = { ...c, feats: [...c.feats, { ...finelyTuned, slot: 'class:6:1' }] }
+  expect(featChoiceOptions('Finely Tuned', c, catalog, 'class:6:1', 1)).toEqual([])
+  expect(renderToStaticMarkup(tree(1))).toContain('No common installed augmentations')
+})
+
 it('hides manual casting configuration for noncasters and collapses the spell section', () => {
   const noncaster = { ...base, className: 'Fighter', spellcasting: { ability: 'wis' as const, tradition: '', rank: 1, slots: {} } }
   const classes: ContentEntry[] = [{

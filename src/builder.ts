@@ -2209,6 +2209,16 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     const lore = saved && !/^lore$/i.test(saved) ? /\s+lore$/i.test(saved) ? saved : `${saved} Lore` : undefined
     return commonLoreOptions([...c.lores.map(item => item.name), ...(lore ? [lore] : [])], c.deity)
   }
+  if (name === 'Finely Tuned' && c.systems.includes('sf2e')) {
+    const alreadyChosen = new Set(c.feats.flatMap((feat, featIndex) =>
+      featIndex !== index && feat.name === name && feat.choice ? [feat.choice] : []))
+    return [...new Set((c.augmentations ?? []).flatMap(augmentation => {
+      const entry = entries.find(candidate => candidate.id === augmentation.entryId)
+      return entry && entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
+        && String(entry.data.item_category).toLowerCase() === 'augmentations' && !featRarity(entry)
+        && !alreadyChosen.has(augmentation.name) ? [augmentation.name] : []
+    }))].sort((a, b) => a.localeCompare(b))
+  }
   if (name === 'Leshy Familiar' && c.systems.includes('pf2e')) return ['Plant', 'Fungus']
   if (c.systems.includes('pf2e') && ['Divine Emissary', 'Leshy Familiar Secrets'].includes(name)) {
     const highest = Math.max(0, ...Object.entries(classSpellSlots(c) ?? c.spellcasting?.slots ?? {})

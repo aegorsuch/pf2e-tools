@@ -182,11 +182,6 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   ].sort((a, b) => a.item.name.localeCompare(b.item.name))
   const limit = augmentationLimit(c)
   const standardUsed = augmentationLimitUsed(c)
-  const biotechUpgrade = activeFeatsNamed(c, 'Biotech Os Upgrade').length > 0
-  const secondaryPower = activeFeatsNamed(c, 'Secondary Power Source').length > 0
-  const powerIds = new Set([...installed.map(item => item.id),
-    ...granted.map(item => `granted:${item.source}:${item.name}`)])
-  const selectedPower = [...new Set(c.secondaryPowerSourceIds ?? [])].filter(id => powerIds.has(id))
   const options = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
     && String(entry.data.item_category).toLowerCase() === 'augmentations')
     .sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
@@ -197,40 +192,18 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const shownOptions = apexOnly ? installable.filter(isApex) : installable
   const hardpoint = activeFeatsNamed(c, 'Hardpoint').length > 0
   const hardpointWeapons = (c.weapons ?? []).filter(weapon => hardpointWeaponEligible(c, entries, weapon))
-  const powerControl = (id: string, name: string) => {
-    if (!secondaryPower) return null
-    const checked = selectedPower.includes(id)
-    const uses = Math.max(0, Math.min(2, c.secondaryPowerUses?.[id] ?? 0))
-    return <span>{' '}<input type="checkbox" aria-label={`Use extra daily activation for ${name}`}
-      checked={checked} disabled={!checked && selectedPower.length >= 2}
-      onChange={event => {
-        if (event.target.checked && !checked && selectedPower.length >= 2) return
-        save({ secondaryPowerSourceIds: event.target.checked
-          ? [...new Set([...selectedPower, id])] : selectedPower.filter(existing => existing !== id) })
-      }} />
-      {checked && <label> Used{' '}<select aria-label={`${name} uses`} value={uses} onChange={event => {
-        const value = Number(event.target.value)
-        if (Number.isInteger(value) && value >= 0 && value <= 2)
-          save({ secondaryPowerUses: { ...c.secondaryPowerUses, [id]: value } })
-      }}><option value={0}>0/2</option><option value={1}>1/2</option><option value={2}>2/2</option></select></label>}
-    </span>
-  }
   return <section className="col" aria-label="Augmentations">
     <h4>Augmentations <small aria-label="Augmentation capacity">{standardUsed}/{limit}</small></h4>
     {standardUsed > limit && <small role="status">Installed augmentations exceed your current implant limit.</small>}
     <ul>{displayed.map(({ kind, item }) => {
       if (kind === 'granted') return <li key={`granted:${item.source}:${item.name}`}><EntryDescription name={item.name}
         entry={entries.find(entry => entry.kind === 'item' && entry.name.toLowerCase() === item.name.toLowerCase() && entry.systems.includes('sf2e'))}
-        entries={entries} grantSource={item.source} />{biotechUpgrade && <SourceNote inlineSource={false}
-          source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
-        {powerControl(`granted:${item.source}:${item.name}`, item.name)}</li>
+        entries={entries} grantSource={item.source} />
+      </li>
       const entry = entries.find(candidate => candidate.id === item.entryId)
       return <li key={item.id}><div className="rune"><EntryDescription name={item.name} entry={entry} entries={entries} />
         <button type="button" aria-label={`Remove ${item.name} augmentation`} onClick={() => confirmRemoval(`augmentation "${item.name}"`,
-          () => save({ augmentations: installed.filter(existing => existing.id !== item.id),
-            secondaryPowerSourceIds: selectedPower.filter(id => id !== item.id) }))}>×</button></div>
-        {biotechUpgrade && String(entry?.data.item_subcategory ?? '').toLowerCase() === 'cybernetics' && <SourceNote inlineSource={false}
-          source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
+          () => save({ augmentations: installed.filter(existing => existing.id !== item.id) }))}>×</button></div>
         {/^Ultralight Wings\b/i.test(item.name) && <label>{' '}<input type="checkbox" aria-label={`Deploy ${item.name}`}
           checked={!!item.deployed} disabled={wingsRestricted && !item.deployed}
           onChange={event => save({ augmentations: installed.map(existing => existing.id === item.id
@@ -241,7 +214,7 @@ export function Augmentations({ c, entries, save }: SectionProps) {
           <option value="">Automatic</option>
           {MOBILITY_ENHANCER_SPEEDS.map(mode => <option key={mode}>{mode}</option>)}
         </select></label>}
-        {powerControl(item.id, item.name)}</li>
+      </li>
     })}</ul>
     {!!activeFeatsNamed(c, 'Thresher Ko-1 Frame').length && <>
       <label>Dermal plating grade{' '}<select aria-label="Dermal plating grade" value={dermalGrade.name} onChange={event => {
@@ -258,10 +231,6 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       })} /> Dermal plating damaged <SourceNote inlineSource={false} source="Dermal plating"
         note="After Shield Block, plating cannot be used for 24 hours while it repairs." /></label>
     </>}
-    {secondaryPower && <SourceNote source="Secondary Power Source"
-      note="During daily preparations, select up to two installed augmentations with once-per-day activation. Each selected activation can be used twice per day. Verify the item's frequency before selecting it." />}
-    {secondaryPower && <button type="button" disabled={!selectedPower.length && !Object.values(c.secondaryPowerUses ?? {}).some(Boolean)}
-      onClick={() => save({ secondaryPowerSourceIds: [], secondaryPowerUses: {} })}>Daily preparations</button>}
     {hardpoint && <label>Hardpoint weapon{' '}
       <select aria-label="Hardpoint weapon" value={c.hardpointWeaponId ?? ''} onChange={event => {
         const id = event.target.value

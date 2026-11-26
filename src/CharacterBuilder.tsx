@@ -29,7 +29,6 @@ import { ethnicityLabel, ethnicityOptions } from './featAccess'
 import { db } from './db'
 import { TotalBreakdown } from './TotalBreakdown'
 import { DeferredContent, DeferredDetails } from './DeferredDetails'
-import { CheekPouches } from './CheekPouches'
 import { HighTechMedic } from './HighTechMedic'
 import { clearItemGlitching, setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
@@ -918,7 +917,6 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <EquipmentGroup {...section} group="Boots" rows={equipmentGroups.Boots} />
           <EquipmentGroup {...section} group="Bracelets" rows={equipmentGroups.Bracelets} bracelets={pairedEmpathyBracelets} />
           <EquipmentGroup {...section} group="Bullets" rows={equipmentGroups.Bullets} />
-          <CheekPouches {...section} />
           <EquipmentGroup {...section} group="Chest" rows={equipmentGroups.Chest} />
           <EquipmentGroup {...section} group="Cloaks" rows={equipmentGroups.Cloaks} />
           <EquipmentGroup {...section} group="Clothing" rows={equipmentGroups.Clothing} />

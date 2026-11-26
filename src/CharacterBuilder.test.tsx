@@ -1104,8 +1104,8 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
     expect(headers).toEqual(['Armor', 'Arms', 'Arrows', 'Augmentations', 'Backpacks', 'Belt', 'Body', 'Bolts', 'Boots', 'Bracelets', 'Bullets',
       'Chest', 'Cloaks', 'Clothing', 'Eyes', 'Eyewear', 'Face', 'Feet', 'Gadgets', 'Gloves', 'Grafts', 'Grenade Specialist', 'Hands', 'Handwraps', 'Head', 'Headband', 'Headwear',
       'Mask', 'Munitions', 'Neck', 'Necklaces', 'Other equipment', 'Other Worn Items', 'Poisons', 'Rings', 'Shield', 'Shoulders', 'Tattoos', 'Throat', 'Toolkits', 'Torso', 'Weapons', 'Wrists'])
-    expect(equipment.indexOf('<h4>Cheek Pouches')).toBeGreaterThan(equipment.indexOf('<h4>Bullets</h4>'))
-    expect(equipment.indexOf('<h4>Cheek Pouches')).toBeLessThan(equipment.indexOf('<h4>Gadgets</h4>'))
+    expect(equipment).not.toContain('Cheek Pouches')
+    expect(equipment).not.toContain('Store in cheek pouch')
     expect(equipment.slice(equipment.indexOf('<h4>Grafts</h4>'), equipment.indexOf('<h4>Handwraps</h4>'))).toContain('Caligni Eyes')
     expect(equipment.slice(equipment.indexOf('<h4>Tattoos</h4>'), equipment.indexOf('<h4>Weapons</h4>'))).toContain('Spider Lily')
     const poisons = equipment.slice(equipment.indexOf('<h4>Poisons</h4>'), equipment.indexOf('<h4>Shield</h4>'))

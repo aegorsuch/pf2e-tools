@@ -712,6 +712,20 @@ it('lists non-removable granted augmentations without using implant slots', () =
   expect(removed).not.toContain('Autorecognition Lens')
 })
 
+it('omits biotech upgrade helper text from granted and installed augmentations', () => {
+  const c: Character = { ...character([
+    { name: 'Biotech OS Upgrade', type: 'Class Feat', level: 1 },
+    { name: 'Rat Retinal HUD', type: 'Ancestry Feat', level: 1 },
+  ]), systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki',
+  testSubjectAdaptation: 'Cybernetic Augmentation',
+  augmentations: [{ id: 'cybernetic', entryId: 'cybernetic', name: 'Dermal Plating', slot: 'standard' }] }
+  const cybernetic: ContentEntry = { ...shifting, id: 'cybernetic', name: 'Dermal Plating', systems: ['sf2e'],
+    data: { item_category: 'Augmentations', item_subcategory: 'Cybernetics' } }
+  const markup = renderToStaticMarkup(<Augmentations c={c} entries={[cybernetic]} save={() => {}} />)
+  expect(markup).not.toContain('This cybernetic augmentation has the biotech trait instead of the tech trait.')
+  expect(markup).not.toContain('(Biotech OS Upgrade)')
+})
+
 it('alphabetizes granted and installed augmentations together without changing saved order', () => {
   const c: Character = { ...character([{ name: 'Rat Retinal HUD', type: 'Ancestry Feat', level: 1 }]),
     systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Cybernetic Augmentation',
@@ -1212,22 +1226,20 @@ it('restricts Hardpoint to eligible owned weapons and marks the drawn weapon as 
   expect(renderToStaticMarkup(<WeaponList c={{ ...c, weapons: weapons.map(w => ({ ...w, stowed: true })) }} entries={entries} save={() => {}} displayOnly />)).not.toContain('Integrated weapon: cannot be disarmed')
 })
 
-it('tracks at most two Secondary Power Source selections and their daily uses', () => {
+it('omits Secondary Power Source checkboxes beside augmentations', () => {
   const c: Character = { ...character([{ name: 'Secondary Power Source', type: 'Ancestry Feat', level: 13 }]),
     systems: ['sf2e'], level: 17,
     augmentations: ['First', 'Second', 'Third'].map(name => ({ id: name, name, entryId: name, slot: 'standard' })),
     secondaryPowerSourceIds: ['First', 'Second', 'stale'], secondaryPowerUses: { First: 1 } }
   const markup = renderToStaticMarkup(<Augmentations c={c} entries={[]} save={() => {}} />)
-  expect(markup).toContain('aria-label="First uses"')
-  expect(markup).toContain('<option value="1" selected="">1/2</option>')
-  expect(markup).toMatch(/aria-label="Use extra daily activation for Third" disabled=""/)
+  expect(markup).not.toContain('Use extra daily activation for')
+  expect(markup).not.toContain('aria-label="First uses"')
+  expect(markup).not.toContain('Secondary Power Source')
+  expect(markup).not.toContain('Daily preparations')
   expect(markup).not.toContain('Once-per-day activation: extra use')
   expect(markup).not.toContain('(apex)')
   expect(markup).not.toContain('(item exemption)')
   expect(markup).not.toContain('(implant limit)')
-  expect(markup).toContain('Verify the item&#x27;s frequency before selecting it.')
-  expect(renderToStaticMarkup(<Augmentations c={{ ...c, level: 12 }} entries={[]} save={() => {}} />))
-    .not.toContain('Secondary Power Source: First')
 })
 
 it('upgrades Thresher plating and applies its raised shield bonus only while usable', () => {
