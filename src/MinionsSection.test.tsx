@@ -2555,3 +2555,17 @@ it('does not multiply Skyfire Wings dice by striking', async () => {
   expect(weaponAttack(c, [], wing).damage).toMatch(/^4d8/)
   expect(weaponAttack(c, [], wing).additionalDamage.some(item => /^8 persistent/.test(item.value))).toBe(true)
 })
+
+it('scales solar weapon core crystals by level and limits orbital crystals to its potency', async () => {
+  const { weaponAttack, installedWeaponUpgrades } = await import('./builder')
+  const orbital = (id: string, name: string): ContentEntry => ({ id, name, kind: 'item', systems: ['sf2e'], level: 6, source: 'official', traits: [],
+    description: '', data: { item_subcategory: 'Orbital Crystal' }, effects: [], updatedAt: 1 } as unknown as ContentEntry)
+  const entries = [orbital('o1', 'Gluon (Commercial)'), orbital('o2', 'Cycling')]
+  const c: Character = { id: 'sol', name: 'Test', systems: ['sf2e'], level: 12, ancestry: 'Human', className: 'Solarian',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const weapon = ownedWeapons(c, entries).find(item => item.id === 'sf2e:solarian:solar-weapon')!
+  expect(weaponAttack(c, entries, weapon)).toMatchObject({ damage: expect.stringMatching(/^3d8/) })
+  expect(installedWeaponUpgrades({ ...c, level: 2 }, entries, { ...weapon, upgrades: ['o1', 'o2'] }).map(item => item.id)).toEqual(['o1'])
+  expect(installedWeaponUpgrades(c, entries, { ...weapon, upgrades: ['o1', 'o2'] })).toHaveLength(2)
+})

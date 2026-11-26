@@ -8544,6 +8544,17 @@ export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEnt
     || PLAYING_CARD_WEAPONS.some(card => card.id === weapon.id) && activeFeatsNamed(c, "Fane's Fourberie").length > 0
 }
 
+export const SOLARIAN_CRYSTAL_WEAPON_IDS = ['sf2e:solarian:solar-weapon', 'sf2e:solarian:twin-weapon', 'sf2e:solarian:flare']
+export const isSolarianCrystalWeapon = (weapon: { id: string }) => SOLARIAN_CRYSTAL_WEAPON_IDS.includes(weapon.id)
+
+// Core solarian crystals scale like weapon grades: Commercial, Tactical, then Advanced.
+export function solarianCoreCrystals(level: number) {
+  const grade = (levels: number[]) => ['Commercial', 'Tactical', 'Advanced'][levels.filter(at => level >= at).length - 1]
+  const potency = [2, 10, 16].filter(at => level >= at).length
+  const striking = [4, 12, 19].filter(at => level >= at).length
+  return { potency, striking, potencyGrade: grade([2, 10, 16]), strikingGrade: grade([4, 12, 19]) }
+}
+
 export function usesWeaponUpgrades(entry?: ContentEntry) {
   return !!entry?.systems.includes('sf2e') && (entry.traits.some(trait => /^(?:tech|analog)$/i.test(trait.trim()))
     || typeof entry.data.upgrade_slots === 'number' && weaponCategory(entry) !== 'Unarmed'
@@ -8615,6 +8626,14 @@ export function installedHardlightUpgrades(c: Character, entries: ContentEntry[]
 }
 
 export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  if (isSolarianCrystalWeapon(weapon)) {
+    if (!c.systems.includes('sf2e')) return []
+    return (weapon.upgrades ?? []).flatMap(id => {
+      const crystal = entries.find(candidate => candidate.id === id && !candidate.deleted && candidate.kind === 'item'
+        && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Orbital Crystal')
+      return crystal ? [crystal] : []
+    }).slice(0, solarianCoreCrystals(c.level).potency)
+  }
   const entry = weaponEntry(entries, weapon.name, weapon.id)
   const unarmed = weaponCategory(entry) === 'Unarmed'
   if (unarmed) return animalStrengthSource(c, entries, weapon) ? [] : installedHardlightUpgrades(c, entries)
@@ -8738,6 +8757,10 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
   const builtIn = namedWeaponEnhancements(withNamedWeaponState(entry, weapon, c.level))
   if (builtIn?.material) weapon = { ...weapon, material: builtIn.material }
   if (usesWeaponUpgrades(entry) && weaponCategory(entry) !== 'Unarmed') return { ...weapon, potency: Number(entry?.data.weapon_tracking ?? 0), striking: 0, runes: [] }
+  if (c.systems.includes('sf2e') && isSolarianCrystalWeapon(weapon)) {
+    const core = solarianCoreCrystals(c.level)
+    return { ...weapon, potency: core.potency, striking: core.striking, runes: [] }
+  }
   const scaled = builtIn?.material && weapon.material === builtIn.material ? weapon.material : scaledMaterial(weapon.material, c.level, 'Weapon')
   if (scaled !== weapon.material) weapon = { ...weapon, material: scaled }
   const favored = deityWeapon(c, entries)?.id === weapon.id

@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeBaseName, runeName, canBeOsteoArmament, osteoArmamentRune, activeBattleForm, withoutBattleForm, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
+  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, isSolarianCrystalWeapon, solarianCoreCrystals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { armorUpgradeEntries, automaticArmorUpgradeUsesSlot, blessedShieldBenefit, canEquipShield, canRaiseShield, championBlessings, clanPistolRunes, equippedHands, forceFieldStats, isEnergyShieldingUpgrade, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldBraceEligible, shieldEquipChange, weaponEntry } from './builder'
@@ -485,13 +485,15 @@ function GearTag({ name, entry, onRemove, source = 'Granted by Living Weapon', k
   )
 }
 
-export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, effectiveUpgrades, raptorialEdgeUpgrade }: {
+export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, effectiveUpgrades, raptorialEdgeUpgrade, crystals }: {
   entries: ContentEntry[]; weapon: ContentEntry; upgrades: string[]; limit: number | undefined; onChange: (ids: string[]) => void
-  effectiveUpgrades?: ContentEntry[]
+  effectiveUpgrades?: ContentEntry[]; crystals?: boolean
   raptorialEdgeUpgrade?: { checked: boolean; disabled: boolean; onChange: (checked: boolean) => void }
 }) {
+  const subcategory = crystals ? 'Orbital Crystal' : 'Weapon Upgrades'
   const catalog = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
-    && entry.data.item_subcategory === 'Weapon Upgrades')
+    && entry.data.item_subcategory === subcategory
+    && !(crystals && !/\)$/.test(entry.name) && entries.some(other => other.name.startsWith(`${entry.name} (`) && other.data.item_subcategory === subcategory)))
   const installed = upgrades.map(id => catalog.find(entry => entry.id === id))
   const sameUpgrade = (a: ContentEntry, b: ContentEntry) => a.id === b.id || !!a.data.url && a.data.url === b.data.url
     || a.name.replace(/\s*\([^)]*\)$/, '') === b.name.replace(/\s*\([^)]*\)$/, '')
@@ -543,11 +545,11 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, eff
     {installed.some(item => !item) && <small role="status">Saved upgrade unavailable. Sync official content to restore its effects.</small>}
     {limit === undefined && <small role="status">Weapon upgrade slots unavailable. Sync official content.</small>}
     {limit !== undefined && upgrades.length + granted.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
-    {limit !== undefined && upgrades.length + granted.length < limit && options.length > 0 && <SearchableSelect aria-label="Add weapon upgrade" value=""
+    {limit !== undefined && upgrades.length + granted.length < limit && options.length > 0 && <SearchableSelect aria-label={crystals ? 'Add orbital crystal' : 'Add weapon upgrade'} value=""
       optionLevel={value => options.find(entry => entry.id === value)?.level} onChange={event => {
       if (options.some(entry => entry.id === event.target.value)) onChange([...upgrades, event.target.value])
     }}>
-      <option value="">Add weapon upgrade...</option>
+      <option value="">{crystals ? 'Add orbital crystal...' : 'Add weapon upgrade...'}</option>
       {options.map(entry => <option key={entry.id} value={entry.id}>{entry.name} (Level {entry.level})</option>)}
     </SearchableSelect>}
   </div>
@@ -1381,7 +1383,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const builtIn = namedWeaponEnhancements(a.entry)
         const namedSource = String(a.entry?.data.named_weapon_source ?? '')
         const automaticFundamentals = hasAutomaticWeaponFundamentals(c, entries, w)
-        const lockFundamentals = automaticFundamentals || !!plate && isGrantedArmor(plate.id)
+        const solarCrystals = c.systems.includes('sf2e') && isSolarianCrystalWeapon(w)
+        const lockFundamentals = automaticFundamentals || solarCrystals || !!plate && isGrantedArmor(plate.id)
           && armorEntry(c, entries, plate.name, plate.id)?.data.automatic_fundamentals !== false
         const automaticBase = automaticFundamentals ? automaticWeaponFundamentals(c.level) : { potency: 0, striking: 0 }
         const automatic = { potency: Math.max(automaticBase.potency, builtIn?.potency ?? 0),
@@ -1828,6 +1831,16 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               }
               {!upgradeWeapon && !lockFundamentals && <Level label="Striking" value={enhanced.striking} options={POTENCY} disabled={!!plate} minimum={plate ? 0 : automatic.striking} format={(n) => STRIKING_LABEL[n] || 'None'}
                 onChange={(striking) => update(w.id, { striking })} />}
+            </div>}
+            {solarCrystals && a.entry && <div className="gear-runes">
+              {solarianCoreCrystals(c.level).potencyGrade && <GearTag name={`Weapon Potency (${solarianCoreCrystals(c.level).potencyGrade})`}
+                entry={entries.find(item => item.name === `Weapon Potency (${solarianCoreCrystals(c.level).potencyGrade})` && item.data.item_subcategory === 'Core Crystal')}
+                kind="upgrade" source="Core solarian crystal by level" />}
+              {solarianCoreCrystals(c.level).strikingGrade && <GearTag name={`Striking (${solarianCoreCrystals(c.level).strikingGrade})`}
+                entry={entries.find(item => item.name === `Striking (${solarianCoreCrystals(c.level).strikingGrade})` && item.data.item_subcategory === 'Core Crystal')}
+                kind="upgrade" source="Core solarian crystal by level" />}
+              <WeaponUpgrades crystals entries={entries} weapon={a.entry} upgrades={w.upgrades ?? []} effectiveUpgrades={a.upgrades}
+                limit={solarianCoreCrystals(c.level).potency} onChange={upgrades => update(w.id, { upgrades })} />
             </div>}
             {upgradeWeapon && a.entry && !linkedSource && <>
               {(w.runes.length > 0 || w.potency > 0 || w.striking > 0) && <small role="status">Saved runes are inactive on this weapon.</small>}
