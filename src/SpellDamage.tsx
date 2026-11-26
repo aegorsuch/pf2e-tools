@@ -305,6 +305,17 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
         { label: 'Temporary HP', dice: rank + 1, sides: 6, type: 'temporary HP',
           note: '20-foot line; granted to allies in the area for 1 minute' },
       ] : []
+    case 'Magnetic Tuning':
+      return rank >= 3 ? [{ label: 'Magnetic Tuning', dice: 3 + Math.floor((rank - 3) / 2), sides: 8,
+        type: 'bludgeoning', note: 'On casting and the first Sustain each subsequent round; spell attack roll against one creature in the emanation' }] : []
+    case 'Repair Protocols':
+      return rank >= 1 ? [
+        { label: 'One construct', dice: rank, sides: 8, type: 'HP' },
+        { label: 'Two constructs (each)', dice: rank, sides: 4, type: 'HP' },
+      ] : []
+    case 'Bonding Charge':
+      return rank >= 3 ? [{ label: 'Damage', dice: 3 + Math.floor((rank - 3) / 2), sides: 12, type: 'electricity',
+        note: '15-foot line between you and your tech minion; basic Reflex save' }] : []
     case 'Rocket Dash':
       return rank >= 6 ? [{ label: 'Damage', dice: 6 + 2 * Math.floor((rank - 6) / 2), sides: 12, type: 'fire',
         additional: { label: 'Critical failure persistent', dice: 2 + Math.floor((rank - 6) / 2), sides: 6, type: 'persistent fire' } }] : []

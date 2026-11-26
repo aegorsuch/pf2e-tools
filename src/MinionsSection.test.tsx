@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
-import { CompanionEquipmentSlots, FollowerCards, MinionsContent, MinionsSection, MinionsSummary, SummonedFiendCard } from './MinionsSection'
+import { CompanionEquipmentSlots, FollowerCards, MinionsContent, MinionsSection, MinionsSummary, ServoShellMinibot, SummonedFiendCard } from './MinionsSection'
 import { SearchableSelect } from './SearchableSelect'
 import { CaypinAllyToggle, CompanionSpellOptions, CreatureShapeOptions, LashuntaAllyOptions, ShirrenAllyToggle, SpellsSection, SpiritOfTheBeastOptions } from './SpellsSection'
 import { activeBattleForm, armorClass, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, movementSpeeds, ownedWeapons, spellActiveChange, summonedMounts } from './builder'
@@ -87,6 +87,34 @@ it('opens Spirit of the Beast from its spell action and synchronizes companion a
   expect(renderToStaticMarkup(<SpiritOfTheBeastOptions c={c} save={save} companionId="bear" />)).toContain('selected=""')
   findSelect(SpiritOfTheBeastOptions({ c, save, companionId: 'bear' }), 'Spirit of the Beast aspect on Bear')!({ target: { value: '' } })
   expect(c.companions?.[0].spiritAspect).toBeUndefined()
+})
+
+it('tracks ServoShell minibot summon, HP, Refocus repair, and permanent feature transplants', () => {
+  const commercial: ContentEntry = { id: 'camera-commercial', name: 'Commercial Camera Minibot', kind: 'item',
+    systems: ['sf2e'], source: 'official', level: 1, traits: ['Tech'], description: 'Camera feature.',
+    data: { item_category: 'Tech Minions', hp: 4, price: 100 }, effects: [], updatedAt: 0 }
+  const advanced: ContentEntry = { ...commercial, id: 'camera-advanced', name: 'Advanced Camera Minibot', level: 4,
+    data: { ...commercial.data, price: 1100 } }
+  let c: Character = { id: 'servoshell', systems: ['sf2e'], name: 'Test', level: 10, className: 'Technomancer',
+    technomancerProgrammingLanguage: 'ServoShell',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [{ name: commercial.name, qty: 1 }], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const tree = () => ServoShellMinibot({ c, entries: [commercial, advanced], save })
+  expect(renderToStaticMarkup(tree())).toContain('4 / 14')
+  expect(renderToStaticMarkup(<MinionsSummary c={c} entries={[commercial, advanced]} />)).toContain('Personal Minibot')
+
+  findInput(tree(), 'Personal Minibot current HP')!({ target: { value: '6' } })
+  findButton(tree(), 'Repair Personal Minibot during Refocus')!()
+  expect(c.servoShellMinibot?.currentHp).toBe(14)
+  findToggle(tree(), 'Personal Minibot summoned')!({ target: { checked: true } })
+  expect(c.servoShellMinibot?.summoned).toBe(true)
+
+  findSelect(tree(), 'Transplant minibot features')!({ target: { value: commercial.id } })
+  expect(c.equipment).toEqual([])
+  expect(c.servoShellMinibot?.transplantedFeatures).toEqual([commercial.id])
+  findButton(tree(), `Pay 1000 credits to upgrade ${commercial.name} to ${advanced.name}`)!()
+  expect(c.servoShellMinibot?.transplantedFeatures).toEqual([advanced.id])
 })
 
 it('rolls animal companion attack and damage and marks the selected mount', () => {

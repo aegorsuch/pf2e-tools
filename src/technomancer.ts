@@ -4,6 +4,11 @@ export const TECHNOMANCER_PROGRAMMING_LANGUAGES: readonly TechnomancerProgrammin
   'DPS++', 'FORTRUN', 'ServoShell', 'Viper',
 ]
 
+export const FORCE_FIELD_PGA_RESISTANCE_TYPES = [
+  'acid', 'bleed', 'bludgeoning', 'cold', 'electricity', 'fire', 'force', 'mental',
+  'piercing', 'poison', 'precision', 'slashing', 'sonic', 'spirit', 'vitality', 'void',
+] as const
+
 export const VERSATILE_FIRMWARE_FEAT: ContentEntry = {
   id: 'builtin:versatile-firmware', systems: ['sf2e'], kind: 'feat', source: 'homebrew', name: 'Versatile Firmware',
   level: 12, traits: ['Technomancer'],

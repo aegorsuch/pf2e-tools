@@ -4,7 +4,7 @@ import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, bardingOptions, companionItemName, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor,
   companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME, equippedBarding,
   hasCompanionMountOption, hasConstructInnovation, isBadgerCompanion, isCompanionEquipmentItem, minionFerocity, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, languageGroups, magicHideChange, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, spellDCText, summonedMounts, type SectionProps, type TotalBreakdown } from './builder'
+import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, languageGroups, magicHideChange, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, spellDCText, summonedMounts, technomancerFirmwareLanguages, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
 import { ActiveSpellActions, CompanionSpellOptions, ProtectCompanionOptions, SpiritOfTheBeastOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
@@ -20,6 +20,7 @@ import { activeSummonedFiend, summonSpellName, type SummonedFiend } from './summ
 import { creatureScaling, scaledDamage, scaledSummon } from './summonScaling'
 import { DroneFeatures } from './DroneFeatures'
 import { FOLLOWER_STAGES, FOLLOWER_TYPES, followerStage, followerStats } from './followers'
+import { isPurchasableMinibot, minibotUpgradeCost, minibotUpgradeOptions, servoShellMinibotMaxHp } from './servoshell'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityEffects, familiarAbilityEntries, familiarAbilitySlots, familiarMedicRank,
   familiarAbilityEntry, familiarAbilityUnavailableReason, GLYPH_FAMILIAR_ABILITIES, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds,
   isDivineEmissaryAbility, PURIFY_AIR_DESCRIPTION, SQUOX_TRICKS_DESCRIPTION, specificFamiliarAbilityName, specificFamiliarGrantedLabels,
@@ -503,6 +504,7 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
 export function MinionsSummary({ c, entries = [] }: Pick<SectionProps, 'c'> & Partial<Pick<SectionProps, 'entries'>>) {
   const { companions, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, spiritFamiliar, glyph, seaFriend, pet } = minionSummaryData(c)
   const lashuntaAlly = activeLashuntaAlly(c)
+  const servoShell = technomancerFirmwareLanguages(c, entries).has('ServoShell')
   const familiarState = familiar ? familiarDisplayState(c, entries) : undefined
   const waspState = wasp ? familiarDisplayState(c, entries, true) : undefined
   const familiarName = familiarState?.activeSpecific ? specificFamiliarHeader(familiarState.activeSpecific.name)
@@ -512,6 +514,7 @@ export function MinionsSummary({ c, entries = [] }: Pick<SectionProps, 'c'> & Pa
     <strong>Minions</strong>
     <span>{[...companions.map((_, index) => companionTitle(c, index)),
       ...(c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' ? ['Drone'] : []),
+      ...(servoShell ? ['Personal Minibot'] : []),
       ...(familiarState ? [`${familiarName} (${familiarState.selectedCount}/${familiarState.totalCount})`] : []),
       ...(waspState ? [`Wasp Familiar (${waspState.selectedCount}/${waspState.totalCount})`] : []),
       ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
@@ -532,6 +535,80 @@ export function MinionsSection(props: SectionProps) {
   return <details className="character-section">
     <MinionsSummary {...props} />
     <MinionsContent {...props} />
+  </details>
+}
+
+export function ServoShellMinibot({ c, entries, save }: SectionProps) {
+  const state = c.servoShellMinibot ?? {}
+  const featureIds = state.transplantedFeatures ?? []
+  const minibots = entries.filter(isPurchasableMinibot)
+  const maxHp = servoShellMinibotMaxHp(c.level)
+  const currentHp = Math.max(0, Math.min(maxHp, Math.floor(state.currentHp ?? maxHp)))
+  const availableDonors = c.equipment.flatMap(item => {
+    const entry = minibots.find(candidate => candidate.name === item.name)
+    return entry && item.qty > 0 && !featureIds.includes(entry.id) ? [entry] : []
+  })
+  const transplant = (id: string) => {
+    const donor = minibots.find(entry => entry.id === id)
+    const equipmentIndex = donor ? c.equipment.findIndex(item => item.name === donor.name && item.qty > 0) : -1
+    if (!donor || equipmentIndex < 0 || featureIds.includes(id)) return
+    const equipment = [...c.equipment]
+    if (equipment[equipmentIndex].qty > 1) equipment[equipmentIndex] = { ...equipment[equipmentIndex], qty: equipment[equipmentIndex].qty - 1 }
+    else equipment.splice(equipmentIndex, 1)
+    save({ equipment, servoShellMinibot: { ...state, transplantedFeatures: [...featureIds, id] } })
+  }
+  const upgrade = (currentId: string, next: ContentEntry) => {
+    const index = featureIds.indexOf(currentId)
+    const current = minibots.find(entry => entry.id === currentId)
+    if (index < 0 || !current || minibotUpgradeCost(current, next) === undefined) return
+    const transplantedFeatures = [...featureIds]
+    transplantedFeatures[index] = next.id
+    save({ servoShellMinibot: { ...state, transplantedFeatures } })
+  }
+  return <details className="character-subsection" data-minion-name="Personal Minibot" open>
+    <summary><h4>Personal Minibot</h4></summary>
+    <div className="gear-traits"><span>Tech Minion</span></div>
+    <label><input type="checkbox" aria-label="Personal Minibot summoned" checked={!!state.summoned}
+      disabled={currentHp === 0} onChange={event => save({ servoShellMinibot: { ...state, summoned: event.target.checked } })} />
+      Summoned (Interact)</label>
+    <section className="companion-actions">
+      <h5>Defenses</h5>
+      <div className="gear-stats"><span><small>Hit Points</small><b>{currentHp} / {maxHp}</b></span></div>
+      <div className="row">
+        <label>Current HP{' '}
+          <input type="number" aria-label="Personal Minibot current HP" min={0} max={maxHp} step={1} value={currentHp}
+            onChange={event => {
+              const value = Number(event.target.value)
+              if (!Number.isFinite(value)) return
+              save({ servoShellMinibot: { ...state, currentHp: Math.max(0, Math.min(maxHp, Math.floor(value))),
+                ...(value <= 0 ? { summoned: false } : {}) } })
+            }} />
+        </label>
+        <button type="button" aria-label="Repair Personal Minibot during Refocus" disabled={currentHp >= maxHp}
+          onClick={() => save({ servoShellMinibot: { ...state, currentHp: maxHp } })}>Repair during Refocus</button>
+      </div>
+    </section>
+    <section className="companion-actions">
+      <h5>Transplanted Features</h5>
+      {featureIds.map((id, index) => {
+        const entry = minibots.find(candidate => candidate.id === id)
+        const options = entry ? minibotUpgradeOptions(entry, minibots) : []
+        return <div className="companion-action" key={`${id}:${index}`}>
+          <div className="companion-action-title"><b>{entry?.name ?? id}</b></div>
+          {entry && <EntryDescription name={entry.name} entry={entry} entries={entries} character={c} />}
+          {options.map(next => {
+            const cost = entry ? minibotUpgradeCost(entry, next) : undefined
+            return cost === undefined ? null : <button type="button" key={next.id}
+              aria-label={`Pay ${cost} credits to upgrade ${entry!.name} to ${next.name}`}
+              onClick={() => upgrade(id, next)}>Pay {cost.toLocaleString()} credits to upgrade to {next.name}</button>
+          })}
+        </div>
+      })}
+      <SearchableSelect aria-label="Transplant minibot features" value="" onChange={event => transplant(event.target.value)}>
+        <option value="">Consume owned minibot and transplant features...</option>
+        {availableDonors.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+      </SearchableSelect>
+    </section>
   </details>
 }
 
@@ -647,6 +724,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const magicHideKnown = knowsSpell(c, entries, 'Magic Hide')
   const protectedByCompanion = protectCompanionApplies(c, entries)
   const needsConstructEntry = hasConstructInnovation(c) || companions.some(comp => comp.type === CONSTRUCT_COMPANION_NAME)
+  const servoShell = technomancerFirmwareLanguages(c, entries).has('ServoShell')
   const companionEntries = companionEntriesFor(entries, needsConstructEntry)
   const faithfulSteed = activeFeatsNamed(c, 'Faithful Steed').length > 0
   const animalCompanionGrant = c.className === 'Druid' && (c.order ?? c.subclass) === 'Animal'
@@ -747,6 +825,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           <summary><h4>Drone</h4></summary>
           <DroneFeatures c={c} entries={entries} save={save} />
         </details>}
+        {servoShell && <ServoShellMinibot c={c} entries={entries} save={save} />}
         {companions.length === 0 && companionGrant && <details className="character-subsection" data-minion-name="Animal Companion" open>
           <summary><h4>Animal Companion</h4></summary>
           <span>{companionGrant}{' '}

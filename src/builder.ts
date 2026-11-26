@@ -24,13 +24,13 @@ import { isAncestralEmbrace, isHighhelmPlate, isImmortalBastion, isInheritorPlat
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
-import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
+import { STARFINDER_MYSTIC_TRADITIONS, STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 import { eruditeWarrior, isSoldier, soldierStyle } from './soldier'
 import { isWitchwarper, witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellcasting, witchwarperSpellOptions, witchwarperSpellSlots } from './witchwarper'
 import { familiarSelection, familiarSpellBenefits, purifyAirActive } from './familiarAbilities'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
-import { greaterCrossPlatformLanguageOptions, TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES, versatileFirmwareLanguageOptions, versatileTechnomancerLanguageOptions } from './technomancer'
+import { FORCE_FIELD_PGA_RESISTANCE_TYPES, greaterCrossPlatformLanguageOptions, TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES, versatileFirmwareLanguageOptions, versatileTechnomancerLanguageOptions } from './technomancer'
 import { boostingTheBasics } from './mechanicMods'
 import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
@@ -137,6 +137,12 @@ export function temporaryHpGrant(c: Character, entries: ContentEntry[]) {
   if (forceField && (armor?.activeForceField || forceFieldAlwaysActive(forceField))) {
     const hitPoints = forceFieldStats(forceField)?.hitPoints
     if (forceField && hitPoints) grants.push({ source: forceField.name, value: hitPoints })
+  }
+  if (c.systems.includes('sf2e') && c.activeSpells?.includes('Supercharge Armor')
+    && knowsSpell(c, entries, 'Supercharge Armor')) {
+    const rank = Math.ceil(c.level / 2)
+    const hitPoints = rank >= 9 ? 37 : rank >= 7 ? 32 : rank >= 5 ? 26 : 0
+    if (hitPoints) grants.push({ source: 'Supercharge Armor', value: hitPoints })
   }
   if (armor && isImmortalBastion(armor.name)) {
     const source = armor.name
@@ -722,11 +728,18 @@ export const HOMEBREW_DEDICATIONS = [
   { setting: 'orcTattooedHistorian', ancestry: 'Orc', name: 'Tattooed Historian Dedication', slot: 'archetype:2:g87', replacesFreeArchetype: false },
   { setting: 'dwarfStalwartDefender', ancestry: 'Dwarf', name: 'Stalwart Defender Dedication', slot: 'archetype:2:g86', replacesFreeArchetype: false },
   { setting: 'commanderCaptain', className: 'Commander', name: 'Captain Dedication', slot: 'archetype:2:g85', replacesFreeArchetype: false },
+  { setting: 'soldierGrenadier', className: 'Soldier', name: 'Grenadier Dedication', slot: 'archetype:2:g84', replacesFreeArchetype: false },
+  { setting: 'mechanicAugmented', className: 'Mechanic', name: 'Augmented Dedication', slot: 'archetype:2:g83', replacesFreeArchetype: false },
+  { setting: 'technomancerAugmented', className: 'Technomancer', name: 'Augmented Dedication', slot: 'archetype:2:g82', replacesFreeArchetype: false },
+  { setting: 'mysticXenoDruid', className: 'Mystic', tradition: 'Primal', name: 'Xeno Druid Dedication',
+    slot: 'archetype:2:g81', replacesFreeArchetype: false },
 ] as const
 export const homebrewDedication = (slot: string) => HOMEBREW_DEDICATIONS.find((d) => d.slot === slot)
 export const activeHomebrewDedications = (c: Character) =>
   HOMEBREW_DEDICATIONS.filter((d) => getSettings()[d.setting] && c.level >= 2
-    && ('className' in d ? c.className === d.className : c.systems.includes('pf2e') && c.ancestry === d.ancestry))
+    && ('className' in d ? c.className === d.className : c.systems.includes('pf2e') && c.ancestry === d.ancestry)
+    && (!('tradition' in d) || c.systems.includes('sf2e')
+      && STARFINDER_MYSTIC_TRADITIONS[c.subclass ?? ''] === d.tradition))
 export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWith('class:1:order-explorer:')
   || key === 'class:1:fury-instinct'
   || key.startsWith('skill:1:investigator-skillful-lessons:')
@@ -1807,7 +1820,6 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       : featSelectionLevel(e, c, entries, slot.category, slot)) <= (slot.grantedBy === 'Eldritch Trickster'
       ? slot.maxFeatLevel ?? 2 : Math.min(slot.level, slot.maxFeatLevel ?? slot.level))
       && !(generalOnly && traits.has('skill'))
-      && !(e.id === 'homebrew:opening-stance-ranger' && !getSettings().rangerOpeningStance)
       && !(getSettings().disableAdoptedAncestry && ['Adopted Ancestry', 'Cultural Adaptability', 'Orc Kinship', 'Social Chameleon'].includes(e.name))
       && !(getSettings().disableAncientElfMultitalented && ['Ancient Elf', 'Multitalented'].includes(e.name))
       && !(slot.category === 'archetype' && e.source === 'official' && e.name === 'Heal Animal'
@@ -3108,10 +3120,6 @@ const CASTING_ABILITY: Record<string, Ability> = {
   Animist: 'wis', Bard: 'cha', Cleric: 'wis', Druid: 'wis', Magus: 'int', Necromancer: 'int', Oracle: 'cha', Psychic: 'int',
   Monk: 'wis', Ranger: 'wis', Sorcerer: 'cha', Summoner: 'cha', Thaumaturge: 'cha', Witch: 'int', Wizard: 'int', Champion: 'cha', Kineticist: 'con',
   Mystic: 'wis', Technomancer: 'int',
-}
-
-const STARFINDER_MYSTIC_TRADITIONS: Record<string, string> = {
-  Akashic: 'Occult', Elemental: 'Primal', Healing: 'Divine', Rhythm: 'Primal', Shadow: 'Divine',
 }
 
 const FEATURE_RANK: Record<string, number> = { expertise: 2, mastery: 3, legend: 4 }
@@ -5561,6 +5569,11 @@ export function ranksAt(c: Character, entries: ContentEntry[], beforeLevel = 99,
   return ranks
 }
 
+function skillRankForName(ranks: Record<string, number>, skill: string) {
+  const normalized = skill.trim().toLowerCase()
+  return Object.entries(ranks).find(([name]) => name.trim().toLowerCase() === normalized)?.[1] ?? 0
+}
+
 function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: number, withOverrides: boolean) {
   c = { ...normalizeLongevitySkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }), level: c.level }
   const ranks = baseRanks(c, entries, beforeLevel)
@@ -5834,7 +5847,7 @@ function weaponProficiencyGrants(c: Character, entries: ContentEntry[]) {
   }))
 }
 
-function technomancerFirmwareLanguages(c: Character, entries: ContentEntry[]) {
+export function technomancerFirmwareLanguages(c: Character, entries: ContentEntry[]) {
   const languages = new Set<string>()
   if (!c.systems.includes('sf2e') || c.className !== 'Technomancer') return languages
   if (c.technomancerProgrammingLanguage) languages.add(c.technomancerProgrammingLanguage)
@@ -5924,7 +5937,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
   const skillRanks = professionalSkills.length ? ranksAt(c, entries) : {}
   const professionalRank = professionalSkills.length && (category === 'Martial' || category === 'Advanced')
     ? Math.min(ranks[category === 'Martial' ? 'Simple' : 'Martial'],
-      Math.max(0, ...professionalSkills.map(skill => skillRanks[skill] ?? 0))) : 0
+      Math.max(0, ...professionalSkills.map(skill => skillRankForName(skillRanks, skill)))) : 0
   const operative = c.systems.includes('sf2e') && c.className === 'Operative'
   const gun = operativeGun(entry)
   const strikerWeapon = operative && c.subclass === 'Striker' && !!entry && !isRanged(entry)
@@ -6278,6 +6291,11 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   }
   if (c.systems.includes('pf2e') && c.activeSpells?.includes('Eat Fire')
     && knowsSpell(c, entries, 'Eat Fire')) out.push({ damage: 'fire', value: 5, source: 'Eat Fire' })
+  const forceFieldPgaResistance = FORCE_FIELD_PGA_RESISTANCE_TYPES.find(type => type === c.forceFieldPgaResistance)
+  if (c.systems.includes('sf2e') && c.activeSpells?.includes('Force-FieldPGA')
+    && knowsSpell(c, entries, 'Force-FieldPGA') && forceFieldPgaResistance) {
+    out.push({ damage: forceFieldPgaResistance, value: 2 * Math.ceil(c.level / 2), source: 'Force-FieldPGA' })
+  }
   const juggernaut = activeFeatsNamed(c, 'Unstoppable Juggernaut').length > 0
   const ragingResistance = Math.max(0, (juggernaut ? 8 : 3) + abilityMod(c.abilities.con))
   if (juggernaut) out.push({ damage: 'all damage', value: Math.max(0, 3 + abilityMod(c.abilities.con)), source: 'Unstoppable Juggernaut' })
@@ -8495,9 +8513,10 @@ export function raptorialEdgeImproved(c: Character, weapon: OwnedWeapon) {
 function automaticUpgradeEntries(c: Character, entries: ContentEntry[], upgrades: string[]) {
   if (!getSettings().automaticSfWeaponUpgrades || !c.systems.includes('sf2e')) return []
   return upgrades.flatMap(base => {
+    const gradePattern = new RegExp(` \\((?:${SF_UPGRADE_GRADES})\\)$`, 'i')
     const candidates = entries.filter(candidate => candidate.kind === 'item' && !candidate.deleted
       && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Weapon Upgrades'
-      && (candidate.name === base || candidate.name === `${base} (Commercial)` || candidate.name === `${base} (Tactical)`)
+      && (candidate.name === base || candidate.name.replace(gradePattern, '') === base)
       && candidate.level <= c.level)
       .sort((a, b) => b.level - a.level || Number(b.name.includes('(')) - Number(a.name.includes('(')))
     return candidates[0] ? [candidates[0]] : []
@@ -8510,6 +8529,8 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
   const name = entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   const upgrades = entry.data.special_weapon_source === 'SLARP' || name === 'SLARP Rapid Laser Pistol' ? ["Smuggler's Grip", 'Flaming Module']
     : entry.data.special_weapon_source === 'Starday Night Special' ? ["Smuggler's Grip"]
+    : ['Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle'].includes(name)
+      ? ['Flaming Module', 'Glarecaster', "Sniper's Scope"]
     : name === 'Knife' ? ['Retrieval Boosters']
     : name === 'Shuriken Drone' ? ['Retrieval Boosters']
     : name === 'Singing Spear' ? ['Retrieval Boosters', 'Loudener']
@@ -9082,7 +9103,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   if (entry && entry.name.toLowerCase().includes('slarp') && entry.data.professional_skills) {
     const skillRanks = ranksAt(c, entries)
     const professionalSkills = String(entry.data.professional_skills).split(';').map(skill => skill.trim())
-      .filter(skill => (skillRanks[skill] ?? 0) > 0)
+      .filter(skill => skillRankForName(skillRanks, skill) > 0)
     entry = {
       ...entry,
       traits: [...entry.traits.filter(trait => !/^professional\s*\(/i.test(trait)),

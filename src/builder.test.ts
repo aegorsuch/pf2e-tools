@@ -834,6 +834,18 @@ it('offers Hardened Chassis damage variants and grants the selected resistance 3
     .toEqual([{ damage: 'Slashing (except adamantine)', value: 3, source: feat.name }])
 })
 
+it('applies active Force-FieldPGA resistance and Supercharge Armor temporary HP', () => {
+  const forceField = { ...entry('spell', 'Force-FieldPGA', {}, 1), systems: ['sf2e' as const] }
+  const supercharge = { ...entry('spell', 'Supercharge Armor', {}, 5), systems: ['sf2e' as const] }
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 10,
+    spells: [{ name: forceField.name, rank: 1, cantrip: false }, { name: supercharge.name, rank: 5, cantrip: false }],
+    activeSpells: [forceField.name, supercharge.name], forceFieldPgaResistance: 'fire' }
+  expect(resistances(c, [forceField])).toContainEqual({ damage: 'Fire', value: 10, source: forceField.name })
+  expect(temporaryHpGrant(c, [supercharge])?.grants).toContainEqual({ source: supercharge.name, value: 26 })
+  expect(resistances({ ...c, activeSpells: [] }, [forceField])).not.toContainEqual(expect.objectContaining({ source: forceField.name }))
+  expect(temporaryHpGrant({ ...c, activeSpells: [] }, [supercharge])).toBeUndefined()
+})
+
 it('offers all five Nephilim Resistance variants and grants only the selected resistance', () => {
   const choiceFeat = { name: 'Nephilim Resistance', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' }
   const c: Character = { ...base, level: 5, feats: [
@@ -3983,6 +3995,75 @@ describe('homebrew feat rules', () => {
     updateSettings({ rangerSnarecrafter: true })
     expect(keys()).toEqual(expect.arrayContaining(['archetype:2:g96', 'archetype:2:g99']))
     expect(JSON.stringify(ranger)).toBe(before)
+  })
+
+  it('grants Soldiers a separate Grenadier Dedication slot at level 2', ({ onTestFinished }) => {
+    const previous = getSettings()
+    onTestFinished(() => updateSettings(previous))
+    updateSettings({ soldierGrenadier: true, freeArchetype: true })
+    const soldier: Character = { ...base, systems: ['sf2e'], className: 'Soldier', level: 2,
+      feats: [{ name: 'Medic Dedication', type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' }] }
+    const keys = (c = soldier) => plannedSlots(c).map(slot => slot.key)
+    expect(activeHomebrewDedications(soldier)).toContainEqual(expect.objectContaining({
+      name: 'Grenadier Dedication', slot: 'archetype:2:g84', replacesFreeArchetype: false,
+    }))
+    expect(keys()).toEqual(expect.arrayContaining(['archetype:2:g84', 'archetype:2:0']))
+    expect(unslottedFeats(soldier)).toEqual([])
+    expect(keys({ ...soldier, level: 1 })).not.toContain('archetype:2:g84')
+    expect(keys({ ...soldier, className: 'Operative' })).not.toContain('archetype:2:g84')
+    updateSettings({ soldierGrenadier: false })
+    expect(keys()).not.toContain('archetype:2:g84')
+    updateSettings({ soldierGrenadier: true, freeArchetype: false })
+    expect(keys()).toContain('archetype:2:g84')
+    expect(keys()).not.toContain('archetype:2:0')
+  })
+
+  it('grants Mechanics and Technomancers separate Augmented Dedication slots at level 2', ({ onTestFinished }) => {
+    const previous = getSettings()
+    onTestFinished(() => updateSettings(previous))
+    updateSettings({ mechanicAugmented: true, technomancerAugmented: true, freeArchetype: true })
+    for (const [className, setting, slot] of [
+      ['Mechanic', 'mechanicAugmented', 'archetype:2:g83'],
+      ['Technomancer', 'technomancerAugmented', 'archetype:2:g82'],
+    ] as const) {
+      const character: Character = { ...base, systems: ['sf2e'], className, level: 2,
+        feats: [{ name: 'Medic Dedication', type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' }] }
+      const keys = (c = character) => plannedSlots(c).map(item => item.key)
+      expect(activeHomebrewDedications(character)).toContainEqual(expect.objectContaining({
+        name: 'Augmented Dedication', slot, replacesFreeArchetype: false,
+      }))
+      expect(keys()).toEqual(expect.arrayContaining([slot, 'archetype:2:0']))
+      expect(unslottedFeats(character)).toEqual([])
+      expect(keys({ ...character, level: 1 })).not.toContain(slot)
+      expect(keys({ ...character, className: 'Soldier' })).not.toContain(slot)
+      updateSettings({ [setting]: false })
+      expect(keys()).not.toContain(slot)
+      updateSettings({ [setting]: true, freeArchetype: false })
+      expect(keys()).toContain(slot)
+      expect(keys()).not.toContain('archetype:2:0')
+      updateSettings({ freeArchetype: true })
+    }
+  })
+
+  it('grants Xeno Druid Dedication to Mystics with Primal connections only', ({ onTestFinished }) => {
+    const previous = getSettings()
+    onTestFinished(() => updateSettings(previous))
+    updateSettings({ mysticXenoDruid: true, freeArchetype: true })
+    for (const [subclass, primal] of [
+      ['Elemental', true], ['Rhythm', true], ['Akashic', false], ['Healing', false], ['Shadow', false],
+    ] as const) {
+      const mystic: Character = { ...base, systems: ['sf2e'], className: 'Mystic', subclass, level: 2 }
+      const slot = 'archetype:2:g81'
+      expect(activeHomebrewDedications(mystic).some(rule => rule.name === 'Xeno Druid Dedication')).toBe(primal)
+      expect(plannedSlots(mystic).some(item => item.key === slot)).toBe(primal)
+      expect(plannedSlots(mystic).some(item => item.key === 'archetype:2:0')).toBe(true)
+      expect(plannedSlots({ ...mystic, level: 1 }).some(item => item.key === slot)).toBe(false)
+    }
+    const ordinary = { ...base, systems: ['sf2e' as const], className: 'Operative', subclass: 'Elemental', level: 2 }
+    expect(plannedSlots(ordinary).some(item => item.key === 'archetype:2:g81')).toBe(false)
+    updateSettings({ mysticXenoDruid: false })
+    expect(plannedSlots({ ...base, systems: ['sf2e'], className: 'Mystic', subclass: 'Elemental', level: 2 })
+      .some(item => item.key === 'archetype:2:g81')).toBe(false)
   })
 
   it('adds locked Beastmaster Dedication slots for Ranger, Champion, Commander and Druid', ({ onTestFinished }) => {

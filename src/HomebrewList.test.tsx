@@ -161,15 +161,16 @@ it('includes every saved rule in its own searchable category even without homebr
   const previous = getSettings().innateHighestMental
   try {
     updateSettings({ innateHighestMental: false })
-    expect(render('highest mental')).not.toContain('checked=""')
+    expect(render('Innate Spells Use Highest Mental Attribute')).not.toContain('checked=""')
     updateSettings({ innateHighestMental: true })
-    expect(render('highest mental')).toContain('checked=""')
+    expect(render('Innate Spells Use Highest Mental Attribute')).toContain('checked=""')
   } finally { updateSettings({ innateHighestMental: previous }) }
 })
 
 it('alphabetizes clarified rule labels and keeps renamed rules searchable', () => {
   const labels = matchingHouseRules('').map(rule => rule.label)
   expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b)))
+  expect(labels).not.toContain('Ranger Opening Stance Feat')
   for (const label of [
     'Advanced General Training and General Training: Once Each',
     'Disable fly speed from Animal Feature, Auspice Specialization, Celestial Form, Fiendish Form, Untamed Shift',
@@ -183,6 +184,8 @@ it('alphabetizes clarified rule labels and keeps renamed rules searchable', () =
     'Inventor Access: Bladed Gauntlet and Firearms',
     'Orc Warmask Item Bonus Scaling',
     'Ranger Cavalier Dedication',
+    'Mystic Xeno Druid Dedication',
+    'Technomancer Starfinder Field Agent Dedication',
   ]) expect(matchingHouseRules(label).map(rule => rule.label)).toContain(label)
 })
 

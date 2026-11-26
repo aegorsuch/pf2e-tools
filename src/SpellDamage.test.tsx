@@ -28,6 +28,17 @@ it.each([[2, 2, 4], [3, 3, 6], [10, 10, 20]])(
   },
 )
 
+it('provides rollable damage and healing for Technomancer hacks at heightened ranks', () => {
+  expect(spellDamage('Magnetic Tuning', 2)).toEqual([])
+  expect(spellDamage('Magnetic Tuning', 3)).toMatchObject([{ dice: 3, sides: 8, type: 'bludgeoning' }])
+  expect(spellDamage('Magnetic Tuning', 5)).toMatchObject([{ dice: 4, sides: 8, type: 'bludgeoning' }])
+  expect(spellDamage('Repair Protocols', 3)).toMatchObject([
+    { dice: 3, sides: 8, type: 'HP' }, { dice: 3, sides: 4, type: 'HP' },
+  ])
+  expect(spellDamage('Bonding Charge', 3)).toMatchObject([{ dice: 3, sides: 12, type: 'electricity' }])
+  expect(spellDamage('Bonding Charge', 5)).toMatchObject([{ dice: 4, sides: 12, type: 'electricity' }])
+})
+
 it('rolls Animal Allies damage at the cast rank', () => {
   const entry: ContentEntry = { id: 'allies', name: 'Animal Allies', systems: ['pf2e'], kind: 'spell',
     source: 'official', level: 1, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

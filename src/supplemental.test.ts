@@ -9,6 +9,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { removeColdIronTusks } from './supplemental'
 import { mapAonHits } from './aon'
+import { sfSpecificWeapons } from './sfSpecificWeapons'
 import { groupHomebrew } from './HomebrewList'
 import sf2eSnapshot from '../public/data/aon-sf2e.json?raw'
 
@@ -47,7 +48,7 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
-it('offers the copied Opening Stance to Rangers at level 14 while the house rule is enabled', () => {
+it('offers the copied Opening Stance as a Ranger homebrew feat at level 14', () => {
   const [original] = mapAonHits([{ _id: 'feat-4845', _source: {
     name: 'Opening Stance (Fighter)', category: 'feat', level: 14, trait: ['Fighter'], actions: 'Free Action',
     markdown: '<title level="1" right="Feat 14"><actions string="Free Action" /></title>\n**Trigger** You roll initiative.\n\nUse a stance action.',
@@ -56,22 +57,13 @@ it('offers the copied Opening Stance to Rangers at level 14 while the house rule
   const entries = [original, copy]
   const slot = { category: 'class' as const, level: 14, key: 'class:14:0' }
   const ranger = { ...base, level: 14 }
-  const previous = getSettings().rangerOpeningStance
-  try {
-    updateSettings({ rangerOpeningStance: true })
-    expect(copy).toMatchObject({ name: 'Opening Stance (Ranger)', level: 14, source: 'homebrew', traits: ['Ranger'] })
-    expect(copy.description).toBe(original.description)
-    expect(copy.data.actions).toBe('Free Action')
-    expect(eligibleFeats(entries, ranger, slot)).toContain(copy)
-    expect(eligibleFeats(entries, ranger, { ...slot, level: 12 })).not.toContain(copy)
-    expect(eligibleFeats(entries, { ...ranger, className: 'Fighter' }, slot)).toContain(original)
-    expect(eligibleFeats(entries, { ...ranger, className: 'Fighter' }, slot)).not.toContain(copy)
-    updateSettings({ rangerOpeningStance: false })
-    expect(eligibleFeats(entries, ranger, slot)).not.toContain(copy)
-    expect(eligibleFeats(entries, { ...ranger, className: 'Fighter' }, slot)).toContain(original)
-  } finally {
-    updateSettings({ rangerOpeningStance: previous })
-  }
+  expect(copy).toMatchObject({ name: 'Opening Stance (Ranger)', level: 14, source: 'homebrew', traits: ['Ranger'] })
+  expect(copy.description).toBe(original.description)
+  expect(copy.data.actions).toBe('Free Action')
+  expect(eligibleFeats(entries, ranger, slot)).toContain(copy)
+  expect(eligibleFeats(entries, ranger, { ...slot, level: 12 })).not.toContain(copy)
+  expect(eligibleFeats(entries, { ...ranger, className: 'Fighter' }, slot)).toContain(original)
+  expect(eligibleFeats(entries, { ...ranger, className: 'Fighter' }, slot)).not.toContain(copy)
 })
 
 it('marks homebrew Watch Initiate feats rare', () => {
@@ -841,6 +833,21 @@ it('provides a scaling laser Focus Rifle in the Starfinder Sniper group', () => 
   })
 })
 
+it('provides grade-scaled Liminal Focus Rifles from Liminal Laser Rifles', () => {
+  const laser: ContentEntry = { ...FIST, id: 'advanced-liminal-rifle', name: 'Advanced Laser Rifle', systems: ['sf2e'],
+    source: 'official', kind: 'weapon', level: 4, traits: ['Tech'], data: {
+      weapon_category: 'Simple', weapon_group: 'Laser', weapon_type: 'Ranged', damage: '2d8 F',
+      hands: 2, range: 100, reload: 1, upgrade_slots: 2, weapon_ammunition: '10 charges', price: 1000,
+    } }
+  const liminal = sfSpecificWeapons([laser]).find(entry => entry.name === 'Liminal Laser Rifle')!
+  const focus = homebrewWeapons([liminal]).find(entry => entry.name === 'Liminal Focus Rifle')!
+  expect(focus).toMatchObject({ source: 'homebrew', level: 4, data: {
+    weapon_category: 'Martial', weapon_group: 'Sniper', range: 120, range_increment: 120,
+    upgrade_slots: 2, weapon_grade_family: 'homebrew:liminal-focus-rifle',
+  } })
+  expect(focus.description).toContain('Liminal Lock')
+})
+
 it('provides a SLARP rapid pistol with its abilities and scaling weapon proficiency', () => {
   const laser: ContentEntry = { ...FIST, id: 'laser', name: 'Laser Pistol', systems: ['sf2e'], source: 'official',
     kind: 'weapon', level: 0, traits: ['Tech'], data: {
@@ -859,7 +866,7 @@ it('provides a SLARP rapid pistol with its abilities and scaling weapon proficie
   expect(entry).toMatchObject({ level: 4, source: 'homebrew', traits: expect.arrayContaining([
     'Tech', 'Agile', 'Concealable', 'Professional (Geology Lore or Physical Science Lore)', 'Razing',
   ]), data: { damage: '2d6 F', weapon_tracking: 1, weapon_ammunition: '6 charges', price: 1100,
-    item_subcategory: 'Specific Weapons' } })
+    item_subcategory: 'Specific Weapons', upgrade_slots: 4 } })
   expect(entry.description).toContain('Once per day')
   expect(entry.description).toContain('free action')
   const c: Character = { ...base, level: 11, systems: ['sf2e'], className: 'Witchwarper',

@@ -215,6 +215,8 @@ export interface Character {
   className?: string
   subclass?: string
   technomancerProgrammingLanguage?: TechnomancerProgrammingLanguage
+  servoShellMinibot?: { summoned?: boolean; currentHp?: number; transplantedFeatures?: string[] }
+  forceFieldPgaResistance?: string
   rangerPrecisionHitsThisRound?: number
   huntPreyActive?: boolean
   fatalMethod?: 'Puppeteer' | 'Reaper'

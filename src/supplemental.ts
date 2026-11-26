@@ -617,13 +617,20 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
     && entry.systems.includes('sf2e') && /^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?Laser Pistol$/.test(entry.name))
   const laserRifles = entries.filter(entry => entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted
     && entry.systems.includes('sf2e') && /^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?Laser Rifle$/.test(entry.name))
-  const focusRifles = laserRifles.map<ContentEntry>(entry => {
-    const grade = entry.name.replace(/Laser Rifle$/, '').trim()
-    return { ...entry, id: `homebrew:laser-focus-rifle${grade ? `:${grade.toLowerCase()}` : ''}`,
-      name: `${grade ? `${grade} ` : ''}Laser Focus Rifle`, source: 'homebrew' as const,
-      description: 'Precision lenses focus a laser rifle beam for long-range attacks.',
+  const liminalRifles = entries.filter(entry => entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted
+    && entry.systems.includes('sf2e') && /^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?Liminal Laser Rifle$/.test(entry.name))
+  const focusRifles = [...laserRifles, ...liminalRifles].map<ContentEntry>(entry => {
+    const liminal = /Liminal Laser Rifle$/.test(entry.name)
+    const grade = entry.name.replace(liminal ? /Liminal Laser Rifle$/ : /Laser Rifle$/, '').trim()
+    const family = liminal ? 'homebrew:liminal-focus-rifle' : 'homebrew:laser-focus-rifle'
+    const focusName = liminal ? 'Liminal Focus Rifle' : 'Laser Focus Rifle'
+    return { ...entry, id: `${family}${grade ? `:${grade.toLowerCase()}` : ''}`,
+      name: `${grade ? `${grade} ` : ''}${focusName}`, source: 'homebrew' as const,
+      description: liminal
+        ? `Precision lenses focus a Liminal laser beam for long-range attacks.\n\n${entry.description}`
+        : 'Precision lenses focus a laser rifle beam for long-range attacks.',
       data: { ...entry.data, weapon_category: 'Martial', weapon_group: 'Sniper', range: 120, range_increment: 120,
-        weapon_grade_family: 'homebrew:laser-focus-rifle' }, updatedAt: 1 }
+        weapon_grade_family: family }, updatedAt: 1 }
   })
   const rapidLaser = laser.map<ContentEntry>(entry => {
     const grade = entry.name.replace(/Laser Pistol$/, '').trim()
@@ -647,6 +654,7 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
       traits: [...new Set([...entry.traits, 'Professional (Geology Lore or Physical Science Lore)', 'Razing'])],
       description: "Sampling Laser Analytical Return Protocol analyzes targets. Once per day, after a successful Strike, use a free action to Recall Knowledge about the target's material, Hardness, and resistances using Geology Lore or Physical Science Lore. The battery holds 6 charges and expends 2 per shot.",
       data: { ...entry.data, price: Number(slarp.data.price || 0) + increase, item_subcategory: 'Specific Weapons',
+        upgrade_slots: Number(entry.data.upgrade_slots || 0) + 2,
         weapon_grade_family: 'homebrew:slarp-rapid-laser-pistol',
         professional_skills: 'Geology Lore;Physical Science Lore' } }
   }) : []

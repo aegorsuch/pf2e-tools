@@ -1,6 +1,10 @@
 import type { ContentEntry } from './types'
 import { SOLDIER_STYLES } from './soldier'
 
+export const STARFINDER_MYSTIC_TRADITIONS: Record<string, string> = {
+  Akashic: 'Occult', Elemental: 'Primal', Healing: 'Divine', Rhythm: 'Primal', Shadow: 'Divine',
+}
+
 // Archives of Nethys publishes these SF2e choices under their class pages, not as catalog categories.
 const choices: Record<string, [string, string, string][]> = {
   Envoy: [

@@ -45,12 +45,14 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     ['Retrieval Boosters', 3], ['Shock Module (Commercial)', 8], ['Shock Module (Tactical)', 15],
     ['Loudener (Commercial)', 8], ['Loudener (Tactical)', 15],
     ['Suppression Matrix (Commercial)', 4], ['Suppression Matrix (Tactical)', 14],
+    ['Glarecaster (Commercial)', 5], ['Glarecaster (Tactical)', 12],
+    ["Sniper's Scope (Commercial)", 3], ["Sniper's Scope (Tactical)", 10],
   ].map(([name, level]) => ({ ...shifting, id: String(name), name: String(name), level: Number(level),
     systems: ['sf2e' as const], data: { item_subcategory: 'Weapon Upgrades' } }))
   const sfWeapon = (name: string): ContentEntry => ({ ...weapon, id: name, name, systems: ['sf2e'],
     traits: ['Tech'], data: { weapon_category: 'Martial', damage: '1d6 F', hands: 1, upgrade_slots: 4 } })
   const weapons = ['SLARP Rapid Laser Pistol', 'Shuriken Drone', 'Singing Spear', 'Battleglove', 'Crimson Claw', 'Shock Pad', 'Rotolaser',
-    'Pulse Gauntlet', 'Other'].map(sfWeapon)
+    'Pulse Gauntlet', 'Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle', 'Other'].map(sfWeapon)
   weapons.push({ ...sfWeapon('Starday Night Special (Semi-Auto Pistol)'),
     data: { ...sfWeapon('Starday Night Special (Semi-Auto Pistol)').data, special_weapon_source: 'Starday Night Special' } })
   const entries = [...weapons, ...upgrades]
@@ -80,6 +82,8 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(at('Rotolaser', 15)).toEqual(['Flaming Module (Tactical)'])
     expect(at('Pulse Gauntlet', 8)).toEqual(['Loudener (Commercial)'])
     expect(at('Pulse Gauntlet', 15)).toEqual(['Loudener (Tactical)'])
+    for (const name of ['Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle'])
+      expect(at(name, 15)).toEqual(['Flaming Module (Tactical)', 'Glarecaster (Tactical)', "Sniper's Scope (Tactical)"])
     expect(at('Other', 20)).toEqual([])
     const c = { ...character([]), systems: ['sf2e' as const], level: 15,
       weapons: [owned('SLARP Rapid Laser Pistol')] }

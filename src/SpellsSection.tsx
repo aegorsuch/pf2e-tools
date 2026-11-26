@@ -33,10 +33,10 @@ import { SpellDefenseFilter } from './SpellDefenseFilter'
 import { matchesSpellDefense, spellResolution, type SpellDefense } from './spellDefense'
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
-import { TECHNOMANCER_LANGUAGE_RULES } from './technomancer'
+import { FORCE_FIELD_PGA_RESISTANCE_TYPES, TECHNOMANCER_LANGUAGE_RULES } from './technomancer'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
-const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Bless', 'Cairn Form', 'Eat Fire', 'Enduring Might', 'Fly', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Summon Celestial', 'Tailwind']
+const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Bless', 'Bonding Charge', 'Cairn Form', 'Eat Fire', 'Enduring Might', 'Fly', 'Force-FieldPGA', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magnetic Tuning', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Repair Protocols', 'Stormwind Flight', 'Supercharge Armor', 'Summon Celestial', 'Tailwind']
 const STATUS_TRACKED_SPELL_EFFECTS = [...AUTOMATED_SPELL_EFFECTS, 'Animal Feature', 'Canopy Crawler', 'Heroism', 'Marvelous Mount', 'Speak with Plants', 'Warning Stripes']
 const SLOT_INCREASE_FEATS = ['Cantrip Expansion', 'Arcane Breadth', 'Divine Breadth', 'Perfect Encore', 'Deep Lore',
   'Faceless Trickster', "Archwizard's Might", 'Bloodline Perfection', 'Maker of Miracles', 'Mind over Matter',
@@ -1512,6 +1512,16 @@ export function automatedSpellStatusControls({ c, entries, save }: SectionProps)
       && candidate.name.toLowerCase() === name.toLowerCase() && candidate.systems.some(system => c.systems.includes(system)))
     const actions = name === 'Heroism' ? 'Two Actions' : typeof entry?.data.actions === 'string' ? entry.data.actions : ''
     return <>{toggle}{' '}{spellStatusName(name)}
+      {name === 'Force-FieldPGA' && <label> Resistance type{' '}
+        <select aria-label="Force-FieldPGA resistance" value={c.forceFieldPgaResistance ?? ''} onChange={event => {
+          const value = FORCE_FIELD_PGA_RESISTANCE_TYPES.find(type => type === event.target.value)
+          save({ forceFieldPgaResistance: value })
+        }}>
+          <option value="">Choose damage type</option>
+          {FORCE_FIELD_PGA_RESISTANCE_TYPES.map(type =>
+            <option key={type} value={type}>{type[0].toUpperCase() + type.slice(1)}</option>)}
+        </select>
+      </label>}
       {name === 'Animal Feature'
         ? <> <SpellEffectActions c={c} entries={entries} save={save} entry={entry} name="Animal Feature" rank={Math.ceil(c.level / 2)} /></>
         : actions && <> <ActiveSpellActions name={name} entry={entry} actions={actions}>{toggle}</ActiveSpellActions></>}
@@ -2069,7 +2079,18 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       && <SpellDamageRolls name={name} rank={rank} spellcastingModifier={spellcastingModifier}
         energyType={typeof spell?.data.dragon_breath_energy === 'string' ? spell.data.dragon_breath_energy : undefined} />}
   </>
-  const effectControls = (name: string) => name === 'Oaken Resilience' && (grownOfOakSpell
+  const effectControls = (name: string) => name === 'Force-FieldPGA'
+    ? <label>Resistance type{' '}
+      <select aria-label="Force-FieldPGA resistance" value={c.forceFieldPgaResistance ?? ''} onChange={event => {
+        const value = FORCE_FIELD_PGA_RESISTANCE_TYPES.find(type => type === event.target.value)
+        save({ forceFieldPgaResistance: value })
+      }}>
+        <option value="">Choose damage type</option>
+        {FORCE_FIELD_PGA_RESISTANCE_TYPES.map(type =>
+          <option key={type} value={type}>{type[0].toUpperCase() + type.slice(1)}</option>)}
+      </select>
+    </label>
+    : name === 'Oaken Resilience' && (grownOfOakSpell
       ? <small>Cast rank {grownOfOakSpell.rank}</small>
       : <label>Cast rank{' '}
       <select aria-label="Oaken Resilience cast rank" value={c.oakenResilienceRank ?? ''} onChange={(event) => {
