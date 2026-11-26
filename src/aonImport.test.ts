@@ -92,6 +92,22 @@ it('scales Knife grade and adds Retrieval Boosters at level 3', () => {
   expect(automaticWeaponUpgrades({ ...c, level: 3 }, entries, weapon).map(upgrade => upgrade.name)).toContain('Retrieval Boosters')
 })
 
+it('limits Plasma Caster automatic upgrades to the slots of its scaled grade', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => /^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?Plasma Caster$/.test(String(hit._source?.name))
+    || /^(?:Smuggler's Grip|Flaming Module|Shock Module)(?: \((?:Commercial|Tactical)\))?$/.test(String(hit._source?.name))), 'sf2e')
+  const caster = entries.find(entry => entry.name === 'Plasma Caster')!
+  const weapon = { id: caster.id, name: caster.name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { id: 'caster', systems: ['sf2e'], name: 'Caster', level: 2,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [], equipment: [],
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0, weapons: [weapon] }
+  const at = (level: number) => automaticWeaponUpgrades({ ...c, level }, entries, weapon).map(item => item.name)
+  expect(at(2)).toEqual(["Smuggler's Grip (Commercial)"])
+  expect(at(8)).toEqual(["Smuggler's Grip (Tactical)", 'Flaming Module (Commercial)'])
+  expect(at(12)).toEqual(["Smuggler's Grip (Tactical)", 'Flaming Module (Commercial)', 'Shock Module (Commercial)'])
+  expect(at(15)).toEqual(["Smuggler's Grip (Tactical)", 'Flaming Module (Tactical)', 'Shock Module (Tactical)'])
+})
+
 it('imports actual SF2e armor grade AC, upgrade slots, and resilient bonuses from improvement tables', () => {
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
   const entries = mapAonHits(hits.filter(hit => ['Armored Coat', 'Tactical Armored Coat',

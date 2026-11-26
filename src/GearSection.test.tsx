@@ -141,12 +141,19 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(plasmaArrayHtml).toContain('Add weapon upgrade')
     expect(plasmaArrayHtml).not.toContain('Installed upgrades exceed available slots.')
     const caster = entries.find(entry => entry.name === 'Plasma Caster')!
+    const casterEntries = [...entries.filter(entry => entry.id !== caster.id), { ...caster, data: { ...caster.data, upgrade_slots: 2 } }]
+    const casterCharacter = { ...character([]), systems: ['sf2e' as const], level: 8, weapons: [owned('Plasma Caster')] }
     const casterHtml = renderToStaticMarkup(<WeaponList
-      c={{ ...character([]), systems: ['sf2e'], level: 8, weapons: [owned('Plasma Caster')] }}
-      entries={[...entries.filter(entry => entry.id !== caster.id), { ...caster, data: { ...caster.data, upgrade_slots: 2 } }]}
+      c={casterCharacter} entries={casterEntries}
       save={() => {}} />)
-    expect(casterHtml).toContain('Installed upgrades exceed available slots.')
+    expect(casterHtml).toContain("Smuggler&#x27;s Grip (Tactical)")
+    expect(casterHtml).toContain('Flaming Module (Commercial)')
+    expect(casterHtml).not.toContain('Shock Module (Commercial)')
+    expect(casterHtml).not.toContain('Installed upgrades exceed available slots.')
     expect(casterHtml).not.toContain('Add weapon upgrade')
+    const savedShock = owned('Plasma Caster', ['Shock Module (Commercial)'])
+    expect(installedWeaponUpgrades(casterCharacter, casterEntries, savedShock).map(item => item.name))
+      .toEqual(['Shock Module (Commercial)', "Smuggler's Grip (Tactical)"])
     updateSettings({ automaticSfWeaponUpgrades: false })
     expect(at('Shock Pad', 15)).toEqual([])
   } finally { updateSettings({ automaticSfWeaponUpgrades: previous }) }

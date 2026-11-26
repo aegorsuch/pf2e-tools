@@ -8694,7 +8694,19 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     : name === 'Rotolaser' ? ['Flaming Module']
     : name === 'Pulse Gauntlet' ? ['Loudener']
     : /^Tail\s*Blade$/i.test(name) ? [c.className === 'Soldier' ? 'Suppression Matrix' : 'Fear Projector'] : []
-  return automaticUpgradeEntries(c, entries, upgrades)
+  const automatic = automaticUpgradeEntries(c, entries, upgrades)
+  if (name !== 'Plasma Caster') return automatic
+  const effective = effectiveWeapon(c, entries, weapon)
+  const slots = weaponEntry(entries, effective.name, effective.id)?.data.upgrade_slots
+  const saved = weapon.upgrades ?? []
+  let remaining = typeof slots === 'number' ? Math.max(0, slots - saved.length) : 0
+  return automatic.filter(upgrade => {
+    const base = upgrade.name.replace(/\s*\([^)]*\)$/, '')
+    if (saved.some(id => entries.find(item => item.id === id)?.name.replace(/\s*\([^)]*\)$/, '') === base)) return true
+    if (remaining <= 0) return false
+    remaining--
+    return true
+  })
 }
 
 function mergeWeaponUpgrades(installed: ContentEntry[], automatic: ContentEntry[]) {
