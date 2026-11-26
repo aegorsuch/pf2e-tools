@@ -699,6 +699,9 @@ it('lists non-removable granted augmentations without using implant slots', () =
   const markup = renderToStaticMarkup(<Augmentations c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain('Datajack')
   expect(markup).toContain('Autorecognition Lens')
+  const firstButton = /<button\b[^>]*>([\s\S]*?)<\/button>/.exec(markup)?.[1] ?? ''
+  expect(firstButton).toContain('Autorecognition Lens')
+  expect(firstButton).toContain('(Rat Retinal HUD)')
   expect(markup).toContain('Augmentations <small aria-label="Augmentation capacity">0/')
   expect(markup).not.toContain('Implant limit:')
   expect(markup).not.toContain('Apex augmentations do not count')

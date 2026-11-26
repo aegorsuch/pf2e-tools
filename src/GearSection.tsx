@@ -221,7 +221,7 @@ export function Augmentations({ c, entries, save }: SectionProps) {
     <ul>{displayed.map(({ kind, item }) => {
       if (kind === 'granted') return <li key={`granted:${item.source}:${item.name}`}><EntryDescription name={item.name}
         entry={entries.find(entry => entry.kind === 'item' && entry.name.toLowerCase() === item.name.toLowerCase() && entry.systems.includes('sf2e'))}
-        entries={entries} /> <small>({item.source})</small>{biotechUpgrade && <SourceNote inlineSource={false}
+        entries={entries} grantSource={item.source} />{biotechUpgrade && <SourceNote inlineSource={false}
           source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
         {powerControl(`granted:${item.source}:${item.name}`, item.name)}</li>
       const entry = entries.find(candidate => candidate.id === item.entryId)
