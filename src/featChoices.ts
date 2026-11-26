@@ -81,10 +81,11 @@ export function adoptedAncestryText(c: Character, text: string) {
 
 export function ancestryFeatTraits(c: Character) {
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
-  const testSubject = c.level >= 1 && c.systems.includes('sf2e') && c.heritage === 'Cyborg' && getSettings().cyborgTestSubject
+  const cyborg = c.level >= 1 && c.systems.includes('sf2e') && c.ancestry === 'Ysoki'
+    && c.heritage === 'Test-Subject Ysoki' && getSettings().cyborgTestSubject
   return [c.ancestry, c.heritage, ...(c.heritage?.trim().toLowerCase() === 'dromaar' ? ['Orc'] : []),
     ...(c.systems.includes('pf2e') && ['aiuvarin', 'half-elf'].includes(c.heritage?.trim().toLowerCase() ?? '') ? ['Elf'] : []),
-    ...(testSubject ? ['Test-Subject Ysoki'] : []), ...active.filter(feat => feat.name === 'Adopted Ancestry').map(feat => feat.choice),
+    ...(cyborg ? ['Cyborg'] : []), ...active.filter(feat => feat.name === 'Adopted Ancestry').map(feat => feat.choice),
     ...(c.systems.includes('pf2e') && active.some(feat => feat.name === 'Orc Kinship') ? ['Orc'] : [])]
     .filter((name): name is string => !!name).map(name => name.trim().toLowerCase())
 }

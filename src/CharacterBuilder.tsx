@@ -1,4 +1,4 @@
-import { Info } from './Info'
+import { Info, SourceNote } from './Info'
 import { confirmRemoval, REMOVAL_EVENT } from './confirmRemoval'
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
@@ -8,7 +8,7 @@ import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
 import { EquipmentSearch } from './EquipmentSearch'
 export { EquipmentSearch } from './EquipmentSearch'
-import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, cyborgTestSubject, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
+import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, boostSlots, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, ownedArmors, warriorLegendWeakness } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { classArchetypeSlotViews, featSectionGrants, SearchableFeatSlots } from './FeatSlots'
@@ -474,7 +474,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
   const selectedEthnicity = ethnicityLabel(c.ethnicity ?? '')
   const savedEthnicity = selectedEthnicity.trim().toLowerCase()
   const unavailableEthnicity = !!savedEthnicity && !ethnicities.some(name => name.toLowerCase() === savedEthnicity)
-  const { locked: lockedLanguages, slots: languageSlots } = languageAllowance(c, entries)
+  const { locked: lockedLanguages, slots: languageSlots, slotSources: languageSlotSources } = languageAllowance(c, entries)
   const knownLanguages = [...new Map([...lockedLanguages, ...(migrateAncestralLinguistics(c)?.languages ?? c.languages)].map((l) => [l.toLowerCase(), l])).values()]
   const languageSummary = `${knownLanguages.length}/${lockedLanguages.length + languageSlots}: ${[...knownLanguages].sort((a, b) => a.localeCompare(b)).join(', ')}`
   const of = useMemo(() => {
@@ -677,7 +677,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
               <option>Radioactive</option>
             </select>
           </label>}
-          {(cyborgTestSubject(c) || c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki')
+          {(c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki')
             && <Info label="Test-Subject Ysoki">
               <a href="https://2e.aonsrd.com/heritages/141-test-subject-ysoki" target="_blank" rel="noreferrer">Heritage rules</a>
             </Info>}
@@ -969,7 +969,9 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Languages</strong>
-          <span>{languageSummary}</span>
+          <span>{languageSummary}{languageSlotSources.length > 0 && <span onClick={event => event.stopPropagation()}>
+            <SourceNote source="Language slots" note={languageSlotSources.map(item => `${item.value > 0 ? '+' : ''}${item.value} ${item.source}`).join('; ')} />
+          </span>}</span>
         </summary>
         <div className="character-section-content">
           <LanguagesSection {...section} />

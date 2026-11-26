@@ -756,9 +756,7 @@ it('lists non-removable granted augmentations without using implant slots', () =
   expect(markup).toContain('<section class="equipment-group" aria-label="Augmentations">')
   expect(markup).toContain('Datajack')
   expect(markup).toContain('Autorecognition Lens')
-  const firstButton = /<button\b[^>]*>([\s\S]*?)<\/button>/.exec(markup)?.[1] ?? ''
-  expect(firstButton).toContain('Autorecognition Lens')
-  expect(firstButton).toContain('(Rat Retinal HUD)')
+  expect(markup).toContain('(Rat Retinal HUD)')
   expect(markup).toContain('Augmentations <small aria-label="Augmentation capacity">0/')
   expect(markup).not.toContain('Implant limit:')
   expect(markup).not.toContain('Apex augmentations do not count')
@@ -775,17 +773,29 @@ it('scales the granted Test-Subject Datajack at its grade levels', () => {
     updateSettings({ testSubjectDatajackScaling: true })
     const c: Character = { ...character([]), systems: ['sf2e'], ancestry: 'Ysoki',
       heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Cybernetic Augmentation' }
-    for (const [level, grade] of [[1, 'Commercial'], [3, 'Commercial'], [4, 'Tactical'], [7, 'Tactical'], [8, 'Advanced'], [20, 'Advanced']] as const) {
+    for (const [level, grade] of [[1, 'Commercial'], [3, 'Commercial'], [4, 'Tactical'], [7, 'Tactical'], [8, 'Advanced'], [14, 'Advanced'], [15, 'Superior'], [20, 'Superior']] as const) {
       const markup = renderToStaticMarkup(<Augmentations c={{ ...c, level }} entries={[]} save={() => {}} />)
       expect(markup).toContain(`Datajack (${grade})`)
       expect(markup).not.toContain('Remove Datajack')
     }
     updateSettings({ testSubjectDatajackScaling: false })
     expect(renderToStaticMarkup(<Augmentations c={{ ...c, level: 20 }} entries={[]} save={() => {}} />))
-      .not.toContain('Datajack (Advanced)')
+      .not.toContain('Datajack (Superior)')
   } finally {
     updateSettings({ testSubjectDatajackScaling: previous })
   }
+})
+
+it('shows augmentation slot sources only when capacity is modified', () => {
+  const c: Character = { ...character([]), systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Cyborg',
+    feats: [{ name: 'Augmented Shell', type: 'Ancestry Feat', level: 1 }] }
+  const html = renderToStaticMarkup(<Augmentations c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('aria-label="Augmentation slots note"')
+  expect(html).toContain('+4 Cyborg')
+  expect(html).toContain('+2 Augmented Shell')
+  expect(html).toContain('0/10')
+  expect(renderToStaticMarkup(<Augmentations c={{ ...c, heritage: undefined, feats: [] }} entries={[]} save={() => {}} />))
+    .not.toContain('aria-label="Augmentation slots note"')
 })
 
 it('tracks daily-use augmentation pips and removes spent state with the augmentation', () => {
@@ -923,15 +933,12 @@ it('shows augmentation descriptions in the picker without installing until selec
   expect(c.augmentations).toEqual([expect.objectContaining({ entryId: augmentation.id, name: augmentation.name })])
 })
 
-it('adds the slot-free Test-Subject Datajack to Cyborg only while its house rule is enabled', () => {
+it('does not grant the Test-Subject Datajack to Cyborg', () => {
   const previous = getSettings().cyborgTestSubject
   const c: Character = { ...character([]), systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Cyborg' }
   try {
     updateSettings({ cyborgTestSubject: true })
-    const markup = renderToStaticMarkup(<Augmentations c={c} entries={[]} save={() => {}} />)
-    expect(markup).toContain('Datajack')
-    expect(markup).toContain('Augmentations <small aria-label="Augmentation capacity">0/')
-    expect(markup).not.toContain('Remove</button>')
+    expect(renderToStaticMarkup(<Augmentations c={c} entries={[]} save={() => {}} />)).not.toContain('Datajack')
     updateSettings({ cyborgTestSubject: false })
     expect(renderToStaticMarkup(<Augmentations c={c} entries={[]} save={() => {}} />)).not.toContain('Datajack')
   } finally { updateSettings({ cyborgTestSubject: previous }) }

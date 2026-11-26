@@ -696,6 +696,28 @@ it('shows Cyborg traits and its integrated comm unit without the optional house 
   } finally { updateSettings({ cyborgTestSubject: previous }); content.entries = [] }
 })
 
+it('shows Cyborg benefits for Test-Subject Ysoki only when the house rule is enabled', () => {
+  const previous = getSettings().cyborgTestSubject
+  const c: Character = { id: 'test-subject', systems: ['sf2e'], name: 'Test', level: 1, ancestry: 'Ysoki',
+    heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Extra Limbs',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  try {
+    content.entries = []
+    updateSettings({ cyborgTestSubject: true })
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    expect(markup).toContain('>Cyborg trait</a>')
+    expect(markup).toContain('>Tech trait</a>')
+    expect(markup).toContain('Comm Unit')
+    expect(markup).toContain('aria-label="Augmentation capacity">0/8</small>')
+    expect(markup).toContain('<option selected="">Extra Limbs</option>')
+    updateSettings({ cyborgTestSubject: false })
+    const disabled = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    expect(disabled).not.toContain('>Cyborg trait</a>')
+    expect(disabled).toContain('aria-label="Augmentation capacity">0/4</small>')
+  } finally { updateSettings({ cyborgTestSubject: previous }); content.entries = [] }
+})
+
 it("keeps Officer's Medical Training grant text out of the Skill Feats summary", () => {
   content.entries = []
   const c: Character = { id: 'officer', systems: ['pf2e'], name: 'Test', level: 1, className: 'Commander',
@@ -849,6 +871,10 @@ it('renders characters with many unrelated feats without blocking editor startup
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
   expect(markup).toContain('<strong>Languages</strong>')
   expect(markup).toContain('1/2: Common')
+  expect(markup).not.toContain('aria-label="Language slots note"')
+  const withIntelligence = renderToStaticMarkup(<CharacterBuilder character={{ ...c, abilities: { ...c.abilities, int: 12 } }} onClose={() => {}} />)
+  expect(withIntelligence).toContain('aria-label="Language slots note"')
+  expect(withIntelligence).toContain('+1 Intelligence')
 })
 
 it('shows the paired Bracelet of Empathy while a companion wears its collar', () => {

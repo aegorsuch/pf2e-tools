@@ -8,7 +8,7 @@ import { SensesAndSpeed, SkillsSection } from './SkillsSection'
 import { magneticLevitatorsActive, movementSpeeds, resistances, subclassOptions } from './builder'
 import { droneCustomizationSlots, droneForceField, droneStats } from './drone'
 import type { Character, ContentEntry } from './types'
-import { eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker } from './builder'
+import { eligibleFeats, featChoiceOptions, featSelectionLevel, featSelectionPrerequisiteChecker } from './builder'
 import { turretWeapon } from './mechanicTurret'
 import { ArmorList, WeaponList } from './GearSection'
 import { droneEquipmentCapacity, droneMountedWeapons, droneWeaponAttack } from './droneEquipmentRules'
@@ -512,7 +512,7 @@ it('applies Energy Neutralizer only to worn armor, scaling its choices and resis
     .filter(item => item.source === 'Energy Neutralizer')).toHaveLength(3)
   expect(resistances({ ...c, armors: [{ ...c.armors![0], worn: false }] }, [])).toEqual([])
   const html = renderToStaticMarkup(<ArmorList c={{ ...c, level: 4 }} entries={[]} save={() => {}} />)
-  expect(html).toContain('<option>cold</option>')
+  expect(html).not.toContain('<option>cold</option>')
   const drone: Character = { ...c, subclass: 'Drone', mechanicDroneChassis: 'Powerful',
     feats: [...c.feats, { name: 'Tactical Drone', type: 'Class Feat', level: 4 },
       { name: 'Advanced Drone', type: 'Class Feat', level: 8, choice: 'Burly' }],
@@ -530,11 +530,8 @@ it('offers learned Transmutative Casing materials and suppresses unavailable sav
       { name: 'Advanced Transmutative Casing', type: 'Class Feat', level: 12 }],
     mechanicWeaponMods: { 'mechanic:turret': { transmutativeCasing: 'Noqual' } } }
   const html = (character: Character) => renderToStaticMarkup(<WeaponList c={character} entries={[]} save={() => {}} displayOnly />)
-  expect(html(c)).toContain('Physical damage uses Noqual')
-  expect(html(c)).toContain('Adamantine (standard-grade)')
-  expect(html(c)).not.toContain('Hot Siccatite')
-  expect(html({ ...c, level: 10 })).not.toContain('Physical damage uses Noqual')
-  expect(html({ ...c, level: 3 })).not.toContain('Transmutative Casing')
+  expect(html(c)).not.toContain('Transmutative Casing')
+  expect(html(c)).not.toContain('Enduring Mod')
 })
 
 it('shows feat-gated resistance bypass and Glitch Pulse on weapons', () => {
@@ -542,10 +539,8 @@ it('shows feat-gated resistance bypass and Glitch Pulse on weapons', () => {
     feats: [{ name: 'Glitch Pulse', type: 'Class Feat', level: 12 }, { name: 'Exploitive Assault', type: 'Class Feat', level: 16 }],
     mechanicWeaponMods: { 'mechanic:turret': { exploitiveAssault: 'fire', glitchPulse: true } } }
   const html = (character: Character) => renderToStaticMarkup(<WeaponList c={character} entries={[]} save={() => {}} displayOnly />)
-  expect(html(c)).toContain('Ignore 16 fire resistance')
-  expect(html(c)).toContain('On a hit, Fortitude DC 34')
-  expect(html({ ...c, level: 11 })).not.toContain('Glitch Pulse')
-  expect(html({ ...c, level: 11 })).not.toContain('Exploitive Assault')
+  expect(html(c)).not.toContain('Glitch Pulse')
+  expect(html(c)).not.toContain('Exploitive Assault')
 })
 
 it('tracks High-tech Medic rig capacity and scales medical item mods', () => {
@@ -758,7 +753,7 @@ it('applies Modify to drone unarmed attacks without altering character weapons',
   const html = renderToStaticMarkup(<DroneFeatures c={c} entries={[]} save={() => {}} />)
   expect(html).toContain('1 cold splash')
   expect(html).toContain('range 60 feet')
-  expect(html).toContain('Damage customization: Drone Spark (Surveillance)')
+  expect(html).not.toContain('Damage customization: Drone Spark (Surveillance)')
   expect(droneStats({ ...c, level: 4 })?.attacks[0].damage).toBe('1d4 electricity')
 })
 
@@ -822,6 +817,9 @@ it('allows Plentiful Grenades twice only from level 14', () => {
   const slot = { category: 'class' as const, level: 12, key: 'class:12:0' }
   expect(eligibleFeats([feat], c, slot)).not.toContainEqual(feat)
   expect(eligibleFeats([feat], c, { ...slot, level: 14, key: 'class:14:0' })).toContainEqual(feat)
+  expect(featSelectionLevel(feat, c, [feat], 'class', { ...slot, level: 14 })).toBe(14)
+  expect(featSelectionLevel(feat, { ...c, feats: [] }, [feat], 'class', slot)).toBe(8)
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[{ ...feat, data: { repeatable: true } }]} save={() => {}} index={0} />)).toBe('')
   const twice = { ...c, feats: [...c.feats, { name: feat.name, type: 'Class Feat', level: 8, slot: 'class:14:0' }] }
   expect(eligibleFeats([feat], twice, { ...slot, level: 16, key: 'class:16:0' })).not.toContainEqual(feat)
 })

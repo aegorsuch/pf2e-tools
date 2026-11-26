@@ -4,7 +4,7 @@ import { newId } from './db'
 import { droneEquipmentCapacity, droneMountedWeapons, droneWeaponAttack } from './droneEquipmentRules'
 import { droneForceField } from './drone'
 import { EntryDescription } from './EntryDescription'
-import { mechanicDamageSummary, MechanicWeaponMods, upgradeDamageSummary, WeaponUpgrades } from './GearSection'
+import { mechanicDamageSummary, upgradeDamageSummary, WeaponUpgrades } from './GearSection'
 import { SearchableSelect } from './SearchableSelect'
 import { clearItemGlitching, setEnduringMod } from './mechanicEnduring'
 import type { OwnedWeapon } from './types'
@@ -46,7 +46,6 @@ export function DroneEquipment({ c, entries, save }: SectionProps) {
           {attack.range > 0 ? `; range ${attack.range} feet` : ''}.
           {attack.rank === 0 && ' Untrained in advanced weapons.'}</small>}
         {attack && <small>{attack.traits.join(', ')}.</small>}
-        {attack && <MechanicWeaponMods c={c} weapon={weapon} attack={attack} save={save} />}
         {entry && <WeaponUpgrades entries={entries} weapon={entry} upgrades={weapon.upgrades ?? []}
           limit={typeof entry.data.upgrade_slots === 'number' ? entry.data.upgrade_slots : undefined}
           onChange={upgrades => update(weapon.id, { upgrades })} />}

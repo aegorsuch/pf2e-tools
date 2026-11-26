@@ -2042,6 +2042,7 @@ it('selects Exocortex Experimenter variants without a separate choice control an
   expect(renderToStaticMarkup(<FeatChoice c={c} entries={[feat]} save={() => {}} index={0} />)).toBe('')
   search = { 'class:12:0:open': '1' }
   const second = renderToStaticMarkup(tree())
+  expect(second).toMatch(/class="feat-modal-level">L12<\/li><li[^>]*><button[^>]*aria-label="L12 Class: Exocortex Experimenter \(Turret\)"/)
   expect(second).toContain('aria-label="L12 Class: Exocortex Experimenter (Turret)"')
   expect(second).not.toContain('aria-label="L12 Class: Exocortex Experimenter (Mine)"')
   expect(second).not.toContain('aria-label="L12 Class: Exocortex Experimenter (Drone)"')

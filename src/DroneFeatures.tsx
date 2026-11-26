@@ -1,5 +1,5 @@
 import { DRONE_CUSTOMIZATIONS, droneCustomizationSlots, droneStats } from './drone'
-import { activeFeatsNamed, ranksAt, signed, weaponAttack, type SectionProps } from './builder'
+import { activeFeatsNamed, ranksAt, signed, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { DroneEquipment } from './DroneEquipment'
 import { DroneHealth } from './DroneHealth'
@@ -7,7 +7,6 @@ import { DRONE_CHASSIS, switchDroneChassis } from './droneChassis'
 import { mechanicClassDC } from './mechanicRules'
 import { DebilitatingExocortex } from './DebilitatingExocortex'
 import { EnergyNeutralizer } from './EnergyNeutralizer'
-import { MechanicWeaponMods } from './GearSection'
 import { setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
 import type { DroneCustomization, DroneCustomizationGrade } from './types'
@@ -102,19 +101,10 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
         Senses: {stats.senses}{stats.scent ? ', imprecise scent 30 feet' : ''}
         {stats.preciseHearing ? ', precise hearing 30 feet' : ''}.</small>
       <small>Skills: {stats.skills.map(skill => `${skill.name} ${signed(skill.bonus)} (${['U', 'T', 'E', 'M', 'L'][skill.rank]})`).join(', ')}.</small>
-      {stats.attacks.map(attack => {
-        const weapon = { id: attack.id, name: `Drone ${attack.name} (${c.mechanicDroneChassis})`, potency: 0, striking: 0, runes: [] }
-        const entry = { id: attack.id, name: weapon.name, kind: 'weapon' as const, level: 1, source: 'official' as const,
-          systems: ['sf2e' as const], traits: [], description: '', effects: [], updatedAt: 0,
-          data: { weapon_category: 'Unarmed', weapon_type: attack.ranged ? 'Ranged' : 'Melee',
-            damage: `1d${attack.die} ${attack.baseType}`, range: attack.ranged ? 30 : 0 } }
-        const details = weaponAttack(c, [...entries, entry], weapon)
-        return <div key={attack.id} className="col">
+      {stats.attacks.map(attack => <div key={attack.id} className="col">
           <small>{attack.name} {signed(attack.attack)}, {attack.damage}{attack.splash ? ` + ${attack.splash}` : ''}
             {attack.incapacitant ? ', nonlethal' : ''}{attack.range ? `; range ${attack.range} feet` : ''}.</small>
-          <MechanicWeaponMods c={c} weapon={weapon} attack={details} save={save} allowUnarmed />
-        </div>
-      })}
+        </div>)}
       <small>Electricity weakness {stats.electricityWeakness}; immune to bleed, death, disease, doomed, drained, fatigued,
         {active.some(item => item.name === 'Biotech Healing Circuit') ? '' : ' healing,'}
         {active.some(item => item.name === 'Sapient') ? '' : ' mental,'} nonlethal attacks, paralyzed, poison, sickened, spirit, unconscious, vitality, and void.</small>

@@ -248,6 +248,14 @@ export const PLASMA_ARRAY: ContentEntry = {
   effects: [], updatedAt: 1,
 }
 
+export const SUPERIOR_DATAJACK: ContentEntry = {
+  id: 'homebrew:superior-datajack', systems: ['sf2e'], kind: 'item', source: 'homebrew',
+  name: 'Datajack (Superior)', level: 15, traits: ['Tech'],
+  description: 'This datajack connects computers and digital storage devices directly to your nervous system. You gain a +3 item bonus to Computers checks when accessing a system with this datajack.',
+  data: { item_category: 'Augmentations', item_subcategory: 'Cybernetics', sourceBook: 'Homebrew' },
+  effects: [], updatedAt: 1,
+}
+
 export const GAUNTLET: ContentEntry = {
   ...HAFT_STRIKER_WEAPON, id: 'supplemental:full-plate-gauntlet', name: 'Gauntlet',
   traits: ['Agile', 'Free-Hand'],

@@ -7,7 +7,7 @@ import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, 
 import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
-import { KILLERS_BELT_MAJOR } from './supplemental'
+import { KILLERS_BELT_MAJOR, SUPERIOR_DATAJACK } from './supplemental'
 import { INITIATE_TRAINING } from './featChoices'
 import { SearchableSelect } from './SearchableSelect'
 
@@ -1441,11 +1441,23 @@ it('shows scaled Datajack bonuses only for system access', () => {
     expect(render(3)).not.toContain('when accessing a system with the datajack')
     expect(render(4)).toContain('when accessing a system with the datajack (+1 item; item bonuses do not stack)')
     expect(render(8)).toContain('when accessing a system with the datajack (+2 item; item bonuses do not stack)')
+    expect(render(14)).toContain('when accessing a system with the datajack (+2 item; item bonuses do not stack)')
+    expect(render(15)).toContain('when accessing a system with the datajack (+3 item; item bonuses do not stack)')
     updateSettings({ testSubjectDatajackScaling: false })
     expect(render(8)).not.toContain('when accessing a system with the datajack')
   } finally {
     updateSettings({ testSubjectDatajackScaling: previous })
   }
+})
+
+it('applies the installed Superior Datajack only to system access', () => {
+  const c: Character = { ...base, systems: ['sf2e'], level: 15, className: 'Mechanic',
+    augmentations: [{ id: 'datajack', entryId: SUPERIOR_DATAJACK.id, name: SUPERIOR_DATAJACK.name, slot: 'standard' }] }
+  const html = renderToStaticMarkup(<SkillsSection c={c} entries={[mechanic, SUPERIOR_DATAJACK]} save={() => {}} part="skills" />)
+  expect(html).toContain('when accessing a system with the datajack (+3 item; item bonuses do not stack)')
+  expect(html).toContain('Datajack (Superior)')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...c, augmentations: [] }} entries={[mechanic, SUPERIOR_DATAJACK]}
+    save={() => {}} part="skills" />)).not.toContain('when accessing a system with the datajack')
 })
 
 it('omits specified use toggles from Offense while retaining unrelated ones', () => {

@@ -27,7 +27,7 @@ vi.mock('dexie', () => ({
 }))
 
 import { ensureSupplementalContent } from './db'
-import { FIST, homebrewWeapons, PLASMA_ARRAY } from './supplemental'
+import { FIST, homebrewWeapons, PLASMA_ARRAY, SUPERIOR_DATAJACK } from './supplemental'
 
 const staleVersatileEnvoy = {
   id: 'homebrew:versatile-envoy',
@@ -100,6 +100,11 @@ it('installs the bundled Plasma Array in existing databases', async () => {
   await ensureSupplementalContent()
 
   expect(mocks.content.add).toHaveBeenCalledWith(PLASMA_ARRAY)
+})
+
+it('installs the bundled Superior Datajack in existing databases', async () => {
+  await ensureSupplementalContent()
+  expect(mocks.content.add).toHaveBeenCalledWith(SUPERIOR_DATAJACK)
 })
 
 it('refreshes generated Focus Rifle traits in existing installs', async () => {

@@ -322,15 +322,16 @@ it('computes feat equivalence only for eligible candidates and reuses it across 
   expect(readRules).toHaveBeenCalledTimes(reads)
 })
 
-it('refreshes cached automatic grants when house rules change', () => {
+it('refreshes heritage eligibility when the house rule changes', () => {
   const previous = getSettings().cyborgTestSubject
-  const c: Character = { ...base, systems: ['sf2e'], heritage: 'Cyborg', level: 1 }
-  const entries: ContentEntry[] = []
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki', level: 1 }
+  const frame = { ...entry('feat', 'Gg-os Frame', {}, 1, ['Cyborg']), systems: ['sf2e' as const] }
+  const slot = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
   try {
     updateSettings({ cyborgTestSubject: true })
-    expect(automaticFeatGrants(c, entries)).toContainEqual(expect.objectContaining({ name: 'Assurance', choice: 'Computers' }))
+    expect(eligibleFeats([frame], c, slot)).toContain(frame)
     updateSettings({ cyborgTestSubject: false })
-    expect(automaticFeatGrants(c, entries)).not.toContainEqual(expect.objectContaining({ name: 'Assurance', choice: 'Computers' }))
+    expect(eligibleFeats([frame], c, slot)).not.toContain(frame)
   } finally { updateSettings({ cyborgTestSubject: previous }) }
 })
 
@@ -844,6 +845,21 @@ it('offers Arcane Locomotion climb and swim variants granting a 20 foot Speed', 
 })
 
 it.each([
+  ['Fins', 20], ['Fins (Commercial)', 20], ['Fins (Tactical)', 30],
+  ['Fins (Advanced)', 40], ['Fins (Superior)', 60],
+] as const)('adds %s swim speed without a deployment toggle', (name, feet) => {
+  const fins = { ...entry('item', name, { item_category: 'Augmentations' }), systems: ['sf2e' as const],
+    description: 'While deployed, you gain a swim Speed of 20 feet. The swim Speed is 60 feet.' }
+  const c: Character = { ...base, systems: ['sf2e'],
+    augmentations: [{ id: 'fins', entryId: fins.id, name, slot: 'standard' }] }
+  expect(movementSpeeds(c, [fins])).toContainEqual(expect.objectContaining({
+    name: 'Swim', feet, source: expect.stringContaining(name),
+  }))
+  expect(movementSpeeds(c, []).some(movement => movement.name === 'Swim')).toBe(false)
+  expect(movementSpeeds({ ...c, systems: ['pf2e'] }, [fins]).some(movement => movement.name === 'Swim')).toBe(false)
+})
+
+it.each([
   ['Quick Climb', 'Climb'],
   ['Quick Swim', 'Swim'],
 ] as const)('grants land-speed %s movement with Legendary Athletics', (feat, mode) => {
@@ -1049,25 +1065,53 @@ it('applies Test-Subject Ysoki and Rat Retinal HUD training without duplicating 
   expect(featPrerequisiteChecker({ ...c, testSubjectAdaptation: 'Radioactive' }, [telepathicFeat])(telepathicFeat).missing).not.toEqual([])
 })
 
-it('grants Cyborg the cybernetic Test-Subject benefits only while the house rule is enabled', () => {
+it('grants Test-Subject Ysoki Cyborg eligibility and benefits without granting Test-Subject to Cyborg', () => {
   const previous = getSettings().cyborgTestSubject
-  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Cyborg', className: 'Operative', background: undefined }
-  const operative = { ...entry('class', 'Operative', { skill_proficiency: 'Trained in Computers, Trained in a number of additional skills equal to 2 plus your Intelligence modifier' }), systems: ['sf2e' as const] }
-  const heritage = { ...entry('heritage', 'Test-Subject Ysoki'), systems: ['sf2e' as const] }
-  const gated = { ...entry('feat', 'Heritage Gate', { prerequisite: 'Test-Subject Ysoki heritage' }), systems: ['sf2e' as const] }
+  const c: Character = { ...base, level: 1, systems: ['sf2e'], ancestry: 'Ysoki',
+    heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Extra Limbs', feats: [] }
+  const cyborg = { ...entry('heritage', 'Cyborg'), systems: ['sf2e' as const] }
+  const gated = { ...entry('feat', 'Heritage Gate', { prerequisite: 'Cyborg heritage' }), systems: ['sf2e' as const] }
+  const entries = [cyborg, gated]
   try {
     updateSettings({ cyborgTestSubject: true })
-    expect(ranksAt(c, [operative]).Computers).toBe(1)
-    expect(additionalSkillCount(c, [operative])).toBe(3)
-    expect(automaticFeatGrants(c, [operative])).toContainEqual({ name: 'Assurance', choice: 'Computers', source: 'Test-Subject Ysoki', level: 1 })
-    expect(featPrerequisiteChecker(c, [heritage, gated])(gated).missing).toEqual([])
-    expect(ranksAt({ ...c, className: undefined }, []).Computers).toBe(1)
+    expect(featPrerequisiteChecker(c, entries)(gated).missing).toEqual([])
+    expect(featChoices.ancestryFeatTraits(c)).toContain('cyborg')
+    expect(automaticFeatGrants(c, [])).not.toContainEqual(expect.objectContaining({ source: 'Test-Subject Ysoki' }))
+    const former = { ...c, heritage: 'Cyborg', testSubjectAdaptation: 'Cybernetic Augmentation' as const }
+    expect(automaticFeatGrants(former, [])).not.toContainEqual(expect.objectContaining({ source: 'Test-Subject Ysoki' }))
+    expect(featChoices.ancestryFeatTraits(former)).not.toContain('test-subject ysoki')
     updateSettings({ cyborgTestSubject: false })
-    expect(additionalSkillCount(c, [operative])).toBe(2)
-    expect(automaticFeatGrants(c, [operative])).not.toContainEqual(expect.objectContaining({ source: 'Test-Subject Ysoki' }))
-    expect(featPrerequisiteChecker(c, [heritage, gated])(gated).missing).not.toEqual([])
-    expect(ranksAt({ ...c, className: undefined }, []).Computers ?? 0).toBe(0)
+    expect(featPrerequisiteChecker(c, entries)(gated).missing).not.toEqual([])
+    expect(featChoices.ancestryFeatTraits(c)).not.toContain('cyborg')
+    expect(featChoices.ancestryFeatTraits({ ...c, heritage: 'Cyborg' })).toContain('cyborg')
+    updateSettings({ cyborgTestSubject: true })
+    expect(featChoices.ancestryFeatTraits({ ...c, level: 0 })).not.toContain('cyborg')
+    expect(featChoices.ancestryFeatTraits({ ...c, ancestry: 'Human' })).not.toContain('cyborg')
+    expect(featChoices.ancestryFeatTraits({ ...c, systems: ['pf2e'] })).not.toContain('cyborg')
   } finally { updateSettings({ cyborgTestSubject: previous }) }
+})
+
+it('grants Cyberborn Test-Subject Cyborgs one additional first-level general feat slot', () => {
+  const previous = getSettings()
+  const c: Character = { ...base, level: 1, systems: ['sf2e'], ancestry: 'Ysoki',
+    heritage: 'Test-Subject Ysoki', background: 'Cyberborn', feats: [] }
+  const general = { ...entry('feat', 'Fleet', {}, 1, ['General']), systems: ['sf2e' as const] }
+  const slot = 'general:1:cyberborn-test-subject'
+  try {
+    updateSettings({ cyborgTestSubject: true, cyberbornTestSubjectFeat: true })
+    const granted = plannedSlots(c).find(item => item.key === slot)!
+    expect(granted).toMatchObject({ category: 'general', level: 1, maxFeatLevel: 1 })
+    expect(eligibleFeats([general], c, granted)).toContain(general)
+    expect(plannedSlots({ ...c, level: 20 }).filter(item => item.key === slot)).toHaveLength(1)
+    for (const other of [{ ...c, background: undefined }, { ...c, ancestry: 'Human' },
+      { ...c, heritage: 'Cyborg' }, { ...c, systems: ['pf2e' as const] }, { ...c, level: 0 }]) {
+      expect(plannedSlots(other).some(item => item.key === slot)).toBe(false)
+    }
+    updateSettings({ cyborgTestSubject: false })
+    expect(plannedSlots(c).some(item => item.key === slot)).toBe(false)
+    updateSettings({ cyborgTestSubject: true, cyberbornTestSubjectFeat: false })
+    expect(plannedSlots(c).some(item => item.key === slot)).toBe(false)
+  } finally { updateSettings(previous) }
 })
 
 it('applies Cyborg frame training, granted feats, and selected resistance', () => {
@@ -1076,7 +1120,7 @@ it('applies Cyborg frame training, granted feats, and selected resistance', () =
       { name: 'Deflective Plating', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0', choice: 'Fire' },
       { name: 'Data Retrieval', type: 'Ancestry Feat', level: 5, slot: 'ancestry:9:0' }] }
   const operative = { ...entry('class', 'Operative', { skill_proficiency: 'Trained in Computers, Trained in a number of additional skills equal to 2 plus your Intelligence modifier' }), systems: ['sf2e' as const] }
-  expect(additionalSkillCount(c, [operative])).toBe(4)
+  expect(additionalSkillCount(c, [operative])).toBe(3)
   expect(automaticFeatGrants(c, [operative])).toEqual(expect.arrayContaining([
     { name: 'Phreaker', source: 'X-hat Firewalker Frame', level: 1 },
     { name: 'Open-Source Research', source: 'Data Retrieval', level: 9 },
@@ -3300,6 +3344,10 @@ describe('languageAllowance', () => {
     const list = [entry('ancestry', 'Elf', { language: 'Common, Elven' })]
     const c = { ...base, ancestry: 'Elf', className: 'Druid', abilities: { ...base.abilities, int: 14 }, feats: [{ name: 'Multilingual', type: 'General Feat', level: 1 }] }
     expect(languageAllowance(c, list)).toMatchObject({ locked: ['Common', 'Elven', 'Wildsong'], slots: 5 })
+    expect(languageAllowance(c, list).slotSources).toEqual(expect.arrayContaining([
+      { source: 'Intelligence', value: 2 }, { source: 'Multilingual', value: 2 },
+    ]))
+    expect(languageAllowance({ ...c, abilities: { ...c.abilities, int: 10 }, feats: [] }, list).slotSources).toEqual([])
   })
 
   it('grants Natural Performer training and a first-level Performance feat slot', () => {

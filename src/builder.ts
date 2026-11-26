@@ -497,18 +497,32 @@ export const activeFeatsNamed = (c: Character, name: string) => {
   }
   return active
 }
-export const hasCyborgHeritage = (c: Character) => c.level >= 1 && c.systems.includes('sf2e') && c.heritage === 'Cyborg'
-export const cyborgTestSubject = (c: Character) => hasCyborgHeritage(c) && getSettings().cyborgTestSubject
+export const hasCyborgHeritage = (c: Character) => c.level >= 1 && c.systems.includes('sf2e')
+  && (c.heritage === 'Cyborg' || getSettings().cyborgTestSubject
+    && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki')
 export const testSubjectAdaptation = (c: Character) =>
-  cyborgTestSubject(c) ? 'Cybernetic Augmentation'
-    : c.level >= 1 && c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki'
-      ? c.testSubjectAdaptation : undefined
+  c.level >= 1 && c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki'
+    ? c.testSubjectAdaptation : undefined
 export function testSubjectDatajack(c: Character) {
   if (testSubjectAdaptation(c) !== 'Cybernetic Augmentation') return undefined
   if (!getSettings().testSubjectDatajackScaling) return { name: 'Datajack', bonus: 0 }
-  return c.level >= 8 ? { name: 'Datajack (Advanced)', bonus: 2 }
+  return c.level >= 15 ? { name: 'Datajack (Superior)', bonus: 3 }
+    : c.level >= 8 ? { name: 'Datajack (Advanced)', bonus: 2 }
     : c.level >= 4 ? { name: 'Datajack (Tactical)', bonus: 1 }
       : { name: 'Datajack (Commercial)', bonus: 0 }
+}
+export function datajackBonus(c: Character, entries: ContentEntry[]) {
+  if (!c.systems.includes('sf2e')) return undefined
+  const bonuses: Record<string, number> = { 'Datajack (Tactical)': 1, 'Datajack (Advanced)': 2, 'Datajack (Superior)': 3 }
+  const installed = (c.augmentations ?? []).flatMap(item => {
+    const entry = entries.find(candidate => candidate.id === item.entryId && !candidate.deleted
+      && candidate.kind === 'item' && candidate.systems.includes('sf2e')
+      && candidate.data.item_category === 'Augmentations' && candidate.name === item.name)
+    const bonus = entry && bonuses[entry.name]
+    return bonus ? [{ name: entry.name, bonus }] : []
+  })
+  const granted = testSubjectDatajack(c)
+  return [...installed, ...(granted ? [granted] : [])].sort((a, b) => b.bonus - a.bonus)[0]
 }
 export function officerEducationSlots(c: Character) {
   let unslotted = 0
@@ -522,13 +536,29 @@ export function signiferExpertSlots(c: Character) {
   const feat = activeFeatsNamed(c, 'Hellknight Signifer Preferment')[0]
   return feat ? [{ key: `signifer-preferment:${feat.slot ?? 'unslotted'}`, level: featTakenLevel(feat), skills: SIGNIFER_SKILLS }] : []
 }
-export function augmentationLimit(c: Character) {
+export function augmentationLimitSources(c: Character) {
   const count = (name: string) => activeFeatsNamed(c, name).length
-  const augmentedBody = count('Augmented Body') + count('Transgnomanist') + count('Augmented Dedication')
-  return 4 + 4 * Number(hasCyborgHeritage(c)) + 2 * count('Augmented Shell') + count('Reconfigurable Frame')
-    + count('Easily Augmented') * (c.heritage?.toLowerCase() === 'synthflesh verthani' ? 2 : 1)
-    + 2 * (count('Augmented Dedication') + count('Augmented Perfection'))
-    + (getSettings().singleAugmentedBody ? Math.min(1, augmentedBody) : augmentedBody) + count('Adapted Augmentations')
+  const body = ['Augmented Body', 'Transgnomanist', 'Augmented Dedication']
+    .flatMap(name => Array.from({ length: count(name) }, () => name))
+  const counts = [
+    { source: 'Cyborg', value: hasCyborgHeritage(c) ? 4 : 0 },
+    { source: 'Augmented Shell', value: 2 * count('Augmented Shell') },
+    { source: 'Reconfigurable Frame', value: count('Reconfigurable Frame') },
+    { source: 'Easily Augmented', value: count('Easily Augmented') * (c.heritage?.toLowerCase() === 'synthflesh verthani' ? 2 : 1) },
+    { source: 'Augmented Dedication', value: 2 * count('Augmented Dedication') },
+    { source: 'Augmented Perfection', value: 2 * count('Augmented Perfection') },
+    ...[...new Set(body)].map(source => ({ source, value: (getSettings().singleAugmentedBody ? body.slice(0, 1) : body).filter(name => name === source).length })),
+    { source: 'Adapted Augmentations', value: count('Adapted Augmentations') },
+  ]
+  return counts.filter(item => item.value > 0).reduce<{ source: string; value: number }[]>((result, item) => {
+    const existing = result.find(source => source.source === item.source)
+    if (existing) existing.value += item.value
+    else result.push({ ...item })
+    return result
+  }, [])
+}
+export function augmentationLimit(c: Character) {
+  return 4 + augmentationLimitSources(c).reduce((total, item) => total + item.value, 0)
 }
 export function augmentationLimitUsed(c: Character) {
   // Saved feat-specific slots now count as ordinary implants.
@@ -856,6 +886,12 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
       slots.push({ key: 'class:1:fury-instinct', category: 'class', level: 1, maxFeatLevel: 1, grantedBy: 'Fury Instinct' })
     }
   }
+  if (getSettings().cyberbornTestSubjectFeat && c.background === 'Cyberborn'
+    && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki' && hasCyborgHeritage(c)) {
+    if (!groupOrder.has('general:1')) groupOrder.set('general:1', groupOrder.size)
+    slots.push({ key: 'general:1:cyberborn-test-subject', category: 'general', level: 1,
+      maxFeatLevel: 1, grantedBy: 'Cyberborn Test-Subject' })
+  }
   if (c.systems.includes('pf2e') && c.className === 'Investigator') {
     for (const level of range(3, 19, 2).filter(level => level <= c.level)) {
       if (!groupOrder.has(`skill:${level}`)) groupOrder.set(`skill:${level}`, groupOrder.size)
@@ -1068,7 +1104,7 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
     || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon'
     || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'Pitborn' || slot.grantedBy === 'Scion of Many Planes' || slot.grantedBy === 'In Another Life' || slot.grantedBy === "Operative's Specialization"
-    || slot.grantedBy === 'Versatile Operative' || slot.grantedBy === 'Sniper' || !!slot.grantedAncestry)
+    || slot.grantedBy === 'Versatile Operative' || slot.grantedBy === 'Sniper' || slot.grantedBy === 'Cyberborn Test-Subject' || !!slot.grantedAncestry)
   for (const slot of slots) {
     if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
   }
@@ -1312,6 +1348,10 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
   }
   if (entry.name === 'Ubiquitous Gadgets' && category === 'class' && slot && slot.level >= 14
     && c.feats.filter(feat => feat.name === entry.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1) return 14
+  if (entry.name === 'Exocortex Experimenter' && entry.systems.includes('sf2e') && category === 'class' && slot
+    && c.feats.some(feat => feat.name === entry.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level)) return 12
+  if (entry.name === 'Plentiful Grenades' && entry.systems.includes('sf2e') && category === 'class' && slot
+    && c.feats.some(feat => feat.name === entry.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level)) return 14
   if (entry.name === 'Rupture Stomp' && entry.systems.includes('pf2e') && slot && slot.level >= 16
     && c.feats.filter(feat => feat.name === entry.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1) return 16
   const classArchetype = category === 'class' && !entry.traits.some(trait => trait.toLowerCase() === c.className?.toLowerCase())
@@ -3673,6 +3713,15 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
   }
   for (const item of c.systems.includes('sf2e') ? c.augmentations ?? [] : []) {
     const entry = entries.find(candidate => candidate.id === item.entryId)
+    const fins = /^Fins(?: \((Commercial|Tactical|Advanced|Superior)\))?$/i.exec(item.name)
+    if (entry && !entry.deleted && entry.kind === 'item' && entry.systems.includes('sf2e')
+      && entry.name === item.name && fins) {
+      const grade = fins[1]?.toLowerCase()
+      const feet = grade === 'superior' ? 60 : grade === 'advanced' ? 40 : grade === 'tactical' ? 30 : 20
+      const mobility = activeFeatsNamed(c, 'Augmented Mobility').length ? 5 : 0
+      movement.push(fixed('Swim', feet + mobility, `${item.name}: when deployed, unencumbered, and wearing no more than light armor${mobility ? ', Augmented Mobility (+5 feet)' : ''}`))
+      continue
+    }
     if (!entry || /\bdeployed\b/i.test(entry.description) && !item.deployed) continue
     const armor = wornArmor(c, entries)
     const armorItem = armor && armorEntry(c, entries, armor.name, armor.id)
@@ -10384,17 +10433,20 @@ export function languageAllowance(c: Character, entries: ContentEntry[]) {
     .filter((g) => known.has(g.lang.toLowerCase()))
   const fromFeats = featGrants.map((g) => g.lang)
   const heritageSlots = heritages.flatMap(heritage =>
-    typeof heritage.data.grants_language_slots === 'string' ? heritage.data.grants_language_slots.split(';') : [])
-    .reduce((total, grant) => {
+    (typeof heritage.data.grants_language_slots === 'string' ? heritage.data.grants_language_slots.split(';') : [])
+    .map(grant => {
       const [level, count] = grant.split(':').map(Number)
-      return Number.isInteger(level) && level <= c.level && Number.isInteger(count) ? total + count : total
-    }, 0)
-  const grantsMultilingual = heritages.some(heritage =>
+      return { source: heritage.name, value: Number.isInteger(level) && level <= c.level && Number.isInteger(count) ? count : 0 }
+    }))
+  const multilingualGrantSources = [
+    ...heritages.filter(heritage =>
     typeof heritage.data.grants_heritage_feats === 'string'
-      && heritage.data.grants_heritage_feats.split(';').includes('Multilingual'))
-    || c.feats.some(feat => featTakenLevel(feat) <= c.level
-      && tokens(selectedFeatEntry(c, entries, feat.name, feat.sourceId)?.data.grants_feats).includes('Multilingual'))
-  const multilingualCount = Math.max(activeFeatsNamed(c, 'Multilingual').length, grantsMultilingual ? 1 : 0)
+      && heritage.data.grants_heritage_feats.split(';').includes('Multilingual')).map(heritage => heritage.name),
+    ...c.feats.filter(feat => featTakenLevel(feat) <= c.level
+      && tokens(selectedFeatEntry(c, entries, feat.name, feat.sourceId)?.data.grants_feats).includes('Multilingual')).map(feat => feat.name),
+  ]
+  const selectedMultilingual = activeFeatsNamed(c, 'Multilingual').length
+  const multilingualCount = Math.max(selectedMultilingual, multilingualGrantSources.length ? 1 : 0)
   const polyglotBonus = heritages.some(heritage => heritage.name === 'Polyglot Android')
     && multilingualCount > 0 ? 1 : 0
   const sources: Record<string, string> = Object.fromEntries([
@@ -10408,9 +10460,18 @@ export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const society = ranksAt(c, entries).Society ?? 0
   const prodigy = !!activeFeatsNamed(c, 'Linguistic Prodigy').length
   const polyglot = c.systems.includes('pf2e') && !!activeFeatsNamed(c, 'Gnome Polyglot').length
-  const feats = (prodigy ? 2 : 0) + (polyglot ? 3 : 0) + multilingualCount
-    * (2 + (society >= 3 ? 1 : 0) + (society >= 4 ? 1 : 0) + (prodigy ? 1 : 0) + (polyglot ? 1 : 0))
   const commonOnlySlots = officerEducationSlots(c).length
-  return { locked, sources, commonOnlySlots, slots: 1 + Math.max(0, abilityMod(c.abilities.int)) + feats + heritageSlots + polyglotBonus
-    + activeFeatsNamed(c, 'Ancestral Linguistics').length + commonOnlySlots }
+  const slotSources = [
+    { source: 'Intelligence', value: Math.max(0, abilityMod(c.abilities.int)) },
+    ...heritageSlots,
+    { source: multilingualGrantSources.length && !selectedMultilingual
+      ? `Multilingual (${multilingualGrantSources.join(', ')})` : 'Multilingual', value: multilingualCount * 2 },
+    { source: 'Society proficiency (Multilingual)', value: multilingualCount * (Number(society >= 3) + Number(society >= 4)) },
+    { source: 'Linguistic Prodigy', value: prodigy ? 2 + multilingualCount : 0 },
+    { source: 'Gnome Polyglot', value: polyglot ? 3 + multilingualCount : 0 },
+    { source: 'Polyglot Android', value: polyglotBonus },
+    { source: 'Ancestral Linguistics', value: activeFeatsNamed(c, 'Ancestral Linguistics').length },
+    { source: "Officer's Education", value: commonOnlySlots },
+  ].filter(item => item.value !== 0)
+  return { locked, sources, commonOnlySlots, slotSources, slots: 1 + slotSources.reduce((total, item) => total + item.value, 0) }
 }

@@ -30,7 +30,6 @@ import { ARMIGER_ARMOR_ID, automaticArmorFundamentals, automaticArmorPropertyRun
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, IRON_FIST, OVERSIZED_THROW, SPARK_FIST, UNTAMED_CLAWS } from './supplemental'
 import { supportsMeleeWeaponUpgrade } from './builder'
 import { ENERGIZED_SPIKES_ENERGIES, ENERGY_SHIELDING_TYPES, type Character, type ContentEntry, type EnergyShieldingType, type EnergizedSpikesEnergy, type HardlightGrade, type OwnedArmor, type OwnedShield, type OwnedWeapon } from './types'
-import { EnergyNeutralizer } from './EnergyNeutralizer'
 import { TransmutativeCasing } from './TransmutativeCasing'
 import { ExploitiveAssault } from './ExploitiveAssault'
 import { mechanicClassDC } from './mechanicRules'
@@ -47,7 +46,7 @@ import { fulminatingShotDamage } from './fulminatingShot'
 import { ANCESTRAL_AVATAR } from './battleForms'
 import { spellActiveChange } from './builder'
 import { shieldEntry } from './builder'
-import { intensifiedElementDamage, inventiveOffensiveOptions, ranksAt, testSubjectDatajack } from './builder'
+import { augmentationLimitSources, intensifiedElementDamage, inventiveOffensiveOptions, ranksAt, testSubjectDatajack } from './builder'
 import { itemSpells, itemSpellUses, presenceIntensifierUsageKey } from './itemSpells'
 import { AUTOMATIC_JETPACK_ID, armorUpgradeSlots, automaticArmorUpgradeSlotsUsed, automaticSpecificArmorUpgrades, jetpackSpeed } from './builder'
 import { weaponGradeFamily } from './builder'
@@ -184,6 +183,7 @@ export function Augmentations({ c, entries, save }: SectionProps) {
     ...installed.map(item => ({ kind: 'installed' as const, item })),
   ].sort((a, b) => a.item.name.localeCompare(b.item.name))
   const limit = augmentationLimit(c)
+  const limitSources = augmentationLimitSources(c)
   const standardUsed = augmentationLimitUsed(c)
   const options = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
     && String(entry.data.item_category).toLowerCase() === 'augmentations')
@@ -194,7 +194,9 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const installable = options.filter(entry => canInstallAugmentation(c, entry, 'standard'))
   const shownOptions = apexOnly ? installable.filter(isApex) : installable
   return <section className="equipment-group" aria-label="Augmentations">
-    <h4>Augmentations <small aria-label="Augmentation capacity">{standardUsed}/{limit}</small></h4>
+    <h4>Augmentations <small aria-label="Augmentation capacity">{standardUsed}/{limit}</small>
+      {limitSources.length > 0 && <SourceNote source="Augmentation slots"
+        note={limitSources.map(item => `+${item.value} ${item.source}`).join('; ')} />}</h4>
     {standardUsed > limit && <small role="status">Installed augmentations exceed your current implant limit.</small>}
     <ul>{displayed.map(({ kind, item }) => {
       if (kind === 'granted') return <li key={`granted:${item.source}:${item.name}`}><EntryDescription name={item.name}
@@ -947,7 +949,7 @@ export function GrenadeSpecialist({ c, entries, save }: SectionProps) {
   const preparations = c.grenadePreparations ?? []
   const used = c.grenadeUsed ?? []
   return <div className="col">
-    <h4>Grenade Specialist</h4>
+    <h4>Grenade Specialist <small aria-label="Prepared grenades">{preparations.slice(0, limits.prepared).filter(Boolean).length}/{limits.prepared}</small></h4>
     {Array.from({ length: limits.prepared }, (_, index) => {
       const current = preparations[index] ?? ''
       const grenade = candidates.find(entry => entry.name === current)
@@ -1670,7 +1672,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               : linkedSource ? `Inherited from ${linkedSource.name}` : unarmed ? `Inherited from ${handwrapItem.name}` : undefined} />}
           <AttackUpgrades attack={a} />
           {namedSource !== 'Serithtial' && namedWeaponNotes}
-          <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
           {attackSummaries.map(summary => summary.attack.range > 0 && !inlineRange(summary) && !summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim()))
             && <small key={`${summary.form ?? 'weapon'}-range`}>{summary.form ? `${summary.form} range` : 'Range'} {summary.attack.range} feet</small>)}
           {avengerNote && <small>{avengerNote}</small>}
@@ -1745,7 +1746,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             </div>)}
             {!(upgradeWeapon && a.entry && !linkedSource) && <AttackUpgrades attack={a} />}
             {namedWeaponNotes}
-            <MechanicWeaponMods c={c} weapon={w} attack={a} save={save} />
             {!!crushing && <small>{`Critical hit: clumsy ${crushing} and enfeebled ${crushing} until the end of your next turn.`}</small>}
             {strength && <>
               {!a.upgrades.some(upgrade => upgrade.name === 'Merciful') && <small>Critical hit: 1d6 persistent bleed (Animal Strength).</small>}
@@ -1880,7 +1880,6 @@ function TurretWeapon({ c, entries, save, displayOnly }: SectionProps & { displa
     {attack.traits.length > 0 && <GearTraits traits={attack.traits} entries={entries} system={entry.systems[0]} />}
     <small>{entry.data.weapon_group as string}.</small>
     {displayOnly && <AttackUpgrades attack={attack} />}
-    <MechanicWeaponMods c={c} weapon={weapon} attack={attack} save={save} />
     {!displayOnly && <>
       <label>Turret grade{' '}
         <select aria-label="Turret grade" value={grade} onChange={event => {
@@ -2184,28 +2183,6 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               {[...INVENTOR_SUITS].sort((a, b) => a.localeCompare(b)).map(name => <option key={name}>{name}</option>)}
             </SearchableSelect>}
             {a.id === INVENTOR_ARMOR_ID && <ArmorModifications c={c} entries={entries} save={save} />}
-            {c.className === 'Mechanic' && c.systems.includes('sf2e') && <label>
-              <input type="checkbox" checked={!!c.mechanicArmorMods?.[a.id]?.magneticLevitators}
-                onChange={event => save({ mechanicArmorMods: { ...c.mechanicArmorMods,
-                  [a.id]: { ...c.mechanicArmorMods?.[a.id], magneticLevitators: event.target.checked } },
-                  ...(!event.target.checked && c.mechanicEnduringMod?.kind === 'armor'
-                    && c.mechanicEnduringMod.item === a.id && c.mechanicEnduringMod.mod === 'magneticLevitators'
-                    ? { mechanicEnduringMod: undefined } : {}) })} />
-              {' '}Magnetic Levitators (Modify)
-            </label>}
-            {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.level >= 13 && <label>
-              <input type="checkbox" aria-label={`Enduring Magnetic Levitators: ${labelName}`}
-                checked={c.mechanicEnduringMod?.kind === 'armor' && c.mechanicEnduringMod.item === a.id
-                  && c.mechanicEnduringMod.mod === 'magneticLevitators'}
-                onChange={event => save(setEnduringMod(c, event.target.checked
-                  ? { kind: 'armor', item: a.id, mod: 'magneticLevitators', label: labelName } : undefined))} />
-              {' '}Enduring Magnetic Levitators
-            </label>}
-            {c.mechanicArmorMods?.[a.id]?.magneticLevitators && c.className === 'Mechanic'
-              && c.systems.includes('sf2e') && <SourceNote source="Magnetic Levitators"
-                note="Land Speed gains hover; Fly Speed 10 feet while worn." />}
-            <EnergyNeutralizer c={c} save={save} id={a.id} label={labelName} />
-            <ItemTroubleshoot c={c} save={save} kind="armor" id={a.id} label={labelName} />
             {displayEntryWithUnit?.description && !entry?.data.named_armor && <small>{displayEntryWithUnit.description}</small>}
             <NamedArmorAbilities entry={displayEntryWithUnit} inlineSummary activations={activations}
               damageRolls={['Rebounding Breastplate', 'Rebounding Full Plate', 'Rebounding Bastion Plate'].includes(a.name) ? {

@@ -272,6 +272,7 @@ it('grants common grenade formulas and scales daily grenades with Crafting and P
   expect(formulas).toContain('Grenade formula 2')
   expect(formulas).not.toContain('Rare Grenade (Level 1)')
   const prepared = renderToStaticMarkup(<GrenadeSpecialist c={character} entries={catalog} save={() => {}} />)
+  expect(prepared).toContain('aria-label="Prepared grenades">1/8</small>')
   expect(prepared.match(/<select aria-label="Prepared grenade \d"/g)).toHaveLength(8)
   expect(prepared).toContain('Frag Grenade (Level 1)')
   expect(prepared).not.toContain('High Grenade (Level 15)')

@@ -9,6 +9,7 @@ export interface Settings {
   disableAncientElfMultitalented: boolean
   disableBeastmasterWardenSpells: boolean
   exclusiveCyborgHearts: boolean
+  cyberbornTestSubjectFeat: boolean
   // House rule: skills a class (or druid order) grants also rank up for free as the level allows
   autoClassSkills: boolean
   sf2eDeitySkills: boolean
@@ -98,7 +99,7 @@ const KEY = 'app-settings'
 const DEFAULTS: Settings = {
   singleAdditionalArms: true, singleAugmentedBody: true, singleDistantTelepath: true, adoptedDwarfClanDagger: true,
   disableAdoptedAncestry: true, disableAncientElfMultitalented: true, disableBeastmasterWardenSpells: true,
-  exclusiveCyborgHearts: true, autoClassSkills: false, sf2eDeitySkills: true, orderExplorerSkills: true,
+  exclusiveCyborgHearts: true, cyberbornTestSubjectFeat: true, autoClassSkills: false, sf2eDeitySkills: true, orderExplorerSkills: true,
   autoLores: false, deityLore: true, freeArchetype: true, ignoreArchetypeFeatMinimums: true, rangerSnarecrafter: false,
   warriorLegendClearTheWay: true, orcTattooedHistorian: true, dwarfStalwartDefender: true,
   bardAnimalTrainer: true, bardBeastmaster: true, bardCavalier: true, envoyFieldAgent: true, envoyAugmented: true, mysticFieldAgent: true,
