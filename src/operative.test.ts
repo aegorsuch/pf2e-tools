@@ -276,10 +276,11 @@ it('uses Dexterity for class DC and applies speed and initiative progression', (
 })
 
 it('applies specialization-specific weapon effects only to eligible weapons', () => {
-  const sniper = { ...simpleGun, traits: ['Tech', 'Unwieldy', 'Volley 30 feet'], data: { ...simpleGun.data, weapon_group: 'Sniper' } }
+  const sniper = { ...simpleGun, traits: ['Unwieldy', 'Volley 30 ft.'], data: { ...simpleGun.data, weapon_group: 'Sniper' } }
   expect(attack({ ...base, level: 9 }, sniper).traits).not.toContain('Unwieldy')
-  expect(attack({ ...base, level: 9 }, sniper).traits).not.toContain('Volley 30 feet')
+  expect(attack({ ...base, level: 9 }, sniper).traits).not.toContain('Volley 30 ft.')
   expect(attack({ ...base, level: 9, subclass: 'Ghost' }, sniper).traits).toContain('Unwieldy')
+  expect(attack({ ...base, level: 9, subclass: 'Ghost' }, sniper).traits).toContain('Volley 30 ft.')
   expect(attack({ ...base, level: 9 }, sniper).breakdown.notes?.join(' ')).toContain('first failed ranged Strike')
   expect(attack({ ...base, level: 17, subclass: 'Skirmisher' }, simpleGun).breakdown.notes?.join(' '))
     .toContain('two lowest-rolled weapon damage dice')

@@ -820,7 +820,7 @@ it('provides a scaling laser Focus Rifle in the Starfinder Sniper group', () => 
   const homebrew = homebrewWeapons([laser, advanced])
   const focusRifle = homebrew.find(entry => entry.name === 'Laser Focus Rifle')!
   const entries = [laser, advanced, ...homebrew]
-  expect(focusRifle).toMatchObject({ source: 'homebrew', traits: ['Tech'], data: {
+  expect(focusRifle).toMatchObject({ source: 'homebrew', traits: ['Tech', 'Unwieldy', 'Volley 30 ft.'], data: {
     weapon_category: 'Martial', weapon_group: 'Sniper', weapon_type: 'Ranged', damage: '1d8 F',
     hands: 2, range: 120, range_increment: 120, reload: 1, upgrade_slots: 1,
     weapon_ammunition: '10 charges', weapon_grade_family: 'homebrew:laser-focus-rifle',
@@ -831,6 +831,8 @@ it('provides a scaling laser Focus Rifle in the Starfinder Sniper group', () => 
   expect(weaponAttack(c, entries, weapon)).toMatchObject({
     damage: '2d8 F', entry: { name: 'Advanced Laser Focus Rifle', data: { weapon_group: 'Sniper', range: 120 } },
   })
+  expect(weaponAttack({ ...c, className: 'Operative', subclass: 'Sniper' }, entries, weapon).traits)
+    .not.toEqual(expect.arrayContaining(['Unwieldy', 'Volley 30 ft.']))
 })
 
 it('provides grade-scaled Liminal Focus Rifles from Liminal Laser Rifles', () => {
@@ -841,7 +843,7 @@ it('provides grade-scaled Liminal Focus Rifles from Liminal Laser Rifles', () =>
     } }
   const liminal = sfSpecificWeapons([laser]).find(entry => entry.name === 'Liminal Laser Rifle')!
   const focus = homebrewWeapons([liminal]).find(entry => entry.name === 'Liminal Focus Rifle')!
-  expect(focus).toMatchObject({ source: 'homebrew', level: 4, data: {
+  expect(focus).toMatchObject({ source: 'homebrew', level: 4, traits: ['Tech', 'Magical', 'Unwieldy', 'Volley 30 ft.'], data: {
     weapon_category: 'Martial', weapon_group: 'Sniper', range: 120, range_increment: 120,
     upgrade_slots: 2, weapon_grade_family: 'homebrew:liminal-focus-rifle',
   } })

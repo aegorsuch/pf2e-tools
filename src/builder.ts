@@ -9463,7 +9463,6 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     traits: [...new Set([...(entry?.traits ?? []).filter(trait => !(c.systems.includes('sf2e')
       && c.className === 'Operative' && c.subclass === 'Sniper' && isRanged(entry)
       && String(entry?.data.weapon_group ?? '').toLowerCase() === 'sniper'
-      && entry?.traits.some(item => /^(analog|tech)$/i.test(item))
       && /^(unwieldy|volley)(?:\s|$)/i.test(trait))),
       ...w.runes.map((rune) => runeName(rune)).filter((rune) => rune === 'Holy' || rune === 'Unholy'),
       ...(w.runes.some((rune) => runeName(rune) === 'Hooked') && !traits.includes('trip') ? ['Trip'] : []),

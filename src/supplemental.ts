@@ -633,6 +633,7 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
     const focusName = liminal ? 'Liminal Focus Rifle' : 'Laser Focus Rifle'
     return { ...entry, id: `${family}${grade ? `:${grade.toLowerCase()}` : ''}`,
       name: `${grade ? `${grade} ` : ''}${focusName}`, source: 'homebrew' as const,
+      traits: [...new Set([...entry.traits, 'Unwieldy', 'Volley 30 ft.'])],
       description: liminal
         ? `Precision lenses focus a Liminal laser beam for long-range attacks.\n\n${entry.description}`
         : 'Precision lenses focus a laser rifle beam for long-range attacks.',
