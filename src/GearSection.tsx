@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeBaseName, runeName, canBeOsteoArmament, osteoArmamentRune, activeBattleForm, withoutBattleForm, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, hasDailyAugmentationActivation, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, isSolarianCrystalWeapon, solarianCoreCrystals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, testSubjectAdaptation, type SectionProps,
+  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, hasDailyAugmentationActivation, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, isSolarianCrystalWeapon, solarianCoreCrystals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { armorUpgradeEntries, automaticArmorUpgradeUsesSlot, blessedShieldBenefit, canEquipShield, canRaiseShield, championBlessings, clanPistolRunes, equippedHands, forceFieldStats, isEnergyShieldingUpgrade, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldBraceEligible, shieldEquipChange, weaponEntry } from './builder'
@@ -47,7 +47,8 @@ import { fulminatingShotDamage } from './fulminatingShot'
 import { ANCESTRAL_AVATAR } from './battleForms'
 import { spellActiveChange } from './builder'
 import { shieldEntry } from './builder'
-import { intensifiedElementDamage, inventiveOffensiveOptions, ranksAt } from './builder'
+import { intensifiedElementDamage, inventiveOffensiveOptions, ranksAt, testSubjectDatajack } from './builder'
+import { itemSpells, itemSpellUses, presenceIntensifierUsageKey } from './itemSpells'
 import { AUTOMATIC_JETPACK_ID, armorUpgradeSlots, automaticArmorUpgradeSlotsUsed, automaticSpecificArmorUpgrades, jetpackSpeed } from './builder'
 import { weaponGradeFamily } from './builder'
 import { isDuplicateVeskAttack, tailbladeInheritance } from './builder'
@@ -166,12 +167,14 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const [apexOnly, setApexOnly] = useState(false)
   if (!c.systems.includes('sf2e')) return null
   const installed = c.augmentations ?? []
+  const presenceSpells = installed.some(item => item.name === 'Presence Intensifier') ? itemSpells(c, entries) : []
   const worn = c.armors?.find(armor => armor.worn)
   const wornEntry = worn && armorEntry(c, entries, worn.name, worn.id)
   const wingsRestricted = !!wornEntry && !['Light', 'Unarmored'].includes(armorCategory(wornEntry) ?? '')
   const dermalGrade = DERMAL_GRADES.find(grade => grade.name === (c.dermalPlating?.grade ?? 'Commercial')) ?? DERMAL_GRADES[0]
+  const datajack = testSubjectDatajack(c)
   const granted = [
-    ...(testSubjectAdaptation(c) === 'Cybernetic Augmentation' ? [{ name: 'Datajack', source: 'Test-Subject Ysoki' }] : []),
+    ...(datajack ? [{ name: datajack.name, source: 'Test-Subject Ysoki' }] : []),
     ...(activeFeatsNamed(c, 'Rat Retinal HUD').length ? [{ name: 'Autorecognition Lens', source: 'Rat Retinal HUD' }] : []),
     ...(activeFeatsNamed(c, 'Thresher Ko-1 Frame').length ? [{ name: `Dermal Plating (${dermalGrade.name})`, source: 'Thresher Ko-1 Frame' }] : []),
     ...(activeFeatsNamed(c, 'Hardpoint').length ? [{ name: 'Hideaway Limb (Tactical)', source: 'Hardpoint' }] : []),
@@ -190,9 +193,7 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const isApex = (entry: ContentEntry) => !!APEX_AUGMENTATIONS[entry.name] || entry.traits.some(trait => trait.toLowerCase() === 'apex')
   const installable = options.filter(entry => canInstallAugmentation(c, entry, 'standard'))
   const shownOptions = apexOnly ? installable.filter(isApex) : installable
-  const hardpoint = activeFeatsNamed(c, 'Hardpoint').length > 0
-  const hardpointWeapons = (c.weapons ?? []).filter(weapon => hardpointWeaponEligible(c, entries, weapon))
-  return <section className="col" aria-label="Augmentations">
+  return <section className="equipment-group" aria-label="Augmentations">
     <h4>Augmentations <small aria-label="Augmentation capacity">{standardUsed}/{limit}</small></h4>
     {standardUsed > limit && <small role="status">Installed augmentations exceed your current implant limit.</small>}
     <ul>{displayed.map(({ kind, item }) => {
@@ -202,8 +203,20 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       </li>
       const entry = entries.find(candidate => candidate.id === item.entryId)
       const dailyUsed = !!c.augmentationDailyUses?.[item.id]
+      const presenceSpell = presenceSpells.find(spell => spell.usageKey === presenceIntensifierUsageKey(item.id))
+      const presenceUses = presenceSpell && itemSpellUses(c, presenceSpell)
       return <li key={item.id}><div className="rune"><EntryDescription name={item.name} entry={entry} entries={entries} />
-        {entry && hasDailyAugmentationActivation(entry) && <span className="focus-tracker" role="group"
+        {presenceUses ? <span className="focus-tracker" role="group"
+          aria-label={`${presenceUses.remaining} of ${presenceUses.limit} uses remaining`}>
+          {Array.from({ length: presenceUses.limit }, (_, index) => {
+            const spent = presenceUses.spent.includes(index)
+            const action = `${spent ? 'Restore' : 'Spend'} ${item.name} use ${index + 1}`
+            return <button key={index} type="button" className="focus-point" aria-label={action} title={action}
+              aria-pressed={!spent} onClick={() => save({ itemSpellUses: { ...c.itemSpellUses,
+                [presenceUses.key]: spent ? presenceUses.spent.filter(value => value !== index) : [...presenceUses.spent, index],
+              } })} />
+          })}
+        </span> : entry && hasDailyAugmentationActivation(entry) && <span className="focus-tracker" role="group"
           aria-label={`${dailyUsed ? 0 : 1} of 1 uses remaining`}>
           <button type="button" className="focus-point"
             aria-label={`${dailyUsed ? 'Restore' : 'Spend'} ${item.name} use 1`} title={`${dailyUsed ? 'Restore' : 'Spend'} ${item.name} use 1`}
@@ -215,7 +228,9 @@ export function Augmentations({ c, entries, save }: SectionProps) {
           () => {
             const augmentationDailyUses = { ...c.augmentationDailyUses }
             delete augmentationDailyUses[item.id]
-            save({ augmentations: installed.filter(existing => existing.id !== item.id), augmentationDailyUses })
+            const itemSpellUses = { ...c.itemSpellUses }
+            delete itemSpellUses[presenceIntensifierUsageKey(item.id)]
+            save({ augmentations: installed.filter(existing => existing.id !== item.id), augmentationDailyUses, itemSpellUses })
           })}>×</button></div>
         {/^Ultralight Wings\b/i.test(item.name) && <label>{' '}<input type="checkbox" aria-label={`Deploy ${item.name}`}
           checked={!!item.deployed} disabled={wingsRestricted && !item.deployed}
@@ -244,22 +259,6 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       })} /> Dermal plating damaged <SourceNote inlineSource={false} source="Dermal plating"
         note="After Shield Block, plating cannot be used for 24 hours while it repairs." /></label>
     </>}
-    {hardpoint && <label>Hardpoint weapon{' '}
-      <select aria-label="Hardpoint weapon" value={c.hardpointWeaponId ?? ''} onChange={event => {
-        const id = event.target.value
-        if (!id || hardpointWeapons.some(weapon => weapon.id === id)) save({
-          hardpointWeaponId: id || undefined,
-          ...(id && c.weapons?.some(weapon => weapon.id === id && weapon.cheekStored)
-            ? { weapons: c.weapons.map(weapon => weapon.id === id ? { ...weapon, cheekStored: false, cheekHolstered: false, stowed: true } : weapon) } : {}),
-        })
-      }}>
-        <option value="">None</option>
-        {c.hardpointWeaponId && !hardpointWeapons.some(weapon => weapon.id === c.hardpointWeaponId)
-          && <option value={c.hardpointWeaponId} disabled>Unavailable weapon</option>}
-        {hardpointWeapons.map(weapon => <option key={weapon.id} value={weapon.id}>{weapon.name}</option>)}
-      </select>
-      <SourceNote inlineSource={false} source="Hardpoint" note="Only one-handed weapons of light Bulk or less fit (1 Bulk or less with Thresher Ko-1 Frame). While drawn, the weapon is integrated and cannot be disarmed, dropped, or stolen." />
-    </label>}
     {apexInstalled.length > 1 && <label>Apex attribute increase{' '}<select aria-label="Apex attribute increase" value={apexActive?.id ?? 'none'}
       onChange={event => save({ apexAugmentationId: event.target.value })}>
       {apexInstalled.map(item => <option key={item.id} value={item.id}>{item.name} ({ABILITY_LABEL[APEX_AUGMENTATIONS[item.name].ability]})</option>)}

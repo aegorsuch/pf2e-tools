@@ -981,6 +981,24 @@ it('offers Finely Tuned only for distinct common augmentations with daily activa
   expect(renderToStaticMarkup(tree(1))).toContain('Cloaking Skin (Advanced)')
 })
 
+it('offers Presence Intensifier for Finely Tuned only under its daily house rule', () => {
+  const previous = getSettings().presenceIntensifierDaily
+  try {
+    const item: ContentEntry = { id: 'presence', systems: ['sf2e'], kind: 'item', source: 'official',
+      name: 'Presence Intensifier', level: 17, traits: ['Apex'], description: '',
+      data: { item_category: 'Augmentations', item_activation_action_ids: '184-irresistible-idea' }, effects: [], updatedAt: 0 }
+    const feat = { name: 'Finely Tuned', type: 'Archetype Feat', level: 6, slot: 'archetype:6:0' }
+    const c: Character = { ...base, systems: ['sf2e'], level: 17, feats: [feat],
+      augmentations: [{ id: 'installed', entryId: item.id, name: item.name, slot: 'apex' }] }
+    updateSettings({ presenceIntensifierDaily: true })
+    expect(featChoiceOptions(feat.name, c, [item], feat.slot, 0)).toEqual([item.name])
+    updateSettings({ presenceIntensifierDaily: false })
+    expect(featChoiceOptions(feat.name, c, [item], feat.slot, 0)).toEqual([])
+  } finally {
+    updateSettings({ presenceIntensifierDaily: previous })
+  }
+})
+
 it('hides manual casting configuration for noncasters and collapses the spell section', () => {
   const noncaster = { ...base, className: 'Fighter', spellcasting: { ability: 'wis' as const, tradition: '', rank: 1, slots: {} } }
   const classes: ContentEntry[] = [{

@@ -7,6 +7,7 @@ import { homebrewCharacterOptions, migrateCopiedFeats } from './supplemental'
 import type { Character, OwnedArmor } from './types'
 import sf2eSnapshot from '../public/data/aon-sf2e.json?raw'
 import pf2eSnapshot from '../public/data/aon-pf2e.json?raw'
+import { getSettings, updateSettings } from './settings'
 
 const stored = vi.hoisted(() => ({ bulkPut: vi.fn() }))
 vi.mock('./db', () => ({
@@ -29,6 +30,26 @@ it('removes only Starfinder Society membership from Field Agent Dedication prere
   expect(dedication.description).toMatch(/trained in Society/i)
   expect(entries.find(entry => entry.name === 'Mission Briefing')?.data.prerequisite)
     .toContain('Starfinder Field Agent Dedication')
+})
+
+it('offers Danger Awareness at its Field Agent archetype level with the automatic dedication', () => {
+  const previous = getSettings()
+  try {
+    updateSettings({ envoyFieldAgent: true })
+    const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+    const entries = mapAonHits(hits.filter(hit => ['Starfinder Field Agent Dedication', 'Danger Awareness']
+      .includes(String(hit._source?.name))), 'sf2e')
+    const c: Character = { id: 'field-agent', name: 'Test', systems: ['sf2e'], className: 'Envoy', level: 4,
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+      feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+    const danger = entries.find(entry => entry.name === 'Danger Awareness')!
+    expect(eligibleFeats(entries, c, { category: 'archetype', level: 2, key: 'archetype:2:0' })).not.toContain(danger)
+    expect(eligibleFeats(entries, c, { category: 'archetype', level: 4, key: 'archetype:4:0' })).toContain(danger)
+    updateSettings({ envoyFieldAgent: false })
+    expect(eligibleFeats(entries, c, { category: 'archetype', level: 4, key: 'archetype:4:0' })).not.toContain(danger)
+  } finally {
+    updateSettings(previous)
+  }
 })
 
 it('preserves augmentation action references and item-level daily frequencies', () => {
@@ -113,15 +134,15 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
     expect(autoUpgrades.map(entry => entry.name)).toContain('Force Field (Paragon)')
     if (name === 'Aquavarius Armor') expect(autoUpgrades.map(entry => entry.name)).not.toContain('Jetpack (Tactical)')
     else expect(autoUpgrades.map(entry => entry.name)).toContain('Jetpack (Tactical)')
-    expect(autoUpgrades).toHaveLength(name === "Drifter's Jacket" || name === 'Clandestine Suit' ? 5
+    expect(autoUpgrades).toHaveLength(name === "Drifter's Jacket" || name === 'Clandestine Suit' || name === 'Stormbreaker Armor' ? 5
       : name === 'Myrmidon Siegebreaker Plate' || name === 'Aquavarius Armor' || name === 'Rocketeer Armor' ? 3
-      : name === 'Stormbreaker Armor' || name === 'Carvesong' ? 4
+      : name === 'Carvesong' ? 4
       : name === 'Retrieval Harness' ? 4
       : 2)
     if (name === 'Clandestine Suit') expect(autoUpgrades.map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Active Camouflage (Advanced)', 'Cloaking Device (Tactical)',
         'Drift Drive Relay (Advanced)']))
-    if (name === 'Myrmidon Siegebreaker Plate')
+    if (name === 'Myrmidon Siegebreaker Plate' || name === 'Stormbreaker Armor')
       expect(autoUpgrades.map(entry => entry.name)).toContain('Mobility Enhancer')
     if (name === "Drifter's Jacket") expect(autoUpgrades.map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Force Field (Paragon)', 'Active Camouflage (Advanced)',

@@ -503,6 +503,13 @@ export const testSubjectAdaptation = (c: Character) =>
   cyborgTestSubject(c) ? 'Cybernetic Augmentation'
     : c.level >= 1 && c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki'
       ? c.testSubjectAdaptation : undefined
+export function testSubjectDatajack(c: Character) {
+  if (testSubjectAdaptation(c) !== 'Cybernetic Augmentation') return undefined
+  if (!getSettings().testSubjectDatajackScaling) return { name: 'Datajack', bonus: 0 }
+  return c.level >= 8 ? { name: 'Datajack (Advanced)', bonus: 2 }
+    : c.level >= 4 ? { name: 'Datajack (Tactical)', bonus: 1 }
+      : { name: 'Datajack (Commercial)', bonus: 0 }
+}
 export function officerEducationSlots(c: Character) {
   let unslotted = 0
   return activeFeatsNamed(c, "Officer's Education").slice(0, 2).map(feat => ({
@@ -729,6 +736,7 @@ export const HOMEBREW_DEDICATIONS = [
   { setting: 'dwarfStalwartDefender', ancestry: 'Dwarf', name: 'Stalwart Defender Dedication', slot: 'archetype:2:g86', replacesFreeArchetype: false },
   { setting: 'commanderCaptain', className: 'Commander', name: 'Captain Dedication', slot: 'archetype:2:g85', replacesFreeArchetype: false },
   { setting: 'soldierGrenadier', className: 'Soldier', name: 'Grenadier Dedication', slot: 'archetype:2:g84', replacesFreeArchetype: false },
+  { setting: 'envoyAugmented', className: 'Envoy', name: 'Augmented Dedication', slot: 'archetype:2:g102', replacesFreeArchetype: false },
   { setting: 'mechanicAugmented', className: 'Mechanic', name: 'Augmented Dedication', slot: 'archetype:2:g83', replacesFreeArchetype: false },
   { setting: 'mechanicGrenadier', className: 'Mechanic', name: 'Grenadier Dedication', slot: 'archetype:2:g100', replacesFreeArchetype: false },
   { setting: 'technomancerGrenadier', className: 'Technomancer', name: 'Grenadier Dedication', slot: 'archetype:2:g101', replacesFreeArchetype: false },
@@ -741,6 +749,8 @@ export const HOMEBREW_DEDICATIONS = [
 export const homebrewDedication = (slot: string) => HOMEBREW_DEDICATIONS.find((d) => d.slot === slot)
 export const activeHomebrewDedications = (c: Character) =>
   HOMEBREW_DEDICATIONS.filter((d) => getSettings()[d.setting] && c.level >= 2
+    && (d.setting !== 'envoyAugmented' || c.systems.includes('sf2e')
+      && !(c.ancestry === 'Android' && getSettings().androidAugmented))
     && ('className' in d ? c.className === d.className
       : c.ancestry === d.ancestry && c.systems.includes('system' in d ? d.system : 'pf2e'))
     && (!('tradition' in d) || c.systems.includes('sf2e')
@@ -1314,6 +1324,11 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
     const content = featByName(entries).get(feat.name)
     return isDedication(content) ? archetypesOf(content) : []
   }))
+  for (const feat of activeFeatsNamed({ ...c, level: Math.min(c.level, slot?.level ?? c.level) }, 'Starfinder Field Agent Dedication')) {
+    if (slot && feat.slot === slot.key) continue
+    const content = featByName(entries).get(feat.name)
+    if (isDedication(content)) for (const archetype of archetypesOf(content)) dedications.add(archetype)
+  }
   const levels = new Map(entry.data.archetype_levels.split(', ').map((pair) => {
     const colon = pair.lastIndexOf(':')
     const name = pair.slice(0, colon)
@@ -2200,7 +2215,8 @@ const DAILY_AUGMENTATION_ACTION_IDS = new Set([
 
 export function hasDailyAugmentationActivation(entry: ContentEntry) {
   const actionIds = String(entry.data.item_activation_action_ids ?? '').split(',').map(actionId => actionId.trim())
-  return entry.data.item_daily_uses === true
+  return entry.name === 'Presence Intensifier' && entry.systems.includes('sf2e') && getSettings().presenceIntensifierDaily
+    || entry.data.item_daily_uses === true
     || /\b(?:once|twice|(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+times?)\s+per day\b/i
       .test(String(entry.data.markdown ?? ''))
     || actionIds.some(actionId => DAILY_AUGMENTATION_ACTION_IDS.has(actionId))
@@ -3415,7 +3431,8 @@ export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
   if (SPELL_ARMOR_FAMILIES.has(family ?? '')) return 4
   if (family === "Drifter's Jacket") return 3
   if (['Clandestine Suit', 'Myrmidon Siegebreaker Plate', 'Retrieval Harness'].includes(family ?? '')) return 3
-  return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Rocketeer Armor', 'Stormbreaker Armor']
+  if (family === 'Stormbreaker Armor') return 3
+  return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Rocketeer Armor']
     .includes(family ?? '') ? 2 : 0
 }
 
@@ -3429,6 +3446,7 @@ export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upg
     return ['Jetpack', 'Force Field'].includes(base) || family === "Drifter's Jacket" && base === 'Active Camouflage'
       || family === 'Clandestine Suit' && base === 'Drift Drive Relay'
       || family === 'Myrmidon Siegebreaker Plate' && base === 'Mobility Enhancer'
+      || family === 'Stormbreaker Armor' && base === 'Mobility Enhancer'
       || family === 'Retrieval Harness' && base === 'Adrenal Autoinjectors'
   return family === 'Rocketeer Armor' && ['Force Field', 'Maneuvering Unit'].includes(base)
 }
@@ -3445,7 +3463,7 @@ const DRIFTER_JACKET_ARMOR_UPGRADES = ['Active Camouflage', 'Drift Drive Relay',
 const MYRMIDON_ARMOR_UPGRADES = ['Mobility Enhancer']
 const ROCKETEER_ARMOR_UPGRADES = ['Maneuvering Unit']
 const RETRIEVAL_HARNESS_ARMOR_UPGRADES = ['Easypatcher', 'Adrenal Autoinjectors']
-const STORMBREAKER_ARMOR_UPGRADES = ['Energized Spikes', 'Energy Shielding']
+const STORMBREAKER_ARMOR_UPGRADES = ['Energized Spikes', 'Energy Shielding', 'Mobility Enhancer']
 const AQUAVARIUS_ARMOR_UPGRADES = ['Aqua Jets', 'Energy Shielding']
 const SPELL_ARMOR_UPGRADES = ['Spell Gauntlet', 'Spell Refactoring Matrix', 'Jetpack', 'Force Field']
 const SF_UPGRADE_GRADES = 'Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon'
@@ -8672,6 +8690,7 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     : name === 'Plasma Sword' ? ['Flaming Module', 'Shock Module', 'Glarecaster']
     : name === 'Plasma Doshko' ? ['Flaming Module', 'Shock Module', 'Glarecaster', 'Suppression Matrix']
     : name === 'Plasma Array' ? ['Flaming Module', 'Shock Module']
+    : name === 'Plasma Caster' ? ["Smuggler's Grip", 'Flaming Module', 'Shock Module']
     : name === 'Rotolaser' ? ['Flaming Module']
     : name === 'Pulse Gauntlet' ? ['Loudener']
     : /^Tail\s*Blade$/i.test(name) ? [c.className === 'Soldier' ? 'Suppression Matrix' : 'Fear Projector'] : []

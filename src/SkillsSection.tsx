@@ -3,7 +3,7 @@ import { resistances, activeBattleForm,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, offensiveDefenseAttack, ownedWeapons, weaponEquipped, installedWeaponUpgrades, conditionPenalty, conditionValue, selectedSubclass, type SectionProps,
 } from './builder'
-import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, giantStatureSize, giantClumsySource, enlargedChassisSize, effectiveWeapon, weaponEntry, weaponHeld } from './builder'
+import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, giantStatureSize, giantClumsySource, enlargedChassisSize, effectiveWeapon, weaponEntry, weaponHeld, testSubjectDatajack } from './builder'
 import { ArmorList, ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
@@ -516,6 +516,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         - statusPenalty + status + (circumstance?.value ?? 0)
     const conditionalTotal = (bonus: number) => signed(total + Math.max(circumstance?.value ?? 0, bonus) - (circumstance?.value ?? 0))
     const itemTotal = (bonus: number) => signed(total + Math.max(0, bonus - item))
+    const datajack = s.name === 'Computers' ? testSubjectDatajack(c) : undefined
     const forestIncrease = ink ? Math.max(item, ink.value + 1) - item : 0
     const skillLabel = s.name === `${c.deity} Lore` && deityEntry ? `${deityLabel(deityEntry)} Lore` : s.name
     return (
@@ -591,6 +592,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {professionalTools.filter(tool => tool.skills.includes(s.name)).map(tool =>
             <SourceNote key={tool.name} source={tool.name}
               note={`${itemTotal(tool.bonus)} when used as a toolkit (+${tool.bonus} item; item bonuses do not stack).`} />)}
+          {!!datajack?.bonus && <SourceNote inlineSource={false} source={datajack.name}
+            note={`${itemTotal(datajack.bonus)} when accessing a system with the datajack (+${datajack.bonus} item; item bonuses do not stack).`} />}
           {s.name === 'Crafting' && dwarvenAxe && <SourceNote inlineSource={false} source="Axe of the Dwarven Lords"
             note={`${itemTotal(4)} to Craft armor, jewelry, metalwork, stonework, snares, traps, and weapons while carrying the axe (+4 item; item bonuses do not stack).`} />}
           {arrowhead && <SourceNote inlineSource={false} source={arrowhead.source}
@@ -822,27 +825,16 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             onChange={event => save({ ysokiDailyUses: { ...c.ysokiDailyUses, contaminate: event.target.checked } })} />
           {' '}<a href="https://2e.aonsrd.com/actions/232-contaminate" target="_blank" rel="noreferrer">Contaminate</a> used
         </label>}
-        {activeFeatsNamed(c, 'Rat Retinal HUD').length > 0 && <label>
-          <input type="checkbox" checked={!!c.ysokiDailyUses?.retinalHud}
-            onChange={event => save({ ysokiDailyUses: { ...c.ysokiDailyUses, retinalHud: event.target.checked } })} />
-          {' '}<a href="https://2e.aonsrd.com/feats/1217-rat-retinal-hud" target="_blank" rel="noreferrer">Rat Retinal HUD</a> daily use
-        </label>}
-        {['Sensor Mask', 'Fire Crystal Beam'].filter(name => activeFeatsNamed(c, name).length > 0).map(name => <label key={name}>
-          <input type="checkbox" checked={!!c.dailyFeatUses?.[name]}
-            onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, [name]: event.target.checked } })} />
-          {' '}{name} used
-        </label>)}
         {!!activeFeatsNamed(c, 'Divine Strike').length && <label>
           <input type="checkbox" aria-label="Divine Strike used" checked={!!c.dailyFeatUses?.['Divine Strike']}
             onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, 'Divine Strike': event.target.checked } })} />
           {' '}Divine Strike used <SourceNote source="Divine Strike" note="Once per day. Wield your deity's favored weapon and expend a Cleric spell slot for a one- or two-action spell attack; use the Strike result for both effects." />
         </label>}
-        {["Grandmother's Curse", 'Slip From Sight', 'Wormhole Warren', 'Dense Weave Musculature',
-          'Flying Rocket Punch', 'Uncanny Dash'].filter(name => activeFeatsNamed(c, name).length > 0).map(name => <label key={name}>
-          <input type="checkbox" checked={!!c.hourlyFeatUses?.[name]}
-            onChange={event => save({ hourlyFeatUses: { ...c.hourlyFeatUses, [name]: event.target.checked } })} />
-          {' '}{name} used <SourceNote inlineSource={false} source={name} note="Once per hour. Clear after an hour has passed." />
-        </label>)}
+        {!!activeFeatsNamed(c, "Grandmother's Curse").length && <label>
+          <input type="checkbox" checked={!!c.hourlyFeatUses?.["Grandmother's Curse"]}
+            onChange={event => save({ hourlyFeatUses: { ...c.hourlyFeatUses, "Grandmother's Curse": event.target.checked } })} />
+          {' '}Grandmother's Curse used <SourceNote inlineSource={false} source="Grandmother's Curse" note="Once per hour. Clear after an hour has passed." />
+        </label>}
         <WeaponList c={c} entries={weaponEntries} save={save} displayOnly showAddWeapon
           additionalWeapons={offensiveDefense ? [offensiveDefense.weapon] : []} />
       </>

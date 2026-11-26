@@ -1,5 +1,5 @@
 import type { Character, ContentEntry } from './types'
-import { armorEntry, automaticSpecificArmorUpgrades, ownedArmors, ownedShields, runeName, shieldEntry, weaponAttack, weaponEntry } from './builder'
+import { activeFeatsNamed, armorEntry, automaticSpecificArmorUpgrades, ownedArmors, ownedShields, runeName, shieldEntry, weaponAttack, weaponEntry } from './builder'
 import { withNamedWeaponState } from './namedWeapons'
 import { limitedSpellUses } from './featSpells'
 import { getSettings } from './settings'
@@ -24,6 +24,8 @@ export function itemSpellUses(c: Character, spell: ItemSpell) {
   const uses = limitedSpellUses(spell.frequency, c.itemSpellUses?.[spell.usageKey])
   return uses && { key: spell.usageKey, ...uses }
 }
+
+export const presenceIntensifierUsageKey = (id: string) => JSON.stringify([id, 'presence-intensifier', 'suggestion'])
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const normalized = (text: string) => text.replace(/[\u2018\u2019]/g, "'").toLowerCase()
@@ -65,7 +67,7 @@ const rankIn = (text: string) => {
 }
 
 export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
-  if (!c.equipment.some(item => item.qty > 0) && !c.weapons?.length && !c.armors?.length && !c.shield) return []
+  if (!c.equipment.some(item => item.qty > 0) && !c.weapons?.length && !c.armors?.length && !c.shield && !c.augmentations?.length) return []
   const minimumRank = getSettings().innateAutoHeighten ? Math.ceil(c.level / 2) : 0
   const index = catalog(entries)
   const eligible = (entry?: ContentEntry): entry is ContentEntry => !!entry && !entry.deleted
@@ -181,6 +183,20 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
         addSpell(match[0], /^cantrip$/i.test(list[1]) ? 0 : parseInt(list[1]), { frequency: 'Staff charges' })
       }
     }
+  }
+  if (c.systems.includes('sf2e')) for (const augmentation of c.augmentations ?? []) {
+    if (augmentation.name !== 'Presence Intensifier') continue
+    const source = entries.find(entry => entry.id === augmentation.entryId && entry.name === augmentation.name
+      && entry.kind === 'item' && eligible(entry))
+    if (!source) continue
+    const houseRule = getSettings().presenceIntensifierDaily
+    const tuned = houseRule && activeFeatsNamed(c, 'Finely Tuned').some(feat => feat.choice === augmentation.name)
+    const spell = index.spells.get('suggestion')?.find(entry => eligible(entry) && entry.systems.includes('sf2e'))
+    out.push({ source, name: spell?.name ?? 'Suggestion', entry: spell,
+      usageKey: presenceIntensifierUsageKey(augmentation.id),
+      rank: Math.min(10, Math.max(4, houseRule ? Math.ceil(c.level / 2) : minimumRank)),
+      actions: 'Two Actions', frequency: houseRule ? tuned ? 'twice per day' : 'once per day' : 'once per hour',
+      dc: 38, usesSpellcasting: false })
   }
   const unique = new Map<string, ItemSpell>()
   for (const spell of out) unique.set(JSON.stringify([spell.usageKey, spell.name, spell.rank, spell.frequency, spell.actions, spell.condition]), spell)

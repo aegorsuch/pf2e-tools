@@ -41,6 +41,7 @@ export interface Settings {
   bardBeastmaster: boolean
   bardCavalier: boolean
   envoyFieldAgent: boolean
+  envoyAugmented: boolean
   mysticFieldAgent: boolean
   mysticXenoDruid: boolean
   mechanicFieldAgent: boolean
@@ -70,6 +71,8 @@ export interface Settings {
   uniqueInnateSpellChoices: boolean
   automaticSfWeaponUpgrades: boolean
   plasmaCasterOneHanded: boolean
+  presenceIntensifierDaily: boolean
+  testSubjectDatajackScaling: boolean
   studentOfApotheosisStrengthWisdom: boolean // Kept for compatibility with saved settings.
   // House rule: General Training and Advanced General Training can each be selected once
   singleTrainingFeats: boolean
@@ -98,7 +101,7 @@ const DEFAULTS: Settings = {
   exclusiveCyborgHearts: true, autoClassSkills: false, sf2eDeitySkills: true, orderExplorerSkills: true,
   autoLores: false, deityLore: true, freeArchetype: true, ignoreArchetypeFeatMinimums: true, rangerSnarecrafter: false,
   warriorLegendClearTheWay: true, orcTattooedHistorian: true, dwarfStalwartDefender: true,
-  bardAnimalTrainer: true, bardBeastmaster: true, bardCavalier: true, envoyFieldAgent: true, mysticFieldAgent: true,
+  bardAnimalTrainer: true, bardBeastmaster: true, bardCavalier: true, envoyFieldAgent: true, envoyAugmented: true, mysticFieldAgent: true,
   mysticXenoDruid: true, mechanicFieldAgent: true, mechanicAugmented: true, mechanicGrenadier: true,
   androidAugmented: true,
   technomancerGrenadier: true, operativeFieldAgent: true,
@@ -109,6 +112,8 @@ const DEFAULTS: Settings = {
   generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true,
   innateHighestMental: true, avengerEldritchHighestMental: true, innateAutoHeighten: true,
   consolidateInnateTraditions: true,   uniqueInnateSpellChoices: true, automaticSfWeaponUpgrades: true, plasmaCasterOneHanded: true,
+  presenceIntensifierDaily: true,
+  testSubjectDatajackScaling: true,
   studentOfApotheosisStrengthWisdom: true, singleTrainingFeats: true, inventorFirearmAccess: true,
   inventorArmorGauntlets: true, bucklerMeleeFinesse: true, freeHandFinesse: true, staffAcrobatSpear: true,
   staffAcrobatNoPrerequisites: true, whirlwindStanceNoPrerequisites: true, unarmedCountsAsWeapons: true,

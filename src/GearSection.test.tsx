@@ -2,7 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, ArmorUpgrades, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
-import { AnimalFeatureOptions } from './SpellsSection'
+import { AnimalFeatureOptions, ItemSpellUses } from './SpellsSection'
+import { itemSpells, itemSpellUses } from './itemSpells'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, armorUpgradeSlots as resolvedArmorUpgradeSlots,
   automaticArmorUpgradeSlotsUsed, automaticArmorUpgradeUsesSlot, automaticSpecificArmorUpgrades,
   armorUpgradeEntries, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon,
@@ -53,7 +54,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
   const sfWeapon = (name: string): ContentEntry => ({ ...weapon, id: name, name, systems: ['sf2e'],
     traits: ['Tech'], data: { weapon_category: 'Martial', damage: '1d6 F', hands: 1, upgrade_slots: 4 } })
   const weapons = ['SLARP Rapid Laser Pistol', 'Shuriken Drone', 'Singing Spear', 'Battleglove', 'Doshko', 'Plasma Doshko', 'Plasma Array',
-    'Crimson Claw', 'Shock Pad', 'Shock Truncheon', 'Plasma Sword', 'Rotolaser',
+    'Crimson Claw', 'Shock Pad', 'Shock Truncheon', 'Plasma Sword', 'Plasma Caster', 'Tactical Plasma Caster', 'Rotolaser',
     'Pulse Gauntlet', 'Tailblade', 'Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle', 'Other']
     .map(name => {
       const entry = sfWeapon(name)
@@ -99,6 +100,13 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(at('Rotolaser', 15)).toEqual(['Flaming Module (Tactical)'])
     expect(at('Plasma Array', 8)).toEqual(['Flaming Module (Commercial)', 'Shock Module (Commercial)'])
     expect(at('Plasma Array', 15)).toEqual(['Flaming Module (Tactical)', 'Shock Module (Tactical)'])
+    expect(at('Plasma Caster', 6)).toEqual(["Smuggler's Grip (Tactical)"])
+    expect(at('Tactical Plasma Caster', 8)).toEqual([
+      "Smuggler's Grip (Tactical)", 'Flaming Module (Commercial)', 'Shock Module (Commercial)',
+    ])
+    expect(at('Plasma Caster', 15)).toEqual([
+      "Smuggler's Grip (Tactical)", 'Flaming Module (Tactical)', 'Shock Module (Tactical)',
+    ])
     expect(at('Pulse Gauntlet', 8)).toEqual(['Loudener (Commercial)'])
     expect(at('Pulse Gauntlet', 15)).toEqual(['Loudener (Tactical)'])
     expect(at('Tailblade', 4)).toEqual([])
@@ -132,6 +140,13 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(plasmaArrayHtml).toContain('Shock Module (Commercial)')
     expect(plasmaArrayHtml).toContain('Add weapon upgrade')
     expect(plasmaArrayHtml).not.toContain('Installed upgrades exceed available slots.')
+    const caster = entries.find(entry => entry.name === 'Plasma Caster')!
+    const casterHtml = renderToStaticMarkup(<WeaponList
+      c={{ ...character([]), systems: ['sf2e'], level: 8, weapons: [owned('Plasma Caster')] }}
+      entries={[...entries.filter(entry => entry.id !== caster.id), { ...caster, data: { ...caster.data, upgrade_slots: 2 } }]}
+      save={() => {}} />)
+    expect(casterHtml).toContain('Installed upgrades exceed available slots.')
+    expect(casterHtml).not.toContain('Add weapon upgrade')
     updateSettings({ automaticSfWeaponUpgrades: false })
     expect(at('Shock Pad', 15)).toEqual([])
   } finally { updateSettings({ automaticSfWeaponUpgrades: previous }) }
@@ -731,6 +746,7 @@ it('lists non-removable granted augmentations without using implant slots', () =
     testSubjectAdaptation: 'Cybernetic Augmentation',
     feats: [{ name: 'Rat Retinal HUD', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
   const markup = renderToStaticMarkup(<Augmentations c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('<section class="equipment-group" aria-label="Augmentations">')
   expect(markup).toContain('Datajack')
   expect(markup).toContain('Autorecognition Lens')
   const firstButton = /<button\b[^>]*>([\s\S]*?)<\/button>/.exec(markup)?.[1] ?? ''
@@ -744,6 +760,25 @@ it('lists non-removable granted augmentations without using implant slots', () =
   const removed = renderToStaticMarkup(<Augmentations c={{ ...c, testSubjectAdaptation: undefined, feats: [] }} entries={[]} save={() => {}} />)
   expect(removed).not.toContain('Datajack')
   expect(removed).not.toContain('Autorecognition Lens')
+})
+
+it('scales the granted Test-Subject Datajack at its grade levels', () => {
+  const previous = getSettings().testSubjectDatajackScaling
+  try {
+    updateSettings({ testSubjectDatajackScaling: true })
+    const c: Character = { ...character([]), systems: ['sf2e'], ancestry: 'Ysoki',
+      heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Cybernetic Augmentation' }
+    for (const [level, grade] of [[1, 'Commercial'], [3, 'Commercial'], [4, 'Tactical'], [7, 'Tactical'], [8, 'Advanced'], [20, 'Advanced']] as const) {
+      const markup = renderToStaticMarkup(<Augmentations c={{ ...c, level }} entries={[]} save={() => {}} />)
+      expect(markup).toContain(`Datajack (${grade})`)
+      expect(markup).not.toContain('Remove Datajack')
+    }
+    updateSettings({ testSubjectDatajackScaling: false })
+    expect(renderToStaticMarkup(<Augmentations c={{ ...c, level: 20 }} entries={[]} save={() => {}} />))
+      .not.toContain('Datajack (Advanced)')
+  } finally {
+    updateSettings({ testSubjectDatajackScaling: previous })
+  }
 })
 
 it('tracks daily-use augmentation pips and removes spent state with the augmentation', () => {
@@ -786,6 +821,41 @@ it('tracks daily-use augmentation pips and removes spent state with the augmenta
   ;(remove.props.onClick as () => void)()
   expect(c.augmentations?.map(item => item.id)).toEqual(['installed-suspension'])
   expect(c.augmentationDailyUses).toEqual({})
+})
+
+it('shares Presence Intensifier use pips between augmentations and spells', () => {
+  const previous = getSettings().presenceIntensifierDaily
+  try {
+    updateSettings({ presenceIntensifierDaily: true })
+    const presence: ContentEntry = { ...shifting, id: 'presence', name: 'Presence Intensifier', systems: ['sf2e'],
+      level: 17, traits: ['Apex'], data: { item_category: 'Augmentations' } }
+    let c: Character = { ...character([{ name: 'Finely Tuned', type: 'Archetype Feat', level: 6,
+      choice: presence.name }]), systems: ['sf2e'], level: 17, weapons: [],
+      augmentations: [{ id: 'installed', entryId: presence.id, name: presence.name, slot: 'apex' }] }
+    let tree: ReactNode = null
+    const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+    const markup = () => {
+      function Inspect() {
+        tree = Augmentations({ c, entries: [presence], save })
+        return tree
+      }
+      return renderToStaticMarkup(<Inspect />)
+    }
+    expect(markup()).toContain('aria-label="2 of 2 uses remaining"')
+    const spell = itemSpells(c, [presence])[0]
+    ;(findElement(tree, element => element.type === 'button'
+      && element.props['aria-label'] === 'Spend Presence Intensifier use 1')!.props.onClick as () => void)()
+    expect(itemSpellUses(c, spell)).toMatchObject({ remaining: 1, spent: [0] })
+    const spellTracker = ItemSpellUses({ c, save, spell })
+    ;(findElement(spellTracker, element => element.type === 'button'
+      && element.props['aria-label'] === 'Spend Suggestion (Presence Intensifier) use 2')!.props.onClick as () => void)()
+    expect(markup()).toContain('aria-label="0 of 2 uses remaining"')
+    ;(findElement(tree, element => element.type === 'button'
+      && element.props['aria-label'] === 'Remove Presence Intensifier augmentation')!.props.onClick as () => void)()
+    expect(c.itemSpellUses).toEqual({})
+  } finally {
+    updateSettings({ presenceIntensifierDaily: previous })
+  }
 })
 
 it('omits biotech upgrade helper text from granted and installed augmentations', () => {
@@ -1304,7 +1374,7 @@ it('restricts Hardpoint to eligible owned weapons and marks the drawn weapon as 
   const thresher = { ...c, feats: [...c.feats, { name: 'Thresher Ko-1 Frame', type: 'Ancestry Feat', level: 1 }] }
   expect(hardpointWeaponEligible(thresher, entries, weapons[1])).toBe(true)
   expect(hardpointWeaponEligible({ ...c, feats: [] }, entries, weapons[0])).toBe(false)
-  expect(renderToStaticMarkup(<Augmentations c={c} entries={entries} save={() => {}} />)).toContain('Hardpoint weapon')
+  expect(renderToStaticMarkup(<Augmentations c={c} entries={entries} save={() => {}} />)).not.toContain('Hardpoint weapon')
   expect(renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly />)).toContain('Integrated weapon: cannot be disarmed')
   expect(renderToStaticMarkup(<WeaponList c={{ ...c, weapons: weapons.map(w => ({ ...w, stowed: true })) }} entries={entries} save={() => {}} displayOnly />)).not.toContain('Integrated weapon: cannot be disarmed')
 })
@@ -3290,7 +3360,7 @@ it('auto-installs Retrieval Harness Easypatcher and scaling Adrenal Autoinjector
   expect(markup).toContain('Add armor upgrade')
 })
 
-it('auto-installs Stormbreaker electrical upgrades and reserves slots for Jetpack and Force Field', () => {
+it('auto-installs Stormbreaker upgrades and reserves slots for Jetpack, Force Field, and Mobility Enhancer', () => {
   const armor: ContentEntry = { ...weapon, id: 'stormbreaker', name: 'Stormbreaker Armor', kind: 'armor', systems: ['sf2e'],
     level: 10, data: { url: 'stormbreaker', armor_category: 'Medium', ac: 4, armor_grade: 'Advanced', upgrade_slots: 2 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
@@ -3304,22 +3374,27 @@ it('auto-installs Stormbreaker electrical upgrades and reserves slots for Jetpac
     { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(2)
+  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(3)
   expect(markup).not.toContain('Add armor upgrade')
   expect(markup).toContain('Jetpack (Tactical)')
   expect(markup).toContain('Force Field (Paragon)')
   expect(markup).toContain('Energized Spikes (Advanced)')
   expect(markup).toContain('Energy Shielding (Advanced) (Electricity) *')
+  expect(markup).toContain('Mobility Enhancer')
   expect(markup).not.toContain('Jetpack (Tactical) *')
   expect(markup).not.toContain('Force Field (Paragon) *')
+  expect(markup).not.toContain('Mobility Enhancer *')
+  expect(automaticArmorUpgradeUsesSlot(armor.name, upgrades[4])).toBe(true)
+  expect(automaticSpecificArmorUpgrades(c, [armor, ...upgrades], armor).map(item => item.name))
+    .toContain('Mobility Enhancer')
 })
 
-it('leaves two upgrade slots on Paragon Stormbreaker Armor after built-in upgrades', () => {
+it('leaves one upgrade slot on Paragon Stormbreaker Armor after built-in upgrades', () => {
   const armor: ContentEntry = { ...weapon, id: 'paragon-stormbreaker', name: 'Paragon Stormbreaker Armor',
     kind: 'armor', systems: ['sf2e'], level: 20,
     data: { armor_grade: 'Paragon', upgrade_slots: 2 } }
   expect(resolvedArmorUpgradeSlots(armor)).toBe(4)
-  expect(resolvedArmorUpgradeSlots(armor) - automaticArmorUpgradeSlotsUsed(armor)).toBe(2)
+  expect(resolvedArmorUpgradeSlots(armor) - automaticArmorUpgradeSlotsUsed(armor)).toBe(1)
 })
 
 it('auto-installs Aeon Guard Battle Dress Jetpack and Force Field using two upgrade slots', () => {

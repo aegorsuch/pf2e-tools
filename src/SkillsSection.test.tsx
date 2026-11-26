@@ -1418,17 +1418,45 @@ it('preserves an existing non-profession Experienced Laborer choice without a sk
   expect(ranksAt(c, [])['Abadar Lore']).toBe(1)
 })
 
-it('shows radioactive protection and tracks the two separate daily abilities', () => {
+it('shows radioactive protection and Contaminate without a retinal HUD toggle', () => {
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki',
     testSubjectAdaptation: 'Radioactive', ysokiDailyUses: { contaminate: true, retinalHud: false },
     feats: [{ name: 'Rat Retinal HUD', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' }] }
   const offense = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />)
   expect(offense).toContain('actions/232-contaminate')
-  expect(offense).toContain('feats/1217-rat-retinal-hud')
+  expect(offense).not.toContain('feats/1217-rat-retinal-hud')
   const defense = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)
   expect(defense).toContain('sickened from radiation sickness')
   expect(renderToStaticMarkup(<SkillsSection c={{ ...c, testSubjectAdaptation: undefined, feats: [] }} entries={[]} save={() => {}} part="offense" />))
     .not.toContain('actions/232-contaminate')
+})
+
+it('shows scaled Datajack bonuses only for system access', () => {
+  const previous = getSettings().testSubjectDatajackScaling
+  try {
+    updateSettings({ testSubjectDatajackScaling: true })
+    const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', ancestry: 'Ysoki',
+      heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Cybernetic Augmentation' }
+    const render = (level: number) => renderToStaticMarkup(<SkillsSection c={{ ...c, level }} entries={[mechanic]} save={() => {}} />)
+    expect(render(3)).not.toContain('when accessing a system with the datajack')
+    expect(render(4)).toContain('when accessing a system with the datajack (+1 item; item bonuses do not stack)')
+    expect(render(8)).toContain('when accessing a system with the datajack (+2 item; item bonuses do not stack)')
+    updateSettings({ testSubjectDatajackScaling: false })
+    expect(render(8)).not.toContain('when accessing a system with the datajack')
+  } finally {
+    updateSettings({ testSubjectDatajackScaling: previous })
+  }
+})
+
+it('omits specified use toggles from Offense while retaining unrelated ones', () => {
+  const removed = ['Rat Retinal HUD', 'Sensor Mask', 'Fire Crystal Beam', 'Slip From Sight', 'Wormhole Warren',
+    'Dense Weave Musculature', 'Flying Rocket Punch', 'Uncanny Dash']
+  const c: Character = { ...base, level: 20,
+    feats: [...removed, "Grandmother's Curse"].map(name => ({ name, type: 'Ancestry Feat', level: 1 })) }
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />)
+  for (const name of removed) expect(markup).not.toContain(`${name} used`)
+  expect(markup).not.toContain('Rat Retinal HUD</a> daily use')
+  expect(markup).toContain('Grandmother&#x27;s Curse used')
 })
 
 it("shows Officer's Medical Training using the better Medicine ability and its replacement skill", () => {
@@ -1515,8 +1543,8 @@ it('tracks Cyborg daily uses and displays Machine Heart recovery at the current 
   expect(defense).toContain('Machine Heart used')
   expect(defense).toContain('regain 17 Hit Points')
   const offense = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />)
-  expect(offense).toContain('Sensor Mask used')
-  expect(offense).toContain('Fire Crystal Beam used')
+  expect(offense).not.toContain('Sensor Mask used')
+  expect(offense).not.toContain('Fire Crystal Beam used')
   expect(renderToStaticMarkup(<SkillsSection c={{ ...c, level: 8 }} entries={[]} save={() => {}} part="offense" />))
     .not.toContain('Sensor Mask used')
 })
@@ -1528,7 +1556,7 @@ it('tracks hourly Ysoki and Cyborg actions without granting them below their fea
     { name: 'Wormhole Warren', type: 'Ancestry Feat', level: 17 },
   ] }
   const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />)
-  expect(markup).toContain('Uncanny Dash used')
+  expect(markup).not.toContain('Uncanny Dash used')
   expect(markup).toContain('Grandmother&#x27;s Curse used')
   expect(markup).toContain('Once per hour. Clear after an hour has passed.')
   expect(markup).not.toContain('Wormhole Warren used')

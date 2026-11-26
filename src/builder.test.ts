@@ -4077,11 +4077,12 @@ describe('homebrew feat rules', () => {
     expect(keys()).not.toContain('archetype:2:0')
   })
 
-  it('grants Mechanics and Technomancers separate Augmented Dedication slots at level 2', ({ onTestFinished }) => {
+  it('grants Envoys, Mechanics and Technomancers separate Augmented Dedication slots at level 2', ({ onTestFinished }) => {
     const previous = getSettings()
     onTestFinished(() => updateSettings(previous))
-    updateSettings({ mechanicAugmented: true, technomancerAugmented: true, freeArchetype: true })
+    updateSettings({ envoyAugmented: true, mechanicAugmented: true, technomancerAugmented: true, freeArchetype: true })
     for (const [className, setting, slot] of [
+      ['Envoy', 'envoyAugmented', 'archetype:2:g102'],
       ['Mechanic', 'mechanicAugmented', 'archetype:2:g83'],
       ['Technomancer', 'technomancerAugmented', 'archetype:2:g82'],
     ] as const) {
@@ -4122,6 +4123,19 @@ describe('homebrew feat rules', () => {
     updateSettings({ androidAugmented: true, freeArchetype: false })
     expect(keys()).toContain('archetype:2:g80')
     expect(keys()).not.toContain('archetype:2:0')
+  })
+
+  it('does not duplicate Augmented Dedication for Android Envoys', ({ onTestFinished }) => {
+    const previous = getSettings()
+    onTestFinished(() => updateSettings(previous))
+    updateSettings({ envoyAugmented: true, androidAugmented: true })
+    const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Android', className: 'Envoy', level: 2 }
+    expect(activeHomebrewDedications(c).filter(rule => rule.name === 'Augmented Dedication'))
+      .toMatchObject([{ slot: 'archetype:2:g80' }])
+    updateSettings({ androidAugmented: false })
+    expect(activeHomebrewDedications(c).filter(rule => rule.name === 'Augmented Dedication'))
+      .toMatchObject([{ slot: 'archetype:2:g102' }])
+    expect(activeHomebrewDedications({ ...c, systems: ['pf2e'] }).some(rule => rule.name === 'Augmented Dedication')).toBe(false)
   })
 
   it('grants Xeno Druid Dedication to Mystics with Primal connections only', ({ onTestFinished }) => {

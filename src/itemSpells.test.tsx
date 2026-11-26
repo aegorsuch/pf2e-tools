@@ -65,6 +65,35 @@ it('derives castable equipment spells without changing learned spells or retaini
   expect(itemSpells(c, [{ ...charm, deleted: true }, { ...other, systems: ['sf2e'] }, heal])).toEqual([])
 })
 
+it('grants Presence Intensifier Suggestion with its daily house rule and Finely Tuned', () => {
+  const previous = getSettings().presenceIntensifierDaily
+  try {
+    updateSettings({ presenceIntensifierDaily: true })
+    const presence = officialSf('Presence Intensifier')
+    const suggestion = officialSf('Suggestion')
+    const entries = [presence, suggestion]
+    const c: Character = { ...base, systems: ['sf2e'], level: 17,
+      augmentations: [{ id: 'presence', entryId: presence.id, name: presence.name, slot: 'apex' }] }
+    const grant = itemSpells(c, entries)[0]
+    expect(grant).toMatchObject({ name: 'Suggestion', rank: 9, actions: 'Two Actions', dc: 38,
+      frequency: 'once per day', entry: { name: 'Suggestion' } })
+    expect(itemSpellUses(c, grant)).toMatchObject({ limit: 1, remaining: 1 })
+    const tuned: Character = { ...c, feats: [{ name: 'Finely Tuned', type: 'Archetype Feat', level: 6,
+      slot: 'archetype:6:0', choice: presence.name }] }
+    const enhanced = itemSpells(tuned, entries)[0]
+    expect(enhanced).toMatchObject({ frequency: 'twice per day', usageKey: grant.usageKey })
+    expect(itemSpellUses(tuned, enhanced)).toMatchObject({ limit: 2, remaining: 2 })
+    expect(itemSpells({ ...tuned, level: 20 }, entries)[0].rank).toBe(10)
+    expect(itemSpells({ ...tuned, level: 5 }, entries)[0]).toMatchObject({ rank: 4, frequency: 'once per day' })
+    expect(itemSpells({ ...c, augmentations: [] }, entries)).toEqual([])
+    expect(itemSpells({ ...c, systems: ['pf2e'] }, entries)).toEqual([])
+    updateSettings({ presenceIntensifierDaily: false })
+    expect(itemSpells(tuned, entries)[0]).toMatchObject({ rank: 4, frequency: 'once per hour' })
+  } finally {
+    updateSettings({ presenceIntensifierDaily: previous })
+  }
+})
+
 it('opens False Vitality controls at the item spell rank', () => {
   const charm = make('Vitality Charm', 'item', 'Activate Two Actions; Frequency once per day; Effect You cast a 4th-rank false vitality spell.')
   const vitality = { ...make('False Vitality', 'spell'), level: 2, data: { actions: 'Two Actions' } }

@@ -52,7 +52,7 @@ it('counts and preserves the automatic Starfinder Field Agent Dedication', () =>
   ]
   const previous = getSettings()
   onTestFinished(() => updateSettings(previous))
-  updateSettings({ envoyFieldAgent: true })
+  updateSettings({ envoyFieldAgent: true, envoyAugmented: false })
   const c: Character = { id: 'field-agent', name: 'Test', systems: ['sf2e'], level: 20, className: 'Envoy',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
