@@ -173,9 +173,9 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {options.map(option => <option key={option}>{option}</option>)}
     </SearchableSelect>
   }
-  if (c.systems.includes('sf2e') && feat.name === 'Hardware Expansion') {
+  if (c.systems.includes('sf2e') && feat.name === 'Versatile Technomancer') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
-    return <SearchableSelect label="Additional Programming Language" aria-label="Hardware Expansion programming language"
+    return <SearchableSelect label="Additional Programming Language" aria-label="Versatile Technomancer programming language"
       value={feat.choice ?? ''} onChange={event => {
         const choice = event.target.value || undefined
         if (choice && !options.includes(choice)) return

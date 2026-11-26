@@ -913,7 +913,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 || selection.name === 'Mercy' && !selectedChoices.includes(selection.choice)
                 || ORDER_TRAINING_FEATS.includes(selection.name) && !selectedChoices.includes(selection.choice)
                 || selection.name === 'Technomagical Scrapper' && !selectedChoices.includes(selection.choice)
-                || selection.name === 'Hardware Expansion' && !!selection.choice && !selectedChoices?.includes(selection.choice))
+                || selection.name === 'Versatile Technomancer' && !!selection.choice && !selectedChoices?.includes(selection.choice))
                 && <FeatChoice c={c} entries={entries} save={save} index={featIndex} />}
               {selection?.name === 'Widespread Fascination' && selection.choice
                 && !widespreadFascinationOptions(c, entries, selection)

@@ -30,7 +30,7 @@ import { isWitchwarper, witchwarperParadox, witchwarperRepertoireSlots, witchwar
 import { familiarSelection, familiarSpellBenefits, purifyAirActive } from './familiarAbilities'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
-import { hardwareExpansionLanguageOptions } from './technomancer'
+import { versatileTechnomancerLanguageOptions } from './technomancer'
 import { boostingTheBasics } from './mechanicMods'
 import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
@@ -2141,7 +2141,7 @@ function automaticKnowledgeOptions(c: Character, entries: ContentEntry[], level:
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number,
   category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
-  if (name === 'Hardware Expansion' && c.systems.includes('sf2e')) return hardwareExpansionLanguageOptions(c)
+  if (name === 'Versatile Technomancer' && c.systems.includes('sf2e')) return versatileTechnomancerLanguageOptions(c)
   if (name === 'Automatic Knowledge') {
     const level = Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)
     const choices = automaticKnowledgeOptions(c, entries, level, index)

@@ -64,7 +64,7 @@ export const TECHNOMANCER_LANGUAGE_RULES: Record<TechnomancerProgrammingLanguage
   },
 }
 
-export function hardwareExpansionLanguageOptions(c: Character) {
+export function versatileTechnomancerLanguageOptions(c: Character) {
   const primary = c.className === 'Technomancer'
     ? c.technomancerProgrammingLanguage
     : c.feats.find(feat => feat.name === 'Technomancer Dedication')?.choice
