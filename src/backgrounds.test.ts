@@ -42,6 +42,24 @@ it('allows two free boosts for Student of Apotheosis and restores official boost
   } finally { updateSettings({ studentOfApotheosisStrengthWisdom: previous }) }
 })
 
+it('allows two free Icon boosts and restores official restrictions when disabled', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => hit._source?.name === 'Icon'
+    && hit._source?.category === 'background'), 'sf2e')
+  expect(entries).toHaveLength(1)
+  const previous = getSettings().iconFreeBoosts
+  const c: Character = { ...base, systems: ['sf2e'], background: 'Icon',
+    boosts: { 'background:0': 'str', 'background:1': 'wis' } }
+  try {
+    updateSettings({ iconFreeBoosts: true })
+    expect(boostSlots(c, entries).find(slot => slot.key === 'background:0')?.options).toBeUndefined()
+    expect(boostSlots(c, entries).find(slot => slot.key === 'background:1')?.options).toBeUndefined()
+    expect(computeAbilities(c, entries)).toMatchObject({ str: 12, wis: 12 })
+    updateSettings({ iconFreeBoosts: false })
+    expect(boostSlots(c, entries).find(slot => slot.key === 'background:0')?.options).toEqual(['con', 'cha'])
+  } finally { updateSettings({ iconFreeBoosts: previous }) }
+})
+
 it('keeps academic backgrounds on their named Lore without unrelated picker variants', () => {
   const expected: Record<string, string> = {
     'Academic Scion': 'Academia Lore', 'Convocation Scout': 'Politics Lore', Ghostwriter: 'Scribing Lore',

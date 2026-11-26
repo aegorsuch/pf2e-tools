@@ -148,6 +148,22 @@ describe('ability score boost controls', () => {
     },
   )
 
+  it('lets Icon select two different unrestricted boosts', () => {
+    const previous = getSettings().iconFreeBoosts
+    const background: ContentEntry = { ...entry('background', 'Icon', 'Constitution, Charisma'), systems: ['sf2e'] }
+    let c: Character = { ...character, systems: ['sf2e'], background: 'Icon', boosts: {} }
+    const props = () => ({ c, entries: [background], save: (patch: Partial<Character>) => { c = { ...c, ...patch } } })
+    try {
+      updateSettings({ iconFreeBoosts: true })
+      checkbox(props(), ['background'], 'Background Boosts: Strength').onChange()
+      checkbox(props(), ['background'], 'Background Boosts: Wisdom').onChange()
+      expect(Object.values(c.boosts ?? {})).toEqual(expect.arrayContaining(['str', 'wis']))
+      expect(checkbox(props(), ['background'], 'Background Boosts: Strength').checked).toBe(true)
+      expect(checkbox(props(), ['background'], 'Background Boosts: Wisdom').checked).toBe(true)
+      expect(checkbox(props(), ['background'], 'Background Boosts: Dexterity').disabled).toBe(true)
+    } finally { updateSettings({ iconFreeBoosts: previous }) }
+  })
+
   it('keeps fixed ancestry boosts locked while allowing only distinct free boosts', () => {
     const elfEntries = [...entries, entry('ancestry', 'Elf', 'Dexterity, Intelligence, Free')]
     let c: Character = { ...character, ancestry: 'Elf' }
