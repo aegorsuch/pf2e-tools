@@ -3591,7 +3591,7 @@ export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEnt
     if (!selected) return []
     const priority = Math.min(...matches.map(entry => entry.level))
     if (base === 'Energy Shielding' && family === 'Stormbreaker Armor') {
-      return ['electricity', 'cold', 'fire'].map(type => ({ order, priority, entry: { ...selected,
+      return ['electricity', 'fire'].map(type => ({ order, priority, entry: { ...selected,
         data: { ...selected.data, automatic_energy_type: type } } }))
     }
     const automaticEnergyType = family === 'Aquavarius Armor' ? 'cold' : undefined

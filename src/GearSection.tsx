@@ -9,7 +9,7 @@ import { confirmRemoval } from './confirmRemoval'
 import { isAncestralEmbrace, isBastionNamedArmor, isHighhelmPlate, isImmortalBastion, isInheritorPlate, isIncendiaryArmor, isLibraryRobes, isMountainArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
-import { DamageRoll, MultipleDamageRoll, rollSpellDamage } from './SpellDamage'
+import { DamageRoll, MultipleDamageRoll } from './SpellDamage'
 import { ABILITY_LABEL, APEX_AUGMENTATIONS, MOBILITY_ENHANCER_SPEEDS, activeApexAugmentation, armorBulk, armorStrengthMet, installedApexAugmentations } from './builder'
 import { barbarianInstinct, classHandwrapKind, isGiantWeapon } from './builder'
 import { equipmentDisplayName, specificMagicItemName } from './equipmentGroups'
@@ -546,27 +546,6 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, eff
   </div>
 }
 
-function EnergizedSpikesRoll({ entry, energy, onRoll }: {
-  entry: ContentEntry; energy?: EnergizedSpikesEnergy; onRoll?: () => void
-}) {
-  const [result, setResult] = useState<{ value: number; type: string }>()
-  const dice = entry.name.includes('(Advanced)') ? 8 : entry.name.includes('(Tactical)') ? 5 : 2
-  return <span>
-    <select aria-label="Roll Energized Spikes damage" value="" onChange={event => {
-      const type = event.target.value
-      if (type !== 'piercing' && !ENERGIZED_SPIKES_ENERGIES.some(candidate => candidate === type)) return
-      setResult({ value: rollSpellDamage({ label: 'Damage', dice, sides: 4, type }), type })
-      onRoll?.()
-    }}>
-      <option value="">Roll damage...</option>
-      <option value="piercing">Piercing{!energy ? ' (uncharged)' : ''}</option>
-      {ENERGIZED_SPIKES_ENERGIES.map(type =>
-        <option key={type} value={type}>{type[0].toUpperCase()}{type.slice(1)}{energy === type ? ' (charged)' : ''}</option>)}
-    </select>
-    {result && <output aria-live="polite" aria-label="Energized Spikes damage result"> {result.value} {result.type}</output>}
-  </span>
-}
-
 export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, energyShieldingTypes, energizedSpikesEnergy,
   onToggleJetpack, onEnergizedSpikesEnergyChange, onChange,
   automaticUpgrades = [], armorName = 'armor' }: {
@@ -592,7 +571,18 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
     /^Drift Drive Relay(?:\s*\([^)]*\))?$/i.test(entry?.name ?? '')
   const energizedSpikesControl = (entry?: ContentEntry) => {
     if (!entry || entry.name.replace(/\s*\([^)]*\)$/, '') !== 'Energized Spikes') return null
-    return <EnergizedSpikesRoll entry={entry} energy={energizedSpikesEnergy}
+    return <label>Damage type{' '}<select aria-label="Energized Spikes damage type" value={energizedSpikesEnergy ?? ''}
+      onChange={event => onEnergizedSpikesEnergyChange?.(ENERGIZED_SPIKES_ENERGIES.find(type => type === event.target.value))}>
+      <option value="">Piercing (uncharged)</option>
+      {ENERGIZED_SPIKES_ENERGIES.map(type =>
+        <option key={type} value={type}>{type[0].toUpperCase()}{type.slice(1)}</option>)}
+    </select></label>
+  }
+  const energizedSpikesRoll = (entry?: ContentEntry) => {
+    if (!entry || entry.name.replace(/\s*\([^)]*\)$/, '') !== 'Energized Spikes') return null
+    const dice = entry.name.includes('(Advanced)') ? 8 : entry.name.includes('(Tactical)') ? 5 : 2
+    return <DamageRoll name="Energized Spikes" actions="Free Action" toggleResult preserveDamage
+      damage={{ label: 'Damage', dice, sides: 4, type: energizedSpikesEnergy ?? 'piercing' }}
       onRoll={() => onEnergizedSpikesEnergyChange?.(undefined)} />
   }
   const options = catalog.filter(entry => !isEnergyShieldingUpgrade(entry) && !installed.some(item => item?.id === entry.id)
@@ -638,11 +628,13 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
           aria-pressed={activeJetpack === AUTOMATIC_JETPACK_ID && worn} disabled={!worn}
           title={`${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? 'Dismiss' : 'Activate'} jetpack (1 minute; cannot lift while encumbered${jetpackSpeed(item.entry) === 20 ? '; off-guard while hovering' : ''})`}
           onClick={() => onToggleJetpack(AUTOMATIC_JETPACK_ID)}><ActionIcon actions="Single Action" /></button>}
+        {energizedSpikesRoll(item.entry)}
       </span>
       const { id, index, entry, automatic } = item
       return <span className="rune" key={`${id}:${index}`}>
         <GearTag name={item.name} entry={automatic ?? entry} kind="upgrade" dialogContent={energizedSpikesControl(automatic ?? entry)}
           onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />
+      {energizedSpikesRoll(automatic ?? entry)}
       {jetpackSpeed(automatic ?? entry) > 0 && <button type="button" className={`spell-action-button${activeJetpack === id && worn ? ' on' : ''}`}
         aria-label={`${activeJetpack === id && worn ? 'Dismiss' : 'Activate'} ${automatic?.name ?? entry?.name}`}
         aria-pressed={activeJetpack === id && worn} disabled={!worn || index >= limit}

@@ -3547,7 +3547,7 @@ it('prevents installing more than one grade of Drift Drive Relay', () => {
   expect(markup).not.toContain('Add armor upgrade')
 })
 
-it('shows a single Energized Spikes damage selector for each grade', () => {
+it('shows Energized Spikes damage selection and free-action roll for each grade', () => {
   for (const [grade, level] of [['Commercial', 4], ['Tactical', 12], ['Advanced', 19]] as const) {
     const item: ContentEntry = { ...shifting, id: `spikes-${grade}`, name: `Energized Spikes (${grade})`, level,
       systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } }
@@ -3556,8 +3556,9 @@ it('shows a single Energized Spikes damage selector for each grade', () => {
       onEnergizedSpikesEnergyChange: () => {}, energizedSpikesEnergy: 'electricity',
       automaticUpgrades: [item] })
     const markup = renderToStaticMarkup(tree)
-    expect(markup).toContain('aria-label="Roll Energized Spikes damage"')
-    expect(markup).toContain('Electricity (charged)')
+    expect(markup).toContain('aria-label="Energized Spikes damage type"')
+    expect(markup).toContain('aria-label="Roll Energized Spikes: Damage"')
+    expect(markup).toContain('aria-label="Free Action"')
     expect(markup).not.toContain('Charged by')
   }
 })
@@ -3694,9 +3695,8 @@ it('limits Stormbreaker upgrades to available slots', () => {
   expect(markup).not.toContain('Force Field (Paragon)')
   expect(markup).toContain('Energized Spikes (Advanced)')
   expect(markup).toContain('Energy Shielding (Advanced) (Electricity) *')
-  expect(markup).toContain('Energy Shielding (Advanced) (Cold)')
-  expect(markup).not.toContain('Energy Shielding (Advanced) (Fire)')
-  expect(markup).not.toContain('Energy Shielding (Advanced) (Cold) *')
+  expect(markup).not.toContain('Energy Shielding (Advanced) (Cold)')
+  expect(markup).toContain('Energy Shielding (Advanced) (Fire)')
   expect(markup).not.toContain('Energy Shielding (Advanced) (Fire) *')
   expect(markup).not.toContain('Built-in upgrades exceed available armor upgrade slots.')
   expect(markup).toContain('Mobility Enhancer')
@@ -3708,7 +3708,7 @@ it('limits Stormbreaker upgrades to available slots', () => {
     .toContain('Mobility Enhancer')
 })
 
-it('counts both additional shielding upgrades against Paragon Stormbreaker slots', () => {
+it('provides four upgrade slots on Paragon Stormbreaker', () => {
   const armor: ContentEntry = { ...weapon, id: 'paragon-stormbreaker', name: 'Paragon Stormbreaker Armor',
     kind: 'armor', systems: ['sf2e'], level: 20,
     data: { armor_grade: 'Paragon', upgrade_slots: 2 } }

@@ -7,7 +7,7 @@ import { CharacterBuilder, ClassPick, HeritagePick } from './CharacterBuilder'
 import { FeatSlots } from './FeatSlots'
 import { ArmorUpgrades, Augmentations } from './GearSection'
 import { plannedSlots } from './builder'
-import type { Character, ContentEntry } from './types'
+import type { Character, ContentEntry, EnergizedSpikesEnergy } from './types'
 
 it('filters the character class picker by system without losing the selected class', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -249,24 +249,36 @@ it.each([
     const random = vi.spyOn(Math, 'random').mockReturnValue(0)
     const item: ContentEntry = { id: grade, name: `Energized Spikes (${grade})`, systems: ['sf2e'], kind: 'item',
       source: 'official', level: 1, traits: [], description: '', data: { item_subcategory: 'Armor Upgrades' }, effects: [], updatedAt: 0 }
-    const clear = vi.fn()
+    let energy: EnergizedSpikesEnergy | undefined
+    const changeEnergy = vi.fn((next: EnergizedSpikesEnergy | undefined) => { energy = next })
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
     try {
-      await act(async () => root.render(<ArmorUpgrades entries={[item]} upgrades={installed ? [item.id] : []} automaticUpgrades={installed ? [] : [item]}
-        limit={1} worn energizedSpikesEnergy="fire" onEnergizedSpikesEnergyChange={clear} onChange={() => {}} onToggleJetpack={() => {}} />))
+      const render = async () => act(async () => root.render(<ArmorUpgrades entries={[item]} upgrades={installed ? [item.id] : []} automaticUpgrades={installed ? [] : [item]}
+        limit={1} worn energizedSpikesEnergy={energy} onEnergizedSpikesEnergyChange={changeEnergy} onChange={() => {}} onToggleJetpack={() => {}} />))
+      await render()
       expect(container.querySelector('dialog[open]')).toBeNull()
       const button = [...container.querySelectorAll<HTMLButtonElement>('button')].find(candidate => candidate.textContent?.includes(item.name))!
       await act(async () => button.click())
       const dialog = container.querySelector<HTMLDialogElement>('dialog[open]')!
-      const select = dialog.querySelector<HTMLSelectElement>('[aria-label="Roll Energized Spikes damage"]')!
+      const select = dialog.querySelector<HTMLSelectElement>('[aria-label="Energized Spikes damage type"]')!
       await act(async () => { select.value = 'fire'; select.dispatchEvent(new Event('change', { bubbles: true })) })
-      expect(container.querySelector('[aria-label="Energized Spikes damage result"]')?.textContent).toContain(`${dice} fire`)
-      expect(clear).toHaveBeenCalledWith(undefined)
+      expect(changeEnergy).toHaveBeenCalledWith('fire')
+      expect(random).not.toHaveBeenCalled()
+      await render()
+      const roll = container.querySelector<HTMLButtonElement>('[aria-label="Roll Energized Spikes: Damage"]')!
+      expect(roll.closest('dialog')).toBeNull()
+      expect(roll.querySelector('[aria-label="Free Action"]')).toBeTruthy()
+      await act(async () => roll.click())
+      expect(changeEnergy).toHaveBeenLastCalledWith(undefined)
       expect(random).toHaveBeenCalledTimes(dice)
-      await act(async () => { select.value = 'piercing'; select.dispatchEvent(new Event('change', { bubbles: true })) })
-      expect(container.querySelector('[aria-label="Energized Spikes damage result"]')?.textContent).toContain(`${dice} piercing`)
+      await render()
+      expect(container.querySelector('[aria-label="Energized Spikes: Damage result"]')?.textContent).toContain(`${dice} fire`)
+      await act(async () => roll.click())
+      expect(container.querySelector('[aria-label="Energized Spikes: Damage result"]')).toBeNull()
+      await act(async () => roll.click())
+      expect(container.querySelector('[aria-label="Energized Spikes: Damage result"]')?.textContent).toContain(`${dice} piercing`)
     } finally {
       await act(async () => root.unmount())
       container.remove()

@@ -773,12 +773,17 @@ it('scales Stormbreaker electricity shielding with character level', () => {
     damage: 'Electricity', value: 15, source: 'Energy Shielding (Advanced) (Electricity)',
   })
   for (const [level, grade, value] of [[10, 'Commercial', 5], [12, 'Tactical', 10], [20, 'Advanced', 15]] as const) {
-    for (const damage of ['Cold', 'Fire']) {
-      expect(resistances({ ...c, level }, entries)).toContainEqual({
-        damage, value, source: `Energy Shielding (${grade}) (${damage})`,
-      })
-    }
+    expect(resistances({ ...c, level }, entries)).toContainEqual({
+      damage: 'Fire', value, source: `Energy Shielding (${grade}) (Fire)`,
+    })
+    expect(resistances({ ...c, level }, entries))
+      .not.toContainEqual(expect.objectContaining({ source: `Energy Shielding (${grade}) (Cold)` }))
   }
+  const manualCold = { ...c, level: 20, armors: [{ ...c.armors![0],
+    upgrades: [`energy-shielding:cold:${entries[3].id}`] }] }
+  expect(resistances(manualCold, entries)).toContainEqual({
+    damage: 'Cold', value: 15, source: 'Energy Shielding (Advanced) (Cold)',
+  })
 })
 
 it.each(['acid', 'cold', 'electricity', 'fire'] as const)('applies Energy Shielding resistance to %s', type => {

@@ -44,8 +44,9 @@ it.each(['Cold', 'Fire'] as const)('resolves old %s Stormbreaker variants as sta
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0, armors: [armor] }
   const effective = effectiveArmor(c, entries, armor)
   expect(effective.name).toBe('Paragon Stormbreaker Armor')
-  expect(resistances(c, entries)).toContainEqual({ damage: energy, value: 15,
-    source: `Energy Shielding (Advanced) (${energy})` })
+  expect(resistances(c, entries)).toContainEqual({ damage: 'Fire', value: 15,
+    source: 'Energy Shielding (Advanced) (Fire)' })
+  expect(resistances(c, entries)).not.toContainEqual(expect.objectContaining({ source: 'Energy Shielding (Advanced) (Cold)' }))
 })
 
 it('removes only Starfinder Society membership from Field Agent Dedication prerequisites', () => {
@@ -180,7 +181,7 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
     expect(autoUpgrades.map(entry => entry.name)).toContain('Force Field (Paragon)')
     if (name === 'Aquavarius Armor') expect(autoUpgrades.map(entry => entry.name)).not.toContain('Jetpack (Tactical)')
     else expect(autoUpgrades.map(entry => entry.name)).toContain('Jetpack (Tactical)')
-    expect(autoUpgrades).toHaveLength(name === 'Stormbreaker Armor' ? 7 : name === "Drifter's Jacket" || name === 'Clandestine Suit' ? 5
+    expect(autoUpgrades).toHaveLength(name === 'Stormbreaker Armor' ? 6 : name === "Drifter's Jacket" || name === 'Clandestine Suit' ? 5
       : name === 'Aquavarius Armor' || name === 'Rocketeer Armor' ? 3
       : name === 'Carvesong' || name === 'Myrmidon Siegebreaker Plate' ? 4
       : name === 'Retrieval Harness' ? 4
@@ -261,10 +262,10 @@ it('prioritizes lowest-level automatic armor upgrades within real grade capaciti
       ])
     } else {
       expect(selected.filter(entry => entry.data.automatic_energy_type).map(entry => entry.data.automatic_energy_type))
-        .toEqual(['electricity', 'cold'])
+        .toEqual(['electricity', 'fire'])
       const withExtraSlot = automaticSpecificArmorUpgrades({ ...c, heritage: 'Mod Fanatic Android' }, entries, armor)
       expect(withExtraSlot.filter(entry => entry.data.automatic_energy_type).map(entry => entry.data.automatic_energy_type))
-        .toEqual(['electricity', 'cold', 'fire'])
+        .toEqual(['electricity', 'fire'])
     }
   }
 })
