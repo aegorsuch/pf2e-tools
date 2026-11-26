@@ -98,13 +98,12 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
     expect(effectiveArmor({ ...character, level: armor!.level }, entries, owned).name).toBe(name)
     expect(effectiveArmor(character, entries, owned).name).toBe(`Superior ${name}`)
     const autoUpgrades = automaticSpecificArmorUpgrades({ ...character, level: 20 }, entries, armor!)
-    if (name !== 'Retrieval Harness') expect(autoUpgrades.map(entry => entry.name)).toContain('Force Field (Paragon)')
-    if (name === 'Retrieval Harness') expect(autoUpgrades.map(entry => entry.name)).not.toContain('Jetpack (Tactical)')
-    else if (name === 'Aquavarius Armor') expect(autoUpgrades.map(entry => entry.name)).not.toContain('Jetpack (Tactical)')
+    expect(autoUpgrades.map(entry => entry.name)).toContain('Force Field (Paragon)')
+    if (name === 'Aquavarius Armor') expect(autoUpgrades.map(entry => entry.name)).not.toContain('Jetpack (Tactical)')
     else expect(autoUpgrades.map(entry => entry.name)).toContain('Jetpack (Tactical)')
     expect(autoUpgrades).toHaveLength(name === "Drifter's Jacket" ? 5
       : name === 'Clandestine Suit' || name === 'Stormbreaker Armor' || name === 'Carvesong' ? 4
-      : name === 'Retrieval Harness' ? 1
+      : name === 'Retrieval Harness' ? 4
       : name === 'Aquavarius Armor' || name === 'Rocketeer Armor' ? 3 : 2)
     if (name === 'Clandestine Suit') expect(autoUpgrades.map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Active Camouflage (Advanced)', 'Cloaking Device (Tactical)']))
@@ -112,7 +111,7 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
       .toEqual(expect.arrayContaining(['Force Field (Paragon)', 'Active Camouflage (Advanced)',
         'Drift Drive Relay (Advanced)', 'Maneuvering Unit (Superior)']))
     if (name === 'Retrieval Harness') expect(autoUpgrades.map(entry => entry.name))
-      .toEqual(['Easypatcher (Advanced)'])
+      .toEqual(expect.arrayContaining(['Easypatcher (Advanced)', 'Adrenal Autoinjectors (Advanced)']))
     if (name === 'Aquavarius Armor') {
       expect(autoUpgrades.map(entry => entry.name)).toEqual(expect.arrayContaining([
         'Aqua Jets (Tactical)', 'Energy Shielding (Advanced)',
