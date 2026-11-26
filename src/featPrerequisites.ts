@@ -383,6 +383,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (name === 'kijimuna gnome')
       return resultFor([facts.heritage, ...(facts.heritages ?? [])].some(heritage => key(heritage ?? '') === name), text)
     if (name === 'limited telepathy') return resultFor(!!facts.limitedTelepathy, text)
+    if (name === 'healing mines' && trail.has('impressive healing mines'))
+      return resultFor(facts.feats.some(feat => key(feat.name) === name), text)
     if (key(facts.deity ?? '') === 'laws of mortality'
       && (name === 'you follow the laws of mortality' || name === "can't have a patron deity")) return met()
     if (name === 'you can cast untamed form') return resultFor(!!facts.untamedForm, text)

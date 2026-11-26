@@ -86,7 +86,7 @@ const mechanicFeatRules = [
   ['Advanced Transmutative Casing', 12, 'Transmutative Casing', 'Any'],
   ['Enhanced Energy Neutralizer', 12, 'Energy Neutralizer', 'Any'],
   ['Glitch Pulse', 12, '', 'Any'],
-  ['Impressive Healing Mines', 12, 'Healing Mines', 'Mine'],
+  ['Impressive Healing Mines', 12, 'Healing Mines', 'Any'],
   ['Advanced Targeting System', 14, 'Activate Targeting System', 'Any'],
   ['Double Debilitating Exocortex', 14, 'Improved Debilitating Exocortex', 'Any'],
   ['Redeploy Munitions', 14, 'mine exocortex', 'Mine'],
@@ -178,7 +178,7 @@ it('enforces secondary exocortex choices and their acquisition levels through pr
   expect(markup).toBe('')
 })
 
-it('allows Impressive Healing Mines with a later Healing Mines feat and Mine from Exocortex Experimenter', () => {
+it('checks only selected Healing Mines for Impressive Healing Mines', () => {
   const c: Character = { ...mechanic, level: 12, subclass: 'Turret', feats: [
     { name: 'Exocortex Experimenter', type: 'Class Feat', level: 6, slot: 'class:6:0', choice: 'Mine' },
     { name: 'Healing Mines', type: 'Class Feat', level: 2, slot: 'class:8:0' },
@@ -188,8 +188,16 @@ it('allows Impressive Healing Mines with a later Healing Mines feat and Mine fro
   expect(featSelectionPrerequisiteChecker(c, mechanicFeatCatalog, slot)(impressive)).toEqual({ missing: [], manual: [] })
   expect(eligibleFeats(mechanicFeatCatalog, c, slot)).toContain(impressive)
   expect(eligibleFeats(mechanicFeatCatalog, { ...c, feats: c.feats.slice(0, 1) }, slot)).not.toContain(impressive)
-  expect(eligibleFeats(mechanicFeatCatalog, { ...c, feats: c.feats.map(feat =>
-    feat.name === 'Healing Mines' ? { ...feat, slot: 'class:4:0' } : feat) }, slot)).not.toContain(impressive)
+  const earlierHealing = { ...c, feats: c.feats.map(feat =>
+    feat.name === 'Healing Mines' ? { ...feat, slot: 'class:4:0' } : feat) }
+  expect(featSelectionPrerequisiteChecker(earlierHealing, mechanicFeatCatalog, slot)(impressive)).toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats(mechanicFeatCatalog, earlierHealing, slot)).toContain(impressive)
+  expect(featSelectionPrerequisiteChecker({ ...earlierHealing, feats: earlierHealing.feats.slice(1) },
+    mechanicFeatCatalog, slot)(impressive)).toEqual({ missing: [], manual: [] })
+  expect(featSelectionPrerequisiteChecker({ ...earlierHealing, feats: [] },
+    mechanicFeatCatalog, slot)(impressive).missing).toEqual(['Healing Mines'])
+  const healing = mechanicFeatCatalog.find(feat => feat.name === 'Healing Mines')!
+  expect(featPrerequisiteChecker(earlierHealing, mechanicFeatCatalog, 4)(healing).missing).toEqual(['mine exocortex'])
   expect(renderToStaticMarkup(<MechanicFeatures c={c} save={() => {}} />)).toContain('Mine capacity')
 })
 

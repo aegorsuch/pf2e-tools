@@ -24,6 +24,23 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it('uses the official Impressive Healing Mines prerequisite without rechecking Healing Mines', () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(starfinderSnapshot)
+  const entries = hits.filter(hit => ['Healing Mines', 'Impressive Healing Mines'].includes(String(hit._source?.name)))
+    .map(hit => mapAonHit(hit, 'sf2e')).filter((item): item is ContentEntry => !!item)
+  const impressive = entries.find(item => item.name === 'Impressive Healing Mines')!
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', subclass: 'Turret', level: 12,
+    feats: [
+      { name: 'Healing Mines', type: 'Class Feat', level: 2, slot: 'class:4:0' },
+      { name: 'Exocortex Experimenter', type: 'Class Feat', level: 6, slot: 'class:6:0', choice: 'Mine' },
+    ] }
+  const slot = { category: 'class' as const, level: 12, key: 'class:12:0' }
+  expect(impressive.data.prerequisite).toBe('Healing Mines')
+  expect(featSelectionPrerequisiteChecker(c, entries, slot)(impressive)).toEqual({ missing: [], manual: [] })
+  expect(featSelectionPrerequisiteChecker({ ...c, feats: c.feats.slice(1) }, entries, slot)(impressive).missing)
+    .toEqual(['Healing Mines'])
+})
+
 it('checks Small or smaller prerequisites from the character size', () => {
   const ancestry = entry('ancestry', 'Test Ancestry', { size: 'Small' })
   const c = { ...base, ancestry: ancestry.name }
