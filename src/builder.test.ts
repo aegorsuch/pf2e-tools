@@ -772,18 +772,20 @@ it('scales Stormbreaker electricity shielding with character level', () => {
   expect(shielding(20, 'Advanced')).toEqual({
     damage: 'Electricity', value: 15, source: 'Energy Shielding (Advanced) (Electricity)',
   })
-  for (const [level, grade, value] of [[10, 'Commercial', 5], [12, 'Tactical', 10], [20, 'Advanced', 15]] as const) {
-    expect(resistances({ ...c, level }, entries)).toContainEqual({
-      damage: 'Fire', value, source: `Energy Shielding (${grade}) (Fire)`,
-    })
-    expect(resistances({ ...c, level }, entries))
-      .not.toContainEqual(expect.objectContaining({ source: `Energy Shielding (${grade}) (Cold)` }))
+  for (const [level, grade] of [[10, 'Commercial'], [12, 'Tactical'], [20, 'Advanced']] as const) {
+    for (const type of ['Cold', 'Fire']) {
+      expect(resistances({ ...c, level }, entries))
+        .not.toContainEqual(expect.objectContaining({ source: `Energy Shielding (${grade}) (${type})` }))
+    }
   }
-  const manualCold = { ...c, level: 20, armors: [{ ...c.armors![0],
-    upgrades: [`energy-shielding:cold:${entries[3].id}`] }] }
-  expect(resistances(manualCold, entries)).toContainEqual({
-    damage: 'Cold', value: 15, source: 'Energy Shielding (Advanced) (Cold)',
-  })
+  for (const type of ['cold', 'fire'] as const) {
+    const manual = { ...c, level: 20, armors: [{ ...c.armors![0],
+      upgrades: [`energy-shielding:${type}:${entries[3].id}`] }] }
+    const damage = type === 'cold' ? 'Cold' : 'Fire'
+    expect(resistances(manual, entries)).toContainEqual({
+      damage, value: 15, source: `Energy Shielding (Advanced) (${damage})`,
+    })
+  }
 })
 
 it.each(['acid', 'cold', 'electricity', 'fire'] as const)('applies Energy Shielding resistance to %s', type => {
