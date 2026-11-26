@@ -1,5 +1,5 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, knownSpellNames, nephilimLineageLore, orderMagicOptions, statDefs, subclassSkillChoice, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, knownSpellNames, nephilimLineageLore, orderMagicOptions, statDefs, subclassOptions, subclassSkillChoice, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
 import { automaticFeatGrants } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, automaticFeatChoiceKey, coreAttunementOptions, featSpellOptions, isInnateSpellChoice } from './featSpells'
@@ -316,14 +316,16 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </label>
   }
   if (feat.name === 'Versatile Rogue' || feat.name === 'Versatile Investigator'
-    || feat.name === 'Versatile Gunslinger' || feat.name === 'Multifarious Muse') {
+    || feat.name === 'Versatile Gunslinger' || feat.name === 'Versatile Envoy' || feat.name === 'Multifarious Muse') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
     const className = feat.name === 'Versatile Rogue' ? 'Rogue'
       : feat.name === 'Versatile Investigator' ? 'Investigator'
-        : feat.name === 'Versatile Gunslinger' ? 'Gunslinger' : 'Bard'
+        : feat.name === 'Versatile Gunslinger' ? 'Gunslinger' : feat.name === 'Versatile Envoy' ? 'Envoy' : 'Bard'
     const kind = className === 'Rogue' ? 'racket' : className === 'Investigator' ? 'methodology'
-      : className === 'Gunslinger' ? 'way' : 'muse'
-    const subclass = entries.find(entry => entry.kind === 'subclass' && entry.name === feat.choice && entry.data.class === className)
+      : className === 'Gunslinger' ? 'way' : className === 'Envoy' ? 'leadership style' : 'muse'
+    const subclass = className === 'Envoy'
+      ? subclassOptions({ ...c, className }, entries).find(entry => entry.name === feat.choice)
+      : entries.find(entry => entry.kind === 'subclass' && entry.name === feat.choice && entry.data.class === className)
     const investigatorVariants = className === 'Investigator' ? options.flatMap(method => {
       const choice = subclassSkillChoice({ ...c, className: 'Investigator', subclass: method }, entries)
       return choice?.options.length

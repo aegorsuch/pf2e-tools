@@ -1,6 +1,6 @@
 import { resistances, activeBattleForm,
   ABILITY_LABEL, ARMOR_GROUPS, RANKS, WEAPON_GROUPS, abilityMod, activeFeatsNamed, animalSkinBenefits, armorRanks, weaponRanks, backgroundSkills, freeHeartBackground, autoClassSkills, byName, canIncreaseTo, classDifficultyClass, classFeatures, commonLoreOptions, featEffectChange, featLores, isFeatEffectActive, senses, movementSpeeds, speed, speedBonuses, ragingAthleteBenefits, magneticLevitatorsActive, armorSpecialization,
-  ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, featTakenLevel, hitPointBonuses, isPioneerHuman, isSkilledHuman, maxHp, terrainExpertiseBenefits,
+  ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, offensiveDefenseAttack, ownedWeapons, weaponEquipped, installedWeaponUpgrades, conditionPenalty, conditionValue, selectedSubclass, type SectionProps,
 } from './builder'
 import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, giantStatureSize, giantClumsySource, enlargedChassisSize, effectiveWeapon, weaponEntry, weaponHeld } from './builder'
@@ -246,7 +246,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const c = editingSkills ? normalizeGrantedSkillSpending(normalizeConditionalSkillChoices(normalizeLongevitySkills(original), entries), entries) : original
   const save: SectionProps['save'] = patch => saveOriginal(c === original ? patch : {
     feats: c.feats, skillPicks: c.skillPicks, skillIncreases: c.skillIncreases, skillTokenUpgrades: c.skillTokenUpgrades,
-    warmask: c.warmask, lores: c.lores, ...patch,
+    warmask: c.warmask, lores: c.lores, skilledHumanSkill: c.skilledHumanSkill, ...patch,
   })
   const stats = statDefs(c)
   const bg = editingSkills ? entries.find((e) => e.kind === 'background' && e.name === c.background) : undefined
@@ -273,10 +273,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const ancestrySkills = editingSkills ? ancestralSkills(c, entries) : []
   const heritageSkills = editingSkills ? [
     ...(isPioneerHuman(c) ? ['Survival'] : []),
-    ...(isSkilledHuman(c) && c.skilledHumanSkill ? [c.skilledHumanSkill] : []),
   ] : []
-  const heritageSkillSource = (name: string) =>
-    isSkilledHuman(c) && c.skilledHumanSkill === name ? 'Skilled Human' : 'Pioneer Human'
   const grantedTraining = [...ancestrySkills, ...heritageSkills]
   const fixed = new Set(editingSkills ? [...autoClassSkills(c, entries), ...backgroundSkills(bg, c), ...extraBackgroundSkills, ...grantedTraining] : [])
   const terrainExpertise = terrainExpertiseBenefits(c, entries)
@@ -532,8 +529,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               ...(!stillGranted ? { skillPicks: picks.filter(pick => pick !== s.name), skillIncreases, rankOverrides,
                 skillTokenUpgrades: c.skillTokenUpgrades?.filter(purchase => purchase.skill !== s.name) } : {}) })
           })}>×</button>}
-          {s.kind === 'skill' && isSkilledHuman(c) && c.skilledHumanSkill === s.name && <SourceNote inlineSource={false}
-            source={heritageSkillSource(s.name)} note="Grants trained proficiency without spending a skill training pick." />}
           <b>{s.kind === 'save' && (s.name === 'Fortitude' || s.name === 'Reflex' || s.name === 'Will')
           ? <TotalBreakdown label={s.name} breakdown={savingThrowBreakdown(c, entries, s.name, ranks)} signedTotal />
           : signed(total)}{formSkill !== undefined && (pest && s.name === 'Athletics' || formSkill > ownTotal)
@@ -784,8 +779,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
                 aria-label={`${skillLabel} ${RANKS[i + 1]}`}
                 disabled={disabled}
                 title={temporary ? `${temporary.feat.name}: temporary proficiency` : s.kind !== 'skill' ? 'Set by class and features' : i === 0 && grantedTraining.includes(s.name)
-                  ? picks.includes(s.name) ? `Refund redundant training choice; ${heritageSkills.includes(s.name) ? heritageSkillSource(s.name) : 'Ancestral Skills'} keeps this skill trained`
-                    : `Trained granted by ${heritageSkills.includes(s.name) ? heritageSkillSource(s.name) : 'Ancestral Skills'}`
+                  ? picks.includes(s.name) ? `Refund redundant training choice; ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'} keeps this skill trained`
+                    : `Trained granted by ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'}`
                   : backgroundChoice ? `${backgroundChoice.value ? 'Refund' : 'Choose'} training from ${backgroundChoice.background.name}`
                   : i === 0 && fixed.has(s.name) ? picks.includes(s.name) ? 'Refund redundant training choice' : 'Trained granted by class or background' : RANKS[i + 1]}
                 onClick={() => setRank(s.name, i + 1)}
@@ -1202,14 +1197,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         note="Roll twice and use the higher result when checking to free another creature from immobilized, paralyzed, or controlled. Immediately after a single-target non-cantrip spell, its target can attempt to Escape." />}
       {!!activeFeatsNamed(c, "Storyteller's Mask").length && <SourceNote source="Storyteller's Mask"
         note="Immediately after a non-cantrip spell targeting one foe, Recall Knowledge about that foe." />}
-      {editingSkills && isSkilledHuman(c) && <label>Skilled Human skill{' '}
-        <SearchableSelect aria-label="Skilled Human skill" value={c.skilledHumanSkill ?? ''} onChange={event => {
-          save({ skilledHumanSkill: event.target.value || undefined })
-        }}>
-          <option value="">Choose trained skill</option>
-          {skills.map(skill => <option key={skill.name} value={skill.name}>{skill.name}</option>)}
-        </SearchableSelect>
-      </label>}
       <div className="skill-grid" role="table" aria-label="Skills">
         {renderRows(skills)}
       </div>

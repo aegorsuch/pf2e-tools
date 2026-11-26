@@ -2076,6 +2076,24 @@ it('offers Elf Ancestral Magic spells by feat slot and grants them as daily prim
   expect(markup).toContain('Verdant Code')
 })
 
+it('grants Press-Gang the Soul Wisp Ally as at-will divine innate spell heightened to half character level', () => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ innateAutoHeighten: false, consolidateInnateTraditions: false })
+  const spell = { ...entry('Wisp Ally', 'spell'), systems: ['sf2e' as const] }
+  for (const name of ['Press-Gang the Soul', 'Press Gang the Soul']) {
+    for (const level of [4, 9, 20]) {
+      const character: Character = { ...base, systems: ['sf2e'], level, feats: [
+        { name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+      ] }
+      expect(grantedFeatSpells(character, [spell])).toContainEqual(expect.objectContaining({
+        entry: spell, source: name, rank: Math.ceil(level / 2),
+        rule: { kind: 'innate', spells: ['Wisp Ally'], tradition: 'divine', frequency: 'at will', heightened: true },
+      }))
+    }
+  }
+})
+
 it('keeps companion spell names and Active checkboxes together before source notes', () => {
   const c: Character = { ...base, className: 'Ranger', spells: [
     { name: 'Canopy Crawler', rank: 2, cantrip: false }, { name: 'Enlarge Companion', rank: 2, cantrip: false },

@@ -38,11 +38,23 @@ const paths: Record<string, string> = {
   Operative: '3-operative/specializations', Witchwarper: '6-witchwarper/paradoxes',
 }
 
+const envoyPerks: Record<string, { feat?: string; choice?: string; description: string }> = {
+  'From the Front': { description: 'You are trained in medium armor. When your light armor proficiency increases to expert or master, your medium armor proficiency increases to the same rank.' },
+  'From the Shadows': { feat: 'Assurance', choice: 'Stealth', description: 'You gain Assurance (Stealth) as a bonus feat.' },
+  'Guns Blazing': { feat: 'Incredible Initiative', description: 'You gain Incredible Initiative as a bonus feat.' },
+  'In the Spotlight': { feat: 'Impressive Performance', description: 'You gain Impressive Performance as a bonus feat.' },
+  'Infosphere Director': { feat: 'Digital Diversion', description: 'You gain Digital Diversion as a bonus feat.' },
+  'Through Desperate Times': { feat: 'Battle Medicine', description: 'You gain Battle Medicine as a bonus feat.' },
+}
+
 export const STARFINDER_SUBCLASSES: ContentEntry[] = [...Object.entries(choices).flatMap(([className, options]) =>
   options.map(([name, skill, slug]): ContentEntry => ({
     id: `supplemental:sf2e:${className.toLowerCase()}:${slug}`, systems: ['sf2e'], kind: 'subclass', source: 'official',
-    name, level: 1, traits: [], description: `Trained in ${skill}.`,
-    data: { class: className, skill, url: `https://2e.aonsrd.com/classes/${paths[className]}/${slug}` },
+    name, level: 1, traits: [], description: `Trained in ${skill}.${className === 'Envoy' ? ` ${envoyPerks[name]?.description ?? ''}` : ''}`,
+    data: { class: className, skill, ...(envoyPerks[name] ? {
+      leadership_perk_feat: envoyPerks[name].feat,
+      leadership_perk_choice: envoyPerks[name].choice,
+    } : {}), url: `https://2e.aonsrd.com/classes/${paths[className]}/${slug}` },
     effects: [], updatedAt: 1,
   }))), ...[
     ['Drone', '1-drone', 'A robot companion with three commercial customizations.'],

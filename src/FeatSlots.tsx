@@ -7,7 +7,7 @@ import { DamageRoll, rollSpellDamage, rollTreehealerHealing } from './SpellDamag
 import { PickerDialog } from './PickerDialog'
 import { DeferredContent, DeferredDetails } from './DeferredDetails'
 import { sortPickerOptions } from './PickerSort'
-import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, byName, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, knownSpellNames, matchesSkill, plannedSlots, ranksAt, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassSkillChoice, temporarySkillTrainings, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, byName, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, knownSpellNames, matchesSkill, plannedSlots, ranksAt, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassOptions, subclassSkillChoice, temporarySkillTrainings, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -227,7 +227,7 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
     ? automaticFeatGrants(c, entries) : []
   const automaticFeats = grants.filter((grant) =>
       (!categories || categories.some(category => grantedType(grant.name) === `${LABEL[category]} Feat`))
-      && (grant.name === 'Additional Lore' || grant.name === 'Augmented Body' && !getSettings().singleAugmentedBody || grant.name === 'Assurance' && (grant.source.startsWith('Exceptional Artisan (') || grant.source === 'Test-Subject Ysoki' || grant.source === 'Gnome Obsession')
+      && (grant.name === 'Additional Lore' || grant.name === 'Augmented Body' && !getSettings().singleAugmentedBody || grant.name === 'Assurance' && (grant.source.startsWith('Exceptional Artisan (') || grant.source === 'Test-Subject Ysoki' || grant.source === 'Gnome Obsession' || grant.source === 'From the Shadows Leadership Perk' || grant.source.startsWith('Effortless Influencer ('))
         || !c.feats.some((feat) => feat.name === grant.name && featTakenLevel(feat) <= c.level))
       && !backgroundFeats.some((feat) => feat.name === grant.name))
     .map(grant => ({ ...grant, fixedLore: grant.name === 'Additional Lore' && !!grant.choice, choice: grant.choice
@@ -335,12 +335,15 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     : name === 'Order Explorer' || name === 'Order Magic' ? `${choice} Order` : featSkillChoiceLabel(name, choice)
   const subclassDescription = (name: string, choice?: string) => {
     const classes: Record<string, string> = { 'Versatile Rogue': 'Rogue', 'Versatile Investigator': 'Investigator', 'Multifarious Muse': 'Bard',
-      'Versatile Gunslinger': 'Gunslinger', 'Second Innovation': 'Inventor', 'Third Innovation': 'Inventor', 'Order Explorer': 'Druid' }
+      'Versatile Gunslinger': 'Gunslinger', 'Versatile Envoy': 'Envoy',
+      'Second Innovation': 'Inventor', 'Third Innovation': 'Inventor', 'Order Explorer': 'Druid' }
     const className = classes[name]
     if (!choice || !className) return undefined
     const names = [choice, `${choice} Order`, ...(choice === 'Wild' ? ['Untamed', 'Untamed Order'] : [])]
-    const entry = entries.find(candidate => !candidate.deleted && candidate.data.class === className
-      && (candidate.kind === 'subclass' || candidate.kind === 'classFeature') && names.includes(candidate.name))
+    const entry = name === 'Versatile Envoy'
+      ? subclassOptions({ ...c, className }, entries).find(candidate => names.includes(candidate.name))
+      : entries.find(candidate => !candidate.deleted && candidate.data.class === className
+        && (candidate.kind === 'subclass' || candidate.kind === 'classFeature') && names.includes(candidate.name))
     return entry?.description ? `${choiceLabel(name, choice)}: ${entry.description}`
       : `${choiceLabel(name, choice)} description unavailable in loaded content.`
   }

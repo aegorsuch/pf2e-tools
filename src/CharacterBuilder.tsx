@@ -500,6 +500,11 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       const method = subclasses.find(entry => entry.name === feat.choice)
       return method ? [method] : []
     }) : []
+  const additionalEnvoyStyles = c.className === 'Envoy'
+    ? activeFeatsNamed(c, 'Versatile Envoy').flatMap(feat => {
+      const style = subclasses.find(entry => entry.name === feat.choice)
+      return style ? [style] : []
+    }) : []
   const fatalMethods = fatalMethodOptions(entries)
   const fatalMethod = selectedFatalMethod(c)
   const arcaneTheses = arcaneThesisOptions(entries)
@@ -806,6 +811,8 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
               </label>}
             </Fragment>
           })}
+          {additionalEnvoyStyles.map(style =>
+            <SelectedSubclassRules key={style.id} entry={style} label={`${style.name} leadership style (Versatile Envoy)`} />)}
           {c.className === 'Druid' && (
               <SearchableSelect label="Druidic Order" aria-label="Druidic Order" value={subclassName ?? ''} onChange={(e) => save({ order: e.target.value })}>
                 <option value="">No order</option>

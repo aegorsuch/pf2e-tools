@@ -17,7 +17,7 @@ import type { ContentEntry } from './types'
 import { companionAdvancementFor, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_NAME,
   hasCompanionMountOption, isBadgerCompanion } from './companions'
 import { ActionIcon } from './ActionIcon'
-import { AUTOMATIC_JETPACK_ID, armorUpgradeEntries, automaticSpecificArmorUpgrades, forceFieldStats, jetpackSpeed } from './builder'
+import { AUTOMATIC_JETPACK_ID, armorUpgradeEntries, automaticSpecificArmorUpgrades, forceFieldAlwaysActive, forceFieldStats, jetpackSpeed } from './builder'
 import type { OwnedArmor } from './types'
 
 const entrenchMeleeEntry = (bonus: number): ContentEntry => ({
@@ -130,7 +130,8 @@ function armorDeviceStatuses(c: SectionProps['c'], entries: SectionProps['entrie
   return {
     armor, jetpack, jetpackId: automaticJetpack ? AUTOMATIC_JETPACK_ID : jetpack?.id,
     jetpackActive: armor.activeJetpack === AUTOMATIC_JETPACK_ID && !!automaticJetpack || !!activeManualJetpack,
-    forceField, forceFieldStats: stats, forceFieldActive: !!armor.activeForceField && !!stats,
+    forceField, forceFieldStats: stats,
+    forceFieldActive: !!stats && (!!armor.activeForceField || forceFieldAlwaysActive(forceField)),
   }
 }
 
@@ -268,16 +269,22 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       <ActionIcon actions="Single Action" /> {armorDevices.jetpack.name}
     </button> }
     : undefined
+  const forceFieldAlwaysOn = forceFieldAlwaysActive(armorDevices.forceField)
   const forceFieldControl = armorDevices.forceField && armorDevices.forceFieldStats
-    ? { name: 'Force Field', element: <button type="button"
-      className={`spell-action-button status-action-button${armorDevices.forceFieldActive ? ' on' : ''}`}
-      aria-label={`${armorDevices.forceFieldActive ? 'Dismiss' : 'Activate'} ${armorDevices.forceField.name}`}
-      aria-pressed={armorDevices.forceFieldActive}
-      title={`${armorDevices.forceFieldActive ? 'Deactivate' : 'Activate'} Force Field; ${armorDevices.forceFieldStats.hitPoints} HP, replenishes ${armorDevices.forceFieldStats.regeneration} HP at the start of your turn`}
-      onClick={() => updateArmorDevice({ activeForceField: !armorDevices.forceFieldActive })}>
-      {armorDevices.forceFieldActive && <span aria-hidden="true">✓</span>}
-      <ActionIcon actions="Single Action" /> {armorDevices.forceField.name} (+{armorDevices.forceFieldStats.hitPoints} HP)
-    </button> }
+    ? { name: 'Force Field', element: forceFieldAlwaysOn
+      ? <span className="spell-action-button status-action-button on" role="status"
+        aria-label={`${armorDevices.forceField.name} always active`}>
+        <span aria-hidden="true">✓</span> {armorDevices.forceField.name} (+{armorDevices.forceFieldStats.hitPoints} HP)
+      </span>
+      : <button type="button"
+        className={`spell-action-button status-action-button${armorDevices.forceFieldActive ? ' on' : ''}`}
+        aria-label={`${armorDevices.forceFieldActive ? 'Dismiss' : 'Activate'} ${armorDevices.forceField.name}`}
+        aria-pressed={armorDevices.forceFieldActive}
+        title={`${armorDevices.forceFieldActive ? 'Deactivate' : 'Activate'} Force Field; ${armorDevices.forceFieldStats.hitPoints} HP, replenishes ${armorDevices.forceFieldStats.regeneration} HP at the start of your turn`}
+        onClick={() => updateArmorDevice({ activeForceField: !armorDevices.forceFieldActive })}>
+        {armorDevices.forceFieldActive && <span aria-hidden="true">✓</span>}
+        <ActionIcon actions="Single Action" /> {armorDevices.forceField.name} (+{armorDevices.forceFieldStats.hitPoints} HP)
+      </button> }
     : undefined
   const companionStatuses = (c.companions ?? []).map((companion, index) => {
     const advancement = companion.type === CONSTRUCT_COMPANION_NAME

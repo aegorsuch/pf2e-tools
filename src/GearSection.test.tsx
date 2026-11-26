@@ -3,7 +3,7 @@ import { Children, cloneElement, isValidElement, type ReactElement, type ReactNo
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, automaticArmorUpgradeSlotsUsed, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon, installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, armorUpgradeSlots as resolvedArmorUpgradeSlots, automaticArmorUpgradeSlotsUsed, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon, installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, OVERSIZED_THROW } from './supplemental'
@@ -3067,6 +3067,14 @@ it('auto-installs Stormbreaker electrical upgrades and reserves slots for Jetpac
   expect(markup).toContain('Energy Shielding (Advanced) (Electricity) *')
   expect(markup).not.toContain('Jetpack (Tactical) *')
   expect(markup).not.toContain('Force Field (Paragon) *')
+})
+
+it('leaves two upgrade slots on Paragon Stormbreaker Armor after built-in upgrades', () => {
+  const armor: ContentEntry = { ...weapon, id: 'paragon-stormbreaker', name: 'Paragon Stormbreaker Armor',
+    kind: 'armor', systems: ['sf2e'], level: 20,
+    data: { armor_grade: 'Paragon', upgrade_slots: 2 } }
+  expect(resolvedArmorUpgradeSlots(armor)).toBe(4)
+  expect(resolvedArmorUpgradeSlots(armor) - automaticArmorUpgradeSlotsUsed(armor)).toBe(2)
 })
 
 it('auto-installs Aeon Guard Battle Dress Jetpack and Force Field using two upgrade slots', () => {

@@ -845,7 +845,7 @@ it('lists raised shield, Shield cantrip, Bone Shield and Parry in Statuses', () 
   expect(renderToStaticMarkup(StatusesSummary({ c: bone, entries, save }))).toContain('Raise Bone Shield')
 })
 
-it('activates armor Jetpack and Force Field from Statuses with movement and HP values', () => {
+it('activates armor Jetpack and treats Paragon Force Field as always active', () => {
   const jacket: ContentEntry = { id: 'drifters-jacket', name: "Drifter's Jacket", kind: 'armor', systems: ['sf2e'],
     source: 'official', level: 10, traits: [], description: '', data: { armor_category: 'Light', upgrade_slots: 1 },
     effects: [], updatedAt: 0 }
@@ -866,16 +866,14 @@ it('activates armor Jetpack and Force Field from Statuses with movement and HP v
   })
   expect(renderToStaticMarkup(StatusesContent({ c, entries, save }))).toContain('aria-label="Dismiss Jetpack (Tactical)"')
 
-  const activateForceField = findButton(StatusesContent({ c, entries, save }), 'Activate Force Field (Paragon)')
-  expect(activateForceField).toBeTypeOf('function')
-  activateForceField!()
+  expect(findButton(StatusesContent({ c, entries, save }), 'Activate Force Field (Paragon)')).toBeUndefined()
   expect(temporaryHpGrant(c, entries)?.value).toBe(42)
   expect(renderToStaticMarkup(StatusesSummary({ c, entries, save }))).toContain('Force Field (+42 HP)')
   const activeStatuses = renderToStaticMarkup(StatusesContent({ c, entries, save }))
-  expect(activeStatuses).toContain('aria-label="Dismiss Force Field (Paragon)"')
+  expect(activeStatuses).toContain('aria-label="Force Field (Paragon) always active"')
   expect(activeStatuses).toContain('<span aria-hidden="true">✓</span>')
 
-  findButton(StatusesContent({ c, entries, save }), 'Dismiss Force Field (Paragon)')!()
-  expect(c.armors?.[0].activeForceField).toBe(false)
-  expect(temporaryHpGrant(c, entries)).toBeUndefined()
+  const lowerGradeEntries = [jacket, module('Force Field (Superior)', 10)]
+  expect(findButton(StatusesContent({ c, entries: lowerGradeEntries, save }), 'Activate Force Field (Superior)')).toBeTypeOf('function')
+  expect(temporaryHpGrant(c, lowerGradeEntries)).toBeUndefined()
 })

@@ -132,8 +132,8 @@ export function temporaryHpGrant(c: Character, entries: ContentEntry[]) {
     grants.push({ source: form.source, value: form.temporaryHp })
   }
   const armor = wornArmor(c, entries)
-  if (armor?.activeForceField) {
-    const forceField = armorUpgradeEntries(c, entries, armor).find(entry => forceFieldStats(entry))
+  const forceField = armor && armorUpgradeEntries(c, entries, armor).find(entry => forceFieldStats(entry))
+  if (forceField && (armor?.activeForceField || forceFieldAlwaysActive(forceField))) {
     const hitPoints = forceFieldStats(forceField)?.hitPoints
     if (forceField && hitPoints) grants.push({ source: forceField.name, value: hitPoints })
   }
@@ -1291,6 +1291,8 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         || character.className === 'Gunslinger' && feat.name === 'Versatile Gunslinger'
           && entries.some(entry => !entry.deleted && entry.kind === 'subclass' && entry.name === feat.choice
             && entry.data.class === 'Gunslinger')
+        || character.className === 'Envoy' && feat.name === 'Versatile Envoy'
+          && subclassOptions({ ...character, className: 'Envoy' }, entries).some(entry => entry.name === feat.choice)
       ) ? [feat.choice] : [])
       const museFeats = character.className === 'Bard' ? [subclass, ...additionalSubclasses].flatMap((name) => {
         const muse = entries.find((entry) => entry.kind === 'subclass' && entry.data.class === 'Bard' && entry.name === name)
@@ -2353,6 +2355,13 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       .filter(way => !used.has(way.name))
       .map(way => way.name))]
   }
+  if (name === 'Versatile Envoy' && c.systems.includes('sf2e')) {
+    const used = new Set([selectedSubclass(c, entries), ...c.feats.flatMap((feat, featIndex) =>
+      featIndex !== index && feat.name === name && featTakenLevel(feat) <= c.level && feat.choice ? [feat.choice] : [])])
+    return [...new Set(subclassOptions({ ...c, className: 'Envoy' }, entries)
+      .filter(style => !used.has(style.name))
+      .map(style => style.name))]
+  }
   if (name === 'Hold Mark') return ['Burning Sun', "Death's Head", 'Defiled Corpse', 'Empty Hand']
   if (name === 'Orc Warmask') return Object.keys(WARMASK_SOURCES)
   if (name === 'Alloyed Attacks') return ['Cold Iron', 'Silver', ...(c.level >= 13 ? ['Adamantine'] : [])]
@@ -3157,6 +3166,9 @@ export function magneticLevitatorsActive(c: Character, entries: ContentEntry[]) 
 
 export function armorUpgradeSlots(entry?: ContentEntry) {
   if (!entry) return 0
+  const family = entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+  if (entry.systems.includes('sf2e') && family === 'Stormbreaker Armor'
+    && (entry.data.armor_grade === 'Paragon' || /^Paragon /i.test(entry.name))) return 4
   const slots = Number(entry.data.upgrade_slots)
   if (Number.isFinite(slots) && entry.data.upgrade_slots !== undefined) return slots
   return Number(/\bUpgrades\W{0,6}(\d+)/i.exec(entry.description ?? '')?.[1] ?? 0)
@@ -3266,6 +3278,10 @@ export function forceFieldStats(entry?: ContentEntry) {
   const grade = match[1] ?? 'Commercial'
   const index = FORCE_FIELD_GRADES.findIndex(value => value.toLowerCase() === grade.toLowerCase())
   return index < 0 ? undefined : FORCE_FIELD_STATS[index]
+}
+
+export function forceFieldAlwaysActive(entry?: ContentEntry) {
+  return !!forceFieldStats(entry) && /^Force Field \(Paragon\)$/i.test(entry!.name)
 }
 
 export function isEnergyShieldingUpgrade(entry?: ContentEntry) {
@@ -3801,10 +3817,12 @@ export const initiativeBonus = (c: Character, entries: ContentEntry[]) => {
   const armorSource = armor && armorEntry(c, entries, armor.name, armor.id)
   const ponderousPenalty = armorSource?.traits.some(trait => trait.toLowerCase() === 'ponderous')
     ? armorStrengthMet(c, armorSource) ? -1 : Math.min(-1, num(armorSource.data.check_penalty)) : 0
+  const incredibleInitiative = activeFeatsNamed(c, 'Incredible Initiative').length > 0
+    || automaticFeatGrants(c, entries).some(grant => grant.name === 'Incredible Initiative')
   return defenseSummary(c, entries).perception - perceptionCircumstanceBonus(c)
-    + Math.max(['Superior Sight', 'Incredible Initiative'].some((name) => activeFeatsNamed(c, name).length) ? 2 : 0,
+    + Math.max(activeFeatsNamed(c, 'Superior Sight').length || incredibleInitiative ? 2 : 0,
       c.systems.includes('sf2e') && c.className === 'Operative' && c.level >= 7
-        ? activeFeatsNamed(c, 'Incredible Initiative').length ? 3 : 2 : 0,
+        ? incredibleInitiative ? 3 : 2 : 0,
       armor?.material === 'Orichalcum' ? 1 : 0)
     + ponderousPenalty
 }
@@ -3942,6 +3960,22 @@ export function investigatorMethodologies(c: Character, entries: ContentEntry[])
   ].filter((method): method is string => !!method))]
 }
 
+function envoyLeadershipStyles(c: Character, entries: ContentEntry[]) {
+  if (!c.systems.includes('sf2e') || c.className !== 'Envoy' || c.level < 1) return []
+  const options = subclassOptions({ ...c, className: 'Envoy' }, entries)
+  const styles = new Map<string, number>()
+  const primary = selectedSubclass(c, entries)
+  if (primary) styles.set(primary, 1)
+  for (const feat of activeFeatsNamed(c, 'Versatile Envoy')) {
+    if (feat.choice && options.some(entry => entry.name === feat.choice))
+      styles.set(feat.choice, featTakenLevel(feat))
+  }
+  return [...styles].flatMap(([name, level]) => {
+    const entry = options.find(option => option.name === name)
+    return entry ? [{ entry, level }] : []
+  })
+}
+
 export function subclassSkillGrants(c: Character, entries: ContentEntry[]): string[] {
   if (c.level < 1 || !c.className) return []
   const erudite = eruditeWarrior(c)
@@ -3960,6 +3994,9 @@ export function subclassSkillGrants(c: Character, entries: ContentEntry[]): stri
       }
       return skills
     }))]
+  }
+  if (c.className === 'Envoy') {
+    return [...new Set(envoyLeadershipStyles(c, entries).flatMap(({ entry }) => tokens(entry.data.skill)))]
   }
   if (!subclass) return []
   if (c.className === 'Druid') return DRUID_ORDERS[subclass] ? [DRUID_ORDERS[subclass]] : []
@@ -4164,7 +4201,7 @@ export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {
   const specials = build && typeof build === 'object' && 'class' in build && build.class === c.className
     && 'specials' in build && Array.isArray(build.specials) ? build.specials : []
   const names = new Set([...c.feats.flatMap((feat) => [feat.name,
-    ...(['Second Innovation', 'Third Innovation', 'Versatile Rogue', 'Versatile Investigator', 'Versatile Gunslinger',
+    ...(['Second Innovation', 'Third Innovation', 'Versatile Rogue', 'Versatile Investigator', 'Versatile Gunslinger', 'Versatile Envoy',
       'Multifarious Muse', 'Widespread Fascination'].includes(feat.name) ? [] : [feat.choice])]), ...specials]
     .filter((name): name is string => typeof name === 'string').map((name) => name.replace(/ (?:Instinct|Order)$/, '')))
   if (c.className === 'Druid') {
@@ -4609,6 +4646,7 @@ export function normalizeConditionalSkillChoices(c: Character, entries: ContentE
     if (/\s+lore$/i.test(skill) && !lores.some(lore => lore.name === skill)) lores.push({ name: skill, rank: 0 })
     changed = true
   }
+  if (isSkilledHuman(c) && c.skilledHumanSkill) add(c.skilledHumanSkill)
   const feats = c.feats.map((feat, index) => {
     if (featTakenLevel(feat) > c.level) return feat
     const keep = feat.name === 'Lizardfolk Lore' ? 1 : 0
@@ -4630,7 +4668,8 @@ export function normalizeConditionalSkillChoices(c: Character, entries: ContentE
     add(alternate)
     warmask = { ...warmask, alternateSkill: undefined }
   }
-  return changed ? { ...c, feats, warmask, skillPicks: picks, lores } : c
+  return changed ? { ...c, feats, warmask, skillPicks: picks, lores,
+    ...(isSkilledHuman(c) ? { skilledHumanSkill: undefined } : {}) } : c
 }
 
 export function ancestralSkills(c: Character, entries: ContentEntry[], selections = activeFeatsNamed(c, 'Ancestral Skills')) {
@@ -4980,6 +5019,21 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
 
 function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
   const grants: { name: string; source: string; level: number; choice?: string; choiceKey?: string; choiceIndex?: number }[] = []
+  if (c.systems.includes('sf2e') && c.className === 'Envoy') {
+    for (const { entry, level } of envoyLeadershipStyles(c, entries)) {
+      const name = entry.data.leadership_perk_feat
+      if (typeof name !== 'string' || !name) continue
+      const choice = entry.data.leadership_perk_choice
+      grants.push({ name, source: `${entry.name} Leadership Perk`, level,
+        ...(typeof choice === 'string' && choice ? { choice } : {}) })
+    }
+    for (const feat of activeFeatsNamed(c, 'Effortless Influencer')) {
+      for (const choice of ['Deception', 'Diplomacy', 'Intimidation']) {
+        grants.push({ name: 'Assurance', choice,
+          source: `Effortless Influencer (${choice})`, level: featTakenLevel(feat) })
+      }
+    }
+  }
   if (vindicatorDeadlySimplicity(c, entries)) grants.push({ name: 'Deadly Simplicity', source: 'Vindicator', level: 1 })
   grants.push(...damayaSelfPerfectionLoreGrants(c))
   if (c.systems.includes('pf2e')) for (const feat of activeFeatsNamed(c, 'Nephilim Lore')) {
@@ -5682,6 +5736,8 @@ function baseArmorRanks(c: Character, entries: ContentEntry[]) {
 export function armorRanks(c: Character, entries: ContentEntry[]) {
   const ranks = baseArmorRanks(c, entries)
   if (rogueRackets(c, entries).some(racket => racket === 'Ruffian' || racket === 'Avenger')) ranks.Medium = Math.max(ranks.Medium, ranks.Light, 1)
+  if (envoyLeadershipStyles(c, entries).some(({ entry }) => entry.name === 'From the Front'))
+    ranks.Medium = Math.max(ranks.Medium, ranks.Light)
   if (activeFeatsNamed(c, 'Animal Skin').length) ranks.Unarmored = Math.max(ranks.Unarmored, 2)
   if (activeFeatsNamed(c, 'Invulnerable Rager').length) {
     const barbarianMedium = c.className === 'Barbarian'
@@ -9146,6 +9202,7 @@ export const additionalSkillCount = (c: Character, entries: ContentEntry[]) =>
       && [...autoClassSkills(c, entries), ...backgroundSkills(byName(entries, 'background', c.background))]
         .includes(skill)).length
     + Number(isPioneerHuman(c) && [...autoClassSkills(c, entries), ...backgroundSkills(byName(entries, 'background', c.background))].includes('Survival')))
+    + Number(isSkilledHuman(c) && !c.skilledHumanSkill)
     + (() => {
       const klass = characterClassSkills(c, entries)
       const classTraining = new Set([...klass.fixed, ...(c.classSkill && klass.choices.includes(c.classSkill) ? [c.classSkill] : [])])
@@ -9246,6 +9303,7 @@ interface SkillToken {
 
 function skillIncreaseTokens(c: Character, entries: ContentEntry[]): SkillToken[] {
   return [
+    ...(isSkilledHuman(c) && c.level >= 5 ? [{ key: 'skilled-human:5', rank: 2, level: 5 }] : []),
     ...(longevityExpertLevel(c) !== undefined ? [{ key: LONGEVITY_EXPERT_SLOT, rank: 2, level: longevityExpertLevel(c)! }] : []),
     ...officerEducationSlots(c).map(slot => ({ key: slot.key, rank: 2, level: slot.level })),
     ...signiferExpertSlots(c).map(slot => ({ key: slot.key, rank: 2, level: slot.level, skills: slot.skills })),

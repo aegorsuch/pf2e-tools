@@ -9,6 +9,7 @@ import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedicat
 import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting, wizardSchoolBookSpells } from './builder'
 import { hasRemainingFeatSelections } from './builder'
 import { maxEtchedRunes, runicRepertoireSize } from './runesmithRunes'
+import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 import type { Character, ContentEntry } from './types'
 
 it('clears Bone Shield activation and raised state when removed', () => {
@@ -1263,6 +1264,61 @@ describe('subclass skill grants', () => {
     expect(subclassSkillGrants({ ...c, className: 'Swashbuckler', subclass: 'Wit' }, [])).toEqual(['Diplomacy'])
   })
 
+  it('applies Envoy leadership skills, perks, initiative, and From the Front armor progression', () => {
+    const envoy = entry('class', 'Envoy', {
+      defense_proficiency: 'Trained in light armor, trained in unarmored defense',
+    })
+    const lightExpertise = { ...entry('classFeature', 'Light Armor Expertise', { class: 'Envoy' }, 13),
+      description: 'Your proficiency rank for light armor and unarmored defense increases to expert.' }
+    const lightMastery = { ...entry('classFeature', 'Light Armor Mastery', { class: 'Envoy' }, 19),
+      description: 'Your proficiency rank for light armor and unarmored defense increases to master.' }
+    const styles = STARFINDER_SUBCLASSES.filter(style => style.data.class === 'Envoy')
+    const entries = [envoy, ...styles, lightExpertise, lightMastery]
+    const versatile: Character['feats'][number] = {
+      name: 'Versatile Envoy', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'From the Shadows',
+    }
+    const c: Character = { ...base, systems: ['sf2e'], className: 'Envoy', subclass: 'From the Front',
+      level: 20, feats: [versatile] }
+
+    expect(featChoiceOptions('Versatile Envoy', c, entries, versatile.slot!, 0)).toContain('Guns Blazing')
+    expect(featChoiceOptions('Versatile Envoy', c, entries, versatile.slot!, 0)).not.toContain('From the Front')
+    expect(subclassSkillGrants(c, entries)).toEqual(['Athletics', 'Stealth'])
+    expect(automaticFeatGrants(c, entries)).toContainEqual({
+      name: 'Assurance', choice: 'Stealth', source: 'From the Shadows Leadership Perk', level: 10,
+    })
+    expect(armorRanks({ ...c, level: 1 }, entries).Medium).toBe(1)
+    expect(armorRanks({ ...c, level: 13 }, entries).Medium).toBe(2)
+    expect(armorRanks({ ...c, level: 19 }, entries).Medium).toBe(3)
+
+    const settings = getSettings()
+    try {
+      updateSettings({ autoClassSkills: false })
+      expect(ranksAt(c, entries).Athletics).toBe(1)
+      expect(ranksAt(c, entries).Stealth).toBe(1)
+      updateSettings({ autoClassSkills: true })
+      expect(ranksAt(c, entries).Athletics).toBe(4)
+      expect(ranksAt(c, entries).Stealth).toBe(4)
+    } finally { updateSettings(settings) }
+
+    const perks = [
+      ['From the Shadows', 'Assurance', 'Stealth'],
+      ['Guns Blazing', 'Incredible Initiative', undefined],
+      ['In the Spotlight', 'Impressive Performance', undefined],
+      ['Infosphere Director', 'Digital Diversion', undefined],
+      ['Through Desperate Times', 'Battle Medicine', undefined],
+    ] as const
+    for (const [style, name, choice] of perks) {
+      const character = { ...c, subclass: 'From the Front',
+        feats: [{ ...versatile, choice: style }] }
+      expect(automaticFeatGrants(character, entries)).toContainEqual({
+        name, ...(choice ? { choice } : {}), source: `${style} Leadership Perk`, level: 10,
+      })
+    }
+    const gunsBlazing = { ...c, subclass: 'Guns Blazing', feats: [] }
+    const front = { ...gunsBlazing, subclass: 'From the Front' }
+    expect(initiativeBonus(gunsBlazing, entries) - initiativeBonus(front, entries)).toBe(2)
+  })
+
   it('lets Versatile Investigator add methodology benefits and only grants an extra skill feat slot when needed', () => {
     const methods = ['Forensic Medicine', 'Empiricism', 'Esoterica']
       .map(name => entry('subclass', name, { class: 'Investigator' }))
@@ -1487,15 +1543,23 @@ describe('official passive feat mechanics', () => {
     expect(automaticFeatGrants(other, entries)).not.toContainEqual(expect.objectContaining({ name: 'Terrain Expertise' }))
   })
 
-  it('grants Skilled Human training without spending a trained pick and refunds overlapping training', () => {
+  it('adds Skilled Human trained and expert tokens and migrates legacy skill choices', () => {
     const c: Character = { ...base, className: undefined, ancestry: 'Human', heritage: 'Skilled Human',
-      skilledHumanSkill: 'Stealth', skillPicks: [] }
-    const withoutGrant = { ...c, heritage: undefined, skilledHumanSkill: undefined }
-    expect(ranksAt(c, entries).Stealth).toBe(1)
-    expect(additionalSkillCount(c, entries)).toBe(additionalSkillCount(withoutGrant, entries))
+      skillPicks: [] }
+    const withoutGrant = { ...c, heritage: undefined }
+    expect(skillRankBudget(c, entries).trained - skillRankBudget(withoutGrant, entries).trained).toBe(1)
+    expect(skillRankBudget({ ...c, level: 5 }, entries).expert
+      - skillRankBudget({ ...withoutGrant, level: 5 }, entries).expert).toBe(1)
+
+    const legacy = { ...c, skilledHumanSkill: 'Stealth' }
+    const migrated = normalizeConditionalSkillChoices(legacy, entries)
+    expect(migrated.skillPicks).toContain('Stealth')
+    expect(migrated.skilledHumanSkill).toBeUndefined()
+    expect(ranksAt(legacy, entries).Stealth).toBe(1)
+    expect(ranksAt(migrated, entries).Stealth).toBe(1)
 
     const hunter = entry('background', 'Hunter', { skill: 'Stealth' })
-    const overlapping = { ...c, background: 'Hunter' }
+    const overlapping = { ...legacy, background: 'Hunter' }
     const data = [...entries, hunter]
     expect(additionalSkillCount(overlapping, data) -
       additionalSkillCount({ ...overlapping, heritage: undefined, skilledHumanSkill: undefined }, data)).toBe(1)

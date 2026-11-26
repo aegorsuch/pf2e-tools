@@ -1309,20 +1309,19 @@ it('preserves saved Experienced Laborer Lore without spending a trained pick', (
   expect(skillRankBudget({ ...normalized, skillPicks: [] }, entries).trained).toBe(4)
 })
 
-it('lets Skilled Human choose a free trained skill in Skills', () => {
-  let c: Character = { ...base, ancestry: 'Human', heritage: 'Skilled Human', skillPicks: [] }
+it('adds Skilled Human trained and 5th-level expert tokens to standard skill controls', () => {
+  let c: Character = { ...base, level: 5, ancestry: 'Human', heritage: 'Skilled Human', skillPicks: [] }
   const tree = () => SkillsSection({ c, entries: [ranger], save: patch => { c = { ...c, ...patch } }, part: 'skills' })
-  const trained = skillRankBudget(c, [ranger]).trained
-  const picker = findLorePicker(tree(), 'Skilled Human skill')!
-  expect(picker).toBeDefined()
-  ;(picker.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Stealth' } })
-  expect(c.skilledHumanSkill).toBe('Stealth')
+  const withoutHeritage = { ...c, heritage: undefined }
+  expect(skillRankBudget(c, [ranger]).trained - skillRankBudget(withoutHeritage, [ranger]).trained).toBe(1)
+  expect(skillRankBudget(c, [ranger]).expert - skillRankBudget(withoutHeritage, [ranger]).expert).toBe(1)
+  expect(renderToStaticMarkup(tree())).not.toContain('Skilled Human skill')
+  const trainedButton = findButtons(tree()).get('Stealth Trained')!
+  expect(trainedButton.disabled).toBe(false)
+  ;(trainedButton.onClick as () => void)()
+  expect(c.skillPicks).toContain('Stealth')
   expect(ranksAt(c, [ranger]).Stealth).toBe(1)
-  expect(skillRankBudget(c, [ranger]).trained).toBe(trained)
-  const markup = renderToStaticMarkup(tree())
-  expect(markup).toContain('aria-label="Skilled Human note"')
-  expect(markup).toContain('Grants trained proficiency without spending a skill training pick.')
-  expect(markup).toMatch(/<button type="button" class="on" aria-pressed="true" aria-label="Stealth Trained"/)
+  expect(renderToStaticMarkup(tree())).toMatch(/<button type="button" class="on" aria-pressed="true" aria-label="Stealth Trained"/)
 })
 
 function findSelect(node: ReactNode, label: string): Record<string, unknown> | undefined {

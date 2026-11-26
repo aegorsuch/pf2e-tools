@@ -563,6 +563,13 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (c.systems.includes('sf2e') && feat.name.toLowerCase().replace(/[-\s]+/g, ' ').trim() === 'press gang the soul') {
+      const entry = matchingSpells(entries, 'Wisp Ally').find(spell => spell.systems.includes('sf2e'))
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'divine', frequency: 'at will', heightened: true },
+        rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
+      continue
+    }
     if (feat.name === 'Otherworldly Acumen' && c.systems.includes('pf2e')) {
       const entry = feat.choice ? featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice) : undefined
       const traditions = String(entry?.data.tradition ?? '').toLowerCase().split(/,\s*/)

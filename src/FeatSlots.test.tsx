@@ -1,7 +1,7 @@
 import { Children, cloneElement, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
-import { FeatSlots, featPickerEligibility } from './FeatSlots'
+import { FeatSlots, featPickerEligibility, featSectionGrants } from './FeatSlots'
 import { EntryDescription } from './EntryDescription'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
 import { mapAonHit } from './aon'
@@ -52,6 +52,19 @@ it('reuses feat eligibility across slots, but recomputes for another character o
   } finally {
     compute.mockRestore()
   }
+})
+
+it('keeps Effortless Influencer Assurance grants visible when Assurance is already selected', () => {
+  const assurance: ContentEntry = { id: 'assurance', systems: ['sf2e'], kind: 'feat', source: 'official',
+    name: 'Assurance', level: 1, traits: ['General', 'Skill'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], className: 'Envoy', level: 16,
+    feats: [
+      { name: 'Effortless Influencer', type: 'Class Feat', level: 10, slot: 'class:10:0' },
+      { name: 'Assurance', type: 'Skill Feat', level: 2, slot: 'skill:2:0' },
+    ] }
+  const grants = featSectionGrants(c, [assurance], ['skill']).automaticFeats
+    .filter(grant => grant.name === 'Assurance' && grant.source.startsWith('Effortless Influencer ('))
+  expect(grants.map(grant => grant.choice).sort()).toEqual(['Deception', 'Diplomacy', 'Intimidation'])
 })
 
 it('reuses picker prerequisite results when search changes', () => {
