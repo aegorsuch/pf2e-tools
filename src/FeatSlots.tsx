@@ -632,6 +632,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             ? RUNESMITH_RUNES.find(rune => rune.name === selection?.choice) : undefined
           const showAcidicSpitRoll = c.systems.includes('sf2e') && currentEntry?.name === 'Acidic Spit'
             && !!activeFeatsNamed(c, currentEntry.name).length
+          const showTenthLifeRoll = c.systems.includes('sf2e') && currentEntry?.name === 'Tenth Life'
+            && !!activeFeatsNamed(c, currentEntry.name).length
           const access = currentEntry ? featAccess(c, currentEntry) : undefined
           const ambiguous = new Set(sources.map((entry) => String(entry.data.prerequisite ?? ''))).size > 1
           const ruleGranted = activeFeatsNamed(c, current).some(feat => feat.slot === s.key)
@@ -791,7 +793,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     access={descriptionEntry ? featAccess(c, descriptionEntry) : access}
                     grantSource={arcanaChoiceEntry ? selection?.name : grantSource}
                     deferDetails={!!onSearch}
-                    buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showTreehealerRoll || showBattlePrayerRoll || showPiercingDoom || showAcidicSpitRoll || showInscribedBlast || showCoreCannon}
+                    buttonActions={training?.actions} hideButtonActions={showFeatActionControls || showWrathRoll || showTreehealerRoll || showBattlePrayerRoll || showPiercingDoom || showAcidicSpitRoll || showTenthLifeRoll || showInscribedBlast || showCoreCannon}
                     descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                       : selection?.choice && DOMAIN_FEATS.includes(selection.name)
                         ? domainSpellDescription(c, entries, selection.name, selection.choice)
@@ -831,6 +833,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   </>}
                   {showAcidicSpitRoll && <DamageRoll name="Acidic Spit" actions="Two Actions" toggleResult
                     damage={{ label: 'Damage', dice: c.level >= 16 ? 11 : 8, sides: 6, type: 'acid' }} />}
+                  {showTenthLifeRoll && <DamageRoll name="Tenth Life" actions="Reaction" toggleResult
+                    damage={{ label: 'Healing', dice: 6, sides: 8, bonus: Math.floor(c.level / 2), type: 'HP' }} />}
                 </>
               ) : popup ? (
                 <button type="button" className="feat-name feat-picker-button" aria-label={`${label} feat`} aria-haspopup="dialog" aria-expanded={open}

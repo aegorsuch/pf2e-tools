@@ -13,6 +13,7 @@ export interface PrerequisiteFacts {
   className?: string
   witchPatronTradition?: string
   ancestry?: string
+  size?: string
   heritage?: string
   heritages?: string[]
   ethnicity?: string
@@ -362,6 +363,11 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       return resultFor(facts.className === 'Guardian', text)
     }
     if (name === 'medium or small size') return met()
+    if (name === 'small size or smaller') {
+      const sizes = facts.size?.match(/\b(?:tiny|small|medium|large|huge|gargantuan)\b/gi)?.map(size => size.toLowerCase())
+      if (!sizes?.length || sizes.some(size => ['tiny', 'small'].includes(size)) && sizes.some(size => !['tiny', 'small'].includes(size))) return manual(text)
+      return resultFor(sizes.every(size => ['tiny', 'small'].includes(size)), text)
+    }
     if (name === 'you have a swim speed' || name === 'you have swim speed') return resultFor(!!facts.swimSpeed, text)
     if (name === 'focus pool') return resultFor(!!facts.focusPool, text)
     if (trail.has('hallowed earth') && ['the hallowed dead', 'hallowed dead'].includes(name))

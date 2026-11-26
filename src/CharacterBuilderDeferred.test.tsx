@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
 import { CharacterBuilder, ClassPick, HeritagePick } from './CharacterBuilder'
+import { FeatSlots } from './FeatSlots'
 import { plannedSlots } from './builder'
 import type { Character, ContentEntry } from './types'
 
@@ -102,6 +103,71 @@ it('keeps section summaries current without mounting closed section controls', (
   expect(render({ ...c, formulas: [], companions: [], spells: [] })).toContain('0 known')
   expect(render({ ...c, formulas: [], companions: [], spells: [] })).toContain('0 minions')
   expect(render({ ...c, formulas: [], companions: [], spells: [], spellcasting: undefined })).toContain('0/11 spells')
+})
+
+it('updates resistance values and opens their notes without toggling Defense', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const c: Character = {
+    id: 'resistance-summary', systems: ['pf2e'], name: 'Test', level: 10,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const poison: ContentEntry = { id: 'poison-resistance', name: 'Poison Resistance', kind: 'feat',
+    source: 'official', systems: ['pf2e'], level: 2, traits: [], description: '',
+    data: { resistances: 'poison=half' }, effects: [], updatedAt: 0 }
+  const render = async (character: Character) => act(async () => root.render(
+    <CharacterBuilder character={character} catalog={[poison]} onClose={() => {}} />,
+  ))
+  try {
+    await render(c)
+    const section = [...container.querySelectorAll('details')].find(details =>
+      details.querySelector(':scope > summary > strong')?.textContent === 'Defense')!
+    const summary = section.querySelector(':scope > summary')!
+    expect(summary.textContent).toContain('Resistances: None')
+    const withPoison = { ...c, feats: [{ name: 'Poison Resistance', type: 'Class Feat', level: 2 }] }
+    await render(withPoison)
+    expect(summary.textContent).toContain('Poison 5')
+    const note = summary.querySelector<HTMLButtonElement>('[aria-label="Poison Resistance note"]')!
+    expect(note).toBeTruthy()
+    await act(async () => note.click())
+    expect(section.open).toBe(false)
+    await render({ ...withPoison, level: 20 })
+    expect(summary.textContent).toContain('Poison 10')
+    await render(c)
+    expect(summary.textContent).toContain('Resistances: None')
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('rolls Tenth Life healing using six d8s and half the character level', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+  const feat: ContentEntry = { id: 'tenth-life', systems: ['sf2e'], kind: 'feat', source: 'official',
+    name: 'Tenth Life', level: 17, traits: ['Pahtra'], description: '', data: { actions: 'Reaction' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'tenth-life', name: 'Test', systems: ['sf2e'], ancestry: 'Pahtra', level: 17,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: feat.name, type: 'Ancestry Feat', level: 17, slot: 'ancestry:17:0' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<FeatSlots c={c} entries={[feat]} categories={['ancestry']} save={() => {}} />))
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Roll Tenth Life: Healing"]')!.click())
+    expect(container.querySelector('[aria-label="Tenth Life: Healing result"]')?.textContent).toContain('14 HP')
+    expect(random).toHaveBeenCalledTimes(6)
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    random.mockRestore()
+    vi.unstubAllGlobals()
+  }
 })
 
 it('shows ancestry feat progress beside the ancestry name', () => {

@@ -45,7 +45,6 @@ export const CONDITIONAL_BONUSES: ConditionalBonus[] = [
   check('Absolute Unit', 'Intimidation', 1, 'to Demoralize a target whose passage you are blocking'),
   { feat: 'Well-Connected', stats: ['Society'], bonus: 2, type: 'status',
     text: 'to Gather Information in a settlement with a significant kasatha population' },
-  { feat: "Meyel's Melody", stats: ['Performance'], bonus: 2, type: 'status', text: 'to Performance checks' },
   { feat: 'Home Turf', stats: ['Stealth', 'Survival', 'Perception'], bonus: 1, type: 'circumstance', text: 'in your home turf (also applies to DCs)' },
   check('Masked', 'Deception', 1, 'to Lie while your mouth is covered'),
   check('Masked', 'Diplomacy', 1, 'to Make a Request or Make an Impression while your mouth is covered'),

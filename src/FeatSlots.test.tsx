@@ -277,6 +277,19 @@ it('rolls Acidic Spit damage at the appropriate level', () => {
   expect(render({ ...c, level: 12 })).not.toContain('aria-label="Roll Acidic Spit: Damage"')
 })
 
+it('provides Tenth Life healing at the current level', () => {
+  const feat: ContentEntry = { id: 'tenth-life', systems: ['sf2e'], kind: 'feat', source: 'official',
+    name: 'Tenth Life', level: 17, traits: ['Pahtra'], description: '', data: { actions: 'Reaction' }, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Pahtra', level: 17,
+    feats: [{ name: feat.name, type: 'Ancestry Feat', level: 17, slot: 'ancestry:17:0' }] }
+  const render = (character: Character) => renderToStaticMarkup(
+    <FeatSlots c={character} entries={[feat]} categories={['ancestry']} save={() => {}} />)
+  expect(render(c)).toContain('aria-label="Roll Tenth Life: Healing"')
+  expect(render(c)).toContain('Healing: 6d8+8 HP')
+  expect(render({ ...c, level: 20 })).toContain('Healing: 6d8+10 HP')
+  expect(render({ ...c, level: 16 })).not.toContain('aria-label="Roll Tenth Life: Healing"')
+})
+
 it('adds a Treehealer healing roll to the selected feat', () => {
   const treehealer: ContentEntry = { id: 'treehealer', systems: ['pf2e'], kind: 'feat', source: 'official',
     name: 'Treehealer', level: 17, traits: ['Elf'], description: 'Heal a plant creature.', data: {},

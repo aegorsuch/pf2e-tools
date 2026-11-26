@@ -17,7 +17,7 @@ import { adoptedAncestryText } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { DamageRoll } from './SpellDamage'
 import { LanguagesSection } from './LanguagesSection'
-import { ArmorProficiency, WeaponProficiency, RageToggle, SensesAndSpeed, SensesAndSpeedSummary, SkillsSection, SkillsSummary } from './SkillsSection'
+import { ArmorProficiency, WeaponProficiency, RageToggle, ResistanceSummary, SensesAndSpeed, SensesAndSpeedSummary, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsPanel } from './SpellsSection'
 import { DeviseAStratagemToggle, HuntPreyToggle, StatusesContent, StatusesSummary, parryTrait } from './StatusesSection'
 import { boneShieldActive, canUseGiantStature, effectiveHandwraps, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, temporaryHpGrant, twinnedDefenseActive } from './builder'
@@ -866,6 +866,9 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <strong>Defense</strong>
           <span>Armor Class <TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />, Hit Points {defense.hp}
             {temporaryHp && `+${temporaryHp.value}`}</span>
+          <span onClick={event => { if (event.target instanceof Element && event.target.closest('button')) event.stopPropagation() }}>
+            <ResistanceSummary c={c} entries={entries} />
+          </span>
           {(shield || shieldCantrip || boneShield || parry > 0) && <span className="combat-summary-toggles" onClick={(event) => event.stopPropagation()}>
             {shield && <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
               <input type="checkbox" aria-label={`${shieldRaiseLabel} (summary)`} checked={shieldRaised(c)} disabled={shieldParagonActive(c)}

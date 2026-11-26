@@ -1450,6 +1450,13 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
       const features = classFeatures(entries, character)
       const value: PrerequisiteFacts = {
         className: character.className, ancestry: character.ancestry, heritage: character.heritage, ethnicity: character.ethnicity,
+        get size() {
+          const knownSize = characterHeritages(character, entries).some(heritage => typeof heritage.data.size === 'string')
+            || entries.some(entry => entry.kind === 'ancestry' && entry.name === character.ancestry && !entry.deleted
+              && entry.systems.some(system => character.systems.includes(system)) && typeof entry.data.size === 'string')
+            || activeFeatsNamed(character, 'Scion Transformation').length > 0 && character.systems.includes('pf2e')
+          return knownSize ? characterSize(character, entries) : undefined
+        },
         heritages: characterHeritages(character, entries).map(heritage => heritage.name),
         ancestryTraits: ancestryFeatTraits(character),
         subclass: character.className === 'Witchwarper' ? witchwarperParadox(character)?.name : subclass,

@@ -24,6 +24,20 @@ const target = (prerequisite: string) => entry('feat', 'Target', { prerequisite 
 const check = (prerequisite: string, c = base, entries: ContentEntry[] = [], level = c.level) =>
   featPrerequisiteChecker(c, entries, level)(target(prerequisite))
 
+it('checks Small or smaller prerequisites from the character size', () => {
+  const ancestry = entry('ancestry', 'Test Ancestry', { size: 'Small' })
+  const c = { ...base, ancestry: ancestry.name }
+  const test = (size: string) => check('Small size or smaller', c, [{ ...ancestry, data: { size } }])
+  expect(test('Small')).toEqual({ missing: [], manual: [] })
+  expect(test('Tiny')).toEqual({ missing: [], manual: [] })
+  expect(test('Medium').missing).toEqual(['Small size or smaller'])
+  expect(test('Small or Medium').manual).toEqual(['Small size or smaller'])
+  expect(check('Small size or smaller', c, []).manual).toEqual(['Small size or smaller'])
+  const heritage = entry('heritage', 'Large Heritage', { size: 'Large' })
+  expect(check('Small size or smaller', { ...c, heritage: heritage.name }, [ancestry, heritage]).missing)
+    .toEqual(['Small size or smaller'])
+})
+
 it('checks Space Pirate prerequisites and grants Piloting based on prior training', () => {
   const feat: ContentEntry = { ...entry('feat', 'Space Pirate Dedication', { prerequisite: 'trained in Intimidation' }, 2,
     ['Archetype', 'Dedication']), systems: ['sf2e'] }

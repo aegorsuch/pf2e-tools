@@ -34,6 +34,17 @@ const base: Character = {
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
 
+it("applies Meyel's Melody to Performance only when the feat is active", () => {
+  const c: Character = { ...base, level: 9, feats: [{ name: "Meyel's Melody", type: 'Ancestry Feat', level: 9 }] }
+  const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[ranger]} save={() => {}} />)
+  const active = render(c)
+  expect(active).toContain('class="skill-name">Performance <b>+2')
+  expect(active).toContain('aria-label="Meyel&#x27;s Melody note"')
+  expect(active).toContain('+2 status bonus to Performance checks.')
+  expect(render({ ...c, level: 8 })).toContain('class="skill-name">Performance <b>+0')
+  expect(render({ ...c, feats: [] })).toContain('class="skill-name">Performance <b>+0')
+})
+
 it('uses Intelligence for Athletics while Investigator Athletic Strategist is active', () => {
   const investigator: ContentEntry = { ...ranger, id: 'investigator', name: 'Investigator',
     data: { ...ranger.data, skill_proficiency: 'Trained in Athletics' } }

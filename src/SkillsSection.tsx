@@ -41,6 +41,27 @@ const RESISTANCE_NOTES: Record<string, string> = {
   'Armor Storm': 'Applies only to damage from attacks made by suppressed creatures.',
 }
 
+export function ResistanceSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
+  const res = [...resistances(c, entries).reduce((highest, resistance) => {
+    const key = resistance.damage.toLowerCase()
+    const existing = highest.get(key)
+    if (!existing || resistance.value > existing.value) highest.set(key, resistance)
+    return highest
+  }, new Map<string, ReturnType<typeof resistances>[number]>()).values()]
+    .sort((a, b) => a.damage.localeCompare(b.damage) || a.source.localeCompare(b.source))
+  const spec = armorSpecialization(c, entries)
+  return <>Resistances: {res.length ? res.map((r, index) => {
+    const note = spec && r.source === `${spec.group} Armor Specialization` ? spec.effect : RESISTANCE_NOTES[r.source]
+    return <span key={`${r.damage}:${r.source}`}>{index > 0 && ', '}{r.damage} {r.value}
+      <SourceNote source={r.source} note={note ?? `Grants ${r.damage} resistance ${r.value}.`} /></span>
+  }) : 'None'}
+    {activeFeatsNamed(c, 'Harden Flesh').length > 0 && <>
+      {' '}<SourceNote source="Harden Flesh"
+        note={`After using its one-action activity while standing on earthen or stone ground, you gain resistance ${Math.min(6, 3 + Math.max(0, Math.floor((c.level - 8) / 4)))} to physical damage except adamantine until the beginning of your next turn.`} />
+    </>}
+  </>
+}
+
 function FeatEffectToggle({ c, save, name, label, title, ariaLabel = label }: Pick<SectionProps, 'c' | 'save'> & {
   name: string; label: string; title: string; ariaLabel?: string
 }) {
@@ -488,7 +509,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0, pack?.value ?? 0, skillGear?.value ?? 0, additionalSkillGear?.value ?? 0, apexSkillBonus(c, s.name))
     const athleticRush = s.name === 'Athletics' && isSpellActive(c, entries, 'Athletic Rush')
     const ferocious = s.name === 'Athletics' && form?.source === 'Untamed Form' && !!activeFeatsNamed(c, 'Ferocious Shape').length
-    const status = athleticRush ? 2 : ferocious ? 1 : s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0
+    const meyelsMelody = s.name === 'Performance' && activeFeatsNamed(c, "Meyel's Melody").length > 0
+    const status = athleticRush ? 2 : ferocious ? 1 : s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : meyelsMelody ? 2 : 0
     const modification = s.name === 'Athletics' ? 'Muscular Exoskeleton' : s.name === 'Stealth' ? 'Subtle Dampeners' : ''
     const armorSkill = modification && armorOverdriveActive(c) && wornArmor(c, entries)?.id === INVENTOR_ARMOR_ID
       && armorModifications(c).some(mod => mod.name === modification)
@@ -542,8 +564,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           : signed(total)}{formSkill !== undefined && (pest && s.name === 'Athletics' || formSkill > ownTotal)
           && <SourceNote source={form?.source ?? ''} note={`${s.name} ${signed(formSkill)}${pest && s.name === 'Athletics' ? '.' : ' unless your own modifier is higher.'}`} />}{!!armorPenalty
           && <SourceNote inlineSource={false} source="Armor check penalty" note={`${armorPenalty} to Strength and Dexterity skill checks and DCs, except actions with the attack trait.`} />}{!!status
-          && <SourceNote inlineSource={false} source={athleticRush ? 'Athletic Rush' : ferocious ? 'Ferocious Shape' : 'Imitate Fauna'}
-            note={athleticRush ? '+2 status bonus to Athletics checks.' : ferocious ? '+1 status bonus to Athletics checks.' : '+4 status bonus when using Impersonate as an animal.'} />}
+          && <SourceNote inlineSource={false} source={athleticRush ? 'Athletic Rush' : ferocious ? 'Ferocious Shape' : meyelsMelody ? "Meyel's Melody" : 'Imitate Fauna'}
+            note={athleticRush ? '+2 status bonus to Athletics checks.' : ferocious ? '+1 status bonus to Athletics checks.'
+              : meyelsMelody ? '+2 status bonus to Performance checks.' : '+4 status bonus when using Impersonate as an animal.'} />}
           {circumstance?.source === 'Hellknight Preferment' && <SourceNote source={circumstance.source}
             note={`+${circumstance.value} circumstance bonus to Intimidation while wearing Hellknight armor.`} />}
           {!!clumsyPenalty && <SourceNote source={`${giantClumsySource(c, entries)}: clumsy 1`}
@@ -844,13 +867,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     )
   }
   if (part === 'defense') {
-    const res = [...resistances(c, entries).reduce((highest, resistance) => {
-      const key = resistance.damage.toLowerCase()
-      const existing = highest.get(key)
-      if (!existing || resistance.value > existing.value) highest.set(key, resistance)
-      return highest
-    }, new Map<string, ReturnType<typeof resistances>[number]>()).values()]
-      .sort((a, b) => a.damage.localeCompare(b.damage) || a.source.localeCompare(b.source))
     const spec = armorSpecialization(c, entries)
     const skin = animalSkinBenefits(c, entries)
     const hpBonuses = hitPointBonuses(c, entries)
@@ -1031,16 +1047,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           source={`${spec.armor}${spec.feat ? ` via ${spec.feat} feat` : spec.feature ? ` via ${spec.feature} class feature` : ''}`}
           note={[spec.effect, spec.group === 'Plate' ? 'Plate resistance applies to all slashing damage, not only critical hits.'
             : spec.group === 'Chain' ? 'Chain reduction applies only when you are critically hit.' : ''].filter(Boolean).join(' ')} /></small> : <small>Armor Specialization: None</small>}
-        <small>Resistances: {res.length ? res.map((r, index) => {
-          const note = spec && r.source === `${spec.group} Armor Specialization` ? spec.effect : RESISTANCE_NOTES[r.source]
-          return <span key={`${r.damage}:${r.source}`}>{index > 0 && ', '}{r.damage} {r.value}
-            <SourceNote source={r.source} note={note ?? `Grants ${r.damage} resistance ${r.value}.`} /></span>
-        }) : 'None'}
-          {activeFeatsNamed(c, 'Harden Flesh').length > 0 && <>
-            {' '}<SourceNote source="Harden Flesh"
-              note={`After using its one-action activity while standing on earthen or stone ground, you gain resistance ${Math.min(6, 3 + Math.max(0, Math.floor((c.level - 8) / 4)))} to physical damage except adamantine until the beginning of your next turn.`} />
-          </>}
-        </small>
+        <small><ResistanceSummary c={c} entries={entries} /></small>
         {mountainPoisonImmunities(c).map(armor => <small key={armor.id}>Immunity: Poison
           <SourceNote source={armor.name} note="Poison immunity lasts 1 minute." /></small>)}
         {divineWeaknesses.length > 0 && <small>Weaknesses: {divineWeaknesses.map((weakness, index) =>
