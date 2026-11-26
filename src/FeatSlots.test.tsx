@@ -2039,7 +2039,7 @@ it('lists Clever Improviser granted Untrained Improvisation under general feats,
   expect(withImportedGrant.match(/>Untrained Improvisation <small>\(Clever Improviser\)/g)).toHaveLength(1)
 })
 
-it('interleaves free feats with earned slots at acquisition levels and keeps skill grants in their own section', () => {
+it('keeps general feats by level and alphabetizes skill grants before empty slots', () => {
   const c: Character = { ...emptyRanger(), level: 9, feats: [
     { name: 'Clever Improviser', type: 'Ancestry Feat', level: 5, slot: 'ancestry:9:0' },
     { name: 'Greenwatch Initiate', type: 'Class Feat', level: 4, slot: 'class:8:0' },
@@ -2064,9 +2064,8 @@ it('interleaves free feats with earned slots at acquisition levels and keeps ski
   expect(skill).not.toContain('>Untrained Improvisation <small>')
   expect(skill).not.toContain('Granted Skill Feat')
   expect(skill).toContain('>Experienced Tracker <small>(Greenwatch Initiate)</small></button>')
-  expect(skill.indexOf('Clear L06 Skill')).toBeLessThan(skill.indexOf('>Experienced Tracker <small>'))
-  expect(skill.indexOf('>Experienced Tracker <small>')).toBeLessThan(skill.indexOf('Clear L08 Skill'))
-  expect(skill.match(/>Level 08<\/li>/g)).toHaveLength(1)
+  expect(skill.indexOf('>Experienced Tracker <small>')).toBeLessThan(skill.indexOf('Clear L06 Skill'))
+  expect(skill).toContain('<span>L08</span><button')
   expect(render({ ...c, level: 7 }, ['skill', 'general'])).not.toContain('automatic-feat-row')
   expect(render({ ...c, feats: [] }, ['skill', 'general'])).not.toContain('automatic-feat-row')
 })
@@ -2536,7 +2535,7 @@ it('lists Close Quarters Whirling Swipe as granted while allowing manual selecti
     { key: 'class:1:0', category: 'class', level: 1 })).toContain(whirlingSwipe)
 })
 
-it('alphabetizes skill feats from all sources within their acquisition level', () => {
+it('alphabetizes skill feats from all sources across acquisition levels', () => {
   const c: Character = { ...emptyRanger(), systems: ['sf2e'], ancestry: 'Elf', level: 2, background: 'Scholar',
     extraSlots: [{ category: 'skill', level: 1, count: 3 }],
     feats: [
@@ -2552,14 +2551,15 @@ it('alphabetizes skill feats from all sources within their acquisition level', (
   const assurance: ContentEntry = { ...background, id: 'assurance', name: 'Assurance', kind: 'feat',
     traits: ['General', 'Skill'], data: {} }
   const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[background, assurance]} save={() => {}} categories={['skill']} />)
-  const names = ['>Acrobatics</button>', '>Assurance (Deception)</button>', '>Blend In <small>',
-    '>Lie to Me <small>', '>Zebra</button>', 'aria-label="L01 Skill feat"', '>Aardvark</button>']
+  const names = ['>Aardvark</button>', '>Acrobatics</button>', '>Assurance (Deception)</button>', '>Blend In <small>',
+    '>Lie to Me <small>', '>Zebra</button>', 'aria-label="L01 Skill feat"']
   for (const name of names) expect(markup).toContain(name)
   const positions = names.map(name => markup.indexOf(name))
   expect(positions).toEqual([...positions].sort((a, b) => a - b))
   expect(markup.slice(markup.indexOf('>Acrobatics</button>'), markup.indexOf('>Assurance (Deception)</button>')))
     .toContain('Remove L01 Skill extra feat slot 1')
-  expect(markup.match(/>Level 01<\/li>/g)).toHaveLength(1)
+  expect(markup).toContain('<span>L01</span>')
+  expect(markup).toContain('<span>L02</span>')
 })
 
 it('prefixes ancestry slots and feat options with zero-padded levels', () => {
@@ -2586,7 +2586,7 @@ it('prefixes ancestry slots and feat options with zero-padded levels', () => {
   expect((markup.match(/class="feat-level-heading"/g) ?? [])).toHaveLength(4)
 })
 
-it('shows the current background skill feat above level-based skill feats', () => {
+it('sorts the current background skill feat with selected skill feats', () => {
   const c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 2, background: 'Hunter',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -2602,8 +2602,35 @@ it('shows the current background skill feat above level-based skill feats', () =
   const markup = render(c)
   expect(markup).not.toContain('Background Skill Feat')
   expect(markup).toContain('Survey Wildlife')
-  expect(markup.indexOf('Survey Wildlife')).toBeLessThan(markup.indexOf('Level 02'))
+  expect(markup.indexOf('Quick Draw')).toBeLessThan(markup.indexOf('Survey Wildlife'))
   expect(render({ ...c, background: undefined })).not.toContain('Survey Wildlife')
+})
+
+it('deduplicates explicit and catalog-granted Cyborg skill feats and classifies Augmented Body', () => {
+  const entry = (name: string, traits: string[], data: ContentEntry['data'] = {}): ContentEntry => ({
+    id: name, systems: ['sf2e'], kind: 'feat', source: 'official', name, level: 1,
+    traits, description: '', data, effects: [], updatedAt: 0,
+  })
+  const entries = [
+    entry('X-hat Firewalker Frame', ['Cyborg'], { grants_feats: 'Phreaker' }),
+    entry('Data Retrieval', ['Cyborg'], { grants_feats: 'Open-Source Research' }),
+    entry('Phreaker', ['General', 'Skill']), entry('Open-Source Research', ['General', 'Skill']),
+    entry('Augmented Body', ['General']),
+  ]
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], level: 9, heritage: 'Cyborg', feats: [
+    { name: 'X-hat Firewalker Frame', type: 'Ancestry Feat', level: 1, slot: 'ancestry:1:0' },
+    { name: 'Data Retrieval', type: 'Ancestry Feat', level: 5, slot: 'ancestry:5:0' },
+    { name: 'Augmented Body', type: 'General Feat', level: 1, slot: 'skill:2:0' },
+  ] }
+  const grants = builder.automaticFeatGrants(c, entries)
+  expect(grants.filter(grant => grant.name === 'Phreaker')).toHaveLength(1)
+  expect(grants.filter(grant => grant.name === 'Open-Source Research')).toHaveLength(1)
+  const skills = renderToStaticMarkup(<FeatSlots c={c} entries={entries} save={() => {}} categories={['skill']} bare />)
+  const general = renderToStaticMarkup(<FeatSlots c={c} entries={entries} save={() => {}} categories={['general']} bare />)
+  expect(skills.match(/>Phreaker <small>/g)).toHaveLength(1)
+  expect(skills.match(/>Open-Source Research <small>/g)).toHaveLength(1)
+  expect(skills).not.toContain('>Augmented Body</button>')
+  expect(general).toContain('>Augmented Body</button>')
 })
 
 it('includes action symbols in feat choices and shows one add control per level', () => {

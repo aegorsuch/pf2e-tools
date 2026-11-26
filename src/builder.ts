@@ -1173,7 +1173,8 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
   for (const slot of slots) {
     if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
   }
-  return visible.sort((a, b) => a.level - b.level
+  return visible.map(slot => slot.category === 'skill' && c.feats.some(feat => feat.slot === slot.key && feat.name === 'Augmented Body')
+    ? { ...slot, displayCategory: 'general' as const } : slot).sort((a, b) => a.level - b.level
     || (groupOrder.get(`${a.category}:${a.level}`) ?? 0) - (groupOrder.get(`${b.category}:${b.level}`) ?? 0))
 }
 
@@ -5706,7 +5707,11 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
   for (const [source, name] of [["Gecko's Grip", 'Combat Climber'], ['Rider', 'Ride'], ['Reptile Rider', 'Ride'], ['Gg-os Frame', 'Fleet'], ['X-hat Firewalker Frame', 'Phreaker'],
     ['Data Retrieval', 'Open-Source Research'], ['Hydraulic Pistons', 'Quick Jump'], ['Uncanny Agility', 'Steady Balance'],
     ...(c.systems.includes('sf2e') ? [['Pulonis Softstep', 'Feather Step'], ['Absolute Unit', 'Intimidating Glare']] : [])]) {
-    for (const feat of activeFeatsNamed(c, source)) grants.push({ name, source, level: featTakenLevel(feat) })
+    for (const feat of activeFeatsNamed(c, source)) {
+      const level = featTakenLevel(feat)
+      if (!grants.some(grant => grant.name === name && grant.source === source && grant.level === level))
+        grants.push({ name, source, level })
+    }
   }
   if (c.systems.includes('sf2e')) for (const feat of activeFeatsNamed(c, 'Harmonic Sensitivity')) {
     if (ancestrySkillBefore(c, entries, c.feats.indexOf(feat)).Performance)
