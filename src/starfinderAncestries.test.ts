@@ -5,6 +5,7 @@ import { automaticFeatChoiceKey, dailyInnateUses, featSpellOptions, grantedFeatS
 import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, computeAbilities, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, hasParryWeapon, isGrantedSlot, languageAllowance, maxHp, movementSpeeds, ownedShields, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, shieldAcBonus, shieldRaisedChange, speed, tailbladeInheritance, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 import { getSettings, updateSettings } from './settings'
+import { GAUNTLET } from './supplemental'
 
 const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(snapshot)
 const entries = mapAonHits(hits.filter(hit => ['Ysoki', 'Vesk', 'Operative', 'Mechanic', 'Soldier'].includes(String(hit._source?.name))
@@ -14,6 +15,21 @@ const base: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it.each(['Battleglove', 'Crimson Claw', 'Pulse Gauntlet', 'Gauntlet'])(
+  'does not transfer Hydraulic Pistons Boost to %s', name => {
+    const weapons = mapAonHits(hits.filter(hit => new RegExp(`^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?${name}$`, 'i')
+      .test(String(hit._source?.name))), 'sf2e')
+    const entry = weapons.find(weapon => weapon.name === name)
+    if (!entry && name !== 'Gauntlet') throw new Error(`Missing ${name}`)
+    const owned: OwnedWeapon = { id: entry?.id ?? GAUNTLET.id, name, potency: 0, striking: 0, runes: [] }
+    const c: Character = { ...base, level: 5, feats: [{ name: 'Hydraulic Pistons', type: 'Ancestry Feat', level: 5 }],
+      weapons: [owned] }
+    const fist = { id: 'supplemental:fist', name: 'Fist', potency: 0, striking: 0, runes: [] }
+    expect(weaponAttack(c, weapons, fist).traits).toContain('Boost d4')
+    expect(weaponAttack(c, weapons, owned).traits).not.toContain('Boost d4')
+  },
+)
 
 it('restricts Vesk Internal Compartment to Enshrined Vesk without restricting Androids', () => {
   const feats = mapAonHits(hits.filter(hit => hit._source?.name === 'Internal Compartment'), 'sf2e')

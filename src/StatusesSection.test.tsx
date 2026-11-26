@@ -49,27 +49,48 @@ it('toggles Boost independently for each held weapon and shows active damage in 
   const caster: ContentEntry = { id: 'caster', name: 'Advanced Plasma Caster', systems: ['sf2e'], kind: 'weapon',
     source: 'official', level: 8, traits: ['Boost d10'], description: '', effects: [], updatedAt: 0,
     data: { damage: '2d8 fire', hands: 1, weapon_type: 'Ranged', weapon_category: 'Martial' } }
-  const glove: ContentEntry = { ...caster, id: 'glove', name: 'Battleglove', level: 1, traits: ['Boost d4'] }
+  const rifle: ContentEntry = { ...caster, id: 'rifle', name: 'Boost Rifle', level: 1, traits: ['Boost d4'] }
   let c: Character = { id: 'boost-status', name: 'Test', systems: ['sf2e'], level: 10, feats: [],
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-    weapons: [caster, glove].map(entry => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })),
+    weapons: [caster, rifle].map(entry => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })),
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
-  const entries = [caster, glove]
+  const entries = [caster, rifle]
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   findButton(StatusesContent({ c, entries, save }), 'Boost: Advanced Plasma Caster')!()
   expect(c.boostedWeaponIds).toEqual(['caster'])
   expect(renderToStaticMarkup(<StatusesSummary c={c} entries={entries} save={save} />)).toContain('Boost (Advanced Plasma Caster: 2d10)')
   expect(renderToStaticMarkup(<StatusesContent c={c} entries={entries} save={save} />))
     .toContain('aria-label="Boost: Advanced Plasma Caster" aria-pressed="true"')
-  findButton(StatusesContent({ c, entries, save }), 'Boost: Battleglove')!()
-  expect(c.boostedWeaponIds).toEqual(['caster', 'glove'])
+  findButton(StatusesContent({ c, entries, save }), 'Boost: Boost Rifle')!()
+  expect(c.boostedWeaponIds).toEqual(['caster', 'rifle'])
   findButton(StatusesContent({ c, entries, save }), 'Boost: Advanced Plasma Caster')!()
-  expect(c.boostedWeaponIds).toEqual(['glove'])
-  c = { ...c, weapons: c.weapons?.map(item => item.id === 'glove' ? { ...item, stowed: true } : item) }
-  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={entries} save={save} />)).toContain('Boost (Battleglove')
-  findButton(StatusesContent({ c, entries, save }), 'Boost: Battleglove')!()
+  expect(c.boostedWeaponIds).toEqual(['rifle'])
+  c = { ...c, weapons: c.weapons?.map(item => item.id === 'rifle' ? { ...item, stowed: true } : item) }
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={entries} save={save} />)).toContain('Boost (Boost Rifle')
+  findButton(StatusesContent({ c, entries, save }), 'Boost: Boost Rifle')!()
   expect(c.boostedWeaponIds).toEqual([])
-  expect(renderToStaticMarkup(<StatusesContent c={c} entries={entries} save={save} />)).not.toContain('Boost (Battleglove')
+  expect(renderToStaticMarkup(<StatusesContent c={c} entries={entries} save={save} />)).not.toContain('Boost (Boost Rifle')
+})
+
+it('does not show fist-only Hydraulic Pistons Boost on hand weapons', () => {
+  const weapons: ContentEntry[] = ['Battleglove', 'Crimson Claw'].map(name => ({
+    id: name, name, systems: ['sf2e'], kind: 'weapon', source: 'official', level: 1,
+    traits: ['Agile', 'Free-Hand'], description: '', effects: [], updatedAt: 0,
+    data: { damage: '1d4 bludgeoning', hands: 1, weapon_type: 'Melee', weapon_category: 'Simple' },
+  }))
+  const c: Character = { id: 'pistons', name: 'Test', systems: ['sf2e'], level: 5,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Hydraulic Pistons', type: 'Ancestry Feat', level: 5 }],
+    weapons: weapons.map(entry => ({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })),
+    boostedWeaponIds: weapons.map(entry => entry.id), equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<StatusesContent c={c} entries={weapons} save={() => {}} />)
+  expect(renderToStaticMarkup(<StatusesContent c={{ ...c, weapons: [] }} entries={weapons} save={() => {}} />))
+    .toContain('aria-label="Boost: Fist"')
+  expect(markup).not.toContain('aria-label="Boost: Battleglove"')
+  expect(markup).not.toContain('aria-label="Boost: Crimson Claw"')
+  const summary = renderToStaticMarkup(<StatusesSummary c={c} entries={weapons} save={() => {}} />)
+  expect(summary).not.toContain('Boost (Battleglove')
+  expect(summary).not.toContain('Boost (Crimson Claw')
 })
 
 it('changes favored terrain from statuses only after gaining Terrain Master', () => {
