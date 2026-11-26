@@ -747,7 +747,7 @@ it('applies persistent Lizardfolk and Necromancer feat benefits to defenses, sen
 
 it('scales Stormbreaker electricity shielding with character level', () => {
   const armor = { ...entry('armor', 'Stormbreaker Armor', {
-    url: 'stormbreaker', armor_grade: 'Advanced', upgrade_slots: 1,
+    url: 'stormbreaker', armor_grade: 'Advanced', upgrade_slots: 2,
   }, 10), systems: ['sf2e' as const] }
   const upgrade = (name: string, level: number) => ({
     ...entry('item', name, { item_subcategory: 'Armor Upgrades' }, level),

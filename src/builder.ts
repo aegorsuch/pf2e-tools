@@ -763,7 +763,11 @@ export function shieldRaisedChange(c: Character, raised: boolean, entries?: Cont
   return change
 }
 export const shieldParagonActive = (c: Character) => !!equippedShield(c) && activeFeatsNamed(c, 'Shield Paragon').length > 0
-export const shieldRaised = (c: Character) => !!equippedShield(c) && (!!equippedShield(c)?.raised || shieldParagonActive(c))
+export const shieldGuardStanceActive = (c: Character) => !!equippedShield(c) && c.activeStance === "Paragon's Guard"
+  && activeFeatsNamed(c, "Paragon's Guard").length > 0
+export const shieldAlwaysRaisedSource = (c: Character) => shieldParagonActive(c) ? 'Shield Paragon'
+  : shieldGuardStanceActive(c) ? "Paragon's Guard" : undefined
+export const shieldRaised = (c: Character) => !!equippedShield(c) && (!!equippedShield(c)?.raised || !!shieldAlwaysRaisedSource(c))
 export const isFeatEffectActive = (c: Character, name: string) =>
   !!activeFeatsNamed(c, name).length && (!!c.activeFeatEffects?.includes(name)
     || name === 'Favored Terrain' && !!activeFeatsNamed(c, 'Terrain Master').length)
@@ -1914,6 +1918,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       : featSelectionLevel(e, c, entries, slot.category, slot)) <= (slot.grantedBy === 'Eldritch Trickster'
       ? slot.maxFeatLevel ?? 2 : Math.min(slot.level, slot.maxFeatLevel ?? slot.level))
       && !(generalOnly && traits.has('skill'))
+      && !(e.id === 'homebrew:solarian-paragons-guard' && !getSettings().solarianParagonsGuard)
       && !(getSettings().disableAdoptedAncestry && ['Adopted Ancestry', 'Cultural Adaptability', 'Orc Kinship', 'Social Chameleon'].includes(e.name))
       && !(getSettings().disableAncientElfMultitalented && ['Ancient Elf', 'Multitalented'].includes(e.name))
       && !(slot.category === 'archetype' && e.source === 'official' && e.name === 'Heal Animal'
@@ -3407,14 +3412,9 @@ export function starfinderArmorPenalties(c: Character, entries: ContentEntry[]) 
   const heavyConstruction = worn?.id === INVENTOR_ARMOR_ID && armorModifications(c).some(mod => mod.name === 'Heavy Construction')
   const mobility = activeFeatsNamed(c, 'Hellknight Mobility').length > 0 && armorCategory(armor) === 'Heavy'
   const iron = activeFeatsNamed(c, 'Unburdened Iron').length ? 5 : 0
-  const upgradeLimit = Math.max(0, armorUpgradeSlots(armor)
-    + (c.heritage === 'Mod Fanatic Android' && armor.data.upgrades_allowed !== false ? 1 : 0)
-    - automaticArmorUpgradeSlotsUsed(armor))
   const isMobilityEnhancer = (entry?: ContentEntry) =>
     entry?.name.replace(/\s*\([^)]*\)$/, '') === 'Mobility Enhancer'
-  const enhancer = worn && (automaticSpecificArmorUpgrades(c, entries, armor).some(isMobilityEnhancer)
-    || upgradeLimit > 0 && (worn.upgrades ?? []).slice(0, upgradeLimit)
-      .some(id => isMobilityEnhancer(entries.find(entry => entry.id === id)))) ? 5 : 0
+  const enhancer = worn && armorUpgradeEntries(c, entries, worn).some(isMobilityEnhancer) ? 5 : 0
   return { check, speed: heavyConstruction && meets ? 0 : Math.min(0, penalty + iron + enhancer + (meets ? mobility ? 10 : 5 : 0)) }
 }
 
@@ -3517,16 +3517,9 @@ export function armorUpgradeSlots(entry?: ContentEntry) {
   return Number(/\bUpgrades\W{0,6}(\d+)/i.exec(entry.description ?? '')?.[1] ?? 0) + additionalSlots
 }
 
-export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
-  const family = armor && armorUpgradeFamily(armor.name)
-  if (!armor?.systems.includes('sf2e')) return 0
-  if (SPELL_ARMOR_FAMILIES.has(family ?? '')) return 4
-  if (family === "Drifter's Jacket") return 3
-  if (['Clandestine Suit', 'Retrieval Harness'].includes(family ?? '')) return 3
-  if (family === 'Myrmidon Siegebreaker Plate') return 4
-  if (family === 'Stormbreaker Armor') return 5
-  return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Rocketeer Armor']
-    .includes(family ?? '') ? 2 : 0
+export function automaticArmorUpgradeSlotsUsed(armor: ContentEntry | undefined, c: Character, entries: ContentEntry[]) {
+  return automaticSpecificArmorUpgrades(c, entries, armor)
+    .filter(upgrade => automaticArmorUpgradeUsesSlot(armor?.name, upgrade)).length
 }
 
 export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upgrade: ContentEntry) {
@@ -3588,22 +3581,32 @@ export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEnt
     ...(family === 'Aquavarius Armor' ? AQUAVARIUS_ARMOR_UPGRADES : []),
     ...(spellArmor ? SPELL_ARMOR_UPGRADES : [])]
   const distinctUpgrades = [...new Set(upgrades)]
-  return distinctUpgrades.flatMap(base => {
+  const candidates = distinctUpgrades.flatMap((base, order) => {
     const pattern = new RegExp(`^${base}(?: \\((?:${SF_UPGRADE_GRADES})\\))?$`, 'i')
-    const candidates = entries.filter(candidate => candidate.kind === 'item' && !candidate.deleted
+    const matches = entries.filter(candidate => candidate.kind === 'item' && !candidate.deleted
       && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Armor Upgrades'
       && pattern.test(candidate.name) && candidate.level <= c.level)
       .sort((a, b) => b.level - a.level || Number(b.name.includes('(')) - Number(a.name.includes('(')))
-    const selected = candidates[0]
+    const selected = matches[0]
     if (!selected) return []
+    const priority = Math.min(...matches.map(entry => entry.level))
     if (base === 'Energy Shielding' && family === 'Stormbreaker Armor') {
-      return ['electricity', 'cold', 'fire'].map(type => ({ ...selected,
-        data: { ...selected.data, automatic_energy_type: type } }))
+      return ['electricity', 'cold', 'fire'].map(type => ({ order, priority, entry: { ...selected,
+        data: { ...selected.data, automatic_energy_type: type } } }))
     }
     const automaticEnergyType = family === 'Aquavarius Armor' ? 'cold' : undefined
-    return base === 'Energy Shielding' && automaticEnergyType
-      ? [{ ...selected, data: { ...selected.data, automatic_energy_type: automaticEnergyType } }]
-      : [selected]
+    return [{ order, priority, entry: base === 'Energy Shielding' && automaticEnergyType
+      ? { ...selected, data: { ...selected.data, automatic_energy_type: automaticEnergyType } }
+      : selected }]
+  })
+  const capacity = Math.max(0, armorUpgradeSlots(armor)
+    + (c.heritage === 'Mod Fanatic Android' && armor.data.upgrades_allowed !== false ? 1 : 0))
+  let used = 0
+  return candidates.sort((a, b) => a.priority - b.priority || a.order - b.order).flatMap(({ entry }) => {
+    if (!automaticArmorUpgradeUsesSlot(armor.name, entry)) return [entry]
+    if (used >= capacity) return []
+    used++
+    return [entry]
   })
 }
 
@@ -3620,7 +3623,7 @@ export function armorUpgradeEntries(c: Character, entries: ContentEntry[], armor
   const limit = !armorItem || armorItem.data.upgrades_allowed === false ? 0
     : Math.max(0, armorUpgradeSlots(armorItem)
       + (c.heritage === 'Mod Fanatic Android' ? 1 : 0)
-      - automaticArmorUpgradeSlotsUsed(armorItem))
+      - automaticArmorUpgradeSlotsUsed(armorItem, c, entries))
   const installed = (armor.upgrades ?? []).slice(0, limit).flatMap(id => armorUpgradeEntry(entries, id) ?? [])
   return [...automatic, ...installed]
 }
@@ -3840,7 +3843,7 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     ? automaticJetpack : savedJetpack
   const jetpackLimit = Math.max(0, armorUpgradeSlots(jetpackArmorEntry)
     + (c.heritage === 'Mod Fanatic Android' && jetpackArmorEntry?.data.upgrades_allowed !== false ? 1 : 0)
-    - automaticArmorUpgradeSlotsUsed(jetpackArmorEntry))
+    - automaticArmorUpgradeSlotsUsed(jetpackArmorEntry, c, entries))
   const jetpackIndex = jetpackArmor?.upgrades?.findIndex(id => id === jetpackArmor.activeJetpack) ?? -1
   const jetpack = jetpackSpeed(jetpackEntry)
   if (jetpack && jetpackArmorEntry?.systems.includes('sf2e') && jetpackArmorEntry.data.upgrades_allowed !== false
@@ -7403,12 +7406,7 @@ function offensiveDefenseGrade(name: string, forceField: boolean) {
 export function offensiveDefenseAttack(c: Character, entries: ContentEntry[]) {
   if (!c.systems.includes('sf2e') || c.className !== 'Soldier' || !activeFeatsNamed(c, 'Offensive Defense').length) return undefined
   const forceFields = ownedArmors(c, entries).filter(armor => armor.worn).flatMap(armor => {
-    const armorItem = armorEntry(c, entries, armor.name, armor.id)
-    const saved = (armor.upgrades ?? []).flatMap(id => entries.find(entry => entry.id === id && !entry.deleted
-      && entry.kind === 'item' && entry.systems.includes('sf2e') && entry.data.item_subcategory === 'Armor Upgrades'
-      && /^Force Field(?: \((?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon)\))?$/i.test(entry.name)) ?? [])
-    return [...saved, ...automaticSpecificArmorUpgrades(c, entries, armorItem)
-      .filter(entry => /^Force Field \(/i.test(entry.name) || entry.name === 'Force Field')]
+    return armorUpgradeEntries(c, entries, armor).filter(entry => forceFieldStats(entry))
   })
   const shield = equippedShield(c)
   const shieldData = shield && shieldEntry(entries, shield.name)

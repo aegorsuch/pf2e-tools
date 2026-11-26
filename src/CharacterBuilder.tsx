@@ -8,7 +8,7 @@ import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
 import { EquipmentSearch } from './EquipmentSearch'
 export { EquipmentSearch } from './EquipmentSearch'
-import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
+import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, boostSlots, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, ownedArmors, warriorLegendWeakness } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { classArchetypeSlotViews, featSectionGrants, SearchableFeatSlots } from './FeatSlots'
@@ -423,6 +423,8 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       Object.assign(next, faithfulSteedChange(next, entries))
       Object.assign(next, constructCompanionChange(next))
       Object.assign(next, inventiveOffensiveChange(next, entries))
+      if (next.activeStance === "Paragon's Guard" && (!equippedShield(next) || !activeFeatsNamed(next, "Paragon's Guard").length))
+        next.activeStance = undefined
       if ((!next.systems.includes('pf2e') || next.className !== 'Investigator') && next.deviseAStratagemActive) {
         next.deviseAStratagemActive = undefined
       }
@@ -870,9 +872,9 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
             <ResistanceSummary c={c} entries={entries} />
           </span>
           {(shield || shieldCantrip || boneShield || parry > 0) && <span className="combat-summary-toggles" onClick={(event) => event.stopPropagation()}>
-            {shield && <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
-              <input type="checkbox" aria-label={`${shieldRaiseLabel} (summary)`} checked={shieldRaised(c)} disabled={shieldParagonActive(c)}
-                onChange={(event) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} /> {shieldRaiseLabel} (+{shieldAcBonus(c, entries)} AC)</label>}
+            {shield && <label title={shieldAlwaysRaisedSource(c) ? `Always raised by ${shieldAlwaysRaisedSource(c)}` : undefined}>
+              <input type="checkbox" aria-label={`${shieldRaiseLabel} (summary)`} checked={shieldRaised(c)} disabled={!!shieldAlwaysRaisedSource(c)}
+                onChange={(event) => { if (!shieldAlwaysRaisedSource(c)) save(shieldRaisedChange(c, event.target.checked)) }} /> {shieldRaiseLabel} (+{shieldAcBonus(c, entries)} AC)</label>}
             {boneShield ? <label><input type="checkbox" aria-label="Raise Bone Shield (summary)"
               checked={!!c.boneShieldRaised} onChange={event => save({ boneShieldRaised: event.target.checked })} /> Raise Bone Shield (+2 AC)</label>
             : shieldCantrip && <label><input type="checkbox" aria-label="Raise Shield Cantrip (summary)"

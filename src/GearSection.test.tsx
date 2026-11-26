@@ -1145,7 +1145,7 @@ it('hides the Shield Brace selector and Implacable helper text on Myrmidon Siege
   expect(markup).not.toContain('action would be lost to stunned or paralyzed')
 })
 
-it('auto-installs Myrmidon Siegebreaker Plate upgrades and reserves a slot for its Flechette Launcher', () => {
+it('prioritizes lower-level Myrmidon upgrades within available slots', () => {
   const armor: ContentEntry = { ...weapon, id: 'myrmidon-siegebreaker', name: 'Myrmidon Siegebreaker Plate',
     kind: 'armor', systems: ['sf2e'], level: 9,
     data: { url: 'myrmidon-siegebreaker-plate', armor_category: 'Heavy', ac: 6, strength: 10,
@@ -1159,13 +1159,13 @@ it('auto-installs Myrmidon Siegebreaker Plate upgrades and reserves a slot for i
   ] }
   const tree = ArmorList({ c, entries: [armor, ...upgrades], save: () => {} })
   const markup = renderToStaticMarkup(tree)
-  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(4)
+  expect(automaticArmorUpgradeSlotsUsed(armor, c, [armor, ...upgrades])).toBe(2)
   expect(markup).toContain('Jetpack (Tactical)')
-  expect(markup).toContain('Force Field (Paragon)')
+  expect(markup).not.toContain('Force Field (Paragon)')
   expect(markup).toContain('Mobility Enhancer')
-  expect(markup).toContain('Flechette Launcher (Elite)')
+  expect(markup).not.toContain('Flechette Launcher (Elite)')
   expect(markup).not.toContain('Flechette Launcher (Elite) *')
-  expect(markup).toContain('Built-in upgrades exceed available armor upgrade slots.')
+  expect(markup).not.toContain('Built-in upgrades exceed available armor upgrade slots.')
   expect(markup).not.toContain('Jetpack (Tactical) *')
   expect(markup).not.toContain('Force Field (Paragon) *')
   expect(markup).not.toContain('Mobility Enhancer *')
@@ -1177,7 +1177,25 @@ it('auto-installs Myrmidon Siegebreaker Plate upgrades and reserves a slot for i
   const component = findElement(tree, element => typeof element.type === 'function' && element.type.name === 'ArmorUpgrades')!
   const content = (component.type as (props: typeof component.props) => ReactNode)(component.props)
   const upgradeMarkup = renderToStaticMarkup(content)
-  expect(upgradeMarkup.indexOf('Force Field (Paragon)')).toBeLessThan(upgradeMarkup.indexOf('Jetpack (Tactical)'))
+  expect(upgradeMarkup.indexOf('Jetpack (Tactical)')).toBeLessThan(upgradeMarkup.indexOf('Mobility Enhancer'))
+})
+
+it('preserves installed armor upgrades when automatic upgrades fill slots', () => {
+  const armor: ContentEntry = { ...weapon, id: 'myrmidon', name: 'Myrmidon Siegebreaker Plate',
+    kind: 'armor', systems: ['sf2e'], data: { upgrade_slots: 2 } }
+  const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
+    systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
+  const field = module('Force Field (Commercial)', 1)
+  const launcher = module('Flechette Launcher (Commercial)', 3)
+  const extra = module('Extra Upgrade', 1)
+  const owned = { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true, upgrades: [extra.id] }
+  const c: Character = { ...character([]), systems: ['sf2e'], level: 2, armors: [owned] }
+  const entries = [armor, field, launcher, extra]
+  expect(armorUpgradeEntries(c, entries, owned).map(entry => entry.name)).toEqual([field.name, extra.name])
+  expect(armorUpgradeEntries({ ...c, level: 3 }, entries, owned).map(entry => entry.name)).toEqual([field.name, launcher.name])
+  expect(owned.upgrades).toEqual([extra.id])
+  expect(armorUpgradeEntries({ ...c, level: 3, heritage: 'Mod Fanatic Android' }, entries, owned).map(entry => entry.name))
+    .toEqual([field.name, launcher.name, extra.name])
 })
 
 it('grants Chitinous Shield without occupying a hand and automatically improves its grade', () => {
@@ -3476,17 +3494,15 @@ it('reserves Clandestine Suit slots for its built-in Jetpack and Force Field', (
     return (component.type as (props: typeof component.props) => ReactNode)(component.props)
   }
   const markup = renderToStaticMarkup(tree())
-  expect(automaticArmorUpgradeSlotsUsed(suit)).toBe(3)
   expect(markup).toContain('Jetpack (Commercial)')
   expect(markup).toContain('Force Field (Advanced)')
-  expect(markup).toContain('Drift Drive Relay (Commercial)')
+  expect(markup).not.toContain('Drift Drive Relay (Commercial)')
   expect(markup).not.toContain('Jetpack (Commercial) *')
   expect(markup).not.toContain('Force Field (Advanced) *')
   expect(markup).not.toContain('Drift Drive Relay (Commercial) *')
   expect(automaticArmorUpgradeUsesSlot(suit.name, upgrades[4])).toBe(true)
   expect(markup).toContain('Active Camouflage (Tactical) *')
   expect(markup).toContain('Cloaking Device (Commercial) *')
-  expect(Math.max(0, resolvedArmorUpgradeSlots(suit) - automaticArmorUpgradeSlotsUsed(suit))).toBe(0)
   expect(markup).not.toContain('Add armor upgrade')
   expect(markup).not.toContain('Free (no upgrade slot)')
   expect(markup).not.toContain('Installed upgrades exceed available slots')
@@ -3504,17 +3520,19 @@ it('leaves one Paragon Clandestine Suit upgrade slot, or two for Mod Fanatic And
     data: { armor_grade: 'Paragon', upgrade_slots: 2 } }
   const upgrades = [1, 2, 3].map(number => ({ ...shifting, id: `extra-${number}`, name: `Extra Upgrade ${number}`,
     systems: ['sf2e' as const], data: { item_subcategory: 'Armor Upgrades' } }))
-  const entries = [suit, ...upgrades]
+  const builtIn = ['Jetpack (Commercial)', 'Force Field (Commercial)', 'Drift Drive Relay (Commercial)']
+    .map(name => ({ ...shifting, id: name, name, systems: ['sf2e' as const], data: { item_subcategory: 'Armor Upgrades' } }))
+  const entries = [suit, ...upgrades, ...builtIn]
   const characterWith = (heritage?: string): Character => ({ ...character([]), systems: ['sf2e'], level: 20, heritage,
     armors: [{ id: suit.id, name: suit.name, potency: 0, resilient: 0, runes: [], worn: true,
       upgrades: upgrades.map(upgrade => upgrade.id) }] })
   expect(resolvedArmorUpgradeSlots(suit)).toBe(4)
-  expect(automaticArmorUpgradeSlotsUsed(suit)).toBe(3)
+  expect(automaticArmorUpgradeSlotsUsed(suit, characterWith(), entries)).toBe(3)
   expect(armorUpgradeEntries(characterWith(), entries, characterWith().armors![0]).map(entry => entry.id))
-    .toEqual(['extra-1'])
+    .toEqual(expect.arrayContaining(['extra-1', ...builtIn.map(entry => entry.id)]))
   const android = characterWith('Mod Fanatic Android')
   expect(armorUpgradeEntries(android, entries, android.armors![0]).map(entry => entry.id))
-    .toEqual(['extra-1', 'extra-2'])
+    .toEqual(expect.arrayContaining(['extra-1', 'extra-2', ...builtIn.map(entry => entry.id)]))
 })
 
 it('prevents installing more than one grade of Drift Drive Relay', () => {
@@ -3562,12 +3580,11 @@ it('auto-installs Drifter Jacket upgrades, reserving slots for Jetpack, Force Fi
   const entries = [jacket, ...upgrades]
   const markup = renderToStaticMarkup(ArmorList({ c, entries, save: () => {} }))
   expect(resolvedArmorUpgradeSlots(jacket)).toBe(2)
-  expect(automaticArmorUpgradeSlotsUsed(jacket)).toBe(3)
   expect(markup).toContain('Drift Drive Relay (Commercial) *')
   expect(markup).toContain('Maneuvering Unit (Tactical) *')
   expect(markup).toContain('Force Field (Superior)')
   expect(markup).toContain('Jetpack (Commercial)')
-  expect(markup).toContain('Active Camouflage (Tactical)')
+  expect(markup).not.toContain('Active Camouflage (Tactical)')
   expect(markup).not.toContain('Jetpack (Commercial) *')
   expect(markup).not.toContain('Force Field (Superior) *')
   expect(markup).not.toContain('Active Camouflage (Tactical) *')
@@ -3587,7 +3604,6 @@ it('auto-installs Rocketeer Armor upgrades, reserving slots for Force Field and 
     { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(2)
   expect(markup).toContain('Jetpack (Tactical) *')
   expect(markup).toContain('Force Field (Advanced)')
   expect(markup).toContain('Maneuvering Unit (Tactical)')
@@ -3643,7 +3659,6 @@ it('auto-installs Retrieval Harness Easypatcher and scaling Adrenal Autoinjector
     { id: harness.id, name: harness.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [harness, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(harness)).toBe(3)
   const adrenalNameAt = (level: number) => automaticSpecificArmorUpgrades({ ...c, level }, [harness, ...upgrades], harness)
     .find(item => item.name.startsWith('Adrenal Autoinjectors'))?.name
   expect(adrenalNameAt(7)).toBeUndefined()
@@ -3662,7 +3677,7 @@ it('auto-installs Retrieval Harness Easypatcher and scaling Adrenal Autoinjector
   expect(markup).toContain('Add armor upgrade')
 })
 
-it('auto-installs Stormbreaker upgrades and reserves slots for fire and cold shielding', () => {
+it('limits Stormbreaker upgrades to available slots', () => {
   const armor: ContentEntry = { ...weapon, id: 'stormbreaker', name: 'Stormbreaker Armor', kind: 'armor', systems: ['sf2e'],
     level: 10, data: { url: 'stormbreaker', armor_category: 'Medium', ac: 4, armor_grade: 'Advanced', upgrade_slots: 2 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
@@ -3676,17 +3691,17 @@ it('auto-installs Stormbreaker upgrades and reserves slots for fire and cold shi
     { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(5)
+  expect(automaticArmorUpgradeSlotsUsed(armor, c, [armor, ...upgrades])).toBe(2)
   expect(markup).not.toContain('Add armor upgrade')
-  expect(markup).toContain('Jetpack (Tactical)')
-  expect(markup).toContain('Force Field (Paragon)')
+  expect(markup).not.toContain('Jetpack (Tactical)')
+  expect(markup).not.toContain('Force Field (Paragon)')
   expect(markup).toContain('Energized Spikes (Advanced)')
   expect(markup).toContain('Energy Shielding (Advanced) (Electricity) *')
   expect(markup).toContain('Energy Shielding (Advanced) (Cold)')
-  expect(markup).toContain('Energy Shielding (Advanced) (Fire)')
+  expect(markup).not.toContain('Energy Shielding (Advanced) (Fire)')
   expect(markup).not.toContain('Energy Shielding (Advanced) (Cold) *')
   expect(markup).not.toContain('Energy Shielding (Advanced) (Fire) *')
-  expect(markup).toContain('Built-in upgrades exceed available armor upgrade slots.')
+  expect(markup).not.toContain('Built-in upgrades exceed available armor upgrade slots.')
   expect(markup).toContain('Mobility Enhancer')
   expect(markup).not.toContain('Jetpack (Tactical) *')
   expect(markup).not.toContain('Force Field (Paragon) *')
@@ -3701,7 +3716,6 @@ it('counts both additional shielding upgrades against Paragon Stormbreaker slots
     kind: 'armor', systems: ['sf2e'], level: 20,
     data: { armor_grade: 'Paragon', upgrade_slots: 2 } }
   expect(resolvedArmorUpgradeSlots(armor)).toBe(4)
-  expect(resolvedArmorUpgradeSlots(armor) - automaticArmorUpgradeSlotsUsed(armor)).toBe(-1)
 })
 
 it('auto-installs Aeon Guard Battle Dress Jetpack and Force Field using two upgrade slots', () => {
@@ -3714,7 +3728,6 @@ it('auto-installs Aeon Guard Battle Dress Jetpack and Force Field using two upgr
     { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(2)
   expect(markup).toContain('Jetpack (Tactical)')
   expect(markup).toContain('Force Field (Advanced)')
   expect(markup).not.toContain('Jetpack (Tactical) *')
@@ -3733,7 +3746,6 @@ it('auto-installs Aquavarius Armor Aqua Jets and cold Energy Shielding without J
     { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(2)
   expect(markup).toContain('Aqua Jets (Tactical) *')
   expect(markup).toContain('Energy Shielding (Advanced) (Cold)')
   expect(markup).not.toContain('Jetpack (Tactical)')
@@ -3756,7 +3768,6 @@ it('marks all automatic Carvesong upgrades as slot-taking', () => {
     { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(4)
   expect(markup).toContain('Jetpack (Tactical)')
   expect(markup).toContain('Force Field (Paragon)')
   expect(markup).toContain('Spell Gauntlet')
@@ -3779,7 +3790,6 @@ it('marks all automatic Mageplate Spellmail upgrades as slot-taking', () => {
     { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(4)
   for (const name of ['Jetpack (Tactical)', 'Force Field (Paragon)', 'Spell Gauntlet', 'Spell Refactoring Matrix']) {
     expect(markup).toContain(name)
     expect(markup).not.toContain(`${name} *`)

@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { AON_IMPORT_VERSION, importFromAon, mapAonHits } from './aon'
-import { armorUpgradeSlots, automaticArmorUpgradeSlotsUsed, automaticFeatGrants, automaticSpecificArmorUpgrades, automaticWeaponUpgrades, boostSlots, classDifficultyClass, effectiveArmor, effectiveWeapon, eligibleFeats, gearPickerEntries, resistances } from './builder'
+import { armorUpgradeEntries, armorUpgradeSlots, automaticArmorUpgradeSlotsUsed, automaticArmorUpgradeUsesSlot, automaticFeatGrants, automaticSpecificArmorUpgrades, automaticWeaponUpgrades, boostSlots, classDifficultyClass, effectiveArmor, effectiveWeapon, eligibleFeats, gearPickerEntries, resistances } from './builder'
 import { isSpecificGear } from './GearSection'
 import { groupHomebrew } from './HomebrewList'
 import { homebrewCharacterOptions, migrateCopiedFeats } from './supplemental'
@@ -175,7 +175,8 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
       lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0, armors: [owned] }
     expect(effectiveArmor({ ...character, level: armor!.level }, entries, owned).name).toBe(name)
     expect(effectiveArmor(character, entries, owned).name).toBe(`Superior ${name}`)
-    const autoUpgrades = automaticSpecificArmorUpgrades({ ...character, level: 20 }, entries, armor!)
+    const expandedArmor = { ...armor!, data: { ...armor!.data, upgrade_slots: 5 } }
+    const autoUpgrades = automaticSpecificArmorUpgrades({ ...character, level: 20 }, entries, expandedArmor)
     expect(autoUpgrades.map(entry => entry.name)).toContain('Force Field (Paragon)')
     if (name === 'Aquavarius Armor') expect(autoUpgrades.map(entry => entry.name)).not.toContain('Jetpack (Tactical)')
     else expect(autoUpgrades.map(entry => entry.name)).toContain('Jetpack (Tactical)')
@@ -191,7 +192,7 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
       expect(autoUpgrades.map(entry => entry.name)).toContain('Mobility Enhancer')
     if (name === 'Myrmidon Siegebreaker Plate') {
       for (const [level, grade] of [[9, 'Tactical'], [11, 'Advanced'], [15, 'Superior'], [19, 'Elite']] as const)
-        expect(automaticSpecificArmorUpgrades({ ...character, level }, entries, armor!).map(entry => entry.name))
+        expect(automaticSpecificArmorUpgrades({ ...character, level }, entries, expandedArmor).map(entry => entry.name))
           .toContain(`Flechette Launcher (${grade})`)
     }
     if (name === "Drifter's Jacket") expect(autoUpgrades.map(entry => entry.name))
@@ -227,6 +228,47 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
   }
 })
 
+it('prioritizes lowest-level automatic armor upgrades within real grade capacities', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => {
+    const name = String(hit._source?.name)
+    return /^(?:(?:Advanced|Superior|Elite|Ultimate|Paragon) )?(?:Myrmidon Siegebreaker Plate|Stormbreaker Armor)$/.test(name)
+      || /^(?:Jetpack|Force Field|Mobility Enhancer|Flechette Launcher|Energized Spikes|Energy Shielding)(?: \(|$)/.test(name)
+  }), 'sf2e')
+  for (const name of ['Myrmidon Siegebreaker Plate', 'Stormbreaker Armor']) {
+    const owned: OwnedArmor = { id: 'armor', name, potency: 0, resilient: 0, runes: [], worn: true }
+    const c: Character = { id: name, name, systems: ['sf2e'], level: 20,
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+      equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0, armors: [owned] }
+    for (let level = name === 'Stormbreaker Armor' ? 10 : 9; level <= 20; level++) {
+      for (const heritage of [undefined, 'Mod Fanatic Android']) {
+        const character = { ...c, level, heritage }
+        const effective = effectiveArmor(character, entries, owned)
+        const armor = entries.find(entry => entry.kind === 'armor' && entry.name === effective.name)!
+        const selected = automaticSpecificArmorUpgrades(character, entries, armor)
+        const used = selected.filter(upgrade => automaticArmorUpgradeUsesSlot(armor.name, upgrade))
+        expect(used.length).toBeLessThanOrEqual(armorUpgradeSlots(armor) + Number(!!heritage))
+        expect(automaticArmorUpgradeSlotsUsed(armor, character, entries)).toBe(used.length)
+        expect(armorUpgradeEntries(character, entries, effective)).toEqual(selected)
+      }
+    }
+    const effective = effectiveArmor(c, entries, owned)
+    const armor = entries.find(entry => entry.kind === 'armor' && entry.name === effective.name)!
+    const selected = automaticSpecificArmorUpgrades(c, entries, armor)
+    if (name === 'Myrmidon Siegebreaker Plate') {
+      expect(selected.map(entry => entry.name)).toEqual([
+        'Mobility Enhancer', 'Force Field (Paragon)', 'Flechette Launcher (Elite)',
+      ])
+    } else {
+      expect(selected.filter(entry => entry.data.automatic_energy_type).map(entry => entry.data.automatic_energy_type))
+        .toEqual(['electricity', 'cold'])
+      const withExtraSlot = automaticSpecificArmorUpgrades({ ...c, heritage: 'Mod Fanatic Android' }, entries, armor)
+      expect(withExtraSlot.filter(entry => entry.data.automatic_energy_type).map(entry => entry.data.automatic_energy_type))
+        .toEqual(['electricity', 'cold', 'fire'])
+    }
+  }
+})
+
 it('adds Carveweave and Mageplate spell upgrades when character reaches item level', () => {
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
   const armorAndUpgrades = new Set(['Mageplate', 'Advanced Mageplate', 'Spell Gauntlet', 'Spell Refactoring Matrix'])
@@ -245,7 +287,8 @@ it('adds Carveweave and Mageplate spell upgrades when character reaches item lev
   expect(effectiveArmor(character, entries, { id: mageplate.id, name: mageplate.name, potency: 0, resilient: 0,
     runes: [], worn: true }).name)
     .toBe('Advanced Mageplate')
-  for (const armor of [carveweave, mageplate, advancedMageplate]) {
+  for (const baseArmor of [carveweave, mageplate, advancedMageplate]) {
+    const armor = { ...baseArmor, data: { ...baseArmor.data, upgrade_slots: 4 } }
     const level4 = automaticSpecificArmorUpgrades({ ...character, level: 4 }, entries, armor).map(entry => entry.name)
     expect(level4)
       .toContain('Force Field (Tactical)')
@@ -256,7 +299,6 @@ it('adds Carveweave and Mageplate spell upgrades when character reaches item lev
       .toEqual(expect.arrayContaining(['Spell Gauntlet', 'Spell Refactoring Matrix', 'Jetpack (Commercial)', 'Force Field (Superior)']))
     expect(automaticSpecificArmorUpgrades({ ...character, level: 20 }, entries, armor).map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Spell Gauntlet', 'Spell Refactoring Matrix', 'Jetpack (Tactical)', 'Force Field (Paragon)']))
-    expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(4)
   }
 })
 

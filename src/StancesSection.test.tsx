@@ -1,7 +1,7 @@
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
-import { activeStance, availableStances, intensifiedElementDamage, starfinderArmorPenalties, temporaryHpGrant, tenaciousStanceHasArmor } from './builder'
+import { activeStance, armorClass, availableStances, eligibleFeats, intensifiedElementDamage, shieldRaised, starfinderArmorPenalties, temporaryHpGrant, tenaciousStanceHasArmor } from './builder'
 import { EntryDescription } from './EntryDescription'
 import { featDisplayName } from './featChoices'
 import { FeatSlots } from './FeatSlots'
@@ -9,6 +9,7 @@ import { StancesContent } from './StancesSection'
 import { StatusesContent, StatusesSummary } from './StatusesSection'
 import { SpellsSection } from './SpellsSection'
 import { getSettings, updateSettings } from './settings'
+import { homebrewCharacterOptions } from './supplemental'
 import type { Character, ContentEntry } from './types'
 
 const stance = (name: string, level = 1, traits = ['Stance']): ContentEntry => ({
@@ -22,6 +23,41 @@ const base: Character = {
 }
 const learn = (entry: ContentEntry): Character['feats'][number] => ({
   name: entry.name, type: 'Class Feat', level: entry.level, sourceId: entry.id,
+})
+
+it("offers Paragon's Guard to Solarians and raises their shield only in its stance", ({ onTestFinished }) => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ solarianParagonsGuard: true })
+  const feat = homebrewCharacterOptions([]).find(entry => entry.id === 'homebrew:solarian-paragons-guard')!
+  const entries = [feat]
+  const slot = { category: 'class' as const, level: 12, key: 'class:12:0' }
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Solarian', level: 12 }
+  expect(eligibleFeats(entries, c, slot)).toContain(feat)
+  expect(eligibleFeats(entries, { ...c, className: 'Soldier' }, slot)).not.toContain(feat)
+  expect(eligibleFeats(entries, c, { ...slot, level: 10 })).not.toContain(feat)
+  const learned = { ...c, feats: [learn(feat)] }
+  expect(availableStances(learned, entries)).toContain(feat)
+  expect(renderToStaticMarkup(<StancesContent c={learned} entries={entries} save={() => {}} />))
+    .toMatch(/aria-label="Use Paragon&#x27;s Guard Stance" disabled=""/)
+  const shield = { id: 'shield', name: 'Shield', hardness: 5, hp: 20, damage: 0, raised: false }
+  const guarded = { ...learned, shield, activeStance: feat.name }
+  expect(shieldRaised(guarded)).toBe(true)
+  expect(armorClass(guarded, entries)).toBe(armorClass({ ...guarded, activeStance: undefined }, entries) + 2)
+  expect(shieldRaised({ ...guarded, activeStance: undefined })).toBe(false)
+  expect(shieldRaised({ ...guarded, feats: [] })).toBe(false)
+  expect(shieldRaised({ ...guarded, level: 11 })).toBe(false)
+  expect(shieldRaised({ ...guarded, shield: undefined })).toBe(false)
+  const solar = { ...learned, feats: [...learned.feats, { name: 'Solar Shield', type: 'Class Feat', level: 1 }],
+    solarianAttunement: 'Photon' as const, activeStance: feat.name }
+  expect(shieldRaised(solar)).toBe(true)
+  expect(armorClass(solar, entries)).toBe(armorClass({ ...solar, activeStance: undefined }, entries) + 1)
+  expect(shieldRaised({ ...solar, solarianAttunement: 'Unattuned' })).toBe(false)
+  const controls = renderToStaticMarkup(<StatusesContent c={guarded} entries={entries} save={() => {}} />)
+  expect(controls).toContain('Always raised by Paragon&#x27;s Guard')
+  expect(controls).toMatch(/aria-label="Raise Shield status" disabled="" checked=""/)
+  updateSettings({ solarianParagonsGuard: false })
+  expect(eligibleFeats(entries, c, slot)).not.toContain(feat)
 })
 
 it('shows stance controls and the active stance in statuses', () => {

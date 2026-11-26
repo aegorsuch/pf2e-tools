@@ -229,7 +229,7 @@ it.each([
   }
   const c: Character = { ...base, level: 6, feats: [{ name: 'Offensive Defense', type: 'Class Feat', level: 6 }],
     armors: [{ id: 'armor', name: armor.name, potency: 0, resilient: 0, runes: [], upgrades: [forceField.id], worn: true }] }
-  const attack = offensiveDefenseAttack(c, [forceField])
+  const attack = offensiveDefenseAttack(c, [{ ...armor, data: { ...armor.data, upgrade_slots: 1 } }, forceField])
   expect(attack?.entry.data).toMatchObject({ damage, weapon_tracking: tracking, weapon_group: 'Shield' })
   expect(attack?.weapon.potency).toBe(tracking)
 })
@@ -250,14 +250,28 @@ it('requires Offensive Defense and a worn Force Field upgrade or held tech shiel
   expect(offensiveDefenseAttack({ ...c, armors: [], shield: { ...heldShield, equipped: false } }, [shield])).toBeUndefined()
 })
 
+it('does not grant Offensive Defense from a Force Field beyond armor upgrade capacity', () => {
+  const slottedArmor = { ...armor, data: { ...armor.data, upgrade_slots: 1 } }
+  const otherUpgrade: ContentEntry = { ...armor, id: 'other', name: 'Other Upgrade', kind: 'item',
+    data: { item_subcategory: 'Armor Upgrades' } }
+  const forceField: ContentEntry = { ...otherUpgrade, id: 'field', name: 'Force Field' }
+  const c: Character = { ...base, level: 6, feats: [{ name: 'Offensive Defense', type: 'Class Feat', level: 6 }],
+    armors: [{ id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [],
+      upgrades: [otherUpgrade.id, forceField.id], worn: true }] }
+  expect(offensiveDefenseAttack(c, [slottedArmor, otherUpgrade, forceField])).toBeUndefined()
+  expect(offensiveDefenseAttack({ ...c, armors: [{ ...c.armors![0], upgrades: [forceField.id] }] },
+    [slottedArmor, otherUpgrade, forceField])).toBeDefined()
+})
+
 it('uses Offensive Defense tracking for attack and area DC without adding Strength to its fixed damage', () => {
   const forceField: ContentEntry = { ...armor, id: 'superior-force-field', name: 'Force Field (Superior)', kind: 'item',
     data: { item_subcategory: 'Armor Upgrades' } }
   const c: Character = { ...base, level: 6, abilities: { ...base.abilities, str: 18 },
     feats: [{ name: 'Offensive Defense', type: 'Class Feat', level: 6 }],
     armors: [{ id: 'armor', name: armor.name, potency: 0, resilient: 0, runes: [], upgrades: [forceField.id], worn: true }] }
-  const added = offensiveDefenseAttack(c, [forceField])!
-  const entries = [soldier, forceField, added.entry]
+  const upgradedArmor = { ...armor, data: { ...armor.data, upgrade_slots: 1 } }
+  const added = offensiveDefenseAttack(c, [upgradedArmor, forceField])!
+  const entries = [soldier, upgradedArmor, forceField, added.entry]
   const attack = weaponAttack(c, entries, added.weapon)
   expect(attack).toMatchObject({
     damage: '2d10 bludgeoning', item: 2,

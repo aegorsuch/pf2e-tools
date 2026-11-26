@@ -1,4 +1,4 @@
-import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, crimsonClawUsesVersatileSlashing, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, selectedFeatEntry, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, weaponEntry, whirlwindStanceActive, wornArmor, type SectionProps } from './builder'
+import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, crimsonClawUsesVersatileSlashing, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, selectedFeatEntry, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, weaponEntry, whirlwindStanceActive, wornArmor, type SectionProps } from './builder'
 import { activeCatAlly, grantedFeatSpells } from './featSpells'
 import { FavoredTerrainSelector, HardenFleshToggle, RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
@@ -525,9 +525,9 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
         onChange={event => save(featEffectChange(c, 'Thick Hide Mask', event.target.checked))} />
         {' '}Thick Hide Mask resistance</label>,
     }] : []),
-    ...(defense.shield ? [{ name: 'Raise Shield', element: <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
-      <input type="checkbox" aria-label={`${defense.shieldLabel} status`} checked={shieldRaised(c)} disabled={shieldParagonActive(c)}
-        onChange={event => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked)) }} />
+    ...(defense.shield ? [{ name: 'Raise Shield', element: <label title={shieldAlwaysRaisedSource(c) ? `Always raised by ${shieldAlwaysRaisedSource(c)}` : undefined}>
+      <input type="checkbox" aria-label={`${defense.shieldLabel} status`} checked={shieldRaised(c)} disabled={!!shieldAlwaysRaisedSource(c)}
+        onChange={event => { if (!shieldAlwaysRaisedSource(c)) save(shieldRaisedChange(c, event.target.checked)) }} />
       {' '}{defense.shieldLabel} (+{shieldAcBonus(c, entries)} AC)</label> }] : []),
     ...(defense.boneShield ? [{ name: 'Raise Bone Shield', element: <label><input type="checkbox" aria-label="Raise Bone Shield status"
       checked={!!c.boneShieldRaised} onChange={event => save({ boneShieldRaised: event.target.checked })} /> Raise Bone Shield (+2 AC)</label> }]

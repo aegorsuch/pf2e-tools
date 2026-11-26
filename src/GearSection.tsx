@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeBaseName, runeName, canBeOsteoArmament, osteoArmamentRune, activeBattleForm, withoutBattleForm, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, hasDailyAugmentationActivation, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, isSolarianCrystalWeapon, solarianCoreCrystals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, type SectionProps,
+  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, hasDailyAugmentationActivation, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, isSolarianCrystalWeapon, solarianCoreCrystals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { armorUpgradeEntries, armorUpgradeEntry, automaticArmorUpgradeUsesSlot, blessedShieldBenefit, canEquipShield, canRaiseShield, championBlessings, clanPistolRunes, energyShieldingVariantId, equippedHands, equippedOtherShield, forceFieldStats, isEnergyShieldingUpgrade, myrmidonPhaseShield, scaleOfIgroonWeaponRunes, shieldAllowsAttachments, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldBraceEligible, shieldEquipChange, weaponEntry } from './builder'
@@ -2094,7 +2094,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const labelName = armorDisplayName({ name: a.name }, entry)
         const upgradeSlots = Math.max(0, armorUpgradeSlots(entry)
           + (sf2eArmor && c.heritage === 'Mod Fanatic Android' && entry?.data.upgrades_allowed !== false ? 1 : 0)
-          - automaticArmorUpgradeSlotsUsed(entry))
+          - automaticArmorUpgradeSlotsUsed(entry, c, entries))
         const automaticUpgrades = sf2eArmor && entry ? automaticSpecificArmorUpgrades(c, entries, entry) : []
         const runesAllowed = !sf2eArmor && entry?.data.runes_allowed !== false
         const granted = isGrantedArmor(a.id)
@@ -2298,9 +2298,6 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                       ...(a.activeForceField && !armorUpgradeEntries(c, entries, { ...a, upgrades })
                           .some(upgrade => forceFieldStats(upgrade)) ? { activeForceField: false } : {}) })
                     }} />}
-              {sf2eArmor && entry && /\b(?:Stormbreaker Armor(?: \((?:Cold|Fire)\))?|Myrmidon Siegebreaker Plate)$/i.test(entry.name)
-                && automaticArmorUpgradeSlotsUsed(entry) > armorUpgradeSlots(entry) + (c.heritage === 'Mod Fanatic Android' ? 1 : 0)
-                && <small role="status">Built-in upgrades exceed available armor upgrade slots.</small>}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, runeLimit(potency, a.material)) })} />}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}
@@ -2333,11 +2330,11 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             <strong><EntryDescription name={specificMagicItemName(shieldEntry(entries, shield.name), shield.name, true)} entry={shieldEntry(entries, shield.name)}
               className="equipment-name" /></strong>
             {!myrmidonPhaseShield(c, shield) && <ShieldEquipped c={c} entries={entries} save={save} shield={shield} />}
-            <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
+            <label title={shieldAlwaysRaisedSource(c) ? `Always raised by ${shieldAlwaysRaisedSource(c)}` : undefined}>
               <input type="checkbox" checked={equipped?.id === shield.id && shieldRaised(c)}
-                disabled={equippedOtherShield(c)?.id !== shield.id || shieldParagonActive(c)
+                disabled={equippedOtherShield(c)?.id !== shield.id || !!shieldAlwaysRaisedSource(c)
                   || !shield.raised && !canRaiseShield(c, entries, shield)}
-                onChange={(e) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, e.target.checked, entries, shield)) }} />
+                onChange={(e) => { if (!shieldAlwaysRaisedSource(c)) save(shieldRaisedChange(c, e.target.checked, entries, shield)) }} />
               {isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
           </header>
           {shieldAllowsAttachments(shield) && <ShieldAttachment c={c} entries={entries} save={save} shield={shield} />}
@@ -2402,8 +2399,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             && <ShieldEquipped c={c} entries={entries} save={save} shield={grantedShield} />}
           <label><input type="checkbox" checked={equipped?.id === grantedShield.id && shieldRaised(c)}
             disabled={(grantedShield.id === 'granted-shield:solarian' ? !grantedShield.equipped : equippedOtherShield(c)?.id !== grantedShield.id)
-              || shieldParagonActive(c) || !grantedShield.raised && !canRaiseShield(c, entries, grantedShield)}
-            onChange={event => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked, entries, grantedShield)) }} />
+              || !!shieldAlwaysRaisedSource(c) && equipped?.id === grantedShield.id || !grantedShield.raised && !canRaiseShield(c, entries, grantedShield)}
+            onChange={event => { if (!shieldAlwaysRaisedSource(c)) save(shieldRaisedChange(c, event.target.checked, entries, grantedShield)) }} />
             {grantedShield.id === 'granted-shield:chitinous' ? 'Raise Chitinous Shield'
               : isBucklerShield(grantedShield.name) ? 'Raise Buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
         </header>
