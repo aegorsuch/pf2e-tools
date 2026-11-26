@@ -327,7 +327,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
     .filter(control => control.name !== 'Shield' || !defense.cantrip || defense.boneShield)
   const crimsonClawModes = (c.weapons ?? []).flatMap(weapon => {
     const entry = weaponEntry(entries, weapon.name, weapon.id)
-    if (!/^crimson claw\b/i.test(entry?.name ?? '') || crimsonClawUsesVersatileSlashing(c, entries, weapon)) return []
+    if (!/\bcrimson claw\b/i.test(entry?.name ?? '') || crimsonClawUsesVersatileSlashing(c, entries, weapon)) return []
     const modes = entry?.weaponModes ?? []
     const fire = modes.find(mode => mode.damageType.toLowerCase() === 'fire')
     const slashing = modes.find(mode => mode.damageType.toLowerCase() === 'slashing')

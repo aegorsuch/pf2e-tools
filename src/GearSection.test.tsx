@@ -1430,6 +1430,21 @@ it('keeps Solar Shield available alongside a held shield', () => {
   expect(c.solarianShield?.raised).toBe(false)
 })
 
+it('labels Solar Flare critical effects with their actual sources', () => {
+  const c: Character = { ...character([{ name: 'Solar Shield', type: 'Class Feat', level: 1 },
+    { name: 'Propulsive Shield', type: 'Class Feat', level: 8 }]),
+  systems: ['sf2e'], className: 'Solarian', level: 8, solarianAttunement: 'Photon', solarianShield: { raised: true } }
+  for (const displayOnly of [false, true]) {
+    const render = (character: Character) => renderToStaticMarkup(
+      <WeaponList c={character} entries={[]} save={() => {}} displayOnly={displayOnly} />)
+    const raised = render(c)
+    expect(raised).toContain('1d8 persistent fire damage on a critical hit. (Propulsive Shield)')
+    expect(raised).not.toContain('1d8 persistent fire damage on a critical hit. (Cairn Form)')
+    expect(render({ ...c, solarianShield: { raised: false } }))
+      .toContain('1d6 persistent fire damage on a critical hit. (Solar Flare)')
+  }
+})
+
 it('selects Solar Weapon traits within the trait budget', () => {
   let c: Character = { ...character([]), systems: ['sf2e'], className: 'Solarian', solarianAttunement: 'Photon' }
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
@@ -1748,20 +1763,23 @@ it('uses a Fire/Slashing toggle for Crimson Claw without generic powered-mode he
   expect(markup()).toContain('> Slashing <span class="action-cost"')
 })
 
-it('hides Crimson Claw mode when natural claws grant versatile slashing', () => {
-  const entry: ContentEntry = { ...weapon, name: 'Crimson Claw', systems: ['sf2e'],
+it.each(['Crimson Claw', 'Ultimate Crimson Claw'])('hides %s mode when natural claws grant versatile slashing', name => {
+  const entry: ContentEntry = { ...weapon, name, systems: ['sf2e'],
     traits: ['Agile', 'Powered'], data: { hands: 1, damage: '1d4 fire', weapon_type: 'Melee',
       weapon_category: 'Advanced', weapon_tracking: 1, upgrade_slots: 1 },
     weaponModes: [{ id: 'fire', damageType: 'fire', traits: ['Powered'] },
       { id: 'slash', damageType: 'slashing', traits: ['Analog'] }] }
   const c: Character = { ...character([{ name: 'Predatory', choice: 'Claw', type: 'Ancestry Feat', level: 1 }]),
     systems: ['sf2e'], ancestry: 'Pahtra',
-    weapons: [{ id: 'claw-weapon', name: 'Crimson Claw', potency: 0, striking: 0, runes: [], weaponMode: 'slash' }] }
+    weapons: [{ id: 'claw-weapon', name, potency: 0, striking: 0, runes: [], weaponMode: 'slash' }] }
   const attack = weaponAttack(c, [entry], c.weapons![0])
   expect(attack.damage).toMatch(/fire/)
   expect(attack.traits).toContain('Versatile S')
-  expect(renderToStaticMarkup(<WeaponList c={c} entries={[entry]} save={() => {}} />))
-    .not.toContain('Crimson Claw mode:')
+  for (const displayOnly of [false, true]) {
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={[entry]} save={() => {}} displayOnly={displayOnly} />)
+    expect(markup).not.toContain('Crimson Claw mode:')
+    expect(markup).not.toContain(`Mode: ${name}`)
+  }
   expect(weaponAttack({ ...c, feats: [] }, [entry], c.weapons![0]).damage).toMatch(/slashing/)
 })
 

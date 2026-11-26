@@ -97,6 +97,22 @@ it('switches Crimson Claw between Fire and Slashing from Statuses', () => {
     .toContain('Crimson Claw: Slashing')
 })
 
+it('hides graded Crimson Claw mode status when natural claws provide Versatile S', () => {
+  const entry: ContentEntry = { id: 'claw', name: 'Ultimate Crimson Claw', systems: ['sf2e'], kind: 'weapon',
+    source: 'official', level: 1, traits: [], description: '', effects: [], updatedAt: 0,
+    data: { damage: '1d4 fire', hands: 1, weapon_type: 'Melee', weapon_category: 'Advanced' },
+    weaponModes: [{ id: 'fire', damageType: 'fire', traits: ['Powered'] },
+      { id: 'slash', damageType: 'slashing', traits: ['Analog'] }] }
+  const c: Character = { id: 'crimson-status-graded', name: 'Test', systems: ['sf2e'], ancestry: 'Pahtra',
+    level: 1, feats: [{ name: 'Predatory', choice: 'Claw', type: 'Ancestry Feat', level: 1 }],
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    weapons: [{ id: 'claw', name: entry.name, potency: 0, striking: 0, runes: [] }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const render = (character: Character) => renderToStaticMarkup(<StatusesContent c={character} entries={[entry]} save={() => {}} />)
+  expect(render(c)).not.toContain('Crimson Claw mode status:')
+  expect(render({ ...c, feats: [] })).toContain('Crimson Claw mode status: Ultimate Crimson Claw')
+})
+
 it.each([['Ranger', undefined], ['Ranger', 'Vindication'], ['Rogue', 'Avenger']] as const)(
   'shows Hunt Prey rules and retains the status toggle for %s', (className, subclass) => {
     let c: Character = { id: 'hunt-prey', name: 'Test', systems: ['pf2e'], level: 4, className, subclass,

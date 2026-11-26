@@ -1281,7 +1281,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         onPick={(e) => saveWeapons([...savedWeapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [], stowed: true }])} />}
       {sorted.map((w) => {
         const a = weaponAttack(c, entries, w)
-        const crimsonClawModes = /^crimson claw\b/i.test(a.entry?.name ?? '') ? (() => {
+        const crimsonClawModes = /\bcrimson claw\b/i.test(a.entry?.name ?? '') ? (() => {
           const modes = a.entry?.weaponModes ?? []
           const fire = modes.find(mode => mode.damageType.toLowerCase() === 'fire')
           const slashing = modes.find(mode => mode.damageType.toLowerCase() === 'slashing')
@@ -1661,7 +1661,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             {summary.attack.traits.length > 0 && <WeaponTraits attack={summary.attack} entries={entries} />}
           </div>)}
           {(a.criticalNote || typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect) && <small>
-            {a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}
+            {a.criticalNote && a.criticalNoteSource && <SourceNote source={a.criticalNoteSource} note={a.criticalNote} inlineSource={false} />}
             {typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect && <SourceNote source="Untamed Form" note={a.entry.data.form_effect} inlineSource={false} />}
           </small>}
           {a.areaAttacks.map(area => <small key={area.name}>{area.name}: DC {area.dc} Reflex, {area.shape}
@@ -1695,7 +1695,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 </div>)}
               </div> : <small>{attackLine(attackSummaries[0])}</small>}
               {(a.criticalNote || typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect) && <small>
-                {a.criticalNote && <SourceNote source="Cairn Form" note={a.criticalNote} inlineSource={false} />}
+                {a.criticalNote && a.criticalNoteSource && <SourceNote source={a.criticalNoteSource} note={a.criticalNote} inlineSource={false} />}
                 {typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect && <SourceNote source="Untamed Form" note={a.entry.data.form_effect} inlineSource={false} />}
               </small>}{capacity > 0 && <small> · {loaded}/{capacity} loaded</small>}</summary>
             <div className="row">{equipControls}</div>

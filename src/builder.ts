@@ -9765,6 +9765,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       : w.id === solarianFlare.id && (c.solarianAttunement ?? 'Graviton') === 'Graviton'
         ? `Attempt to Trip the target as a free action, even without a free hand or adjacency.${propulsiveShield ? ' +2 circumstance bonus to the Trip attempt.' : ''}`
       : cairn ? `On a critical hit, Fortitude save against ${classDifficultyClass(c, entries) ?? 'your class DC'} or stunned 1 for 1 round.` : undefined,
+    criticalNoteSource: w.id === venomousVeskJaws.id ? 'Venomous Jaws'
+      : formAttack?.data.critical_bleed ? 'Dinosaur Form'
+      : w.id === solarianFlare.id ? propulsiveShield
+        ? (c.solarianAttunement ?? 'Graviton') === 'Photon' ? 'Propulsive Shield' : 'Solar Flare and Propulsive Shield'
+        : 'Solar Flare'
+      : cairn ? 'Cairn Form' : undefined,
     ability,
     mod,
     prof,
