@@ -3,7 +3,11 @@ import { Children, cloneElement, isValidElement, type ReactElement, type ReactNo
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, ArmorUpgrades, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
-import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, armorUpgradeSlots as resolvedArmorUpgradeSlots, automaticArmorUpgradeSlotsUsed, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon, installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, parryValue, resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
+import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, armorUpgradeSlots as resolvedArmorUpgradeSlots,
+  automaticArmorUpgradeSlotsUsed, automaticArmorUpgradeUsesSlot, automaticSpecificArmorUpgrades,
+  effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon,
+  installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, parryValue,
+  resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
 import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, OVERSIZED_THROW } from './supplemental'
@@ -40,13 +44,15 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     ['Flaming Module (Commercial)', 8], ['Flaming Module (Tactical)', 15],
     ['Retrieval Boosters', 3], ['Shock Module (Commercial)', 8], ['Shock Module (Tactical)', 15],
     ['Loudener (Commercial)', 8], ['Loudener (Tactical)', 15],
+    ['Suppression Matrix (Commercial)', 4], ['Suppression Matrix (Tactical)', 14],
   ].map(([name, level]) => ({ ...shifting, id: String(name), name: String(name), level: Number(level),
     systems: ['sf2e' as const], data: { item_subcategory: 'Weapon Upgrades' } }))
   const sfWeapon = (name: string): ContentEntry => ({ ...weapon, id: name, name, systems: ['sf2e'],
     traits: ['Tech'], data: { weapon_category: 'Martial', damage: '1d6 F', hands: 1, upgrade_slots: 4 } })
-  const weapons = ['SLARP Rapid Laser Pistol', 'Shuriken Drone', 'Singing Spear', 'Crimson Claw', 'Shock Pad', 'Rotolaser',
-    'Pulse Gauntlet', 'Other']
-    .map(sfWeapon)
+  const weapons = ['SLARP Rapid Laser Pistol', 'Shuriken Drone', 'Singing Spear', 'Battleglove', 'Crimson Claw', 'Shock Pad', 'Rotolaser',
+    'Pulse Gauntlet', 'Other'].map(sfWeapon)
+  weapons.push({ ...sfWeapon('Starday Night Special (Semi-Auto Pistol)'),
+    data: { ...sfWeapon('Starday Night Special (Semi-Auto Pistol)').data, special_weapon_source: 'Starday Night Special' } })
   const entries = [...weapons, ...upgrades]
   const owned = (name: string, ids: string[] = []): OwnedWeapon => ({ id: name, name, potency: 0, striking: 0, runes: [], upgrades: ids })
   const at = (name: string, level: number, ids: string[] = []) => installedWeaponUpgrades(
@@ -56,10 +62,17 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     updateSettings({ automaticSfWeaponUpgrades: true })
     expect(at('SLARP Rapid Laser Pistol', 1)).toEqual([])
     expect(at('SLARP Rapid Laser Pistol', 6)).toEqual(["Smuggler's Grip (Tactical)"])
+    expect(at('Starday Night Special (Semi-Auto Pistol)', 1)).toEqual([])
+    expect(at('Starday Night Special (Semi-Auto Pistol)', 2)).toEqual(["Smuggler's Grip (Commercial)"])
+    expect(at('Starday Night Special (Semi-Auto Pistol)', 6)).toEqual(["Smuggler's Grip (Tactical)"])
     expect(at('SLARP Rapid Laser Pistol', 15, ['Flaming Module (Commercial)']))
       .toEqual(['Flaming Module (Tactical)', "Smuggler's Grip (Tactical)"])
     expect(at('Shuriken Drone', 3)).toEqual(['Retrieval Boosters'])
     expect(at('Singing Spear', 15)).toEqual(['Retrieval Boosters', 'Loudener (Tactical)'])
+    expect(at('Battleglove', 3)).toEqual([])
+    expect(at('Battleglove', 4)).toEqual(['Suppression Matrix (Commercial)'])
+    expect(at('Battleglove', 13)).toEqual(['Suppression Matrix (Commercial)'])
+    expect(at('Battleglove', 14)).toEqual(['Suppression Matrix (Tactical)'])
     expect(at('Crimson Claw', 8)).toEqual(['Flaming Module (Commercial)'])
     expect(at('Shock Pad', 8)).toEqual(['Shock Module (Commercial)'])
     expect(at('Shock Pad', 15)).toEqual(['Shock Module (Tactical)'])
@@ -3076,26 +3089,38 @@ it('offers Acid, Cold, Electricity and Fire variants for Energy Shielding', () =
   })
 })
 
-it('auto-installs Retrieval Harness Easypatcher without using an upgrade slot', () => {
+it('auto-installs Retrieval Harness Easypatcher and scaling Adrenal Autoinjectors with correct slot usage', () => {
   const harness: ContentEntry = { ...weapon, id: 'retrieval-harness', name: 'Retrieval Harness', kind: 'armor', systems: ['sf2e'],
     level: 10, data: { url: 'retrieval-harness', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 3 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
     systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
   const upgrades = [
     module('Jetpack (Commercial)', 5), module('Force Field (Superior)', 10),
-    module('Easypatcher (Advanced)', 15), module('Mobility Enhancer', 4),
+    module('Easypatcher (Advanced)', 15), module('Adrenal Autoinjectors (Commercial)', 8),
+    module('Adrenal Autoinjectors (Tactical)', 12), module('Adrenal Autoinjectors (Advanced)', 18),
+    module('Mobility Enhancer', 4),
   ]
   const c: Character = { ...character([]), systems: ['sf2e'], level: 20, armors: [
     { id: harness.id, name: harness.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [harness, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(harness)).toBe(2)
+  expect(automaticArmorUpgradeSlotsUsed(harness)).toBe(3)
+  const adrenalNameAt = (level: number) => automaticSpecificArmorUpgrades({ ...c, level }, [harness, ...upgrades], harness)
+    .find(item => item.name.startsWith('Adrenal Autoinjectors'))?.name
+  expect(adrenalNameAt(7)).toBeUndefined()
+  expect(adrenalNameAt(8)).toBe('Adrenal Autoinjectors (Commercial)')
+  expect(adrenalNameAt(12)).toBe('Adrenal Autoinjectors (Tactical)')
+  expect(adrenalNameAt(18)).toBe('Adrenal Autoinjectors (Advanced)')
+  expect(automaticArmorUpgradeUsesSlot(harness.name, upgrades[3])).toBe(true)
+  expect(automaticArmorUpgradeUsesSlot(harness.name, upgrades[2])).toBe(false)
   expect(markup).toContain('Easypatcher (Advanced) *')
+  expect(markup).toContain('Adrenal Autoinjectors (Advanced)')
+  expect(markup).not.toContain('Adrenal Autoinjectors (Advanced) *')
   expect(markup).toContain('Jetpack (Commercial)')
   expect(markup).toContain('Force Field (Superior)')
   expect(markup).not.toContain('Jetpack (Commercial) *')
   expect(markup).not.toContain('Force Field (Superior) *')
-  expect(markup).toContain('Add armor upgrade')
+  expect(markup).not.toContain('Add armor upgrade')
 })
 
 it('auto-installs Stormbreaker electrical upgrades and reserves slots for Jetpack and Force Field', () => {

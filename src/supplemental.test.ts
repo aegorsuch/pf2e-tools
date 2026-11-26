@@ -866,6 +866,17 @@ it('provides a SLARP rapid pistol with its abilities and scaling weapon proficie
     lores: [{ name: 'Geology Lore', rank: 2 }], weapons: [weapon] }
   const attack = weaponAttack(c, homebrew, weapon)
   expect(attack).toMatchObject({ rank: 2, item: 2, entry: { name: 'Superior SLARP Rapid Laser Pistol' } })
+  const physicalScience = weaponAttack({ ...c, lores: [{ name: 'Physical Science Lore', rank: 1 }] }, homebrew, weapon).entry!
+  expect(physicalScience.traits).toContain('Professional (Physical Science Lore)')
+  expect(physicalScience.traits).not.toContain('Professional (Geology Lore or Physical Science Lore)')
+  expect(physicalScience.description).toContain('using Physical Science Lore')
+  expect(physicalScience.description).not.toContain('Geology Lore')
+  const geology = weaponAttack({ ...c, lores: [{ name: 'Geology Lore', rank: 1 }] }, homebrew, weapon).entry!
+  expect(geology.traits).toContain('Professional (Geology Lore)')
+  expect(geology.traits).not.toContain('Physical Science Lore')
+  const neitherLore = weaponAttack({ ...c, lores: [] }, homebrew, weapon).entry!
+  expect(neitherLore.traits.some(trait => trait.startsWith('Professional ('))).toBe(false)
+  expect(neitherLore.description).not.toMatch(/(?:Geology|Physical Science) Lore/)
   expect(weaponAttack({ ...c, lores: [] }, homebrew, weapon).rank).toBe(0)
   expect(weaponAttack({ ...c, level: 4 }, homebrew, weapon)).toMatchObject({ rank: 1, item: 1 })
   const familiar: Character = { ...c, lores: [], feats: [

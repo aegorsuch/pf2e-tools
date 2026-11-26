@@ -145,6 +145,7 @@ function EntryDescriptionContents({ name, entry, choice, prerequisites, access, 
   const technomancerHackName = entry?.kind === 'feat' && technomancerLanguage
     ? entry.name === 'Cross-platform Application' ? TECHNOMANCER_LANGUAGE_RULES[technomancerLanguage].initialHack
       : entry.name === 'Advanced Cross-platform Application' ? TECHNOMANCER_LANGUAGE_RULES[technomancerLanguage].advancedHack
+        : entry.name === 'Greater Cross-platform Application' ? TECHNOMANCER_LANGUAGE_RULES[technomancerLanguage].greaterHack
         : undefined
     : undefined
   const technomancerFirmware = entry?.kind === 'feat' && entry.name === 'Versatile Firmware' && technomancerLanguage

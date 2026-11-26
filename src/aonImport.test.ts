@@ -80,7 +80,7 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
   const names = new Set(families.flatMap(name => [name, ...grades.map(grade => `${grade} ${name}`)]))
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
   const upgrades = ['Jetpack', 'Force Field', 'Aqua Jets', 'Active Camouflage', 'Cloaking Device', 'Drift Drive Relay',
-    'Maneuvering Unit', 'Easypatcher', 'Energized Spikes', 'Energy Shielding',
+    'Maneuvering Unit', 'Easypatcher', 'Adrenal Autoinjectors', 'Energized Spikes', 'Energy Shielding',
     'Spell Gauntlet', 'Spell Refactoring Matrix']
   const entries = mapAonHits(hits.filter(hit => {
     const name = String(hit._source?.name)
@@ -103,14 +103,15 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
     else expect(autoUpgrades.map(entry => entry.name)).toContain('Jetpack (Tactical)')
     expect(autoUpgrades).toHaveLength(name === "Drifter's Jacket" ? 5
       : name === 'Clandestine Suit' || name === 'Stormbreaker Armor' || name === 'Carvesong' ? 4
-      : name === 'Aquavarius Armor' || name === 'Rocketeer Armor' || name === 'Retrieval Harness' ? 3 : 2)
+      : name === 'Retrieval Harness' ? 4
+      : name === 'Aquavarius Armor' || name === 'Rocketeer Armor' ? 3 : 2)
     if (name === 'Clandestine Suit') expect(autoUpgrades.map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Active Camouflage (Advanced)', 'Cloaking Device (Tactical)']))
     if (name === "Drifter's Jacket") expect(autoUpgrades.map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Force Field (Paragon)', 'Active Camouflage (Advanced)',
         'Drift Drive Relay (Advanced)', 'Maneuvering Unit (Superior)']))
     if (name === 'Retrieval Harness') expect(autoUpgrades.map(entry => entry.name))
-      .toContain('Easypatcher (Advanced)')
+      .toEqual(expect.arrayContaining(['Easypatcher (Advanced)', 'Adrenal Autoinjectors (Advanced)']))
     if (name === 'Aquavarius Armor') {
       expect(autoUpgrades.map(entry => entry.name)).toEqual(expect.arrayContaining([
         'Aqua Jets (Tactical)', 'Energy Shielding (Advanced)',

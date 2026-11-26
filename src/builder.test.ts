@@ -11,7 +11,8 @@ import { hasRemainingFeatSelections } from './builder'
 import { homebrewCharacterOptions } from './supplemental'
 import { maxEtchedRunes, runicRepertoireSize } from './runesmithRunes'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
-import { TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES, VERSATILE_FIRMWARE_FEAT } from './technomancer'
+import { GREATER_CROSS_PLATFORM_APPLICATION_FEAT, TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES,
+  VERSATILE_FIRMWARE_FEAT } from './technomancer'
 import type { Character, ContentEntry } from './types'
 
 it('clears Bone Shield activation and raised state when removed', () => {
@@ -2869,6 +2870,32 @@ describe('defenses', () => {
       .not.toContain(VERSATILE_FIRMWARE_FEAT)
   })
 
+  it('offers Greater Cross-platform Application only for firmware languages and only once per language', () => {
+    const c: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 20,
+      technomancerProgrammingLanguage: 'DPS++', feats: [
+        { name: 'Cross-platform Application', type: 'Class Feat', level: 8, choice: 'FORTRUN' },
+        { name: 'Cross-platform Application', type: 'Class Feat', level: 10, choice: 'ServoShell' },
+        { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 12, choice: 'FORTRUN' },
+        { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 14, choice: 'ServoShell' },
+        { name: 'Versatile Firmware', type: 'Class Feat', level: 16, choice: 'FORTRUN' },
+        { name: 'Versatile Firmware', type: 'Class Feat', level: 18, choice: 'ServoShell' },
+      ] }
+    const slot = { key: 'class:20:0', category: 'class' as const, level: 20 }
+    expect(featChoiceOptions('Greater Cross-platform Application', c,
+      [VERSATILE_FIRMWARE_FEAT, GREATER_CROSS_PLATFORM_APPLICATION_FEAT], slot.key, -1))
+      .toEqual(['FORTRUN', 'ServoShell'])
+    expect(eligibleFeats([GREATER_CROSS_PLATFORM_APPLICATION_FEAT], c, slot))
+      .toContain(GREATER_CROSS_PLATFORM_APPLICATION_FEAT)
+    const used = { ...c, feats: [...c.feats,
+      { name: 'Greater Cross-platform Application', type: 'Class Feat', level: 20, choice: 'FORTRUN' }] }
+    expect(featChoiceOptions('Greater Cross-platform Application', used,
+      [VERSATILE_FIRMWARE_FEAT, GREATER_CROSS_PLATFORM_APPLICATION_FEAT], 'class:20:1', -1))
+      .toEqual(['ServoShell'])
+    expect(featChoiceOptions('Greater Cross-platform Application', {
+      ...used, feats: [...used.feats, { name: 'Greater Cross-platform Application', type: 'Class Feat', level: 20, choice: 'ServoShell' }],
+    }, [VERSATILE_FIRMWARE_FEAT, GREATER_CROSS_PLATFORM_APPLICATION_FEAT], 'class:20:2', -1)).toEqual([])
+  })
+
   it('grants the initial and advanced hacks selected through Cross-platform Application feats', () => {
     const entries = TECHNOMANCER_PROGRAMMING_LANGUAGES.flatMap(language => {
       const rules = TECHNOMANCER_LANGUAGE_RULES[language]
@@ -2893,7 +2920,47 @@ describe('defenses', () => {
       { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 12, choice: 'Viper' }] }
     expect(focusSpells(invalidAdvanced, entries).spells.map(spell => spell.name))
       .not.toContain(TECHNOMANCER_LANGUAGE_RULES.Viper.advancedHack)
+    const withGreater = { ...c, level: 16, feats: [...c.feats,
+      { name: 'Versatile Firmware', type: 'Class Feat', level: 14, choice: 'FORTRUN' },
+      { name: 'Greater Cross-platform Application', type: 'Class Feat', level: 16, choice: 'FORTRUN' }] }
+    expect(focusSpells(withGreater, entries).spells.map(spell => spell.name))
+      .toContain(TECHNOMANCER_LANGUAGE_RULES.FORTRUN.greaterHack)
+    expect(focusSpells(withGreater, entries).spells.map(spell => spell.name))
+      .not.toContain(TECHNOMANCER_LANGUAGE_RULES.ServoShell.greaterHack)
   })
+
+it('applies Technomancer firmware proficiency transfers to tech weapons and medium armor', () => {
+  const technomancer = entry('class', 'Technomancer', {
+    attack_proficiency: 'Trained in simple weapons',
+    defense_proficiency: 'Trained in light armor, Trained in unarmored defense',
+  })
+  const simpleExpertise = { ...entry('classFeature', 'Technomancer Weapon Expertise', { class: 'Technomancer' }, 11),
+    description: 'Your proficiency rank for simple weapons increases to expert.' }
+  const lightArmorExpertise = { ...entry('classFeature', 'Technomancer Armor Expertise', { class: 'Technomancer' }, 13),
+    description: 'Your proficiency rank for light armor increases to expert.' }
+  const techSimple = { ...entry('weapon', 'Tech Knife', { weapon_category: 'Simple', damage: '1d4 piercing' }, 1, ['Tech']),
+    systems: ['sf2e'] as ContentEntry['systems'] }
+  const techMartial = { ...entry('weapon', 'Tech Sword', { weapon_category: 'Martial', damage: '1d8 slashing' }, 1, ['Tech']),
+    systems: ['sf2e'] as ContentEntry['systems'] }
+  const plainMartial = { ...entry('weapon', 'Sword', { weapon_category: 'Martial', damage: '1d8 slashing' }, 1),
+    systems: ['sf2e'] as ContentEntry['systems'] }
+  const entries = [technomancer, simpleExpertise, lightArmorExpertise, techSimple, techMartial, plainMartial]
+    .map(item => ({ ...item, systems: ['sf2e'] as ContentEntry['systems'] }))
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 14,
+    technomancerProgrammingLanguage: 'DPS++', feats: [
+      { name: 'Cross-platform Application', type: 'Class Feat', level: 8, choice: 'FORTRUN' },
+      { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 12, choice: 'FORTRUN' },
+      { name: 'Versatile Firmware', type: 'Class Feat', level: 14, choice: 'FORTRUN' },
+    ] }
+  const owned = (name: string) => ({ id: name, name, potency: 0, striking: 0, runes: [] })
+  expect(weaponAttack(c, entries, owned('Tech Sword'))).toMatchObject({ rank: 2, criticalSpecialization: true })
+  expect(weaponAttack(c, entries, owned('Tech Knife')).criticalSpecialization).toBe(true)
+  expect(weaponAttack(c, entries, owned('Sword'))).toMatchObject({ rank: 0, criticalSpecialization: false })
+  expect(armorRanks(c, entries)).toMatchObject({ Light: 2, Medium: 2 })
+  expect(weaponAttack({ ...c, technomancerProgrammingLanguage: 'Viper' }, entries, owned('Tech Sword')))
+    .toMatchObject({ rank: 0, criticalSpecialization: false })
+  expect(armorRanks({ ...c, technomancerProgrammingLanguage: 'Viper', feats: [] }, entries).Medium).toBe(0)
+})
 
   it('grants Bard muse feats and focus spells, including additional muses', () => {
     const maestro = entry('subclass', 'Maestro', {

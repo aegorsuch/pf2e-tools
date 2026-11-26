@@ -30,7 +30,7 @@ import { isWitchwarper, witchwarperParadox, witchwarperRepertoireSlots, witchwar
 import { familiarSelection, familiarSpellBenefits, purifyAirActive } from './familiarAbilities'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
-import { TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES, versatileFirmwareLanguageOptions, versatileTechnomancerLanguageOptions } from './technomancer'
+import { greaterCrossPlatformLanguageOptions, TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES, versatileFirmwareLanguageOptions, versatileTechnomancerLanguageOptions } from './technomancer'
 import { boostingTheBasics } from './mechanicMods'
 import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
@@ -1908,7 +1908,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length === 1
         || ['Iruxi Armaments', 'Brutal Anatomy', 'Predatory', 'Ancestral Resistance', "Witch's Armaments", 'Energized Spark'].includes(e.name) && !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || c.systems.includes('sf2e') && c.className === 'Technomancer'
-          && ['Cross-platform Application', 'Advanced Cross-platform Application', 'Versatile Firmware'].includes(e.name)
+          && ['Cross-platform Application', 'Advanced Cross-platform Application', 'Versatile Firmware',
+            'Greater Cross-platform Application'].includes(e.name)
           && !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || (e.data.repeatable === true || isRepeatableCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key,
             slot.category === 'archetype' && archetypesOf(e).includes('Beastmaster'))))
@@ -2152,6 +2153,14 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
         && featChoiceOptions(feat.name, c, entries, feat.slot ?? slotKey, featIndex)?.includes(feat.choice)
         ? [feat.choice] : [])
     return versatileFirmwareLanguageOptions(c, advancedLanguages, index)
+  }
+  if (name === 'Greater Cross-platform Application' && c.systems.includes('sf2e') && c.className === 'Technomancer') {
+    const level = Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)
+    const firmwareLanguages = c.feats.flatMap((feat, featIndex) =>
+      feat.name === 'Versatile Firmware' && feat.choice && featTakenLevel(feat) <= level
+        && featChoiceOptions(feat.name, c, entries, feat.slot ?? slotKey, featIndex)?.includes(feat.choice)
+        ? [feat.choice] : [])
+    return greaterCrossPlatformLanguageOptions(c, firmwareLanguages, index)
   }
   if (c.systems.includes('sf2e') && c.className === 'Technomancer'
     && ['Cross-platform Application', 'Advanced Cross-platform Application'].includes(name)) {
@@ -3328,7 +3337,7 @@ export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
   return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Clandestine Suit',
     'Myrmidon Siegebreaker Plate', 'Retrieval Harness',
     'Rocketeer Armor', 'Stormbreaker Armor']
-    .includes(family ?? '') ? 2 : 0
+    .includes(family ?? '') ? family === 'Retrieval Harness' ? 3 : 2 : 0
 }
 
 export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upgrade: ContentEntry) {
@@ -3339,6 +3348,7 @@ export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upg
   if (['Aeon Guard Battle Dress', 'Clandestine Suit', "Drifter's Jacket",
     'Myrmidon Siegebreaker Plate', 'Retrieval Harness', 'Stormbreaker Armor'].includes(family ?? ''))
     return ['Jetpack', 'Force Field'].includes(base) || family === "Drifter's Jacket" && base === 'Active Camouflage'
+      || family === 'Retrieval Harness' && base === 'Adrenal Autoinjectors'
   return family === 'Rocketeer Armor' && ['Force Field', 'Maneuvering Unit'].includes(base)
 }
 
@@ -3351,7 +3361,7 @@ const AUTOMATIC_ARMOR_UPGRADES = ['Jetpack', 'Force Field']
 const CLOAKING_ARMOR_UPGRADES = ['Active Camouflage', 'Cloaking Device']
 const DRIFTER_JACKET_ARMOR_UPGRADES = ['Active Camouflage', 'Drift Drive Relay', 'Maneuvering Unit']
 const ROCKETEER_ARMOR_UPGRADES = ['Maneuvering Unit']
-const RETRIEVAL_HARNESS_ARMOR_UPGRADES = ['Easypatcher']
+const RETRIEVAL_HARNESS_ARMOR_UPGRADES = ['Easypatcher', 'Adrenal Autoinjectors']
 const STORMBREAKER_ARMOR_UPGRADES = ['Energized Spikes', 'Energy Shielding']
 const AQUAVARIUS_ARMOR_UPGRADES = ['Aqua Jets', 'Energy Shielding']
 const SPELL_ARMOR_UPGRADES = ['Spell Gauntlet', 'Spell Refactoring Matrix', 'Jetpack', 'Force Field']
@@ -4268,7 +4278,8 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
   }
   if (c.systems.includes('sf2e') && c.className === 'Technomancer') {
     for (const [index, feat] of c.feats.entries()) {
-      if (feat.name !== 'Cross-platform Application' && feat.name !== 'Advanced Cross-platform Application') continue
+      if (feat.name !== 'Cross-platform Application' && feat.name !== 'Advanced Cross-platform Application'
+        && feat.name !== 'Greater Cross-platform Application') continue
       if (featTakenLevel(feat) > c.level
         || !feat.choice || !featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)?.includes(feat.choice)) continue
       const language = TECHNOMANCER_PROGRAMMING_LANGUAGES.find(option => option === feat.choice)
@@ -4276,7 +4287,9 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
       const rules = TECHNOMANCER_LANGUAGE_RULES[language]
       if (feat.name === 'Cross-platform Application')
         add(rules.initialHack, `${language} Cross-platform Application`)
-      else add(rules.advancedHack, `${language} Advanced Cross-platform Application`)
+      else if (feat.name === 'Advanced Cross-platform Application')
+        add(rules.advancedHack, `${language} Advanced Cross-platform Application`)
+      else add(rules.greaterHack, `${language} Greater Cross-platform Application`)
     }
   }
   if (c.className === 'Necromancer' && c.systems.includes('pf2e') && c.level >= 1) {
@@ -5821,6 +5834,19 @@ function weaponProficiencyGrants(c: Character, entries: ContentEntry[]) {
   }))
 }
 
+function technomancerFirmwareLanguages(c: Character, entries: ContentEntry[]) {
+  const languages = new Set<string>()
+  if (!c.systems.includes('sf2e') || c.className !== 'Technomancer') return languages
+  if (c.technomancerProgrammingLanguage) languages.add(c.technomancerProgrammingLanguage)
+  c.feats.forEach((feat, index) => {
+    if (!feat.choice || featTakenLevel(feat) > c.level
+      || !['Versatile Firmware', 'Versatile Technomancer'].includes(feat.name)
+      || !featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)?.includes(feat.choice)) return
+    languages.add(feat.choice)
+  })
+  return languages
+}
+
 export function weaponHasAncestryTrait(weapon: ContentEntry, entries: ContentEntry[]) {
   return entries.some(entry => ['ancestry', 'heritage'].includes(entry.kind) && !entry.deleted
     && weapon.traits.some(trait => trait.toLowerCase() === entry.name.toLowerCase()))
@@ -5878,7 +5904,8 @@ export function weaponRanks(c: Character, entries: ContentEntry[]) {
   return ranks
 }
 
-function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeapon, entry = weaponEntry(entries, weapon.name, weapon.id), highestRank = false) {
+function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeapon, entry = weaponEntry(entries, weapon.name, weapon.id),
+  highestRank = false, firmwareLanguages = technomancerFirmwareLanguages(c, entries)) {
   const category = weaponCategory(entry)
   const advancedTraining = category === 'Advanced' && weaponProficiencyGrants(c, entries)
     .some((grant) => !grant.martial && [entry?.name, entry?.data.named_weapon_base].some(name => typeof name === 'string'
@@ -5887,10 +5914,12 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     .some(feat => feat.choice?.trim().toLowerCase() === String(entry?.data.weapon_group ?? '').trim().toLowerCase())
   const familiarity = entry ? weaponFamiliarity(c, entry, category, entries) : undefined
   const unconventional = entry && unconventionalWeapon(c, entries, entry)
+  const ranks = weaponRanks(c, entries)
+  const techFirmwareRank = category === 'Martial' && entry?.traits.some(trait => /^tech$/i.test(trait))
+    && firmwareLanguages.has('DPS++') ? Math.max(1, ranks.Simple) : 0
   const familiarCategory = familiarity?.proficiency
   const unconventionalCategory = unconventional ? category === 'Advanced' ? 'Martial' : 'Simple' : undefined
   const innovationCategory = weapon.inventorInnovation && category === 'Advanced' && canBeWeaponInnovation(c, entries, weapon) ? 'Martial' : undefined
-  const ranks = weaponRanks(c, entries)
   const professionalSkills = c.systems.includes('sf2e') ? String(entry?.data.professional_skills ?? '').split(';').filter(Boolean) : []
   const skillRanks = professionalSkills.length ? ranksAt(c, entries) : {}
   const professionalRank = professionalSkills.length && (category === 'Martial' || category === 'Advanced')
@@ -5924,7 +5953,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     unconventionalCategory ? ranks[unconventionalCategory] : 0, innovationCategory ? ranks[innovationCategory] : 0,
     familiarity?.trained ? 1 : 0, expertise ? Math.max(...Object.values(baseWeaponRanks(c, entries))) : 0,
     advancedTraining ? c.level >= 11 ? 2 : 1 : 0, groupTraining ? ranks.Martial : 0, avengerRank, vindicatorRank, operativeRank, gunslingerFirearmRank, professionalRank,
-    warriorLegendRank,
+    warriorLegendRank, techFirmwareRank,
     highestRank ? Math.max(...Object.values(ranks)) : 0)
   const proficiencySources = [
     { name: category, rank: Math.max(category === 'Unarmed' ? 1 : 0, ranks[category]) },
@@ -5941,6 +5970,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     ...(gunslingerFirearmRank ? [{ name: 'Gunslinger firearm and crossbow proficiency', rank: gunslingerFirearmRank }] : []),
     ...(professionalRank ? [{ name: 'Professional', rank: professionalRank }] : []),
     ...(warriorLegendRank ? [{ name: 'Warrior of Legend', rank: warriorLegendRank }] : []),
+    ...(techFirmwareRank ? [{ name: 'DPS++ Firmware Enhancement', rank: techFirmwareRank }] : []),
     ...(highestRank ? [{ name: 'Cairn Form: highest weapon proficiency', rank: Math.max(...Object.values(ranks)) }] : []),
     ...(martialExperience ? [{ name: 'Martial Experience', rank: c.level >= 11 ? 1 : 0 }] : []),
   ].filter(source => source.rank === rank).map(source => source.name)
@@ -6025,6 +6055,8 @@ export function armorRanks(c: Character, entries: ContentEntry[]) {
       feats: c.feats.filter(feat => feat.name !== bulwark.name && featTakenLevel(feat) <= level) }, entries).Heavy
     ranks.Heavy = Math.max(ranks.Heavy, prior ? 2 : 1)
   }
+  if (technomancerFirmwareLanguages(c, entries).has('FORTRUN'))
+    ranks.Medium = Math.max(ranks.Medium, ranks.Light, 1)
   return ranks
 }
 
@@ -8477,9 +8509,11 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
   if (!entry) return []
   const name = entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   const upgrades = entry.data.special_weapon_source === 'SLARP' || name === 'SLARP Rapid Laser Pistol' ? ["Smuggler's Grip", 'Flaming Module']
+    : entry.data.special_weapon_source === 'Starday Night Special' ? ["Smuggler's Grip"]
     : name === 'Knife' ? ['Retrieval Boosters']
     : name === 'Shuriken Drone' ? ['Retrieval Boosters']
     : name === 'Singing Spear' ? ['Retrieval Boosters', 'Loudener']
+    : name === 'Battleglove' ? ['Suppression Matrix']
     : name === 'Crimson Claw' ? ['Flaming Module']
     : name === 'Shock Pad' ? ['Shock Module']
     : name === 'Rotolaser' ? ['Flaming Module']
@@ -9045,6 +9079,19 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   if (tethered && entry && !entry.traits.some(trait => /^tethered$/i.test(trait.trim()))) {
     entry = { ...entry, traits: [...entry.traits, 'Tethered'] }
   }
+  if (entry && entry.name.toLowerCase().includes('slarp') && entry.data.professional_skills) {
+    const skillRanks = ranksAt(c, entries)
+    const professionalSkills = String(entry.data.professional_skills).split(';').map(skill => skill.trim())
+      .filter(skill => (skillRanks[skill] ?? 0) > 0)
+    entry = {
+      ...entry,
+      traits: [...entry.traits.filter(trait => !/^professional\s*\(/i.test(trait)),
+        ...(professionalSkills.length ? [`Professional (${professionalSkills.join(' or ')})`] : [])],
+      description: entry.description.replace(/ using Geology Lore or Physical Science Lore/gi,
+        professionalSkills.length ? ` using ${professionalSkills.join(' or ')}` : ''),
+      data: { ...entry.data, professional_skills: professionalSkills.join(';') },
+    }
+  }
   const traits = (entry?.traits ?? []).map((t) => t.toLowerCase())
   const thrown = traits.some((t) => t.startsWith('thrown'))
   const ranged = isRanged(entry) || !!options.thrown && thrown
@@ -9064,7 +9111,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const attackPenalty = Math.max(clumsy, conditionPenalty(c, ability))
   const divineAttackBonus = hasDivineIntercession(c, 'Iomedae', 'major-boon')
     && !!entry && /^longsword$/i.test(namedWeaponBaseName(entry)) && weaponHeld(c, entries, w) ? 2 : 0
-  const { category, rank, familiarity, martialExperience, proficiencySources } = weaponTraining(c, entries, w, entry, !!cairn)
+  const firmwareLanguages = technomancerFirmwareLanguages(c, entries)
+  const { category, rank, familiarity, martialExperience, proficiencySources } =
+    weaponTraining(c, entries, w, entry, !!cairn, firmwareLanguages)
   const agile = traits.includes('agile')
   const agileGrace = agile && activeFeatsNamed(c, 'Agile Grace').length > 0
   const mapStep = agileGrace ? 3 : agile ? 4 : 5
@@ -9276,6 +9325,8 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         && !traits.includes('parry') ? ['Parry'] : []),
       ...(jousting && !traits.some((trait) => /^jousting\b/.test(trait)) ? ['Jousting'] : [])])].sort((a, b) => a.localeCompare(b)),
     criticalSpecialization: !formAttack && w.id !== venomousVeskJaws.id && (nephilimBrutality || hydraulicFist || isBlessedArmament(c, entries, w) || !!familiarity?.criticalSpecialization
+      || c.systems.includes('sf2e') && c.className === 'Technomancer' && c.level >= 5
+        && firmwareLanguages.has('DPS++') && traits.includes('tech') && ['Simple', 'Martial'].includes(category)
       || !!familiarity?.pirateCriticalSpecialization && rank >= 2
       || category === 'Unarmed' && activeFeatsNamed(c, 'Iruxi Unarmed Cunning').length > 0
       || c.level >= 5 && iruxiAttackIds.has(w.id) && activeFeatsNamed(c, 'Iruxi Armaments').length > 0

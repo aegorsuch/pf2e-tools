@@ -11,6 +11,13 @@ export const VERSATILE_FIRMWARE_FEAT: ContentEntry = {
   data: { class: 'Technomancer', prerequisite: 'Advanced Cross-platform Application' }, effects: [], updatedAt: 0,
 }
 
+export const GREATER_CROSS_PLATFORM_APPLICATION_FEAT: ContentEntry = {
+  id: 'builtin:greater-cross-platform-application', systems: ['sf2e'], kind: 'feat', source: 'homebrew',
+  name: 'Greater Cross-platform Application', level: 16, traits: ['Technomancer'],
+  description: 'You learn the greater magic hack of a programming language for which you have Versatile Firmware. You can select this feat multiple times, choosing a different programming language each time.',
+  data: { class: 'Technomancer', prerequisite: 'Versatile Firmware' }, effects: [], updatedAt: 0,
+}
+
 export const TECHNOMANCER_LANGUAGE_RULES: Record<TechnomancerProgrammingLanguage, {
   gear: string
   spellCache: string[]
@@ -93,5 +100,11 @@ export function versatileFirmwareLanguageOptions(c: Character, availableLanguage
   const used = new Set([c.technomancerProgrammingLanguage, ...c.feats.flatMap((feat, index) =>
     index !== selectedIndex && ['Versatile Firmware', 'Versatile Technomancer'].includes(feat.name) && feat.choice
       ? [feat.choice] : [])])
+  return TECHNOMANCER_PROGRAMMING_LANGUAGES.filter(language => availableLanguages.includes(language) && !used.has(language))
+}
+
+export function greaterCrossPlatformLanguageOptions(c: Character, availableLanguages: readonly string[], selectedIndex = -1) {
+  const used = new Set(c.feats.flatMap((feat, index) =>
+    index !== selectedIndex && feat.name === 'Greater Cross-platform Application' && feat.choice ? [feat.choice] : []))
   return TECHNOMANCER_PROGRAMMING_LANGUAGES.filter(language => availableLanguages.includes(language) && !used.has(language))
 }

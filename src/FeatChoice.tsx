@@ -220,6 +220,20 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {options.map(option => <option key={option} value={option}>{option}</option>)}
     </SearchableSelect>
   }
+  if (c.systems.includes('sf2e') && c.className === 'Technomancer'
+    && feat.name === 'Greater Cross-platform Application') {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    return <SearchableSelect label="Greater Cross-platform Application programming language"
+      aria-label="Greater Cross-platform Application programming language" value={feat.choice ?? ''} onChange={event => {
+        const choice = event.target.value || undefined
+        if (choice && !options.includes(choice)) return
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+      }}>
+      <option value="">{options.length ? 'Choose programming language' : 'Choose a language with Versatile Firmware first'}</option>
+      {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
+      {options.map(option => <option key={option} value={option}>{option}</option>)}
+    </SearchableSelect>
+  }
   if (feat.name === 'Carry Their Memories' || feat.name === 'Dongun Education'
     || isFixedAncestralWeaponFamiliarity(c, entries, feat)) return null
   if (c.systems.includes('sf2e') && ['Lashunta', 'Shirren'].includes(c.ancestry ?? '')

@@ -10,7 +10,7 @@ import { equipmentGroupName, WORN_EQUIPMENT_GROUPS } from './equipmentGroups'
 import * as equipmentGroups from './equipmentGroups'
 import { classArchetypeSlotViews, FeatSlots } from './FeatSlots'
 import { FeatChoice } from './FeatChoice'
-import { VERSATILE_FIRMWARE_FEAT } from './technomancer'
+import { GREATER_CROSS_PLATFORM_APPLICATION_FEAT, VERSATILE_FIRMWARE_FEAT } from './technomancer'
 import { SearchableSelect } from './SearchableSelect'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
 import { armorClass, classDifficultyClass, classLabel, isSpellActive, orphanedArchetypeFeats, plannedSlots, spellActiveChange, subclassOptions, syncClassArchetypeDedication, warriorLegendWeakness } from './builder'
@@ -1945,6 +1945,13 @@ it('selects Technomancer programming languages and Versatile Technomancer langua
   expect(firmwareChoice).toContain('<option value="ServoShell">ServoShell</option>')
   expect(firmwareChoice).not.toContain('<option value="Viper">Viper</option>')
   expect(firmwareChoice).not.toContain('<option value="FORTRUN">FORTRUN</option>')
+  const greaterCharacter = { ...firmwareCharacter, feats: [...firmwareCharacter.feats,
+    { name: 'Greater Cross-platform Application', type: 'Class Feat', level: 20, slot: 'class:20:0' }] }
+  const greaterChoice = renderToStaticMarkup(<FeatChoice c={greaterCharacter}
+    entries={[VERSATILE_FIRMWARE_FEAT, GREATER_CROSS_PLATFORM_APPLICATION_FEAT]} save={() => {}} index={6} />)
+  expect(greaterChoice).toContain('Greater Cross-platform Application programming language')
+  expect(greaterChoice).toContain('<option value="FORTRUN">FORTRUN</option>')
+  expect(greaterChoice).not.toContain('<option value="ServoShell">ServoShell</option>')
   content.entries = []
 })
 
