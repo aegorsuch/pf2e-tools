@@ -1327,7 +1327,8 @@ it("grants Grandmother's Favorite with an explicitly labeled Pathfinder referenc
   const c: Character = { ...base, systems: ['sf2e'], level: 17, feats: [taken("Grandmother's Favorite", 17)] }
   const [grant] = grantedFeatSpells(c, [])
   expect(grant).toMatchObject({ entry: { name: 'Divine Decree', data: { url: 'https://2e.aonprd.com/Spells.aspx?ID=1495' } },
-    rank: 7, rule: { tradition: 'divine', frequency: 'once per day', condition: expect.stringContaining('Pathfinder reference') } })
+    rank: 7, rule: { tradition: 'divine', frequency: 'once per day' } })
+  expect(grant.rule.condition).toBeUndefined()
   expect(dailyInnateUses(c, grant)?.limit).toBe(1)
   expect(unresolvedFeatSpells(c, [])).toEqual([])
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)

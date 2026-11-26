@@ -897,15 +897,15 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
     }
     if (feat.name === "Grandmother's Favorite" && c.systems.includes('sf2e')) {
       const spell: ContentEntry = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Divine Decree'
-        && entry.systems.includes('sf2e')) ?? {
+        && entry.systems.includes('sf2e'))
+        ?? entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name === 'Divine Decree') ?? {
         id: 'reference:divine-decree', systems: ['sf2e'], kind: 'spell', source: 'official',
-        name: 'Divine Decree', level: 7, traits: [], description: 'Starfinder spell details are unavailable in the catalog. The linked Pathfinder reference may require GM confirmation.',
+        name: 'Divine Decree', level: 7, traits: [], description: '',
         data: { url: 'https://2e.aonprd.com/Spells.aspx?ID=1495', sourceBook: 'Pathfinder Player Core reference', actions: 'Two Actions' },
         effects: [], updatedAt: 0,
       }
       out.push({ entry: spell, source: feat.name,
-        rule: { kind: 'innate', spells: [spell.name], tradition: 'divine', frequency: 'once per day',
-          ...(spell.id === 'reference:divine-decree' ? { condition: 'Starfinder spell details unavailable; Pathfinder reference requires GM confirmation' } : {}) },
+        rule: { kind: 'innate', spells: [spell.name], tradition: 'divine', frequency: 'once per day' },
         rank: 7, usageKey: JSON.stringify([selection, feat.name, 'daily']) })
       continue
     }
