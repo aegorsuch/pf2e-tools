@@ -5602,7 +5602,8 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
       grants.push({ name: 'Specialty Crafting', choice: 'Stonemasonry', source: "Stonemason's Eye", level: featTakenLevel(feat) })
     }
   }
-  if (activeFeatsNamed(c, 'Clever Improviser').length) {
+  if (activeFeatsNamed(c, 'Clever Improviser').length
+    && !grants.some(grant => grant.name === 'Untrained Improvisation' && grant.source === 'Clever Improviser')) {
     grants.push({ name: 'Untrained Improvisation', source: 'Clever Improviser', level: sourceLevel('Clever Improviser') })
   }
   for (const [source, training] of Object.entries(INITIATE_TRAINING)) {

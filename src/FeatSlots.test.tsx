@@ -1967,6 +1967,12 @@ it('lists Clever Improviser granted Untrained Improvisation under general feats,
   expect(markup).not.toContain('Granted General Feat')
   expect(markup.indexOf('Level 05')).toBeLessThan(markup.indexOf('>Untrained Improvisation <small>'))
   expect(renderToStaticMarkup(<FeatSlots {...props} categories={['skill']} />)).not.toContain('>Untrained Improvisation <small>')
+  const clever: ContentEntry = {
+    id: 'clever-improviser', systems: ['pf2e'], kind: 'feat', name: 'Clever Improviser', level: 5, traits: ['Human'],
+    source: 'official', description: '', data: { grants_feats: 'Untrained Improvisation' }, effects: [], updatedAt: 1,
+  }
+  const withImportedGrant = renderToStaticMarkup(<FeatSlots {...props} entries={[entry, clever]} categories={['general']} />)
+  expect(withImportedGrant.match(/>Untrained Improvisation <small>\(Clever Improviser\)/g)).toHaveLength(1)
 })
 
 it('interleaves free feats with earned slots at acquisition levels and keeps skill grants in their own section', () => {
