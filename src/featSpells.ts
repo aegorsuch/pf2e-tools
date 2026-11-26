@@ -259,12 +259,6 @@ export function witchLessonOptions(c: Character, entries: ContentEntry[], feat: 
 
 export function featSpellOptions(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
   if (['Fiendish Magic', 'Celestial Magic', 'Summon Nephilim Kin'].includes(feat.name)) return undefined
-  if (feat.name === 'Dragon Spit' && c.systems.includes('pf2e')) {
-    return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e')
-      && Object.hasOwn(DRAGON_SPIT_ENERGY_BY_CANTRIP, spell.name)
-      && spell.traits.some(trait => trait.toLowerCase() === 'cantrip'))
-      .sort((a, b) => a.name.localeCompare(b.name))
-  }
   if (feat.name === 'Otherworldly Acumen' && c.systems.includes('pf2e')) {
     return spellIndex(entries).spells.filter(spell => spell.systems.includes('pf2e') && spell.level === 2
       && !spell.traits.some(trait => /^(?:cantrip|focus|uncommon|rare|unique)$/i.test(trait))
@@ -569,6 +563,14 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (feat.name.startsWith('Dragon Spit (') && c.systems.includes('pf2e')) {
+      const sourceCantrip = typeof source?.data.dragon_spit_cantrip === 'string' ? source.data.dragon_spit_cantrip : undefined
+      const entry = sourceCantrip && matchingSpells(entries, sourceCantrip).find(spell => spell.systems.includes('pf2e'))
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], tradition: 'arcane', frequency: 'at will', heightened: true },
+        rank: Math.ceil(c.level / 2), usageKey: JSON.stringify([selection, feat.name, entry.name.toLowerCase()]) })
+      continue
+    }
     if (feat.name === 'Dragon Spit' && c.systems.includes('pf2e')) {
       const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
       if (entry) out.push({ entry, source: feat.name,
@@ -577,15 +579,18 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
       continue
     }
     if (feat.name === 'Dragon Prince' && c.systems.includes('pf2e')) {
-      const dragonSpit = c.feats.find(other => other.name === 'Dragon Spit' && featTakenLevel(other) <= c.level)
-      const energy = dragonSpit?.choice && Object.entries(DRAGON_SPIT_ENERGY_BY_CANTRIP)
-        .find(([cantrip]) => cantrip === dragonSpit.choice)?.[1]
+      const dragonSpit = c.feats.find(other => (other.name === 'Dragon Spit' || other.name.startsWith('Dragon Spit ('))
+        && featTakenLevel(other) <= c.level)
+      const dragonSpitSource = dragonSpit && featSource(c, entries, dragonSpit.name, dragonSpit.sourceId)
+      const energy = typeof dragonSpitSource?.data.dragon_spit_energy === 'string'
+        ? dragonSpitSource.data.dragon_spit_energy
+        : dragonSpit?.choice && Object.entries(DRAGON_SPIT_ENERGY_BY_CANTRIP)
+          .find(([cantrip]) => cantrip === dragonSpit.choice)?.[1]
       const spell = energy && matchingSpells(entries, 'Dragon Breath').find(entry => entry.systems.includes('pf2e'))
       if (spell && energy) out.push({
-        entry: { ...spell, data: { ...spell.data, dragon_breath_energy: energy } },
+        entry: { ...spell, data: { ...spell.data, dragon_breath_energy: energy, range_text: '30 feet', area: '30-foot cone' } },
         source: feat.name,
-        rule: { kind: 'innate', spells: [spell.name], tradition: 'arcane', frequency: 'once per day',
-          condition: `Use the ${energy} breath to match ${dragonSpit?.choice} from Dragon Spit` },
+        rule: { kind: 'innate', spells: [spell.name], tradition: 'arcane', frequency: 'once per day' },
         rank: spell.level + Math.max(0, Math.floor((c.level - 9) / 3)),
         usageKey: JSON.stringify([selection, feat.name, 'dragon breath']),
       })
@@ -1143,6 +1148,14 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
   }
   return [...missingBoonSpells, ...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
+    if (feat.name.startsWith('Dragon Spit (') && c.systems.includes('pf2e')) {
+      const variantEnergy = /^Dragon Spit \((Acid|Electricity|Fire|Cold)\)$/.exec(feat.name)?.[1].toLowerCase()
+      const variantCantrip = variantEnergy
+        && Object.entries(DRAGON_SPIT_ENERGY_BY_CANTRIP).find(([, energy]) => energy === variantEnergy)?.[0]
+      const cantrip = typeof source?.data.dragon_spit_cantrip === 'string' ? source.data.dragon_spit_cantrip : variantCantrip
+      if (cantrip && !matchingSpells(entries, cantrip).some(entry => entry.systems.includes('pf2e')))
+        return [{ name: cantrip, source }]
+    }
     if (feat.name === 'Dragon Spit' && c.systems.includes('pf2e') && feat.choice
       && !matchingSpells(entries, feat.choice).some(entry => entry.systems.includes('pf2e'))) {
       return [{ name: feat.choice, source }]

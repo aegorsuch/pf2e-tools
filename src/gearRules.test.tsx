@@ -264,13 +264,14 @@ it('retains Iron Fists traits and Cairn Form dice for Spark Fist', () => {
   expect(markup).not.toContain('>Fist (Cairn Form)</button>')
 })
 
-it.each(['Battleglove', 'Tactical Battleglove', 'Magnet-Directed Battleglove', 'Tekko-Kagi'])('optionally adds Finesse to free-hand weapon %s', name => {
+it.each(['Free-Hand Training Bracer', 'Tactical Free-Hand Training Bracer',
+  'Magnet-Directed Free-Hand Training Bracer', 'Tekko-Kagi'])('optionally adds Finesse to free-hand weapon %s', name => {
   const previous = getSettings().freeHandFinesse
   const entry: ContentEntry = { id: name, systems: ['sf2e'], kind: 'weapon', source: 'official', name,
     level: 1, traits: ['Agile', 'Free-Hand'], description: '', data: { damage: '1d4 bludgeoning',
       weapon_type: 'Melee', weapon_category: 'Simple', hands: '1' }, effects: [], updatedAt: 0 }
   const weapon: OwnedWeapon = { id: name, name, potency: 0, striking: 0, runes: [] }
-  const c: Character = { ...base, systems: ['sf2e'], weapons: [weapon] }
+  const c: Character = { ...base, systems: ['sf2e'], className: undefined, weapons: [weapon] }
   try {
     updateSettings({ freeHandFinesse: true })
     const enabled = weaponAttack(c, [entry], weapon)
@@ -1532,7 +1533,7 @@ it('uses Starfinder weapon grades rather than saved Pathfinder runes', () => {
     damage: '2d6 F', hands: 1, weapon_type: 'Ranged', range: 40, upgrade_slots: 2, weapon_tracking: 1,
   }, 4, ['Tech']), systems: ['sf2e' as const] }
   const weapon: OwnedWeapon = { id: 'laser', name: laser.name, potency: 3, striking: 2, runes: ['Flaming'] }
-  const c: Character = { ...base, systems: ['sf2e'], weapons: [weapon] }
+  const c: Character = { ...base, systems: ['sf2e'], className: undefined, weapons: [weapon] }
   expect(weaponAttack(c, [laser], weapon)).toMatchObject({ item: 1, damage: '2d6 F', traits: ['Tech'] })
   expect(effectiveWeapon(c, [laser], weapon).runes).toEqual([])
   expect(weapon.runes).toEqual(['Flaming'])
@@ -1611,6 +1612,25 @@ it('applies hardlight upgrades to fists and other unarmed attacks, including tac
   expect(hasParryWeapon(normalWraps, entries)).toBe(false)
 })
 
+it.each(['Crimson Claw', 'Pulse Gauntlet', 'Battleglove', 'Shock Pad'])(
+  'inherits Hardlight Handwraps upgrades and traits for %s', name => {
+    const grid = { ...content('item', 'Protection Grid (Tactical)', { item_subcategory: 'Weapon Upgrades' }, 17),
+      id: 'grid', systems: ['sf2e' as const] }
+    const weaponEntry = { ...content('weapon', name, { weapon_category: 'Simple', weapon_type: 'Melee',
+      damage: '1d4 slashing', upgrade_slots: 3, weapon_tracking: 0 }, 1, ['Tech']), systems: ['sf2e' as const] }
+    const weapon: OwnedWeapon = { id: weaponEntry.id, name, potency: 0, striking: 0, runes: [] }
+    const c: Character = { ...base, systems: ['sf2e'], level: 17, weapons: [weapon],
+      handwraps: { kind: 'hardlight', grade: 'Ultimate', potency: 0, striking: 0, runes: [],
+        upgrades: ['grid', GRAPPLING_MODULE.id, SHOVING_MODULE.id] } }
+    const entries = [grid, GRAPPLING_MODULE, SHOVING_MODULE, weaponEntry]
+    const attack = weaponAttack(c, entries, weapon)
+    expect(attack.traits).toEqual(expect.arrayContaining(['Agile', 'Finesse', 'Versatile B', 'Parry', 'Grapple', 'Shove']))
+    expect(attack.upgrades.map(upgrade => upgrade.name)).toEqual(expect.arrayContaining([
+      grid.name, GRAPPLING_MODULE.name, SHOVING_MODULE.name,
+    ]))
+  },
+)
+
 it('applies grapple and shove modules only to eligible upgraded attacks', () => {
   const blade = { ...content('weapon', 'Tech Blade', { weapon_category: 'Martial', weapon_type: 'Melee',
     damage: '1d6 slashing', upgrade_slots: 2 }, 1, ['Tech', 'Grapple']), systems: ['sf2e' as const] }
@@ -1637,7 +1657,7 @@ it('uses only an equipped upgraded weapon for Protection Grid parry', () => {
   const blade = { ...content('weapon', 'Tech Blade', { weapon_category: 'Martial', hands: 1, damage: '1d6 slashing' }, 1, ['Tech']),
     systems: ['sf2e' as const] }
   const weapon: OwnedWeapon = { id: 'blade', name: blade.name, potency: 0, striking: 0, runes: [], upgrades: ['grid'] }
-  const c: Character = { ...base, systems: ['sf2e'], weapons: [weapon] }
+  const c: Character = { ...base, systems: ['sf2e'], className: undefined, weapons: [weapon] }
   expect(weaponAttack(c, [blade, grid], weapon).traits).toContain('Parry')
   expect(parryValue(c, [blade, grid])).toBe(1)
   expect(hasParryWeapon({ ...c, weapons: [{ ...weapon, stowed: true }] }, [blade, grid])).toBe(false)
@@ -1649,7 +1669,7 @@ it.each(['Battleglove', 'Gauntlet', 'Spiked Gauntlet'])('inherits unarmed traits
   const glove = { ...content('weapon', name, { weapon_category: 'Simple', weapon_type: 'Melee', hands: 1,
     damage: '1d4 B', upgrade_slots: 1 }, 0, ['Agile', 'Free-Hand', 'Analog']), systems: ['sf2e' as const] }
   const weapon: OwnedWeapon = { id: 'glove', name, potency: 0, striking: 0, runes: [] }
-  const c: Character = { ...base, systems: ['sf2e'], level: 17, parrying: true, weapons: [weapon],
+  const c: Character = { ...base, systems: ['sf2e'], className: undefined, level: 17, parrying: true, weapons: [weapon],
     handwraps: { kind: 'hardlight', grade: 'Ultimate', potency: 0, striking: 0, runes: [], upgrades: [grid.id] } }
   const entries = [glove, grid]
   expect(weaponAttack(c, entries, weapon).traits).toContain('Parry')

@@ -3,7 +3,7 @@ import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, GameSystem, H
 import { ENERGY_SHIELDING_TYPES } from './types'
 import { ANCESTRAL_AVATAR, BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, ancestralAvatarForm, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm, pestBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
-import { DRAGON_SPIT_ENERGY_BY_CANTRIP, INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
+import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, EXTRAPLANAR_SUPPLICATION_SPELLS, KITSUNE_SPELL_FAMILIARITY_CANTRIPS, activeCaypinAlly, activeLashuntaAlly, activeShirrenAlly, ancestralMagicAvailable, automaticFeatChoiceKey, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
 import { GODCLAW_DOMAINS, HELLKNIGHT_FAVORED_WEAPONS, ORDER_TRAINING_FEATS, PYRE_ENERGY_TYPES, hellknightBenefitActive, hellknightOrder, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
 import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore, PROFESSION_LORES } from './backgrounds'
@@ -470,7 +470,25 @@ export const activeFeatsNamed = (c: Character, name: string) => {
     }
     levels.set(c.level, byName)
   }
-  return byName.get(name)?.slice() ?? []
+  const active = byName.get(name)?.slice() ?? []
+  if (name === 'Dragon Spit') {
+    active.push(...c.feats.filter(feat => /^Dragon Spit \((?:Acid|Electricity|Fire|Cold)\)$/.test(feat.name)
+      && featTakenLevel(feat) <= c.level))
+  }
+  const fieldAgentHouseRule = c.className === 'Envoy' && getSettings().envoyFieldAgent
+    || c.className === 'Mystic' && getSettings().mysticFieldAgent
+    || c.className === 'Mechanic' && getSettings().mechanicFieldAgent
+    || c.className === 'Operative' && getSettings().operativeFieldAgent
+    || c.className === 'Solarian' && getSettings().solarianFieldAgent
+    || c.className === 'Soldier' && getSettings().soldierFieldAgent
+    || c.className === 'Technomancer' && getSettings().technomancerFieldAgent
+    || c.className === 'Witchwarper' && getSettings().witchwarperFieldAgent
+  if (name === 'Starfinder Field Agent Dedication' && c.systems.includes('sf2e')
+    && fieldAgentHouseRule && c.level >= 2
+    && !active.some(feat => featTakenLevel(feat) <= 2)) {
+    return [{ name, type: 'Archetype Feat', level: 2 }]
+  }
+  return active
 }
 export const hasCyborgHeritage = (c: Character) => c.level >= 1 && c.systems.includes('sf2e') && c.heritage === 'Cyborg'
 export const cyborgTestSubject = (c: Character) => hasCyborgHeritage(c) && getSettings().cyborgTestSubject
@@ -1102,10 +1120,16 @@ const dedicationArchetypes = (e: ContentEntry) => e.name === 'Spellshot Dedicati
 // Archetype rules: other archetype feats need that archetype's Dedication, and a new Dedication needs
 // two other feats from every Dedication already taken
 function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: string, asArchetype: boolean, ignoreDedicationLock = false) {
-  const taken = c.feats.filter((f) => f.slot !== slotKey).flatMap((f) => {
+  const selected = c.feats.filter((f) => f.slot !== slotKey).flatMap((f) => {
     const entry = byName(entries, 'feat', f.name)
     return entry && archetypesOf(entry).length ? [{ entry, feat: f }] : []
   })
+  const granted = activeFeatsNamed(c, 'Starfinder Field Agent Dedication')
+    .filter(feat => !c.feats.includes(feat)).flatMap(feat => {
+      const entry = byName(entries, 'feat', feat.name)
+      return entry && isDedication(entry) && archetypesOf(entry).length ? [{ entry, feat }] : []
+    })
+  const taken = [...selected, ...granted]
   const dedications = taken.filter(({ entry }) => isDedication(entry))
   const exemptSlots = new Set<string>(activeHomebrewDedications(c).map(rule => rule.slot))
   let availableDedications: ContentEntry[] | undefined
@@ -1275,6 +1299,7 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
 }
 
 const PREREQUISITE_EXCLUSIVE_FEAT_GROUPS = [['Chiardmar Steed', 'Nidarrmar Steed'],
+  ['Dragon Spit', 'Dragon Spit (Acid)', 'Dragon Spit (Electricity)', 'Dragon Spit (Fire)', 'Dragon Spit (Cold)'],
   ['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant']]
 const MUTUALLY_EXCLUSIVE_FEAT_GROUPS = [...PREREQUISITE_EXCLUSIVE_FEAT_GROUPS,
   ['The Hallowed Dead', 'Hallowed Dead', 'The Unholy Dead', 'Unholy Dead'],
@@ -2125,12 +2150,6 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     return commonLoreOptions([...c.lores.map(item => item.name), ...(lore ? [lore] : [])], c.deity)
   }
   if (name === 'Leshy Familiar' && c.systems.includes('pf2e')) return ['Plant', 'Fungus']
-  if (name === 'Dragon Spit' && c.systems.includes('pf2e')) {
-    return [...new Set(entries.filter(entry => entry.kind === 'spell' && !entry.deleted && entry.systems.includes('pf2e')
-      && Object.hasOwn(DRAGON_SPIT_ENERGY_BY_CANTRIP, entry.name)
-      && entry.traits.some(trait => trait.toLowerCase() === 'cantrip')).map(entry => entry.name))]
-      .sort((a, b) => a.localeCompare(b))
-  }
   if (c.systems.includes('pf2e') && ['Divine Emissary', 'Leshy Familiar Secrets'].includes(name)) {
     const highest = Math.max(0, ...Object.entries(classSpellSlots(c) ?? c.spellcasting?.slots ?? {})
       .filter(([rank, count]) => Number(rank) > 0 && count > 0).map(([rank]) => Number(rank)))
@@ -4614,6 +4633,7 @@ function fieldAgentAdditionalLoreGrants(c: Character, entries?: ContentEntry[]) 
 // Automatically advancing Lore skills, including ancestry-specific grants.
 export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set([
   ...dongunEducationLores(c),
+  ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Mission Briefing').length ? ['Mission Lore'] : []),
   ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Starfinder Field Agent Dedication').length
     ? ['Starfinder Lore'] : []),
   ...fieldAgentAdditionalLoreGrants(c, entries).map(grant => grant.name),
@@ -5114,6 +5134,18 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
 
 function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
   const grants: { name: string; source: string; level: number; choice?: string; choiceKey?: string; choiceIndex?: number }[] = []
+  const fieldAgentHouseRule = c.className === 'Envoy' && getSettings().envoyFieldAgent
+    || c.className === 'Mystic' && getSettings().mysticFieldAgent
+    || c.className === 'Mechanic' && getSettings().mechanicFieldAgent
+    || c.className === 'Operative' && getSettings().operativeFieldAgent
+    || c.className === 'Solarian' && getSettings().solarianFieldAgent
+    || c.className === 'Soldier' && getSettings().soldierFieldAgent
+    || c.className === 'Technomancer' && getSettings().technomancerFieldAgent
+    || c.className === 'Witchwarper' && getSettings().witchwarperFieldAgent
+  if (c.systems.includes('sf2e') && fieldAgentHouseRule && c.level >= 2
+    && !c.feats.some(feat => feat.name === 'Starfinder Field Agent Dedication' && featTakenLevel(feat) <= 2)) {
+    grants.push({ name: 'Starfinder Field Agent Dedication', source: c.className ?? 'Envoy', level: 2 })
+  }
   if (c.systems.includes('sf2e')) for (const feat of activeFeatsNamed(c, 'Starfinder Field Agent Dedication')) {
     grants.push({ name: 'Additional Lore', choice: 'Starfinder', source: feat.name, level: featTakenLevel(feat) })
   }
@@ -5557,6 +5589,9 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   if (getSettings().skillTokenConversion && c.skillTokenUpgrades?.length) {
     const state = skillTokenState({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries)
     for (const { purchase } of state.active) ranks[purchase.skill] = Math.max(ranks[purchase.skill] ?? 0, purchase.rank)
+  }
+  if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Mission Briefing').length) {
+    ranks['Mission Lore'] = (ranks.Society ?? 0) >= 4 ? 2 : 1
   }
   return ranks
 }
@@ -8345,6 +8380,7 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
   if (!entry) return []
   const name = entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   const upgrades = entry.data.special_weapon_source === 'SLARP' || name === 'SLARP Rapid Laser Pistol' ? ["Smuggler's Grip", 'Flaming Module']
+    : name === 'Knife' ? ['Retrieval Boosters']
     : name === 'Shuriken Drone' ? ['Retrieval Boosters']
     : name === 'Singing Spear' ? ['Retrieval Boosters', 'Loudener']
     : name === 'Crimson Claw' ? ['Flaming Module']
@@ -8384,13 +8420,17 @@ export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], w
   const entry = weaponEntry(entries, weapon.name, weapon.id)
   const unarmed = weaponCategory(entry) === 'Unarmed'
   if (unarmed) return animalStrengthSource(c, entries, weapon) ? [] : installedHardlightUpgrades(c, entries)
+  const inherited = isHardlightInheritanceWeapon(entry)
+    ? installedHardlightUpgrades(c, entries).filter(upgrade =>
+      /^(?:Grappling Module|Protection Grid|Shoving Module)$/.test(upgrade.name.replace(/\s*\([^)]*\)$/, '')))
+    : []
   const ids = usesWeaponUpgrades(entry) ? weapon.upgrades : undefined
   const installed = (ids ?? []).flatMap(id => {
     const upgrade = entries.find(candidate => candidate.id === id && !candidate.deleted && candidate.kind === 'item'
       && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Weapon Upgrades')
     return upgrade ? [upgrade] : []
   })
-  return mergeWeaponUpgrades(installed, automaticWeaponUpgrades(c, entries, weapon))
+  return mergeWeaponUpgrades(installed, [...automaticWeaponUpgrades(c, entries, weapon), ...inherited])
 }
 
 export function scaleOfIgroonWeaponRunes(c: Character, shield?: OwnedShield, weapon?: OwnedWeapon) {
@@ -8412,6 +8452,11 @@ const weaponGradeCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>
 export function weaponGradeFamily(entry?: ContentEntry) {
   const family = entry?.data.weapon_grade_family ?? entry?.data.url
   return typeof family === 'string' ? family : undefined
+}
+
+function isHardlightInheritanceWeapon(entry?: ContentEntry) {
+  const baseName = entry?.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+  return ['Crimson Claw', 'Pulse Gauntlet', 'Battleglove', 'Shock Pad'].includes(baseName ?? '')
 }
 
 function weaponGrades(entries: ContentEntry[], family: string) {
@@ -8713,6 +8758,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     w = { ...w, runes: w.runes.filter(rune => weaponRuneApplies(entries, w, rune)) }
   }
   let entry = withNamedWeaponState(weaponEntry(entries, w.name, w.id), w, c.level)
+  if (entry && isHardlightInheritanceWeapon(entry)) {
+    const existingTraits = entry.traits
+    const inherited = ['Agile', 'Finesse', 'Versatile B'].filter(trait =>
+      !existingTraits.some(existing => existing.toLowerCase() === trait.toLowerCase()))
+    if (inherited.length) entry = { ...entry, traits: [...entry.traits, ...inherited] }
+  }
   const bugBite = w.id === shirrenJaws.id && hasShirrenJaws(c, entries) && activeFeatsNamed(c, 'Bug Bite').length > 0
   if (entry && bugBite) entry = { ...entry, traits: entry.traits.filter(trait => trait.toLowerCase() !== 'finesse'),
     data: { ...entry.data, damage: '1d8 piercing' } }

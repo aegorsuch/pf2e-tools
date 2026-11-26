@@ -213,6 +213,7 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
   const featsByName = featByName(entries)
   const grantedType = (name: string) => {
     const entry = featsByName.get(name)
+    if (name === 'Starfinder Field Agent Dedication') return 'Dedication Feat'
     return entry ? featType(entry, c) : ['Untrained Improvisation', 'Shield Block'].includes(name) ? 'General Feat' : 'Skill Feat'
   }
   const background = byName(entries, 'background', c.background)
@@ -223,7 +224,7 @@ export function featSectionGrants(c: Character, entries: ContentEntry[], categor
         && (!categories || categories.some((category) => featType(feat, c) === `${LABEL[category]} Feat`))
         ? [feat] : []
     }) : []
-  const grants = !categories || categories.some(category => ['class', 'skill', 'general', 'ancestry'].includes(category))
+  const grants = !categories || categories.some(category => ['class', 'skill', 'general', 'ancestry', 'archetype'].includes(category))
     ? automaticFeatGrants(c, entries) : []
   const automaticFeats = grants.filter((grant) =>
       (!categories || categories.some(category => grantedType(grant.name) === `${LABEL[category]} Feat`))

@@ -1633,6 +1633,17 @@ it('automatically refunds redundant training while preserving conditional altern
   expect(skillRankBudget({ ...sf, feats: [] }, [sfRanger]).trained).toBe(3)
 })
 
+it('locks Mission Lore proficiency to trained or expert based on legendary Society', () => {
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mystic', level: 20, skillPicks: ['Society'],
+    rankOverrides: { Society: 4, 'Mission Lore': 4 },
+    feats: [{ name: 'Mission Briefing', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' }] }
+  expect(ranksAt(c, [])).toMatchObject({ Society: 4, 'Mission Lore': 2 })
+  const markup = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('title="Mission Briefing sets this rank from your Society proficiency"')
+  expect(markup).toContain('aria-label="Mission Lore Expert" disabled=""')
+  expect(markup).toContain('aria-label="Mission Lore Legendary" disabled=""')
+})
+
 it('grants elf feat skills or provides replacement training in Skills without double counting', () => {
   const feats = ['Cite the Deep Lore', "Diplomat's Facade"].map(name =>
     ({ name, type: 'Ancestry Feat', level: 1, slot: `ancestry:1:${name}` }))

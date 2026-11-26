@@ -1,5 +1,5 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, featTakenLevel, knownSpellNames, nephilimLineageLore, orderMagicOptions, ranksAt, statDefs, subclassOptions, subclassSkillChoice, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
+import { CANNY_STATS, activeFeatsNamed, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, featTakenLevel, knownSpellNames, nephilimLineageLore, orderMagicOptions, ranksAt, statDefs, subclassOptions, subclassSkillChoice, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
 import { automaticFeatGrants } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, automaticFeatChoiceKey, coreAttunementOptions, featSpellOptions, isInnateSpellChoice } from './featSpells'
@@ -48,8 +48,7 @@ export function CarryTheirMemoriesChoice({ c, entries, save, index }: SectionPro
 }
 
 export function StarfinderFieldAgentLoreChoice({ c, entries, save }: SectionProps) {
-  const feat = c.feats.find(candidate => candidate.name === 'Starfinder Field Agent Dedication'
-    && featTakenLevel(candidate) <= c.level)
+  const feat = activeFeatsNamed(c, 'Starfinder Field Agent Dedication')[0]
   if (!feat) return null
   const prior = { ...c, feats: c.feats.filter(candidate => candidate.name !== 'Starfinder Field Agent Dedication') }
   if ((ranksAt(prior, entries, featTakenLevel(feat))['Starfinder Lore'] ?? 0) < 1) return null

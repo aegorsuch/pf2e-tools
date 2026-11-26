@@ -1993,7 +1993,7 @@ describe('official passive feat mechanics', () => {
   it('upgrades Society and grants Field Agent lore choices only when Starfinder Lore was already trained', () => {
     const dedication = selected('Starfinder Field Agent Dedication', 2)
     const choiceKey = automaticFeatChoiceKey(dedication.name, 'Lore Skill')
-    const c: Character = { ...base, systems: ['sf2e'], className: 'Envoy', level: 8,
+    const c: Character = { ...base, systems: ['sf2e'], level: 8,
       skillPicks: ['Society'], lores: [{ name: 'Starfinder Lore', rank: 1 }], feats: [dedication] }
     expect(ranksAt({ ...c, feats: [] }, []).Society).toBe(1)
     expect(ranksAt(c, []).Society).toBe(2)
@@ -2010,6 +2010,46 @@ describe('official passive feat mechanics', () => {
     expect(trainedFeatLores({ ...withChoice, lores: [] }, [])).toEqual([])
     expect(ranksAt({ ...c, className: undefined, skillPicks: [], lores: [] }, []).Society ?? 0).toBe(0)
   })
+
+it('grants Starfinder Field Agent Dedication at level 2 to all supported classes by house rule', () => {
+  const previous = getSettings()
+  try {
+    updateSettings({ envoyFieldAgent: true, mysticFieldAgent: true, mechanicFieldAgent: true,
+      operativeFieldAgent: true, solarianFieldAgent: true, soldierFieldAgent: true,
+      technomancerFieldAgent: true, witchwarperFieldAgent: true })
+    for (const [className, setting] of [
+      ['Envoy', 'envoyFieldAgent'], ['Mystic', 'mysticFieldAgent'], ['Mechanic', 'mechanicFieldAgent'],
+      ['Operative', 'operativeFieldAgent'], ['Solarian', 'solarianFieldAgent'], ['Soldier', 'soldierFieldAgent'],
+      ['Technomancer', 'technomancerFieldAgent'], ['Witchwarper', 'witchwarperFieldAgent'],
+    ] as const) {
+      const c: Character = { ...base, systems: ['sf2e'], className, level: 2 }
+      expect(activeFeatsNamed(c, 'Starfinder Field Agent Dedication')).toMatchObject([{ level: 2 }])
+      expect(automaticFeatGrants(c, [])).toContainEqual({
+        name: 'Starfinder Field Agent Dedication', source: className, level: 2,
+      })
+      const trained: Character = { ...c, skillPicks: ['Society'], lores: [{ name: 'Starfinder Lore', rank: 1 }] }
+      expect(ranksAt(trained, []).Society).toBe(2)
+      expect(automaticFeatGrants(trained, [])).toContainEqual({
+        name: 'Additional Lore', choice: 'Starfinder', source: 'Starfinder Field Agent Dedication', level: 2,
+      })
+      updateSettings({ [setting]: false })
+      expect(activeFeatsNamed(c, 'Starfinder Field Agent Dedication')).toEqual([])
+    }
+  } finally {
+    updateSettings(previous)
+  }
+})
+
+it('keeps Mission Lore trained until Society becomes legendary', () => {
+  const c: Character = { ...base, systems: ['sf2e'], level: 20,
+    skillPicks: ['Society'], rankOverrides: { Society: 1, 'Mission Lore': 4 },
+    feats: [{ name: 'Mission Briefing', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' }] }
+  expect(featLores(c, [])).toContain('Mission Lore')
+  expect(ranksAt(c, [])).toMatchObject({ Society: 1, 'Mission Lore': 1 })
+  expect(ranksAt({ ...c, rankOverrides: { Society: 4, 'Mission Lore': 1 } }, []))
+    .toMatchObject({ Society: 4, 'Mission Lore': 2 })
+  expect(ranksAt({ ...c, feats: [] }, [])['Mission Lore']).toBeUndefined()
+})
 
   it('trains the saved Skill Training choice without granting a second discretionary skill', () => {
     const c = { ...base, level: 3, feats: [selected('Skill Training', 3, 'Stealth')] }

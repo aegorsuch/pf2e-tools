@@ -1,11 +1,12 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { AON_IMPORT_VERSION, importFromAon, mapAonHits } from './aon'
-import { armorUpgradeSlots, automaticSpecificArmorUpgrades, boostSlots, classDifficultyClass, effectiveArmor, eligibleFeats, resistances } from './builder'
+import { armorUpgradeSlots, automaticSpecificArmorUpgrades, automaticWeaponUpgrades, boostSlots, classDifficultyClass, effectiveArmor, effectiveWeapon, eligibleFeats, resistances } from './builder'
 import { isSpecificGear } from './GearSection'
 import { groupHomebrew } from './HomebrewList'
 import { homebrewCharacterOptions, migrateCopiedFeats } from './supplemental'
 import type { Character, OwnedArmor } from './types'
 import sf2eSnapshot from '../public/data/aon-sf2e.json?raw'
+import pf2eSnapshot from '../public/data/aon-pf2e.json?raw'
 
 const stored = vi.hoisted(() => ({ bulkPut: vi.fn() }))
 vi.mock('./db', () => ({
@@ -16,6 +17,47 @@ vi.mock('./db', () => ({
   ensureSupplementalContent: async () => {},
 }))
 afterEach(() => vi.unstubAllGlobals())
+
+it('removes only Starfinder Society membership from Field Agent Dedication prerequisites', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => ['Starfinder Field Agent Dedication', 'Mission Briefing']
+    .includes(String(hit._source?.name))), 'sf2e')
+  const dedication = entries.find(entry => entry.name === 'Starfinder Field Agent Dedication')!
+  expect(String(dedication.data.prerequisite)).not.toMatch(/member of the Starfinder Society/i)
+  expect(String(dedication.data.prerequisite)).toMatch(/trained in Society/i)
+  expect(dedication.description).not.toMatch(/member of the Starfinder Society/i)
+  expect(dedication.description).toMatch(/trained in Society/i)
+  expect(entries.find(entry => entry.name === 'Mission Briefing')?.data.prerequisite)
+    .toContain('Starfinder Field Agent Dedication')
+})
+
+it('maps Dragon Spit to four fixed cantrip variants', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(pf2eSnapshot)
+  const entries = mapAonHits(hits.filter(hit => hit._source?.name === 'Dragon Spit'), 'pf2e')
+  expect(entries.map(entry => entry.name)).toEqual([
+    'Dragon Spit (Acid)', 'Dragon Spit (Electricity)', 'Dragon Spit (Fire)', 'Dragon Spit (Cold)',
+  ])
+  expect(entries.map(entry => [entry.data.dragon_spit_cantrip, entry.data.dragon_spit_energy])).toEqual([
+    ['Caustic Blast', 'acid'], ['Electric Arc', 'electricity'], ['Ignition', 'fire'], ['Frostbite', 'cold'],
+  ])
+})
+
+it('scales Knife grade and adds Retrieval Boosters at level 3', () => {
+  const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
+  const grades = new Set(['Knife', 'Commercial Knife', 'Tactical Knife', 'Advanced Knife', 'Superior Knife',
+    'Elite Knife', 'Ultimate Knife', 'Paragon Knife'])
+  const entries = mapAonHits(hits.filter(hit => grades.has(String(hit._source?.name))
+    || hit._source?.name === 'Retrieval Boosters'), 'sf2e')
+  const knife = entries.find(entry => entry.name === 'Knife')!
+  const weapon = { id: knife.id, name: knife.name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { id: 'knife', systems: ['sf2e'], name: 'Knife', level: 2,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [], equipment: [],
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0, weapons: [weapon] }
+  expect(effectiveWeapon(c, entries, weapon).name).toBe('Tactical Knife')
+  expect(effectiveWeapon({ ...c, level: 19 }, entries, weapon).name).toBe('Paragon Knife')
+  expect(automaticWeaponUpgrades({ ...c, level: 2 }, entries, weapon)).toEqual([])
+  expect(automaticWeaponUpgrades({ ...c, level: 3 }, entries, weapon).map(upgrade => upgrade.name)).toContain('Retrieval Boosters')
+})
 
 it('imports actual SF2e armor grade AC, upgrade slots, and resilient bonuses from improvement tables', () => {
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)

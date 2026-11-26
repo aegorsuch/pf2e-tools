@@ -522,7 +522,14 @@ export function mapAonHits(hits: Hit[], system: GameSystem) {
     if (hasUpdatedFlexibility && h._id === 'feat-1171') continue
     const e = mapAonHit(h, system)
     if (!e) continue
-    const adjusted = dropHellknightTrainingPrerequisite(e)
+    const adjusted = dropStarfinderFieldAgentMembershipPrerequisite(dropHellknightTrainingPrerequisite(e))
+    if (system === 'pf2e' && adjusted.kind === 'feat' && adjusted.name === 'Dragon Spit') {
+      entries.push(...DRAGON_SPIT_VARIANTS.map(variant => ({
+        ...adjusted, id: `${adjusted.id}:dragon-spit:${variant.energy}`, name: `Dragon Spit (${variant.name})`,
+        data: { ...adjusted.data, dragon_spit_cantrip: variant.cantrip, dragon_spit_energy: variant.energy },
+      })))
+      continue
+    }
     if (system === 'pf2e' && adjusted.kind === 'feat' && adjusted.name === 'Mortification' && /\bHellknight\b/.test(String(adjusted.data.archetype ?? ''))) {
       entries.push(...MORTIFICATION_DAMAGE.map(damage => ({
         ...adjusted, id: `${adjusted.id}:${damage}`, name: `Mortification (${damage[0].toUpperCase()}${damage.slice(1)})`,
@@ -539,8 +546,29 @@ export function mapAonHits(hits: Hit[], system: GameSystem) {
 }
 
 const MORTIFICATION_DAMAGE = ['bludgeoning', 'piercing', 'slashing']
+const DRAGON_SPIT_VARIANTS = [
+  { name: 'Acid', cantrip: 'Caustic Blast', energy: 'acid' },
+  { name: 'Electricity', cantrip: 'Electric Arc', energy: 'electricity' },
+  { name: 'Fire', cantrip: 'Ignition', energy: 'fire' },
+  { name: 'Cold', cantrip: 'Frostbite', energy: 'cold' },
+] as const
 
 const HELLKNIGHT_MANUAL = /trained by a Hellknight Order|member of a Hellknight Order|passed the Hellknight Test|refused to take or have failed the Hellknight Test|^lawful alignment$/i
+const STARFINDER_SOCIETY_MEMBERSHIP = /^member of the Starfinder Society$/i
+
+function dropStarfinderFieldAgentMembershipPrerequisite(entry: ContentEntry): ContentEntry {
+  if (entry.kind !== 'feat' || !/\bStarfinder Field Agent\b/i.test(String(entry.data.archetype ?? ''))) return entry
+  const strip = (text: string) => text.split(/;\s*/).filter(part =>
+    part && !STARFINDER_SOCIETY_MEMBERSHIP.test(part.trim().replace(/\.$/, ''))).join('; ')
+  const prerequisite = entry.data.prerequisite === undefined ? undefined : strip(String(entry.data.prerequisite))
+  const description = entry.description.replace(/^(Prerequisites?:?[ \t]*)(.*)$/im, (_, label, rest) => {
+    const remaining = strip(rest)
+    return remaining ? `${label}${remaining}` : ''
+  })
+  if (prerequisite === entry.data.prerequisite && description === entry.description) return entry
+  const { prerequisite: _old, ...data } = entry.data
+  return { ...entry, data: prerequisite ? { ...data, prerequisite } : data, description }
+}
 
 function dropHellknightTrainingPrerequisite(entry: ContentEntry): ContentEntry {
   if (entry.kind !== 'feat' || !/\bHellknight\b/.test(String(entry.data.archetype ?? ''))) return entry

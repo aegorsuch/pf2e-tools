@@ -764,12 +764,14 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               && (training.feat.name !== 'Consult the Stars'
                 || ['cha', 'int', 'wis'].includes(s.ability ?? (/ lore$/i.test(s.name) ? 'int' : ''))))
             const backgroundChoice = i === 0 ? trainingChoice(s.name) : undefined
+            const fixedMissionLore = editingSkills && c.systems.includes('sf2e') && s.name === 'Mission Lore'
+              && activeFeatsNamed(c, 'Mission Briefing').length > 0
             const trainedDisabled = i === 0 && !backgroundChoice && !eruditeChoice(s.name) && (
               permanentRank === 0 ? !canPickTraining() && !canReachRank(s.name, 1)
                 : permanentRank === 1 ? !picks.includes(s.name) && !canRefundTokens(s.name, 0)
                   : baseRank > 1
             )
-            const disabled = s.kind !== 'skill' || i + 1 > maxRank || (!downloadAvailable && (i === 0
+            const disabled = s.kind !== 'skill' || fixedMissionLore || i + 1 > maxRank || (!downloadAvailable && (i === 0
               ? trainedDisabled
               : target < baseRank || (target > permanentRank && !canReachRank(s.name, target))))
               || hasTokenPurchase(s.name) && target < permanentRank && !canRefundTokens(s.name, target)
@@ -782,7 +784,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
                 aria-pressed={rank === i + 1}
                 aria-label={`${skillLabel} ${RANKS[i + 1]}`}
                 disabled={disabled}
-                title={temporary ? `${temporary.feat.name}: temporary proficiency` : s.kind !== 'skill' ? 'Set by class and features' : i === 0 && grantedTraining.includes(s.name)
+                title={fixedMissionLore ? 'Mission Briefing sets this rank from your Society proficiency'
+                  : temporary ? `${temporary.feat.name}: temporary proficiency` : s.kind !== 'skill' ? 'Set by class and features' : i === 0 && grantedTraining.includes(s.name)
                   ? picks.includes(s.name) ? `Refund redundant training choice; ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'} keeps this skill trained`
                     : `Trained granted by ${heritageSkills.includes(s.name) ? 'Pioneer Human' : 'Ancestral Skills'}`
                   : backgroundChoice ? `${backgroundChoice.value ? 'Refund' : 'Choose'} training from ${backgroundChoice.background.name}`

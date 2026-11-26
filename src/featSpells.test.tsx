@@ -2,7 +2,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, onTestFinished } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
-import { mapAonHit } from './aon'
+import { mapAonHit, mapAonHits } from './aon'
 import { parseFeatSpellGrants } from './aonQuery'
 import { activeFeatsNamed, canChangeUntamedForm, classDifficultyClass, classSpellcasting, eligibleFeats, featChoiceOptions, featSelectionPrerequisiteChecker, focusSpells, hitPointBonuses, knowsSpell, maxHp, movementSpeeds, oakenResilience, ownedWeapons, resistances, savingThrowBreakdown, senses, spellDifficultyClass, temporaryHpGrant, untamedFormOptions, weaponAttack } from './builder'
 import { grantedWardenSpells } from './featChoices'
@@ -380,28 +380,36 @@ it('grants remastered Dragon Spit cantrips and heightens matching Dragon Breath'
   const cantripNames = ['Caustic Blast', 'Electric Arc', 'Frostbite', 'Ignition']
   const cantrips = cantripNames.map(name => entry(name, 'spell', { tradition: 'Arcane' }, ['Cantrip']))
   const breath = { ...entry('Dragon Breath', 'spell', { actions: 'Two Actions', saving_throw: 'basic Reflex' }), level: 3 }
-  const entries = [...cantrips, breath]
+  const variants = mapAonHits([{
+    _id: 'dragon-spit', _source: { name: 'Dragon Spit', category: 'feat', level: 1, markdown: 'Header\n\n---\n\nChoose an energy cantrip.' },
+  }], 'pf2e')
+  const entries = [...cantrips, breath, ...variants]
   const c: Character = { ...base, systems: ['pf2e'], level: 9, feats: [
-    taken('Dragon Spit', 1, 'Caustic Blast'), taken('Dragon Prince', 9),
+    taken('Dragon Spit (Acid)', 1), taken('Dragon Prince', 9),
   ] }
-  expect(featChoiceOptions('Dragon Spit', c, entries, 'ancestry:1:0')).toEqual(cantripNames)
-  expect(featSpellOptions(c, entries, c.feats[0]!)!.map(spell => spell.name)).toEqual(cantripNames)
+  expect(variants.map(variant => variant.name)).toEqual([
+    'Dragon Spit (Acid)', 'Dragon Spit (Electricity)', 'Dragon Spit (Fire)', 'Dragon Spit (Cold)',
+  ])
+  expect(featChoiceOptions('Dragon Spit', c, entries, 'ancestry:1:0')).toBeUndefined()
   expect(grantedFeatSpells(c, entries)).toEqual(expect.arrayContaining([
     expect.objectContaining({ entry: expect.objectContaining({ name: 'Caustic Blast' }), rank: 5,
       rule: expect.objectContaining({ kind: 'innate', tradition: 'arcane', frequency: 'at will', heightened: true }) }),
     expect.objectContaining({ entry: expect.objectContaining({ name: 'Dragon Breath',
-      data: expect.objectContaining({ dragon_breath_energy: 'acid' }) }), rank: 3,
-      rule: expect.objectContaining({ kind: 'innate', tradition: 'arcane', frequency: 'once per day',
-        condition: expect.stringContaining('acid breath') }) }),
+      data: expect.objectContaining({ dragon_breath_energy: 'acid', range_text: '30 feet', area: '30-foot cone' }) }), rank: 3,
+      rule: expect.objectContaining({ kind: 'innate', tradition: 'arcane', frequency: 'once per day' }) }),
   ]))
+  const breathGrant = grantedFeatSpells(c, entries).find(grant => grant.source === 'Dragon Prince')!
+  expect(breathGrant.rule).not.toHaveProperty('condition')
   for (const [level, rank] of [[9, 3], [12, 4], [15, 5], [18, 6]]) {
     const levelled = { ...c, level }
     expect(grantedFeatSpells(levelled, entries).find(grant => grant.source === 'Dragon Prince')?.rank).toBe(rank)
   }
-  for (const [cantrip, energy] of Object.entries({
-    'Caustic Blast': 'acid', 'Electric Arc': 'electricity', Ignition: 'fire', Frostbite: 'cold',
-  })) {
-    const selected = { ...c, feats: [taken('Dragon Spit', 1, cantrip), taken('Dragon Prince', 9)] }
+  for (const [variant, cantrip, energy] of [
+    ['Acid', 'Caustic Blast', 'acid'], ['Electricity', 'Electric Arc', 'electricity'],
+    ['Fire', 'Ignition', 'fire'], ['Cold', 'Frostbite', 'cold'],
+  ]) {
+    const selected = { ...c, feats: [taken(`Dragon Spit (${variant})`, 1), taken('Dragon Prince', 9)] }
+    expect(grantedFeatSpells(selected, entries).some(grant => grant.entry.name === cantrip)).toBe(true)
     expect(grantedFeatSpells(selected, entries).find(grant => grant.source === 'Dragon Prince')?.entry.data.dragon_breath_energy)
       .toBe(energy)
   }
@@ -410,7 +418,10 @@ it('grants remastered Dragon Spit cantrips and heightens matching Dragon Breath'
   ]))
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(markup).toContain('5d6 acid')
-  expect(markup).toContain('Use the acid breath to match Caustic Blast from Dragon Spit')
+  expect(markup).toContain('aria-label="Roll Dragon Breath: Damage"')
+  expect(markup).toContain('<small>Range</small>30 feet')
+  expect(markup).toContain('<small>Area/Targets</small>30-foot cone')
+  expect(markup).not.toContain('Use the acid breath to match')
 })
 
 it("offers Trickster's Ace only single-target spells that meet its preparation restrictions", () => {

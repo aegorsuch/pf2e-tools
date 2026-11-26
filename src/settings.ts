@@ -41,6 +41,14 @@ export interface Settings {
   bardAnimalTrainer: boolean
   bardBeastmaster: boolean
   bardCavalier: boolean
+  envoyFieldAgent: boolean
+  mysticFieldAgent: boolean
+  mechanicFieldAgent: boolean
+  operativeFieldAgent: boolean
+  solarianFieldAgent: boolean
+  soldierFieldAgent: boolean
+  technomancerFieldAgent: boolean
+  witchwarperFieldAgent: boolean
   // House rule: suppress flight grants from Animal Feature, Auspice, Celestial/Fiendish Form and Mount, and Untamed Shift
   championFormNoFlight: boolean
   // House rule: General feat pickers hide skill feats
@@ -76,7 +84,7 @@ export interface Settings {
 }
 
 const KEY = 'app-settings'
-const DEFAULTS: Settings = { singleAdditionalArms: true, singleAugmentedBody: true, singleDistantTelepath: true, adoptedDwarfClanDagger: true, disableAdoptedAncestry: true, disableAncientElfMultitalented: true, disableBeastmasterWardenSpells: true, exclusiveCyborgHearts: true, autoClassSkills: false, sf2eDeitySkills: true, orderExplorerSkills: true, autoLores: false, deityLore: true, freeArchetype: true, ignoreArchetypeFeatMinimums: true, rangerSnarecrafter: false, rangerOpeningStance: true, warriorLegendClearTheWay: true, orcTattooedHistorian: true, dwarfStalwartDefender: true, bardAnimalTrainer: true, bardBeastmaster: true, bardCavalier: true, championCavalier: false, commanderCavalier: true, commanderCaptain: true, druidCavalier: false, rangerCavalier: true, championBeastmaster: true, commanderBeastmaster: true, druidBeastmaster: true, rangerBeastmaster: true, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true, innateHighestMental: true, avengerEldritchHighestMental: true, innateAutoHeighten: true, consolidateInnateTraditions: true, uniqueInnateSpellChoices: true, automaticSfWeaponUpgrades: true, studentOfApotheosisStrengthWisdom: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, bucklerMeleeFinesse: true, freeHandFinesse: true, staffAcrobatSpear: true, staffAcrobatNoPrerequisites: true, whirlwindStanceNoPrerequisites: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true, singleAnimalCompanion: true, protectCompanionAll: true }
+const DEFAULTS: Settings = { singleAdditionalArms: true, singleAugmentedBody: true, singleDistantTelepath: true, adoptedDwarfClanDagger: true, disableAdoptedAncestry: true, disableAncientElfMultitalented: true, disableBeastmasterWardenSpells: true, exclusiveCyborgHearts: true, autoClassSkills: false, sf2eDeitySkills: true, orderExplorerSkills: true, autoLores: false, deityLore: true, freeArchetype: true, ignoreArchetypeFeatMinimums: true, rangerSnarecrafter: false, rangerOpeningStance: true, warriorLegendClearTheWay: true, orcTattooedHistorian: true, dwarfStalwartDefender: true, bardAnimalTrainer: true, bardBeastmaster: true, bardCavalier: true, envoyFieldAgent: true, mysticFieldAgent: true, mechanicFieldAgent: true, operativeFieldAgent: true, solarianFieldAgent: true, soldierFieldAgent: true, technomancerFieldAgent: true, witchwarperFieldAgent: true, championCavalier: false, commanderCavalier: true, commanderCaptain: true, druidCavalier: false, rangerCavalier: true, championBeastmaster: true, commanderBeastmaster: true, druidBeastmaster: true, rangerBeastmaster: true, championFormNoFlight: true, generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true, innateHighestMental: true, avengerEldritchHighestMental: true, innateAutoHeighten: true, consolidateInnateTraditions: true, uniqueInnateSpellChoices: true, automaticSfWeaponUpgrades: true, studentOfApotheosisStrengthWisdom: true, singleTrainingFeats: true, inventorFirearmAccess: true, inventorArmorGauntlets: true, bucklerMeleeFinesse: true, freeHandFinesse: true, staffAcrobatSpear: true, staffAcrobatNoPrerequisites: true, whirlwindStanceNoPrerequisites: true, unarmedCountsAsWeapons: true, barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true, singleAnimalCompanion: true, protectCompanionAll: true }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]
 

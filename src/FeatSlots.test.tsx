@@ -2878,6 +2878,29 @@ const emptyRanger = (): Character => ({
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 })
 
+it.each([
+  ['Envoy', 'envoyFieldAgent'],
+  ['Mystic', 'mysticFieldAgent'],
+  ['Mechanic', 'mechanicFieldAgent'],
+  ['Operative', 'operativeFieldAgent'],
+  ['Solarian', 'solarianFieldAgent'],
+  ['Soldier', 'soldierFieldAgent'],
+  ['Technomancer', 'technomancerFieldAgent'],
+  ['Witchwarper', 'witchwarperFieldAgent'],
+] as const)('shows automatic Starfinder Field Agent Dedication for %s in Dedications', (className, setting) => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ [setting]: true })
+  const dedication: ContentEntry = { id: 'field-agent-dedication', name: 'Starfinder Field Agent Dedication',
+    kind: 'feat', source: 'official', systems: ['sf2e'], level: 2, traits: ['Archetype', 'Dedication'],
+    description: '', data: { archetype: 'Starfinder Field Agent' }, effects: [], updatedAt: 0 }
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], className, level: 2 }
+  const grant = featSectionGrants(c, [dedication], ['archetype']).automaticFeats
+  expect(grant).toContainEqual(expect.objectContaining({ name: dedication.name, source: className, level: 2 }))
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[dedication]} categories={['archetype']} save={() => {}} />)
+  expect(markup).toContain('Starfinder Field Agent Dedication')
+})
+
 it('lists each Gunslinger way once in Versatile Gunslinger choices', () => {
   const feat: ContentEntry = { id: 'versatile-gunslinger', name: 'Versatile Gunslinger', kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 14, traits: ['Gunslinger'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }
