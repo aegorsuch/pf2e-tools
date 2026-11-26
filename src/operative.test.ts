@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
 import { armorClass, armorClassBreakdown, boostSlots, classDifficultyClass, eligibleFeats, featChoiceOptions, hasParryWeapon, initiativeBonus, isGrantedSlot, parryValue, plannedSlots, ranksAt, savingThrowBreakdown, speed, subclassSkillGrants, weaponAttack } from './builder'
+import { getSettings, updateSettings } from './settings'
 import { homebrewCharacterOptions } from './supplemental'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 
@@ -231,6 +232,23 @@ it('adds a second specialization skill and its initial feat through Versatile Op
   expect(isGrantedSlot(bonusSlot.key)).toBe(true)
   expect(eligibleFeats(catalog, sniper, bonusSlot).map(feat => feat.name).sort())
     .toEqual(['Keep Them In Your Sights', 'Scope Sight'])
+})
+
+it('auto-scales Versatile Operative skills when the class skill house rule is enabled', () => {
+  const previous = getSettings()
+  try {
+    const feat = homebrewCharacterOptions([]).find(entry => entry.name === 'Versatile Operative')!
+    const catalog = [...entries, feat]
+    const c: Character = { ...base, subclass: 'Ghost', level: 15, feats: [
+      { name: feat.name, type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Sniper' },
+    ] }
+    updateSettings({ autoClassSkills: false })
+    expect(ranksAt(c, catalog).Stealth).toBe(1)
+    updateSettings({ autoClassSkills: true })
+    expect(ranksAt(c, catalog).Stealth).toBe(4)
+  } finally {
+    updateSettings(previous)
+  }
 })
 
 it('uses Dexterity for class DC and applies speed and initiative progression', () => {
