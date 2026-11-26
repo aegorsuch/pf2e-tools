@@ -316,14 +316,17 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </label>
   }
   if (feat.name === 'Versatile Rogue' || feat.name === 'Versatile Investigator'
-    || feat.name === 'Versatile Gunslinger' || feat.name === 'Versatile Envoy' || feat.name === 'Multifarious Muse') {
+    || feat.name === 'Versatile Gunslinger' || feat.name === 'Versatile Envoy'
+    || feat.name === 'Versatile Operative' || feat.name === 'Multifarious Muse') {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
     const className = feat.name === 'Versatile Rogue' ? 'Rogue'
       : feat.name === 'Versatile Investigator' ? 'Investigator'
-        : feat.name === 'Versatile Gunslinger' ? 'Gunslinger' : feat.name === 'Versatile Envoy' ? 'Envoy' : 'Bard'
+        : feat.name === 'Versatile Gunslinger' ? 'Gunslinger' : feat.name === 'Versatile Envoy' ? 'Envoy'
+          : feat.name === 'Versatile Operative' ? 'Operative' : 'Bard'
     const kind = className === 'Rogue' ? 'racket' : className === 'Investigator' ? 'methodology'
-      : className === 'Gunslinger' ? 'way' : className === 'Envoy' ? 'leadership style' : 'muse'
-    const subclass = className === 'Envoy'
+      : className === 'Gunslinger' ? 'way' : className === 'Envoy' ? 'leadership style'
+        : className === 'Operative' ? 'specialization' : 'muse'
+    const subclass = className === 'Envoy' || className === 'Operative'
       ? subclassOptions({ ...c, className }, entries).find(entry => entry.name === feat.choice)
       : entries.find(entry => entry.kind === 'subclass' && entry.name === feat.choice && entry.data.class === className)
     const investigatorVariants = className === 'Investigator' ? options.flatMap(method => {

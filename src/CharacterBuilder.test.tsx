@@ -740,6 +740,32 @@ it('shows Versatile Investigator methodology benefits and skill choices in Class
   } finally { content.entries = [] }
 })
 
+it('shows Versatile Operative specialization choices and selected benefits in Class', () => {
+  const feat: ContentEntry = { id: 'homebrew:versatile-operative', systems: ['sf2e'], kind: 'feat', source: 'homebrew',
+    name: 'Versatile Operative', level: 10, traits: ['Operative', 'Class'], description: 'Choose a second specialization.',
+    data: { class: 'Operative', feat_type: 'class' }, effects: [], updatedAt: 0 }
+  const specializations: ContentEntry[] = ['Striker', 'Ghost'].map((name, index): ContentEntry => ({
+    id: name, systems: ['sf2e' as const], kind: 'subclass', source: 'official', name, level: 1,
+    traits: [], description: `${name} specialization benefits.`,
+    data: { class: 'Operative', skill: index === 0 ? 'Athletics' : 'Deception' }, effects: [], updatedAt: 0,
+  }))
+  content.entries = [feat, ...specializations]
+  const c: Character = { id: 'versatile-operative', systems: ['sf2e'], name: 'Test', level: 10,
+    className: 'Operative', subclass: 'Striker',
+    abilities: { str: 10, dex: 18, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Versatile Operative', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Ghost' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  try {
+    const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+    expect(markup).toContain('Ghost specialization (Versatile Operative)')
+    expect(markup).toContain('Ghost specialization benefits.')
+    const selecting = renderToStaticMarkup(<CharacterBuilder character={{ ...c, feats: [{ ...c.feats[0], choice: undefined }] }}
+      onClose={() => {}} />)
+    expect(selecting).toContain('aria-label="Versatile Operative specialization"')
+    expect(selecting).toContain('<option>Ghost</option>')
+  } finally { content.entries = [] }
+})
+
 it('shows armor and weapon proficiency badges in Equipment directly above their headings', () => {
   content.entries = []
   const c: Character = {

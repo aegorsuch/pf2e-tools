@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
-import { armorClass, armorClassBreakdown, boostSlots, classDifficultyClass, eligibleFeats, featChoiceOptions, hasParryWeapon, initiativeBonus, isGrantedSlot, parryValue, plannedSlots, ranksAt, savingThrowBreakdown, speed, weaponAttack } from './builder'
+import { armorClass, armorClassBreakdown, boostSlots, classDifficultyClass, eligibleFeats, featChoiceOptions, hasParryWeapon, initiativeBonus, isGrantedSlot, parryValue, plannedSlots, ranksAt, savingThrowBreakdown, speed, subclassSkillGrants, weaponAttack } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 
 const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(snapshot)
@@ -191,6 +191,28 @@ it('grants specialization skill slots and restricts Sniper bonus choices', () =>
   expect(eligibleFeats(entries, striker, strikerSlot, { includeUnmetPrerequisites: true }).map(feat => feat.name))
     .not.toContain('Cat Fall')
   expect(plannedSlots({ ...c, subclass: 'Ghost' }, entries).some(slot => slot.grantedBy === 'Sniper')).toBe(false)
+})
+
+it('adds a second specialization skill and its initial feat through Versatile Operative', () => {
+  const versatile = { name: 'Versatile Operative', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Ghost' }
+  const c: Character = { ...base, level: 15, feats: [versatile] }
+  const slot = plannedSlots(c, entries).find(candidate => candidate.grantedBy === 'Versatile Operative')!
+  expect(slot).toMatchObject({ key: 'skill:1:versatile-operative:class:10:0', level: 10, grantedSkill: 'Deception' })
+  expect(isGrantedSlot(slot.key)).toBe(true)
+  expect(featChoiceOptions('Versatile Operative', c, entries, '')).not.toContain('Ghost')
+  expect(featChoiceOptions('Versatile Operative', c, entries, '')).not.toContain('Sniper')
+  expect(subclassSkillGrants(c, entries)).toEqual(expect.arrayContaining(['Stealth', 'Deception']))
+  expect(ranksAt(c, entries).Deception).toBeGreaterThanOrEqual(1)
+  expect(featChoiceOptions('Assurance', c, entries, slot.key)).toEqual(['Deception'])
+  expect(eligibleFeats(entries, c, slot).map(feat => feat.name)).toContain('Assurance')
+
+  const sniper: Character = { ...base, level: 10, subclass: 'Ghost',
+    feats: [{ ...versatile, choice: 'Sniper' }] }
+  const bonusSlot = plannedSlots(sniper, entries).find(candidate => candidate.grantedBy === 'Sniper')!
+  expect(bonusSlot.key).toBe('class:1:versatile-operative-sniper:class:10:0')
+  expect(isGrantedSlot(bonusSlot.key)).toBe(true)
+  expect(eligibleFeats(entries, sniper, bonusSlot).map(feat => feat.name).sort())
+    .toEqual(['Keep Them In Your Sights', 'Scope Sight'])
 })
 
 it('uses Dexterity for class DC and applies speed and initiative progression', () => {

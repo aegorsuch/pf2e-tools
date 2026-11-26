@@ -711,7 +711,8 @@ export const activeHomebrewDedications = (c: Character) =>
 export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWith('class:1:order-explorer:')
   || key === 'class:1:fury-instinct'
   || key.startsWith('skill:1:investigator-skillful-lessons:')
-  || key.startsWith('skill:1:operative-specialization:') || key === 'class:1:operative-sniper'
+  || key.startsWith('skill:1:operative-specialization:') || key.startsWith('skill:1:versatile-operative:')
+  || key === 'class:1:operative-sniper' || key.startsWith('class:1:versatile-operative-sniper:')
   || key.startsWith('ancestry:1:warblood-vesk:')
   || key.startsWith('skill:1:versatile-rogue:') || key.startsWith('skill:1:versatile-investigator:')
   || key.startsWith('skill:1:exceptional-artisan:')
@@ -729,9 +730,27 @@ export const mechanicIngenuitySlots = (c: Character) =>
     ? [3, 7, 15].filter(level => level <= c.level).map(level => ({ key: `mechanic-ingenuity:${level}`, level }))
     : []
 
+const OPERATIVE_SPECIALIZATION_SKILLS: Record<string, string> = {
+  Ghost: 'Deception', Infiltrator: 'Computers', Skirmisher: 'Acrobatics', Sniper: 'Stealth', Striker: 'Athletics',
+}
 const operativeSpecializationSkill = (c: Character) => c.className === 'Operative' && c.systems.includes('sf2e')
-  ? ({ Ghost: 'Deception', Infiltrator: 'Computers', Skirmisher: 'Acrobatics',
-    Sniper: 'Stealth', Striker: 'Athletics' } as Record<string, string>)[c.subclass ?? ''] : undefined
+  ? OPERATIVE_SPECIALIZATION_SKILLS[c.subclass ?? ''] : undefined
+
+function operativeSpecializations(c: Character, entries: ContentEntry[]) {
+  if (!c.systems.includes('sf2e') || c.className !== 'Operative' || c.level < 1) return []
+  const options = subclassOptions({ ...c, className: 'Operative' }, entries)
+  const specializations = new Map<string, number>()
+  const primary = selectedSubclass(c, entries)
+  if (primary) specializations.set(primary, 1)
+  for (const feat of activeFeatsNamed(c, 'Versatile Operative')) {
+    if (feat.choice && options.some(entry => entry.name === feat.choice))
+      specializations.set(feat.choice, featTakenLevel(feat))
+  }
+  return [...specializations].flatMap(([name, level]) => {
+    const entry = options.find(option => option.name === name)
+    return entry ? [{ entry, level }] : []
+  })
+}
 
 const STARFINDER_HERITAGE_SKILLS: Record<string, string> = {
   'Akitonian Ysoki': 'Crafting', 'Shipborn Ysoki': 'Piloting', 'Listener Ysoki': 'Occultism',
@@ -874,6 +893,28 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     if (c.subclass === 'Sniper') {
       slots.push({ key: 'class:1:operative-sniper', category: 'class', level: 1, maxFeatLevel: 1, grantedBy: 'Sniper' })
     }
+    const usedSpecializations = new Set([selectedSubclass(c, entries)])
+    for (const feat of activeFeatsNamed(c, 'Versatile Operative')) {
+      const identity = feat.slot ?? `unslotted-${c.feats.indexOf(feat)}`
+      const level = featTakenLevel(feat)
+      const specialization = feat.choice && subclassOptions({ ...c, className: 'Operative' }, entries)
+        .find(entry => entry.name === feat.choice)
+      if (!specialization || usedSpecializations.has(specialization.name)) continue
+      usedSpecializations.add(specialization.name)
+      const grantedSkill = tokens(specialization.data.skill)[0]
+      if (grantedSkill) {
+        const group = `skill:${level}`
+        if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+        slots.push({ key: `skill:1:versatile-operative:${identity}`, category: 'skill', level,
+          grantedBy: 'Versatile Operative', grantedSkill })
+      }
+      if (specialization.name === 'Sniper') {
+        const group = `class:${level}`
+        if (!groupOrder.has(group)) groupOrder.set(group, groupOrder.size)
+        slots.push({ key: `class:1:versatile-operative-sniper:${identity}`, category: 'class', level,
+          maxFeatLevel: 1, grantedBy: 'Sniper' })
+      }
+    }
   }
   let unslottedChameleon = 0
   for (const feat of activeFeatsNamed(c, 'Social Chameleon')) {
@@ -980,7 +1021,7 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
     || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon'
     || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'Pitborn' || slot.grantedBy === 'Scion of Many Planes' || slot.grantedBy === 'In Another Life' || slot.grantedBy === "Operative's Specialization"
-    || slot.grantedBy === 'Sniper' || !!slot.grantedAncestry)
+    || slot.grantedBy === 'Versatile Operative' || slot.grantedBy === 'Sniper' || !!slot.grantedAncestry)
   for (const slot of slots) {
     if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
   }
@@ -1293,6 +1334,8 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
             && entry.data.class === 'Gunslinger')
         || character.className === 'Envoy' && feat.name === 'Versatile Envoy'
           && subclassOptions({ ...character, className: 'Envoy' }, entries).some(entry => entry.name === feat.choice)
+        || character.className === 'Operative' && feat.name === 'Versatile Operative'
+          && subclassOptions({ ...character, className: 'Operative' }, entries).some(entry => entry.name === feat.choice)
       ) ? [feat.choice] : [])
       const museFeats = character.className === 'Bard' ? [subclass, ...additionalSubclasses].flatMap((name) => {
         const muse = entries.find((entry) => entry.kind === 'subclass' && entry.data.class === 'Bard' && entry.name === name)
@@ -1686,7 +1729,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const classArchetype = slot.category === 'class' ? selectedClassArchetype(c, entries)?.name : undefined
   const classArchetypeDedication = classArchetype && c.feats.some(feat => feat.name === `${classArchetype} Dedication`
     && feat.slot !== slot.key && featTakenLevel(feat) <= Math.min(c.level, slot.level))
-  const skillFeats = slot.grantedBy === "Operative's Specialization" || slot.grantedBy === 'Palewatch Initiate'
+  const operativeSkillFeat = slot.grantedBy === "Operative's Specialization" || slot.grantedBy === 'Versatile Operative'
+  const skillFeats = operativeSkillFeat || slot.grantedBy === 'Palewatch Initiate'
     ? featByName(entries) : undefined
   const classCompanionStages = new Set<string>()
   if (getSettings().singleAnimalCompanion && classTrait) {
@@ -1762,7 +1806,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || e.systems.includes('pf2e') && traits.has('nephilim') && traits.has('lineage') && !taken.has(e.name))
       && (slot.grantedBy !== "Mechanic's Ingenuity"
         || e.name === 'Assurance' || tokens(e.data.skill).some(skill => /^(computers|crafting)$/i.test(skill)))
-      && (slot.grantedBy !== "Operative's Specialization" || !!slot.grantedSkill
+      && (!operativeSkillFeat || !!slot.grantedSkill
         && e.name !== 'Skill Training' && matchesSkill(e, slot.grantedSkill, skillFeats!))
       && (slot.grantedBy !== 'Palewatch Initiate' || slot.redundantFeat && !!slot.grantedSkill
         && matchesSkill(e, slot.grantedSkill, skillFeats!))
@@ -2212,13 +2256,20 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     const performer = activeFeatsNamed(c, 'Natural Performer')
       .find(feat => slotKey === `skill:1:natural-performer:${feat.slot ?? 'unslotted'}`)
     const operativeLevel = /^skill:1:operative-specialization:(\d+)$/.exec(slotKey)?.[1]
+    const versatileOperative = activeFeatsNamed(c, 'Versatile Operative').find(feat =>
+      slotKey === `skill:1:versatile-operative:${feat.slot ?? `unslotted-${c.feats.indexOf(feat)}`}`)
     const mechanicLevel = /^skill:1:mechanic-ingenuity:(\d+)$/.exec(slotKey)?.[1]
-    const level = Math.min(c.level, performer ? featTakenLevel(performer) : Number(operativeLevel ?? mechanicLevel ?? slotKey.split(':')[1]) || c.level)
+    const level = Math.min(c.level, performer ? featTakenLevel(performer)
+      : versatileOperative ? featTakenLevel(versatileOperative)
+        : Number(operativeLevel ?? mechanicLevel ?? slotKey.split(':')[1]) || c.level)
     const ranks = ranksAt({ ...c, level }, entries)
     const skills = new Set(statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name))
     const used = new Set(c.feats.flatMap((feat, i) => i !== index && feat.name === name && feat.choice ? [feat.choice] : []))
+    const versatileSkill = versatileOperative?.choice
+      ? tokens(subclassOptions({ ...c, className: 'Operative' }, entries)
+        .find(entry => entry.name === versatileOperative.choice)?.data.skill)[0] : undefined
     const required = performer ? 'Performance' : operativeLevel ? operativeSpecializationSkill(c)
-      : fixedBackgroundChoice || background?.data.background_skill
+      : versatileOperative ? versatileSkill : fixedBackgroundChoice || background?.data.background_skill
     return Object.keys(ranks).filter(skill => (skills.has(skill) || / lore$/i.test(skill))
       && ranks[skill] >= 1 && !used.has(skill) && (!required || skill === required)
       && (!mechanicLevel || ['Computers', 'Crafting'].includes(skill))).sort((a, b) => a.localeCompare(b))
@@ -2361,6 +2412,13 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     return [...new Set(subclassOptions({ ...c, className: 'Envoy' }, entries)
       .filter(style => !used.has(style.name))
       .map(style => style.name))]
+  }
+  if (name === 'Versatile Operative' && c.systems.includes('sf2e')) {
+    const used = new Set([selectedSubclass(c, entries), ...c.feats.flatMap((feat, featIndex) =>
+      featIndex !== index && feat.name === name && featTakenLevel(feat) <= c.level && feat.choice ? [feat.choice] : [])])
+    return [...new Set(subclassOptions({ ...c, className: 'Operative' }, entries)
+      .filter(specialization => !used.has(specialization.name))
+      .map(specialization => specialization.name))]
   }
   if (name === 'Hold Mark') return ['Burning Sun', "Death's Head", 'Defiled Corpse', 'Empty Hand']
   if (name === 'Orc Warmask') return Object.keys(WARMASK_SOURCES)
@@ -3998,6 +4056,9 @@ export function subclassSkillGrants(c: Character, entries: ContentEntry[]): stri
   if (c.className === 'Envoy') {
     return [...new Set(envoyLeadershipStyles(c, entries).flatMap(({ entry }) => tokens(entry.data.skill)))]
   }
+  if (c.className === 'Operative') {
+    return [...new Set(operativeSpecializations(c, entries).flatMap(({ entry }) => tokens(entry.data.skill)))]
+  }
   if (!subclass) return []
   if (c.className === 'Druid') return DRUID_ORDERS[subclass] ? [DRUID_ORDERS[subclass]] : []
   const option = subclassOptions(c, entries).find(entry => entry.name === subclass)
@@ -4201,7 +4262,7 @@ export function selectedSubclass(c: Character, entries: ContentEntry[] = []) {
   const specials = build && typeof build === 'object' && 'class' in build && build.class === c.className
     && 'specials' in build && Array.isArray(build.specials) ? build.specials : []
   const names = new Set([...c.feats.flatMap((feat) => [feat.name,
-    ...(['Second Innovation', 'Third Innovation', 'Versatile Rogue', 'Versatile Investigator', 'Versatile Gunslinger', 'Versatile Envoy',
+    ...(['Second Innovation', 'Third Innovation', 'Versatile Rogue', 'Versatile Investigator', 'Versatile Gunslinger', 'Versatile Envoy', 'Versatile Operative',
       'Multifarious Muse', 'Widespread Fascination'].includes(feat.name) ? [] : [feat.choice])]), ...specials]
     .filter((name): name is string => typeof name === 'string').map((name) => name.replace(/ (?:Instinct|Order)$/, '')))
   if (c.className === 'Druid') {

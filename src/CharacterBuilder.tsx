@@ -505,6 +505,11 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       const style = subclasses.find(entry => entry.name === feat.choice)
       return style ? [style] : []
     }) : []
+  const additionalOperativeSpecializations = c.className === 'Operative' && c.systems.includes('sf2e')
+    ? activeFeatsNamed(c, 'Versatile Operative').flatMap(feat => {
+      const specialization = subclasses.find(entry => entry.name === feat.choice)
+      return specialization ? [specialization] : []
+    }) : []
   const fatalMethods = fatalMethodOptions(entries)
   const fatalMethod = selectedFatalMethod(c)
   const arcaneTheses = arcaneThesisOptions(entries)
@@ -813,6 +818,9 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           })}
           {additionalEnvoyStyles.map(style =>
             <SelectedSubclassRules key={style.id} entry={style} label={`${style.name} leadership style (Versatile Envoy)`} />)}
+          {additionalOperativeSpecializations.map(specialization =>
+            <SelectedSubclassRules key={specialization.id} entry={specialization}
+              label={`${specialization.name} specialization (Versatile Operative)`} />)}
           {c.className === 'Druid' && (
               <SearchableSelect label="Druidic Order" aria-label="Druidic Order" value={subclassName ?? ''} onChange={(e) => save({ order: e.target.value })}>
                 <option value="">No order</option>
