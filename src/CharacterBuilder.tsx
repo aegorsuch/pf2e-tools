@@ -33,6 +33,7 @@ import { CheekPouches } from './CheekPouches'
 import { HighTechMedic } from './HighTechMedic'
 import { clearItemGlitching, setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
+import { TechnomancerFeatures } from './TechnomancerFeatures'
 import { CharacterPictures } from './CharacterPictures'
 import { isGrenade } from './formulas'
 import type { Character, ContentEntry, EntryKind } from './types'
@@ -758,6 +759,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
             {subclass && <SelectedSubclassRules entry={subclass} />}
           </>}
           <WitchwarperAnchor c={c} save={save} />
+          <TechnomancerFeatures {...section} />
           {c.className === 'Necromancer' && <>
             <Pick label="Fatal Method" kind="fatal method" value={fatalMethod} options={fatalMethods}
               onChange={value => save({ fatalMethod: value as FatalMethod | undefined })} />

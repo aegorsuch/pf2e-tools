@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { AON_IMPORT_VERSION, importFromAon, mapAonHits } from './aon'
-import { armorUpgradeSlots, automaticSpecificArmorUpgrades, automaticWeaponUpgrades, boostSlots, classDifficultyClass, effectiveArmor, effectiveWeapon, eligibleFeats, resistances } from './builder'
+import { armorUpgradeSlots, automaticArmorUpgradeSlotsUsed, automaticSpecificArmorUpgrades, automaticWeaponUpgrades, boostSlots, classDifficultyClass, effectiveArmor, effectiveWeapon, eligibleFeats, resistances } from './builder'
 import { isSpecificGear } from './GearSection'
 import { groupHomebrew } from './HomebrewList'
 import { homebrewCharacterOptions, migrateCopiedFeats } from './supplemental'
@@ -142,7 +142,11 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
 it('adds Carveweave and Mageplate spell upgrades when character reaches item level', () => {
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
   const armorAndUpgrades = new Set(['Mageplate', 'Advanced Mageplate', 'Spell Gauntlet', 'Spell Refactoring Matrix'])
-  const entries = mapAonHits(hits.filter(hit => armorAndUpgrades.has(String(hit._source?.name))), 'sf2e')
+  const entries = mapAonHits(hits.filter(hit => {
+    const name = String(hit._source?.name)
+    return armorAndUpgrades.has(name) || ['Force Field', 'Jetpack'].some(upgrade =>
+      name === upgrade || name.startsWith(`${upgrade} (`))
+  }), 'sf2e')
   const mageplate = entries.find(entry => entry.kind === 'armor' && entry.name === 'Mageplate')!
   const advancedMageplate = entries.find(entry => entry.kind === 'armor' && entry.name === 'Advanced Mageplate')!
   const carveweave = { ...mageplate, id: 'carveweave', name: 'Carveweave' }
@@ -154,11 +158,17 @@ it('adds Carveweave and Mageplate spell upgrades when character reaches item lev
     runes: [], worn: true }).name)
     .toBe('Advanced Mageplate')
   for (const armor of [carveweave, mageplate, advancedMageplate]) {
-    expect(automaticSpecificArmorUpgrades({ ...character, level: 4 }, entries, armor)).toEqual([])
+    const level4 = automaticSpecificArmorUpgrades({ ...character, level: 4 }, entries, armor).map(entry => entry.name)
+    expect(level4)
+      .toContain('Force Field (Tactical)')
+    expect(level4).not.toContain('Jetpack (Commercial)')
     expect(automaticSpecificArmorUpgrades({ ...character, level: 5 }, entries, armor).map(entry => entry.name))
-      .toEqual(['Spell Refactoring Matrix'])
+      .toEqual(expect.arrayContaining(['Spell Refactoring Matrix', 'Jetpack (Commercial)']))
     expect(automaticSpecificArmorUpgrades(character, entries, armor).map(entry => entry.name))
-      .toEqual(['Spell Gauntlet', 'Spell Refactoring Matrix'])
+      .toEqual(expect.arrayContaining(['Spell Gauntlet', 'Spell Refactoring Matrix', 'Jetpack (Commercial)', 'Force Field (Superior)']))
+    expect(automaticSpecificArmorUpgrades({ ...character, level: 20 }, entries, armor).map(entry => entry.name))
+      .toEqual(expect.arrayContaining(['Spell Gauntlet', 'Spell Refactoring Matrix', 'Jetpack (Tactical)', 'Force Field (Paragon)']))
+    expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(4)
   }
 })
 

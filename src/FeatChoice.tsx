@@ -173,6 +173,19 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {options.map(option => <option key={option}>{option}</option>)}
     </SearchableSelect>
   }
+  if (c.systems.includes('sf2e') && feat.name === 'Hardware Expansion') {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    return <SearchableSelect label="Additional Programming Language" aria-label="Hardware Expansion programming language"
+      value={feat.choice ?? ''} onChange={event => {
+        const choice = event.target.value || undefined
+        if (choice && !options.includes(choice)) return
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+      }}>
+      <option value="">{options.length ? 'Choose programming language' : 'Choose primary programming language first'}</option>
+      {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
+      {options.map(option => <option key={option} value={option}>{option}</option>)}
+    </SearchableSelect>
+  }
   if (feat.name === 'Carry Their Memories' || feat.name === 'Dongun Education'
     || isFixedAncestralWeaponFamiliarity(c, entries, feat)) return null
   if (c.systems.includes('sf2e') && ['Lashunta', 'Shirren'].includes(c.ancestry ?? '')

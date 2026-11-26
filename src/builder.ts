@@ -30,6 +30,7 @@ import { isWitchwarper, witchwarperParadox, witchwarperRepertoireSlots, witchwar
 import { familiarSelection, familiarSpellBenefits, purifyAirActive } from './familiarAbilities'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
+import { hardwareExpansionLanguageOptions } from './technomancer'
 import { boostingTheBasics } from './mechanicMods'
 import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
@@ -2140,6 +2141,7 @@ function automaticKnowledgeOptions(c: Character, entries: ContentEntry[], level:
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number,
   category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === 'Hardware Expansion' && c.systems.includes('sf2e')) return hardwareExpansionLanguageOptions(c)
   if (name === 'Automatic Knowledge') {
     const level = Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)
     const choices = automaticKnowledgeOptions(c, entries, level, index)
@@ -3270,7 +3272,7 @@ export function armorUpgradeSlots(entry?: ContentEntry) {
 export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
   const family = armor?.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   if (!armor?.systems.includes('sf2e')) return 0
-  if (family === 'Carvesong') return 4
+  if (SPELL_ARMOR_FAMILIES.has(family ?? '')) return 4
   if (family === "Drifter's Jacket") return 3
   return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Clandestine Suit',
     'Myrmidon Siegebreaker Plate', 'Retrieval Harness',
@@ -3281,7 +3283,7 @@ export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
 export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upgrade: ContentEntry) {
   const family = armorName?.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   const base = upgrade.name.replace(/\s*\([^)]*\)$/, '')
-  if (family === 'Carvesong') return true
+  if (SPELL_ARMOR_FAMILIES.has(family ?? '')) return true
   if (family === 'Aquavarius Armor') return ['Force Field', 'Energy Shielding'].includes(base)
   if (['Aeon Guard Battle Dress', 'Clandestine Suit', "Drifter's Jacket",
     'Myrmidon Siegebreaker Plate', 'Retrieval Harness', 'Stormbreaker Armor'].includes(family ?? ''))
@@ -3301,7 +3303,7 @@ const ROCKETEER_ARMOR_UPGRADES = ['Maneuvering Unit']
 const RETRIEVAL_HARNESS_ARMOR_UPGRADES = ['Easypatcher']
 const STORMBREAKER_ARMOR_UPGRADES = ['Energized Spikes', 'Energy Shielding']
 const AQUAVARIUS_ARMOR_UPGRADES = ['Aqua Jets', 'Energy Shielding']
-const SPELL_ARMOR_UPGRADES = ['Spell Gauntlet', 'Spell Refactoring Matrix']
+const SPELL_ARMOR_UPGRADES = ['Spell Gauntlet', 'Spell Refactoring Matrix', 'Jetpack', 'Force Field']
 const SF_UPGRADE_GRADES = 'Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon'
 export const AUTOMATIC_JETPACK_ID = 'automatic:jetpack'
 
@@ -3321,7 +3323,8 @@ export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEnt
     ...(family === 'Stormbreaker Armor' ? STORMBREAKER_ARMOR_UPGRADES : []),
     ...(family === 'Aquavarius Armor' ? AQUAVARIUS_ARMOR_UPGRADES : []),
     ...(spellArmor ? SPELL_ARMOR_UPGRADES : [])]
-  return upgrades.flatMap(base => {
+  const distinctUpgrades = [...new Set(upgrades)]
+  return distinctUpgrades.flatMap(base => {
     const pattern = new RegExp(`^${base}(?: \\((?:${SF_UPGRADE_GRADES})\\))?$`, 'i')
     const candidates = entries.filter(candidate => candidate.kind === 'item' && !candidate.deleted
       && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Armor Upgrades'

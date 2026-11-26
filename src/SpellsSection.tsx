@@ -33,6 +33,7 @@ import { SpellDefenseFilter } from './SpellDefenseFilter'
 import { matchesSpellDefense, spellResolution, type SpellDefense } from './spellDefense'
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
+import { TECHNOMANCER_LANGUAGE_RULES } from './technomancer'
 
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Bless', 'Cairn Form', 'Eat Fire', 'Enduring Might', 'Fly', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Summon Celestial', 'Tailwind']
@@ -1884,7 +1885,18 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     arcaneSpellbookOptions(c, spellIndex.spells, bookRank, bookSource === 'Technomancer' ? 'sf2e' : 'pf2e'),
     entry => [...entry.systems].sort().join(',')),
     [c, spellIndex, bookRank, bookSource])
-  const knownArcaneSpells = new Set((c.spells ?? []).map(spell => spell.name.toLowerCase()))
+  const programmedSpellEntries = useMemo(() => technomancer && c.technomancerProgrammingLanguage
+    ? TECHNOMANCER_LANGUAGE_RULES[c.technomancerProgrammingLanguage].spellCache.flatMap(name => {
+      const entry = spellIndex.spells.find(spell => spell.systems.includes('sf2e')
+        && spell.name.toLowerCase() === name.toLowerCase())
+      return entry ? [entry] : []
+    }) : [], [technomancer, c.technomancerProgrammingLanguage, spellIndex])
+  const programmedSpellNames = useMemo(() => new Set(programmedSpellEntries.map(entry => entry.name.toLowerCase())),
+    [programmedSpellEntries])
+  const knownArcaneSpells = new Set([
+    ...(c.spells ?? []).map(spell => spell.name.toLowerCase()),
+    ...programmedSpellNames,
+  ])
   const rankedArcaneBookOptions = arcaneBookOptions.filter(entry => (bookRank === 0
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
     : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
@@ -2051,10 +2063,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   }
   const listedSpellCandidates = [
     ...granted.map((s) => ({ name: s.name, entryId: s.id, group: 'Focus Spells', index: -1 })),
+    ...programmedSpellEntries.map(entry => ({ name: entry.name, entryId: entry.id,
+      group: groupLabel(entry.name, entry.id, entry.level, entry.traits.some(trait => trait.toLowerCase() === 'cantrip')), index: -1 })),
     ...dirge?.filter(entry => !c.spells?.some(spell => spell.name === entry.name))
       .map(entry => ({ name: entry.name, entryId: entry.id,
         group: groupLabel(entry.name, entry.id, entry.level, entry.traits.some(trait => trait.toLowerCase() === 'cantrip')), index: -1 })) ?? [],
-    ...spells.flatMap((s, index) => manualSpells.includes(s)
+    ...spells.flatMap((s, index) => manualSpells.includes(s) && !programmedSpellNames.has(s.name.toLowerCase())
       && (!druid || !isCommonSpell(spellEntry(s.name, s.entryId)))
       ? [{ name: s.name, entryId: s.entryId, group: groupLabel(s.name, s.entryId, s.rank, s.cantrip), index }] : []),
   ].sort((a, b) => a.name.localeCompare(b.name))
@@ -2195,8 +2209,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     const clericSpells = avengerCleric ? spellIndex.spells.filter(entry => spellAccessGranted(c, entry)
       && !entry.traits.some(trait => trait.toLowerCase() === 'focus')
       && String(entry.data.tradition ?? '').split(',').some(tradition => tradition.trim().toLowerCase() === 'divine')) : undefined
+    const programmedNames = new Set(programmedSpellEntries.map(entry => entry.name.toLowerCase()))
+    const databaseSpells = [...(c.spells ?? []).filter(spell => !programmedNames.has(spell.name.toLowerCase())),
+      ...programmedSpellEntries.map(entry => ({ name: entry.name, entryId: entry.id, rank: entry.level,
+        cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }))]
     const available = [...((warriorSpells ?? bloodragerSpells ?? clericSpells ?? witchAvailable ?? druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
-      rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: false })) ?? (c.spells ?? [])
+      rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: false })) ?? databaseSpells
       .filter(spell => !forced.some(extra => extra.name === spell.name)).map(spell => ({ ...spell, forced: false }))), ...forced]
       .map(spell => {
         const entry = spell.entryId ? spellIndex.byId.get(spell.entryId) : spellIndex.byName.get(spell.name)
@@ -2219,7 +2237,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         return [...entry?.systems ?? []].sort().join(',')
       }) : options }
     })
-  }, [druidAvailable, witchAvailable, dirge, c, entries, warrior, preparedClass, selectedTradition, spellIndex, bard, bloodrager, avengerCleric])
+  }, [druidAvailable, witchAvailable, dirge, c, entries, warrior, preparedClass, selectedTradition, spellIndex, bard,
+    bloodrager, avengerCleric, programmedSpellEntries])
   const classSlotRanks = Array.from({ length: 11 }, (_, rank) => ({
     rank,
     count: Math.max(0, Math.min(20, Math.trunc(Number(sc?.slots[rank]) || 0)))

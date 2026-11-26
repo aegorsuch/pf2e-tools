@@ -273,6 +273,19 @@ it('renders automatically computed slots without manual slot controls or saved s
   expect(html).not.toContain('type="number"')
 })
 
+it('adds the selected Technomancer programming language spell cache automatically', () => {
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 3,
+    technomancerProgrammingLanguage: 'DPS++' }
+  const entries = ['Supercharge Weapon', 'Caustic Conversion', 'Electrotether'].map((name, index): ContentEntry => ({
+    id: name, name, kind: 'spell', systems: ['sf2e'], source: 'official', level: index + 1,
+    traits: [], data: { tradition: 'Arcane' }, description: '', effects: [], updatedAt: 0,
+  }))
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain('Supercharge Weapon')
+  expect(html).toContain('Caustic Conversion')
+  expect(html).toContain('Electrotether')
+})
+
 it('adds Cleric Divine Font slots at the highest spell rank, restricted to Heal or Harm', () => {
   const c: Character = { ...base, className: 'Cleric', systems: ['pf2e'], level: 1 }
   const entry = (name: string, kind: ContentEntry['kind'], data: ContentEntry['data']): ContentEntry => ({

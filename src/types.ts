@@ -23,6 +23,7 @@ export type DroneProfile = {
   customizations?: Character['mechanicDroneCustomizations']
 }
 export type MechanicEnergy = 'acid' | 'cold' | 'electricity' | 'fire' | 'sonic'
+export type TechnomancerProgrammingLanguage = 'DPS++' | 'FORTRUN' | 'ServoShell' | 'Viper'
 export type MedicMod = 'Numbing Analgesic' | 'Powerful Stimulant' | 'Protective Excretions' | 'Restorative Boost'
 export type MechanicMine = {
   id?: string
@@ -213,6 +214,7 @@ export interface Character {
   gearAccessOverrides?: string[]
   className?: string
   subclass?: string
+  technomancerProgrammingLanguage?: TechnomancerProgrammingLanguage
   rangerPrecisionHitsThisRound?: number
   huntPreyActive?: boolean
   fatalMethod?: 'Puppeteer' | 'Reaper'

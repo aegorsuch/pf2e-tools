@@ -3194,6 +3194,24 @@ it('marks all automatic Carvesong upgrades as slot-taking', () => {
   expect(markup).not.toContain('Add armor upgrade')
 })
 
+it('marks all automatic Mageplate Spellmail upgrades as slot-taking', () => {
+  const armor: ContentEntry = { ...weapon, id: 'mageplate', name: 'Mageplate', kind: 'armor', systems: ['sf2e'],
+    level: 9, data: { url: 'mageplate', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 4 } }
+  const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
+    systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
+  const upgrades = [module('Jetpack (Tactical)', 19), module('Force Field (Paragon)', 19),
+    module('Spell Gauntlet', 10), module('Spell Refactoring Matrix', 5)]
+  const c: Character = { ...character([]), systems: ['sf2e'], level: 20, armors: [
+    { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
+  ] }
+  const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
+  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(4)
+  for (const name of ['Jetpack (Tactical)', 'Force Field (Paragon)', 'Spell Gauntlet', 'Spell Refactoring Matrix']) {
+    expect(markup).toContain(name)
+    expect(markup).not.toContain(`${name} *`)
+  }
+})
+
 it('places leveled SF2e and homebrew specific armor separately from standard armor', () => {
   const armor: ContentEntry = { ...weapon, kind: 'armor', systems: ['sf2e'], name: 'Carvesong', level: 9,
     data: { item_subcategory: 'Base Armor' } }

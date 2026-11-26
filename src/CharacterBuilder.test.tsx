@@ -9,6 +9,7 @@ import type { Character, ContentEntry } from './types'
 import { equipmentGroupName, WORN_EQUIPMENT_GROUPS } from './equipmentGroups'
 import * as equipmentGroups from './equipmentGroups'
 import { classArchetypeSlotViews, FeatSlots } from './FeatSlots'
+import { FeatChoice } from './FeatChoice'
 import { SearchableSelect } from './SearchableSelect'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
 import { armorClass, classDifficultyClass, classLabel, isSpellActive, orphanedArchetypeFeats, plannedSlots, spellActiveChange, subclassOptions, syncClassArchetypeDedication, warriorLegendWeakness } from './builder'
@@ -1892,6 +1893,27 @@ it('keeps Fatal Method separate from Grim Fascination and displays the persisted
   expect(markup).toContain('Reaper rules.')
   expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, className: 'Wizard' }} onClose={() => {}} />))
     .not.toContain('aria-label="Fatal Method"')
+  content.entries = []
+})
+
+it('selects Technomancer programming languages and Hardware Expansion language', () => {
+  content.entries = []
+  const c: Character = { id: 'technomancer', systems: ['sf2e'], name: 'Test', level: 12, className: 'Technomancer',
+    technomancerProgrammingLanguage: 'DPS++', abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [{ name: 'Hardware Expansion', type: 'Class Feat', level: 12, slot: 'class:12:0' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  expect(markup).toContain('aria-label="Technomancer Programming Language"')
+  expect(markup).toContain('DPS++ programming language benefits')
+  expect(markup).toContain('Overclock gear:</strong> Tech weapons')
+  const choice = renderToStaticMarkup(<FeatChoice c={c} entries={[]} save={() => {}} index={0} />)
+  expect(choice).toContain('Hardware Expansion programming language')
+  expect(choice).toContain('<option value="FORTRUN">FORTRUN</option>')
+  expect(choice).not.toContain('<option value="DPS++">DPS++</option>')
+  const missingPrimary = renderToStaticMarkup(<FeatChoice c={{ ...c, technomancerProgrammingLanguage: undefined }}
+    entries={[]} save={() => {}} index={0} />)
+  expect(missingPrimary).toContain('Choose primary programming language first')
+  expect(missingPrimary).not.toContain('<option value="FORTRUN">FORTRUN</option>')
   content.entries = []
 })
 
