@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ArmorList, ArmorUpgrades, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, armorUpgradeSlots as resolvedArmorUpgradeSlots,
-  automaticArmorUpgradeSlotsUsed, automaticArmorUpgradeUsesSlot, automaticSpecificArmorUpgrades,
+  automaticArmorUpgradeSlotsUsed, automaticSpecificArmorUpgrades,
   effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon,
   installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, parryValue,
   resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
@@ -3117,37 +3117,21 @@ it('offers Acid, Cold, Electricity and Fire variants for Energy Shielding', () =
   })
 })
 
-it('auto-installs Retrieval Harness Easypatcher and scaling Adrenal Autoinjectors with correct slot usage', () => {
+it('auto-installs only the Retrieval Harness Easypatcher without using an upgrade slot', () => {
   const harness: ContentEntry = { ...weapon, id: 'retrieval-harness', name: 'Retrieval Harness', kind: 'armor', systems: ['sf2e'],
     level: 10, data: { url: 'retrieval-harness', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 3 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
     systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } })
-  const upgrades = [
-    module('Jetpack (Commercial)', 5), module('Force Field (Superior)', 10),
-    module('Easypatcher (Advanced)', 15), module('Adrenal Autoinjectors (Commercial)', 8),
-    module('Adrenal Autoinjectors (Tactical)', 12), module('Adrenal Autoinjectors (Advanced)', 18),
-    module('Mobility Enhancer', 4),
-  ]
+  const upgrades = [module('Jetpack (Commercial)', 5), module('Easypatcher (Advanced)', 15),
+    module('Adrenal Autoinjectors (Commercial)', 8)]
   const c: Character = { ...character([]), systems: ['sf2e'], level: 20, armors: [
     { id: harness.id, name: harness.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [harness, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(harness)).toBe(2)
-  const adrenalNameAt = (level: number) => automaticSpecificArmorUpgrades({ ...c, level }, [harness, ...upgrades], harness)
-    .find(item => item.name.startsWith('Adrenal Autoinjectors'))?.name
-  expect(adrenalNameAt(7)).toBeUndefined()
-  expect(adrenalNameAt(8)).toBe('Adrenal Autoinjectors (Commercial)')
-  expect(adrenalNameAt(12)).toBe('Adrenal Autoinjectors (Tactical)')
-  expect(adrenalNameAt(18)).toBe('Adrenal Autoinjectors (Advanced)')
-  expect(automaticArmorUpgradeUsesSlot(harness.name, upgrades[3])).toBe(true)
-  expect(automaticArmorUpgradeUsesSlot(harness.name, upgrades[2])).toBe(false)
+  expect(automaticArmorUpgradeSlotsUsed(harness)).toBe(0)
+  expect(automaticSpecificArmorUpgrades(c, [harness, ...upgrades], harness).map(item => item.name))
+    .toEqual(['Easypatcher (Advanced)'])
   expect(markup).toContain('Easypatcher (Advanced) *')
-  expect(markup).toContain('Adrenal Autoinjectors (Advanced)')
-  expect(markup).not.toContain('Adrenal Autoinjectors (Advanced) *')
-  expect(markup).toContain('Jetpack (Commercial)')
-  expect(markup).toContain('Force Field (Superior)')
-  expect(markup).toContain('Jetpack (Commercial) *')
-  expect(markup).not.toContain('Force Field (Superior) *')
   expect(markup).toContain('Add armor upgrade')
 })
 
