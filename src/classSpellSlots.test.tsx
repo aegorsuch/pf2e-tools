@@ -273,6 +273,22 @@ it('renders automatically computed slots without manual slot controls or saved s
   expect(html).not.toContain('type="number"')
 })
 
+it('shows remaining spell slots and combines slot increase sources under one note', () => {
+  const c: Character = { ...base, level: 2, feats: [
+    { name: 'Cantrip Expansion', type: 'Class Feat', level: 2 },
+    { name: 'Familiar', type: 'Class Feat', level: 1 },
+  ], familiar: { abilities: ['Cantrip Connection'] },
+    spellcasting: { ability: 'cha', tradition: 'Occult', rank: 1, slots: {}, spentSlots: ['1:0'] } }
+  const cantripConnection: ContentEntry = { ...baseEntry('Cantrip Connection'), kind: 'familiar',
+    data: { ability_type: 'Master' }, description: 'You must be able to prepare cantrips or add them to your repertoire.' }
+  const entries = [{ ...baseEntry('Bard'), data: { tradition: 'Occult' } }, cantripConnection]
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  expect(html).toContain('Cantrips (Heightened Level 1) (8/8)')
+  expect(html).toContain('Spell Rank 1 (2/3 slots)')
+  expect(html).toContain('title="+2 Cantrip Expansion; +1 Cantrip Connection (Cantrip slots)"')
+  expect(html).toContain('aria-label="Cantrip slots note"')
+})
+
 it('adds the selected Technomancer programming language spell cache automatically', () => {
   const c: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 3,
     technomancerProgrammingLanguage: 'DPS++' }

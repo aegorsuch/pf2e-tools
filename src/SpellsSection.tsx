@@ -38,6 +38,52 @@ import { TECHNOMANCER_LANGUAGE_RULES } from './technomancer'
 const RANK_NAMES = ['Untrained', 'Trained', 'Expert', 'Master', 'Legendary']
 const AUTOMATED_SPELL_EFFECTS = ['Athletic Rush', 'Bless', 'Cairn Form', 'Eat Fire', 'Enduring Might', 'Fly', 'Gravity Weapon', 'Imitate Fauna', 'Keen Smell', 'Magic Hide', 'Mountain Resilience', 'Mystic Armor', 'Oaken Resilience', 'Stormwind Flight', 'Summon Celestial', 'Tailwind']
 const STATUS_TRACKED_SPELL_EFFECTS = [...AUTOMATED_SPELL_EFFECTS, 'Animal Feature', 'Canopy Crawler', 'Heroism', 'Marvelous Mount', 'Speak with Plants', 'Warning Stripes']
+const SLOT_INCREASE_FEATS = ['Cantrip Expansion', 'Arcane Breadth', 'Divine Breadth', 'Perfect Encore', 'Deep Lore',
+  'Faceless Trickster', "Archwizard's Might", 'Bloodline Perfection', 'Maker of Miracles', 'Mind over Matter',
+  'Mortem Ultimatum', 'Oracular Providence', 'Patron\'s Truth', 'Quantum Research', "Hierophant's Power"]
+
+function spellSlotCounts(c: Character, entries: ContentEntry[]) {
+  const automatic = classSpellSlots(c)
+  const slots = classRepertoireRows(c) ?? automatic ?? c.spellcasting?.slots ?? {}
+  const benefits = familiarSpellBenefits(c, entries, automatic ?? slots)
+  const counts: Record<number, number> = {}
+  for (let rank = 0; rank <= 10; rank++)
+    counts[rank] = Math.max(0, Math.min(20, Math.trunc(Number(slots[rank]) || 0)))
+      + Number(rank === 0 && benefits.cantrip) + Number(rank === benefits.batteryRank)
+  return counts
+}
+
+function spellSlotIncreaseNotes(c: Character, entries: ContentEntry[]) {
+  const extras = classExtraSlots(c, entries)
+  const featSources = new Set([...SLOT_INCREASE_FEATS,
+    ...extras.filter(extra => c.feats.some(feat => feat.name === extra.source)).map(extra => extra.source)])
+  const current = spellSlotCounts(c, entries)
+  const notes = new Map<number, string[]>()
+  const add = (rank: number, note: string) => notes.set(rank, [...notes.get(rank) ?? [], note])
+  for (const source of featSources) {
+    if (!c.feats.some(feat => feat.name === source)) continue
+    const withoutSource = { ...c, feats: c.feats.filter(feat => feat.name !== source) }
+    const baseline = spellSlotCounts(withoutSource, entries)
+    for (let rank = 0; rank <= 10; rank++) {
+      const increase = current[rank] - baseline[rank]
+      if (increase > 0) add(rank, `+${increase} ${source}`)
+    }
+  }
+  const automatic = classSpellSlots(c)
+  const slots = classRepertoireRows(c) ?? automatic ?? c.spellcasting?.slots ?? {}
+  const benefits = familiarSpellBenefits(c, entries, automatic ?? slots)
+  if (benefits.cantrip) add(0, '+1 Cantrip Connection')
+  if (benefits.batteryRank !== undefined) add(benefits.batteryRank, '+1 Spell Battery')
+  const extraSources = new Map<string, Map<number, number>>()
+  for (const extra of extras.filter(extra => extra.source === 'Divine Font' || /curriculum/i.test(extra.source))) {
+    const ranks = extraSources.get(extra.source) ?? new Map<number, number>()
+    ranks.set(extra.rank, (ranks.get(extra.rank) ?? 0) + 1)
+    extraSources.set(extra.source, ranks)
+  }
+  for (const [source, ranks] of extraSources)
+    for (const [rank, count] of ranks) add(rank, `+${count} ${source}`)
+  return notes
+}
 
 function PharasmaSpellBonus({ c, entry, name, rank }: { c: Character; entry?: ContentEntry; name: string; rank: number }) {
   if (!hasDivineIntercession(c, 'Pharasma', 'moderate-boon') || rank < 1) return null
@@ -1279,6 +1325,7 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
   const paradox = witchwarperParadox(c)
   const casting = classSpellcasting(c, entries)
   const baseSlots = classSpellSlots(c)
+  const slotIncreaseNotesByRank = useMemo(() => spellSlotIncreaseNotes(c, entries), [c, entries])
   if (!paradox || !casting?.ability || !baseSlots) return null
   const castingModifier = abilityMod(c.abilities[casting.ability])
   const benefits = familiarSpellBenefits(c, entries, baseSlots)
@@ -1303,11 +1350,18 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
         onClick={() => setSc({ spentSlots: [] })}>Reset slots</button>}
     </div>
     {[...new Set(known.map(slot => slot.rank))].map(rank => {
-      const available = Array.from({ length: slots[rank] ?? 0 }, (_, index) => `${rank}:${index}`)
+      const count = (slots[rank] ?? 0) + Number(rank === 0 && benefits.cantrip)
+      const slotKeys = Array.from({ length: count }, (_, index) => `${rank}:${index}`)
+      if (rank === 0 && benefits.cantrip) slotKeys.push('familiar-cantrip-connection')
+      const available = slotKeys
         .filter(key => !sc.spentSlots?.includes(key)).length
+      const title = rank === 0 ? `Cantrips (Heightened Level ${Math.ceil(c.level / 2)})`
+        : `Spell Rank ${rank}`
+      const sourceLabel = rank === 0 ? 'Cantrip slots' : `Rank ${rank} slots`
       return <section className="spell-slot-group" key={rank}>
-        <h5>{rank === 0 ? `Cantrips (Heightened Level ${Math.ceil(c.level / 2)})`
-          : `Spell Rank ${rank} (${available}/${slots[rank]} slots)`}</h5>
+        <h5>{title} ({available}/{count}{rank === 0 ? '' : ' slots'})
+          {slotIncreaseNotesByRank.get(rank)?.length
+            && <SourceNote source={sourceLabel} note={slotIncreaseNotesByRank.get(rank)!.join('; ')} />}</h5>
         <SpellColumns />
         <ul>{known.filter(slot => slot.rank === rank).map((slot, index) => ({ slot, index }))
           .sort((a, b) => compareSelectedSpells(a.slot.entry?.name ?? a.slot.granted ?? a.slot.value,
@@ -2244,6 +2298,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     count: Math.max(0, Math.min(20, Math.trunc(Number(sc?.slots[rank]) || 0)))
       + Number(rank === 0 && benefits.cantrip) + Number(rank === benefits.batteryRank),
   })).filter(item => item.count > 0)
+  const slotIncreaseNotesByRank = useMemo(() => spellSlotIncreaseNotes(c, entries), [c, entries])
   const allFocus = [...otherFocus.map(spell => ({ name: spell.name, entryId: undefined, index: -1 })),
     ...listedSpells.filter(spell => spell.group === 'Focus Spells')].sort((a, b) => a.name.localeCompare(b.name))
   const categories = ([['class', 'Class Spells'], ['focus', 'Focus Spells'], ['innate', 'Innate Spells'], ['feat', 'Feat Spells'],
@@ -2500,8 +2555,23 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           const title = cantrip ? `Cantrips (Heightened Level ${Math.ceil(c.level / 2)})` : `Spell Rank ${rank}`
           const { options, choices } = preparedOptions[rank]
           const extras = extraSlots.filter(slot => slot.rank === rank)
+          const normalCount = Math.max(0, Math.min(20, Math.trunc(Number(sc.slots[rank]) || 0)))
+            - extras.length
+          const slotKeyForIndex = (index: number) => {
+            const extra = extras[index - (count - extras.length)]
+            const slotKey = extra?.key ?? (index === normalCount && cantrip && benefits.cantrip
+              ? 'familiar-cantrip-connection' : index === normalCount && rank === benefits.batteryRank
+                ? `familiar-spell-battery:${rank}` : `${rank}:${index}`)
+            return { extra, slotKey }
+          }
+          const available = Array.from({ length: count }, (_, index) => slotKeyForIndex(index).slotKey)
+            .filter(key => !sc.spentSlots?.includes(key)).length
+          const increaseNotes = slotIncreaseNotesByRank.get(rank)
+          const sourceLabel = cantrip ? 'Cantrip slots' : `Rank ${rank} slots`
           return <section className="spell-slot-group" key={rank}>
-            <h5>{title}{necromancer && <> <DirgeRankButton rank={rank} onOpen={openDirge} /></>}
+            <h5>{title} ({available}/{count}{cantrip ? '' : ' slots'})
+              {increaseNotes?.length && <SourceNote source={sourceLabel} note={increaseNotes.join('; ')} />}
+              {necromancer && <> <DirgeRankButton rank={rank} onOpen={openDirge} /></>}
               {(wizard || wizardSpellbookSlots.some(slot => slot.rank === rank)) && <>
                 <SpellbookRankButton book="Wizard" rank={rank}
                   onOpen={wizardSpellbookSlots.length > 0 && !wizard ? openWizardBookRank : rank => openSpellbook('Wizard', rank)} />
@@ -2511,12 +2581,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               {witch && <> <SpellbookRankButton book="Witch" rank={rank} onOpen={rank => openSpellbook('Witch', rank)} /></>}</h5>
             <SpellColumns />
             <ul>{Array.from({ length: count }, (_, index) => {
-              const extra = extras[index - (count - extras.length)]
-              const normalCount = Math.max(0, Math.min(20, Math.trunc(Number(sc.slots[rank]) || 0)))
-                - extras.length
-              const slotKey = extra?.key ?? (index === normalCount && cantrip && benefits.cantrip
-                ? 'familiar-cantrip-connection' : index === normalCount && rank === benefits.batteryRank
-                  ? `familiar-spell-battery:${rank}` : `${rank}:${index}`)
+              const { extra, slotKey } = slotKeyForIndex(index)
               const selectedValue = extra?.spell ? spellIndex.byName.get(extra.spell)?.id ?? extra.spell
                 : sc.prepared?.[slotKey] ?? ''
               const selectedSpell = (c.spells ?? []).find(spell => (spell.entryId ?? spell.name) === selectedValue)
