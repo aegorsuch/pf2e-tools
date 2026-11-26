@@ -577,6 +577,22 @@ it('shows Hellknight Preferment at the Intimidation total instead of a separate 
   expect(notWorn).not.toContain('aria-label="Hellknight Preferment note"')
 })
 
+it('adds Holo-Roger circumstance bonus to Intimidation while active', () => {
+  const c: Character = { ...base, systems: ['sf2e'], level: 7, skillPicks: ['Intimidation'],
+    feats: [{ name: 'Space Pirate Dedication', type: 'Class Feat', level: 2 }] }
+  const render = (character: Character) => renderToStaticMarkup(
+    <SkillsSection c={character} entries={[]} save={() => {}} part="skills" />)
+  const total = (markup: string) => {
+    const row = markup.split('class="skill-name">Intimidation')[1]
+    return Number(/aria-label="Intimidation ([+-]?\d+): show breakdown"/.exec(row)?.[1])
+  }
+  const inactive = render(c)
+  const active = render({ ...c, holoRogerActive: true })
+  expect(total(active)).toBe(total(inactive) + 1)
+  expect(active).toContain('aria-label="Holo-Roger note"')
+  expect(inactive).not.toContain('Holo-Roger note')
+})
+
 it('summarizes used/total skill allocations, including exchanged tokens and temporary Skill Download', () => {
   const klass = { ...ranger, data: { ...ranger.data,
     skill_proficiency: 'Trained in Nature, Trained in a number of additional skills equal to 5 plus your Intelligence modifier' } }

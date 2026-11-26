@@ -44,7 +44,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     systems: ['sf2e' as const], data: { item_subcategory: 'Weapon Upgrades' } }))
   const sfWeapon = (name: string): ContentEntry => ({ ...weapon, id: name, name, systems: ['sf2e'],
     traits: ['Tech'], data: { weapon_category: 'Martial', damage: '1d6 F', hands: 1, upgrade_slots: 4 } })
-  const weapons = ['SLARP Rapid Laser Pistol', 'Shuriken Drone', 'Singing Spear', 'Shock Pad', 'Rotolaser',
+  const weapons = ['SLARP Rapid Laser Pistol', 'Shuriken Drone', 'Singing Spear', 'Crimson Claw', 'Shock Pad', 'Rotolaser',
     'Pulse Gauntlet', 'Other']
     .map(sfWeapon)
   const entries = [...weapons, ...upgrades]
@@ -60,6 +60,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
       .toEqual(['Flaming Module (Tactical)', "Smuggler's Grip (Tactical)"])
     expect(at('Shuriken Drone', 3)).toEqual(['Retrieval Boosters'])
     expect(at('Singing Spear', 15)).toEqual(['Retrieval Boosters', 'Loudener (Tactical)'])
+    expect(at('Crimson Claw', 8)).toEqual(['Flaming Module (Commercial)'])
     expect(at('Shock Pad', 8)).toEqual(['Shock Module (Commercial)'])
     expect(at('Shock Pad', 15)).toEqual(['Shock Module (Tactical)'])
     expect(at('Rotolaser', 8)).toEqual(['Flaming Module (Commercial)'])
@@ -2774,9 +2775,27 @@ it('alphabetizes saved and automatic weapon upgrades together without changing r
   expect(html.indexOf('Flaming Module')).toBeLessThan(html.indexOf('Loudener'))
   expect(html.indexOf('Loudener')).toBeLessThan(html.indexOf('Smuggler&#x27;s Grip'))
   expect(html).not.toContain('Remove Flaming Module upgrade')
+  const available = renderToStaticMarkup(WeaponUpgrades({ entries: [grip, flaming, loudener], weapon, upgrades: [],
+    limit: 3, onChange }))
+  expect(available.indexOf('Flaming Module (Level')).toBeLessThan(available.indexOf('Loudener (Level'))
+  expect(available.indexOf('Loudener (Level')).toBeLessThan(available.indexOf('Smuggler&#x27;s Grip (Level'))
   const tag = findElement(content, element => element.props.name === 'Loudener')!
   ;(tag.props.onRemove as () => void)()
   expect(onChange).toHaveBeenCalledWith([grip.id])
+
+  const sfWeapon: ContentEntry = { ...weapon, id: 'sf-weapon', name: 'Starfinder Test Weapon', systems: ['sf2e'],
+    traits: ['Tech'], data: { weapon_type: 'Melee', damage: '1d6 S', upgrade_slots: 3 } }
+  const characterWithWeapon: Character = { ...character([]), systems: ['sf2e'], weapons: [
+    { id: sfWeapon.id, name: sfWeapon.name, potency: 0, striking: 0, runes: [],
+      upgrades: [grip.id, loudener.id, flaming.id] },
+  ] }
+  const weaponMarkup = renderToStaticMarkup(<WeaponList c={characterWithWeapon}
+    entries={[sfWeapon, grip, flaming, loudener]} save={() => {}} displayOnly />)
+  const installedList = weaponMarkup.split('<div class="gear-runes">').find(group =>
+    group.includes('Flaming Module') && group.includes('Loudener') && group.includes('Smuggler&#x27;s Grip'))
+  expect(installedList).toBeDefined()
+  expect(installedList!.indexOf('Flaming Module')).toBeLessThan(installedList!.indexOf('Loudener'))
+  expect(installedList!.indexOf('Loudener')).toBeLessThan(installedList!.indexOf('Smuggler&#x27;s Grip'))
 })
 
 it('offers grapple and shove modules for melee weapons and hardlight handwraps, but not ranged weapons', () => {

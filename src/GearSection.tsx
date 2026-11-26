@@ -152,7 +152,7 @@ function WeaponAttackBonuses({ attack, label }: { attack: ReturnType<typeof weap
 
 function AttackUpgrades({ attack }: { attack: ReturnType<typeof weaponAttack> }) {
   if (!attack.upgrades.length) return null
-  return <div className="gear-runes">{attack.upgrades.map(upgrade =>
+  return <div className="gear-runes">{[...attack.upgrades].sort((a, b) => a.name.localeCompare(b.name)).map(upgrade =>
     <EntryDescription key={upgrade.id} name={upgrade.name} entry={upgrade} />)}</div>
 }
 
@@ -478,9 +478,10 @@ function GearTag({ name, entry, onRemove, source = 'Granted by Living Weapon', k
   )
 }
 
-export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, effectiveUpgrades }: {
+export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, effectiveUpgrades, raptorialEdgeUpgrade }: {
   entries: ContentEntry[]; weapon: ContentEntry; upgrades: string[]; limit: number | undefined; onChange: (ids: string[]) => void
   effectiveUpgrades?: ContentEntry[]
+  raptorialEdgeUpgrade?: { checked: boolean; disabled: boolean; onChange: (checked: boolean) => void }
 }) {
   const catalog = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
     && entry.data.item_subcategory === 'Weapon Upgrades')
@@ -488,13 +489,14 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, eff
   const sameUpgrade = (a: ContentEntry, b: ContentEntry) => a.id === b.id || !!a.data.url && a.data.url === b.data.url
     || a.name.replace(/\s*\([^)]*\)$/, '') === b.name.replace(/\s*\([^)]*\)$/, '')
   const granted = effectiveUpgrades?.filter(item => !installed.some(saved => saved && sameUpgrade(item, saved))) ?? []
-  const displayed = [
+  const displayed: Array<{ key: string; name: string; entry?: ContentEntry; index?: number; raptorialEdge?: boolean }> = [
     ...upgrades.map((id, index) => {
       const saved = installed[index]
       const entry = effectiveUpgrades?.find(item => saved && sameUpgrade(item, saved)) ?? saved
       return { key: `${id}:${index}`, name: entry?.name ?? id, entry, index }
     }),
     ...granted.map(entry => ({ key: `granted:${entry.id}`, name: entry.name, entry, index: undefined })),
+    ...(raptorialEdgeUpgrade ? [{ key: 'improved-raptorial-edge', name: 'Improved Raptorial Edge', raptorialEdge: true }] : []),
   ].sort((a, b) => a.name.localeCompare(b.name))
   const usage = (entry: ContentEntry) => String(entry.data.usage ?? '').toLowerCase().replace(/\s+/g, ' ')
   const traits = weapon.traits.map(trait => trait.toLowerCase())
@@ -523,9 +525,13 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, eff
     return true
   }).sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
   return <div className="gear-runes">
-    {displayed.map(({ key, name, entry, index }) => <GearTag key={key} name={name} entry={entry}
-      kind="upgrade" source="Automatic weapon upgrade"
-      onRemove={index === undefined ? undefined : () => onChange(upgrades.filter((_, i) => i !== index))} />)}
+    {displayed.map(({ key, name, entry, index, raptorialEdge }) => raptorialEdge && raptorialEdgeUpgrade
+      ? <label className="rune" key={key}><input type="checkbox" aria-label="Improved Raptorial Edge upgrade"
+        checked={raptorialEdgeUpgrade.checked} disabled={raptorialEdgeUpgrade.disabled}
+        onChange={event => raptorialEdgeUpgrade.onChange(event.target.checked)} /> {name}</label>
+      : <GearTag key={key} name={name} entry={entry}
+        kind="upgrade" source="Automatic weapon upgrade"
+        onRemove={index === undefined ? undefined : () => onChange(upgrades.filter((_, i) => i !== index))} />)}
     {installed.some(item => !item) && <small role="status">Saved upgrade unavailable. Sync official content to restore its effects.</small>}
     {limit === undefined && <small role="status">Weapon upgrade slots unavailable. Sync official content.</small>}
     {limit !== undefined && upgrades.length + granted.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
@@ -1556,12 +1562,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                   </option>)}
                 </select>
               </label>)}
-            {!!a.entry?.data.raptorial_edge && <label>
-              <input type="checkbox" aria-label="Improved Raptorial Edge upgrade"
-                checked={raptorialEdgeImproved(c, w)}
-                disabled={getSettings().automaticSfWeaponUpgrades && c.level >= 15}
-                onChange={event => update(w.id, { raptorialImproved: event.target.checked })} /> Improved acid upgrade (60,000 credits)
-            </label>}
             {!fixedEquipped && <label title={legacyPouchWeapon
               ? 'Retrieve this weapon from your cheek pouch first.' : cannotEquip
               ? hands === undefined || unknownHands ? 'Weapon hands unavailable; sync weapon content or unequip the unknown weapon.' : undefined
@@ -1799,6 +1799,11 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               <WeaponUpgrades entries={entries} weapon={a.entry} upgrades={w.upgrades ?? []}
                 effectiveUpgrades={a.upgrades}
                 limit={typeof a.entry.data.upgrade_slots === 'number' ? Math.max(0, a.entry.data.upgrade_slots - (a.entry.data.raptorial_edge ? 1 : 0)) : undefined}
+                raptorialEdgeUpgrade={a.entry.data.raptorial_edge ? {
+                  checked: raptorialEdgeImproved(c, w),
+                  disabled: getSettings().automaticSfWeaponUpgrades && c.level >= 15,
+                  onChange: improved => update(w.id, { raptorialImproved: improved }),
+                } : undefined}
                 onChange={upgrades => update(w.id, { upgrades })} />
             </>}
             {!fixed && !upgradeWeapon && !(unarmed && handwraps?.kind === 'hardlight' && !iruxiGranted) && <Runes runes={livingWeapon ? shared.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(shared.potency))

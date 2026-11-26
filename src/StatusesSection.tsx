@@ -259,32 +259,47 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       ? { ...current, ...patch } : current) })
   }
   const jetpackControl = armorDevices.jetpack && armorDevices.jetpackId
-    ? { name: 'Jetpack', element: <button type="button"
-      className={`spell-action-button status-action-button${armorDevices.jetpackActive ? ' on' : ''}`}
-      aria-label={`${armorDevices.jetpackActive ? 'Dismiss' : 'Activate'} ${armorDevices.jetpack.name}`}
-      aria-pressed={armorDevices.jetpackActive}
-      title={`${armorDevices.jetpackActive ? 'Deactivate' : 'Activate'} jetpack (1 minute)`}
-      onClick={() => updateArmorDevice({ activeJetpack: armorDevices.jetpackActive ? undefined : armorDevices.jetpackId })}>
-      {armorDevices.jetpackActive && <span aria-hidden="true">✓</span>}
-      <ActionIcon actions="Single Action" /> {armorDevices.jetpack.name}
-    </button> }
+    ? { name: 'Jetpack', element: <div className="status-device-control">
+      <button type="button"
+        className={`spell-action-button status-action-button${armorDevices.jetpackActive ? ' on' : ''}`}
+        aria-label={`${armorDevices.jetpackActive ? 'Dismiss' : 'Activate'} ${armorDevices.jetpack.name}`}
+        aria-pressed={armorDevices.jetpackActive}
+        title={`${armorDevices.jetpackActive ? 'Deactivate' : 'Activate'} jetpack (1 minute)`}
+        onClick={() => updateArmorDevice({ activeJetpack: armorDevices.jetpackActive ? undefined : armorDevices.jetpackId })}>
+        {armorDevices.jetpackActive && <span aria-hidden="true">✓</span>}
+        {armorDevices.jetpack.name}
+      </button>
+      <ActiveSpellActions name={armorDevices.jetpack.name} entry={armorDevices.jetpack} actions="Single Action">
+        <label><input type="checkbox" aria-label="Jetpack active in options" checked={armorDevices.jetpackActive}
+          onChange={event => updateArmorDevice({ activeJetpack: event.target.checked ? armorDevices.jetpackId : undefined })} /> Active</label>
+      </ActiveSpellActions>
+    </div> }
     : undefined
   const forceFieldAlwaysOn = forceFieldAlwaysActive(armorDevices.forceField)
   const forceFieldControl = armorDevices.forceField && armorDevices.forceFieldStats
-    ? { name: 'Force Field', element: forceFieldAlwaysOn
-      ? <span className="spell-action-button status-action-button on" role="status"
-        aria-label={`${armorDevices.forceField.name} always active`}>
-        <span aria-hidden="true">✓</span> {armorDevices.forceField.name} (+{armorDevices.forceFieldStats.hitPoints} HP)
-      </span>
-      : <button type="button"
-        className={`spell-action-button status-action-button${armorDevices.forceFieldActive ? ' on' : ''}`}
-        aria-label={`${armorDevices.forceFieldActive ? 'Dismiss' : 'Activate'} ${armorDevices.forceField.name}`}
-        aria-pressed={armorDevices.forceFieldActive}
-        title={`${armorDevices.forceFieldActive ? 'Deactivate' : 'Activate'} Force Field; ${armorDevices.forceFieldStats.hitPoints} HP, replenishes ${armorDevices.forceFieldStats.regeneration} HP at the start of your turn`}
-        onClick={() => updateArmorDevice({ activeForceField: !armorDevices.forceFieldActive })}>
-        {armorDevices.forceFieldActive && <span aria-hidden="true">✓</span>}
-        <ActionIcon actions="Single Action" /> {armorDevices.forceField.name} (+{armorDevices.forceFieldStats.hitPoints} HP)
-      </button> }
+    ? { name: 'Force Field', element: <div className="status-device-control">
+      {forceFieldAlwaysOn
+        ? <span className="spell-action-button status-action-button on" role="status"
+          aria-label={`${armorDevices.forceField.name} always active`}>
+          <span aria-hidden="true">✓</span> {armorDevices.forceField.name} (+{armorDevices.forceFieldStats.hitPoints} HP)
+        </span>
+        : <button type="button"
+          className={`spell-action-button status-action-button${armorDevices.forceFieldActive ? ' on' : ''}`}
+          aria-label={`${armorDevices.forceFieldActive ? 'Dismiss' : 'Activate'} ${armorDevices.forceField.name}`}
+          aria-pressed={armorDevices.forceFieldActive}
+          title={`${armorDevices.forceFieldActive ? 'Deactivate' : 'Activate'} Force Field; ${armorDevices.forceFieldStats.hitPoints} HP, replenishes ${armorDevices.forceFieldStats.regeneration} HP at the start of your turn`}
+          onClick={() => updateArmorDevice({ activeForceField: !armorDevices.forceFieldActive })}>
+          {armorDevices.forceFieldActive && <span aria-hidden="true">✓</span>}
+          {armorDevices.forceField.name} (+{armorDevices.forceFieldStats.hitPoints} HP)
+        </button>}
+      <ActiveSpellActions name={armorDevices.forceField.name} entry={armorDevices.forceField}
+        actions={forceFieldAlwaysOn ? '' : 'Single Action'}>
+        {forceFieldAlwaysOn
+          ? <p>Always active while installed in worn armor.</p>
+          : <label><input type="checkbox" aria-label="Force Field active in options" checked={armorDevices.forceFieldActive}
+            onChange={event => updateArmorDevice({ activeForceField: event.target.checked })} /> Active</label>}
+      </ActiveSpellActions>
+    </div> }
     : undefined
   const companionStatuses = (c.companions ?? []).map((companion, index) => {
     const advancement = companion.type === CONSTRUCT_COMPANION_NAME

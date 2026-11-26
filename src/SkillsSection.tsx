@@ -493,9 +493,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
       ? { source: 'Drone Assistant', value: 1 } : undefined
     const preferment = s.name === 'Intimidation' && activeFeatsNamed(c, 'Hellknight Preferment').length && hellknightArmorWorn(c, entries)
       ? { source: 'Hellknight Preferment', value: 1 } : undefined
+    const holoRoger = s.name === 'Intimidation' && c.systems.includes('sf2e')
+      && !!activeFeatsNamed(c, 'Space Pirate Dedication').length && c.holoRogerActive
+      ? { source: 'Holo-Roger', value: 1 } : undefined
     const circumstance = s.kind === 'perception' ? perceptionCircumstance(c)
       : s.kind === 'save' ? undefined
-        : [armorSkill, assistant, preferment].filter((bonus): bonus is { source: string; value: number } => !!bonus)
+        : [armorSkill, assistant, preferment, holoRoger].filter((bonus): bonus is { source: string; value: number } => !!bonus)
           .sort((a, b) => b.value - a.value)[0]
     const clumsyPenalty = ability === 'dex' ? clumsy : 0
     const statusPenalty = Math.max(conditionPenalty(c, ability), clumsyPenalty)
@@ -623,9 +626,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Rider" note={`${conditionalTotal(1)} to Command an Animal checks for your own animal companion, if a check is required.`} />}
           {CONDITIONAL_BONUSES.filter(b => b.stats.includes(s.name) && activeFeatsNamed(c, b.feat).length > 0).map(b => <SourceNote key={b.feat} inlineSource={false}
             source={b.feat} note={`${b.type === 'status' ? signed(total + b.bonus) : conditionalTotal(b.bonus)} ${b.text} (+${b.bonus} ${b.type}).`} />)}
-          {s.name === 'Intimidation' && c.systems.includes('sf2e') && !!activeFeatsNamed(c, 'Space Pirate Dedication').length
-            && c.holoRogerActive && <SourceNote source="Holo-Roger"
-              note={`${conditionalTotal(1)} to Demoralize while the holo-flag is projected on a starship (+1 circumstance).`} />}
+          {holoRoger && <SourceNote source="Holo-Roger"
+            note={`${conditionalTotal(1)} to Intimidation checks (+1 circumstance; circumstance bonuses do not stack).`} />}
           {s.name === 'Diplomacy' && !!activeFeatsNamed(c, 'Extended Family').length && <SourceNote inlineSource={false}
             source="Extended Family" note={`${conditionalTotal(1)} to Make an Impression or Request against ysoki (+1 circumstance).`} />}
           {s.name === 'Diplomacy' && hasDivineIntercession(c, 'Sarenrae', 'major-boon') && <SourceNote inlineSource={false}

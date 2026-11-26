@@ -865,6 +865,7 @@ it('activates armor Jetpack and treats Paragon Force Field as always active', ()
     feet: 40, source: 'Jetpack (Tactical)',
   })
   expect(renderToStaticMarkup(StatusesContent({ c, entries, save }))).toContain('aria-label="Dismiss Jetpack (Tactical)"')
+  expect(renderToStaticMarkup(StatusesContent({ c, entries, save }))).toContain('aria-label="Jetpack (Tactical) options"')
 
   expect(findButton(StatusesContent({ c, entries, save }), 'Activate Force Field (Paragon)')).toBeUndefined()
   expect(temporaryHpGrant(c, entries)?.value).toBe(42)
@@ -872,8 +873,10 @@ it('activates armor Jetpack and treats Paragon Force Field as always active', ()
   const activeStatuses = renderToStaticMarkup(StatusesContent({ c, entries, save }))
   expect(activeStatuses).toContain('aria-label="Force Field (Paragon) always active"')
   expect(activeStatuses).toContain('<span aria-hidden="true">✓</span>')
+  expect(activeStatuses).toContain('aria-label="Force Field (Paragon) options"')
 
   const lowerGradeEntries = [jacket, module('Force Field (Superior)', 10)]
   expect(findButton(StatusesContent({ c, entries: lowerGradeEntries, save }), 'Activate Force Field (Superior)')).toBeTypeOf('function')
+  expect(renderToStaticMarkup(StatusesContent({ c, entries: lowerGradeEntries, save }))).toContain('aria-label="Force Field (Superior) options"')
   expect(temporaryHpGrant(c, lowerGradeEntries)).toBeUndefined()
 })

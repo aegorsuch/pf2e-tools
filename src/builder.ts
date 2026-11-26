@@ -8283,6 +8283,7 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
   const upgrades = entry.data.special_weapon_source === 'SLARP' || name === 'SLARP Rapid Laser Pistol' ? ["Smuggler's Grip", 'Flaming Module']
     : name === 'Shuriken Drone' ? ['Retrieval Boosters']
     : name === 'Singing Spear' ? ['Retrieval Boosters', 'Loudener']
+    : name === 'Crimson Claw' ? ['Flaming Module']
     : name === 'Shock Pad' ? ['Shock Module']
     : name === 'Rotolaser' ? ['Flaming Module']
     : name === 'Pulse Gauntlet' ? ['Loudener'] : []

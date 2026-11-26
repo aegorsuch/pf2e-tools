@@ -108,12 +108,17 @@ it('preserves Raptorial Edge modes, acid damage and permanently occupied upgrade
   expect(sfSpecificWeapons(noModes).find(item => item.name === 'Raptorial Edge')?.weaponModes?.[1].damageType).toBe('mental')
   const improved = weaponAttack(character, entries, { ...blade, raptorialImproved: true })
   expect(improved.additionalDamage).toContainEqual(expect.objectContaining({ note: expect.stringContaining('2d10 persistent acid') }))
-  const upgrade: ContentEntry = { ...weapon('Extra', 'Advanced', 4, 1), id: 'upgrade', kind: 'item',
+  const upgrade: ContentEntry = { ...weapon('Flaming Module (Commercial)', 'Advanced', 4, 1), id: 'upgrade', kind: 'item',
     data: { item_subcategory: 'Weapon Upgrades' } }
-  const html = renderToStaticMarkup(<WeaponList c={{ ...character, weapons: [{ ...blade, upgrades: ['upgrade'] }] }}
+  const html = renderToStaticMarkup(<WeaponList c={{ ...character, weapons: [{ ...blade, upgrades: ['upgrade'], raptorialImproved: true }] }}
     entries={[...entries, upgrade]} save={() => {}} />)
   expect(html).not.toContain('aria-label="Add weapon upgrade"')
-  expect(html).toContain('Improved acid upgrade')
+  expect(html).toContain('aria-label="Improved Raptorial Edge upgrade"')
+  expect(html).not.toContain('Improved acid upgrade (60,000 credits)')
+  const upgradeList = html.split('<div class="gear-runes">').find(group =>
+    group.includes('Flaming Module (Commercial)') && group.includes('Improved Raptorial Edge'))
+  expect(upgradeList).toBeDefined()
+  expect(upgradeList!.indexOf('Flaming Module (Commercial)')).toBeLessThan(upgradeList!.indexOf('Improved Raptorial Edge'))
 })
 
 it('displays Raptorial Edge with its phase cutlass type without changing saved identity', () => {
