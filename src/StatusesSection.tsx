@@ -54,8 +54,12 @@ const PARRY: ContentEntry = {
 }
 
 export function parryTrait(c: SectionProps['c'], entries: SectionProps['entries']) {
-  return entries.find(entry => entry.kind === 'trait' && !entry.deleted && entry.name === 'Parry'
+  const entry = entries.find(entry => entry.kind === 'trait' && !entry.deleted && entry.name === 'Parry'
     && entry.systems.some(system => c.systems.includes(system))) ?? PARRY
+  const bonus = parryValue(c, entries)
+  if (bonus <= 1) return entry
+  const description = entry.description.replace(/\+\d+(?=\s+circumstance bonus to (?:your )?AC\b)/i, `+${bonus}`)
+  return description === entry.description ? entry : { ...entry, description }
 }
 
 const CONDITION_RULES = {

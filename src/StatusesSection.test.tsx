@@ -2,7 +2,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, onTestFinished } from 'vitest'
 import { activeBattleForm, favoredTerrainBenefits, movementSpeeds, protectCompanionApplies, protectCompanionTarget, savingThrowBreakdown, temporaryHpGrant } from './builder'
-import { DeviseAStratagemToggle, HuntPreyToggle, StatusesContent, StatusesSummary } from './StatusesSection'
+import { DeviseAStratagemToggle, HuntPreyToggle, StatusesContent, StatusesSummary, parryTrait } from './StatusesSection'
 import { ProtectCompanionOptions, SpiritOfTheBeastOptions, ZealousConvictionToggle } from './SpellsSection'
 import { SearchableSelect } from './SearchableSelect'
 import { fulminatingShotBonus } from './fulminatingShot'
@@ -532,6 +532,28 @@ it('toggles Parry with one control that includes its AC bonus', () => {
   expect(c.parrying).toBe(true)
   const activeMarkup = renderToStaticMarkup(StatusesContent({ c, entries: [weapon], save }))
   expect(activeMarkup).toContain('aria-label="Parry active" checked=""')
+})
+
+it('shows Tactical Protection Grid parry as +2 in its rules description', () => {
+  const weapon: ContentEntry = { id: 'tech-weapon', name: 'Tech Weapon', systems: ['sf2e'], kind: 'weapon',
+    source: 'official', level: 1, traits: ['Tech'], description: '',
+    data: { weapon_category: 'Martial', weapon_type: 'Melee', hands: 1, upgrade_slots: 1 }, effects: [], updatedAt: 0 }
+  const grid: ContentEntry = { id: 'grid', name: 'Protection Grid (Tactical)', systems: ['sf2e'], kind: 'item',
+    source: 'official', level: 17, traits: [], description: 'The weapon gains parry; the circumstance bonus increases to +2.',
+    data: { item_subcategory: 'Weapon Upgrades' }, effects: [], updatedAt: 0 }
+  const c: Character = { id: 'tactical-parry', name: 'Test', systems: ['sf2e'], level: 17,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [], equipment: [],
+    weapons: [{ id: weapon.id, name: weapon.name, potency: 0, striking: 0, runes: [], upgrades: [grid.id] }],
+    lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const entries = [weapon, grid]
+  const parry = parryTrait(c, entries)
+  const markup = renderToStaticMarkup(<StatusesContent c={{ ...c, parrying: true }} entries={entries} save={() => {}} />)
+
+  expect(parry.description).toContain('+2 circumstance bonus to AC')
+  expect(parry.description).not.toContain('+1 circumstance bonus to AC')
+  expect(markup).toContain('+2 circumstance bonus to AC')
+  expect(markup).not.toContain('+1 circumstance bonus to AC')
+  expect(markup).toContain('(+2 AC)')
 })
 
 it('locks Parry on for Whirlwind Stance while wielding a parry staff', () => {
