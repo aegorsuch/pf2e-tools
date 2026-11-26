@@ -80,7 +80,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(at('Shock Pad', 8)).toEqual(['Shock Module (Commercial)'])
     expect(at('Shock Pad', 15)).toEqual(['Shock Module (Tactical)'])
     expect(at('Shock Truncheon', 8)).toEqual(['Shock Module (Commercial)'])
-    expect(at('Plasma Sword', 8)).toEqual(['Flaming Module (Commercial)', 'Shock Module (Commercial)'])
+    expect(at('Plasma Sword', 8)).toEqual(['Flaming Module (Commercial)', 'Shock Module (Commercial)', 'Glarecaster (Commercial)'])
     expect(at('Rotolaser', 8)).toEqual(['Flaming Module (Commercial)'])
     expect(at('Rotolaser', 15)).toEqual(['Flaming Module (Tactical)'])
     expect(at('Pulse Gauntlet', 8)).toEqual(['Loudener (Commercial)'])

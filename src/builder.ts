@@ -8570,7 +8570,7 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     : name === 'Battleglove' ? ['Suppression Matrix']
     : name === 'Crimson Claw' ? ['Flaming Module']
     : name === 'Shock Pad' || name === 'Shock Truncheon' ? ['Shock Module']
-    : name === 'Plasma Sword' || name === 'Plasma Doshko' ? ['Flaming Module', 'Shock Module']
+    : name === 'Plasma Sword' || name === 'Plasma Doshko' ? ['Flaming Module', 'Shock Module', 'Glarecaster']
     : name === 'Rotolaser' ? ['Flaming Module']
     : name === 'Pulse Gauntlet' ? ['Loudener']
     : /^Tail\s*Blade$/i.test(name) ? ['Fear Projector'] : []
