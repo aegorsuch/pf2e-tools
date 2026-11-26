@@ -306,6 +306,19 @@ it('shows selected spell slots and combines slot increase sources under one note
   expect(html).toContain('aria-label="Cantrip slots note"')
 })
 
+it('pads selected spell counts to match the total width', () => {
+  const c: Character = { ...base, className: 'Custom', level: 20,
+    spellcasting: { ability: 'cha', tradition: 'Occult', rank: 1, slots: { 1: 10, 2: 2 },
+      prepared: { '1:0': 'Selected Spell' } } }
+  const entries = [{ ...baseEntry('Custom'), data: { tradition: 'Occult' } }]
+  const render = (character: Character) => renderToStaticMarkup(<SpellsSection c={character} entries={entries} save={() => {}} />)
+  expect(render(c)).toContain('Spell Rank 1 (01/10)')
+  expect(render(c)).toContain('Spell Rank 2 (0/2)')
+  expect(render({ ...c, spellcasting: { ...c.spellcasting!, prepared: {} } })).toContain('Spell Rank 1 (00/10)')
+  const prepared = Object.fromEntries(Array.from({ length: 10 }, (_, index) => [`1:${index}`, 'Selected Spell']))
+  expect(render({ ...c, spellcasting: { ...c.spellcasting!, prepared } })).toContain('Spell Rank 1 (10/10)')
+})
+
 it('adds the selected Technomancer programming language spell cache automatically', () => {
   const c: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 3,
     technomancerProgrammingLanguage: 'DPS++' }

@@ -43,6 +43,8 @@ const SLOT_INCREASE_FEATS = ['Cantrip Expansion', 'Arcane Breadth', 'Divine Brea
   'Mortem Ultimatum', 'Oracular Providence', 'Patron\'s Truth', 'Quantum Research', "Hierophant's Power",
   'Cache Caster', 'Root Access']
 
+const spellSlotCount = (selected: number, total: number) => `${String(selected).padStart(String(total).length, '0')}/${total}`
+
 function spellSlotCounts(c: Character, entries: ContentEntry[]) {
   const automatic = classSpellSlots(c)
   const slots = classRepertoireRows(c) ?? automatic ?? c.spellcasting?.slots ?? {}
@@ -1361,7 +1363,7 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
         : `Spell Rank ${rank}`
       const sourceLabel = rank === 0 ? 'Cantrip slots' : `Rank ${rank} slots`
       return <section className="spell-slot-group" key={rank}>
-        <h5>{title} ({selectedCount}/{count})
+        <h5>{title} ({spellSlotCount(selectedCount, count)})
           {slotIncreaseNotesByRank.get(rank)?.length
             && <SourceNote source={sourceLabel} note={slotIncreaseNotesByRank.get(rank)!.join('; ')} />}</h5>
         <SpellColumns />
@@ -2624,7 +2626,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           const increaseNotes = slotIncreaseNotesByRank.get(rank)
           const sourceLabel = cantrip ? 'Cantrip slots' : `Rank ${rank} slots`
           return <section className="spell-slot-group" key={rank}>
-            <h5>{title} ({selectedCount}/{count})
+            <h5>{title} ({spellSlotCount(selectedCount, count)})
               {increaseNotes?.length && <SourceNote source={sourceLabel} note={increaseNotes.join('; ')} />}
               {necromancer && <> <DirgeRankButton rank={rank} onOpen={openDirge} /></>}
               {(wizard || wizardSpellbookSlots.some(slot => slot.rank === rank)) && <>
