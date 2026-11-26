@@ -1467,6 +1467,21 @@ it('scales Supercharge Weapon extra damage every two ranks', () => {
   expect(spellDamage('Supercharge Weapon', 10)[0]).toMatchObject({ dice: 5 })
 })
 
+it('rolls Supercharge Prism damage and temporary HP at its cast rank', () => {
+  expect(spellDamage('Supercharge Prism', 4)).toEqual([])
+  expect(spellDamage('Supercharge Prism', 5)).toMatchObject([
+    { label: 'Damage', dice: 6, sides: 6, type: 'force' },
+    { label: 'Temporary HP', dice: 6, sides: 6, type: 'temporary HP' },
+  ])
+  expect(spellActionRolls('Supercharge Prism', 9).map(roll => [roll.actions, roll.damage.dice])).toEqual([
+    ['Two Actions', 10], ['Two Actions', 10],
+  ])
+  const markup = renderToStaticMarkup(<SpellActions name="Supercharge Prism" rank={9} />)
+  expect(markup).toContain('aria-label="Roll Supercharge Prism: Damage"')
+  expect(markup).toContain('Two Actions; Damage: 10d6 force')
+  expect(markup).toContain('Temporary HP: 10d6 temporary HP')
+})
+
 it('scales Rocket Dash fire and critical failure persistent damage', () => {
   expect(spellDamage('Rocket Dash', 5)).toEqual([])
   expect(spellDamage('Rocket Dash', 6)[0]).toMatchObject({ dice: 6, sides: 12, additional: { dice: 2, sides: 6 } })

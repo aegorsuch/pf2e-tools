@@ -298,6 +298,13 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
     case 'Supercharge Weapon':
       return rank >= 1 ? [{ label: 'Extra damage', dice: 1 + Math.floor((rank - 1) / 2), sides: 6, type: 'weapon damage type',
         note: 'Added to the next Strike with the chosen weapon' }] : []
+    case 'Supercharge Prism':
+      return rank >= 5 ? [
+        { label: 'Damage', dice: rank + 1, sides: 6, type: 'force',
+          note: 'Critical success: unaffected; success: half damage; failure: full damage; critical failure: double damage' },
+        { label: 'Temporary HP', dice: rank + 1, sides: 6, type: 'temporary HP',
+          note: 'Granted to allies in the area for 1 minute' },
+      ] : []
     case 'Rocket Dash':
       return rank >= 6 ? [{ label: 'Damage', dice: 6 + 2 * Math.floor((rank - 6) / 2), sides: 12, type: 'fire',
         additional: { label: 'Critical failure persistent', dice: 2 + Math.floor((rank - 6) / 2), sides: 6, type: 'persistent fire' } }] : []
@@ -457,6 +464,7 @@ export function WarpWorldRoll({ rank }: { rank: number }) {
 export function spellActionRolls(name: string, rank: number, entry?: ContentEntry, spellcastingModifier?: number) {
   const rolls = spellDamage(name, rank, spellcastingModifier,
     typeof entry?.data.dragon_breath_energy === 'string' ? entry.data.dragon_breath_energy : undefined)
+  if (name === 'Supercharge Prism') return rolls.map(damage => ({ damage, actions: 'Two Actions' }))
   if (name === 'Sun Blade') return rolls.map(damage => ({ damage, actions: 'Two Actions' }))
   if (name === 'Lay on Hands') return rolls.map(damage => ({ damage, actions: 'Single Action' }))
   if (name === "Vindicator's Mark") return rolls.map((damage, index) => ({ damage, actions: index === 0 ? 'Two Actions' : 'One Action' }))

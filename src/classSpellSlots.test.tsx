@@ -319,6 +319,17 @@ it('adds the selected Technomancer programming language spell cache automaticall
   expect(html).toContain('Electrotether')
 })
 
+it('makes the Viper greater hack Supercharge Prism rollable', () => {
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 18,
+    technomancerProgrammingLanguage: 'Viper',
+    feats: [{ name: 'Greater Magic Hack', type: 'Class Feat', level: 18 }] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('Supercharge Prism')
+  expect(html).toContain('aria-label="Roll Supercharge Prism: Damage"')
+  expect(html).toContain('10d6 force')
+  expect(html).toContain('10d6 temporary HP')
+})
+
 it('adds Cache Caster as a highest-rank cache-only slot and Root Access as a tenth-rank slot', () => {
   const language = 'DPS++'
   const cacheNames = TECHNOMANCER_LANGUAGE_RULES[language].spellCache
