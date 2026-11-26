@@ -687,6 +687,8 @@ it.each([
   }
   expect(grantedFeatSpells({ ...c, level: 12 }, [source, spell])).toEqual([])
   expect(grantedFeatSpells({ ...c, systems: ['sf2e'] }, [source, spell])).toEqual([])
+  updateSettings({ innateAutoHeighten: true })
+  expect(grantedFeatSpells(c, [source, spell])[0].rank).toBe(7)
 })
 
 it.each(['Grimspawn', 'Pitborn', 'Hellspawn', 'Faultspawn'])('allows Fiendish Magic with %s prerequisite', lineage => {
