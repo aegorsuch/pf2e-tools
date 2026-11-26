@@ -9505,19 +9505,24 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ].filter(trait => !existingTraits.includes(trait.toLowerCase()))
     if (added.length) entry = { ...entry, traits: [...entry.traits, ...added] }
   }
-  const rocketFistRange = c.systems.includes('sf2e')
-    ? Math.max(0, ...(c.augmentations ?? []).flatMap(item => {
+  const rocketFists = c.systems.includes('sf2e')
+    ? (c.augmentations ?? []).flatMap(item => {
       const match = /^rocket fist(?:\s*\((commercial|tactical|advanced)\))?$/i.exec(item.name.trim())
-      return match ? [match[1]?.toLowerCase() === 'advanced' ? 60 : 30] : []
-    })) : 0
+      return match ? [match[1]?.toLowerCase() ?? 'commercial'] : []
+    }) : []
+  const rocketFistRange = Math.max(0, ...rocketFists.map(grade => grade === 'advanced' ? 60 : 30))
+  const rocketFistFreeRetract = rocketFists.some(grade => grade === 'tactical' || grade === 'advanced')
   if (entry && rocketFistRange && !options.skipRocketFist && !formAttack && !isRanged(entry)
     && (weaponCategory(entry) === 'Unarmed' && /\bfists?$/i.test(entry.name)
       || getSettings().rocketFistHandWeapons && (isFistWeapon(entry, w) || isHandCoverWeapon(entry) || /\bgauntlets?\b/i.test(entry.name)))) {
     const currentRange = num(entry.data.thrown_range)
       || Number(entry.traits.map(trait => /^thrown\s+(\d+)/i.exec(trait.trim())?.[1]).find(Boolean) ?? 0)
     if (currentRange <= rocketFistRange) {
-      entry = { ...entry, traits: [...entry.traits.filter(trait => !/^thrown\b/i.test(trait.trim())),
-        `Thrown ${rocketFistRange} ft.`, ...(options.thrown && !entry.traits.some(trait => /^tethered$/i.test(trait.trim())) ? ['Tethered'] : [])],
+      const traits = entry.traits.filter(trait => !/^thrown\b/i.test(trait.trim())
+        && !(options.thrown && rocketFistFreeRetract && /^tethered(?:\s|$)/i.test(trait.trim())))
+      entry = { ...entry, traits: [...traits, `Thrown ${rocketFistRange} ft.`,
+        ...(options.thrown && !traits.some(trait => /^tethered(?:\s|$)/i.test(trait.trim()))
+          ? [rocketFistFreeRetract ? 'Tethered (Free Action)' : 'Tethered'] : [])],
         data: { ...entry.data, thrown_range: rocketFistRange } }
     }
   }
@@ -9582,7 +9587,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     || !!w.verdantWeapon && activeFeatsNamed(c, 'Tethered Verdant Weapon').length > 0 && canBeVerdantWeapon(c, entries, w)
     || !!w.osteoArmament && activeFeatsNamed(c, 'Tethered Osteo Weapon').length > 0 && canBeOsteoArmament(c, entries, w)
     || hasActiveFeatVariant(c, 'Tethered Favored Weapon') && isFavoredWeapon(c, entries, w.name))
-  if (tethered && entry && !entry.traits.some(trait => /^tethered$/i.test(trait.trim()))) {
+  if (tethered && entry && !entry.traits.some(trait => /^tethered(?:\s|$)/i.test(trait.trim()))) {
     entry = { ...entry, traits: [...entry.traits, 'Tethered'] }
   }
   if (entry && entry.name.toLowerCase().includes('slarp') && entry.data.professional_skills) {

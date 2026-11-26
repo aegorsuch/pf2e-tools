@@ -475,9 +475,9 @@ it('gives Throwing rune a range based on hands without reducing an existing rang
 })
 
 it.each([
-  ['Rocket Fist', 30], ['Rocket Fist (Commercial)', 30],
-  ['Rocket Fist (Tactical)', 30], ['Rocket Fist (Advanced)', 60],
-])('adds Rocket Punch to fists and hand weapons with %s', (name, range) => {
+  ['Rocket Fist', 30, 'Tethered'], ['Rocket Fist (Commercial)', 30, 'Tethered'],
+  ['Rocket Fist (Tactical)', 30, 'Tethered (Free Action)'], ['Rocket Fist (Advanced)', 60, 'Tethered (Free Action)'],
+])('adds Rocket Punch to fists and hand weapons with %s', (name, range, tethered) => {
   const augmentation = { id: 'rocket', entryId: 'rocket', name, slot: 'arm:0' }
   const c: Character = { ...base, systems: ['sf2e'], augmentations: [augmentation] }
   const fist: OwnedWeapon = { id: 'supplemental:fist', name: 'Fist', potency: 0, striking: 0, runes: [] }
@@ -493,11 +493,49 @@ it.each([
     expect(melee.traits.filter(trait => /^thrown\b/i.test(trait))).toEqual([`Thrown ${range} ft.`])
     expect(melee.traits).not.toContain('Tethered')
     expect(thrown).toMatchObject({ range, ability: 'dex' })
-    expect(thrown.traits).toContain('Tethered')
+    expect(thrown.traits).toContain(tethered)
     const markup = renderToStaticMarkup(<WeaponList c={character} entries={[entry]} save={() => {}} displayOnly />)
     expect(markup).toContain(`Ranged (${range} feet): Attack`)
+    expect(markup).toContain(`>${tethered}</button>`)
   }
   expect(weaponAttack(c, [], fist).thrownRange).toBe(range)
+  expect(weaponAttack(c, [], fist, { thrown: true }).traits).toContain(tethered)
+})
+
+it.each([false, true])('shows Rocket Fist tethering only on its ranged attack (offense %s)', displayOnly => {
+  const gauntlet = { ...content('weapon', 'Pulse Gauntlet', {
+    weapon_type: 'Melee', weapon_category: 'Simple', damage: '1d4 bludgeoning', hands: 1,
+  }), systems: ['sf2e' as const] }
+  const tethered = { ...content('trait', 'Tethered', {}, 0), systems: ['sf2e' as const], description: 'Tethered rules.' }
+  const weapon = { ...main, id: gauntlet.id, name: gauntlet.name }
+  const c: Character = { ...base, systems: ['sf2e'], weapons: [weapon],
+    augmentations: [{ id: 'rocket', entryId: 'rocket', name: 'Rocket Fist (Tactical)', slot: 'arm:0' }] }
+  const render = (character: Character) => renderToStaticMarkup(<WeaponList
+    c={character} entries={[gauntlet, tethered]} save={() => {}} displayOnly={displayOnly} />)
+  const markup = render(c)
+  const melee = markup.match(/Melee: Attack(?:(?!Ranged \(30 feet\): Attack)[\s\S])*/)?.[0]
+  expect(melee).toBeDefined()
+  expect(melee).not.toContain('>Tethered')
+  expect(markup).toMatch(/Ranged \(30 feet\): Attack[\s\S]*?>Tethered \(Free Action\)<\/button>/)
+  expect(markup).toContain('Tethered rules.')
+  expect(render({ ...c, augmentations: [] })).not.toContain('>Tethered')
+})
+
+it('preserves native and feat-granted Tethered without duplicates on Rocket Punch', () => {
+  const gauntlet = { ...content('weapon', 'Pulse Gauntlet', {
+    weapon_type: 'Melee', weapon_category: 'Simple', damage: '1d4 bludgeoning', hands: 1,
+  }, 0, ['Tethered']), systems: ['sf2e' as const] }
+  const weapon = { ...main, id: gauntlet.id, name: gauntlet.name }
+  const deity = content('deity', 'Patron', { favored_weapon: 'pulse gauntlet' })
+  const augmentation = { id: 'rocket', entryId: 'rocket', name: 'Rocket Fist (Tactical)', slot: 'arm:0' }
+  const c: Character = { ...base, level: 20, systems: ['sf2e'], className: 'Cleric', deity: 'Patron',
+    weapons: [weapon], augmentations: [augmentation], feats: [feat('Tethered Favored Weapon', 1)] }
+  const entries = [gauntlet, deity]
+  expect(weaponAttack(c, entries, weapon).traits.filter(trait => /^tethered\b/i.test(trait))).toEqual(['Tethered'])
+  expect(weaponAttack(c, entries, weapon, { thrown: true }).traits.filter(trait => /^tethered\b/i.test(trait)))
+    .toEqual(['Tethered (Free Action)'])
+  expect(weaponAttack({ ...c, augmentations: [{ ...augmentation, name: 'Rocket Fist (Commercial)' }] },
+    entries, weapon, { thrown: true }).traits.filter(trait => /^tethered\b/i.test(trait))).toEqual(['Tethered'])
 })
 
 it('limits Rocket Fist to installed hand attacks and preserves longer native thrown range', () => {
