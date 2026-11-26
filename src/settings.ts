@@ -45,6 +45,7 @@ export interface Settings {
   mysticXenoDruid: boolean
   mechanicFieldAgent: boolean
   mechanicAugmented: boolean
+  androidAugmented: boolean
   mechanicGrenadier: boolean
   technomancerGrenadier: boolean
   operativeFieldAgent: boolean
@@ -98,6 +99,7 @@ const DEFAULTS: Settings = {
   warriorLegendClearTheWay: true, orcTattooedHistorian: true, dwarfStalwartDefender: true,
   bardAnimalTrainer: true, bardBeastmaster: true, bardCavalier: true, envoyFieldAgent: true, mysticFieldAgent: true,
   mysticXenoDruid: true, mechanicFieldAgent: true, mechanicAugmented: true, mechanicGrenadier: true,
+  androidAugmented: true,
   technomancerGrenadier: true, operativeFieldAgent: true,
   solarianFieldAgent: true, soldierFieldAgent: true, soldierGrenadier: true, technomancerFieldAgent: true,
   technomancerAugmented: true, witchwarperFieldAgent: true, championCavalier: false, commanderCavalier: true,

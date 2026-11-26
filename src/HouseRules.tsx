@@ -16,6 +16,8 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
     description: 'Spell choices exclude spells already known or granted from another source. Existing choices are preserved.' },
   { key: 'automaticSfWeaponUpgrades', label: 'Automatic Starfinder Weapon Upgrades',
     description: "Knife and Shuriken Drone gain Retrieval Boosters; Singing Spear gains Retrieval Boosters and Loudener; Battleglove gains a scaling Suppression Matrix; Starday Night Special gains a scaling Smuggler's Grip; SLARP gains Smuggler's Grip and Flaming Module; Shock Pad and Shock Truncheon gain Shock Module; Plasma Sword and Plasma Doshko gain Flaming Module, Shock Module, and Glarecaster; Rotolaser gains Flaming Module; Pulse Gauntlet gains Loudener; Tailblade gains a scaling Fear Projector; Hardlight Handwraps gain Grappling and Shoving Modules, plus Protection Grid when upgrade capacity allows. Crimson Claw, Pulse Gauntlet, Battleglove, Shock Pad, and Tailblade inherit Grappling Module, Shoving Module, and Protection Grid from Hardlight Handwraps. Upgrades appear at their item levels and improve by character level." },
+  { key: 'androidAugmented', label: 'Android Augmented Dedication',
+    description: 'Androids gain Augmented Dedication for free at level 2.' },
   { key: 'envoyFieldAgent', label: 'Envoy Starfinder Field Agent Dedication',
     description: 'Envoys automatically gain Starfinder Field Agent Dedication at level 2.' },
   { key: 'mysticFieldAgent', label: 'Mystic Starfinder Field Agent Dedication',

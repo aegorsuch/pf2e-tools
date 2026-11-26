@@ -55,7 +55,7 @@ function heritageSkillGrant(markdown: string) {
   return skill ? `${skill}${match?.[2] ? ' Lore' : ''}` : undefined
 }
 
-function heritageFeatGrants(markdown: string) {
+function featGrants(markdown: string) {
   const choiceFeats = new Set([
     'Adopted Ancestry', 'Ancestral Cantrip', 'Assurance', 'Religious Talisman',
     'Specialty Crafting',
@@ -388,9 +388,9 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     if (levels.length) data.archetype_levels = levels.map((match) => `${match[1]}:${match[2]}`).join(', ')
     if (traits.some(trait => trait.toLowerCase() === 'lineage')) {
       Object.assign(data, languageGrantRules(text(s.markdown)))
-      const feats = heritageFeatGrants(text(s.markdown))
-      if (feats.length) data.grants_feats = feats.join(';')
     }
+    const feats = featGrants(text(s.markdown))
+    if (feats.length) data.grants_feats = feats.join(';')
   }
   const land = (s.speed as { land?: unknown } | undefined)?.land
   if (typeof land === 'number') data.speed = land
@@ -406,7 +406,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
       const existingDamage = new Set(existing.map(value => value.split('=')[0].trim().toLowerCase()))
       data.resistances = [...existing, ...resistances.filter(value => !existingDamage.has(value.split('=')[0]))].join(',')
     }
-    const feats = heritageFeatGrants(text(s.markdown))
+    const feats = featGrants(text(s.markdown))
     if (feats.length) data.grants_heritage_feats = feats.join(';')
     const skill = heritageSkillGrant(text(s.markdown))
     if (skill) data.grants_skill = skill

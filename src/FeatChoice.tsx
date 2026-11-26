@@ -1,5 +1,5 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, activeFeatsNamed, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, featTakenLevel, knownSpellNames, nephilimLineageLore, orderMagicOptions, ranksAt, statDefs, subclassOptions, subclassSkillChoice, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
+import { CANNY_STATS, activeFeatsNamed, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, enhancedSensesChoice, featChoiceOptions, featSkillChoiceLabel, featTakenLevel, knownSpellNames, nephilimLineageLore, orderMagicOptions, ranksAt, statDefs, subclassOptions, subclassSkillChoice, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
 import { automaticFeatGrants } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, automaticFeatChoiceKey, coreAttunementOptions, featSpellOptions } from './featSpells'
@@ -343,6 +343,21 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
         {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
         {options.map(option => <option key={option}>{option}</option>)}
       </select>
+    </label>
+  }
+  if (feat.name === 'Enhanced Senses' && c.systems.includes('sf2e')) {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    return <label>Sense{' '}
+      <SearchableSelect aria-label="Enhanced Senses affected sense" value={enhancedSensesChoice(c, entries, index) ?? ''} onChange={event => {
+        const choice = event.target.value || undefined
+        if (choice && !options.includes(choice)) return
+        save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+      }}>
+        <option value="">{options.length ? 'Choose sense' : 'No precise or imprecise senses with a listed range'}</option>
+        {feat.choice && !options.some(option => option.toLowerCase() === feat.choice?.trim().toLowerCase())
+          && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
+        {options.map(option => <option key={option}>{option}</option>)}
+      </SearchableSelect>
     </label>
   }
   if (['Eye for Treasure', 'Expressive Face', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body', 'Historian', 'Experienced Laborer', 'Distant Telepath'].includes(feat.name)) return null

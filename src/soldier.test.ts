@@ -3,7 +3,7 @@ import { mapAonHit } from './aon'
 import { armorBulk, armorStrengthMet, automaticFeatGrants, boostSlots, classDifficultyClass, equippedWeaponHands, offensiveDefenseAttack, ranksAt, resistances, starfinderArmorPenalties, subclassOptions, weaponAttack, weaponHands } from './builder'
 import { ERUDITE_LORE_KEY } from './soldier'
 import { getSettings, updateSettings } from './settings'
-import type { Character, ContentEntry } from './types'
+import type { Character, ContentEntry, OwnedWeapon } from './types'
 
 const base: Character = {
   id: 'soldier', name: 'Soldier', className: 'Soldier', systems: ['sf2e'], level: 1,
@@ -90,6 +90,21 @@ it('grants Close Quarters Whirling Swipe and only conditional Armor Storm resist
   expect(resistances({ ...base, level: 9, subclass: 'Armor Storm' }, []))
     .toContainEqual({ damage: 'All damage from attacks by suppressed creatures', value: 4, source: 'Armor Storm' })
   expect(resistances({ ...base, subclass: 'Bombard' }, [])).toEqual([])
+})
+
+it('treats a two-handed melee weapon as area only for Close Quarters soldier feats', () => {
+  const greatsword: ContentEntry = { ...weapon, id: 'greatsword', name: 'Greatsword', traits: ['Two-Handed'],
+    data: { ...weapon.data, weapon_type: 'Melee', range: 0, hands: 2 } }
+  const ownedWeapon: OwnedWeapon = { id: greatsword.id, name: greatsword.name, potency: 0, striking: 0, runes: [] }
+  const c = { ...base, subclass: 'Close Quarters' }
+  const attack = weaponAttack(c, [soldier, greatsword], ownedWeapon)
+  expect(attack.areaAttacks).toContainEqual(expect.objectContaining({ name: 'Soldier feat area', shape: '5-foot burst' }))
+  expect(attack.traits).not.toContain('Area')
+  const oneHanded = { ...greatsword, data: { ...greatsword.data, hands: 1 } }
+  expect(weaponAttack(c, [soldier, oneHanded], { ...ownedWeapon, id: oneHanded.id }).areaAttacks)
+    .not.toContainEqual(expect.objectContaining({ name: 'Soldier feat area' }))
+  expect(weaponAttack({ ...c, subclass: 'Bombard' }, [soldier, greatsword], ownedWeapon).areaAttacks)
+    .not.toContainEqual(expect.objectContaining({ name: 'Soldier feat area' }))
 })
 
 it.each([

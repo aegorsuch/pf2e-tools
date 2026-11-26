@@ -2,7 +2,7 @@ import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQue
 import { mapAonHit } from './aon'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, characterAncestryLabel, characterSummary, subclassOptions, subclassSkillChoice, subclassSkillGrants, selectedSubclass, investigatorSkillfulLessonSkills, availableOrders, featLores, trainedFeatLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange, syncClassArchetypeDedication, warriorLegendWeakness, parryValue, temporaryHpGrant } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, enhancedSensesChoice, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, characterAncestryLabel, characterSummary, subclassOptions, subclassSkillChoice, subclassSkillGrants, selectedSubclass, investigatorSkillfulLessonSkills, availableOrders, featLores, trainedFeatLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange, syncClassArchetypeDedication, warriorLegendWeakness, parryValue, temporaryHpGrant } from './builder'
 import { getSettings, updateSettings } from './settings'
 import { automaticFeatChoiceKey, coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
@@ -1151,6 +1151,29 @@ it('applies sensory upgrades and ancestry-specific burrowing', () => {
   ]))
   expect(movementSpeeds(c, [ancestry, burrow])).toContainEqual({ name: 'Burrow', feet: 10, source: 'Burrowing Specialist' })
   expect(movementSpeeds({ ...c, level: 8 }, [ancestry, burrow]).some(speed => speed.name === 'Burrow')).toBe(false)
+})
+
+it('offers Enhanced Senses choices from installed precise and imprecise senses', () => {
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', level: 5, feats: [
+    { name: 'Enhanced Olfactory System', type: 'Ancestry Feat', level: 1 },
+    { name: 'Lifesense Focus', type: 'Ancestry Feat', level: 1 },
+    { name: 'Enhanced Senses', type: 'Ancestry Feat', level: 5, choice: 'Precise Lifesense' },
+  ] }
+  const ancestry = { ...entry('ancestry', 'Ysoki', { vision: 'Low-Light Vision' }), systems: ['sf2e' as const] }
+  const lifesense = { ...entry('feat', 'Lifesense Focus', { grants_vision: 'Lifesense (precise) 60 feet' }),
+    systems: ['sf2e' as const] }
+  const catalog = [ancestry, lifesense]
+  expect(featChoiceOptions('Enhanced Senses', c, catalog, 'ancestry:5:0')).toEqual([
+    'Imprecise Scent', 'Precise Lifesense',
+  ])
+  expect(enhancedSensesChoice(c, catalog, 2)).toBe('Precise Lifesense')
+  expect(senses(c, catalog)).toContainEqual({
+    value: 'Lifesense (precise) 70 feet', source: 'Lifesense Focus, Enhanced Senses',
+  })
+  expect(senses({ ...c, feats: c.feats.map(feat => feat.name === 'Enhanced Senses'
+    ? { ...feat, choice: 'Imprecise Scent' } : feat) }, catalog)).toContainEqual({
+    value: 'Scent (imprecise) 60 feet', source: 'Enhanced Olfactory System, Enhanced Senses',
+  })
 })
 
 it('grants Intimidating Glare instead of a replacement skill when already trained', () => {
@@ -4079,6 +4102,26 @@ describe('homebrew feat rules', () => {
       expect(keys()).not.toContain('archetype:2:0')
       updateSettings({ freeArchetype: true })
     }
+  })
+
+  it('grants Androids Augmented Dedication in a level-2 Starfinder slot', ({ onTestFinished }) => {
+    const previous = getSettings()
+    onTestFinished(() => updateSettings(previous))
+    updateSettings({ androidAugmented: true, freeArchetype: true })
+    const android: Character = { ...base, systems: ['sf2e'], ancestry: 'Android', level: 2 }
+    const keys = (c = android) => plannedSlots(c).map(slot => slot.key)
+    expect(activeHomebrewDedications(android)).toContainEqual(expect.objectContaining({
+      name: 'Augmented Dedication', slot: 'archetype:2:g80', replacesFreeArchetype: false,
+    }))
+    expect(keys()).toEqual(expect.arrayContaining(['archetype:2:g80', 'archetype:2:0']))
+    expect(keys({ ...android, level: 1 })).not.toContain('archetype:2:g80')
+    expect(keys({ ...android, ancestry: 'Human' })).not.toContain('archetype:2:g80')
+    expect(keys({ ...android, systems: ['pf2e'] })).not.toContain('archetype:2:g80')
+    updateSettings({ androidAugmented: false })
+    expect(keys()).not.toContain('archetype:2:g80')
+    updateSettings({ androidAugmented: true, freeArchetype: false })
+    expect(keys()).toContain('archetype:2:g80')
+    expect(keys()).not.toContain('archetype:2:0')
   })
 
   it('grants Xeno Druid Dedication to Mystics with Primal connections only', ({ onTestFinished }) => {

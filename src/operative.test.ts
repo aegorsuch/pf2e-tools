@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
 import { armorClass, armorClassBreakdown, boostSlots, classDifficultyClass, eligibleFeats, featChoiceOptions, hasParryWeapon, initiativeBonus, isGrantedSlot, parryValue, plannedSlots, ranksAt, savingThrowBreakdown, speed, subclassSkillGrants, weaponAttack } from './builder'
+import { homebrewCharacterOptions } from './supplemental'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 
 const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(snapshot)
@@ -194,24 +195,41 @@ it('grants specialization skill slots and restricts Sniper bonus choices', () =>
 })
 
 it('adds a second specialization skill and its initial feat through Versatile Operative', () => {
-  const versatile = { name: 'Versatile Operative', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Ghost' }
+  const feat = homebrewCharacterOptions([]).find(entry => entry.name === 'Versatile Operative')!
+  const catalog = [...entries, feat]
+  const versatile = { name: feat.name, type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Ghost' }
   const c: Character = { ...base, level: 15, feats: [versatile] }
-  const slot = plannedSlots(c, entries).find(candidate => candidate.grantedBy === 'Versatile Operative')!
+  const slot = plannedSlots(c, catalog).find(candidate => candidate.grantedBy === 'Versatile Operative')!
   expect(slot).toMatchObject({ key: 'skill:1:versatile-operative:class:10:0', level: 10, grantedSkill: 'Deception' })
   expect(isGrantedSlot(slot.key)).toBe(true)
-  expect(featChoiceOptions('Versatile Operative', c, entries, '')).not.toContain('Ghost')
-  expect(featChoiceOptions('Versatile Operative', c, entries, '')).not.toContain('Sniper')
-  expect(subclassSkillGrants(c, entries)).toEqual(expect.arrayContaining(['Stealth', 'Deception']))
-  expect(ranksAt(c, entries).Deception).toBeGreaterThanOrEqual(1)
-  expect(featChoiceOptions('Assurance', c, entries, slot.key)).toEqual(['Deception'])
-  expect(eligibleFeats(entries, c, slot).map(feat => feat.name)).toContain('Assurance')
+  expect(feat.data.repeatable).toBe(true)
+  expect(featChoiceOptions(feat.name, c, catalog, '')).not.toContain('Ghost')
+  expect(featChoiceOptions(feat.name, c, catalog, '')).not.toContain('Sniper')
+  expect(subclassSkillGrants(c, catalog)).toEqual(expect.arrayContaining(['Stealth', 'Deception']))
+  expect(ranksAt(c, catalog).Deception).toBeGreaterThanOrEqual(1)
+  expect(featChoiceOptions('Assurance', c, catalog, slot.key)).toEqual(['Deception'])
+  expect(eligibleFeats(catalog, c, slot).map(feat => feat.name)).toContain('Assurance')
+
+  const secondSelectionSlot = { category: 'class' as const, level: 12, key: 'class:12:0' }
+  expect(eligibleFeats(catalog, c, secondSelectionSlot)).toContain(feat)
+  const repeated: Character = { ...c, level: 14, feats: [
+    versatile, { ...versatile, level: 12, slot: 'class:12:0', choice: 'Striker' },
+  ] }
+  const thirdSelectionSlot = { category: 'class' as const, level: 14, key: 'class:14:0' }
+  expect(eligibleFeats(catalog, repeated, thirdSelectionSlot)).toContain(feat)
+  expect(featChoiceOptions(feat.name, repeated, catalog, thirdSelectionSlot.key)).toEqual(['Infiltrator', 'Skirmisher'])
+  expect(plannedSlots(repeated, catalog).filter(candidate => candidate.grantedBy === 'Versatile Operative'))
+    .toEqual(expect.arrayContaining([
+      expect.objectContaining({ level: 10, grantedSkill: 'Deception' }),
+      expect.objectContaining({ level: 12, grantedSkill: 'Athletics' }),
+    ]))
 
   const sniper: Character = { ...base, level: 10, subclass: 'Ghost',
     feats: [{ ...versatile, choice: 'Sniper' }] }
-  const bonusSlot = plannedSlots(sniper, entries).find(candidate => candidate.grantedBy === 'Sniper')!
+  const bonusSlot = plannedSlots(sniper, catalog).find(candidate => candidate.grantedBy === 'Sniper')!
   expect(bonusSlot.key).toBe('class:1:versatile-operative-sniper:class:10:0')
   expect(isGrantedSlot(bonusSlot.key)).toBe(true)
-  expect(eligibleFeats(entries, sniper, bonusSlot).map(feat => feat.name).sort())
+  expect(eligibleFeats(catalog, sniper, bonusSlot).map(feat => feat.name).sort())
     .toEqual(['Keep Them In Your Sights', 'Scope Sight'])
 })
 
@@ -240,6 +258,22 @@ it('applies specialization-specific weapon effects only to eligible weapons', ()
     .toContain('two lowest-rolled weapon damage dice')
   expect(attack({ ...base, level: 17, subclass: 'Skirmisher' }, { ...simpleGun, data: { ...simpleGun.data, hands: 2 } })
     .breakdown.notes?.join(' ')).not.toContain('Skirmisher:')
+})
+
+it('shows Ghost, Infiltrator, and Striker exploit actions at their required levels', () => {
+  const ghost = attack({ ...base, level: 9, subclass: 'Ghost' }, simpleGun).breakdown.notes?.join(' ')
+  expect(ghost).toContain('Aim as a free action')
+  expect(ghost).toContain('Ghost Tap (free action)')
+
+  const infiltrator = attack({ ...base, level: 9, subclass: 'Infiltrator' }, simpleGun).breakdown.notes?.join(' ')
+  expect(infiltrator).toContain('Sabotage (1 action)')
+  expect(infiltrator).toContain('Enhanced Exploit')
+
+  const striker = attack({ ...base, level: 9, subclass: 'Striker' }, blade).breakdown.notes?.join(' ')
+  expect(striker).toContain('Reactive Step (reaction)')
+  expect(striker).toContain('Overwhelming Strike (free action)')
+  expect(attack({ ...base, level: 8, subclass: 'Striker' }, blade).breakdown.notes?.join(' '))
+    .not.toContain('Overwhelming Strike')
 })
 
 it('gives Mechanics critical specialization only with expert weapons from level five', () => {

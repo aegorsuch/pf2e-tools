@@ -5,7 +5,7 @@ import { ArmorList, ArmorUpgrades, armorUpgradeSlots, Augmentations, BulkLimits,
 import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, armorUpgradeSlots as resolvedArmorUpgradeSlots,
   automaticArmorUpgradeSlotsUsed, automaticArmorUpgradeUsesSlot, automaticSpecificArmorUpgrades,
-  effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon,
+  armorUpgradeEntries, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon,
   installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, parryValue,
   resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
@@ -3046,6 +3046,25 @@ it('reserves Clandestine Suit slots for its built-in Jetpack and Force Field', (
   expect(movementSpeeds(c, entries).find(speed => speed.name === 'Fly')).toMatchObject({
     feet: 20, source: 'Jetpack (Commercial)',
   })
+})
+
+it('leaves two Paragon Clandestine Suit upgrade slots, or three for Mod Fanatic Androids', () => {
+  const suit: ContentEntry = { ...weapon, id: 'paragon-clandestine', name: 'Paragon Clandestine Suit',
+    kind: 'armor', systems: ['sf2e'], level: 20,
+    data: { armor_grade: 'Paragon', upgrade_slots: 2 } }
+  const upgrades = [1, 2, 3].map(number => ({ ...shifting, id: `extra-${number}`, name: `Extra Upgrade ${number}`,
+    systems: ['sf2e' as const], data: { item_subcategory: 'Armor Upgrades' } }))
+  const entries = [suit, ...upgrades]
+  const characterWith = (heritage?: string): Character => ({ ...character([]), systems: ['sf2e'], level: 20, heritage,
+    armors: [{ id: suit.id, name: suit.name, potency: 0, resilient: 0, runes: [], worn: true,
+      upgrades: upgrades.map(upgrade => upgrade.id) }] })
+  expect(resolvedArmorUpgradeSlots(suit)).toBe(4)
+  expect(automaticArmorUpgradeSlotsUsed(suit)).toBe(2)
+  expect(armorUpgradeEntries(characterWith(), entries, characterWith().armors![0]).map(entry => entry.id))
+    .toEqual(['extra-1', 'extra-2'])
+  const android = characterWith('Mod Fanatic Android')
+  expect(armorUpgradeEntries(android, entries, android.armors![0]).map(entry => entry.id))
+    .toEqual(['extra-1', 'extra-2', 'extra-3'])
 })
 
 it('rolls Energized Spikes using their grade and clears their stored charge', () => {

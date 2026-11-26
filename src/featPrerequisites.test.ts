@@ -3,6 +3,7 @@ import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, champion
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, featPrerequisiteSuggestions, ignoresFeatPrerequisites, type PrerequisiteFacts } from './featPrerequisites'
 import { mapAonHit } from './aon'
 import snapshot from '../public/data/aon-pf2e.json?raw'
+import starfinderSnapshot from '../public/data/aon-sf2e.json?raw'
 import { getSettings, updateSettings } from './settings'
 import * as featChoices from './featChoices'
 import * as featSpells from './featSpells'
@@ -1232,6 +1233,26 @@ it.each(['Machine Heart', 'Mortal Heart'])('optionally excludes the other Cyborg
     expect(eligibleFeats(data, c, slot)).toContain(other)
     expect(featSelectionPrerequisiteChecker(c, data, slot)(other).missing).toEqual([])
   } finally { updateSettings({ exclusiveCyborgHearts: previous }) }
+})
+
+it('offers Reduce Reuse Recycle with both prerequisites and grants Monster Crafting', () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(starfinderSnapshot)
+  const feat = mapAonHit(hits.find(hit => hit._id === 'feats--2946-reduce-reuse-recycle')!, 'sf2e')!
+  const dedication = mapAonHit(hits.find(hit => hit._id === 'feats--2942-augmented-dedication')!, 'sf2e')!
+  expect(feat.data.grants_feats).toBe('Monster Crafting')
+  const entries = [feat, dedication]
+  const slot = { key: 'archetype:8:0', category: 'archetype' as const, level: 8 }
+  const skilled: Character = { ...base, systems: ['sf2e'], level: 8, rankOverrides: { Survival: 3 } }
+  expect(featPrerequisiteChecker(skilled, entries, 8)(feat).missing).toContain('Augmented Dedication')
+  const qualified = { ...skilled, feats: [{
+    name: dedication.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0',
+  }] }
+  expect(featPrerequisiteChecker(qualified, entries, 8)(feat)).toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats(entries, skilled, slot)).not.toContain(feat)
+  expect(eligibleFeats(entries, qualified, slot)).toContain(feat)
+  expect(automaticFeatGrants({ ...qualified, feats: [...qualified.feats, {
+    name: feat.name, type: 'Archetype Feat', level: 8, slot: slot.key,
+  }] }, entries)).toContainEqual({ name: 'Monster Crafting', source: feat.name, level: 8 })
 })
 
 it('plans Enhanced Senses from selected sense-granting feats but never its own effects', () => {

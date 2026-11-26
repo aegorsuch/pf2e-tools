@@ -733,13 +733,16 @@ export const HOMEBREW_DEDICATIONS = [
   { setting: 'mechanicGrenadier', className: 'Mechanic', name: 'Grenadier Dedication', slot: 'archetype:2:g100', replacesFreeArchetype: false },
   { setting: 'technomancerGrenadier', className: 'Technomancer', name: 'Grenadier Dedication', slot: 'archetype:2:g101', replacesFreeArchetype: false },
   { setting: 'technomancerAugmented', className: 'Technomancer', name: 'Augmented Dedication', slot: 'archetype:2:g82', replacesFreeArchetype: false },
+  { setting: 'androidAugmented', ancestry: 'Android', system: 'sf2e', name: 'Augmented Dedication',
+    slot: 'archetype:2:g80', replacesFreeArchetype: false },
   { setting: 'mysticXenoDruid', className: 'Mystic', tradition: 'Primal', name: 'Xeno Druid Dedication',
     slot: 'archetype:2:g81', replacesFreeArchetype: false },
 ] as const
 export const homebrewDedication = (slot: string) => HOMEBREW_DEDICATIONS.find((d) => d.slot === slot)
 export const activeHomebrewDedications = (c: Character) =>
   HOMEBREW_DEDICATIONS.filter((d) => getSettings()[d.setting] && c.level >= 2
-    && ('className' in d ? c.className === d.className : c.systems.includes('pf2e') && c.ancestry === d.ancestry)
+    && ('className' in d ? c.className === d.className
+      : c.ancestry === d.ancestry && c.systems.includes('system' in d ? d.system : 'pf2e'))
     && (!('tradition' in d) || c.systems.includes('sf2e')
       && STARFINDER_MYSTIC_TRADITIONS[c.subclass ?? ''] === d.tradition))
 export const isGrantedSlot = (key: string) => /:g\d+$/.test(key) || key.startsWith('class:1:order-explorer:')
@@ -2156,9 +2159,38 @@ function automaticKnowledgeOptions(c: Character, entries: ContentEntry[], level:
     && !used.has(skill.toLowerCase())).sort((a, b) => a.localeCompare(b))
 }
 
+const NATIVE_ENHANCED_SENSE_CHOICES: Record<string, string> = {
+  Ysoki: 'Imprecise Scent',
+  Formian: 'Imprecise Scent',
+  Talphi: 'Imprecise Scent',
+  Maraquoi: 'Imprecise Dermal Hearing',
+  Moyishuu: 'Imprecise Emotionsense',
+  Fonqugon: 'Imprecise Tremorsense',
+}
+
+function enhancedSensesOptions(c: Character, entries: ContentEntry[]) {
+  const withoutEnhancedSenses = { ...c, feats: c.feats.filter(feat => feat.name !== 'Enhanced Senses') }
+  return [...new Set(senses(withoutEnhancedSenses, entries).flatMap(({ value }) => {
+    const match = /^(.+?) \((precise|imprecise)\) (\d+) feet$/i.exec(value)
+    if (!match || Number(match[3]) < 1 || /telepath/i.test(match[1])) return []
+    const precision = match[2][0].toUpperCase() + match[2].slice(1).toLowerCase()
+    return [`${precision} ${match[1]}`]
+  }))].sort((a, b) => a.localeCompare(b))
+}
+
+export function enhancedSensesChoice(c: Character, entries: ContentEntry[], index: number) {
+  const feat = c.feats[index]
+  if (!feat || feat.name !== 'Enhanced Senses') return undefined
+  const options = enhancedSensesOptions(c, entries)
+  if (feat.choice) return options.find(option => option.toLowerCase() === feat.choice?.trim().toLowerCase()) ?? feat.choice
+  const native = NATIVE_ENHANCED_SENSE_CHOICES[c.ancestry ?? '']
+  return native && options.includes(native) ? native : undefined
+}
+
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number,
   category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === 'Enhanced Senses' && c.systems.includes('sf2e')) return enhancedSensesOptions(c, entries)
   if (name === 'Versatile Technomancer' && c.systems.includes('sf2e')) return versatileTechnomancerLanguageOptions(c)
   if (name === 'Versatile Firmware' && c.systems.includes('sf2e') && c.className === 'Technomancer') {
     const level = Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)
@@ -3347,7 +3379,7 @@ export function magneticLevitatorsActive(c: Character, entries: ContentEntry[]) 
 export function armorUpgradeSlots(entry?: ContentEntry) {
   if (!entry) return 0
   const family = entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
-  if (entry.systems.includes('sf2e') && family === 'Stormbreaker Armor'
+  if (entry.systems.includes('sf2e') && ['Stormbreaker Armor', 'Clandestine Suit'].includes(family)
     && (entry.data.armor_grade === 'Paragon' || /^Paragon /i.test(entry.name))) return 4
   const additionalSlots = entry.systems.includes('sf2e') && (family === "Drifter's Jacket" || family === 'Retrieval Harness') ? 1 : 0
   const slots = Number(entry.data.upgrade_slots)
@@ -5230,16 +5262,20 @@ export function senses(c: Character, entries: ContentEntry[]) {
   }
   if (isSpellActive(c, entries, 'Keen Smell')) addScent(c.level >= 5 ? 60 : 30, 'Keen Smell')
   if (activeFeatsNamed(c, 'Enhanced Olfactory System').length) addScent(30, 'Enhanced Olfactory System')
-  if (activeFeatsNamed(c, 'Enhanced Senses').length) {
-    const names: Record<string, string> = {
-      Ysoki: 'Scent', Formian: 'Scent', Talphi: 'Scent', Maraquoi: 'Dermal Hearing',
-      Moyishuu: 'Emotionsense', Fonqugon: 'Tremorsense',
-    }
-    const name = names[c.ancestry ?? '']
-    const sense = name && out.find(sense => sense.value.startsWith(`${name} (imprecise) `) && /\d+ feet$/.test(sense.value))
+  for (const [index, feat] of c.feats.entries()) {
+    if (feat.name !== 'Enhanced Senses' || featTakenLevel(feat) > c.level) continue
+    const choice = enhancedSensesChoice(c, entries, index)
+    const match = /^(precise|imprecise) (.+)$/i.exec(choice ?? '')
+    if (!match) continue
+    const precision = match[1].toLowerCase()
+    const name = match[2]
+    const sense = out.filter(sense => sense.value.toLowerCase().startsWith(`${name.toLowerCase()} (${precision}) `)
+      && /\d+ feet$/i.test(sense.value))
+      .sort((a, b) => Number(/\d+/.exec(b.value)?.[0]) - Number(/\d+/.exec(a.value)?.[0]))[0]
     if (sense) {
       const feet = Number(/\d+/.exec(sense.value)?.[0])
-      Object.assign(sense, { value: `${name} (imprecise) ${feet + 30} feet`, source: `${sense.source}, Enhanced Senses` })
+      Object.assign(sense, { value: `${name} (${precision}) ${feet + (precision === 'precise' ? 10 : 30)} feet`,
+        source: `${sense.source}, Enhanced Senses` })
     }
   }
   if (c.raging) {
@@ -9225,6 +9261,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const firmwareLanguages = technomancerFirmwareLanguages(c, entries)
   const { category, rank, familiarity, martialExperience, proficiencySources } =
     weaponTraining(c, entries, w, entry, !!cairn, firmwareLanguages)
+  const strikerWeapon = c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Striker'
+    && !!entry && !ranged && (category === 'Unarmed' || weaponHands(entries, w, c) === 1)
+    && (traits.includes('agile') || traits.includes('finesse'))
   const agile = traits.includes('agile')
   const agileGrace = agile && activeFeatsNamed(c, 'Agile Grace').length > 0
   const mapStep = agileGrace ? 3 : agile ? 4 : 5
@@ -9544,6 +9583,17 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           ? ['Overcome Shame: after a critical failure with a Strike, once per 10 minutes, reroll your next Strike before the end of your turn with the same weapon and target; roll twice and use the higher result. If it misses, you become off-guard until the end of your next turn.'] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Ghost' && ranged
           ? ['Ghost: Aim as a free action against a target you are undetected by.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Ghost'
+          && c.level >= 9 && !formAttack
+          ? ['Ghost Tap (free action): after a successful Strike against a target you were hidden from or undetected by, attempt Deception against its Will DC; on a success, become hidden from it, or undetected on a critical success.'] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Infiltrator'
+          && !formAttack
+          ? ['Sabotage (1 action): target a detected tech creature or item within 15 feet with Computers; range increases to 30/45/60 feet at expert/master/legendary. A success glitches it for 2 rounds, a critical success for 1 minute; failure makes it immune until the end of your next turn, and critical failure for 10 minutes.',
+            ...(c.level >= 9 ? ['Enhanced Exploit: critically hit a tech creature to Sabotage it as a free action; react to a tech creature or tech-weapon user critically failing a melee attack against you to Sabotage the triggering creature or weapon.'] : [])] : []),
+        ...(c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Striker'
+          && strikerWeapon && !formAttack
+          ? ['Reactive Step (reaction): when a creature within reach leaves a square during a move action, Step up to twice directly toward it.',
+            ...(c.level >= 9 ? ['Overwhelming Strike (free action): when a Strike hits your mark and deals damage, choose enfeebled 1, off-guard, or suppressed until the end of your next turn; the target is then immune until the end of its next turn.'] : [])] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && activeFeatsNamed(c, 'Bloody Wounds').length
           ? [`Bloody Wounds: a critical hit against your mark deals ${c.level >= 17 ? 4 : c.level >= 11 ? 3 : c.level >= 5 ? 2 : 1} persistent bleed damage.`] : []),
         ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Overwhelming Assault').length
