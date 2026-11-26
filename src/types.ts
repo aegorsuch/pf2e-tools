@@ -326,6 +326,7 @@ export interface Character {
   apexAugmentationId?: string
   augmentations?: { id: string; entryId: string; name: string; slot: string; speed?: string; deployed?: boolean }[]
   augmentationDailyUses?: Record<string, boolean>
+  augmentationExtraDailyUses?: Record<string, boolean>
   hardpointWeaponId?: string
   dermalPlating?: { grade?: HardlightGrade; raised?: boolean; damaged?: boolean }
   secondaryPowerSourceIds?: string[]

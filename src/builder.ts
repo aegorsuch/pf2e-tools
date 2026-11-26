@@ -3509,7 +3509,7 @@ export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
   if (SPELL_ARMOR_FAMILIES.has(family ?? '')) return 4
   if (family === "Drifter's Jacket") return 3
   if (['Clandestine Suit', 'Myrmidon Siegebreaker Plate', 'Retrieval Harness'].includes(family ?? '')) return 3
-  if (family === 'Stormbreaker Armor') return 3
+  if (family === 'Stormbreaker Armor') return 5
   return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Rocketeer Armor']
     .includes(family ?? '') ? 2 : 0
 }
@@ -3525,6 +3525,8 @@ export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upg
       || family === 'Clandestine Suit' && base === 'Drift Drive Relay'
       || family === 'Myrmidon Siegebreaker Plate' && base === 'Mobility Enhancer'
       || family === 'Stormbreaker Armor' && base === 'Mobility Enhancer'
+      || family === 'Stormbreaker Armor' && base === 'Energy Shielding'
+        && ['cold', 'fire'].includes(String(upgrade.data.automatic_energy_type))
       || family === 'Retrieval Harness' && base === 'Adrenal Autoinjectors'
   return family === 'Rocketeer Armor' && ['Force Field', 'Maneuvering Unit'].includes(base)
 }
@@ -3579,8 +3581,11 @@ export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEnt
       .sort((a, b) => b.level - a.level || Number(b.name.includes('(')) - Number(a.name.includes('(')))
     const selected = candidates[0]
     if (!selected) return []
-    const automaticEnergyType = family === 'Stormbreaker Armor' ? armor.data.stormbreaker_energy ?? 'electricity'
-      : family === 'Aquavarius Armor' ? 'cold' : undefined
+    if (base === 'Energy Shielding' && family === 'Stormbreaker Armor') {
+      return ['electricity', 'cold', 'fire'].map(type => ({ ...selected,
+        data: { ...selected.data, automatic_energy_type: type } }))
+    }
+    const automaticEnergyType = family === 'Aquavarius Armor' ? 'cold' : undefined
     return base === 'Energy Shielding' && automaticEnergyType
       ? [{ ...selected, data: { ...selected.data, automatic_energy_type: automaticEnergyType } }]
       : [selected]
@@ -3601,10 +3606,20 @@ export function armorUpgradeEntries(c: Character, entries: ContentEntry[], armor
     : Math.max(0, armorUpgradeSlots(armorItem)
       + (c.heritage === 'Mod Fanatic Android' ? 1 : 0)
       - automaticArmorUpgradeSlotsUsed(armorItem))
-  const installed = (armor.upgrades ?? []).slice(0, limit).flatMap(id => entries.find(entry =>
-    entry.id === id && !entry.deleted && entry.kind === 'item' && entry.systems.includes('sf2e')
-      && entry.data.item_subcategory === 'Armor Upgrades') ?? [])
+  const installed = (armor.upgrades ?? []).slice(0, limit).flatMap(id => armorUpgradeEntry(entries, id) ?? [])
   return [...automatic, ...installed]
+}
+
+export function energyShieldingVariantId(id: string, type: typeof ENERGY_SHIELDING_TYPES[number]) {
+  return `energy-shielding:${type}:${id}`
+}
+
+export function armorUpgradeEntry(entries: ContentEntry[], id: string) {
+  const variant = /^energy-shielding:(acid|cold|electricity|fire):(.+)$/.exec(id)
+  const entry = entries.find(candidate => candidate.id === (variant?.[2] ?? id) && !candidate.deleted
+    && candidate.kind === 'item' && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Armor Upgrades')
+  if (!entry || variant && !isEnergyShieldingUpgrade(entry)) return undefined
+  return variant ? { ...entry, data: { ...entry.data, automatic_energy_type: variant[1] } } : entry
 }
 
 const FORCE_FIELD_GRADES = ['Commercial', 'Tactical', 'Advanced', 'Superior', 'Elite', 'Ultimate', 'Paragon']
@@ -8126,15 +8141,7 @@ export function armorEntry(c: Character, entries: ContentEntry[], name: string, 
   const entry = characterArmorGrants(c, entries).find(entry => entry.name === resolvedName && (!armorId || entry.id === armorId))
     ?? byName(entries, 'armor', resolvedName)
     ?? namedArmorEntries(entries).find(entry => entry.name === resolvedName)
-  const resolved = scaleInheritorPlate(scaleAncestralEmbrace(entry, c.level), c.level)
-  return resolved && variant && resolved.systems.includes('sf2e') ? stormbreakerVariant(resolved, variant[2].toLowerCase() as 'cold' | 'fire') : resolved
-}
-
-function stormbreakerVariant(entry: ContentEntry, energy: 'cold' | 'fire'): ContentEntry {
-  const label = energy === 'cold' ? 'Cold' : 'Fire'
-  return { ...entry, id: `${entry.id}:${energy}`, name: `${entry.name} (${label})`, source: 'homebrew',
-    description: entry.description.replace(/high-voltage electricity/gi, `${energy} energy`).replace(/electricity/gi, energy),
-    data: { ...entry.data, stormbreaker_energy: energy } }
+  return scaleInheritorPlate(scaleAncestralEmbrace(entry, c.level), c.level)
 }
 
 function characterArmorGrants(c: Character, entries: ContentEntry[]) {
@@ -8243,8 +8250,8 @@ export function effectiveArmor(c: Character, entries: ContentEntry[], armor: Own
     const improved = c.systems.includes('sf2e') && !isGrantedArmor(armor.id) && source.data.armor_grade
       && typeof family === 'string' ? armorGrades(entries, family)
         .find(candidate => candidate.level > source.level && candidate.level <= c.level) : undefined
-    const variant = /\((Cold|Fire)\)$/i.exec(armor.name)
-    return { ...armor, name: improved ? `${improved.name}${variant && source.data.stormbreaker_energy ? ` (${variant[1]})` : ''}` : armor.name,
+    const legacyStormbreaker = /^(.*Stormbreaker Armor) \((?:Cold|Fire)\)$/i.exec(armor.name)
+    return { ...armor, name: improved?.name ?? legacyStormbreaker?.[1] ?? armor.name,
       potency: 0, resilient: 0, runes: [] }
   }
   const grant = characterArmorGrants(c, entries).find(entry => entry.id === armor.id)
@@ -9209,7 +9216,7 @@ function isHandCoverWeapon(entry?: ContentEntry) {
   return !!entry && entry.systems.includes('sf2e') && /\b(?:pulse gauntlet|crimson claw)\b/i.test(entry.name)
 }
 
-function inheritedHandWeaponTraits(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+function inheritedHandWeaponTraits(c: Character, entries: ContentEntry[], weapon: OwnedWeapon, anyClawDie = false) {
   if (!weaponEquipped(c, entries, weapon)) return []
   const handAttacks = ownedWeapons(c, entries).filter(candidate => /\b(?:fists?|claws?)\b/i.test(candidate.name)
     && weaponCategory(weaponEntry(entries, candidate.name, candidate.id)) === 'Unarmed')
@@ -9225,7 +9232,8 @@ function inheritedHandWeaponTraits(c: Character, entries: ContentEntry[], weapon
     if (weaponDamage && damage && ['bludgeoning', 'b'].includes(damage.type) && damage.size >= weaponDamage.size) {
       traits.push('Versatile B')
     }
-    if (weaponDamage && damage && ['slashing', 's'].includes(damage.type) && damage.size >= weaponDamage.size) {
+    if (weaponDamage && damage && ['slashing', 's'].includes(damage.type)
+      && (damage.size >= weaponDamage.size || anyClawDie && /\bclaws?\b/i.test(hand.name))) {
       traits.push('Versatile S')
     }
   }
@@ -9384,6 +9392,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     const inherited = inheritedHandWeaponTraits(c, entries, w)
     const existing = new Set(entry.traits.map(trait => trait.toLowerCase()))
     entry = { ...entry, traits: [...entry.traits, ...inherited.filter(trait => !existing.has(trait.toLowerCase()))] }
+  }
+  if (entry && entry.systems.includes('sf2e') && /\b(?:shock pad|battlegloves?)$/i.test(entry.name) && !options.skipHandInheritance
+    && inheritedHandWeaponTraits(c, entries, w, true).some(trait => /^versatile s$/i.test(trait))
+    && !entry.traits.some(trait => /^versatile s$/i.test(trait))) {
+    entry = { ...entry, traits: [...entry.traits, 'Versatile S'] }
   }
   if (entry && !options.skipHandInheritance) {
     const inherited = inheritedFreeHandManeuvers(c, entries, w)
@@ -10392,10 +10405,7 @@ export function gearPickerEntries(entries: ContentEntry[], kind: 'weapon' | 'arm
         .filter((entry): entry is ContentEntry => !!entry) : []),
     ...(kind === 'weapon' ? [...hammerMultipistolEntries(entries),
       ...namedWeaponEntries(entries).filter(entry => !entry.data.named_weapon_resolver_only)] : [])])
-  const stormbreaker = kind === 'armor' ? pool.find(entry => entry.name === 'Stormbreaker Armor'
-    && entry.systems.includes('sf2e')) : undefined
-  const options = stormbreaker ? [...pool, stormbreakerVariant(stormbreaker, 'cold'), stormbreakerVariant(stormbreaker, 'fire')] : pool
-  return options.map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'
+  return pool.map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'
     ? { ...entry, name: `Shobhad Longrifle (${entry.systems.includes('sf2e') ? 'Starfinder' : 'Pathfinder'})` } : entry).filter(entry => {
     if (seen.has(entry.name)) return false
     seen.add(entry.name)

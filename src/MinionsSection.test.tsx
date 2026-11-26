@@ -568,6 +568,7 @@ it('summons a scaled cat for Pahtra Creature Ally at the selected spell rank', (
   const minions = (character: Character) => renderToStaticMarkup(<MinionsSection c={character} entries={entries} save={() => {}} />)
   expect(grantedFeatSpells(c, entries)).toContainEqual(expect.objectContaining({ entry: spell, rank: 5,
     rule: expect.objectContaining({ tradition: 'primal', condition: 'Cat only' }) }))
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)).not.toContain('Cat only')
   expect(minions(c)).toContain('Summoned Cat')
   expect(minions(c)).toContain('<span>Level 5</span>')
   expect(minions(c)).toContain('Leopard abilities and statistics')

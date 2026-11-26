@@ -12,7 +12,7 @@ import { AnimalFeatureOptions, BoneShieldActions, CrocodileFormToggle, DevotionS
 import { ClassFeatures } from './ClassFeatures'
 import { WeaponList } from './GearSection'
 import { MinionsSection } from './MinionsSection'
-import { SkillsSection } from './SkillsSection'
+import { SensesAndSpeed, SensesAndSpeedSummary, SkillsSection } from './SkillsSection'
 import { EntryDescription } from './EntryDescription'
 import type { Character, ContentEntry } from './types'
 import { homebrewCharacterOptions } from './supplemental'
@@ -396,7 +396,11 @@ it('lists Melodic Adaptation as constant Detect Magic and synchronizes its rank 
   const markup = renderToStaticMarkup(<SpellsSection c={c} entries={catalog} save={() => {}} />)
   expect(markup).toContain('>Detect Magic</button>')
   expect(markup).toContain('Spell Rank 5')
-  expect(markup).toContain('Constant detection in a 30-foot emanation; this is not a cast spell.')
+  expect(markup).not.toContain('Constant detection in a 30-foot emanation; this is not a cast spell.')
+  expect(markup).not.toContain('>constant</span>')
+  const level20 = { ...c, level: 20 }
+  expect(renderToStaticMarkup(<SensesAndSpeedSummary c={level20} entries={catalog} />)).not.toContain('Detect magic')
+  expect(renderToStaticMarkup(<SensesAndSpeed c={level20} entries={catalog} save={() => {}} />)).not.toContain('Detect magic')
   expect(grantedFeatSpells({ ...c, level: 8 }, catalog)).toEqual([])
   expect(grantedFeatSpells({ ...c, systems: ['pf2e'] }, catalog)).toEqual([])
   expect(unresolvedFeatSpells(c, [source])).toMatchObject([{ name: 'Detect Magic', sourceName: source.name }])
@@ -3207,6 +3211,9 @@ it('grants Creature Ally and Creature Shape as daily innate spells from common s
   expect(featSpellOptions(c, spells, c.feats[1])?.map(spell => spell.name)).toEqual(['Insect Form'])
   expect(grantedFeatSpells(c, spells).map(grant => [grant.entry.name, grant.rank, grant.rule.tradition]))
     .toEqual([['Summon Animal', 5, 'Primal'], ['Insect Form', 8, 'Primal']])
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={spells} save={() => {}} />)
+  expect(markup).not.toContain('Transform only into a battle form that matches your ancestral creature; use your normal AC if higher')
+  expect(markup).toContain('The summoned creature must be one of your ancestry')
 })
 
 it('grants Witch patron hex cantrip, Cackle and chosen lesson hexes as focus spells', () => {

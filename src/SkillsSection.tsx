@@ -102,8 +102,11 @@ export function SkillsSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'
 const movementLabel = (movement: { name: string; feet: number }) =>
   `${movement.name === 'Land' ? '' : `${movement.name === 'Climb' ? 'Climbing' : movement.name} `}${movement.feet} ft.`
 
+const displayedSenses = (c: SectionProps['c'], entries: SectionProps['entries']) =>
+  senses(c, entries).filter(sense => !(sense.source === 'Melodic Adaptation' && /^Detect magic \(30-foot emanation, rank \d+\)$/i.test(sense.value)))
+
 export function SensesAndSpeedSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
-  const characterSenses = senses(c, entries)
+  const characterSenses = displayedSenses(c, entries)
   const speeds = movementSpeeds(c, entries)
   const hover = !speeds.some(movement => movement.source?.startsWith('Mounted: ')) && magneticLevitatorsActive(c, entries)
   return <summary className="character-section-summary">
@@ -159,7 +162,7 @@ export function SensesAndSpeed({ c, entries, save }: SectionProps) {
   const athlete = ragingAthleteBenefits(c, entries)
   const form = activeBattleForm(c, entries)
   const terrain = favoredTerrainBenefits(c, entries)
-  const characterSenses = senses(c, entries)
+  const characterSenses = displayedSenses(c, entries)
   const speeds = movementSpeeds(c, entries)
   const dashSpeeds = activeFeatsNamed(c, 'Uncanny Dash').length && activeFeatsNamed(c, 'Gg-os Frame').length
     ? movementSpeeds(c, entries, { includeUncannyDash: true }) : undefined

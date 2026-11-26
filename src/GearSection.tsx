@@ -4,7 +4,7 @@ import {
   activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, hasDailyAugmentationActivation, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, isSolarianCrystalWeapon, solarianCoreCrystals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, type SectionProps,
 } from './builder'
 import { newId } from './db'
-import { armorUpgradeEntries, automaticArmorUpgradeUsesSlot, blessedShieldBenefit, canEquipShield, canRaiseShield, championBlessings, clanPistolRunes, equippedHands, equippedOtherShield, forceFieldStats, isEnergyShieldingUpgrade, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldBraceEligible, shieldEquipChange, weaponEntry } from './builder'
+import { armorUpgradeEntries, armorUpgradeEntry, automaticArmorUpgradeUsesSlot, blessedShieldBenefit, canEquipShield, canRaiseShield, championBlessings, clanPistolRunes, energyShieldingVariantId, equippedHands, equippedOtherShield, forceFieldStats, isEnergyShieldingUpgrade, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldBraceEligible, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { isAncestralEmbrace, isBastionNamedArmor, isHighhelmPlate, isImmortalBastion, isInheritorPlate, isIncendiaryArmor, isLibraryRobes, isMountainArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
@@ -205,6 +205,8 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       </li>
       const entry = entries.find(candidate => candidate.id === item.entryId)
       const dailyUsed = !!c.augmentationDailyUses?.[item.id]
+      const tuned = activeFeatsNamed(c, 'Finely Tuned').some(feat => feat.choice === item.name)
+      const extraUsed = !!c.augmentationExtraDailyUses?.[item.id]
       const presenceSpell = presenceSpells.find(spell => spell.usageKey === presenceIntensifierUsageKey(item.id))
       const presenceUses = presenceSpell && itemSpellUses(c, presenceSpell)
       return <li key={item.id}><div className="rune"><EntryDescription name={item.name} entry={entry} entries={entries} />
@@ -219,20 +221,27 @@ export function Augmentations({ c, entries, save }: SectionProps) {
               } })} />
           })}
         </span> : entry && hasDailyAugmentationActivation(entry) && <span className="focus-tracker" role="group"
-          aria-label={`${dailyUsed ? 0 : 1} of 1 uses remaining`}>
+          aria-label={`${Number(!dailyUsed) + Number(tuned && !extraUsed)} of ${tuned ? 2 : 1} uses remaining`}>
           <button type="button" className="focus-point"
             aria-label={`${dailyUsed ? 'Restore' : 'Spend'} ${item.name} use 1`} title={`${dailyUsed ? 'Restore' : 'Spend'} ${item.name} use 1`}
             aria-pressed={!dailyUsed} onClick={() => save({ augmentationDailyUses: {
               ...c.augmentationDailyUses, [item.id]: !dailyUsed,
             } })} />
+          {tuned && <button type="button" className="focus-point"
+            aria-label={`${extraUsed ? 'Restore' : 'Spend'} ${item.name} use 2`} title={`${extraUsed ? 'Restore' : 'Spend'} ${item.name} use 2`}
+            aria-pressed={!extraUsed} onClick={() => save({ augmentationExtraDailyUses: {
+              ...c.augmentationExtraDailyUses, [item.id]: !extraUsed,
+            } })} />}
         </span>}
         <button type="button" aria-label={`Remove ${item.name} augmentation`} onClick={() => confirmRemoval(`augmentation "${item.name}"`,
           () => {
             const augmentationDailyUses = { ...c.augmentationDailyUses }
             delete augmentationDailyUses[item.id]
+            const augmentationExtraDailyUses = { ...c.augmentationExtraDailyUses }
+            delete augmentationExtraDailyUses[item.id]
             const itemSpellUses = { ...c.itemSpellUses }
             delete itemSpellUses[presenceIntensifierUsageKey(item.id)]
-            save({ augmentations: installed.filter(existing => existing.id !== item.id), augmentationDailyUses, itemSpellUses })
+            save({ augmentations: installed.filter(existing => existing.id !== item.id), augmentationDailyUses, augmentationExtraDailyUses, itemSpellUses })
           })}>×</button></div>
         {/^Ultralight Wings\b/i.test(item.name) && <label>{' '}<input type="checkbox" aria-label={`Deploy ${item.name}`}
           checked={!!item.deployed} disabled={wingsRestricted && !item.deployed}
@@ -538,19 +547,18 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, eff
 }
 
 export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, energyShieldingTypes, energizedSpikesEnergy,
-  onToggleJetpack, onEnergyShieldingTypeChange, onEnergizedSpikesEnergyChange, onChange,
+  onToggleJetpack, onEnergizedSpikesEnergyChange, onChange,
   automaticUpgrades = [], armorName = 'armor' }: {
   entries: ContentEntry[]; upgrades: string[]; limit: number; worn: boolean; activeJetpack?: string
   energyShieldingTypes?: OwnedArmor['energyShieldingTypes']
   energizedSpikesEnergy?: EnergizedSpikesEnergy
   onToggleJetpack: (id: string) => void; onChange: (ids: string[]) => void
-  onEnergyShieldingTypeChange: (id: string, type: EnergyShieldingType | undefined) => void
   onEnergizedSpikesEnergyChange?: (energy: EnergizedSpikesEnergy | undefined) => void
   automaticUpgrades?: ContentEntry[]; armorName?: string
 }) {
   const catalog = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
     && entry.data.item_subcategory === 'Armor Upgrades')
-  const installed = upgrades.map(id => catalog.find(entry => entry.id === id))
+  const installed = upgrades.map(id => armorUpgradeEntry(catalog, id))
   const sameUpgrade = (a: ContentEntry, b: ContentEntry) =>
     a.name.replace(/\s*\([^)]*\)$/, '') === b.name.replace(/\s*\([^)]*\)$/, '')
   const automaticFor = (entry?: ContentEntry) => automaticUpgrades.find(automatic => !!entry
@@ -581,7 +589,7 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
         onRoll={() => onEnergizedSpikesEnergyChange?.(undefined)} />
     </>
   }
-  const options = catalog.filter(entry => !installed.some(item => item?.id === entry.id)
+  const options = catalog.filter(entry => !isEnergyShieldingUpgrade(entry) && !installed.some(item => item?.id === entry.id)
     && !(isDriftDriveRelay(entry) && installed.some(isDriftDriveRelay))
     && !automaticUpgrades.some(automatic => sameUpgrade(automatic, entry)
       && !(isEnergyShieldingUpgrade(automatic) && isEnergyShieldingUpgrade(entry))))
@@ -593,7 +601,9 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
       const entry = installed[index]
       const automatic = automaticFor(entry)
       return { kind: 'installed' as const, id, index, entry, automatic,
-        name: automatic ? automaticName(automatic) : entry?.name ?? id }
+        name: automatic ? automaticName(automatic) : entry
+          ? automaticName({ ...entry, data: { ...entry.data, automatic_energy_type: entry.data.automatic_energy_type ?? energyShieldingTypes?.[id] } })
+          : id }
     }),
     ...automaticOnly.map(entry => ({ kind: 'automatic' as const, entry, name: automaticName(entry) })),
   ].sort((a, b) => a.name.localeCompare(b.name))
@@ -603,12 +613,18 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
     if (isEnergyShieldingUpgrade(entry) && type) usedEnergyTypes.add(type)
   })
   upgrades.forEach((id, index) => {
-    const type = energyShieldingTypes?.[id]
+    const type = ENERGY_SHIELDING_TYPES.find(candidate =>
+      candidate === (installed[index]?.data.automatic_energy_type ?? energyShieldingTypes?.[id]))
     if (installed[index] && isEnergyShieldingUpgrade(installed[index]) && type) usedEnergyTypes.add(type)
   })
+  const shieldingOptions = catalog.filter(isEnergyShieldingUpgrade).flatMap(entry =>
+    ENERGY_SHIELDING_TYPES.filter(type => !usedEnergyTypes.has(type)).map(type => ({
+      id: energyShieldingVariantId(entry.id, type), name: `${entry.name} (${type[0].toUpperCase()}${type.slice(1)})`, level: entry.level,
+    })))
+  const allOptions = [...options, ...shieldingOptions].sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
   return <div className="gear-runes">
     {displayUpgrades.map(item => {
-      if (item.kind === 'automatic') return <span className="rune" key={`automatic:${item.entry.id}`}>
+      if (item.kind === 'automatic') return <span className="rune" key={`automatic:${item.entry.id}:${item.entry.data.automatic_energy_type ?? ''}`}>
         <GearTag name={`${automaticName(item.entry)}${automaticArmorUpgradeUsesSlot(armorName, item.entry) ? '' : ' *'}`}
           entry={item.entry} kind="upgrade" source={`Built into ${armorName}`} />
         {jetpackSpeed(item.entry) > 0 && <button type="button" className={`spell-action-button${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? ' on' : ''}`}
@@ -622,19 +638,6 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
       return <span className="rune" key={`${id}:${index}`}>
         <GearTag name={item.name} entry={automatic ?? entry} kind="upgrade"
           onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />
-      {entry && isEnergyShieldingUpgrade(entry) && <label>Damage type{' '}
-        <select aria-label={`Energy Shielding type ${entry.name}`} value={energyShieldingTypes?.[id] ?? ''}
-          onChange={event => {
-            const type = ENERGY_SHIELDING_TYPES.find(candidate => candidate === event.target.value)
-            onEnergyShieldingTypeChange(id, type)
-          }}>
-          <option value="">Choose type...</option>
-          {ENERGY_SHIELDING_TYPES.map(type => <option key={type} value={type}
-            disabled={type !== energyShieldingTypes?.[id] && usedEnergyTypes.has(type)}>
-            {type[0].toUpperCase()}{type.slice(1)}
-          </option>)}
-        </select>
-      </label>}
       {energizedSpikesControl(automatic ?? entry)}
       {jetpackSpeed(automatic ?? entry) > 0 && <button type="button" className={`spell-action-button${activeJetpack === id && worn ? ' on' : ''}`}
         aria-label={`${activeJetpack === id && worn ? 'Dismiss' : 'Activate'} ${automatic?.name ?? entry?.name}`}
@@ -645,12 +648,12 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
     })}
     {installed.some(item => !item) && <small role="status">Saved armor upgrade unavailable. Sync official content to restore its effects.</small>}
     {upgrades.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
-    {upgrades.length < limit && options.length > 0 && <SearchableSelect aria-label="Add armor upgrade" value=""
-      optionLevel={value => options.find(entry => entry.id === value)?.level} onChange={event => {
-      if (options.some(entry => entry.id === event.target.value)) onChange([...upgrades, event.target.value])
+    {upgrades.length < limit && allOptions.length > 0 && <SearchableSelect aria-label="Add armor upgrade" value=""
+      optionLevel={value => allOptions.find(entry => entry.id === value)?.level} onChange={event => {
+      if (allOptions.some(entry => entry.id === event.target.value)) onChange([...upgrades, event.target.value])
     }}>
       <option value="">Add armor upgrade...</option>
-      {options.map(entry => <option key={entry.id} value={entry.id}>{entry.name} (Level {entry.level})</option>)}
+      {allOptions.map(entry => <option key={entry.id} value={entry.id}>{entry.name} (Level {entry.level})</option>)}
     </SearchableSelect>}
   </div>
 }
@@ -2279,12 +2282,6 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                     energizedSpikesEnergy={a.energizedSpikesEnergy}
                     automaticUpgrades={automaticUpgrades} armorName={a.name}
                   onToggleJetpack={id => update(a.id, { activeJetpack: a.activeJetpack === id ? undefined : id })}
-                    onEnergyShieldingTypeChange={(id, type) => {
-                      const energyShieldingTypes = { ...(a.energyShieldingTypes ?? {}) }
-                      if (type) energyShieldingTypes[id] = type
-                      else delete energyShieldingTypes[id]
-                      update(a.id, { energyShieldingTypes })
-                    }}
                     onEnergizedSpikesEnergyChange={energy => update(a.id, { energizedSpikesEnergy: energy })}
                     onChange={upgrades => {
                       const energyShieldingTypes = { ...(a.energyShieldingTypes ?? {}) }
@@ -2301,6 +2298,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                       ...(a.activeForceField && !armorUpgradeEntries(c, entries, { ...a, upgrades })
                           .some(upgrade => forceFieldStats(upgrade)) ? { activeForceField: false } : {}) })
                     }} />}
+              {sf2eArmor && entry && /\bStormbreaker Armor(?: \((?:Cold|Fire)\))?$/i.test(entry.name)
+                && automaticArmorUpgradeSlotsUsed(entry) > armorUpgradeSlots(entry) + (c.heritage === 'Mod Fanatic Android' ? 1 : 0)
+                && <small role="status">Built-in upgrades exceed available armor upgrade slots.</small>}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, runeLimit(potency, a.material)) })} />}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}

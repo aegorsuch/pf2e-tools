@@ -394,6 +394,26 @@ it.each(['Pulse Gauntlet', 'Crimson Claw'])('inherits fist and claw traits for g
   expect(ownedWeapons(c, allEntries).map(weapon => weapon.name)).toContain('Natural Claw')
 })
 
+it.each(['Shock Pad', 'Battleglove'])('inherits Versatile S from claws for %s grades', name => {
+  const weapons = mapAonHits(hits.filter(hit => new RegExp(`\\b${name}\\b`, 'i').test(String(hit._source?.name))
+    && hit._source?.category === 'weapon'), 'sf2e')
+  const claw: ContentEntry = { id: 'natural-claw', name: 'Natural Claw', kind: 'weapon', systems: ['sf2e'], source: 'official',
+    level: 1, traits: ['Unarmed'], description: '', effects: [], updatedAt: 0,
+    data: { weapon_category: 'Unarmed', weapon_type: 'Melee', damage: '1d4 slashing', granted_by_feat: 'Natural Claw' } }
+  const entries = [...weapons, claw]
+  for (const grade of [name, `Ultimate ${name}`]) {
+    expect(weapons.some(item => item.name === grade)).toBe(true)
+    const weapon: OwnedWeapon = { id: 'weapon', name: grade, potency: 0, striking: 0, runes: [] }
+    const c: Character = { ...base, level: 20, weapons: [weapon],
+      feats: [{ name: 'Natural Claw', type: 'Ancestry Feat', level: 1 }] }
+    const attack = weaponAttack(c, entries, weapon)
+    expect(attack.traits).toContain('Versatile S')
+    expect(weaponAttack({ ...c, feats: [] }, entries, weapon).traits).not.toContain('Versatile S')
+    expect(weaponAttack({ ...c, feats: [{ name: 'Natural Claw', type: 'Ancestry Feat', level: 21 }] }, entries, weapon).traits)
+      .not.toContain('Versatile S')
+  }
+})
+
 it('applies heritage senses and Vesk movement and tail without stacking duplicate tails', () => {
   expect(senses({ ...base, heritage: 'Deep Ysoki' }, entries).map(sense => sense.value)).toContain('Darkvision')
   expect(senses({ ...base, heritage: 'Longsnout Ysoki' }, entries).map(sense => sense.value)).toContain('Scent (imprecise) 30 feet')

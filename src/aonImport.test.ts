@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { AON_IMPORT_VERSION, importFromAon, mapAonHits } from './aon'
-import { armorEntry, armorUpgradeSlots, automaticArmorUpgradeSlotsUsed, automaticSpecificArmorUpgrades, automaticWeaponUpgrades, boostSlots, classDifficultyClass, effectiveArmor, effectiveWeapon, eligibleFeats, gearPickerEntries, resistances } from './builder'
+import { armorUpgradeSlots, automaticArmorUpgradeSlotsUsed, automaticSpecificArmorUpgrades, automaticWeaponUpgrades, boostSlots, classDifficultyClass, effectiveArmor, effectiveWeapon, eligibleFeats, gearPickerEntries, resistances } from './builder'
 import { isSpecificGear } from './GearSection'
 import { groupHomebrew } from './HomebrewList'
 import { homebrewCharacterOptions, migrateCopiedFeats } from './supplemental'
@@ -19,19 +19,17 @@ vi.mock('./db', () => ({
 }))
 afterEach(() => vi.unstubAllGlobals())
 
-it.each(['Cold', 'Fire'] as const)('resolves and scales the %s Stormbreaker variant from the real catalog', energy => {
+it.each(['Cold', 'Fire'] as const)('resolves old %s Stormbreaker variants as standard armor', energy => {
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
   const entries = mapAonHits(hits.filter(hit => /^(?:(?:Advanced|Superior|Elite|Ultimate|Paragon) )?Stormbreaker Armor$/.test(String(hit._source?.name))
     || /^Energy Shielding \((?:Commercial|Tactical|Advanced)\)$/.test(String(hit._source?.name))), 'sf2e')
-  const variant = gearPickerEntries(entries, 'armor').find(entry => entry.name === `Stormbreaker Armor (${energy})`)!
-  expect(variant.source).toBe('homebrew')
-  const armor: OwnedArmor = { id: 'armor', name: variant.name, worn: true, potency: 0, resilient: 0, runes: [] }
+  expect(gearPickerEntries(entries, 'armor').some(entry => entry.name === `Stormbreaker Armor (${energy})`)).toBe(false)
+  const armor: OwnedArmor = { id: 'armor', name: `Stormbreaker Armor (${energy})`, worn: true, potency: 0, resilient: 0, runes: [] }
   const c: Character = { id: 'variant', name: 'Test', systems: ['sf2e'], level: 20,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0, armors: [armor] }
   const effective = effectiveArmor(c, entries, armor)
-  expect(effective.name).toBe(`Paragon Stormbreaker Armor (${energy})`)
-  expect(armorEntry(c, entries, effective.name)?.data.stormbreaker_energy).toBe(energy.toLowerCase())
+  expect(effective.name).toBe('Paragon Stormbreaker Armor')
   expect(resistances(c, entries)).toContainEqual({ damage: energy, value: 15,
     source: `Energy Shielding (Advanced) (${energy})` })
 })
@@ -167,7 +165,7 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
     expect(autoUpgrades.map(entry => entry.name)).toContain('Force Field (Paragon)')
     if (name === 'Aquavarius Armor') expect(autoUpgrades.map(entry => entry.name)).not.toContain('Jetpack (Tactical)')
     else expect(autoUpgrades.map(entry => entry.name)).toContain('Jetpack (Tactical)')
-    expect(autoUpgrades).toHaveLength(name === "Drifter's Jacket" || name === 'Clandestine Suit' || name === 'Stormbreaker Armor' ? 5
+    expect(autoUpgrades).toHaveLength(name === 'Stormbreaker Armor' ? 7 : name === "Drifter's Jacket" || name === 'Clandestine Suit' ? 5
       : name === 'Myrmidon Siegebreaker Plate' || name === 'Aquavarius Armor' || name === 'Rocketeer Armor' ? 3
       : name === 'Carvesong' ? 4
       : name === 'Retrieval Harness' ? 4

@@ -2068,6 +2068,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       : higherDC ? classDC === undefined || spellDC === undefined ? undefined : Math.max(classDC, spellDC)
       : mod === undefined ? undefined : 10 + mod
     const notes = grant.source === 'Empathetic Connection' && grant.entry.name === 'Mindlink'
+      || grant.source === 'Melodic Adaptation' && grant.entry.name === 'Detect Magic'
       || grant.source === 'Grown of Oak' && grant.entry.name === 'Oaken Resilience' ? [] : [
       frequency && `${frequency}${grant.rule.shared ? ' shared between alternatives' : ''}`,
       grant.rule.condition && !(grant.source === 'Mask of Power' && grant.rule.condition === 'Must be wearing your warmask')
@@ -2075,6 +2076,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           && /^Must target yourself(?:; crocodile form only)?$/.test(grant.rule.condition))
         && grant.rule.condition !== 'Only within your claimed territory'
         && grant.rule.condition !== 'Only through barriers of earth or stone'
+        && !(grant.source === 'Creature Shape'
+          && grant.rule.condition === 'Transform only into a battle form that matches your ancestral creature; use your normal AC if higher')
+        && !(grant.source === 'Creature Ally' && grant.rule.condition === 'Cat only')
         && !(grant.entry.name === 'Resist Energy' && ['Order Training', 'Order Cross-Training'].includes(grant.source)
           && /^Self only\. Fire resistance is at least \d+\.$/.test(grant.rule.condition))
         && !(['Order Training', 'Order Cross-Training'].includes(grant.source) && grant.rule.kind === 'focus'

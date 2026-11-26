@@ -841,6 +841,45 @@ it('tracks daily-use augmentation pips and removes spent state with the augmenta
   expect(c.augmentationDailyUses).toEqual({})
 })
 
+it('adds an independently tracked use to the augmentation selected for Finely Tuned', () => {
+  const muscle: ContentEntry = { ...shifting, id: 'muscle', name: 'Muscle Invigorator', systems: ['sf2e'],
+    level: 17, data: { item_category: 'Augmentations', item_activation_action_ids: '183-strength-of-the-colossi' } }
+  const feat = { name: 'Finely Tuned', type: 'Archetype Feat', level: 6, choice: muscle.name }
+  let c: Character = { ...character([]), systems: ['sf2e'], level: 17, weapons: [],
+    augmentationDailyUses: { installed: true }, augmentations: [{ id: 'installed', entryId: muscle.id, name: muscle.name, slot: 'apex' }] }
+  let tree: ReactNode = null
+  const save = (patch: Partial<Character>) => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) }
+  const markup = () => {
+    function Inspect() {
+      tree = Augmentations({ c, entries: [muscle], save })
+      return tree
+    }
+    return renderToStaticMarkup(<Inspect />)
+  }
+  expect(markup()).toContain('aria-label="0 of 1 uses remaining"')
+  c = { ...c, feats: [{ ...feat, choice: 'Other Augmentation' }] }
+  expect(markup()).not.toContain('Muscle Invigorator use 2')
+  c = { ...c, feats: [{ ...feat, level: 18 }] }
+  expect(markup()).not.toContain('Muscle Invigorator use 2')
+  c = { ...c, feats: [feat] }
+  expect(markup()).toContain('aria-label="1 of 2 uses remaining"')
+  ;(findElement(tree, element => element.type === 'button'
+    && element.props['aria-label'] === 'Spend Muscle Invigorator use 2')!.props.onClick as () => void)()
+  expect(markup()).toContain('aria-label="0 of 2 uses remaining"')
+  expect(c.augmentationDailyUses?.installed).toBe(true)
+  ;(findElement(tree, element => element.type === 'button'
+    && element.props['aria-label'] === 'Restore Muscle Invigorator use 1')!.props.onClick as () => void)()
+  expect(markup()).toContain('aria-label="1 of 2 uses remaining"')
+  c = { ...c, feats: [] }
+  expect(markup()).toContain('aria-label="1 of 1 uses remaining"')
+  c = { ...c, feats: [feat] }
+  expect(markup()).toContain('aria-label="1 of 2 uses remaining"')
+  ;(findElement(tree, element => element.type === 'button'
+    && element.props['aria-label'] === 'Remove Muscle Invigorator augmentation')!.props.onClick as () => void)()
+  expect(c.augmentationDailyUses).toEqual({})
+  expect(c.augmentationExtraDailyUses).toEqual({})
+})
+
 it('shares Presence Intensifier use pips between augmentations and spells', () => {
   const previous = getSettings().presenceIntensifierDaily
   try {
@@ -3434,7 +3473,7 @@ it('prevents installing more than one grade of Drift Drive Relay', () => {
     systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } }
   const advanced: ContentEntry = { ...commercial, id: 'relay-advanced', name: 'Drift Drive Relay (Advanced)' }
   const tree = ArmorUpgrades({ entries: [commercial, advanced], upgrades: [commercial.id], limit: 2, worn: true,
-    onToggleJetpack: () => {}, onEnergyShieldingTypeChange: () => {}, onChange: () => {} })
+    onToggleJetpack: () => {}, onChange: () => {} })
   const markup = renderToStaticMarkup(tree)
   expect(markup).toContain('Drift Drive Relay (Commercial)')
   expect(markup).not.toContain('Drift Drive Relay (Advanced)')
@@ -3447,7 +3486,7 @@ it('rolls Energized Spikes using their grade and clears their stored charge', ()
       systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } }
     let charged: string | undefined = 'electricity'
     const tree = ArmorUpgrades({ entries: [item], upgrades: [], limit: 2, worn: true,
-      onToggleJetpack: () => {}, onEnergyShieldingTypeChange: () => {}, onChange: () => {},
+      onToggleJetpack: () => {}, onChange: () => {},
       onEnergizedSpikesEnergyChange: energy => { charged = energy }, energizedSpikesEnergy: 'electricity',
       automaticUpgrades: [item] })
     const roll = findElement(tree, element => element.type === DamageRoll)
@@ -3510,25 +3549,34 @@ it('auto-installs Rocketeer Armor upgrades, reserving slots for Force Field and 
 
 it('offers Acid, Cold, Electricity and Fire variants for Energy Shielding', () => {
   const suit: ContentEntry = { ...weapon, id: 'energy-suit', name: 'Energy Suit', kind: 'armor', systems: ['sf2e'],
-    data: { armor_category: 'Light', ac: 2, upgrade_slots: 1 } }
+    data: { armor_category: 'Light', ac: 2, upgrade_slots: 2 } }
   const shielding: ContentEntry = { ...shifting, id: 'energy-shielding', name: 'Energy Shielding (Advanced)',
     systems: ['sf2e'], level: 18, data: { item_subcategory: 'Armor Upgrades' } }
   let c: Character = { ...character([]), systems: ['sf2e'], level: 20, armors: [
-    { id: suit.id, name: suit.name, potency: 0, resilient: 0, runes: [], upgrades: [shielding.id], worn: true },
+    { id: suit.id, name: suit.name, potency: 0, resilient: 0, runes: [], upgrades: [], worn: true },
   ] }
   const entries = [suit, shielding]
   const tree = () => ArmorList({ c, entries, save: patch => { c = { ...c, ...patch } } })
-  const component = findElement(tree(), element => typeof element.type === 'function' && element.type.name === 'ArmorUpgrades')!
-  const content = (component.type as (props: typeof component.props) => ReactNode)(component.props)
-  const selector = findElement(content, element => element.props['aria-label'] === 'Energy Shielding type Energy Shielding (Advanced)')!
-  const markup = renderToStaticMarkup(selector)
+  const content = () => {
+    const component = findElement(tree(), element => typeof element.type === 'function' && element.type.name === 'ArmorUpgrades')!
+    return (component.type as (props: typeof component.props) => ReactNode)(component.props)
+  }
+  const selector = () => findElement(content(), element => element.props['aria-label'] === 'Add armor upgrade')!
+  const markup = renderToStaticMarkup(content())
   for (const [type, label] of [['acid', 'Acid'], ['cold', 'Cold'], ['electricity', 'Electricity'], ['fire', 'Fire']])
-    expect(markup).toContain(`<option value="${type}">${label}</option>`)
-  ;(selector.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'fire' } })
-  expect(c.armors?.[0].energyShieldingTypes).toEqual({ [shielding.id]: 'fire' })
+    expect(markup).toContain(`value="energy-shielding:${type}:${shielding.id}">Energy Shielding (Advanced) (${label})`)
+  ;(selector().props.onChange as (event: { target: { value: string } }) => void)({ target: { value: `energy-shielding:fire:${shielding.id}` } })
+  expect(c.armors?.[0].upgrades).toEqual([`energy-shielding:fire:${shielding.id}`])
   expect(resistances(c, entries)).toContainEqual({
     damage: 'Fire', value: 15, source: 'Energy Shielding (Advanced) (Fire)',
   })
+  expect(renderToStaticMarkup(content())).not.toContain(`value="energy-shielding:fire:${shielding.id}"`)
+  ;(selector().props.onChange as (event: { target: { value: string } }) => void)({ target: { value: `energy-shielding:cold:${shielding.id}` } })
+  expect(resistances(c, entries)).toContainEqual({ damage: 'Cold', value: 15, source: 'Energy Shielding (Advanced) (Cold)' })
+  expect(renderToStaticMarkup(content())).not.toContain('Energy Shielding type')
+  const legacy = { ...c, armors: [{ ...c.armors![0], upgrades: [shielding.id], energyShieldingTypes: { [shielding.id]: 'acid' as const } }] }
+  expect(resistances(legacy, entries)).toContainEqual({ damage: 'Acid', value: 15, source: 'Energy Shielding (Advanced) (Acid)' })
+  expect(renderToStaticMarkup(ArmorList({ c: legacy, entries, save: () => {} }))).toContain('Energy Shielding (Advanced) (Acid)')
 })
 
 it('auto-installs Retrieval Harness Easypatcher and scaling Adrenal Autoinjectors with correct slot usage', () => {
@@ -3565,7 +3613,7 @@ it('auto-installs Retrieval Harness Easypatcher and scaling Adrenal Autoinjector
   expect(markup).toContain('Add armor upgrade')
 })
 
-it('auto-installs Stormbreaker upgrades and reserves slots for Jetpack, Force Field, and Mobility Enhancer', () => {
+it('auto-installs Stormbreaker upgrades and reserves slots for fire and cold shielding', () => {
   const armor: ContentEntry = { ...weapon, id: 'stormbreaker', name: 'Stormbreaker Armor', kind: 'armor', systems: ['sf2e'],
     level: 10, data: { url: 'stormbreaker', armor_category: 'Medium', ac: 4, armor_grade: 'Advanced', upgrade_slots: 2 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
@@ -3579,12 +3627,17 @@ it('auto-installs Stormbreaker upgrades and reserves slots for Jetpack, Force Fi
     { id: armor.id, name: armor.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [armor, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(3)
+  expect(automaticArmorUpgradeSlotsUsed(armor)).toBe(5)
   expect(markup).not.toContain('Add armor upgrade')
   expect(markup).toContain('Jetpack (Tactical)')
   expect(markup).toContain('Force Field (Paragon)')
   expect(markup).toContain('Energized Spikes (Advanced)')
   expect(markup).toContain('Energy Shielding (Advanced) (Electricity) *')
+  expect(markup).toContain('Energy Shielding (Advanced) (Cold)')
+  expect(markup).toContain('Energy Shielding (Advanced) (Fire)')
+  expect(markup).not.toContain('Energy Shielding (Advanced) (Cold) *')
+  expect(markup).not.toContain('Energy Shielding (Advanced) (Fire) *')
+  expect(markup).toContain('Built-in upgrades exceed available armor upgrade slots.')
   expect(markup).toContain('Mobility Enhancer')
   expect(markup).not.toContain('Jetpack (Tactical) *')
   expect(markup).not.toContain('Force Field (Paragon) *')
@@ -3594,12 +3647,12 @@ it('auto-installs Stormbreaker upgrades and reserves slots for Jetpack, Force Fi
     .toContain('Mobility Enhancer')
 })
 
-it('leaves one upgrade slot on Paragon Stormbreaker Armor after built-in upgrades', () => {
+it('counts both additional shielding upgrades against Paragon Stormbreaker slots', () => {
   const armor: ContentEntry = { ...weapon, id: 'paragon-stormbreaker', name: 'Paragon Stormbreaker Armor',
     kind: 'armor', systems: ['sf2e'], level: 20,
     data: { armor_grade: 'Paragon', upgrade_slots: 2 } }
   expect(resolvedArmorUpgradeSlots(armor)).toBe(4)
-  expect(resolvedArmorUpgradeSlots(armor) - automaticArmorUpgradeSlotsUsed(armor)).toBe(1)
+  expect(resolvedArmorUpgradeSlots(armor) - automaticArmorUpgradeSlotsUsed(armor)).toBe(-1)
 })
 
 it('auto-installs Aeon Guard Battle Dress Jetpack and Force Field using two upgrade slots', () => {
