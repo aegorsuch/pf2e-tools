@@ -8895,7 +8895,7 @@ function inheritedHandWeaponTraits(c: Character, entries: ContentEntry[], weapon
   const traits: string[] = []
   for (const hand of handAttacks) {
     const attack = weaponAttack(c, entries, hand, { skipHandInheritance: true })
-    traits.push(...attack.traits.filter(trait => !/^(?:unarmed|free[- ]hand|nonlethal)$/i.test(trait.trim())))
+    traits.push(...attack.traits.filter(trait => !/^(?:unarmed|free[- ]hand|nonlethal|vesk)$/i.test(trait.trim())))
     const damage = damageDie(attack.damage)
     if (weaponDamage && damage && ['bludgeoning', 'b'].includes(damage.type) && damage.size >= weaponDamage.size) {
       traits.push('Versatile B')

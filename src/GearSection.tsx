@@ -1273,7 +1273,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
   const replacedTails = new Set(weapons.flatMap(weapon => tailbladeInheritance(c, entries, weapon).replacedTailIds))
   const sorted = weapons.filter(weapon => !replacedTails.has(weapon.id)
     && (!sparkFist || ![FIST.name, IRON_FIST.name].includes(weapon.name))
-    && (!crimsonClaw || weapon.name !== FIST.name)
+    && (!crimsonClaw || weapon.name !== FIST.name && !/^(?:vesk )?claws?$/i.test(weapon.name.trim()))
     && (!weapon.attachedTo || weaponEquipped(c, entries, weapon)))
     .sort((x, y) => equipmentDisplayName(x.name === SPARK_FIST.name ? FIST.name : x.name)
       .localeCompare(equipmentDisplayName(y.name === SPARK_FIST.name ? FIST.name : y.name)))
@@ -2129,8 +2129,10 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const heavyConstruction = modifications.some(mod => mod.name === 'Heavy Construction')
         const mobility = activeFeatsNamed(c, 'Hellknight Mobility').length > 0 && entry && armorCategory(entry) === 'Heavy'
         const iron = activeFeatsNamed(c, 'Unburdened Iron').length ? 5 : 0
+        const enhancer = sf2eArmor && a.worn && upgradeSlots > 0 && (a.upgrades ?? []).slice(0, upgradeSlots)
+          .some(id => entries.find(item => item.id === id)?.name === 'Mobility Enhancer') ? 5 : 0
         const effectiveSpeedPenalty = strengthMet && heavyConstruction ? 0
-          : Math.min(0, speedPenalty + iron + (strengthMet ? mobility ? 10 : 5 : 0))
+          : Math.min(0, speedPenalty + iron + enhancer + (strengthMet ? mobility ? 10 : 5 : 0))
         const penalty = (value: number) => value === 0 ? '0' : String(value)
         const acRank = entry ? armorProficiencyRank(c, entries, entry) : 0
         const wall = isHighhelmPlate(a.name)
