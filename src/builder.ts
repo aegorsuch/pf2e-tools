@@ -2326,13 +2326,26 @@ const DAILY_AUGMENTATION_ACTION_IDS = new Set([
   '486-engage-overdrive', '489-draining-touch', '495-necrotize-blood',
 ])
 
+export const isQuickChargeHand = (name: string) =>
+  /^quick-charge hand(?:\s*\((?:commercial|tactical|advanced|superior|elite)\))?$/i.test(name.trim())
+export const isQuantumMultitoolAppendage = (name: string) =>
+  /^quantum multitool appendage(?:\s*\((?:commercial|tactical)\))?$/i.test(name.trim())
+
 export function hasDailyAugmentationActivation(entry: ContentEntry) {
+  if (entry.systems.includes('sf2e') && isQuantumMultitoolAppendage(entry.name))
+    return !/\(tactical\)$/i.test(entry.name.trim())
   const actionIds = String(entry.data.item_activation_action_ids ?? '').split(',').map(actionId => actionId.trim())
   return entry.name === 'Presence Intensifier' && entry.systems.includes('sf2e') && getSettings().presenceIntensifierDaily
+    || entry.systems.includes('sf2e') && isQuickChargeHand(entry.name)
     || entry.data.item_daily_uses === true
     || /\b(?:once|twice|(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+times?)\s+per day\b/i
       .test(String(entry.data.markdown ?? ''))
     || actionIds.some(actionId => DAILY_AUGMENTATION_ACTION_IDS.has(actionId))
+}
+
+export function augmentationBaseDailyUses(entry: ContentEntry) {
+  const grade = /^quick-charge hand\s*\((advanced|superior|elite)\)$/i.exec(entry.name.trim())?.[1]?.toLowerCase()
+  return entry.systems.includes('sf2e') && grade ? grade === 'elite' ? 3 : 2 : 1
 }
 
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number,
@@ -5399,6 +5412,12 @@ export function senses(c: Character, entries: ContentEntry[]) {
     const improved = activeFeatsNamed(c, 'Improved Seismic Sensitivity').length > 0
     addVision(`Tremorsense (imprecise) ${improved ? 120 : 30} feet`,
       improved ? 'Seismic Sensitivity, Improved Seismic Sensitivity' : 'Seismic Sensitivity')
+  }
+  if (c.systems.includes('sf2e')) {
+    for (const augmentation of c.augmentations ?? []) {
+      const match = /^Tremor Soles(?:\s*\((Commercial|Tactical)\))?$/i.exec(augmentation.name.trim())
+      if (match) addVision(`Tremorsense (${match[1]?.toLowerCase() === 'tactical' ? 'precise' : 'imprecise'}) 30 feet`, augmentation.name)
+    }
   }
   if (isFeatEffectActive(c, 'Briny Beverage')) addVision('Wavesense (imprecise) 20 feet', 'Briny Beverage')
   if (hasDivineIntercession(c, 'Asmodeus', 'moderate-boon')) addVision('Darkvision', 'Asmodeus (Moderate Boon)')
@@ -10688,9 +10707,14 @@ export function languageAllowance(c: Character, entries: ContentEntry[]) {
   const prodigy = !!activeFeatsNamed(c, 'Linguistic Prodigy').length
   const polyglot = c.systems.includes('pf2e') && !!activeFeatsNamed(c, 'Gnome Polyglot').length
   const commonOnlySlots = officerEducationSlots(c).length
+  const coprocessorSlots = c.systems.includes('sf2e') ? (c.augmentations ?? []).flatMap(item => {
+    const match = /^Linguistic Coprocessor(?:\s*\((Commercial|Tactical|Advanced|Superior)\))?$/i.exec(item.name.trim())
+    return match ? [{ source: item.name, value: !match[1] || /^commercial$/i.test(match[1]) ? 1 : 2 }] : []
+  }) : []
   const slotSources = [
     { source: 'Intelligence', value: Math.max(0, abilityMod(c.abilities.int)) },
     ...heritageSlots,
+    ...coprocessorSlots,
     { source: multilingualGrantSources.length && !selectedMultilingual
       ? `Multilingual (${multilingualGrantSources.join(', ')})` : 'Multilingual', value: multilingualCount * 2 },
     { source: 'Society proficiency (Multilingual)', value: multilingualCount * (Number(society >= 3) + Number(society >= 4)) },

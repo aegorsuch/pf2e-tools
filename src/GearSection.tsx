@@ -46,7 +46,7 @@ import { fulminatingShotDamage } from './fulminatingShot'
 import { ANCESTRAL_AVATAR } from './battleForms'
 import { spellActiveChange } from './builder'
 import { shieldEntry } from './builder'
-import { augmentationLimitSources, hasDermalPlating, intensifiedElementDamage, inventiveOffensiveOptions, ranksAt, testSubjectDatajack } from './builder'
+import { augmentationBaseDailyUses, augmentationLimitSources, hasDermalPlating, intensifiedElementDamage, inventiveOffensiveOptions, isQuantumMultitoolAppendage, isQuickChargeHand, ranksAt, testSubjectDatajack } from './builder'
 import { cloakingSkinUsageKey, itemSpells, itemSpellUses, itemSpellUsesChange, presenceIntensifierUsageKey } from './itemSpells'
 import { AUTOMATIC_JETPACK_ID, armorUpgradeSlots, automaticArmorUpgradeSlotsUsed, automaticSpecificArmorUpgrades, jetpackSpeed } from './builder'
 import { weaponGradeFamily } from './builder'
@@ -220,9 +220,13 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       const dailyUsed = !!c.augmentationDailyUses?.[item.id]
       const tuned = activeFeatsNamed(c, 'Finely Tuned').some(feat => feat.choice === item.name)
       const extraUsed = !!c.augmentationExtraDailyUses?.[item.id]
+      const baseUses = entry ? augmentationBaseDailyUses(entry) : 1
+      const additionalUsed = c.augmentationAdditionalDailyUses?.[item.id] ?? []
       const itemSpell = augmentationSpells.find(spell => [presenceIntensifierUsageKey(item.id), cloakingSkinUsageKey(item.id)].includes(spell.usageKey))
       const spellUses = itemSpell && itemSpellUses(c, itemSpell)
       return <li key={item.id}><div className="rune"><EntryDescription name={item.name} entry={entry} entries={entries} />
+        {isQuickChargeHand(item.name) && <> <ActionIcon actions="Free Action" /></>}
+        {isQuantumMultitoolAppendage(item.name) && <> <ActionIcon actions="Reaction" /></>}
         {spellUses && itemSpell ? <span className="focus-tracker" role="group"
           aria-label={`${spellUses.remaining} of ${spellUses.limit} uses remaining`}>
           {Array.from({ length: spellUses.limit }, (_, index) => {
@@ -233,14 +237,24 @@ export function Augmentations({ c, entries, save }: SectionProps) {
                 spent ? spellUses.spent.filter(value => value !== index) : [...spellUses.spent, index]))} />
           })}
         </span> : entry && hasDailyAugmentationActivation(entry) && <span className="focus-tracker" role="group"
-          aria-label={`${Number(!dailyUsed) + Number(tuned && !extraUsed)} of ${tuned ? 2 : 1} uses remaining`}>
+          aria-label={`${Number(!dailyUsed) + Array.from({ length: baseUses - 1 }, (_, index) => !additionalUsed.includes(index + 1)).filter(Boolean).length + Number(tuned && !extraUsed)} of ${baseUses + Number(tuned)} uses remaining`}>
           <button type="button" className="focus-point"
             aria-label={`${dailyUsed ? 'Restore' : 'Spend'} ${item.name} use 1`} title={`${dailyUsed ? 'Restore' : 'Spend'} ${item.name} use 1`}
             aria-pressed={!dailyUsed} onClick={() => save({ augmentationDailyUses: {
               ...c.augmentationDailyUses, [item.id]: !dailyUsed,
             } })} />
+          {Array.from({ length: baseUses - 1 }, (_, index) => {
+            const use = index + 1
+            const spent = additionalUsed.includes(use)
+            const action = `${spent ? 'Restore' : 'Spend'} ${item.name} use ${use + 1}`
+            return <button key={use} type="button" className="focus-point" aria-label={action} title={action}
+              aria-pressed={!spent} onClick={() => save({ augmentationAdditionalDailyUses: {
+                ...c.augmentationAdditionalDailyUses,
+                [item.id]: spent ? additionalUsed.filter(value => value !== use) : [...additionalUsed, use],
+              } })} />
+          })}
           {tuned && <button type="button" className="focus-point"
-            aria-label={`${extraUsed ? 'Restore' : 'Spend'} ${item.name} use 2`} title={`${extraUsed ? 'Restore' : 'Spend'} ${item.name} use 2`}
+            aria-label={`${extraUsed ? 'Restore' : 'Spend'} ${item.name} use ${baseUses + 1}`} title={`${extraUsed ? 'Restore' : 'Spend'} ${item.name} use ${baseUses + 1}`}
             aria-pressed={!extraUsed} onClick={() => save({ augmentationExtraDailyUses: {
               ...c.augmentationExtraDailyUses, [item.id]: !extraUsed,
             } })} />}
@@ -251,11 +265,13 @@ export function Augmentations({ c, entries, save }: SectionProps) {
             delete augmentationDailyUses[item.id]
             const augmentationExtraDailyUses = { ...c.augmentationExtraDailyUses }
             delete augmentationExtraDailyUses[item.id]
+            const augmentationAdditionalDailyUses = { ...c.augmentationAdditionalDailyUses }
+            delete augmentationAdditionalDailyUses[item.id]
             const itemSpellUses = { ...c.itemSpellUses }
             delete itemSpellUses[presenceIntensifierUsageKey(item.id)]
             delete itemSpellUses[cloakingSkinUsageKey(item.id)]
             const augmentations = installed.filter(existing => existing.id !== item.id)
-            save({ augmentations, augmentationDailyUses, augmentationExtraDailyUses, itemSpellUses,
+            save({ augmentations, augmentationDailyUses, augmentationExtraDailyUses, augmentationAdditionalDailyUses, itemSpellUses,
               ...(hasDermalPlating(c) && !hasDermalPlating({ ...c, augmentations })
                 ? { dermalPlating: { ...c.dermalPlating, raised: false } } : {}) })
           })}>×</button></div>

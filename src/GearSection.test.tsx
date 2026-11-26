@@ -906,6 +906,56 @@ it.each(PILOTING_INTERFACES)('tracks daily $name uses and its Finely Tuned use',
   expect(c.augmentationExtraDailyUses?.installed).toBe(true)
 })
 
+it.each([
+  ['Commercial', 1], ['Tactical', 1], ['Advanced', 2], ['Superior', 2], ['Elite', 3],
+] as const)('tracks Quick-charge Hand %s daily uses and Finely Tuned separately', (grade, baseUses) => {
+  const augmentation: ContentEntry = { ...shifting, id: 'quick-hand', name: `Quick-charge Hand (${grade})`,
+    systems: ['sf2e'], kind: 'item', data: { item_category: 'Augmentations' } }
+  const feat = { name: 'Finely Tuned', type: 'Archetype Feat', level: 6, choice: augmentation.name }
+  let c: Character = { ...character([feat]), systems: ['sf2e'], level: 20,
+    augmentations: [{ id: 'installed', entryId: augmentation.id, name: augmentation.name, slot: 'standard' }] }
+  let tree: ReactNode = null
+  const markup = () => {
+    function Inspect() {
+      tree = Augmentations({ c, entries: [augmentation], save: patch => { c = JSON.parse(JSON.stringify({ ...c, ...patch })) } })
+      return tree
+    }
+    return renderToStaticMarkup(<Inspect />)
+  }
+  expect(markup()).toContain(`aria-label="${baseUses + 1} of ${baseUses + 1} uses remaining"`)
+  expect(markup()).toContain('aria-label="Free Action"')
+  for (let use = 1; use <= baseUses + 1; use++) {
+    ;(findElement(tree, element => element.type === 'button'
+      && element.props['aria-label'] === `Spend ${augmentation.name} use ${use}`)!.props.onClick as () => void)()
+    expect(markup()).toContain(`aria-label="${baseUses + 1 - use} of ${baseUses + 1} uses remaining"`)
+  }
+  c = { ...c, feats: [] }
+  expect(markup()).toContain(`aria-label="0 of ${baseUses} uses remaining"`)
+  c = { ...c, feats: [feat] }
+  expect(markup()).toContain(`aria-label="0 of ${baseUses + 1} uses remaining"`)
+  ;(findElement(tree, element => element.type === 'button'
+    && element.props['aria-label'] === `Restore ${augmentation.name} use ${baseUses + 1}`)!.props.onClick as () => void)()
+  expect(markup()).toContain(`aria-label="1 of ${baseUses + 1} uses remaining"`)
+  ;(findElement(tree, element => element.type === 'button'
+    && element.props['aria-label'] === `Remove ${augmentation.name} augmentation`)!.props.onClick as () => void)()
+  expect(c.augmentationAdditionalDailyUses).toEqual({})
+  expect(c.augmentationDailyUses).toEqual({})
+  expect(c.augmentationExtraDailyUses).toEqual({})
+})
+
+it.each([['Commercial', true], ['Tactical', false]] as const)(
+  'shows Quantum Multitool Appendage %s reaction and its correct daily tracker', (grade, daily) => {
+    const augmentation: ContentEntry = { ...shifting, id: 'quantum-tool', name: `Quantum Multitool Appendage (${grade})`,
+      systems: ['sf2e'], kind: 'item',
+      data: { item_category: 'Augmentations', item_activation_action_ids: '475-self-correct' } }
+    const c: Character = { ...character([]), systems: ['sf2e'], augmentations: [
+      { id: 'installed', entryId: augmentation.id, name: augmentation.name, slot: 'standard' },
+    ] }
+    const html = renderToStaticMarkup(<Augmentations c={c} entries={[augmentation]} save={() => {}} />)
+    expect(html).toContain('aria-label="Reaction"')
+    expect(html.includes('aria-label="1 of 1 uses remaining"')).toBe(daily)
+  })
+
 it('shares Presence Intensifier use pips between augmentations and spells', () => {
   const previous = getSettings().presenceIntensifierDaily
   try {

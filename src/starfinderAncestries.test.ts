@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import snapshot from '../public/data/aon-sf2e.json?raw'
 import { mapAonHits } from './aon'
 import { automaticFeatChoiceKey, dailyInnateUses, featSpellOptions, grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
-import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, computeAbilities, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, hasParryWeapon, isGrantedSlot, maxHp, movementSpeeds, ownedShields, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, shieldAcBonus, shieldRaisedChange, speed, tailbladeInheritance, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
+import { resistances, additionalSkillCount, ancestryFlaws, automaticFeatGrants, boostSlots, computeAbilities, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, hasParryWeapon, isGrantedSlot, languageAllowance, maxHp, movementSpeeds, ownedShields, ownedWeapons, plannedSlots, ranksAt, savingThrowBreakdown, senses, shieldAcBonus, shieldRaisedChange, speed, tailbladeInheritance, totalHandCapacity, weaponAccessSources, weaponAttack } from './builder'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 import { getSettings, updateSettings } from './settings'
 
@@ -64,6 +64,76 @@ it('grants and improves Seismic Sensitivity tremorsense', () => {
   expect(senses(improved, featEntries).filter(sense => /Tremorsense/i.test(sense.value))).toEqual([
     { value: 'Tremorsense (imprecise) 120 feet', source: 'Seismic Sensitivity, Improved Seismic Sensitivity' },
   ])
+})
+
+it('grants installed Tremor Soles tremorsense at the selected grade', () => {
+  const catalog = mapAonHits(hits.filter(hit => /^Tremor Soles(?: \((?:Commercial|Tactical)\))?$/
+    .test(String(hit._source?.name))), 'sf2e')
+  for (const [name, precision] of [['Tremor Soles', 'imprecise'], ['Tremor Soles (Commercial)', 'imprecise'],
+    ['Tremor Soles (Tactical)', 'precise']] as const) {
+    const item = catalog.find(entry => entry.name === name)!
+    expect(item).toBeDefined()
+    const c: Character = { ...base, augmentations: [{ id: 'soles', entryId: item.id, name: item.name, slot: 'standard' }] }
+    const grant = { value: `Tremorsense (${precision}) 30 feet`, source: name }
+    expect(senses(c, catalog)).toContainEqual(grant)
+    expect(senses({ ...c, augmentations: [] }, catalog)).not.toContainEqual(grant)
+    expect(senses({ ...c, systems: ['pf2e'] }, catalog)).not.toContainEqual(grant)
+  }
+  const c: Character = { ...base, level: 13, ancestry: 'Shirren',
+    feats: [{ name: 'Seismic Sensitivity', type: 'Ancestry Feat', level: 5 },
+      { name: 'Improved Seismic Sensitivity', type: 'Ancestry Feat', level: 13 }],
+    augmentations: [{ id: 'soles', entryId: 'soles', name: 'Tremor Soles (Tactical)', slot: 'standard' }] }
+  expect(senses(c, catalog)).toEqual(expect.arrayContaining([
+    { value: 'Tremorsense (precise) 30 feet', source: 'Tremor Soles (Tactical)' },
+    { value: 'Tremorsense (imprecise) 120 feet', source: 'Seismic Sensitivity, Improved Seismic Sensitivity' },
+  ]))
+})
+
+it('adds Linguistic Coprocessor capacity to language selections by grade', () => {
+  const catalog = mapAonHits(hits.filter(hit => /^Linguistic Coprocessor(?: \((?:Commercial|Tactical|Advanced|Superior)\))?$/
+    .test(String(hit._source?.name))), 'sf2e')
+  const without = languageAllowance(base, catalog).slots
+  for (const [name, count] of [['Linguistic Coprocessor', 1], ['Linguistic Coprocessor (Commercial)', 1],
+    ['Linguistic Coprocessor (Tactical)', 2], ['Linguistic Coprocessor (Advanced)', 2],
+    ['Linguistic Coprocessor (Superior)', 2]] as const) {
+    const item = catalog.find(entry => entry.name === name)!
+    expect(item).toBeDefined()
+    const c: Character = { ...base, augmentations: [{ id: 'chip', entryId: item.id, name, slot: 'standard' }] }
+    expect(languageAllowance(c, catalog)).toMatchObject({ slots: without + count,
+      slotSources: expect.arrayContaining([{ source: name, value: count }]) })
+    expect(languageAllowance({ ...c, augmentations: [] }, catalog).slots).toBe(without)
+    expect(languageAllowance({ ...c, systems: ['pf2e'] }, catalog).slots)
+      .toBe(languageAllowance({ ...base, systems: ['pf2e'] }, catalog).slots)
+  }
+})
+
+it('offers every Quick-charge Hand grade for Finely Tuned', () => {
+  const catalog = mapAonHits(hits.filter(hit => /^Quick-charge Hand(?: \((?:Commercial|Tactical|Advanced|Superior|Elite)\))?$/
+    .test(String(hit._source?.name))), 'sf2e')
+  expect(catalog).toHaveLength(6)
+  for (const item of catalog) {
+    const feat = { name: 'Finely Tuned', type: 'Archetype Feat', level: 6, slot: 'archetype:6:0' }
+    const c: Character = { ...base, level: 20, feats: [feat],
+      augmentations: [{ id: 'hand', entryId: item.id, name: item.name, slot: 'standard' }] }
+    expect(featChoiceOptions(feat.name, c, [item], feat.slot, 0)).toEqual([item.name])
+    const legacy = { ...item, data: { ...item.data, item_activation_action_ids: '', item_daily_uses: false } }
+    expect(featChoiceOptions(feat.name, c, [legacy], feat.slot, 0)).toEqual([item.name])
+  }
+})
+
+it('offers daily Quantum Multitool Appendage for Finely Tuned, but not its hourly tactical grade', () => {
+  const catalog = mapAonHits(hits.filter(hit => /^Quantum Multitool Appendage(?: \((?:Commercial|Tactical)\))?$/
+    .test(String(hit._source?.name))), 'sf2e')
+  expect(catalog).toHaveLength(3)
+  for (const item of catalog) {
+    const feat = { name: 'Finely Tuned', type: 'Archetype Feat', level: 6, slot: 'archetype:6:0' }
+    const c: Character = { ...base, level: 20, feats: [feat],
+      augmentations: [{ id: 'tool', entryId: item.id, name: item.name, slot: 'standard' }] }
+    const expected = item.name.endsWith('(Tactical)') ? [] : [item.name]
+    expect(featChoiceOptions(feat.name, c, [item], feat.slot, 0)).toEqual(expected)
+    const legacy = { ...item, data: { ...item.data, item_activation_action_ids: '', item_daily_uses: false } }
+    expect(featChoiceOptions(feat.name, c, [legacy], feat.slot, 0)).toEqual(expected)
+  }
 })
 
 it('grants Basic Insectile Flight and improves Winged Shirren flight', () => {
