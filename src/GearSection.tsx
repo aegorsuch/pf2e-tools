@@ -201,13 +201,13 @@ export function Augmentations({ c, entries, save }: SectionProps) {
     if (!secondaryPower) return null
     const checked = selectedPower.includes(id)
     const uses = Math.max(0, Math.min(2, c.secondaryPowerUses?.[id] ?? 0))
-    return <span>{' '}<label><input type="checkbox" aria-label={`Secondary Power Source: ${name}`}
+    return <span>{' '}<input type="checkbox" aria-label={`Use extra daily activation for ${name}`}
       checked={checked} disabled={!checked && selectedPower.length >= 2}
       onChange={event => {
         if (event.target.checked && !checked && selectedPower.length >= 2) return
         save({ secondaryPowerSourceIds: event.target.checked
           ? [...new Set([...selectedPower, id])] : selectedPower.filter(existing => existing !== id) })
-      }} /> Once-per-day activation: extra use</label>
+      }} />
       {checked && <label> Used{' '}<select aria-label={`${name} uses`} value={uses} onChange={event => {
         const value = Number(event.target.value)
         if (Number.isInteger(value) && value >= 0 && value <= 2)
@@ -231,7 +231,6 @@ export function Augmentations({ c, entries, save }: SectionProps) {
             secondaryPowerSourceIds: selectedPower.filter(id => id !== item.id) }))}>×</button></div>
         {biotechUpgrade && String(entry?.data.item_subcategory ?? '').toLowerCase() === 'cybernetics' && <SourceNote inlineSource={false}
           source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
-        {item.slot !== 'standard' && <>{' '}<small>({item.slot === 'apex' ? 'apex' : 'item exemption'})</small></>}
         {/^Ultralight Wings\b/i.test(item.name) && <label>{' '}<input type="checkbox" aria-label={`Deploy ${item.name}`}
           checked={!!item.deployed} disabled={wingsRestricted && !item.deployed}
           onChange={event => save({ augmentations: installed.map(existing => existing.id === item.id
