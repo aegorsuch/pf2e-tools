@@ -37,7 +37,7 @@ import { boostingTheBasics } from './mechanicMods'
 import { warmaskSource, warmaskItemBonus } from './warmask'
 import { complexSimplicityTraits, hasWeaponRuneCapacity, weaponModificationOptions, weaponModificationSlots, type WeaponModificationSlot } from './inventorWeapon'
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
-import { TURRET_GRADES, turretWeapon } from './mechanicTurret'
+import { turretWeapon } from './mechanicTurret'
 import { clearItemGlitching, enduringGrenadeMods, enduringWeaponMods, setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
 import { namedArmorEnhancements, namedArmorRuneLimit } from './namedArmor'
@@ -1276,7 +1276,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
     && (!weapon.attachedTo || weaponEquipped(c, entries, weapon)))
     .sort((x, y) => equipmentDisplayName(x.name === SPARK_FIST.name ? FIST.name : x.name)
       .localeCompare(equipmentDisplayName(y.name === SPARK_FIST.name ? FIST.name : y.name)))
-  const displayNames = new Map<string, string>()
+  const displayNames = new Map<string, string>([['mechanic-turret-card', 'Mechanic Turret']])
   const handsUsed = equippedHands(c, entries)
   const unknownHands = weapons.some(weapon => !weapon.attachedTo && weapon.name !== HAFT_STRIKER_WEAPON.name
     && weaponEquipped(c, entries, weapon) && weaponHands(entries, weapon, c) === undefined)
@@ -1291,7 +1291,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
       </small>}
       {showAddWeapon && <Search c={c} save={save} entries={entries} kind="weapon" label="Add Weapon"
         onPick={(e) => saveWeapons([...savedWeapons, { id: newId(), name: e.name, potency: 0, striking: 0, runes: [], stowed: true }])} />}
-      {sorted.map((w) => {
+      {[...sorted.map((w) => {
         const a = weaponAttack(c, entries, w)
         const crimsonClawModes = /\bcrimson claw\b/i.test(a.entry?.name ?? '') ? (() => {
           const modes = a.entry?.weaponModes ?? []
@@ -1869,8 +1869,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             {innovation && <WeaponModifications c={c} weapon={w} entry={a.entry} weaponForms={forms} save={patch => update(w.id, patch)} />}
           </details>
         )
-      }).sort((x, y) => (displayNames.get(String(x?.key)) ?? '').localeCompare(displayNames.get(String(y?.key)) ?? ''))}
-      <TurretWeapon c={c} entries={entries} save={save} displayOnly={displayOnly} />
+      }), <TurretWeapon key="mechanic-turret-card" c={c} entries={entries} save={save} displayOnly={displayOnly} />]
+        .sort((x, y) => (displayNames.get(String(x?.key)) ?? '').localeCompare(displayNames.get(String(y?.key)) ?? ''))}
     </div>
   )
 }
@@ -1878,7 +1878,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
 export function TurretWeapon({ c, entries, save, displayOnly }: SectionProps & { displayOnly: boolean }) {
   const turret = turretWeapon(c, entries)
   if (!turret) return null
-  const { entry, weapon, attack, grade } = turret
+  const { entry, weapon, attack } = turret
   const damageUpgrades = [...upgradeDamageSummary(attack), ...mechanicDamageSummary(c, weapon, attack), ...attack.additionalDamage]
   return <div className="gear-card col" aria-label="Mechanic Turret">
     <strong>Mechanic Turret</strong>
@@ -1886,23 +1886,12 @@ export function TurretWeapon({ c, entries, save, displayOnly }: SectionProps & {
       Damage {attack.damage}{damageUpgrades.map(upgrade => <Fragment key={upgrade.source}> + {upgrade.value}
         <SourceNote source={upgrade.source} note={upgrade.note} inlineSource={false} /></Fragment>)}; range {attack.range} feet.</small>
     {attack.traits.length > 0 && <GearTraits traits={attack.traits} entries={entries} system={entry.systems[0]} />}
-    <small>{entry.data.weapon_group as string}.</small>
     {displayOnly && <AttackUpgrades attack={attack} />}
     {!displayOnly && <>
-      <label>Turret grade{' '}
-        <select aria-label="Turret grade" value={grade} onChange={event => {
-          const next = TURRET_GRADES.find(option => option === event.target.value)
-          if (next) save({ mechanicTurretGrade: next })
-        }}>
-          {TURRET_GRADES.map(option => <option key={option}
-            disabled={TURRET_GRADES.indexOf(option) < TURRET_GRADES.indexOf(automaticHardlightGrade(c.level))}>{option}</option>)}
-        </select>
-      </label>
       <WeaponUpgrades entries={entries} weapon={entry} upgrades={c.mechanicTurretUpgrades ?? []}
         effectiveUpgrades={attack.upgrades} limit={Number(entry.data.upgrade_slots)}
         onChange={upgrades => save({ mechanicTurretUpgrades: upgrades })} />
     </>}
-    <small>Strike from the deployed turret within 150 feet; shares your multiple attack penalty. Cannot Strike while broken.</small>
   </div>
 }
 

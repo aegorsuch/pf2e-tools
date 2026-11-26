@@ -217,8 +217,7 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
       const spell = index.spells.get('invisibility')?.find(entry => eligible(entry) && entry.systems.includes('sf2e'))
       out.push({ source, name: spell?.name ?? 'Invisibility', entry: spell,
         usageKey: cloakingSkinUsageKey(augmentation.id), augmentationUses: { id: augmentation.id, baseLimit },
-        rank: Math.max(minimumRank, advanced ? 4 : 2), actions: 'Single Action', frequency,
-        note: 'Invisible for up to 1 minute.', usesSpellcasting: false })
+        rank: Math.max(minimumRank, advanced ? 4 : 2), actions: 'Single Action', frequency, usesSpellcasting: false })
       continue
     }
     if (augmentation.name !== 'Presence Intensifier') continue

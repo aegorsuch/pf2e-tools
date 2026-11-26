@@ -11,7 +11,7 @@ import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDispl
   resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped, weaponHands } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
-import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, OVERSIZED_THROW } from './supplemental'
+import { ARMOR_GAUNTLETS, DISARMING_RUNE, GAUNTLET, GRAPPLING_MODULE, GRAPPLING_RUNE, SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_HANDWRAPS, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, OVERSIZED_THROW, PILOTING_INTERFACES } from './supplemental'
 import { getSettings, updateSettings } from './settings'
 import { canEquipShield, equippedHands, equippedOtherShield, equippedShield, hardwoodShield, ownedShields, shieldAcBonus, shieldBraceEligible, shieldBraceInstalled, shieldEquipChange, shieldRaisedChange, shieldStats } from './builder'
 import { GearSystemFilter } from './GearSystemFilter'
@@ -878,6 +878,32 @@ it('adds an independently tracked use to the augmentation selected for Finely Tu
     && element.props['aria-label'] === 'Remove Muscle Invigorator augmentation')!.props.onClick as () => void)()
   expect(c.augmentationDailyUses).toEqual({})
   expect(c.augmentationExtraDailyUses).toEqual({})
+})
+
+it.each(PILOTING_INTERFACES)('tracks daily $name uses and its Finely Tuned use', augmentation => {
+  const feat = { name: 'Finely Tuned', type: 'Archetype Feat', level: 6, choice: augmentation.name }
+  let c: Character = { ...character([]), systems: ['sf2e'], augmentations: [
+    { id: 'installed', entryId: augmentation.id, name: augmentation.name, slot: 'standard' },
+  ] }
+  let tree: ReactNode = null
+  const markup = () => {
+    function Inspect() {
+      tree = Augmentations({ c, entries: [augmentation], save: patch => { c = { ...c, ...patch } } })
+      return tree
+    }
+    return renderToStaticMarkup(<Inspect />)
+  }
+  expect(markup()).toContain('aria-label="1 of 1 uses remaining"')
+  ;(findElement(tree, element => element.type === 'button'
+    && element.props['aria-label'] === `Spend ${augmentation.name} use 1`)!.props.onClick as () => void)()
+  expect(markup()).toContain('aria-label="0 of 1 uses remaining"')
+  c = { ...c, feats: [feat] }
+  expect(markup()).toContain('aria-label="1 of 2 uses remaining"')
+  ;(findElement(tree, element => element.type === 'button'
+    && element.props['aria-label'] === `Spend ${augmentation.name} use 2`)!.props.onClick as () => void)()
+  expect(markup()).toContain('aria-label="0 of 2 uses remaining"')
+  expect(c.augmentationDailyUses?.installed).toBe(true)
+  expect(c.augmentationExtraDailyUses?.installed).toBe(true)
 })
 
 it('shares Presence Intensifier use pips between augmentations and spells', () => {

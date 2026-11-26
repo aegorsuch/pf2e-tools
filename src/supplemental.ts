@@ -263,8 +263,8 @@ export const PILOTING_INTERFACES: ContentEntry[] = [
 ].map(({ grade, level, price, bonus }) => ({
   id: `homebrew:piloting-interface-${grade.toLowerCase()}`, systems: ['sf2e'], kind: 'item', source: 'homebrew',
   name: `Piloting Interface (${grade})`, level, traits: ['Tech'],
-  description: `This cybernetic interface connects your nervous system to a vehicle's controls. You gain a +${bonus} item bonus to Piloting checks. Once per turn, you can Take Control as a free action unless it normally takes multiple actions.${grade !== 'Commercial' ? ' You ignore the usual Piloting penalties for Stunt and the three-action Drive.' : ''}`,
-  data: { item_category: 'Augmentations', item_subcategory: 'Cybernetics', sourceBook: 'Homebrew', price, piloting_item_bonus: bonus },
+  description: `This cybernetic interface connects your nervous system to a vehicle's controls. You gain a +${bonus} item bonus to Piloting checks. Once per day, you can Take Control as a free action unless it normally takes multiple actions; you can do so no more than once per turn.${grade !== 'Commercial' ? ' You ignore the usual Piloting penalties for Stunt and the three-action Drive.' : ''}`,
+  data: { item_category: 'Augmentations', item_subcategory: 'Cybernetics', sourceBook: 'Homebrew', price, piloting_item_bonus: bonus, item_daily_uses: true },
   effects: [], updatedAt: 1,
 }))
 

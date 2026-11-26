@@ -444,6 +444,11 @@ it('adds the matching turret module only when a slot is available', () => {
     kind: 'item' as const, systems: ['sf2e' as const], source: 'official' as const, level, traits: [],
     description: '', data: { item_subcategory: 'Weapon Upgrades' }, effects: [], updatedAt: 0,
   })))
+  modules.push(...[8, 15].map(level => ({
+    id: `Loudener-${level}`, name: `Loudener (${level === 8 ? 'Commercial' : 'Tactical'})`,
+    kind: 'item' as const, systems: ['sf2e' as const], source: 'official' as const, level, traits: [],
+    description: '', data: { item_subcategory: 'Weapon Upgrades' }, effects: [], updatedAt: 0,
+  })))
   const c: Character = { ...mechanic, level: 15, subclass: 'Turret', mechanicTurretArray: 'Laser Beam' }
   try {
     updateSettings({ automaticSfWeaponUpgrades: true })
@@ -455,8 +460,19 @@ it('adds the matching turret module only when a slot is available', () => {
     expect(turretWeapon({ ...c, level: 7 }, modules)?.attack.upgrades).toEqual([])
     expect(turretWeapon({ ...c, mechanicTurretUpgrades: ['a', 'b', 'c', 'd'] }, modules)?.attack.upgrades).toEqual([])
     expect(renderToStaticMarkup(<WeaponList c={c} entries={modules} save={() => {}} />)).toContain('Flaming Module (Tactical)')
+    const thunderclap = { ...c, mechanicTurretArray: 'Thunderclap' as const }
+    expect(turretWeapon({ ...thunderclap, level: 7 }, modules)?.attack.upgrades).toEqual([])
+    expect(turretWeapon({ ...thunderclap, level: 8 }, modules)?.attack.upgrades.map(item => item.name))
+      .toEqual(['Loudener (Commercial)'])
+    expect(turretWeapon(thunderclap, modules)?.attack.upgrades.map(item => item.name)).toEqual(['Loudener (Tactical)'])
+    expect(turretWeapon({ ...thunderclap, mechanicTurretUpgrades: ['Loudener-8'] }, modules)?.attack.upgrades.map(item => item.name))
+      .toEqual(['Loudener (Tactical)'])
+    expect(turretWeapon({ ...thunderclap, mechanicTurretUpgrades: ['a', 'b', 'c', 'd'] }, modules)?.attack.upgrades).toEqual([])
+    expect(renderToStaticMarkup(<WeaponList c={thunderclap} entries={modules} save={() => {}} displayOnly />))
+      .toContain('1d6 sonic')
     updateSettings({ automaticSfWeaponUpgrades: false })
     expect(turretWeapon(c, modules)?.attack.upgrades).toEqual([])
+    expect(turretWeapon(thunderclap, modules)?.attack.upgrades).toEqual([])
   } finally { updateSettings({ automaticSfWeaponUpgrades: previous }) }
 })
 
@@ -530,6 +546,12 @@ it('calculates turret grade, weapon proficiency, specialization and active mods 
   expect(html).not.toContain('Hands used:')
   expect(html).toContain('Mechanic Turret')
   expect(html).toContain('3d8+10 cold')
+  for (const displayOnly of [true, false]) {
+    const markup = renderToStaticMarkup(<WeaponList c={c} entries={entries} save={() => {}} displayOnly={displayOnly} />)
+    expect(markup).not.toContain('aria-label="Turret grade"')
+    expect(markup).not.toContain('Strike from the deployed turret')
+    expect(markup).not.toContain('<small>Laser.</small>')
+  }
   expect(turretWeapon({ ...c, subclass: 'Mine' }, entries)).toBeUndefined()
   expect(turretWeapon({ ...c, level: 1, mechanicTurretGrade: 'Commercial', mechanicTurretUpgrades: ['a', 'b', 'c'] }, entries)?.weapon.upgrades)
     .toEqual(['a', 'b'])
@@ -538,6 +560,16 @@ it('calculates turret grade, weapon proficiency, specialization and active mods 
     mechanicWeaponMods: { 'mechanic:turret': { explosiveShot: true, damageType: 'cold' as const } } }
   expect(renderToStaticMarkup(<WeaponList c={explosive} entries={entries} save={() => {}} displayOnly />))
     .toContain('3 cold splash')
+})
+
+it('alphabetizes the turret with other offense weapons', () => {
+  const c: Character = { ...mechanic, subclass: 'Turret', mechanicTurretArray: 'Laser Beam', weapons: [
+    { id: 'z', name: 'Zeta Gun', potency: 0, striking: 0, runes: [] },
+    { id: 'a', name: 'Alpha Gun', potency: 0, striking: 0, runes: [] },
+  ] }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} displayOnly />)
+  expect(markup.indexOf('Alpha Gun')).toBeLessThan(markup.indexOf('Mechanic Turret'))
+  expect(markup.indexOf('Mechanic Turret')).toBeLessThan(markup.indexOf('Zeta Gun'))
 })
 
 it('applies Magnetic Levitators only while its armor is worn', () => {

@@ -15,6 +15,7 @@ import { classSpellcasting, featChoiceOptions, movementSpeeds, ranksAt, research
 import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
+import { PILOTING_INTERFACES } from './supplemental'
 
 const spell = (name: string, tier: string): ContentEntry => ({
   id: name, systems: ['pf2e'], kind: 'spell', source: 'official', name, level: tier === 'Initiate' ? 1 : 2,
@@ -997,6 +998,14 @@ it('offers Presence Intensifier for Finely Tuned only under its daily house rule
   } finally {
     updateSettings({ presenceIntensifierDaily: previous })
   }
+})
+
+it.each(PILOTING_INTERFACES)('offers installed $name for Finely Tuned', augmentation => {
+  const feat = { name: 'Finely Tuned', type: 'Archetype Feat', level: 6, slot: 'archetype:6:0' }
+  const c: Character = { ...base, systems: ['sf2e'], level: 17, feats: [feat],
+    augmentations: [{ id: 'installed', entryId: augmentation.id, name: augmentation.name, slot: 'standard' }] }
+  expect(featChoiceOptions(feat.name, c, [augmentation], feat.slot, 0)).toEqual([augmentation.name])
+  expect(featChoiceOptions(feat.name, { ...c, augmentations: [] }, [augmentation], feat.slot, 0)).toEqual([])
 })
 
 it('hides manual casting configuration for noncasters and collapses the spell section', () => {

@@ -107,6 +107,8 @@ it.each([
   const getSpell = () => itemSpells(c, entries).find(spell => spell.source.id === skin.id)!
   let spell = getSpell()
   expect(spell).toMatchObject({ name: 'Invisibility', rank, actions: 'Single Action' })
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />))
+    .not.toContain('Invisible for up to 1 minute.')
   expect(itemSpellUses(c, spell)).toMatchObject({ limit, remaining: limit - 1, spent: [0] })
   c = { ...c, feats: [feat] }
   spell = getSpell()

@@ -534,7 +534,7 @@ export function pilotingEquipmentBonus(c: Character, entries: ContentEntry[]) {
       && /^homebrew:piloting-interface-(?:commercial|tactical|advanced)$/.test(candidate.id))
     const value = Number(entry?.data.piloting_item_bonus)
     return entry && Number.isFinite(value) && value > 0
-      ? [{ source: entry.name, value, tactical: !entry.id.endsWith('-commercial') }] : []
+      ? [{ source: entry.name, value, tactical: !entry.id.endsWith('-commercial'), daily: true }] : []
   })
   const armor = wornArmor(c, entries)
   const instruments = armor ? armorUpgradeEntries(c, entries, armor).flatMap(entry => {
@@ -542,7 +542,7 @@ export function pilotingEquipmentBonus(c: Character, entries: ContentEntry[]) {
     if (!match) return []
     const grade = match[1]?.toLowerCase()
     const value = grade === 'advanced' ? 3 : grade === 'tactical' ? 2 : 1
-    return [{ source: entry.name, value, tactical: value >= 2 }]
+    return [{ source: entry.name, value, tactical: value >= 2, daily: false }]
   }) : []
   return [...interfaces, ...instruments].sort((a, b) => b.value - a.value)[0]
 }
@@ -8886,7 +8886,8 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
   if (!entry) return []
   const name = entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   const turretModule: Record<string, string> = {
-    'Laser Beam': 'Flaming Module', Disintegrator: 'Acid Module', 'Volt Thrower': 'Shock Module', 'Zero Emitter': 'Frost Module',
+    'Laser Beam': 'Flaming Module', Disintegrator: 'Acid Module', Thunderclap: 'Loudener',
+    'Volt Thrower': 'Shock Module', 'Zero Emitter': 'Frost Module',
   }
   const turret = entry.id === 'mechanic:turret'
   const upgrades = turret ? [turretModule[String(entry.data.turret_array)]].filter((module): module is string => !!module)

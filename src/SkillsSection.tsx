@@ -627,7 +627,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {!!datajack?.bonus && <label> Datajack connected <input type="checkbox" aria-label="Datajack connected"
             checked={c.datajackConnected !== false} onChange={event => save({ datajackConnected: event.target.checked })} /></label>}
           {pilotingInterface && <SourceNote inlineSource={false} source={pilotingInterface.source}
-            note={`+${pilotingInterface.value} item bonus; item bonuses do not stack. Take Control as a free action once per turn unless it normally takes multiple actions.${pilotingInterface.tactical ? ' Ignore the usual Piloting penalties for Stunt and three-action Drive.' : ''}`} />}
+            note={`+${pilotingInterface.value} item bonus; item bonuses do not stack. Take Control as a free action once per turn${pilotingInterface.daily ? activeFeatsNamed(c, 'Finely Tuned').some(feat => feat.choice === pilotingInterface.source) ? ', twice per day' : ', once per day' : ''} unless it normally takes multiple actions.${pilotingInterface.tactical ? ' Ignore the usual Piloting penalties for Stunt and three-action Drive.' : ''}`} />}
           {s.name === 'Crafting' && dwarvenAxe && <SourceNote inlineSource={false} source="Axe of the Dwarven Lords"
             note={`${itemTotal(4)} to Craft armor, jewelry, metalwork, stonework, snares, traps, and weapons while carrying the axe (+4 item; item bonuses do not stack).`} />}
           {arrowhead && <SourceNote inlineSource={false} source={arrowhead.source}

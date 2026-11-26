@@ -113,6 +113,18 @@ it('installs Piloting Interface grades and advanced instruments in existing data
   expect(mocks.content.add).toHaveBeenCalledWith(ADVANCED_PILOTING_INSTRUMENTS)
 })
 
+it('refreshes unedited Piloting Interfaces without overwriting user edits', async () => {
+  const [commercial, tactical] = PILOTING_INTERFACES
+  mocks.content.get.mockImplementation(async (id: string) => {
+    if (id === commercial.id) return { ...commercial, data: { ...commercial.data, item_daily_uses: undefined } }
+    if (id === tactical.id) return { ...tactical, updatedAt: 2 }
+    return undefined
+  })
+  await ensureSupplementalContent()
+  expect(mocks.content.put).toHaveBeenCalledWith(commercial)
+  expect(mocks.content.put).not.toHaveBeenCalledWith(tactical)
+})
+
 it('refreshes generated Focus Rifle traits in existing installs', async () => {
   const laser: ContentEntry = { ...FIST, id: 'laser-rifle', name: 'Laser Rifle', systems: ['sf2e'],
     source: 'official', kind: 'weapon', level: 0, traits: ['Tech'], data: {
