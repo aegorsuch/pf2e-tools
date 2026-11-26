@@ -322,7 +322,7 @@ export interface Character {
   simplePoisonsSpent?: number
   poisonWeaponActive?: boolean
   apexAugmentationId?: string
-  augmentations?: { id: string; entryId: string; name: string; slot: string; speed?: string }[]
+  augmentations?: { id: string; entryId: string; name: string; slot: string; speed?: string; deployed?: boolean }[]
   hardpointWeaponId?: string
   dermalPlating?: { grade?: HardlightGrade; raised?: boolean; damaged?: boolean }
   secondaryPowerSourceIds?: string[]

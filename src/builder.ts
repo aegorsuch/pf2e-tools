@@ -730,6 +730,8 @@ export const HOMEBREW_DEDICATIONS = [
   { setting: 'commanderCaptain', className: 'Commander', name: 'Captain Dedication', slot: 'archetype:2:g85', replacesFreeArchetype: false },
   { setting: 'soldierGrenadier', className: 'Soldier', name: 'Grenadier Dedication', slot: 'archetype:2:g84', replacesFreeArchetype: false },
   { setting: 'mechanicAugmented', className: 'Mechanic', name: 'Augmented Dedication', slot: 'archetype:2:g83', replacesFreeArchetype: false },
+  { setting: 'mechanicGrenadier', className: 'Mechanic', name: 'Grenadier Dedication', slot: 'archetype:2:g100', replacesFreeArchetype: false },
+  { setting: 'technomancerGrenadier', className: 'Technomancer', name: 'Grenadier Dedication', slot: 'archetype:2:g101', replacesFreeArchetype: false },
   { setting: 'technomancerAugmented', className: 'Technomancer', name: 'Augmented Dedication', slot: 'archetype:2:g82', replacesFreeArchetype: false },
   { setting: 'mysticXenoDruid', className: 'Mystic', tradition: 'Primal', name: 'Xeno Druid Dedication',
     slot: 'archetype:2:g81', replacesFreeArchetype: false },
@@ -3260,6 +3262,10 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
   const dashSpeed = options.includeUncannyDash && activeFeatsNamed(c, 'Uncanny Dash').length
     && activeFeatsNamed(c, 'Gg-os Frame').length ? 10 : 0
   const skeletonSpeed = activeFeatsNamed(c, 'Reinforced Skeleton').length ? 5 : 0
+  const suspension = c.systems.includes('sf2e') ? Math.max(0, ...(c.augmentations ?? []).filter(item => /^Speed Suspension\b/i.test(item.name))
+    .map(item => /\(Advanced\)$/i.test(item.name) ? 15 : /\(Tactical\)$/i.test(item.name) ? 10 : 5))
+    : 0
+  const augmentedMobility = suspension && activeFeatsNamed(c, 'Augmented Mobility').length ? 5 : 0
   const fleet = activeFeatsNamed(c, 'Fleet').length ? 'Fleet'
     : activeFeatsNamed(c, 'Gg-os Frame').length ? 'Gg-os Frame (Fleet)' : undefined
   const status = [
@@ -3292,7 +3298,9 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
     ...(fortressShieldPenalty ? [{ source: 'Fortress Shield', feet: fortressShieldPenalty }] : []),
     ...(activeFeatsNamed(c, 'Hellknight Mobility').length && activeFeatsNamed(c, 'Unburdened Iron').length
       && armorCategory(armorEntry(c, entries, wornArmor(c, entries)?.name ?? '', wornArmor(c, entries)?.id)) === 'Heavy' && wornArmor(c, entries)
-      ? [{ source: 'Hellknight Mobility', feet: 5 }] : [])]
+      ? [{ source: 'Hellknight Mobility', feet: 5 }] : []),
+    ...(suspension ? [{ source: 'Speed Suspension (item)', feet: suspension }] : []),
+    ...(augmentedMobility ? [{ source: 'Augmented Mobility', feet: augmentedMobility }] : [])]
     .filter(bonus => (!options.ignorePenalties || bonus.feet >= 0) && (!form || /\((?:status|circumstance)\)$/.test(bonus.source)))
 }
 
@@ -3573,6 +3581,20 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
   if (activeFeatsNamed(c, 'Sky Master Mask').length) {
     const fly = atLandSpeed('Fly', 'Sky Master Mask')
     movement.push({ ...fly, feet: isFeatEffectActive(c, 'Sky Master Mask') ? fly.feet * 2 : fly.feet })
+  }
+  for (const item of c.systems.includes('sf2e') ? c.augmentations ?? [] : []) {
+    const entry = entries.find(candidate => candidate.id === item.entryId)
+    if (!entry || /\bdeployed\b/i.test(entry.description) && !item.deployed) continue
+    const armor = wornArmor(c, entries)
+    const armorItem = armor && armorEntry(c, entries, armor.name, armor.id)
+    if (/^Ultralight Wings\b/i.test(item.name) && armorItem
+      && !['Light', 'Unarmored'].includes(armorCategory(armorItem) ?? '')) continue
+    const mobility = activeFeatsNamed(c, 'Augmented Mobility').length ? 5 : 0
+    for (const match of entry.description.matchAll(/\b(land|burrow|climb|fly|swim)\s+Speed of\s+(\d+)\s*(?:feet|foot|ft\.?)/gi)) {
+      const name = `${match[1][0].toUpperCase()}${match[1].slice(1).toLowerCase()}`
+      const feet = Number(match[2]) + mobility
+      movement.push(fixed(name, feet, `${item.name}${mobility ? `, Augmented Mobility (+${mobility} feet)` : ''}`))
+    }
   }
   for (const heritage of characterHeritages(c, entries)) {
     for (const [mode, name] of [['climb', 'Climb'], ['swim', 'Swim'], ['fly', 'Fly'], ['burrow', 'Burrow']] as const) {
@@ -5606,6 +5628,13 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
       const priorSociety = ranksAt(prior, entries, level).Society ?? 0
       return priorSociety > 0 ? [{ skill: 'Society', level, rank: 2 }] : []
     }) : []
+  const augmentationSurgeonGrants = c.systems.includes('sf2e')
+    ? activeFeatsNamed(c, 'Augmentation Surgeon').flatMap(feat => {
+      const level = featTakenLevel(feat)
+      if (level >= beforeLevel) return []
+      const prior = { ...c, feats: c.feats.filter(candidate => candidate !== feat) }
+      return [{ skill: 'Medicine', level, rank: (ranksAt(prior, entries, level).Medicine ?? 0) > 0 ? 2 : 1 }]
+    }) : []
   const pirate = c.systems.includes('sf2e') ? activeFeatsNamed(c, 'Space Pirate Dedication')
     .find(feat => featTakenLevel(feat) < beforeLevel) : undefined
   const pirateLevel = pirate && featTakenLevel(pirate)
@@ -5623,6 +5652,7 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   // Feat-granted ranks must precede skill increases spent at later levels.
   const levels = [...new Set([...increases, ...(scrapperLevel === undefined ? [] : [scrapperLevel]),
     ...initiateGrants.map(grant => grant.level), ...fieldAgentGrants.map(grant => grant.level),
+    ...augmentationSurgeonGrants.map(grant => grant.level),
     ...(pirateLevel === undefined ? [] : [pirateLevel]), ...(ancestralLevel === undefined ? [] : [ancestralLevel]),
     ...(longevityLevel === undefined ? [] : [longevityLevel]), ...educationSlots.map(slot => slot.level),
     ...ingenuitySlots.map(slot => slot.level), ...signiferSlots.map(slot => slot.level),
@@ -5667,6 +5697,8 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
     for (const grant of initiateGrants.filter(grant => grant.level === l)) ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, 2)
     for (const grant of fieldAgentGrants.filter(grant => grant.level === l))
       ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, grant.rank)
+    for (const grant of augmentationSurgeonGrants.filter(grant => grant.level === l))
+      ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, grant.rank)
     if (l === ancestralLevel) for (const name of ancestrySkills) ranks[name] = Math.max(ranks[name] ?? 0, 1)
   }
   if (withOverrides) {
@@ -5681,6 +5713,7 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   }
   for (const grant of initiateGrants) ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, 2)
   for (const grant of fieldAgentGrants) ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, grant.rank)
+  for (const grant of augmentationSurgeonGrants) ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, grant.rank)
   if (pirate) ranks.Piloting = Math.max(ranks.Piloting ?? 0, pirateRank)
   for (const name of ancestrySkills) ranks[name] = Math.max(ranks[name] ?? 0, 1)
   for (const name of [
@@ -8538,7 +8571,8 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     : name === 'Crimson Claw' ? ['Flaming Module']
     : name === 'Shock Pad' ? ['Shock Module']
     : name === 'Rotolaser' ? ['Flaming Module']
-    : name === 'Pulse Gauntlet' ? ['Loudener'] : []
+    : name === 'Pulse Gauntlet' ? ['Loudener']
+    : /^Tail\s*Blade$/i.test(name) ? ['Fear Projector'] : []
   return automaticUpgradeEntries(c, entries, upgrades)
 }
 
@@ -8572,7 +8606,7 @@ export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], w
   const entry = weaponEntry(entries, weapon.name, weapon.id)
   const unarmed = weaponCategory(entry) === 'Unarmed'
   if (unarmed) return animalStrengthSource(c, entries, weapon) ? [] : installedHardlightUpgrades(c, entries)
-  const inherited = isHardlightInheritanceWeapon(entry)
+  const inherited = isHardlightUpgradeInheritanceWeapon(entry)
     ? installedHardlightUpgrades(c, entries).filter(upgrade =>
       /^(?:Grappling Module|Protection Grid|Shoving Module)$/.test(upgrade.name.replace(/\s*\([^)]*\)$/, '')))
     : []
@@ -8609,6 +8643,11 @@ export function weaponGradeFamily(entry?: ContentEntry) {
 function isHardlightInheritanceWeapon(entry?: ContentEntry) {
   const baseName = entry?.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   return ['Crimson Claw', 'Pulse Gauntlet', 'Battleglove', 'Shock Pad'].includes(baseName ?? '')
+}
+
+function isHardlightUpgradeInheritanceWeapon(entry?: ContentEntry) {
+  const baseName = entry?.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+  return isHardlightInheritanceWeapon(entry) || /^Tail\s*Blade$/i.test(baseName ?? '')
 }
 
 function weaponGrades(entries: ContentEntry[], family: string) {

@@ -166,6 +166,9 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const [apexOnly, setApexOnly] = useState(false)
   if (!c.systems.includes('sf2e')) return null
   const installed = c.augmentations ?? []
+  const worn = c.armors?.find(armor => armor.worn)
+  const wornEntry = worn && armorEntry(c, entries, worn.name, worn.id)
+  const wingsRestricted = !!wornEntry && !['Light', 'Unarmored'].includes(armorCategory(wornEntry) ?? '')
   const dermalGrade = DERMAL_GRADES.find(grade => grade.name === (c.dermalPlating?.grade ?? 'Commercial')) ?? DERMAL_GRADES[0]
   const granted = [
     ...(testSubjectAdaptation(c) === 'Cybernetic Augmentation' ? [{ name: 'Datajack', source: 'Test-Subject Ysoki' }] : []),
@@ -229,6 +232,10 @@ export function Augmentations({ c, entries, save }: SectionProps) {
         {biotechUpgrade && String(entry?.data.item_subcategory ?? '').toLowerCase() === 'cybernetics' && <SourceNote inlineSource={false}
           source="Biotech OS Upgrade" note="This cybernetic augmentation has the biotech trait instead of the tech trait." />}
         {' '}<small>({item.slot === 'apex' ? 'apex' : item.slot === 'exempt' ? 'item exemption' : 'implant limit'})</small>
+        {/^Ultralight Wings\b/i.test(item.name) && <label>{' '}<input type="checkbox" aria-label={`Deploy ${item.name}`}
+          checked={!!item.deployed} disabled={wingsRestricted && !item.deployed}
+          onChange={event => save({ augmentations: installed.map(existing => existing.id === item.id
+            ? { ...existing, deployed: event.target.checked } : existing) })} /> Deployed</label>}
         {/^Mobility Enhancer\b/.test(item.name) && <label>{' '}Speed{' '}<select aria-label={`${item.name} speed`} value={item.speed ?? ''}
           onChange={event => save({ augmentations: installed.map(existing => existing.id === item.id
             ? { ...existing, speed: MOBILITY_ENHANCER_SPEEDS.find(mode => mode === event.target.value) } : existing) })}>

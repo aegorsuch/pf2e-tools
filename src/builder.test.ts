@@ -23,6 +23,30 @@ it('clears Bone Shield activation and raised state when removed', () => {
   expect(spellRemovalChange(c, 'Bone Shield')).toEqual({ activeSpells: ['Shield'], boneShieldRaised: false })
 })
 
+it('grants Mechanics and Technomancers separate Grenadier Dedication slots at level 2', ({ onTestFinished }) => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ mechanicGrenadier: true, technomancerGrenadier: true, freeArchetype: true })
+  for (const [className, setting, slot] of [
+    ['Mechanic', 'mechanicGrenadier', 'archetype:2:g100'],
+    ['Technomancer', 'technomancerGrenadier', 'archetype:2:g101'],
+  ] as const) {
+    const character: Character = { ...base, systems: ['sf2e'], className, level: 2 }
+    const keys = (c = character) => plannedSlots(c).map(item => item.key)
+    expect(activeHomebrewDedications(character)).toContainEqual(expect.objectContaining({
+      name: 'Grenadier Dedication', slot, replacesFreeArchetype: false,
+    }))
+    expect(keys()).toEqual(expect.arrayContaining([slot, 'archetype:2:0']))
+    expect(keys({ ...character, level: 1 })).not.toContain(slot)
+    updateSettings({ [setting]: false })
+    expect(keys()).not.toContain(slot)
+    updateSettings({ [setting]: true, freeArchetype: false })
+    expect(keys()).toContain(slot)
+    expect(keys()).not.toContain('archetype:2:0')
+    updateSettings({ freeArchetype: true })
+  }
+})
+
 it('applies Warrior of Legend armor and spear/polearm proficiency rules', () => {
   const fighter = entry('class', 'Fighter', {
     attack_proficiency: 'Trained in simple weapons, Trained in martial weapons',
@@ -77,6 +101,18 @@ it('applies Warrior of Legend armor and spear/polearm proficiency rules', () => 
   const heroic = { ...c, feats: [...c.feats, { name: 'Heroic Defiance', type: 'Class Feat', level: 4 }], activeFeatEffects: ['Heroic Defiance'] }
   expect(temporaryHpGrant(heroic, entries)?.value).toBe(20)
   expect(savingThrowBreakdown(heroic, entries, 'Will').total).toBe(savingThrowBreakdown(c, entries, 'Will').total + 1)
+})
+
+it('grants Medicine training or Expert from Augmentation Surgeon at acquisition', () => {
+  const surgeon = { name: 'Augmentation Surgeon', type: 'Archetype Feat', level: 6 }
+  const untrained: Character = { ...base, systems: ['sf2e'], level: 8, feats: [surgeon] }
+  expect(ranksAt(untrained, [], 6).Medicine ?? 0).toBe(0)
+  expect(ranksAt(untrained, []).Medicine).toBe(1)
+
+  const trained: Character = { ...untrained, skillPicks: ['Medicine'] }
+  expect(ranksAt(trained, []).Medicine).toBe(2)
+  expect(ranksAt({ ...trained, skillIncreases: { 7: 'Medicine' } }, []).Medicine).toBe(3)
+  expect(ranksAt({ ...untrained, systems: ['pf2e'] }, []).Medicine ?? 0).toBe(0)
 })
 
 const entry = (kind: ContentEntry['kind'], name: string, data: ContentEntry['data'] = {}, level = 1, traits: string[] = []): ContentEntry => ({
@@ -4201,6 +4237,26 @@ it('applies Starfinder Mobility Enhancer armor upgrades and augmentations to spe
     augmentations: [{ id: 'm', entryId: 'x', name: 'Mobility Enhancer (Tactical)', slot: 'standard' }] }
   expect(movementSpeeds(winged, []).find(move => move.name === 'Fly')?.feet)
     .toBe(movementSpeeds({ ...winged, augmentations: [] }, []).find(move => move.name === 'Fly')!.feet + 10)
+})
+
+it('applies Speed Suspension grades and Augmented Mobility to augmentation-granted movement', () => {
+  for (const [name, bonus] of [['Speed Suspension (Commercial)', 5], ['Speed Suspension (Tactical)', 10],
+    ['Speed Suspension (Advanced)', 15]] as const) {
+    const c: Character = { ...base, systems: ['sf2e'], level: 10,
+      augmentations: [{ id: 'suspension', entryId: name, name, slot: 'standard' }] }
+    expect(speed(c, [])).toBe(25 + bonus)
+    expect(speed({ ...c, feats: [{ name: 'Augmented Mobility', type: 'Archetype Feat', level: 6 }] }, []))
+      .toBe(30 + bonus)
+  }
+
+  const wings: ContentEntry = { ...entry('item', 'Ultralight Wings (Tactical)', { item_category: 'Augmentations' }, 8),
+    id: 'wings', systems: ['sf2e'], description: 'While deployed, you gain a fly Speed of 30 feet.' }
+  const c: Character = { ...base, systems: ['sf2e'], level: 10,
+    augmentations: [{ id: 'wings', entryId: 'wings', name: wings.name, slot: 'standard', deployed: true }],
+    feats: [{ name: 'Augmented Mobility', type: 'Archetype Feat', level: 6 }] }
+  expect(movementSpeeds(c, [wings]).find(move => move.name === 'Fly')?.feet).toBe(35)
+  expect(movementSpeeds({ ...c, augmentations: [{ ...c.augmentations![0], deployed: false }] }, [wings])
+    .some(move => move.name === 'Fly')).toBe(false)
 })
 
 it('offers Cross-Training order variants once each while preserving edits and spell or domain variants', () => {

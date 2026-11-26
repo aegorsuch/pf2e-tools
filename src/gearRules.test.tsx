@@ -1635,6 +1635,31 @@ it.each(['Crimson Claw', 'Pulse Gauntlet', 'Battleglove', 'Shock Pad'])(
   },
 )
 
+it('gives Tailblade Hardlight modules and a scaling Fear Projector without inheriting Hardlight traits', () => {
+  const tailbladeEntry = { ...content('weapon', 'Tailblade', { weapon_category: 'Advanced', weapon_type: 'Melee',
+    damage: '1d6 slashing', upgrade_slots: 4, weapon_tracking: 0 }, 1, ['Tech']), systems: ['sf2e' as const] }
+  const commercialFear = { ...content('item', 'Fear Projector (Commercial)', { item_subcategory: 'Weapon Upgrades' }, 5),
+    id: 'fear-commercial', systems: ['sf2e' as const] }
+  const tacticalFear = { ...content('item', 'Fear Projector (Tactical)', { item_subcategory: 'Weapon Upgrades' }, 12),
+    id: 'fear-tactical', systems: ['sf2e' as const] }
+  const grid = { ...content('item', 'Protection Grid (Tactical)', { item_subcategory: 'Weapon Upgrades' }, 17),
+    id: 'grid', systems: ['sf2e' as const] }
+  const weapon: OwnedWeapon = { id: tailbladeEntry.id, name: tailbladeEntry.name, potency: 0, striking: 0, runes: [] }
+  const c: Character = { ...base, systems: ['sf2e'], level: 17, weapons: [weapon],
+    handwraps: { kind: 'hardlight', grade: 'Ultimate', potency: 0, striking: 0, runes: [],
+      upgrades: [GRAPPLING_MODULE.id, SHOVING_MODULE.id] } }
+  const entries = [tailbladeEntry, GRAPPLING_MODULE, SHOVING_MODULE, commercialFear, tacticalFear, grid]
+  const attack = weaponAttack(c, entries, weapon)
+  expect(attack.upgrades.map(upgrade => upgrade.name)).toEqual(expect.arrayContaining([
+    'Grappling Module', 'Shoving Module', 'Protection Grid (Tactical)', 'Fear Projector (Tactical)',
+  ]))
+  expect(attack.traits).toEqual(expect.arrayContaining(['Grapple', 'Shove']))
+  expect(attack.traits).toContain('Parry')
+  expect(attack.traits).not.toEqual(expect.arrayContaining(['Agile', 'Finesse', 'Versatile B']))
+  expect(weaponAttack({ ...c, level: 5 }, entries, weapon).upgrades.map(upgrade => upgrade.name))
+    .toContain('Fear Projector (Commercial)')
+})
+
 it('applies grapple and shove modules only to eligible upgraded attacks', () => {
   const blade = { ...content('weapon', 'Tech Blade', { weapon_category: 'Martial', weapon_type: 'Melee',
     damage: '1d6 slashing', upgrade_slots: 2 }, 1, ['Tech', 'Grapple']), systems: ['sf2e' as const] }

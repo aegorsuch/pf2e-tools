@@ -47,12 +47,13 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     ['Suppression Matrix (Commercial)', 4], ['Suppression Matrix (Tactical)', 14],
     ['Glarecaster (Commercial)', 5], ['Glarecaster (Tactical)', 12],
     ["Sniper's Scope (Commercial)", 3], ["Sniper's Scope (Tactical)", 10],
+    ['Fear Projector (Commercial)', 5], ['Fear Projector (Tactical)', 12],
   ].map(([name, level]) => ({ ...shifting, id: String(name), name: String(name), level: Number(level),
     systems: ['sf2e' as const], data: { item_subcategory: 'Weapon Upgrades' } }))
   const sfWeapon = (name: string): ContentEntry => ({ ...weapon, id: name, name, systems: ['sf2e'],
     traits: ['Tech'], data: { weapon_category: 'Martial', damage: '1d6 F', hands: 1, upgrade_slots: 4 } })
   const weapons = ['SLARP Rapid Laser Pistol', 'Shuriken Drone', 'Singing Spear', 'Battleglove', 'Crimson Claw', 'Shock Pad', 'Rotolaser',
-    'Pulse Gauntlet', 'Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle', 'Other'].map(sfWeapon)
+    'Pulse Gauntlet', 'Tailblade', 'Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle', 'Other'].map(sfWeapon)
   weapons.push({ ...sfWeapon('Starday Night Special (Semi-Auto Pistol)'),
     data: { ...sfWeapon('Starday Night Special (Semi-Auto Pistol)').data, special_weapon_source: 'Starday Night Special' } })
   const entries = [...weapons, ...upgrades]
@@ -82,6 +83,10 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(at('Rotolaser', 15)).toEqual(['Flaming Module (Tactical)'])
     expect(at('Pulse Gauntlet', 8)).toEqual(['Loudener (Commercial)'])
     expect(at('Pulse Gauntlet', 15)).toEqual(['Loudener (Tactical)'])
+    expect(at('Tailblade', 4)).toEqual([])
+    expect(at('Tailblade', 5)).toEqual(['Fear Projector (Commercial)'])
+    expect(at('Tailblade', 11)).toEqual(['Fear Projector (Commercial)'])
+    expect(at('Tailblade', 12)).toEqual(['Fear Projector (Tactical)'])
     for (const name of ['Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle'])
       expect(at(name, 15)).toEqual(['Flaming Module (Tactical)', 'Glarecaster (Tactical)', "Sniper's Scope (Tactical)"])
     expect(at('Other', 20)).toEqual([])
@@ -94,6 +99,25 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     updateSettings({ automaticSfWeaponUpgrades: false })
     expect(at('Shock Pad', 15)).toEqual([])
   } finally { updateSettings({ automaticSfWeaponUpgrades: previous }) }
+})
+
+it('lets installed Ultralight Wings be deployed and saves deployment state', () => {
+  const wings: ContentEntry = { ...shifting, id: 'wings', name: 'Ultralight Wings (Tactical)', systems: ['sf2e'],
+    data: { item_category: 'Augmentations' }, description: 'While deployed, you gain a fly Speed of 30 feet.' }
+  const c: Character = { ...character([]), systems: ['sf2e'], augmentations: [
+    { id: 'wings', entryId: wings.id, name: wings.name, slot: 'standard' },
+  ] }
+  let saved: Partial<Character> | undefined
+  let tree: ReactNode
+  function Inspect() {
+    tree = Augmentations({ c, entries: [wings], save: patch => { saved = patch } })
+    return tree
+  }
+  renderToStaticMarkup(<Inspect />)
+  const toggle = findElement(tree, element => element.props['aria-label'] === `Deploy ${wings.name}`)!
+  expect(toggle.props.checked).toBe(false)
+  ;(toggle.props.onChange as (event: { target: { checked: boolean } }) => void)({ target: { checked: true } })
+  expect(saved?.augmentations).toEqual([expect.objectContaining({ id: 'wings', deployed: true })])
 })
 
 it("toggles Infused with Belkzen's Might on weapons and unarmed attacks and scales with historian feats", () => {
