@@ -94,6 +94,23 @@ it('offers Versatile Envoy again in the class feat picker with unused leadership
   }))
 })
 
+it('offers Versatile Operative again in the class feat picker with unused specializations', () => {
+  const feat = homebrewCharacterOptions([]).find(entry => entry.name === 'Versatile Operative')!
+  const specializations = STARFINDER_SUBCLASSES.filter(specialization => specialization.data.class === 'Operative')
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], className: 'Operative', subclass: 'Sniper', level: 12,
+    feats: [{ name: feat.name, type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Ghost' }] }
+  const entries = [...specializations, feat]
+  const tree = () => FeatSlots({ c, entries, categories: ['class'], save: patch => { c = { ...c, ...patch } },
+    search: { 'class:12:0:open': '1' }, onSearch: () => {} })
+  expect(renderToStaticMarkup(tree())).toContain('L12 Class: Versatile Operative (Infiltrator)')
+  expect(renderToStaticMarkup(tree())).not.toContain('L12 Class: Versatile Operative (Ghost)')
+  expect(renderToStaticMarkup(tree())).not.toContain('L12 Class: Versatile Operative (Sniper)')
+  findButton(tree(), 'L12 Class: Versatile Operative (Infiltrator)')!()
+  expect(c.feats).toContainEqual(expect.objectContaining({
+    name: feat.name, slot: 'class:12:0', choice: 'Infiltrator',
+  }))
+})
+
 it('reuses picker prerequisite results when search changes', () => {
   const c: Character = { ...emptyRanger(), level: 4 }
   const feat: ContentEntry = { id: 'target', name: 'Target Feat', kind: 'feat', source: 'official',

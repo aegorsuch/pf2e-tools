@@ -1905,6 +1905,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name))
       && (e.name !== 'Versatile Envoy' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name))
+      && (e.name !== 'Versatile Operative' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
+        || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name))
       && (e.name !== 'Mercy' || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name)
         || c.feats.filter(feat => feat.name === 'Mercy' && feat.slot !== slot.key).length < 3
           && !!featChoiceOptions(e.name, c, entries, slot.key)?.length)

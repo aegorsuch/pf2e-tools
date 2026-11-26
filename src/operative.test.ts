@@ -224,6 +224,15 @@ it('adds a second specialization skill and its initial feat through Versatile Op
       expect.objectContaining({ level: 10, grantedSkill: 'Deception' }),
       expect.objectContaining({ level: 12, grantedSkill: 'Athletics' }),
     ]))
+  const exhausted: Character = { ...repeated, level: 18, feats: [
+    versatile,
+    { ...versatile, level: 12, slot: 'class:12:0', choice: 'Infiltrator' },
+    { ...versatile, level: 14, slot: 'class:14:0', choice: 'Skirmisher' },
+    { ...versatile, level: 16, slot: 'class:16:0', choice: 'Striker' },
+  ] }
+  const exhaustedSlot = { category: 'class' as const, level: 18, key: 'class:18:0' }
+  expect(featChoiceOptions(feat.name, exhausted, catalog, exhaustedSlot.key)).toEqual([])
+  expect(eligibleFeats(catalog, exhausted, exhaustedSlot)).not.toContain(feat)
 
   const sniper: Character = { ...base, level: 10, subclass: 'Ghost',
     feats: [{ ...versatile, choice: 'Sniper' }] }
