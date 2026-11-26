@@ -4229,6 +4229,15 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
   if (vessel?.vessel) {
     add(vessel.vessel, `${vessel.name} (primary apparition)`)
   }
+  if (c.systems.includes('sf2e') && c.className === 'Technomancer' && c.level >= 1
+    && c.technomancerProgrammingLanguage) {
+    const language = TECHNOMANCER_LANGUAGE_RULES[c.technomancerProgrammingLanguage]
+    add(language.initialHack, `${c.technomancerProgrammingLanguage} programming language`)
+    if (active.some(feat => feat.name === 'Advanced Magic Hack'))
+      add(language.advancedHack, 'Advanced Magic Hack')
+    if (active.some(feat => feat.name === 'Greater Magic Hack'))
+      add(language.greaterHack, 'Greater Magic Hack')
+  }
   if (c.className === 'Necromancer' && c.systems.includes('pf2e') && c.level >= 1) {
     add('Necrotic Bomb', 'Grave Spells')
     const fascination = subclassOptions(c, entries).find(entry => entry.name === selectedSubclass(c, entries))
@@ -7338,6 +7347,20 @@ export function knownSpellNames(c: Character, entries: ContentEntry[]) {
     ...(warrior ? classExtraSlots(c).flatMap(slot => slot.spell ? [slot.spell] : []) : []),
     ...(selectedShieldCantrip(c, entries) ? ['Shield'] : []),
     ...(selectedTailwind(c, entries) ? ['Tailwind'] : []),
+    ...necromancerGrantedDirgeSpells(c),
+    ...grantedWardenSpells(c, entries).map(spell => spell.name),
+    ...grantedFeatSpells(c, entries).map(grant => grant.entry.name),
+    ...minorMagicSpells(c, entries).map(spell => spell.name),
+    ...focusSpells(c, entries).spells.map(spell => spell.name),
+  ]
+  return new Set(names.map(name => spellName(entries, name).trim().toLowerCase()))
+}
+
+export function selectedGrantedSpellNames(c: Character, entries: ContentEntry[]) {
+  const warrior = c.className === 'Champion' ? activeFeatsNamed(c, 'Divine Warrior')[0]
+    : c.className === 'Ranger' ? activeFeatsNamed(c, 'Primal Warrior')[0] : undefined
+  const names = [
+    ...(warrior ? classExtraSlots(c).flatMap(slot => slot.spell ? [slot.spell] : []) : []),
     ...necromancerGrantedDirgeSpells(c),
     ...grantedWardenSpells(c, entries).map(spell => spell.name),
     ...grantedFeatSpells(c, entries).map(grant => grant.entry.name),

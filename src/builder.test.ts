@@ -11,6 +11,7 @@ import { hasRemainingFeatSelections } from './builder'
 import { homebrewCharacterOptions } from './supplemental'
 import { maxEtchedRunes, runicRepertoireSize } from './runesmithRunes'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
+import { TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES } from './technomancer'
 import type { Character, ContentEntry } from './types'
 
 it('clears Bone Shield activation and raised state when removed', () => {
@@ -2787,6 +2788,26 @@ describe('defenses', () => {
     const r = focusSpells(druid, entries)
     expect(r.spells.map((s) => s.name)).toEqual(['Combustion', 'Hedge Prison', 'Wild Shape', 'Wildfire'])
     expect(r.points).toBe(3)
+  })
+
+  it('adds the selected Technomancer language hacks as their feats are taken', () => {
+    const entries = TECHNOMANCER_PROGRAMMING_LANGUAGES.flatMap(language => {
+      const rules = TECHNOMANCER_LANGUAGE_RULES[language]
+      return [rules.initialHack, rules.advancedHack, rules.greaterHack].map(name => ({
+        ...entry('spell', name, {}, 1, ['Focus', 'Technomancer']), systems: ['sf2e'] as ContentEntry['systems'],
+      }))
+    })
+    for (const language of TECHNOMANCER_PROGRAMMING_LANGUAGES) {
+      const rules = TECHNOMANCER_LANGUAGE_RULES[language]
+      const c: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 10,
+        technomancerProgrammingLanguage: language,
+        feats: [
+          { name: 'Advanced Magic Hack', type: 'Class Feat', level: 6 },
+          { name: 'Greater Magic Hack', type: 'Class Feat', level: 10 },
+        ] }
+      expect(focusSpells(c, entries).spells.map(spell => spell.name)).toEqual(
+        [rules.initialHack, rules.advancedHack, rules.greaterHack].sort((a, b) => a.localeCompare(b)))
+    }
   })
 
   it('grants Bard muse feats and focus spells, including additional muses', () => {

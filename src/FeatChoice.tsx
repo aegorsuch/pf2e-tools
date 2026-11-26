@@ -1,8 +1,8 @@
-import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions } from './featChoices'
+import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, wardenSpellOptions } from './featChoices'
 import { CANNY_STATS, activeFeatsNamed, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, featTakenLevel, knownSpellNames, nephilimLineageLore, orderMagicOptions, ranksAt, statDefs, subclassOptions, subclassSkillChoice, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
 import { automaticFeatGrants } from './builder'
 import type { SectionProps } from './builder'
-import { DOMAIN_FEATS, automaticFeatChoiceKey, coreAttunementOptions, featSpellOptions, isInnateSpellChoice } from './featSpells'
+import { DOMAIN_FEATS, automaticFeatChoiceKey, coreAttunementOptions, featSpellOptions } from './featSpells'
 import { featRarity } from './featAccess'
 import { SearchableSelect } from './SearchableSelect'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
@@ -515,8 +515,10 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
   }
   if (feat.name === 'Core Attunement' && c.systems.includes('pf2e')) {
     const chosen = (feat.choice ?? '').split('|')
+    const known = getSettings().uniqueInnateSpellChoices ? knownSpellNames(c, entries) : undefined
     return <span className="feat-choice">{([0, 1] as const).map(slot => {
-      const options = coreAttunementOptions(c, entries, slot)
+      const options = coreAttunementOptions(c, entries, slot).filter(spell =>
+        !known || spell.name === chosen[slot] || !known.has(spell.name.toLowerCase()))
       return <SearchableSelect key={slot} aria-label={`Core Attunement ${slot === 0 ? '1st-rank' : '2nd-rank or lower'} spell`} value={chosen[slot] ?? ''}
         optionLevel={value => options.find(spell => spell.name === value)?.level}
         optionSpell={value => options.find(spell => spell.name === value)} onChange={event => {
@@ -533,8 +535,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     })}</span>
   }
   const allSpellOptions = featSpellOptions(c, entries, feat)
-  const source = selectedFeatEntry(c, entries, feat.name, feat.sourceId)
-  const known = getSettings().uniqueInnateSpellChoices && allSpellOptions && source && isInnateSpellChoice(source) ? knownSpellNames(c, entries) : undefined
+  const known = getSettings().uniqueInnateSpellChoices && allSpellOptions ? knownSpellNames(c, entries) : undefined
   const spellOptions = known ? allSpellOptions?.filter(spell => spell.name === feat.choice || !known.has(spell.name.toLowerCase())) : allSpellOptions
   if (['First World Magic', 'Ancestral Magic', 'Ancestral Cantrip', 'Free Heart', 'Bone Magic', 'Widespread Fascination', 'Psychic Talent', 'Psychic Master', 'Psychic Mastery', 'Psychic Paragon', 'Divine Warrior', 'Primal Warrior'].includes(feat.name)) return null
   if (spellOptions) return <span className="feat-choice">

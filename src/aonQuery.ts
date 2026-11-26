@@ -154,15 +154,23 @@ export function parseFeatLanguages(md: string) {
   return [...new Set(out)].join(', ')
 }
 
+const parseFeatMagicHacks = (md: string) => {
+  const text = md.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+  return [...text.matchAll(/\b(?:gain|learn) the (?!initial\b|advanced\b|greater\b)([a-z][\w'’ -]*?)\s+magic hack\b/gi)]
+    .map(match => plain(match[1]))
+}
+
 // Focus spells a feat grants ("You gain the [wild shape] order spell"), spells that depend on the taker's druidic order
 // ("if you're a member of the flame order, you gain [combustion]"), and whether it adds a Focus Point
 export function parseFeatFocus(md: string) {
   md = md.replace(/[_*]/g, '').replace(/\[(composition)\]\([^)]*\)/gi, '$1')
   const name = (s: string) => s.replace(/^_+|_+$/g, '').trim()
-  const spells = [
+  const spells = [...new Set([
     ...[...md.matchAll(/\b(?:gain|learn) the \[([^\]]+)\]\(\/?(?:Spells\.aspx|spells\/)[^)]*\)\s+(?:(?:spellshape )?(?:order|focus|devotion|domain|hex|revelation|composition|school|bloodline|amp|qi|warp) (?:spell|cantrip)|order(?=[.!?]))/gi)].map((m) => name(m[1])),
     ...[...md.matchAll(/\b(?:gain|learn) the (?:order|focus|devotion|domain|hex|revelation|composition|school|bloodline|amp|qi) spell \[([^\]]+)\]\(\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)].map((m) => name(m[1])),
-  ]
+    ...[...md.matchAll(/\b(?:gain|learn) the \[([^\]]+)\]\(\/?(?:Spells\.aspx|spells\/)[^)]*\)\s+magic hack\b/gi)].map((m) => name(m[1])),
+    ...parseFeatMagicHacks(md),
+  ])]
   const byOrder = [...md.matchAll(/member of the (\w+) order, you gain \[([^\]]+)\]\(\/?Spells\.aspx/gi)].map((m) => `${m[1].toLowerCase()}:${name(m[2])}`)
   return { spells: spells.join(', '), byOrder: byOrder.join(', '), point: /Increase the number of Focus Points in your focus pool by 1/i.test(md) }
 }
@@ -208,8 +216,11 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
   const sentences = body.replace(/<br\s*\/?>/gi, ' ').split(/(?<=[.!?])\s+/)
   for (const [index, sentence] of sentences.entries()) {
     if (!/^(?:additionally,? )?(?:(?:(?:once|twice|\d+ times) per day|once before your next daily preparations?),? )?you (?:can cast|gain|learn)\b/i.test(sentence.trim())) continue
-    const names = [...sentence.matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
-      .map(match => plain(match[1]))
+    const names = [...new Set([
+      ...[...sentence.matchAll(/\[([^\]]+)\]\((?:https:\/\/2e\.(?:aonprd|aonsrd)\.com)?\/?(?:Spells\.aspx|spells\/)[^)]*\)/gi)]
+        .map(match => plain(match[1])),
+      ...parseFeatMagicHacks(sentence),
+    ])]
     if (!names.length) continue
     if (/innate (?:(?:arcane|divine|occult|primal) )?(?:spell|cantrip)/i.test(sentence)) {
       if (/\b(?:if|while|unless)\b/i.test(sentence)) continue
@@ -237,7 +248,7 @@ export function parseFeatSpellGrants(md: string): SpellGrant[] {
       if (!heightened && scales(next)) {
         grants.push(...names.map(name => ({ ...rule, spells: [name], heightened: next.toLowerCase().includes(name.toLowerCase()) })))
       } else grants.push(rule)
-    } else if (/(?:focus|devotion|qi|hex|order|domain|revelation|composition|grave|warp) (?:spells?|cantrips?)\b/i.test(sentence)
+    } else if (/(?:focus|devotion|qi|hex|order|domain|revelation|composition|grave|warp) (?:spells?|cantrips?)\b|magic hacks?\b/i.test(sentence)
       || /\byou gain the \[[^\]]+\]\(\/?Spells\.aspx[^)]*\) order\.$/i.test(sentence.trim())) {
       if (/\b(?:if|choose|depending|based on)\b/i.test(sentence) || /\bor\b/i.test(sentence) && names.length <= 1) continue
       grants.push({ kind: 'focus', spells: names, heightened: true, ...(ability ? { ability } : {}),

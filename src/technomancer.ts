@@ -8,6 +8,8 @@ export const TECHNOMANCER_LANGUAGE_RULES: Record<TechnomancerProgrammingLanguage
   gear: string
   spellCache: string[]
   initialHack: string
+  advancedHack: string
+  greaterHack: string
   spellshape: string
   firmware: string
   overclockBoost: string
@@ -19,7 +21,9 @@ export const TECHNOMANCER_LANGUAGE_RULES: Record<TechnomancerProgrammingLanguage
     gear: 'Tech weapons',
     spellCache: ['Supercharge Weapon', 'Caustic Conversion', 'Electrotether', 'Hydraulic Torrent', 'Impaling Spike',
       'Disintegrate', 'True Target', 'Arctic Rift', 'Implosion'],
-    initialHack: 'A Stellar Targetfinder Algorithm',
+    initialHack: 'A-Stellar Targetfinder Algorithm',
+    advancedHack: 'Short-Circuit Reality',
+    greaterHack: 'Supercharge Synapses',
     spellshape: 'Reach Spell',
     firmware: 'Train in martial tech weapons. Their proficiency advances with simple weapons; gain their critical specialization at level 5.',
     overclockBoost: 'Tech weapon Strikes ignore the second range increment penalty and reduce the target AC bonus from cover by 2, or 4 at level 12.',
@@ -31,7 +35,9 @@ export const TECHNOMANCER_LANGUAGE_RULES: Record<TechnomancerProgrammingLanguage
     gear: 'Tech armor',
     spellCache: ['Protection', 'Resist Energy', 'Haste', 'Unfettered Movement', 'Scouting Eye', 'Repulsion',
       'Energy Aegis', 'Gravity Field', 'Foresight'],
-    initialHack: 'Force-field PGA',
+    initialHack: 'Force-FieldPGA',
+    advancedHack: 'Magnetic Tuning',
+    greaterHack: 'Supercharge Armor',
     spellshape: 'Widen Spell',
     firmware: 'Train in medium armor; its proficiency advances whenever light armor proficiency increases.',
     overclockBoost: 'The first time each round a hostile creature damages you, it takes force damage equal to half your level, rounded up.',
@@ -44,6 +50,8 @@ export const TECHNOMANCER_LANGUAGE_RULES: Record<TechnomancerProgrammingLanguage
     spellCache: ['Summon Robot', 'Illusory Creature', 'Discharge', 'Speak with Computers', 'Control Machine',
       'Dominate', 'Wall of Steel', 'Phantasmal Fleet', 'Telekinetic Tantrum'],
     initialHack: 'Repair Protocols',
+    advancedHack: 'Bonding Charge',
+    greaterHack: 'Supercharge Satellite',
     spellshape: 'Signal Relay',
     firmware: 'Gain a personal minibot that can be summoned and repaired while Refocusing; its maximum HP increases by your level. You can transplant features from a purchased minibot.',
     overclockBoost: 'Your overclocked minion gains +1 item bonuses to attack and AC (+2 at level 10, +3 at level 15); after summoning it, those bonuses apply before it acts.',
@@ -55,6 +63,8 @@ export const TECHNOMANCER_LANGUAGE_RULES: Record<TechnomancerProgrammingLanguage
     gear: 'Spell chips and spell gems',
     spellCache: ['Delete', 'Translate', 'Locate', 'Creation', 'Truespeech', 'Truesight', 'Contingency', 'Pinpoint', 'Foresight'],
     initialHack: 'Amplify Vulnerability',
+    advancedHack: 'Torrent Spell',
+    greaterHack: 'Supercharge Prism',
     spellshape: 'Universal Spell Bus',
     firmware: 'Create temporary spell gems during daily preparations, one for each spell rank you can cast.',
     overclockBoost: 'Use an overclocked spell chip or spell gem as an arcane spell if you could cast a spell of the same or lower rank with your technomancer slots.',

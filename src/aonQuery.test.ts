@@ -13,6 +13,32 @@ it('extracts Beastmaster Trance and Impaling Briars focus grants from their sour
     .toMatchObject([{ kind: 'focus', spells: ['song of strength'] }])
 })
 
+it('imports magic-hack focus spells through the Starfinder snapshot pipeline', async () => {
+  const feats = [
+    ['Black Hat Trick', 'black hat trick'],
+    ['Jury-rigged Turbocharge', 'jury-rigged turbocharge'],
+    ['Liminal Hyperlink', 'liminal hyperlink'],
+    ['Speedrun', 'speedrun'],
+  ]
+  const fetchFn: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { query: { bool: { filter: Array<{ term?: { category?: string } }> } } }
+    const category = body.query.bool.filter.find(filter => filter.term)?.term?.category
+    const hits = category === 'feat' ? feats.map(([name, spell]) => ({
+      _id: name, _source: { category, name, markdown: `**Feat**\n\n---\n\nYou gain the ${spell} magic hack.` },
+    })) : []
+    return new Response(JSON.stringify({ hits: { hits } }), { status: 200 })
+  }
+  const entries = mapAonHits(await fetchAonHits('sf2e', fetchFn), 'sf2e')
+
+  for (const [name, spell] of feats) {
+    expect(parseFeatFocus(`You gain the ${spell} magic hack.`).spells).toBe(spell)
+    expect(entries.find(entry => entry.name === name)).toMatchObject({
+      data: { grants_focus_spells: spell },
+      spellGrants: [{ kind: 'focus', spells: [spell], heightened: true }],
+    })
+  }
+})
+
 it('imports low-light vision granted alongside Aiuvarin ancestry traits', async () => {
   const hit = { _id: 'heritage-aiuvarin', _source: { name: 'Aiuvarin', category: 'heritage',
     markdown: 'You gain the elf trait, the aiuvarin trait, and low-light vision.' } }

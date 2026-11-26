@@ -16,7 +16,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { animistApparitionSlots, avengerClericSpellSlots, avengerEldritchCastingClass, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, knownSpellNames, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
+import { animistApparitionSlots, avengerClericSpellSlots, avengerEldritchCastingClass, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, knownSpellNames, selectedGrantedSpellNames, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, type ItemSpell } from './itemSpells'
@@ -1949,9 +1949,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     }) : [], [technomancer, c.technomancerProgrammingLanguage, spellIndex])
   const programmedSpellNames = useMemo(() => new Set(programmedSpellEntries.map(entry => entry.name.toLowerCase())),
     [programmedSpellEntries])
+  const selectedGrantNames = useMemo(() => selectedGrantedSpellNames(c, entries), [c, entries])
+  const preventDuplicateSpells = getSettings().uniqueInnateSpellChoices
   const knownArcaneSpells = new Set([
     ...(c.spells ?? []).map(spell => spell.name.toLowerCase()),
     ...programmedSpellNames,
+    ...(preventDuplicateSpells ? selectedGrantNames : []),
   ])
   const rankedArcaneBookOptions = arcaneBookOptions.filter(entry => (bookRank === 0
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
@@ -1989,12 +1992,15 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
     : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
     && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase()) && matchesSpellDefense(entry, bookDefense)
-    && matchesGearSystem(entry, bookSystem, c.systems))
+    && matchesGearSystem(entry, bookSystem, c.systems)
+    && !(c.spells ?? []).some(spell => spell.name.toLowerCase() === entry.name.toLowerCase())
+    && (!preventDuplicateSpells || !selectedGrantNames.has(entry.name.toLowerCase())))
   const rankedWitchBookOptions = witchBookOptions.filter(entry => (bookRank === 0
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
     : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
     && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase()) && matchesSpellDefense(entry, bookDefense)
-    && matchesGearSystem(entry, bookSystem, c.systems) && !knownWitchSpells.has(entry.name.toLowerCase()))
+    && matchesGearSystem(entry, bookSystem, c.systems) && !knownWitchSpells.has(entry.name.toLowerCase())
+    && (!preventDuplicateSpells || !selectedGrantNames.has(entry.name.toLowerCase())))
   const schoolBookSpells = useMemo(() => wizardSchoolBookSpells(c, entries), [c, entries])
   useEffect(() => { if (schoolBookSpells) save({ spells: schoolBookSpells }) }, [schoolBookSpells])
   const schoolSpells = useMemo(() => new Set((wizardCurriculum(wizardSchool(c, entries))[bookRank] ?? [])
@@ -2164,7 +2170,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   if (investigatorMethodologies(c, entries).includes('Esoterica')) {
     for (const tradition of ['Divine', 'Occult'] as const) {
       const current = c.investigatorEsotericaSpells?.[tradition] ?? ''
-      const options = investigatorEsotericaCantripOptions(c, entries, tradition)
+      const options = availableInnateOptions(investigatorEsotericaCantripOptions(c, entries, tradition), current)
       const grant = featSpells.find(item => item.source === 'Esoterica' && item.rule.tradition === tradition
         && item.entry.name === current)
       choiceSlots.push({ key: `Esoterica:${tradition}`, label: `Esoterica ${tradition} cantrip`, tradition,
@@ -2182,7 +2188,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       const current = choices[index] ?? ''
       choiceSlots.push({ key: `Minor Magic:${index}`, label: `Minor Magic cantrip ${index + 1}`,
         tradition: minorTradition, rank: Math.ceil(c.level / 2), current,
-        options: minorMagicOptions(c, entries).filter(entry => entry.name === current || !choices.includes(entry.name)),
+        options: availableInnateOptions(minorMagicOptions(c, entries)
+          .filter(entry => !choices.includes(entry.name) || entry.name === current), current),
         entry: granted.find(entry => entry.name === current),
         select: value => {
           const next = Array.from({ length: 2 }, (_, i) => i === index ? value : choices[i] ?? '')
@@ -2272,6 +2279,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     const available = [...((warriorSpells ?? bloodragerSpells ?? clericSpells ?? witchAvailable ?? druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
       rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: false })) ?? databaseSpells
       .filter(spell => !forced.some(extra => extra.name === spell.name)).map(spell => ({ ...spell, forced: false }))), ...forced]
+      .filter(spell => spell.forced || !preventDuplicateSpells || !selectedGrantNames.has(spell.name.toLowerCase()))
       .map(spell => {
         const entry = spell.entryId ? spellIndex.byId.get(spell.entryId) : spellIndex.byName.get(spell.name)
         const baseRank = entry && Number.isInteger(entry.level) && entry.level >= 1 && entry.level <= 10
@@ -2294,7 +2302,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       }) : options }
     })
   }, [druidAvailable, witchAvailable, dirge, c, entries, warrior, preparedClass, selectedTradition, spellIndex, bard,
-    bloodrager, avengerCleric, programmedSpellEntries])
+    bloodrager, avengerCleric, programmedSpellEntries, selectedGrantNames, preventDuplicateSpells])
   const manualCacheSlots = automaticSlots === undefined
     ? extraSlots.filter(extra => extra.source === 'Cache Caster') : []
   const classSlotRanks = Array.from({ length: 11 }, (_, rank) => ({

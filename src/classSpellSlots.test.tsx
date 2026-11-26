@@ -86,6 +86,19 @@ it.each([
   }
 })
 
+it('excludes a feat-granted spell from class spell choices', () => {
+  const grant: ContentEntry = { ...baseEntry('Tangle Vine Grant'), id: 'tangle-vine-grant', kind: 'feat',
+    spellGrants: [{ kind: 'innate', spells: ['Tangle Vine'], tradition: 'primal', frequency: 'at will', heightened: true }] }
+  const tangleVine: ContentEntry = { ...baseEntry('Tangle Vine'), id: 'tangle-vine', kind: 'spell',
+    traits: ['Cantrip'], data: { tradition: 'Primal' } }
+  const c: Character = { ...base, className: 'Druid', level: 1,
+    feats: [{ name: grant.name, type: 'Ancestry Feat', level: 1, sourceId: grant.id, slot: 'ancestry:1:0' }] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, tangleVine]} save={() => {}} />)
+  const cantripPicker = /<select[^>]*aria-label="Cantrip slot 1"[\s\S]*?<\/select>/.exec(html)?.[0]
+  expect(cantripPicker).toBeDefined()
+  expect(cantripPicker).not.toContain('Tangle Vine')
+})
+
 it.each([
   ['Bard', 1, { 0: 5, 1: 2 }],
   ['Bard', 3, { 0: 5, 1: 3, 2: 2 }],

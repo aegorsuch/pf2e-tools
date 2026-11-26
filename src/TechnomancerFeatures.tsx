@@ -20,6 +20,8 @@ export function TechnomancerFeatures({ c, save }: SectionProps) {
       <p><strong>Overclock gear:</strong> {rules.gear}</p>
       <p><strong>Spell cache:</strong> {rules.spellCache.map((spell, index) => `${index + 1}: ${spell}`).join('; ')}</p>
       <p><strong>Initial magic hack:</strong> {rules.initialHack}</p>
+      <p><strong>Advanced magic hack:</strong> {rules.advancedHack}</p>
+      <p><strong>Greater magic hack:</strong> {rules.greaterHack}</p>
       <p><strong>Spellshape:</strong> {rules.spellshape}</p>
       <p><strong>Firmware enhancement:</strong> {rules.firmware}</p>
       <p><strong>Overclock boost:</strong> {rules.overclockBoost}</p>
