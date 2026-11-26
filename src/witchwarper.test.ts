@@ -249,7 +249,7 @@ describe('Witchwarper class setup', () => {
     const html = renderToStaticMarkup(createElement(SpellsSection, { c, entries,
       save: () => { throw Error('Rendering must not rewrite persisted choices') } }))
     expect(html).toContain('Spell Repertoire')
-    expect(html).toContain('Spell Rank 1 (2/4 slots)')
+    expect(html).toContain('Spell Rank 1 (2/4)')
     expect(html).toContain('aria-label="Cast rank for Arcane Bolt"')
     expect(html.indexOf('>Arcane Bolt</button>')).toBeLessThan(html.indexOf('>Sure Strike</button>'))
     expect(html).toContain('aria-label="Signature spell rank 1 choice 2"')

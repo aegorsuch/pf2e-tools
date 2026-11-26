@@ -301,7 +301,7 @@ it('shows selected spell slots and combines slot increase sources under one note
   const entries = [{ ...baseEntry('Bard'), data: { tradition: 'Occult' } }, cantripConnection, selectedSpell]
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
   expect(html).toContain('Cantrips (Heightened Level 1) (0/8)')
-  expect(html).toContain('Spell Rank 1 (1/3 slots)')
+  expect(html).toContain('Spell Rank 1 (1/3)')
   expect(html).toContain('title="+2 Cantrip Expansion; +1 Cantrip Connection (Cantrip slots)"')
   expect(html).toContain('aria-label="Cantrip slots note"')
 })
@@ -360,7 +360,7 @@ it('adds Cache Caster as a highest-rank cache-only slot and Root Access as a ten
   expect(cacheOptions).not.toContain(cacheNames[7])
   expect(cacheOptions).not.toContain(cacheNames[8])
   expect(cacheOptions).not.toContain('Outside Cache')
-  expect(html).toContain(`Spell Rank ${rank} (1/${baseSlots[rank] + 1} slots)`)
+  expect(html).toContain(`Spell Rank ${rank} (1/${baseSlots[rank] + 1})`)
 
   const level20Base: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 20,
     technomancerProgrammingLanguage: language }
@@ -381,7 +381,7 @@ it('adds the Cache Caster slot to flexible Technomancer manual slots', () => {
       slots: { 0: 5, 1: 2, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2, 7: 2 } } }
   expect(classSpellSlots(c)).toBeUndefined()
   const html = renderToStaticMarkup(<SpellsSection c={c} entries={[]} save={() => {}} />)
-  expect(html).toContain('Spell Rank 7 (0/3 slots)')
+  expect(html).toContain('Spell Rank 7 (0/3)')
 })
 
 it('adds Cleric Divine Font slots at the highest spell rank, restricted to Heal or Harm', () => {

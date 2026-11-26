@@ -1361,7 +1361,7 @@ export function WitchwarperRepertoire({ c, entries, save }: SectionProps) {
         : `Spell Rank ${rank}`
       const sourceLabel = rank === 0 ? 'Cantrip slots' : `Rank ${rank} slots`
       return <section className="spell-slot-group" key={rank}>
-        <h5>{title} ({selectedCount}/{count}{rank === 0 ? '' : ' slots'})
+        <h5>{title} ({selectedCount}/{count})
           {slotIncreaseNotesByRank.get(rank)?.length
             && <SourceNote source={sourceLabel} note={slotIncreaseNotesByRank.get(rank)!.join('; ')} />}</h5>
         <SpellColumns />
@@ -2624,7 +2624,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           const increaseNotes = slotIncreaseNotesByRank.get(rank)
           const sourceLabel = cantrip ? 'Cantrip slots' : `Rank ${rank} slots`
           return <section className="spell-slot-group" key={rank}>
-            <h5>{title} ({selectedCount}/{count}{cantrip ? '' : ' slots'})
+            <h5>{title} ({selectedCount}/{count})
               {increaseNotes?.length && <SourceNote source={sourceLabel} note={increaseNotes.join('; ')} />}
               {necromancer && <> <DirgeRankButton rank={rank} onOpen={openDirge} /></>}
               {(wizard || wizardSpellbookSlots.some(slot => slot.rank === rank)) && <>
