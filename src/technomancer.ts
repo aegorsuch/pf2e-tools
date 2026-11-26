@@ -1,8 +1,15 @@
-import type { Character, TechnomancerProgrammingLanguage } from './types'
+import type { Character, ContentEntry, TechnomancerProgrammingLanguage } from './types'
 
 export const TECHNOMANCER_PROGRAMMING_LANGUAGES: readonly TechnomancerProgrammingLanguage[] = [
   'DPS++', 'FORTRUN', 'ServoShell', 'Viper',
 ]
+
+export const VERSATILE_FIRMWARE_FEAT: ContentEntry = {
+  id: 'builtin:versatile-firmware', systems: ['sf2e'], kind: 'feat', source: 'homebrew', name: 'Versatile Firmware',
+  level: 12, traits: ['Technomancer'],
+  description: 'You adapt your firmware to gain the firmware enhancement of another programming language. You can select this feat multiple times, choosing a different programming language each time. The chosen language must be one for which you have Advanced Cross-platform Application.',
+  data: { class: 'Technomancer', prerequisite: 'Advanced Cross-platform Application' }, effects: [], updatedAt: 0,
+}
 
 export const TECHNOMANCER_LANGUAGE_RULES: Record<TechnomancerProgrammingLanguage, {
   gear: string
@@ -79,4 +86,12 @@ export function versatileTechnomancerLanguageOptions(c: Character) {
     ? c.technomancerProgrammingLanguage
     : c.feats.find(feat => feat.name === 'Technomancer Dedication')?.choice
   return primary ? TECHNOMANCER_PROGRAMMING_LANGUAGES.filter(language => language !== primary) : []
+}
+
+export function versatileFirmwareLanguageOptions(c: Character, availableLanguages: readonly string[], selectedIndex = -1) {
+  if (c.className !== 'Technomancer' || !c.technomancerProgrammingLanguage) return []
+  const used = new Set([c.technomancerProgrammingLanguage, ...c.feats.flatMap((feat, index) =>
+    index !== selectedIndex && ['Versatile Firmware', 'Versatile Technomancer'].includes(feat.name) && feat.choice
+      ? [feat.choice] : [])])
+  return TECHNOMANCER_PROGRAMMING_LANGUAGES.filter(language => availableLanguages.includes(language) && !used.has(language))
 }

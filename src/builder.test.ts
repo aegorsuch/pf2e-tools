@@ -11,7 +11,7 @@ import { hasRemainingFeatSelections } from './builder'
 import { homebrewCharacterOptions } from './supplemental'
 import { maxEtchedRunes, runicRepertoireSize } from './runesmithRunes'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
-import { TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES } from './technomancer'
+import { TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES, VERSATILE_FIRMWARE_FEAT } from './technomancer'
 import type { Character, ContentEntry } from './types'
 
 it('clears Bone Shield activation and raised state when removed', () => {
@@ -2817,6 +2817,11 @@ describe('defenses', () => {
         { name: 'Cross-platform Application', type: 'Class Feat', level: 10, choice: 'ServoShell' },
         { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 12, choice: 'FORTRUN' },
       ] }
+    const featEntries = [
+      entry('feat', 'Cross-platform Application', { class: 'Technomancer' }, 8, ['Technomancer']),
+      entry('feat', 'Advanced Cross-platform Application', { class: 'Technomancer' }, 12, ['Technomancer']),
+    ].map(feat => ({ ...feat, systems: ['sf2e'] as ContentEntry['systems'] }))
+    const nextSlot = { key: 'class:14:0', category: 'class' as const, level: 14 }
     expect(featChoiceOptions('Cross-platform Application', c, [], 'class:14:0', -1)).toEqual(['Viper'])
     expect(featChoiceOptions('Cross-platform Application', {
       ...c, technomancerProgrammingLanguage: undefined, feats: [],
@@ -2827,6 +2832,41 @@ describe('defenses', () => {
     expect(featChoiceOptions('Advanced Cross-platform Application', {
       ...c, technomancerProgrammingLanguage: 'FORTRUN', feats: c.feats.slice(0, 2),
     }, [], 'class:12:0', -1)).toEqual(['ServoShell'])
+    expect(eligibleFeats(featEntries, c, nextSlot).map(feat => feat.name))
+      .toEqual(['Cross-platform Application', 'Advanced Cross-platform Application'])
+    expect(eligibleFeats(featEntries, { ...c, feats: [...c.feats,
+      { name: 'Cross-platform Application', type: 'Class Feat', level: 14, choice: 'Viper' }] }, nextSlot)
+      .map(feat => feat.name)).not.toContain('Cross-platform Application')
+    expect(eligibleFeats(featEntries, { ...c, feats: [...c.feats,
+      { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 14, choice: 'ServoShell' },
+      { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 16, choice: 'Viper' }] }, nextSlot)
+      .map(feat => feat.name)).not.toContain('Advanced Cross-platform Application')
+  })
+
+  it('offers unused firmware languages as repeatable Versatile Firmware variants', () => {
+    const c: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 20,
+      technomancerProgrammingLanguage: 'DPS++', feats: [
+        { name: 'Cross-platform Application', type: 'Class Feat', level: 8, choice: 'FORTRUN' },
+        { name: 'Cross-platform Application', type: 'Class Feat', level: 10, choice: 'ServoShell' },
+        { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 12, choice: 'FORTRUN' },
+        { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 14, choice: 'ServoShell' },
+        { name: 'Versatile Firmware', type: 'Class Feat', level: 16, choice: 'FORTRUN' },
+      ] }
+    const slot = { key: 'class:18:0', category: 'class' as const, level: 18 }
+    expect(featChoiceOptions('Versatile Firmware', c, [VERSATILE_FIRMWARE_FEAT], slot.key, -1))
+      .toEqual(['ServoShell'])
+    expect(featChoiceOptions('Versatile Firmware', c, [VERSATILE_FIRMWARE_FEAT], 'class:16:0', 4))
+      .toEqual(['FORTRUN', 'ServoShell'])
+    expect(featChoiceOptions('Versatile Firmware', { ...c, feats: c.feats.filter(feat =>
+      feat.name !== 'Advanced Cross-platform Application') }, [VERSATILE_FIRMWARE_FEAT], slot.key, -1))
+      .toEqual([])
+    expect(eligibleFeats([VERSATILE_FIRMWARE_FEAT], c, slot)).toContain(VERSATILE_FIRMWARE_FEAT)
+    const allLanguages = { ...c, feats: [...c.feats,
+      { name: 'Versatile Firmware', type: 'Class Feat', level: 18, choice: 'ServoShell' }] }
+    expect(featChoiceOptions('Versatile Firmware', allLanguages, [VERSATILE_FIRMWARE_FEAT], 'class:20:0', -1))
+      .toEqual([])
+    expect(eligibleFeats([VERSATILE_FIRMWARE_FEAT], allLanguages, { key: 'class:20:0', category: 'class', level: 20 }))
+      .not.toContain(VERSATILE_FIRMWARE_FEAT)
   })
 
   it('grants the initial and advanced hacks selected through Cross-platform Application feats', () => {

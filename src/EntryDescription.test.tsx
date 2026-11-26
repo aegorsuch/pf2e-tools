@@ -7,6 +7,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { HuntPreyToggle } from './StatusesSection'
 import { FeatSlots, SearchableFeatSlots } from './FeatSlots'
 import type { Character, ContentEntry } from './types'
+import { TECHNOMANCER_LANGUAGE_RULES, VERSATILE_FIRMWARE_FEAT } from './technomancer'
 
 afterEach(() => {
   Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
@@ -165,6 +166,55 @@ it.each([false, true])('shows the chosen spell in %s feat details', async (defer
     expect(container.querySelector('dialog')?.textContent).toContain('Fear: Fear spell rules.')
     await act(async () => root.render(render({ ...feat, name: 'Unrelated Feat' }, 'Fear')))
     expect(container.querySelector('dialog')?.textContent).not.toContain('Fear spell rules.')
+  } finally { await act(async () => root.unmount()) }
+})
+
+it('shows the selected Cross-platform Application hack description in feat details', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  } })
+  const feat: ContentEntry = { id: 'advanced-cross-platform', name: 'Advanced Cross-platform Application', kind: 'feat',
+    source: 'official', systems: ['sf2e'], level: 12, traits: ['Technomancer'], description: 'Feat rules.',
+    data: {}, effects: [], updatedAt: 0 }
+  const hackName = TECHNOMANCER_LANGUAGE_RULES.FORTRUN.advancedHack
+  const hack: ContentEntry = { ...feat, id: 'fortrun-hack', name: hackName, kind: 'spell', level: 1,
+    description: 'Advanced hack rules.', traits: ['Focus'] }
+  const c: Character = { id: 'technomancer', name: 'Test', systems: ['sf2e'], level: 12, className: 'Technomancer',
+    technomancerProgrammingLanguage: 'DPS++', abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [{ name: feat.name, type: 'Class Feat', level: 12, slot: 'class:12:0', choice: 'FORTRUN' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<EntryDescription name={feat.name} entry={feat} choice="FORTRUN"
+      character={c} entries={[feat, hack]} deferDetails />))
+    await act(async () => container.querySelector<HTMLButtonElement>('button')!.click())
+    expect(container.querySelector('dialog')?.textContent).toContain('Feat rules.')
+    expect(container.querySelector('dialog')?.textContent).toContain(`${hackName}: Advanced hack rules.`)
+  } finally { await act(async () => root.unmount()) }
+})
+
+it('shows the selected Versatile Firmware enhancement in feat details', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  } })
+  const c: Character = { id: 'technomancer', name: 'Test', systems: ['sf2e'], level: 4, className: 'Technomancer',
+    technomancerProgrammingLanguage: 'DPS++', abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [{ name: 'Versatile Firmware', type: 'Class Feat', level: 4, slot: 'class:4:0', choice: 'FORTRUN' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<EntryDescription name={VERSATILE_FIRMWARE_FEAT.name} entry={VERSATILE_FIRMWARE_FEAT}
+      choice="FORTRUN" character={c} entries={[VERSATILE_FIRMWARE_FEAT]} deferDetails />))
+    await act(async () => container.querySelector<HTMLButtonElement>('button')!.click())
+    expect(container.querySelector('dialog')?.textContent).toContain('You adapt your firmware')
+    expect(container.querySelector('dialog')?.textContent)
+      .toContain(`Firmware Enhancement: ${TECHNOMANCER_LANGUAGE_RULES.FORTRUN.firmware}`)
   } finally { await act(async () => root.unmount()) }
 })
 

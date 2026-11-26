@@ -10,6 +10,7 @@ import { equipmentGroupName, WORN_EQUIPMENT_GROUPS } from './equipmentGroups'
 import * as equipmentGroups from './equipmentGroups'
 import { classArchetypeSlotViews, FeatSlots } from './FeatSlots'
 import { FeatChoice } from './FeatChoice'
+import { VERSATILE_FIRMWARE_FEAT } from './technomancer'
 import { SearchableSelect } from './SearchableSelect'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
 import { armorClass, classDifficultyClass, classLabel, isSpellActive, orphanedArchetypeFeats, plannedSlots, spellActiveChange, subclassOptions, syncClassArchetypeDedication, warriorLegendWeakness } from './builder'
@@ -1930,6 +1931,20 @@ it('selects Technomancer programming languages and Versatile Technomancer langua
   expect(advancedChoice).toContain('Advanced Cross-platform Application programming language')
   expect(advancedChoice).toContain('<option value="ServoShell">ServoShell</option>')
   expect(advancedChoice).not.toContain('<option value="FORTRUN">FORTRUN</option>')
+  const firmwareCharacter = { ...c, level: 20, feats: [
+    { name: 'Cross-platform Application', type: 'Class Feat', level: 8, slot: 'class:8:0', choice: 'FORTRUN' },
+    { name: 'Cross-platform Application', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'ServoShell' },
+    { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 12, slot: 'class:12:0', choice: 'FORTRUN' },
+    { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 14, slot: 'class:14:0', choice: 'ServoShell' },
+    { name: 'Versatile Firmware', type: 'Class Feat', level: 16, slot: 'class:16:0', choice: 'FORTRUN' },
+    { name: 'Versatile Firmware', type: 'Class Feat', level: 18, slot: 'class:18:0' },
+  ] }
+  const firmwareChoice = renderToStaticMarkup(<FeatChoice c={firmwareCharacter} entries={[VERSATILE_FIRMWARE_FEAT]}
+    save={() => {}} index={5} />)
+  expect(firmwareChoice).toContain('Versatile Firmware programming language')
+  expect(firmwareChoice).toContain('<option value="ServoShell">ServoShell</option>')
+  expect(firmwareChoice).not.toContain('<option value="Viper">Viper</option>')
+  expect(firmwareChoice).not.toContain('<option value="FORTRUN">FORTRUN</option>')
   content.entries = []
 })
 

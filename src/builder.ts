@@ -30,7 +30,7 @@ import { isWitchwarper, witchwarperParadox, witchwarperRepertoireSlots, witchwar
 import { familiarSelection, familiarSpellBenefits, purifyAirActive } from './familiarAbilities'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
-import { TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES, versatileTechnomancerLanguageOptions } from './technomancer'
+import { TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES, versatileFirmwareLanguageOptions, versatileTechnomancerLanguageOptions } from './technomancer'
 import { boostingTheBasics } from './mechanicMods'
 import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
@@ -1907,6 +1907,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || e.name === 'Expansive Array'
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length === 1
         || ['Iruxi Armaments', 'Brutal Anatomy', 'Predatory', 'Ancestral Resistance', "Witch's Armaments", 'Energized Spark'].includes(e.name) && !!featChoiceOptions(e.name, c, entries, slot.key)?.length
+        || c.systems.includes('sf2e') && c.className === 'Technomancer'
+          && ['Cross-platform Application', 'Advanced Cross-platform Application', 'Versatile Firmware'].includes(e.name)
+          && !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || (e.data.repeatable === true || isRepeatableCompanionSpecialization(e.name)) && canSelectWardenFeat(e.name, c, entries, slot.key,
             slot.category === 'archetype' && archetypesOf(e).includes('Beastmaster'))))
   const takenLineage = featsWithTrait(entries, 'lineage').some(({ entry }) =>
@@ -2142,6 +2145,14 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
   if (name === 'Versatile Technomancer' && c.systems.includes('sf2e')) return versatileTechnomancerLanguageOptions(c)
+  if (name === 'Versatile Firmware' && c.systems.includes('sf2e') && c.className === 'Technomancer') {
+    const level = Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)
+    const advancedLanguages = c.feats.flatMap((feat, featIndex) =>
+      feat.name === 'Advanced Cross-platform Application' && feat.choice && featTakenLevel(feat) <= level
+        && featChoiceOptions(feat.name, c, entries, feat.slot ?? slotKey, featIndex)?.includes(feat.choice)
+        ? [feat.choice] : [])
+    return versatileFirmwareLanguageOptions(c, advancedLanguages, index)
+  }
   if (c.systems.includes('sf2e') && c.className === 'Technomancer'
     && ['Cross-platform Application', 'Advanced Cross-platform Application'].includes(name)) {
     const level = Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)

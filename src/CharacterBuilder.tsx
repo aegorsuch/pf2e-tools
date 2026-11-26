@@ -34,6 +34,7 @@ import { HighTechMedic } from './HighTechMedic'
 import { clearItemGlitching, setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
 import { TechnomancerFeatures } from './TechnomancerFeatures'
+import { VERSATILE_FIRMWARE_FEAT } from './technomancer'
 import { CharacterPictures } from './CharacterPictures'
 import { isGrenade } from './formulas'
 import type { Character, ContentEntry, EntryKind } from './types'
@@ -366,9 +367,11 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
   const c = useMemo(() => normalizeAcolyte(character), [character])
   const systemsKey = c.systems.join()
   const baseEntries = characterCatalog(catalog, systemsKey)
+  const entries = useMemo(() => c.systems.includes('sf2e') && c.className === 'Technomancer'
+    && !baseEntries.some(entry => entry.id === VERSATILE_FIRMWARE_FEAT.id)
+    ? [...baseEntries, VERSATILE_FIRMWARE_FEAT] : baseEntries, [baseEntries, c.className, c.systems])
   const deityLoreKey = JSON.stringify(characterDeityLores([c], deityLores))
   const availableDeityLores = useMemo<string[]>(() => JSON.parse(deityLoreKey), [deityLoreKey])
-  const entries = baseEntries
   const latest = useRef(c)
   latest.current = c
   const [undo, setUndo] = useState<{ label: string; snapshot: Character } | null>(null)

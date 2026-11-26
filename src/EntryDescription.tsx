@@ -11,6 +11,7 @@ import { spellDCText } from './builder'
 import { getSettings } from './settings'
 import { hellknightTrainingBenefit } from './hellknight'
 import { domainSpellDescription, featSpellOptions } from './featSpells'
+import { TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES } from './technomancer'
 
 const featIndexes = new WeakMap<ContentEntry[], { urls: Map<string, ContentEntry>; names: Map<string, ContentEntry> }>()
 const STAFF_ACROBAT_FEATS = new Set([
@@ -139,11 +140,24 @@ function EntryDescriptionContents({ name, entry, choice, prerequisites, access, 
       .replace(/\byour companions['\u2019]/gi, "your companion's") : originalDescription
   const training = character && active?.kind === 'feat'
     ? hellknightTrainingBenefit(character, active.name, history.length ? undefined : choice) : undefined
-  const choiceSpell = includeChoiceSpell && !history.length && character && entries && entry?.kind === 'feat' && choice
-    ? featSpellOptions(character, entries, character.feats.find(feat => feat.name === entry.name && feat.choice === choice)
-      ?? { name: entry.name, type: '', level: entry.level, sourceId: entry.id, choice })
-      ?.find(spell => spell.name.toLowerCase() === choice.trim().toLowerCase())
+  const technomancerLanguage = character?.className === 'Technomancer' && character.systems.includes('sf2e')
+    ? TECHNOMANCER_PROGRAMMING_LANGUAGES.find(language => language === choice) : undefined
+  const technomancerHackName = entry?.kind === 'feat' && technomancerLanguage
+    ? entry.name === 'Cross-platform Application' ? TECHNOMANCER_LANGUAGE_RULES[technomancerLanguage].initialHack
+      : entry.name === 'Advanced Cross-platform Application' ? TECHNOMANCER_LANGUAGE_RULES[technomancerLanguage].advancedHack
+        : undefined
     : undefined
+  const technomancerFirmware = entry?.kind === 'feat' && entry.name === 'Versatile Firmware' && technomancerLanguage
+    ? TECHNOMANCER_LANGUAGE_RULES[technomancerLanguage].firmware : undefined
+  const choiceSpell = includeChoiceSpell && !history.length && character && entries && entry?.kind === 'feat' && choice
+    ? technomancerHackName
+      ? entries.find(spell => spell.kind === 'spell' && !spell.deleted && spell.name === technomancerHackName
+        && spell.systems.includes('sf2e'))
+      : featSpellOptions(character, entries, character.feats.find(feat => feat.name === entry.name && feat.choice === choice)
+        ?? { name: entry.name, type: '', level: entry.level, sourceId: entry.id, choice })
+        ?.find(spell => spell.name.toLowerCase() === choice.trim().toLowerCase())
+    : undefined
+  const choiceSpellName = technomancerHackName ?? choiceSpell?.name
   return (
     <>
         <h4 id={titleId} tabIndex={-1}>{title(history.length ? active?.name ?? name : name)}{featActions && <> <ActionIcon entry={active} /></>}{active && active.kind !== 'trait' && <small> (Level {active.level}{rarity ? `; ${rarity}` : ''})</small>}</h4>
@@ -158,8 +172,9 @@ function EntryDescriptionContents({ name, entry, choice, prerequisites, access, 
           {' '}Access does not replace prerequisites.
         </p>}
         <p>{text(description || 'Description unavailable. Sync Archives of Nethys content to load it.')}</p>
-        {choiceSpell && <p><strong>{text(choiceSpell.name)}:</strong>{' '}
-          {text(choiceSpell.description || 'Spell description unavailable; sync Archives of Nethys content to load it.')}</p>}
+        {choiceSpellName && <p><strong>{text(choiceSpellName)}:</strong>{' '}
+          {text(choiceSpell?.description || 'Spell description unavailable; sync Archives of Nethys content to load it.')}</p>}
+        {technomancerFirmware && <p><strong>Firmware Enhancement:</strong> {text(technomancerFirmware)}</p>}
         {training && <p><strong>{training.name} ({training.order}):</strong> {training.description}
           {training.name === 'Dedication to the Five' && training.choice && character && entries
             && <> {text(domainSpellDescription(character, entries, 'Domain Initiate', training.choice))}</>}
