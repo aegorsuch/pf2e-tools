@@ -1388,7 +1388,7 @@ const MUTUALLY_EXCLUSIVE_FEAT_GROUPS = [...PREREQUISITE_EXCLUSIVE_FEAT_GROUPS,
 const CYBORG_HEART_FEATS = ['Machine Heart', 'Mortal Heart']
 const MECHANIC_EXOCORTEXES = ['Drone', 'Mine', 'Turret']
 
-function mechanicExocortexes(c: Character) {
+export function mechanicExocortexes(c: Character) {
   if (c.className !== 'Mechanic') return []
   const primary = MECHANIC_EXOCORTEXES.find(name => name.toLowerCase() === c.subclass?.toLowerCase())
   const choices = primary ? [primary] : []

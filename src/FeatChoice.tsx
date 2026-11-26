@@ -251,7 +251,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {options.map(skill => <option key={skill}>{skill}</option>)}
     </SearchableSelect>
   }
-  if (c.systems.includes('sf2e') && ['Exocortex Experimenter', 'Plentiful Grenades'].includes(feat.name)) return null
+  if (c.systems.includes('sf2e') && ['Exocortex Experimenter', 'Plentiful Grenades', 'Expansive Array'].includes(feat.name)) return null
   if (c.systems.includes('sf2e') && ['Advanced Drone', 'Superior Drone', 'Convertible Chassis'].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
     return <label className="feat-choice">{feat.name === 'Advanced Drone' ? 'Advancement' : feat.name === 'Superior Drone' ? 'Specialization'

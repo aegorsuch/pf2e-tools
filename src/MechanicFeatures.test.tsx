@@ -1,15 +1,15 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { isValidElement, type ReactNode } from 'react'
 import { expect, it } from 'vitest'
-import { MechanicFeatures, mechanicMineDamage, mechanicMineState } from './MechanicFeatures'
+import { MechanicFeatures, TurretFeatures, mechanicMineDamage, mechanicMineState } from './MechanicFeatures'
 import { DroneFeatures } from './DroneFeatures'
-import { MinionsSection } from './MinionsSection'
+import { MinionsSection, MinionsSummary } from './MinionsSection'
 import { SensesAndSpeed, SkillsSection } from './SkillsSection'
 import { magneticLevitatorsActive, movementSpeeds, resistances, subclassOptions } from './builder'
 import { droneCustomizationSlots, droneForceField, droneStats } from './drone'
 import type { Character, ContentEntry } from './types'
 import { eligibleFeats, featChoiceOptions, featSelectionLevel, featSelectionPrerequisiteChecker } from './builder'
-import { turretWeapon } from './mechanicTurret'
+import { turretArrays, turretWeapon } from './mechanicTurret'
 import { ArmorList, WeaponList } from './GearSection'
 import { droneEquipmentCapacity, droneMountedWeapons, droneWeaponAttack } from './droneEquipmentRules'
 import { DroneEquipment } from './DroneEquipment'
@@ -176,6 +176,21 @@ it('enforces secondary exocortex choices and their acquisition levels through pr
   expect(featChoiceOptions('Exocortex Experimenter', c, [], 'class:12:0')).toEqual(['Turret'])
   const markup = renderToStaticMarkup(<FeatChoice c={c} entries={mechanicFeatCatalog} save={() => {}} index={0} />)
   expect(markup).toBe('')
+})
+
+it('allows Impressive Healing Mines with a later Healing Mines feat and Mine from Exocortex Experimenter', () => {
+  const c: Character = { ...mechanic, level: 12, subclass: 'Turret', feats: [
+    { name: 'Exocortex Experimenter', type: 'Class Feat', level: 6, slot: 'class:6:0', choice: 'Mine' },
+    { name: 'Healing Mines', type: 'Class Feat', level: 2, slot: 'class:8:0' },
+  ] }
+  const impressive = mechanicFeatCatalog.find(feat => feat.name === 'Impressive Healing Mines')!
+  const slot = { category: 'class' as const, level: 12, key: 'class:12:0' }
+  expect(featSelectionPrerequisiteChecker(c, mechanicFeatCatalog, slot)(impressive)).toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats(mechanicFeatCatalog, c, slot)).toContain(impressive)
+  expect(eligibleFeats(mechanicFeatCatalog, { ...c, feats: c.feats.slice(0, 1) }, slot)).not.toContain(impressive)
+  expect(eligibleFeats(mechanicFeatCatalog, { ...c, feats: c.feats.map(feat =>
+    feat.name === 'Healing Mines' ? { ...feat, slot: 'class:4:0' } : feat) }, slot)).not.toContain(impressive)
+  expect(renderToStaticMarkup(<MechanicFeatures c={c} save={() => {}} />)).toContain('Mine capacity')
 })
 
 it.each([
@@ -388,7 +403,7 @@ it('scales debilitating exocortex condition choices and saving throws', () => {
       { name: 'Double Debilitating Exocortex', type: 'Class Feat', level: 14 },
       { name: 'Foolproof Debilitations', type: 'Class Feat', level: 16 },
     ] }
-  const html = (character: Character) => renderToStaticMarkup(<MechanicFeatures c={character} save={() => {}} />)
+  const html = (character: Character) => renderToStaticMarkup(<TurretFeatures c={character} entries={[]} save={() => {}} />)
   expect(html(c)).toContain('Clumsy 2 and Suppressed')
   expect(html(c)).toContain('enemies must critically succeed')
   expect(html({ ...c, level: 10 })).toContain('Clumsy 1')
@@ -397,13 +412,44 @@ it('scales debilitating exocortex condition choices and saving throws', () => {
 
 it('calculates turret defenses and selected array', () => {
   const turret: Character = { ...mechanic, subclass: 'Turret', mechanicTurretArray: 'Laser Beam' }
-  const markup = renderToStaticMarkup(<MechanicFeatures c={turret} save={() => {}} />)
+  const markup = renderToStaticMarkup(<TurretFeatures c={turret} entries={[]} save={() => {}} />)
   expect(markup).toContain('fire; range 60 feet')
   expect(markup).toContain('AC 28; HP 70; broken 35; hardness 15')
   expect(markup).toContain('Fortitude and Reflex +18')
   expect(markup).not.toContain('Manage turret grade, upgrades, and Strikes in Weapons')
-  expect(renderToStaticMarkup(<MechanicFeatures c={{ ...turret, className: 'Ranger' }} save={() => {}} />)).toBe('')
+  expect(renderToStaticMarkup(<TurretFeatures c={{ ...turret, className: 'Ranger' }} entries={[]} save={() => {}} />)).toBe('')
 })
+
+it('offers only active Expansive Arrays and preserves saved choices across level changes', () => {
+  const c: Character = { ...mechanic, level: 14, subclass: 'Mine', mechanicTurretArray: 'Void Array',
+    mechanicTurretExtraArrays: ['Mental Array', 'Poison Array', 'Vitality Array', 'Void Array'],
+    feats: [
+      { name: 'Exocortex Experimenter', type: 'Class Feat', level: 6, slot: 'class:6:0', choice: 'Turret' },
+      { name: 'Expansive Array', type: 'Class Feat', level: 8, slot: 'class:8:0' },
+      { name: 'Expansive Array', type: 'Class Feat', level: 8, slot: 'class:14:0' },
+    ] }
+  expect(turretArrays(c).slice(-4)).toEqual(c.mechanicTurretExtraArrays)
+  expect(turretWeapon(c, [])?.entry.data).toMatchObject({ damage: '1d8 void', weapon_group: 'Void', range: 60 })
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={mechanicFeatCatalog} save={() => {}} index={1} />)).toBe('')
+  const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
+  expect(html).toContain('data-minion-name="Turret"')
+  expect(html).toContain('aria-label="Expansive Array 4"')
+  expect(renderToStaticMarkup(<MinionsSummary c={c} entries={[]} />)).toContain('Turret')
+  expect(turretArrays({ ...c, level: 10 }).slice(-2)).toEqual(['Mental Array', 'Poison Array'])
+  expect(turretWeapon({ ...c, level: 10 }, [])).toBeUndefined()
+  expect(renderToStaticMarkup(<TurretFeatures c={{ ...c, level: 5 }} entries={[]} save={() => {}} />)).toBe('')
+})
+
+it.each([[4, 2], [7, 2], [8, 3], [11, 3], [12, 4], [16, 5], [20, 6]])(
+  'scales Self-destruct damage at level %i', (level, dice) => {
+    const c: Character = { ...mechanic, level, subclass: 'Turret',
+      feats: [{ name: 'Self-destruct', type: 'Class Feat', level: 4, slot: 'class:4:0' }] }
+    const html = renderToStaticMarkup(<TurretFeatures c={c} entries={[]} save={() => {}} />)
+    expect(html).toContain(`${dice}d6 piercing`)
+    expect(html).toContain(`${dice}d6 fire`)
+    expect(html).toContain('basic Reflex DC')
+    expect(renderToStaticMarkup(<TurretFeatures c={{ ...c, level: 3 }} entries={[]} save={() => {}} />)).not.toContain('Self-destruct')
+  })
 
 it('calculates turret grade, weapon proficiency, specialization and active mods without using hands', () => {
   const entry = (name: string, kind: ContentEntry['kind'], level: number, description: string, data: ContentEntry['data']): ContentEntry =>
@@ -488,8 +534,8 @@ it('shows Critical Explosion persistent damage by mine damage type and save resu
 
 it('shows Shielded Turret cover when selected', () => {
   const c: Character = { ...mechanic, subclass: 'Turret', feats: [{ name: 'Shielded Turret', type: 'Class Feat', level: 1 }] }
-  expect(renderToStaticMarkup(<MechanicFeatures c={c} save={() => {}} />)).toContain('provides standard cover')
-  expect(renderToStaticMarkup(<MechanicFeatures c={{ ...c, feats: [] }} save={() => {}} />)).not.toContain('provides standard cover')
+  expect(renderToStaticMarkup(<TurretFeatures c={c} entries={[]} save={() => {}} />)).toContain('provides standard cover')
+  expect(renderToStaticMarkup(<TurretFeatures c={{ ...c, feats: [] }} entries={[]} save={() => {}} />)).not.toContain('provides standard cover')
 })
 
 it('shows Apocalyptic Explosions for deployed mines only after the feat is active', () => {

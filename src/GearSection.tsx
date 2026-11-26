@@ -1867,7 +1867,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
   )
 }
 
-function TurretWeapon({ c, entries, save, displayOnly }: SectionProps & { displayOnly: boolean }) {
+export function TurretWeapon({ c, entries, save, displayOnly }: SectionProps & { displayOnly: boolean }) {
   const turret = turretWeapon(c, entries)
   if (!turret) return null
   const { entry, weapon, attack, grade } = turret

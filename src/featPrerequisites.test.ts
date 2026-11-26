@@ -1250,6 +1250,12 @@ it('offers Reduce Reuse Recycle with both prerequisites and grants Monster Craft
   expect(featPrerequisiteChecker(qualified, entries, 8)(feat)).toEqual({ missing: [], manual: [] })
   expect(eligibleFeats(entries, skilled, slot)).not.toContain(feat)
   expect(eligibleFeats(entries, qualified, slot)).toContain(feat)
+  const mechanic: Character = { ...qualified, className: 'Mechanic', skillPicks: ['Survival'],
+    rankOverrides: undefined, skillIncreases: { 3: 'Survival', 7: 'Survival' },
+    feats: [{ ...qualified.feats[0], slot: 'archetype:2:g83' }] }
+  expect(ranksAt(mechanic, entries).Survival).toBe(3)
+  expect(featSelectionPrerequisiteChecker(mechanic, entries, slot)(feat)).toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats(entries, mechanic, slot)).toContain(feat)
   expect(automaticFeatGrants({ ...qualified, feats: [...qualified.feats, {
     name: feat.name, type: 'Archetype Feat', level: 8, slot: slot.key,
   }] }, entries)).toContainEqual({ name: 'Monster Crafting', source: feat.name, level: 8 })

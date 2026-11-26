@@ -1,6 +1,6 @@
-import { abilityMod, activeFeatsNamed, proficiencyBonus, signed, type SectionProps } from './builder'
+import { abilityMod, activeFeatsNamed, mechanicExocortexes, proficiencyBonus, signed, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
-import { TURRET_ARRAYS, TURRET_NAMES } from './mechanicTurret'
+import { EXTRA_TURRET_NAMES, turretArray, turretArrays } from './mechanicTurret'
 import { mechanicClassDC } from './mechanicRules'
 import { TransmutativeCasing } from './TransmutativeCasing'
 import { DebilitatingExocortex } from './DebilitatingExocortex'
@@ -9,6 +9,8 @@ import { enduringMineMods, setEnduringMod } from './mechanicEnduring'
 import { ItemTroubleshoot } from './ItemTroubleshoot'
 import type { Character, MechanicMine } from './types'
 import { boostingTheBasics } from './mechanicMods'
+import { TurretWeapon } from './GearSection'
+import { DamageRoll } from './SpellDamage'
 
 const MEDIC_MINE_MODS = ['Numbing Analgesic', 'Powerful Stimulant', 'Protective Excretions', 'Restorative Boost'] as const
 
@@ -34,13 +36,64 @@ export function mechanicMineDamage(c: Character, mine: MechanicMine) {
   }
 }
 
+export function TurretFeatures({ c, entries, save }: SectionProps) {
+  if (!c.systems.includes('sf2e') || !mechanicExocortexes(c).includes('Turret')) return null
+  const intelligence = abilityMod(c.abilities.int)
+  const classDc = mechanicClassDC(c)
+  const rank = c.level >= 15 ? 3 : c.level >= 10 ? 2 : 1
+  const maxHp = 10 + (2 + intelligence) * c.level
+  const array = turretArray(c)
+  const choices = c.mechanicTurretExtraArrays ?? []
+  const count = Math.min(4, activeFeatsNamed(c, 'Expansive Array').length * 2)
+  const dice = 2 + Math.floor(Math.max(0, c.level - 4) / 4)
+  return <div className="col">
+    {Array.from({ length: count }, (_, index) => <label key={index}>Expansive Array {index + 1}{' '}
+      <select aria-label={`Expansive Array ${index + 1}`} value={choices[index] ?? ''} onChange={event => {
+        const selected = EXTRA_TURRET_NAMES.find(name => name === event.target.value)
+        if (event.target.value && (!selected || choices.slice(0, count).some((name, i) => i !== index && name === selected))) return
+        const next = [...choices]
+        next[index] = selected ?? null
+        save({ mechanicTurretExtraArrays: next })
+      }}>
+        <option value="">Choose array</option>
+        {EXTRA_TURRET_NAMES.map(name => <option key={name} value={name}
+          disabled={choices.slice(0, count).some((other, i) => i !== index && other === name)}>{name}</option>)}
+      </select>
+    </label>)}
+    <label>Turret array{' '}
+      <select aria-label="Turret array" value={c.mechanicTurretArray ?? ''} onChange={event => {
+        const selected = turretArrays(c).find(name => name === event.target.value)
+        if (!event.target.value || selected) save({ mechanicTurretArray: selected })
+      }}>
+        <option value="">Choose array</option>
+        {c.mechanicTurretArray && !turretArrays(c).includes(c.mechanicTurretArray)
+          && <option value={c.mechanicTurretArray} disabled>{c.mechanicTurretArray} (unavailable)</option>}
+        {turretArrays(c).map(name => <option key={name}>{name}</option>)}
+      </select>
+    </label>
+    {array && <span>Turret array: {array.damage}; range {array.range} feet; {array.trait}, {array.group}.</span>}
+    {activeFeatsNamed(c, 'Shielded Turret').length > 0 && <span>Shielded Turret: provides standard cover; Take Cover for greater cover.</span>}
+    <span>AC {classDc}; HP {maxHp}; broken {Math.floor(maxHp / 2)}; hardness {5 + 5 * Math.min(3, Math.floor(c.level / 5))};
+      Fortitude and Reflex {signed(intelligence + proficiencyBonus(rank, c.level))}.</span>
+    <DebilitatingExocortex c={c} choices={c.mechanicExocortexDebilitation}
+      onChange={choices => save({ mechanicExocortexDebilitation: choices,
+        ...(!choices.some(Boolean) && c.mechanicEnduringMod?.kind === 'exo' ? { mechanicEnduringMod: undefined } : {}) })}
+      enduring={{ active: c.mechanicEnduringMod?.kind === 'exo', onChange: active => save(setEnduringMod(c, active
+        ? { kind: 'exo', item: 'mechanic:exo', mod: 'debilitation', value: c.mechanicExocortexDebilitation ?? [], label: 'Turret' }
+        : undefined)) }} />
+    <TurretWeapon c={c} entries={entries} save={save} displayOnly={false} />
+    {activeFeatsNamed(c, 'Self-destruct').length > 0 && <span>Self-destruct{' '}
+      <DamageRoll name="Self-destruct" actions="Two Actions" toggleResult damage={{ label: 'Damage',
+        dice, sides: 6, type: 'piercing', additional: { label: 'Fire damage', dice, sides: 6, type: 'fire' } }} />
+      {' '}15-foot emanation; basic Reflex DC {classDc}. Turret must be deployed within 150 feet; it is reduced to 0 HP and recalled.
+    </span>}
+  </div>
+}
+
 export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) {
   if (c.className !== 'Mechanic' || !c.systems.includes('sf2e')) return null
   const intelligence = abilityMod(c.abilities.int)
   const classDc = mechanicClassDC(c)
-  const saveRank = c.level >= 15 ? 3 : c.level >= 10 ? 2 : 1
-  const maxHp = 10 + (2 + intelligence) * c.level
-  const array = c.mechanicTurretArray && TURRET_ARRAYS[c.mechanicTurretArray]
   const mines = mechanicMineState(c)
   const deployed = Array.from({ length: mines.deployed }, (_, index) => c.mechanicDeployedMines?.[index] ?? {})
   const carried = c.mechanicCarriedMines ?? []
@@ -62,7 +115,7 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
     mechanicMines: { carried, deployed: next.length }, mechanicDeployedMines: next, ...extra,
   })
   return <div className="col">
-    {c.subclass === 'Mine' && <>
+    {mechanicExocortexes(c).includes('Mine') && <>
       <strong>Mine exocortex</strong>
       <span>Mine capacity: {mines.capacity}; disable DC {classDc}</span>
       <span>Carried {mines.carried}/{mines.capacity}; deployed {mines.deployed}.</span>
@@ -249,29 +302,6 @@ export function MechanicFeatures({ c, save }: Pick<SectionProps, 'c' | 'save'>) 
         </div>
       })}
       <small>Deploy to an unoccupied square within 60 feet. Create two mines per 10 minutes; unused mines expire at daily preparations.</small>
-    </>}
-    {c.subclass === 'Turret' && <>
-      <strong>Turret exocortex</strong>
-      <ItemTroubleshoot c={c} save={save} kind="weapon" id="mechanic:turret" label="Turret" />
-      <label>Turret array{' '}
-        <select aria-label="Turret array" value={c.mechanicTurretArray ?? ''} onChange={event => {
-          const choice = TURRET_NAMES.find(name => name === event.target.value)
-          save({ mechanicTurretArray: choice })
-        }}>
-          <option value="">Choose array</option>
-          {TURRET_NAMES.map(name => <option key={name}>{name}</option>)}
-        </select>
-      </label>
-      {array && <span>Turret array: {array.damage}; range {array.range} feet; {array.trait}, {array.group}.</span>}
-      {activeFeatsNamed(c, 'Shielded Turret').length > 0 && <span>Shielded Turret: provides standard cover; Take Cover for greater cover.</span>}
-      <span>AC {classDc}; HP {maxHp}; broken {Math.floor(maxHp / 2)}; hardness {5 + 5 * Math.min(3, Math.floor(c.level / 5))};
-        Fortitude and Reflex {signed(intelligence + proficiencyBonus(saveRank, c.level))}.</span>
-      <DebilitatingExocortex c={c} choices={c.mechanicExocortexDebilitation}
-        onChange={choices => save({ mechanicExocortexDebilitation: choices,
-          ...(!choices.some(Boolean) && c.mechanicEnduringMod?.kind === 'exo' ? { mechanicEnduringMod: undefined } : {}) })}
-        enduring={{ active: c.mechanicEnduringMod?.kind === 'exo', onChange: active => save(setEnduringMod(c, active
-          ? { kind: 'exo', item: 'mechanic:exo', mod: 'debilitation', value: c.mechanicExocortexDebilitation ?? [], label: 'Turret' }
-          : undefined)) }} />
     </>}
     {c.level >= 9 && <small>Remote Mods: Modify your exocortex and its weapons within {c.level >= 15 ? 150 : 60} feet.</small>}
     {c.level >= 13 && <div className="col"><strong>Enduring Mod</strong>

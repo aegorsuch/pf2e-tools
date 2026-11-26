@@ -4,7 +4,7 @@ import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, bardingOptions, companionItemName, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor,
   companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME, equippedBarding,
   hasCompanionMountOption, hasConstructInnovation, isBadgerCompanion, isCompanionEquipmentItem, minionFerocity, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, languageGroups, magicHideChange, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, spellDCText, summonedMounts, technomancerFirmwareLanguages, type SectionProps, type TotalBreakdown } from './builder'
+import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, languageGroups, magicHideChange, mechanicExocortexes, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, spellDCText, summonedMounts, technomancerFirmwareLanguages, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
 import { ActiveSpellActions, CompanionSpellOptions, ProtectCompanionOptions, SpiritOfTheBeastOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
@@ -19,6 +19,7 @@ import { activeCaypinAlly, activeLashuntaAlly, activeShirrenAlly } from './featS
 import { activeSummonedFiend, summonSpellName, type SummonedFiend } from './summonedFiends'
 import { creatureScaling, scaledDamage, scaledSummon } from './summonScaling'
 import { DroneFeatures } from './DroneFeatures'
+import { TurretFeatures } from './MechanicFeatures'
 import { FOLLOWER_STAGES, FOLLOWER_TYPES, followerStage, followerStats } from './followers'
 import { isPurchasableMinibot, minibotUpgradeCost, minibotUpgradeOptions, servoShellMinibotMaxHp } from './servoshell'
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityEffects, familiarAbilityEntries, familiarAbilitySlots, familiarMedicRank,
@@ -514,6 +515,7 @@ export function MinionsSummary({ c, entries = [] }: Pick<SectionProps, 'c'> & Pa
     <strong>Minions</strong>
     <span>{[...companions.map((_, index) => companionTitle(c, index)),
       ...(c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' ? ['Drone'] : []),
+      ...(c.systems.includes('sf2e') && mechanicExocortexes(c).includes('Turret') ? ['Turret'] : []),
       ...(servoShell ? ['Personal Minibot'] : []),
       ...(familiarState ? [`${familiarName} (${familiarState.selectedCount}/${familiarState.totalCount})`] : []),
       ...(waspState ? [`Wasp Familiar (${waspState.selectedCount}/${waspState.totalCount})`] : []),
@@ -824,6 +826,10 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
         {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" data-minion-name="Drone" open>
           <summary><h4>Drone</h4></summary>
           <DroneFeatures c={c} entries={entries} save={save} />
+        </details>}
+        {c.systems.includes('sf2e') && mechanicExocortexes(c).includes('Turret') && <details className="character-subsection" data-minion-name="Turret" open>
+          <summary><h4>Turret</h4></summary>
+          <TurretFeatures c={c} entries={entries} save={save} />
         </details>}
         {servoShell && <ServoShellMinibot c={c} entries={entries} save={save} />}
         {companions.length === 0 && companionGrant && <details className="character-subsection" data-minion-name="Animal Companion" open>
