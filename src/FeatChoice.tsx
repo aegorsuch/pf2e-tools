@@ -329,7 +329,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </label>
     </span>
   }
-  if (['Eye for Treasure', 'Expressive Face', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body', 'Finely Tuned', 'Experienced Laborer', 'Distant Telepath'].includes(feat.name)) return null
+  if (['Eye for Treasure', 'Expressive Face', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body', 'Finely Tuned', 'Historian', 'Experienced Laborer', 'Distant Telepath'].includes(feat.name)) return null
   if (['Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', "Officer's Education"].includes(feat.name)) return null
   if (feat.name === 'Elemental Wrath') return null
   if (['Unconventional Weaponry', 'Tengu Weapon Familiarity', 'Surki Weapon Familiarity'].includes(feat.name)) {
@@ -535,7 +535,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </details>
       : choiceControl
   }
-  if (feat.name === 'Additional Lore' || feat.name === 'Historian' && c.systems.includes('sf2e')) {
+  if (feat.name === 'Additional Lore') {
     return <label className="feat-choice">
       Lore subcategory{' '}
       <input key={`${index}:${feat.name}:${feat.choice ?? ''}`} aria-label={`${feat.name} subcategory`} defaultValue={feat.choice ?? ''}

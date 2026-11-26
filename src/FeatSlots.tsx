@@ -594,7 +594,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const selection = c.feats[featIndex]
           const selectedChoices = selection ? featChoiceOptions(selection.name, c, entries, s.key, featIndex, s.category) : undefined
           const selectedChoice = selection && (['Elemental Wrath', 'Ancestral Linguistics', 'Ancestral Longevity', 'Expert Longevity', 'Tattooed Historian Dedication', 'Captain Dedication', 'Carry Their Memories',
-            'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Core Attunement', 'Divine Warrior', 'Primal Warrior', 'Eye for Treasure', 'Expressive Face', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body', 'Finely Tuned', 'Distant Telepath'].includes(selection.name)
+            'Cite the Deep Lore', "Diplomat's Facade", 'Broken Hand Technique', 'Spelunker', 'Core Attunement', 'Divine Warrior', 'Primal Warrior', 'Eye for Treasure', 'Expressive Face', "Officer's Medical Training", 'Shiny', 'Adaptive Visual Receptors', 'Additional Arms', 'Augmented Body', 'Finely Tuned', 'Historian', 'Distant Telepath'].includes(selection.name)
             || c.systems.includes('sf2e') && ['Lashunta', 'Shirren'].includes(c.ancestry ?? '') && ['Creature Shape', 'Creature Ally'].includes(selection.name)
             || isFixedAncestralWeaponFamiliarity(c, entries, selection)) ? undefined
             : selection?.name === 'Favored Terrain' ? selectedFavoredTerrain(c) ?? selection.choice : selection?.choice
