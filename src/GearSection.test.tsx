@@ -52,7 +52,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     systems: ['sf2e' as const], data: { item_subcategory: 'Weapon Upgrades' } }))
   const sfWeapon = (name: string): ContentEntry => ({ ...weapon, id: name, name, systems: ['sf2e'],
     traits: ['Tech'], data: { weapon_category: 'Martial', damage: '1d6 F', hands: 1, upgrade_slots: 4 } })
-  const weapons = ['SLARP Rapid Laser Pistol', 'Shuriken Drone', 'Singing Spear', 'Battleglove', 'Crimson Claw', 'Shock Pad', 'Rotolaser',
+  const weapons = ['SLARP Rapid Laser Pistol', 'Shuriken Drone', 'Singing Spear', 'Battleglove', 'Crimson Claw', 'Shock Pad', 'Shock Truncheon', 'Rotolaser',
     'Pulse Gauntlet', 'Tailblade', 'Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle', 'Other'].map(sfWeapon)
   weapons.push({ ...sfWeapon('Starday Night Special (Semi-Auto Pistol)'),
     data: { ...sfWeapon('Starday Night Special (Semi-Auto Pistol)').data, special_weapon_source: 'Starday Night Special' } })
@@ -79,6 +79,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(at('Crimson Claw', 8)).toEqual(['Flaming Module (Commercial)'])
     expect(at('Shock Pad', 8)).toEqual(['Shock Module (Commercial)'])
     expect(at('Shock Pad', 15)).toEqual(['Shock Module (Tactical)'])
+    expect(at('Shock Truncheon', 8)).toEqual(['Shock Module (Commercial)'])
     expect(at('Rotolaser', 8)).toEqual(['Flaming Module (Commercial)'])
     expect(at('Rotolaser', 15)).toEqual(['Flaming Module (Tactical)'])
     expect(at('Pulse Gauntlet', 8)).toEqual(['Loudener (Commercial)'])
