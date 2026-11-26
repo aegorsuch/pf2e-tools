@@ -50,6 +50,7 @@ export interface Settings {
   androidAugmented: boolean
   mechanicGrenadier: boolean
   technomancerGrenadier: boolean
+  technomancerJunkomancer: boolean
   operativeFieldAgent: boolean
   solarianFieldAgent: boolean
   soldierFieldAgent: boolean
@@ -105,7 +106,7 @@ const DEFAULTS: Settings = {
   bardAnimalTrainer: true, bardBeastmaster: true, bardCavalier: true, envoyFieldAgent: true, envoyAugmented: true, mysticFieldAgent: true,
   mysticXenoDruid: true, mechanicFieldAgent: true, mechanicAugmented: true, mechanicGrenadier: true,
   androidAugmented: true,
-  technomancerGrenadier: true, operativeFieldAgent: true,
+  technomancerGrenadier: true, technomancerJunkomancer: true, operativeFieldAgent: true,
   solarianFieldAgent: true, soldierFieldAgent: true, soldierGrenadier: true, technomancerFieldAgent: true,
   technomancerAugmented: true, witchwarperFieldAgent: true, championCavalier: false, commanderCavalier: true,
   commanderCaptain: true, druidCavalier: false, rangerCavalier: true, championBeastmaster: true,

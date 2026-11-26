@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { mapAonHit } from './aon'
-import { armorBulk, armorRanks, armorStrengthMet, automaticFeatGrants, boostSlots, classDifficultyClass, equippedWeaponHands, movementSpeeds, offensiveDefenseAttack, ownedWeapons, ranksAt, resistances, savingThrowBreakdown, solarianShield, speed, starfinderArmorPenalties, subclassOptions, weaponAttack, weaponHands } from './builder'
+import { armorBulk, armorRanks, armorStrengthMet, automaticFeatGrants, boostSlots, classDifficultyClass, equippedWeaponHands, hasParryWeapon, movementSpeeds, offensiveDefenseAttack, ownedWeapons, ranksAt, resistances, savingThrowBreakdown, solarianShield, solarWeaponTraits, speed, starfinderArmorPenalties, subclassOptions, weaponAttack, weaponHands } from './builder'
 import { ERUDITE_LORE_KEY } from './soldier'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
@@ -88,7 +88,7 @@ it('applies Mindward Shield only while the solar shield is raised and equipped',
   const will = savingThrowBreakdown(c, [], 'Will')
   expect(will.parts).toContainEqual({ label: 'Mindward Shield (circumstance)', value: 1 })
   expect(will.total).toBe(savingThrowBreakdown({ ...c, solarianShield: { raised: false } }, [], 'Will').total + 1)
-  expect(savingThrowBreakdown({ ...c, solarianShield: { raised: true, equipped: false } }, [], 'Will').total).toBe(will.total - 1)
+  expect(savingThrowBreakdown({ ...c, solarianShield: { raised: true, equipped: false } }, [], 'Will').total).toBe(will.total)
   expect(savingThrowBreakdown({ ...c, solarianAttunement: 'Unattuned' }, [], 'Will').total).toBe(will.total - 1)
   expect(savingThrowBreakdown({ ...c, level: 7 }, [], 'Will').parts.some(part => part.label.startsWith('Mindward'))).toBe(false)
   expect(savingThrowBreakdown(c, [], 'Reflex').parts.some(part => part.label.startsWith('Mindward'))).toBe(false)
@@ -114,7 +114,32 @@ it('applies Propulsive Shield to flare damage and range only while the solar shi
     .toMatchObject({ damage: '3d6+3 fire', range: 55, criticalNote: '1d8 persistent fire damage on a critical hit.' })
   expect(weaponAttack({ ...c, solarianShield: { raised: false } }, [], flare))
     .toMatchObject({ damage: '3d8 bludgeoning', range: 30, propulsiveShield: false })
-  expect(weaponAttack({ ...c, solarianShield: { raised: true, equipped: false } }, [], flare).propulsiveShield).toBe(false)
+  expect(weaponAttack({ ...c, solarianShield: { raised: true, equipped: false } }, [], flare).propulsiveShield).toBe(true)
+})
+
+it('enforces Solar Weapon trait costs and applies selected traits to attacks', () => {
+  const c: Character = { ...base, className: 'Solarian', level: 1,
+    solarianWeapon: { damageType: 'Slashing', traits: ['Two-Hand d10', 'Trip'] } }
+  const weapon = ownedWeapons(c, []).find(item => item.name === 'Solar Weapon')!
+  expect(solarWeaponTraits(c)).toEqual(['Two-Hand d10'])
+  expect(weaponHands([], { ...weapon, handsHeld: 2 }, c)).toBe(2)
+  expect(weaponAttack(c, [], { ...weapon, handsHeld: 2 }).damage).toContain('1d10 slashing')
+  const reach = { ...c, solarianWeapon: { damageType: 'Slashing' as const, traits: ['Reach', 'Trip'] } }
+  expect(solarWeaponTraits(reach)).toEqual(['Reach'])
+  expect(weaponAttack(reach, [], weapon).reach).toBe(10)
+  expect(hasParryWeapon({ ...c, solarianWeapon: { damageType: 'Slashing', traits: ['Parry'] } }, [])).toBe(true)
+  const twin: Character = { ...c, feats: [{ name: 'Twin Weapons', type: 'Class Feat', level: 1 }],
+    solarianTwinWeapon: { damageType: 'Piercing', traits: ['Agile', 'Twin'] } }
+  const twinWeapon = ownedWeapons(twin, []).find(item => item.name === 'Twin Solar Weapon')!
+  expect(weaponAttack(twin, [], twinWeapon).traits).toEqual(expect.arrayContaining(['Agile', 'Twin']))
+  expect(solarWeaponTraits({ ...twin, feats: [] }, true)).toEqual([])
+  const archetype: Character = { ...c, className: 'Soldier', level: 4,
+    feats: [{ name: 'Solarian Dedication', type: 'Archetype Feat', level: 2 },
+      { name: 'Solar Weapon Customization', type: 'Archetype Feat', level: 4 }],
+    solarianWeapon: { damageType: 'Slashing', traits: ['Trip', 'Shove'] } }
+  expect(solarWeaponTraits(archetype)).toEqual(['Trip'])
+  expect(solarWeaponTraits({ ...archetype, level: 6 })).toEqual(['Trip', 'Shove'])
+  expect(solarWeaponTraits({ ...archetype, feats: archetype.feats.slice(0, 1) })).toEqual([])
 })
 
 it('applies Solar Wind and Defy Gravity by active attunement, including archetype users', () => {

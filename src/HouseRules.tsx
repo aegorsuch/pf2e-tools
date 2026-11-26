@@ -52,6 +52,8 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
     description: 'Technomancers gain Augmented Dedication for free at level 2.' },
   { key: 'technomancerGrenadier', label: 'Technomancer Grenadier Dedication',
     description: 'Technomancers gain Grenadier Dedication for free at level 2.' },
+  { key: 'technomancerJunkomancer', label: 'Technomancer Junkomancer Dedication',
+    description: 'Technomancers gain Junkomancer Dedication for free at level 2.' },
   { key: 'witchwarperFieldAgent', label: 'Witchwarper Starfinder Field Agent Dedication',
     description: 'Witchwarpers automatically gain Starfinder Field Agent Dedication at level 2.' },
   { key: 'innateAutoHeighten', label: 'Auto-Heighten Innate and Item Spells',

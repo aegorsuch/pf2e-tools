@@ -583,7 +583,7 @@ export function solarianShield(c: Character): OwnedShield | undefined {
     hp: 5 + 2 * c.level,
     damage: c.solarianShield?.damage ?? 0,
     raised: c.solarianAttunement !== 'Unattuned' && !!c.solarianShield?.raised,
-    equipped: c.solarianAttunement !== 'Unattuned' && (c.solarianShield?.equipped ?? true),
+    equipped: c.solarianAttunement !== 'Unattuned',
   }
 }
 export const CHITINOUS_SHIELD_GRADES: Record<HardlightGrade, { level: number; hardness: number; hp: number }> = {
@@ -689,20 +689,25 @@ export function shieldMaterial(entry: ContentEntry): NonNullable<OwnedShield['ma
   const stats = /Hardness\s+(\d+).*?\bHP\s+(\d+)/i.exec(entry.description)
   return stats ? { name: entry.name, hardness: Number(stats[1]), hp: Number(stats[2]) } : { name: entry.name }
 }
-export function equippedShield(c: Character) {
+export function equippedOtherShield(c: Character) {
   const shields = ownedShields(c)
-  const generated = shields.find(shield => shield.id !== c.shield?.id && shield.id !== 'granted-shield:chitinous'
+  const generated = shields.find(shield => shield.id !== c.shield?.id && !['granted-shield:chitinous', 'granted-shield:solarian'].includes(shield.id)
     && (shield.equipped ?? !c.shield))
   return generated ? generated
-    : c.shield && c.shield.equipped !== false ? c.shield : shields.find(shield => shield.id === 'granted-shield:chitinous')
+    : c.shield && c.shield.equipped !== false ? c.shield
+      : shields.find(shield => shield.id === 'granted-shield:chitinous')
+}
+export function equippedShield(c: Character) {
+  const solar = solarianShield(c)
+  return solar?.equipped && solar.raised ? solar : equippedOtherShield(c) ?? (solar?.equipped ? solar : undefined)
 }
 export function shieldEquipChange(c: Character, shield: OwnedShield, equipped: boolean): Partial<Character> {
-  if (shield.id === 'granted-shield:chitinous' && !equipped) return {}
+  if (['granted-shield:chitinous', 'granted-shield:solarian'].includes(shield.id) && !equipped) return {}
   const previous = equippedShield(c)?.id
   const change: Partial<Character> = {}
   for (const current of [shield, ...ownedShields(c).filter(item => item.id !== shield.id)]) {
     const active = current.id === shield.id ? equipped : !equipped && current.id === previous
-    Object.assign(change, shieldChange(c, current, { ...(current.id === 'granted-shield:chitinous' ? {} : { equipped: active }),
+    Object.assign(change, shieldChange(c, current, { ...(['granted-shield:chitinous', 'granted-shield:solarian'].includes(current.id) ? {} : { equipped: active }),
       ...(!active ? { raised: false, takingCover: false } : {}) }))
   }
   return change
@@ -730,11 +735,17 @@ export function shieldAcBonus(c: Character, entries: ContentEntry[]) {
   return Math.max(raisedShieldBonus(c, entries), cover)
 }
 export const isBucklerShield = (name: string) => /buckler/i.test(name)
-export function shieldRaisedChange(c: Character, raised: boolean, entries?: ContentEntry[]): Partial<Character> {
-  const shield = equippedShield(c)
+export function shieldRaisedChange(c: Character, raised: boolean, entries?: ContentEntry[], target?: OwnedShield): Partial<Character> {
+  const shield = target ?? equippedShield(c)
   if (!shield) return {}
+  if (shield.id === 'granted-shield:solarian' ? !solarianShield(c)?.equipped
+    : target && equippedOtherShield(c)?.id !== shield.id) return {}
   if (raised && entries && !canRaiseShield(c, entries, shield)) return {}
-  return shieldChange(c, shield, { raised, ...(!raised ? { takingCover: false } : {}) })
+  const change = shieldChange(c, shield, { raised, ...(!raised ? { takingCover: false } : {}) })
+  if (raised) for (const other of ownedShields(c)) {
+    if (other.id !== shield.id && other.raised) Object.assign(change, shieldChange(c, other, { raised: false, takingCover: false }))
+  }
+  return change
 }
 export const shieldParagonActive = (c: Character) => !!equippedShield(c) && activeFeatsNamed(c, 'Shield Paragon').length > 0
 export const shieldRaised = (c: Character) => !!equippedShield(c) && (!!equippedShield(c)?.raised || shieldParagonActive(c))
@@ -769,6 +780,7 @@ export const HOMEBREW_DEDICATIONS = [
   { setting: 'mechanicAugmented', className: 'Mechanic', name: 'Augmented Dedication', slot: 'archetype:2:g83', replacesFreeArchetype: false },
   { setting: 'mechanicGrenadier', className: 'Mechanic', name: 'Grenadier Dedication', slot: 'archetype:2:g100', replacesFreeArchetype: false },
   { setting: 'technomancerGrenadier', className: 'Technomancer', name: 'Grenadier Dedication', slot: 'archetype:2:g101', replacesFreeArchetype: false },
+  { setting: 'technomancerJunkomancer', className: 'Technomancer', name: 'Junkomancer Dedication', slot: 'archetype:2:g103', replacesFreeArchetype: false },
   { setting: 'technomancerAugmented', className: 'Technomancer', name: 'Augmented Dedication', slot: 'archetype:2:g82', replacesFreeArchetype: false },
   { setting: 'androidAugmented', ancestry: 'Android', system: 'sf2e', name: 'Augmented Dedication',
     slot: 'archetype:2:g80', replacesFreeArchetype: false },
@@ -3423,7 +3435,7 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
   ].sort((a, b) => b.feet - a.feet)[0]
   const form = activeBattleForm(c, entries)
   const armorPenalty = form ? 0 : starfinderArmorPenalties(c, entries).speed
-  const fortressShieldPenalty = equippedShield(c)?.name === SCALE_OF_IGROON_FORTRESS ? -10 : 0
+  const fortressShieldPenalty = equippedOtherShield(c)?.name === SCALE_OF_IGROON_FORTRESS ? -10 : 0
   const circumstance = [
     { source: 'Solar Wind (circumstance)', feet: c.systems.includes('sf2e')
       && activeFeatsNamed(c, 'Solar Wind').length && c.solarianAttunement === 'Photon' ? 10 : 0 },
@@ -3953,6 +3965,8 @@ function weaponHasParry(c: Character, entries: ContentEntry[], weapon: OwnedWeap
   const enhanced = effectiveWeapon(c, entries, weapon)
   const entry = weaponEntry(entries, enhanced.name, enhanced.id)
   return hasParryTrait(entry) || isFistWeapon(entry, weapon) && inheritedGauntletTraits(c, entries).some(trait => /^parry$/i.test(trait))
+    || enhanced.id === 'sf2e:solarian:solar-weapon' && solarWeaponTraits(c).includes('Parry')
+    || enhanced.id === 'sf2e:solarian:twin-weapon' && solarWeaponTraits(c, true).includes('Parry')
     || isTailblade(entry) && tailbladeInheritance(c, entries, weapon).traits.some(trait => /^parry$/i.test(trait))
     || isHandCoverWeapon(entry) && inheritedHandWeaponTraits(c, entries, weapon).some(trait => /^parry$/i.test(trait))
     || warriorLegendParry(c, entries, entry) || defensiveGunnerParry(c, entry) || (activeFeatsNamed(c, 'Raise Haft').length > 0
@@ -6974,10 +6988,33 @@ const solarianFlare: ContentEntry = {
 const solarianWeaponEntry = (twin = false): ContentEntry => ({
   ...FIST, id: twin ? 'sf2e:solarian:twin-weapon' : 'sf2e:solarian:solar-weapon',
   name: twin ? 'Twin Solar Weapon' : 'Solar Weapon', systems: ['sf2e'],
-  source: 'official', level: 1, traits: ['Attuned', 'Martial', 'Solarian', ...(twin ? ['Agile', 'Twin'] : [])],
+  source: 'official', level: 1, traits: ['Attuned', 'Martial', 'Solarian'],
   data: { ...FIST.data, weapon_category: 'Martial', weapon_group: 'Brawling', weapon_type: 'Melee',
     damage: '1d8 bludgeoning', hands: 1 },
 })
+
+export const SOLAR_WEAPON_TRAITS = ['Disarm', 'Free-Hand', 'Grapple', 'Nonlethal', 'Parry', 'Shove', 'Sweep', 'Trip',
+  'Versatile B', 'Versatile P', 'Versatile S', 'Reach', 'Two-Hand d10'] as const
+export function solarWeaponTraitBudget(c: Character) {
+  if (c.className === 'Solarian') return 2
+  return activeFeatsNamed(c, 'Solar Weapon Customization').length ? (c.level >= 6 ? 2 : 1) : 0
+}
+export function solarWeaponTraits(c: Character, twin = false) {
+  const config = twin ? c.solarianTwinWeapon : c.solarianWeapon
+  const allowed: readonly string[] = activeFeatsNamed(c, 'Twin Weapons').length
+    ? [...SOLAR_WEAPON_TRAITS, 'Agile', 'Twin'] : SOLAR_WEAPON_TRAITS
+  const damage = (config?.damageType ?? 'Bludgeoning')[0]
+  let budget = solarWeaponTraitBudget(c)
+  const result: string[] = []
+  for (const trait of config?.traits ?? []) {
+    const cost = trait === 'Reach' || trait === 'Two-Hand d10' ? 2 : 1
+    if (!allowed.includes(trait) || result.includes(trait) || cost > budget
+      || trait === `Versatile ${damage}` || trait.startsWith('Versatile ') && result.some(item => item.startsWith('Versatile '))) continue
+    result.push(trait)
+    budget -= cost
+  }
+  return result
+}
 
 const pahtraAttacks: ContentEntry[] = [
   { ...FIST, id: 'sf2e:pahtra:claw', name: 'Claws', systems: ['sf2e'],
@@ -7159,7 +7196,9 @@ export function weaponCanUseTwoHands(entry: ContentEntry): boolean {
 
 export function weaponHands(entries: ContentEntry[], weapon: OwnedWeapon, c?: Character): number | undefined {
   if (weapon.id === OVERSIZED_THROW.id || weapon.id === OFFENSIVE_DEFENSE_WEAPON_ID) return 0
-  const original = withNamedWeaponState(weaponEntry(entries, weapon.name), weapon)
+  const base = withNamedWeaponState(weaponEntry(entries, weapon.name), weapon)
+  const solar = weapon.id === 'sf2e:solarian:solar-weapon' || weapon.id === 'sf2e:solarian:twin-weapon'
+  const original = c && base && solar ? { ...base, traits: [...base.traits, ...solarWeaponTraits(c, weapon.id === 'sf2e:solarian:twin-weapon')] } : base
   const entry = c ? weaponWithModifications(c, weapon, original) : original
   if (!entry) return undefined
   if (c?.systems.includes('sf2e') && getSettings().plasmaCasterOneHanded
@@ -7186,7 +7225,7 @@ export function hardpointWeaponEligible(c: Character, entries: ContentEntry[], w
 export function weaponHeld(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): boolean {
   if (weapon.attachedTo) {
     const shield = shieldAttachmentSource(c, weapon)
-    if (shield) return equippedShield(c)?.id === shield.id
+    if (shield) return equippedOtherShield(c)?.id === shield.id
     const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
     return !!source && weaponHeld(c, entries, source)
   }
@@ -7271,7 +7310,7 @@ export function totalHandCapacity(c: Character) {
 export function weaponEquipped(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): boolean {
   if (weapon.attachedTo) {
     const shield = shieldAttachmentSource(c, weapon)
-    if (shield) return equippedShield(c)?.id === shield.id
+    if (shield) return equippedOtherShield(c)?.id === shield.id
     const source = ownedWeapons(c, entries).find(candidate => candidate.id === weapon.attachedTo && !candidate.attachedTo)
     return !!source && weaponEquipped(c, entries, source)
   }
@@ -7290,7 +7329,7 @@ export function equippedWeaponHands(c: Character, entries: ContentEntry[]): numb
   }, 0)
 }
 export function equippedHands(c: Character, entries: ContentEntry[]): number {
-  const shield = equippedShield(c)
+  const shield = equippedOtherShield(c)
   return equippedWeaponHands(c, entries) + Number(!!shield && !['granted-shield:chitinous', 'granted-shield:solarian'].includes(shield.id)
     && !isBucklerShield(shield.name) && !shieldBraceInstalled(c, entries, shield))
 }
@@ -7305,7 +7344,7 @@ export function canEquipShield(c: Character, entries: ContentEntry[], shield: Ow
 const canOversizedThrow = (c: Character, entries: ContentEntry[]) => {
   if (c.level < 4 || !c.raging || !activeFeatsNamed(c, 'Oversized Throw').length) return false
   const capacity = totalHandCapacity(c)
-  const shield = equippedShield(c)
+  const shield = equippedOtherShield(c)
   let occupiedHands = Number(!!shield && !['granted-shield:chitinous', 'granted-shield:solarian'].includes(shield.id)
     && !isBucklerShield(shield.name))
   for (const weapon of c.weapons ?? []) {
@@ -7453,7 +7492,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     if (solarian && activeFeatsNamed(c, 'Twin Weapons').length > 0) {
       const twinConfig = c.solarianTwinWeapon
       const twin = { ...solarianWeaponEntry(true),
-        traits: ['Attuned', 'Martial', 'Solarian', 'Agile', 'Twin', ...(twinConfig?.traits ?? [])],
+        traits: ['Attuned', 'Martial', 'Solarian', ...solarWeaponTraits(c, true)],
         data: { ...solarianWeaponEntry(true).data,
           damage: `1d8 ${twinConfig?.damageType?.toLowerCase() ?? 'bludgeoning'}`,
           weapon_group: twinConfig?.weaponGroup ?? 'Brawling' } }
@@ -9286,13 +9325,13 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   }
   if (entry && w.id === 'sf2e:solarian:solar-weapon') {
     const config = c.solarianWeapon
-    entry = { ...entry, traits: [...new Set([...entry.traits, ...(config?.traits ?? [])])],
+    entry = { ...entry, traits: [...new Set([...entry.traits, ...solarWeaponTraits(c)])],
       data: { ...entry.data, weapon_group: config?.weaponGroup ?? 'Brawling',
         damage: `1d8 ${config?.damageType?.toLowerCase() ?? 'bludgeoning'}` } }
   }
   if (entry && w.id === 'sf2e:solarian:twin-weapon') {
     const config = c.solarianTwinWeapon
-    entry = { ...entry, traits: [...new Set([...entry.traits, 'Agile', 'Twin', ...(config?.traits ?? [])])],
+    entry = { ...entry, traits: [...new Set([...entry.traits, ...solarWeaponTraits(c, true)])],
       data: { ...entry.data, weapon_group: config?.weaponGroup ?? 'Brawling',
         damage: `1d8 ${config?.damageType?.toLowerCase() ?? 'bludgeoning'}` } }
   }

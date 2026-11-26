@@ -48,6 +48,24 @@ it('grants Mechanics and Technomancers separate Grenadier Dedication slots at le
   }
 })
 
+it('grants Technomancers Junkomancer Dedication independently of free archetype', ({ onTestFinished }) => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ technomancerJunkomancer: true, freeArchetype: true })
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 2 }
+  const keys = (character = c) => plannedSlots(character).map(slot => slot.key)
+  expect(activeHomebrewDedications(c)).toContainEqual(expect.objectContaining({
+    name: 'Junkomancer Dedication', slot: 'archetype:2:g103', replacesFreeArchetype: false,
+  }))
+  expect(keys()).toEqual(expect.arrayContaining(['archetype:2:g103', 'archetype:2:0']))
+  expect(keys({ ...c, level: 1 })).not.toContain('archetype:2:g103')
+  expect(keys({ ...c, className: 'Mechanic' })).not.toContain('archetype:2:g103')
+  updateSettings({ freeArchetype: false })
+  expect(keys()).toContain('archetype:2:g103')
+  updateSettings({ technomancerJunkomancer: false })
+  expect(keys()).not.toContain('archetype:2:g103')
+})
+
 it('applies Warrior of Legend armor and spear/polearm proficiency rules', () => {
   const fighter = entry('class', 'Fighter', {
     attack_proficiency: 'Trained in simple weapons, Trained in martial weapons',

@@ -1,5 +1,5 @@
 import { Info } from './Info'
-import { activeFeatsNamed, barbarianInstinct, canBeGiantWeapon, canBeOsteoArmament, canBeVerdantWeapon, isGiantInstinct, ownedWeapons, weaponEquipped, blessedArmamentRuneOptions, blessedArmamentTarget, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, precisionEdgeDamageDice, runeBaseName, runeName, selectedSubclass, weaponRuneApplies, type SectionProps } from './builder'
+import { activeFeatsNamed, barbarianInstinct, canBeGiantWeapon, canBeOsteoArmament, canBeVerdantWeapon, isGiantInstinct, ownedWeapons, weaponEquipped, blessedArmamentRuneOptions, blessedArmamentTarget, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, precisionEdgeDamageDice, runeBaseName, runeName, selectedSubclass, solarWeaponTraitBudget, solarWeaponTraits, SOLAR_WEAPON_TRAITS, weaponRuneApplies, type SectionProps } from './builder'
 import type { OwnedWeapon } from './types'
 import { ActionIcon } from './ActionIcon'
 import { HANDWRAPS } from './supplemental'
@@ -71,6 +71,38 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
   }
   const runes = blessedArmamentRuneOptions(c, entries).filter((rune) => target && !target.runes.some((existing) => runeBaseName(existing) === runeBaseName(rune)) && (target.id === HANDWRAPS.id
     ? !['Returning', 'Shifting'].includes(rune) : weaponRuneApplies(entries, target, rune)))
+  const solarTraits = (twin: boolean) => {
+    const config = twin ? c.solarianTwinWeapon : c.solarianWeapon
+    const selected = solarWeaponTraits(c, twin)
+    const budget = solarWeaponTraitBudget(c)
+    const options: readonly string[] = activeFeatsNamed(c, 'Twin Weapons').length
+      ? [...SOLAR_WEAPON_TRAITS, 'Agile', 'Twin'] : SOLAR_WEAPON_TRAITS
+    const damage = (config?.damageType ?? 'Bludgeoning')[0]
+    return Array.from({ length: budget }, (_, index) => <label key={index}>
+      {twin ? 'Twin Solar Weapon' : 'Solar Weapon'} trait {index + 1}{' '}
+      <select aria-label={`${twin ? 'Twin Solar Weapon' : 'Solar Weapon'} trait ${index + 1}`}
+        value={selected[index] ?? ''} onChange={event => {
+          const value = event.target.value
+          if (value && !options.includes(value)) return
+          let next = [...selected]
+          if (!value) next.splice(index, 1)
+          else if (value === 'Reach' || value === 'Two-Hand d10') next = [value]
+          else {
+            if (next.some(item => item === 'Reach' || item === 'Two-Hand d10')) next = []
+            next[index] = value
+            next = next.filter(Boolean)
+          }
+          const updated = { damageType: config?.damageType ?? 'Bludgeoning', ...config, traits: next }
+          save(twin ? { solarianTwinWeapon: updated } : { solarianWeapon: updated })
+        }}>
+        <option value="">None</option>
+        {options.filter(trait => trait !== `Versatile ${damage}`
+          && (trait === selected[index] || !selected.some((other, otherIndex) => otherIndex !== index
+            && (other === trait || other.startsWith('Versatile ') && trait.startsWith('Versatile '))))).map(trait =>
+          <option key={trait} value={trait}>{trait}</option>)}
+      </select>
+    </label>)
+  }
   return (
     <details className="character-subsection">
       <summary><h4>Class Features ({features.length})</h4></summary>
@@ -104,6 +136,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
                 <option key={name}>{name}</option>)}
             </select>
           </label>
+          {solarTraits(false)}
           {activeFeatsNamed(c, 'Twin Weapons').length > 0 && <>
             <label>Twin Solar Weapon damage{' '}
               <select aria-label="Twin Solar Weapon damage type" value={c.solarianTwinWeapon?.damageType ?? 'Bludgeoning'}
@@ -118,6 +151,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
                   <option key={name}>{name}</option>)}
               </select>
             </label>
+            {solarTraits(true)}
           </>}
         </>}
       </div>}

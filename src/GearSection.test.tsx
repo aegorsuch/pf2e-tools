@@ -17,6 +17,7 @@ import { canEquipShield, equippedHands, equippedShield, hardwoodShield, ownedShi
 import { GearSystemFilter } from './GearSystemFilter'
 import { SearchableSelect } from './SearchableSelect'
 import { EntryDescription } from './EntryDescription'
+import { ClassFeatures } from './ClassFeatures'
 import { DamageRoll, MultipleDamageRoll } from './SpellDamage'
 import type { GearSystem } from './gearSystem'
 
@@ -1360,6 +1361,10 @@ it('keeps Solar Flare and Solar Shield hand-free alongside equipped weapons', ()
   const solarShield = ownedShields(c).find(shield => shield.name === 'Solar Shield')!
   expect(canEquipShield(c, entries, solarShield)).toBe(true)
   expect(equippedHands({ ...c, solarianShield: { equipped: false } }, entries)).toBe(3)
+  expect(ownedShields({ ...c, solarianShield: { equipped: false } }).find(shield => shield.name === 'Solar Shield')?.equipped).toBe(true)
+  expect(renderToStaticMarkup(<ArmorList c={c} entries={entries} save={save} part="shield" />))
+    .not.toContain('aria-label="Equipped Solar Shield"')
+  expect(ownedShields({ ...c, solarianAttunement: 'Unattuned' }).find(shield => shield.name === 'Solar Shield')?.equipped).toBe(false)
   const withoutTail = { ...c, feats: c.feats.filter(feat => feat.name !== 'Prehensile Tail'),
     weapons: c.weapons!.filter(item => item.id !== 'two') }
   expect(totalHandCapacity(withoutTail)).toBe(2)
@@ -1404,6 +1409,42 @@ it('does not offer Solar Shield bash or attached weapons, including saved attach
     expect(armor).not.toContain('Shield Bash (default)')
     expect(armor).not.toContain('Shield Boss')
   }
+})
+
+it('keeps Solar Shield available alongside a held shield', () => {
+  let c: Character = { ...character([{ name: 'Solar Shield', type: 'Class Feat', level: 1 }]),
+    systems: ['sf2e'], className: 'Solarian', solarianAttunement: 'Photon',
+    solarianShield: { equipped: false }, shield: { id: 'steel', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true } }
+  const solar = ownedShields(c).find(item => item.name === 'Solar Shield')!
+  const steel = c.shield!
+  c = { ...c, ...shieldRaisedChange(c, true, [], solar) }
+  expect(equippedShield(c)?.id).toBe(solar.id)
+  expect(c.shield?.raised).toBe(false)
+  expect(equippedHands(c, [])).toBe(2)
+  expect(weaponEquipped(c, [], ownedWeapons(c, []).find(item => item.attachedTo === steel.id)!)).toBe(true)
+  const markup = renderToStaticMarkup(<ArmorList c={c} entries={[]} save={() => {}} part="shield" />)
+  expect(markup).toContain('aria-label="Equipped Steel Shield" checked=""')
+  expect(markup).not.toContain('aria-label="Equipped Solar Shield"')
+  c = { ...c, ...shieldRaisedChange(c, true, [], steel) }
+  expect(equippedShield(c)?.id).toBe(steel.id)
+  expect(c.solarianShield?.raised).toBe(false)
+})
+
+it('selects Solar Weapon traits within the trait budget', () => {
+  let c: Character = { ...character([]), systems: ['sf2e'], className: 'Solarian', solarianAttunement: 'Photon' }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const choose = (slot: number, value: string) => {
+    const tree = ClassFeatures({ c, entries: [], save })
+    const select = findElement(tree, element => element.props['aria-label'] === `Solar Weapon trait ${slot}`)!
+    ;(select.props.onChange as (event: { target: { value: string } }) => void)({ target: { value } })
+  }
+  choose(1, 'Trip')
+  choose(2, 'Shove')
+  expect(c.solarianWeapon?.traits).toEqual(['Trip', 'Shove'])
+  choose(2, 'Reach')
+  expect(c.solarianWeapon?.traits).toEqual(['Reach'])
+  choose(1, 'Two-Hand d10')
+  expect(c.solarianWeapon?.traits).toEqual(['Two-Hand d10'])
 })
 
 it('allows an Ord tail to pair with a hand without adding a fourth hand', () => {

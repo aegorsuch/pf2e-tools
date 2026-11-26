@@ -4,7 +4,7 @@ import {
   activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, hasDailyAugmentationActivation, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, isSolarianCrystalWeapon, solarianCoreCrystals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldParagonActive, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, type SectionProps,
 } from './builder'
 import { newId } from './db'
-import { armorUpgradeEntries, automaticArmorUpgradeUsesSlot, blessedShieldBenefit, canEquipShield, canRaiseShield, championBlessings, clanPistolRunes, equippedHands, forceFieldStats, isEnergyShieldingUpgrade, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldBraceEligible, shieldEquipChange, weaponEntry } from './builder'
+import { armorUpgradeEntries, automaticArmorUpgradeUsesSlot, blessedShieldBenefit, canEquipShield, canRaiseShield, championBlessings, clanPistolRunes, equippedHands, equippedOtherShield, forceFieldStats, isEnergyShieldingUpgrade, scaleOfIgroonWeaponRunes, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldBraceEligible, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { isAncestralEmbrace, isBastionNamedArmor, isHighhelmPlate, isImmortalBastion, isInheritorPlate, isIncendiaryArmor, isLibraryRobes, isMountainArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
@@ -1956,7 +1956,7 @@ function WeaponModifications({ c, weapon, entry, weaponForms = [], save }: {
 }
 
 function ShieldEquipped({ c, entries, save, shield }: SectionProps & { shield: OwnedShield }) {
-  const equipped = equippedShield(c)?.id === shield.id
+  const equipped = equippedOtherShield(c)?.id === shield.id
   const blocked = !equipped && !canEquipShield(c, entries, shield)
   return <label title={blocked ? 'No free hand to equip this shield.' : undefined}>
     <input type="checkbox" aria-label={`Equipped ${shield.name}`} checked={equipped} disabled={blocked}
@@ -1972,7 +1972,7 @@ export function ShieldEquipment({ c, entries, save }: SectionProps) {
   return <div className="col">
     {shields.map(shield => <div className="row" key={shield.id}>
       <strong><EntryDescription name={specificMagicItemName(shieldEntry(entries, shield.name), shield.name, true)} entry={shieldEntry(entries, shield.name)}
-        className="equipment-name" /></strong><ShieldEquipped c={c} entries={entries} save={save} shield={shield} />
+        className="equipment-name" /></strong>{shield.id !== 'granted-shield:solarian' && <ShieldEquipped c={c} entries={entries} save={save} shield={shield} />}
     </div>)}
   </div>
 }
@@ -2335,9 +2335,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
             <ShieldEquipped c={c} entries={entries} save={save} shield={shield} />
             <label title={shieldParagonActive(c) ? 'Always raised by Shield Paragon' : undefined}>
               <input type="checkbox" checked={equipped?.id === shield.id && shieldRaised(c)}
-                disabled={equipped?.id !== shield.id || shieldParagonActive(c)
-                  || !shieldRaised(c) && !canRaiseShield(c, entries, shield)}
-                onChange={(e) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, e.target.checked, entries)) }} />
+                disabled={equippedOtherShield(c)?.id !== shield.id || shieldParagonActive(c)
+                  || !shield.raised && !canRaiseShield(c, entries, shield)}
+                onChange={(e) => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, e.target.checked, entries, shield)) }} />
               {isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
           </header>
           <ShieldAttachment c={c} entries={entries} save={save} shield={shield} />
@@ -2398,11 +2398,12 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
       {grantedShields.map(grantedShield => <article className="gear-card" key={grantedShield.id}>
         <header className="row"><strong><EntryDescription name={grantedShield.name}
           entry={entries.find(entry => entry.kind === 'shield' && entry.name === grantedShield.name)} className="equipment-name" /></strong>
-          {grantedShield.id !== 'granted-shield:chitinous' && <ShieldEquipped c={c} entries={entries} save={save} shield={grantedShield} />}
+          {grantedShield.id !== 'granted-shield:chitinous' && grantedShield.id !== 'granted-shield:solarian'
+            && <ShieldEquipped c={c} entries={entries} save={save} shield={grantedShield} />}
           <label><input type="checkbox" checked={equipped?.id === grantedShield.id && shieldRaised(c)}
-            disabled={equipped?.id !== grantedShield.id || shieldParagonActive(c)
-              || !shieldRaised(c) && !canRaiseShield(c, entries, grantedShield)}
-            onChange={event => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked, entries)) }} />
+            disabled={(grantedShield.id === 'granted-shield:solarian' ? !grantedShield.equipped : equippedOtherShield(c)?.id !== grantedShield.id)
+              || shieldParagonActive(c) || !grantedShield.raised && !canRaiseShield(c, entries, grantedShield)}
+            onChange={event => { if (!shieldParagonActive(c)) save(shieldRaisedChange(c, event.target.checked, entries, grantedShield)) }} />
             {grantedShield.id === 'granted-shield:chitinous' ? 'Raise Chitinous Shield'
               : isBucklerShield(grantedShield.name) ? 'Raise Buckler' : 'Raised'} (+{shieldAcBonus(c, entries)} AC)</label>
         </header>
