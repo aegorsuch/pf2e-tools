@@ -3150,7 +3150,7 @@ it('auto-installs Retrieval Harness Easypatcher and scaling Adrenal Autoinjector
   expect(markup).toContain('Force Field (Superior)')
   expect(markup).not.toContain('Jetpack (Commercial) *')
   expect(markup).not.toContain('Force Field (Superior) *')
-  expect(markup).not.toContain('Add armor upgrade')
+  expect(markup).toContain('Add armor upgrade')
 })
 
 it('auto-installs Stormbreaker electrical upgrades and reserves slots for Jetpack and Force Field', () => {

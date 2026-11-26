@@ -3339,7 +3339,7 @@ export function armorUpgradeSlots(entry?: ContentEntry) {
   const family = entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   if (entry.systems.includes('sf2e') && family === 'Stormbreaker Armor'
     && (entry.data.armor_grade === 'Paragon' || /^Paragon /i.test(entry.name))) return 4
-  const additionalSlots = entry.systems.includes('sf2e') && family === "Drifter's Jacket" ? 1 : 0
+  const additionalSlots = entry.systems.includes('sf2e') && (family === "Drifter's Jacket" || family === 'Retrieval Harness') ? 1 : 0
   const slots = Number(entry.data.upgrade_slots)
   if (Number.isFinite(slots) && entry.data.upgrade_slots !== undefined) return slots + additionalSlots
   return Number(/\bUpgrades\W{0,6}(\d+)/i.exec(entry.description ?? '')?.[1] ?? 0) + additionalSlots
