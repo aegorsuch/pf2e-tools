@@ -1914,6 +1914,22 @@ it('selects Technomancer programming languages and Versatile Technomancer langua
     entries={[]} save={() => {}} index={0} />)
   expect(missingPrimary).toContain('Choose primary programming language first')
   expect(missingPrimary).not.toContain('<option value="FORTRUN">FORTRUN</option>')
+  const missingCrossPlatformPrimary = renderToStaticMarkup(<FeatChoice c={{ ...c,
+    technomancerProgrammingLanguage: undefined,
+    feats: [{ name: 'Cross-platform Application', type: 'Class Feat', level: 8, slot: 'class:8:0' }],
+  }} entries={[]} save={() => {}} index={0} />)
+  expect(missingCrossPlatformPrimary).toContain('Choose primary programming language first')
+  expect(missingCrossPlatformPrimary).not.toContain('<option value="FORTRUN">FORTRUN</option>')
+  const crossPlatform = { ...c, feats: [
+    { name: 'Cross-platform Application', type: 'Class Feat', level: 8, slot: 'class:8:0', choice: 'FORTRUN' },
+    { name: 'Cross-platform Application', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'ServoShell' },
+    { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 12, slot: 'class:12:0', choice: 'FORTRUN' },
+    { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 14, slot: 'class:14:0' },
+  ] }
+  const advancedChoice = renderToStaticMarkup(<FeatChoice c={crossPlatform} entries={[]} save={() => {}} index={3} />)
+  expect(advancedChoice).toContain('Advanced Cross-platform Application programming language')
+  expect(advancedChoice).toContain('<option value="ServoShell">ServoShell</option>')
+  expect(advancedChoice).not.toContain('<option value="FORTRUN">FORTRUN</option>')
   content.entries = []
 })
 

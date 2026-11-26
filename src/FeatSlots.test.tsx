@@ -1383,6 +1383,14 @@ it.each([
     .toContain(`${subclassName} description.`)
 })
 
+it('keeps a Technomancer Cross-platform language selector available when its saved choice becomes invalid', () => {
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], className: 'Technomancer', level: 8,
+    technomancerProgrammingLanguage: 'FORTRUN',
+    feats: [{ name: 'Cross-platform Application', type: 'Class Feat', level: 8, slot: 'class:8:0', choice: 'FORTRUN' }] }
+  const markup = renderToStaticMarkup(<FeatSlots c={c} entries={[]} categories={['class']} save={() => {}} />)
+  expect(markup).toContain('Cross-platform Application programming language')
+})
+
 it('offers additional Bard muses as distinct options', () => {
   const feat: ContentEntry = { id: 'multifarious', name: 'Multifarious Muse', kind: 'feat', source: 'official',
     systems: ['pf2e'], level: 2, traits: ['Bard'], description: '', data: { repeatable: true }, effects: [], updatedAt: 0 }

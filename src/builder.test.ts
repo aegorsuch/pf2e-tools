@@ -2810,6 +2810,51 @@ describe('defenses', () => {
     }
   })
 
+  it('offers only unused Cross-platform languages and unadvanced language variants', () => {
+    const c: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 16,
+      technomancerProgrammingLanguage: 'DPS++', feats: [
+        { name: 'Cross-platform Application', type: 'Class Feat', level: 8, choice: 'FORTRUN' },
+        { name: 'Cross-platform Application', type: 'Class Feat', level: 10, choice: 'ServoShell' },
+        { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 12, choice: 'FORTRUN' },
+      ] }
+    expect(featChoiceOptions('Cross-platform Application', c, [], 'class:14:0', -1)).toEqual(['Viper'])
+    expect(featChoiceOptions('Cross-platform Application', {
+      ...c, technomancerProgrammingLanguage: undefined, feats: [],
+    }, [], 'class:8:0', -1)).toEqual([])
+    expect(featChoiceOptions('Advanced Cross-platform Application', c, [], 'class:14:0', -1)).toEqual(['ServoShell'])
+    expect(featChoiceOptions('Advanced Cross-platform Application', c, [], 'class:12:0', 2))
+      .toEqual(['FORTRUN', 'ServoShell'])
+    expect(featChoiceOptions('Advanced Cross-platform Application', {
+      ...c, technomancerProgrammingLanguage: 'FORTRUN', feats: c.feats.slice(0, 2),
+    }, [], 'class:12:0', -1)).toEqual(['ServoShell'])
+  })
+
+  it('grants the initial and advanced hacks selected through Cross-platform Application feats', () => {
+    const entries = TECHNOMANCER_PROGRAMMING_LANGUAGES.flatMap(language => {
+      const rules = TECHNOMANCER_LANGUAGE_RULES[language]
+      return [rules.initialHack, rules.advancedHack].map(name => ({
+        ...entry('spell', name, {}, 1, ['Focus', 'Technomancer']), systems: ['sf2e'] as ContentEntry['systems'],
+      }))
+    })
+    const c: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 12,
+      technomancerProgrammingLanguage: 'DPS++',
+      feats: [
+        { name: 'Advanced Magic Hack', type: 'Class Feat', level: 6 },
+        { name: 'Cross-platform Application', type: 'Class Feat', level: 8, choice: 'FORTRUN' },
+        { name: 'Cross-platform Application', type: 'Class Feat', level: 10, choice: 'ServoShell' },
+        { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 12, choice: 'FORTRUN' },
+      ] }
+    const spells = focusSpells(c, entries).spells.map(spell => spell.name)
+    expect(spells).toContain(TECHNOMANCER_LANGUAGE_RULES.FORTRUN.initialHack)
+    expect(spells).toContain(TECHNOMANCER_LANGUAGE_RULES.ServoShell.initialHack)
+    expect(spells).toContain(TECHNOMANCER_LANGUAGE_RULES.FORTRUN.advancedHack)
+    expect(spells).not.toContain(TECHNOMANCER_LANGUAGE_RULES.ServoShell.advancedHack)
+    const invalidAdvanced = { ...c, feats: [...c.feats,
+      { name: 'Advanced Cross-platform Application', type: 'Class Feat', level: 12, choice: 'Viper' }] }
+    expect(focusSpells(invalidAdvanced, entries).spells.map(spell => spell.name))
+      .not.toContain(TECHNOMANCER_LANGUAGE_RULES.Viper.advancedHack)
+  })
+
   it('grants Bard muse feats and focus spells, including additional muses', () => {
     const maestro = entry('subclass', 'Maestro', {
       class: 'Bard', grants_muse_feat: 'Lingering Composition', grants_focus_spells: 'soothe',

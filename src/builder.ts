@@ -30,7 +30,7 @@ import { isWitchwarper, witchwarperParadox, witchwarperRepertoireSlots, witchwar
 import { familiarSelection, familiarSpellBenefits, purifyAirActive } from './familiarAbilities'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
-import { TECHNOMANCER_LANGUAGE_RULES, versatileTechnomancerLanguageOptions } from './technomancer'
+import { TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES, versatileTechnomancerLanguageOptions } from './technomancer'
 import { boostingTheBasics } from './mechanicMods'
 import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
@@ -2142,6 +2142,23 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
   if (name === 'Versatile Technomancer' && c.systems.includes('sf2e')) return versatileTechnomancerLanguageOptions(c)
+  if (c.systems.includes('sf2e') && c.className === 'Technomancer'
+    && ['Cross-platform Application', 'Advanced Cross-platform Application'].includes(name)) {
+    const level = Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)
+    if (name === 'Cross-platform Application') {
+      if (!c.technomancerProgrammingLanguage) return []
+      const used = new Set([c.technomancerProgrammingLanguage, ...c.feats.flatMap((feat, featIndex) =>
+        featIndex !== index && feat.name === 'Cross-platform Application' && feat.choice ? [feat.choice] : [])])
+      return TECHNOMANCER_PROGRAMMING_LANGUAGES.filter(language => !used.has(language))
+    }
+    const crossPlatformLanguages = c.feats.flatMap((feat, featIndex) =>
+      feat.name === 'Cross-platform Application' && feat.choice && featTakenLevel(feat) <= level
+        && featChoiceOptions(feat.name, c, entries, feat.slot ?? '', featIndex)?.includes(feat.choice)
+        ? [feat.choice] : [])
+    const advancedLanguages = new Set(c.feats.flatMap((feat, featIndex) =>
+      featIndex !== index && feat.name === 'Advanced Cross-platform Application' && feat.choice ? [feat.choice] : []))
+    return [...new Set(crossPlatformLanguages)].filter(language => !advancedLanguages.has(language))
+  }
   if (name === 'Automatic Knowledge') {
     const level = Math.min(c.level, Number(slotKey.split(':')[1]) || c.level)
     const choices = automaticKnowledgeOptions(c, entries, level, index)
@@ -4237,6 +4254,19 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
       add(language.advancedHack, 'Advanced Magic Hack')
     if (active.some(feat => feat.name === 'Greater Magic Hack'))
       add(language.greaterHack, 'Greater Magic Hack')
+  }
+  if (c.systems.includes('sf2e') && c.className === 'Technomancer') {
+    for (const [index, feat] of c.feats.entries()) {
+      if (feat.name !== 'Cross-platform Application' && feat.name !== 'Advanced Cross-platform Application') continue
+      if (featTakenLevel(feat) > c.level
+        || !feat.choice || !featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)?.includes(feat.choice)) continue
+      const language = TECHNOMANCER_PROGRAMMING_LANGUAGES.find(option => option === feat.choice)
+      if (!language) continue
+      const rules = TECHNOMANCER_LANGUAGE_RULES[language]
+      if (feat.name === 'Cross-platform Application')
+        add(rules.initialHack, `${language} Cross-platform Application`)
+      else add(rules.advancedHack, `${language} Advanced Cross-platform Application`)
+    }
   }
   if (c.className === 'Necromancer' && c.systems.includes('pf2e') && c.level >= 1) {
     add('Necrotic Bomb', 'Grave Spells')

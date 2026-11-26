@@ -186,6 +186,25 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       {options.map(option => <option key={option} value={option}>{option}</option>)}
     </SearchableSelect>
   }
+  if (c.systems.includes('sf2e') && c.className === 'Technomancer'
+    && ['Cross-platform Application', 'Advanced Cross-platform Application'].includes(feat.name)) {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    const advanced = feat.name === 'Advanced Cross-platform Application'
+    const label = `${feat.name} programming language`
+    const emptyLabel = options.length ? 'Choose programming language'
+      : !c.technomancerProgrammingLanguage ? 'Choose primary programming language first'
+        : advanced ? 'No unadvanced Cross-platform Application languages available'
+          : 'No unused programming languages available'
+    return <SearchableSelect label={label} aria-label={label} value={feat.choice ?? ''} onChange={event => {
+      const choice = event.target.value || undefined
+      if (choice && !options.includes(choice)) return
+      save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+    }}>
+      <option value="">{emptyLabel}</option>
+      {feat.choice && !options.includes(feat.choice) && <option value={feat.choice} disabled>{feat.choice} (unavailable)</option>}
+      {options.map(option => <option key={option} value={option}>{option}</option>)}
+    </SearchableSelect>
+  }
   if (feat.name === 'Carry Their Memories' || feat.name === 'Dongun Education'
     || isFixedAncestralWeaponFamiliarity(c, entries, feat)) return null
   if (c.systems.includes('sf2e') && ['Lashunta', 'Shirren'].includes(c.ancestry ?? '')
