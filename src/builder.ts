@@ -1174,8 +1174,15 @@ export function orphanedArchetypeFeats(c: Character, entries: ContentEntry[]) {
     ...c, name: f.name, category: f.slot?.split(':')[0] ?? f.type.toLowerCase().split(' ')[0],
     ancestryTraits,
   }) }))
-  const dedications = new Set(info.flatMap(({ sources }) =>
-    sources.flatMap(e => isDedication(e) ? dedicationArchetypes(e) : [])))
+  const provided = activeFeatsNamed(c, 'Starfinder Field Agent Dedication')
+    .filter(feat => !c.feats.includes(feat)).flatMap(feat => {
+      const entry = byName(entries, 'feat', feat.name)
+      return entry && isDedication(entry) ? dedicationArchetypes(entry) : []
+    })
+  const dedications = new Set([
+    ...info.flatMap(({ sources }) => sources.flatMap(e => isDedication(e) ? dedicationArchetypes(e) : [])),
+    ...provided,
+  ])
   return info.filter(({ f, sources }) => sources.length > 0 && sources.every(e => !isDedication(e) && archetypesOf(e).length
     && (e.traits.some(t => t.toLowerCase() === 'archetype') || f.slot?.startsWith('archetype:'))
     && !archetypesOf(e).some(name => dedications.has(name))))
@@ -8760,7 +8767,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   let entry = withNamedWeaponState(weaponEntry(entries, w.name, w.id), w, c.level)
   if (entry && isHardlightInheritanceWeapon(entry)) {
     const existingTraits = entry.traits
-    const inherited = ['Agile', 'Finesse', 'Versatile B'].filter(trait =>
+    const baseName = entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
+    const inheritedTraits = ['Agile', 'Finesse', ...(baseName === 'Battleglove' ? [] : ['Versatile B'])]
+    const inherited = inheritedTraits.filter(trait =>
       !existingTraits.some(existing => existing.toLowerCase() === trait.toLowerCase()))
     if (inherited.length) entry = { ...entry, traits: [...entry.traits, ...inherited] }
   }

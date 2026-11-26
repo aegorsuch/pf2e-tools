@@ -1617,14 +1617,18 @@ it.each(['Crimson Claw', 'Pulse Gauntlet', 'Battleglove', 'Shock Pad'])(
     const grid = { ...content('item', 'Protection Grid (Tactical)', { item_subcategory: 'Weapon Upgrades' }, 17),
       id: 'grid', systems: ['sf2e' as const] }
     const weaponEntry = { ...content('weapon', name, { weapon_category: 'Simple', weapon_type: 'Melee',
-      damage: '1d4 slashing', upgrade_slots: 3, weapon_tracking: 0 }, 1, ['Tech']), systems: ['sf2e' as const] }
+      damage: name === 'Battleglove' ? '1d4 bludgeoning' : '1d4 slashing',
+      upgrade_slots: 3, weapon_tracking: 0 }, 1, ['Tech']), systems: ['sf2e' as const] }
     const weapon: OwnedWeapon = { id: weaponEntry.id, name, potency: 0, striking: 0, runes: [] }
     const c: Character = { ...base, systems: ['sf2e'], level: 17, weapons: [weapon],
       handwraps: { kind: 'hardlight', grade: 'Ultimate', potency: 0, striking: 0, runes: [],
         upgrades: ['grid', GRAPPLING_MODULE.id, SHOVING_MODULE.id] } }
     const entries = [grid, GRAPPLING_MODULE, SHOVING_MODULE, weaponEntry]
     const attack = weaponAttack(c, entries, weapon)
-    expect(attack.traits).toEqual(expect.arrayContaining(['Agile', 'Finesse', 'Versatile B', 'Parry', 'Grapple', 'Shove']))
+    expect(attack.traits).toEqual(expect.arrayContaining([
+      'Agile', 'Finesse', ...(name === 'Battleglove' ? [] : ['Versatile B']), 'Parry', 'Grapple', 'Shove',
+    ]))
+    if (name === 'Battleglove') expect(attack.traits).not.toContain('Versatile B')
     expect(attack.upgrades.map(upgrade => upgrade.name)).toEqual(expect.arrayContaining([
       grid.name, GRAPPLING_MODULE.name, SHOVING_MODULE.name,
     ]))

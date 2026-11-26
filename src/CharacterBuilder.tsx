@@ -574,6 +574,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       : [])
   const featSlots = plannedSlots(c, entries)
   const featGrants = featSectionGrants(c, entries, ['skill', 'general'], featSlots)
+  const archetypeGrants = featSectionGrants(c, entries, ['archetype'], featSlots)
   const ancestryGrants = featSectionGrants(c, entries, ['ancestry'], featSlots)
   const ancestrySlots = featSlots.filter(slot => slot.category === 'ancestry')
   const ancestryGranted = ancestryGrants.backgroundFeats.length + ancestryGrants.automaticFeats.length + ancestryGrants.memories.length
@@ -586,7 +587,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
     const slots = [...featSlots, ...(category === 'archetype' ? classArchetypeSlotViews(c, entries, featSlots) : [])]
       .filter((slot) => (slot.displayCategory ?? slot.category) === category)
     const filled = slots.filter((slot) => c.feats.some((f) => f.slot === slot.key) || c.skippedFeatSlots?.includes(slot.key)).length
-    const granted = category === 'archetype' ? 0
+    const granted = category === 'archetype' ? archetypeGrants.automaticFeats.length
       : [...featGrants.backgroundFeats, ...featGrants.automaticFeats]
         .filter(feat => featGrants.grantedType(feat.name) === `${category === 'skill' ? 'Skill' : 'General'} Feat`).length
         + (category === 'skill' ? featGrants.memories.length : 0)

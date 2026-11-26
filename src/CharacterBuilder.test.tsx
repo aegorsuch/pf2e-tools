@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { expect, it, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vitest'
 import { CharacterBuilder as Builder, ClassPick, EquipmentSearch } from './CharacterBuilder'
 import { Children, isValidElement, type ChangeEvent, type ReactNode } from 'react'
 import { mapAonHit } from './aon'
@@ -11,7 +11,7 @@ import * as equipmentGroups from './equipmentGroups'
 import { classArchetypeSlotViews, FeatSlots } from './FeatSlots'
 import { SearchableSelect } from './SearchableSelect'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
-import { armorClass, classDifficultyClass, classLabel, isSpellActive, plannedSlots, spellActiveChange, subclassOptions, syncClassArchetypeDedication, warriorLegendWeakness } from './builder'
+import { armorClass, classDifficultyClass, classLabel, isSpellActive, orphanedArchetypeFeats, plannedSlots, spellActiveChange, subclassOptions, syncClassArchetypeDedication, warriorLegendWeakness } from './builder'
 import snapshot from '../public/data/aon-pf2e.json?raw'
 import { GearSystemFilter } from './GearSystemFilter'
 import type { GearSystem } from './gearSystem'
@@ -36,6 +36,30 @@ it('shows active temporary HP in the collapsed Defense summary', () => {
   const render = (character: Character) => renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
   expect(render(c)).toMatch(/Hit Points \d+\+11/)
   expect(render({ ...c, raging: false })).not.toMatch(/Hit Points \d+\+/)
+})
+
+it('counts and preserves the automatic Starfinder Field Agent Dedication', () => {
+  content.entries = [
+    { id: 'field-agent-dedication', name: 'Starfinder Field Agent Dedication', kind: 'feat', source: 'official',
+      systems: ['sf2e'], level: 2, traits: ['Archetype', 'Dedication'], description: '',
+      data: { archetype: 'Starfinder Field Agent' }, effects: [], updatedAt: 0 },
+    { id: 'field-agent-feat', name: 'Field Agent Training', kind: 'feat', source: 'official',
+      systems: ['sf2e'], level: 4, traits: ['Archetype'], description: '',
+      data: { archetype: 'Starfinder Field Agent', prerequisite: 'Starfinder Field Agent Dedication' },
+      effects: [], updatedAt: 0 },
+  ]
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ envoyFieldAgent: true })
+  const c: Character = { id: 'field-agent', name: 'Test', systems: ['sf2e'], level: 20, className: 'Envoy',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const render = (character: Character) => renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
+  expect(render(c)).toContain('<strong>Dedications</strong><span>1/11</span>')
+
+  const withArchetypeFeat = { ...c, feats: [{ name: 'Field Agent Training', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' }] }
+  expect(orphanedArchetypeFeats(withArchetypeFeat, content.entries)).toEqual([])
+  expect(render(withArchetypeFeat)).toContain('<strong>Dedications</strong><span>2/11</span>')
 })
 
 it('shows saved character pictures and rejects unsupported image files', async () => {
