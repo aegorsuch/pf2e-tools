@@ -2847,7 +2847,8 @@ export function classExtraSlots(c: Character, entries: ContentEntry[] = []) {
   if (c.className === 'Technomancer' && c.systems.includes('sf2e') && activeFeatsNamed(c, 'Cache Caster').length) {
     const slots = classSpellSlots(c) ?? c.spellcasting?.slots ?? {}
     const rank = Math.max(0, ...Object.entries(slots)
-      .filter(([slotRank, count]) => Number(slotRank) > 0 && count > 0).map(([slotRank]) => Number(slotRank)))
+      .filter(([slotRank, count]) => Number(slotRank) > 0 && Number(slotRank) < 10 && count > 0)
+      .map(([slotRank]) => Number(slotRank)))
     if (rank > 0) extras.push({
       key: `cache-caster:${rank}`,
       rank,
@@ -2903,7 +2904,8 @@ export function classSpellSlots(c: Character): Record<number, number> | undefine
     if (c.className === 'Technomancer' && c.systems.includes('sf2e')) {
       if (activeFeatsNamed(c, 'Cache Caster').length) {
         const rank = Math.max(0, ...Object.entries(slots)
-          .filter(([slotRank, count]) => Number(slotRank) > 0 && count > 0).map(([slotRank]) => Number(slotRank)))
+          .filter(([slotRank, count]) => Number(slotRank) > 0 && Number(slotRank) < 10 && count > 0)
+          .map(([slotRank]) => Number(slotRank)))
         if (rank > 0) slots[rank] = (slots[rank] ?? 0) + 1
       }
       if (c.level >= 20 && activeFeatsNamed(c, 'Root Access').length)

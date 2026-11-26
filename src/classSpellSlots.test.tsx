@@ -336,9 +336,14 @@ it('adds Cache Caster as a highest-rank cache-only slot and Root Access as a ten
   expect(cacheOptions).not.toContain('Outside Cache')
   expect(html).toContain(`Spell Rank ${rank} (1/${baseSlots[rank] + 1} slots)`)
 
-  const rootAccess: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 20,
-    feats: [{ name: 'Root Access', type: 'Class Feat', level: 20 }] }
-  expect(classSpellSlots(rootAccess)?.[10]).toBe(2)
+  const level20Base: Character = { ...base, systems: ['sf2e'], className: 'Technomancer', level: 20,
+    technomancerProgrammingLanguage: language }
+  const level20Slots = classSpellSlots(level20Base)!
+  const level20: Character = { ...level20Base,
+    feats: [{ name: 'Cache Caster', type: 'Class Feat', level: 14 }, { name: 'Root Access', type: 'Class Feat', level: 20 }] }
+  expect(classSpellSlots(level20)?.[9]).toBe(level20Slots[9] + 1)
+  expect(classSpellSlots(level20)?.[10]).toBe(2)
+  expect(classExtraSlots(level20).find(slot => slot.source === 'Cache Caster')?.rank).toBe(9)
 })
 
 it('adds the Cache Caster slot to flexible Technomancer manual slots', () => {
