@@ -1161,6 +1161,41 @@ it('applies the highest Marvelous Medicines bonus to Medicine when using the too
   expect(builder.marvelousMedicinesBonus({ ...c, systems: ['sf2e'] }, entries)).toBeUndefined()
 })
 
+it("applies Antigrav Harness, Ephemeral Exoskeleton, and Programmer's Plushie item bonuses", () => {
+  const gear = (name: string, skill: string): ContentEntry => ({
+    ...mechanic, id: name, name, kind: 'item', level: 1, systems: ['sf2e'], data: { skill },
+  })
+  const items = [
+    gear('Antigrav Harness (Commercial)', 'Acrobatics'),
+    gear('Antigrav Harness (Tactical)', 'Acrobatics'),
+    gear('Antigrav Harness (Advanced)', 'Acrobatics'),
+    gear('Ephemeral Exoskeleton', 'Athletics'),
+    gear("Programmer's Plushie (Commercial)", 'Computers'),
+    gear("Programmer's Plushie (Tactical)", 'Computers'),
+    gear("Programmer's Plushie (Advanced)", 'Computers'),
+  ]
+  const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic' }
+  const total = (skill: string, equipment: Character['equipment']) => {
+    const markup = renderToStaticMarkup(<SkillsSection c={{ ...c, equipment }} entries={[mechanic, ...items]} save={() => {}} />)
+    const row = markup.split(`class="skill-name">${skill}`)[1].split('class="skill-name">')[0]
+    return Number(/<b>\+?(-?\d+)/.exec(row)![1])
+  }
+  const cases = [
+    ['Acrobatics', 'Antigrav Harness (Commercial)', 1],
+    ['Acrobatics', 'Antigrav Harness (Tactical)', 2],
+    ['Acrobatics', 'Antigrav Harness (Advanced)', 3],
+    ['Athletics', 'Ephemeral Exoskeleton', 3],
+    ['Computers', "Programmer's Plushie (Commercial)", 1],
+    ['Computers', "Programmer's Plushie (Tactical)", 2],
+    ['Computers', "Programmer's Plushie (Advanced)", 3],
+  ] as const
+  for (const [skill, name, bonus] of cases) {
+    const ordinary = total(skill, [])
+    expect(total(skill, [{ name, qty: 1 }])).toBe(ordinary + bonus)
+    expect(total(skill, [{ name, qty: 2 }])).toBe(ordinary + bonus)
+  }
+})
+
 it('shows Rider as a conditional Nature bonus without increasing ordinary Nature checks', () => {
   const c: Character = { ...base, feats: [{ name: 'Rider', type: 'Class Feat', level: 1 }] }
   const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[ranger]} save={() => {}} />)

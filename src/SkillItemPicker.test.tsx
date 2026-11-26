@@ -125,3 +125,37 @@ it.each([
     await act(async () => root.unmount())
   }
 })
+
+it("shows graded Antigrav Harness and Programmer's Plushie bonuses and Ephemeral Exoskeleton in skill picker", async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const c: Character = { id: 'sf2e-skill-gear', systems: ['sf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const item = (name: string, skill: string, description: string): ContentEntry => ({
+    id: name, name, kind: 'item', systems: ['sf2e'], source: 'official', level: 1,
+    traits: [], description, data: { skill }, effects: [], updatedAt: 0,
+  })
+  const entries = [
+    item('Antigrav Harness (Tactical)', 'Acrobatics',
+      'Gain a +1 item bonus to Acrobatics checks.\n\nAntigrav Harness (Tactical)\n\nSource\n\n---\n\nThe item bonus is +2.'),
+    item('Ephemeral Exoskeleton', 'Athletics', 'You gain a +3 item bonus to Athletics checks.'),
+    item("Programmer's Plushie (Tactical)", 'Computers',
+      "Gain a +1 item bonus to Computers checks.\n\nProgrammer's Plushie (Tactical)\n\nSource\n\n---\n\nThe item bonus is +2."),
+  ]
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    for (const [skill, name, bonus] of [
+      ['Acrobatics', 'Antigrav Harness (Tactical)', '+2'],
+      ['Athletics', 'Ephemeral Exoskeleton', '+3'],
+      ['Computers', "Programmer's Plushie (Tactical)", '+2'],
+    ] as const) {
+      await act(async () => root.render(<EquipmentSearch c={c} entries={entries} save={() => {}} fixedSkill={skill} />))
+      expect(container.querySelector('.gear-results li')?.textContent).toContain(name)
+      expect(container.querySelector('.gear-results li')?.textContent).toContain(`(${bonus})`)
+    }
+  } finally {
+    await act(async () => root.unmount())
+  }
+})

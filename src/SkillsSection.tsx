@@ -26,7 +26,8 @@ import { ERUDITE_LORE_KEY, eruditeWarrior, isSoldier, soldierStyle } from './sol
 import { isWitchwarper } from './witchwarper'
 import { hellknightBenefitActive, hellknightSkillNotes, hellknightTrainingBenefits } from './hellknight'
 import { mountainPoisonImmunities } from './namedArmor'
-import { armbandsOfAthleticismBonus, daredevilBootsBonus, marvelousMedicinesBonus } from './builder'
+import { antigravHarnessBonus, armbandsOfAthleticismBonus, daredevilBootsBonus, ephemeralExoskeletonBonus,
+  marvelousMedicinesBonus, programmersPlushieBonus } from './builder'
 import { SkillItemPicker } from './SkillItemPicker'
 
 const RANK_LETTERS = ['T', 'E', 'M', 'L']
@@ -480,8 +481,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const skillGear = s.name === 'Acrobatics' ? daredevilBootsBonus(c, entries)
       : s.name === 'Athletics' ? armbandsOfAthleticismBonus(c, entries)
         : s.name === 'Medicine' ? marvelousMedicinesBonus(c, entries) : undefined
+    const additionalSkillGear = s.name === 'Acrobatics' ? antigravHarnessBonus(c, entries)
+      : s.name === 'Athletics' ? ephemeralExoskeletonBonus(c, entries)
+        : s.name === 'Computers' ? programmersPlushieBonus(c, entries) : undefined
     const item = s.name === 'Perception' ? perceptionItemBonus(c, entries)
-      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0, pack?.value ?? 0, skillGear?.value ?? 0, apexSkillBonus(c, s.name))
+      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0, pack?.value ?? 0, skillGear?.value ?? 0, additionalSkillGear?.value ?? 0, apexSkillBonus(c, s.name))
     const athleticRush = s.name === 'Athletics' && isSpellActive(c, entries, 'Athletic Rush')
     const ferocious = s.name === 'Athletics' && form?.source === 'Untamed Form' && !!activeFeatsNamed(c, 'Ferocious Shape').length
     const status = athleticRush ? 2 : ferocious ? 1 : s.name === 'Deception' && isSpellActive(c, entries, 'Imitate Fauna') ? 4 : 0

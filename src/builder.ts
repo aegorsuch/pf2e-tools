@@ -6836,6 +6836,18 @@ export const armbandsOfAthleticismBonus = (c: Character, entries: ContentEntry[]
   ownedItemBonus(c, entries, { 'Armbands of Athleticism': 2, 'Armbands of Athleticism (Greater)': 3 })
 export const marvelousMedicinesBonus = (c: Character, entries: ContentEntry[]) =>
   ownedItemBonus(c, entries, { 'Marvelous Medicines': 2, 'Marvelous Medicines (Greater)': 3 })
+export const antigravHarnessBonus = (c: Character, entries: ContentEntry[]) =>
+  ownedItemBonus(c, entries, {
+    'Antigrav Harness': 1, 'Antigrav Harness (Commercial)': 1,
+    'Antigrav Harness (Tactical)': 2, 'Antigrav Harness (Advanced)': 3,
+  })
+export const ephemeralExoskeletonBonus = (c: Character, entries: ContentEntry[]) =>
+  ownedItemBonus(c, entries, { 'Ephemeral Exoskeleton': 3 })
+export const programmersPlushieBonus = (c: Character, entries: ContentEntry[]) =>
+  ownedItemBonus(c, entries, {
+    "Programmer's Plushie": 1, "Programmer's Plushie (Commercial)": 1,
+    "Programmer's Plushie (Tactical)": 2, "Programmer's Plushie (Advanced)": 3,
+  })
 
 export function artifactItemSkillBonus(c: Character, entries: ContentEntry[], skill: string) {
   if (!['Arcana', 'Crafting', 'Diplomacy'].includes(skill)) return undefined

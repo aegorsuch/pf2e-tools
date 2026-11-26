@@ -57,8 +57,9 @@ export function equipmentBonusSkills(entry: ContentEntry) {
       const match = /the (?:item )?bonus to ([^.]{0,100}?) checks? is \+(\d+)/i.exec(paragraph)
       if (match) for (const [skill, pattern] of bonusSkillPatterns)
         if (pattern.test(match[1]) && skills.has(skill)) bonuses.set(skill, new Set([Number(match[2])]))
-      const implicit = /\b(?:tools|item|it)\s+grant(?:s)?\s+(?:a|an)\s+\+(\d+)\s+item bonus\b/i.exec(paragraph)
-      if (implicit && skills.size === 1) bonuses.set([...skills][0], new Set([Number(implicit[1])]))
+      const implicit = /\b(?:tools|item|it)\s+grant(?:s)?\s+(?:a|an)\s+\+(\d+)\s+item bonus\b|\bitem bonus is \+(\d+)/i.exec(paragraph)
+      const value = implicit?.[1] ?? implicit?.[2]
+      if (value && skills.size === 1) bonuses.set([...skills][0], new Set([Number(value)]))
     }
   }
   bonusSkillCache.set(entry, { description: entry.description, indexed: entry.data.skill, name: entry.name, skills, bonuses })

@@ -224,6 +224,19 @@ it('filters equipment by skill item bonuses without treating other bonuses as it
   expect([...equipmentGroups.equipmentBonusSkills({ ...item, description: 'Gain a +1 item bonus to Make an Impression.' })]).toEqual(['Diplomacy'])
   expect([...equipmentGroups.equipmentBonusSkills({ ...item, data: { skill: 'Crafting' },
     description: 'Gain a +1 item bonus to the check.' })]).toEqual(['Crafting'])
+  for (const [name, skill] of [
+    ['Antigrav Harness (Tactical)', 'Acrobatics'],
+    ["Programmer's Plushie (Tactical)", 'Computers'],
+  ] as const) {
+    const variant: ContentEntry = { ...item, id: name, name, systems: ['sf2e'], data: { skill },
+      description: `Gain a +1 item bonus to ${skill} checks.\n\n${name}\n\nSource\n\n---\n\nThe item bonus is +2.` }
+    expect([...equipmentGroups.equipmentBonusSkills(variant)]).toEqual([skill])
+    expect(equipmentGroups.equipmentSkillBonuses(variant, skill)).toEqual([2])
+  }
+  const exoskeleton: ContentEntry = { ...item, id: 'exoskeleton', name: 'Ephemeral Exoskeleton', systems: ['sf2e'],
+    description: 'You gain a +3 item bonus to Athletics checks.' }
+  expect([...equipmentGroups.equipmentBonusSkills(exoskeleton)]).toEqual(['Athletics'])
+  expect(equipmentGroups.equipmentSkillBonuses(exoskeleton, 'Athletics')).toEqual([3])
   const c: Character = { id: 'equipment-skill', systems: ['pf2e'], name: 'Test', level: 1,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }

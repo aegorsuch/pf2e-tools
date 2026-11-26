@@ -3,6 +3,7 @@ import { Children, isValidElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { mapAonHit } from './aon'
 import snapshot from '../public/data/aon-pf2e.json?raw'
+import sfSnapshot from '../public/data/aon-sf2e.json?raw'
 import { itemSpells, itemSpellUses } from './itemSpells'
 import { ItemSpellUses, SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
@@ -25,10 +26,16 @@ const make = (name: string, kind: ContentEntry['kind'], description = ''): Conte
   traits: [], data: {}, effects: [], updatedAt: 0,
 })
 const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+const sfHits: Parameters<typeof mapAonHit>[0][] = JSON.parse(sfSnapshot)
 const official = (name: string) => {
   const hit = hits.find(hit => hit._source?.name === name)
   expect(hit, name).toBeDefined()
   return mapAonHit(hit!, 'pf2e')!
+}
+const officialSf = (name: string) => {
+  const hit = sfHits.find(hit => hit._source?.name === name)
+  expect(hit, name).toBeDefined()
+  return mapAonHit(hit!, 'sf2e')!
 }
 
 function findUseButton(node: ReactNode, label: string): (() => void) | undefined {
@@ -93,6 +100,28 @@ it('adds scaling Invisibility from Clandestine Suit and scales Cloaking Device u
   const html = renderToStaticMarkup(<SpellsSection c={{ ...c, level: 10 }} entries={entries} save={() => {}} />)
   expect(html).toContain('Invisible for 1 minute.')
   expect(html).toContain('aria-label="3 of 3 uses remaining"')
+})
+
+it("grants grade-scaled Lock from Tactical and Advanced Programmer's Plushies", () => {
+  const commercial = officialSf("Programmer's Plushie (Commercial)")
+  const tactical = officialSf("Programmer's Plushie (Tactical)")
+  const advanced = officialSf("Programmer's Plushie (Advanced)")
+  const lock = officialSf('Lock')
+  const entries = [commercial, tactical, advanced, lock]
+  const spells = (name: string) => itemSpells({
+    ...base, systems: ['sf2e'], equipment: [{ name, qty: 1 }],
+  }, entries)
+  expect(spells(commercial.name)).toEqual([])
+  expect(spells(tactical.name)).toContainEqual(expect.objectContaining({
+    name: 'Lock', rank: 3, dc: 25, source: tactical,
+  }))
+  expect(spells(advanced.name)).toContainEqual(expect.objectContaining({
+    name: 'Lock', rank: 7, dc: 35, source: advanced,
+  }))
+  const html = renderToStaticMarkup(<SpellsSection c={{
+    ...base, systems: ['sf2e'], equipment: [{ name: tactical.name, qty: 1 }],
+  }} entries={entries} save={() => {}} />)
+  expect(html).toContain('>Lock</button>')
 })
 
 it('keeps item-spell triggers in source rules rather than inline helper text', () => {

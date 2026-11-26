@@ -134,6 +134,10 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
         usageKey: JSON.stringify([automaticArmorSources.get(source.id) ?? source.id, 'cloaking-device', 'invisibility']),
       })
     }
+    if (/^Programmer's Plushie \((?:Tactical|Advanced)\)$/i.test(source.name)) {
+      const lock = /\block spell is (\d+)(?:st|nd|rd|th) rank \(DC (\d+)\)/i.exec(text)
+      if (lock) addSpell('Lock', Number(lock[1]), { dc: Number(lock[2]) })
+    }
     for (const rule of source.spellGrants ?? []) for (const name of rule.spells) addSpell(name,
       rule.heightened ? Math.ceil(c.level / 2) : rule.rank, { frequency: rule.frequency, condition: rule.condition,
         usageKey: JSON.stringify([source.id, 'grant', rule.spells.map(normalized).sort(), rule.shared || rule.choice ? 'shared' : normalized(name)]) })
