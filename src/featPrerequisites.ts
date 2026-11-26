@@ -103,6 +103,7 @@ const ROLE_CLASSES: Record<string, string> = {
   "hunter's edge": 'Ranger', edge: 'Ranger',
   'fatal method': 'Necromancer', 'grim fascination': 'Necromancer', paradox: 'Witchwarper',
 }
+const SOLDIER_FEATURES = new Set(['primary target', 'suppressing fire'])
 const ROLE_PATTERN = new RegExp(`^(.+?) (${Object.keys(ROLE_CLASSES).sort((a, b) => b.length - a.length).join('|')})$`)
 const rankPrefix = /^(untrained|trained|expert|master|legendary)\s+(?:in|with)\s+/i
 const GOOD_CHAMPION_CAUSES = new Set(['justice', 'grandeur', 'liberation', 'redemption', 'paladin', 'redeemer', 'liberator'])
@@ -581,6 +582,12 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
         || choices.some((choice) => normalize(choice) === expected)) {
         return resultFor(facts.className === ROLE_CLASSES[role[2]] && choices.some((choice) => normalize(choice) === expected), text)
       }
+    }
+    const featureAlternatives = /^(.+?) or (.+?) class features$/.exec(name)
+    if (featureAlternatives) {
+      const alternatives = [featureAlternatives[1], featureAlternatives[2]]
+      return resultFor(alternatives.some(feature => facts.features.some(owned => key(owned) === feature)
+        || SOLDIER_FEATURES.has(feature) && facts.className === 'Soldier'), text)
     }
     const reference = name.replace(/ (?:class feature|feat|heritage|ancestry)$/, '')
     const references = reference === 'attack of opportunity' ? [reference, 'reactive strike']

@@ -2495,3 +2495,17 @@ it('lists Iruxi Armaments Fangs once when imported data also grants it', () => {
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   expect(ownedWeapons(c, [imported]).filter(weapon => weapon.name === 'Fangs')).toHaveLength(1)
 })
+
+it('checks Soldier Synchronization class feature prerequisites and hides the Finely Tuned write-in', () => {
+  const sync: ContentEntry = { id: 'ss', name: 'Soldier Synchronization', kind: 'feat', systems: ['sf2e'], source: 'official', level: 4,
+    traits: ['Archetype'], description: '', data: { prerequisite: 'Grenadier Dedication; primary target or suppressing fire class features' },
+    effects: [], updatedAt: 0 }
+  const dedication: ContentEntry = { ...sync, id: 'gd', name: 'Grenadier Dedication', data: {} }
+  const c: Character = { id: 'ss', name: 'Test', systems: ['sf2e'], level: 8, className: 'Soldier',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Grenadier Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const check = (character: Character) => featPrerequisiteChecker(character, [sync, dedication], 8)(sync)
+  expect(check(c)).toEqual({ missing: [], manual: [] })
+  expect(check({ ...c, className: 'Mystic' }).missing).toHaveLength(1)
+})
