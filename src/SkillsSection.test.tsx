@@ -7,7 +7,7 @@ import { armorRanks, defenseSummary, initiativeBonus, ranksAt, skillRankBudget, 
 import * as builder from './builder'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
-import { ADVANCED_PILOTING_INSTRUMENTS, KILLERS_BELT_MAJOR, PILOTING_INTERFACES, SUPERIOR_DATAJACK } from './supplemental'
+import { ADVANCED_PILOTING_INSTRUMENTS, GREATER_GENETIC_BACKUP, KILLERS_BELT_MAJOR, PILOTING_INTERFACES, SUPERIOR_DATAJACK } from './supplemental'
 import { INITIATE_TRAINING } from './featChoices'
 import { SearchableSelect } from './SearchableSelect'
 
@@ -1442,36 +1442,39 @@ it('shows radioactive protection and Contaminate without a retinal HUD toggle', 
     .not.toContain('actions/232-contaminate')
 })
 
-it('shows scaled Datajack bonuses only for system access', () => {
+it('applies scaled Test-Subject Datajack bonuses to Computers', () => {
   const previous = getSettings().testSubjectDatajackScaling
   try {
     updateSettings({ testSubjectDatajackScaling: true })
     const c: Character = { ...base, systems: ['sf2e'], className: 'Mechanic', ancestry: 'Ysoki',
       heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Cybernetic Augmentation' }
-    const render = (level: number) => renderToStaticMarkup(<SkillsSection c={{ ...c, level }} entries={[mechanic]} save={() => {}} />)
-    expect(render(3)).not.toContain('when accessing a system with the datajack')
-    expect(render(4)).toContain('when accessing a system with the datajack (+1 item; item bonuses do not stack)')
-    expect(render(8)).toContain('when accessing a system with the datajack (+2 item; item bonuses do not stack)')
-    expect(render(14)).toContain('when accessing a system with the datajack (+2 item; item bonuses do not stack)')
-    expect(render(15)).toContain('when accessing a system with the datajack (+3 item; item bonuses do not stack)')
-    updateSettings({ testSubjectDatajackScaling: false })
-    expect(render(8)).not.toContain('when accessing a system with the datajack')
+    const total = (level: number) => {
+      const row = renderToStaticMarkup(<SkillsSection c={{ ...c, level }} entries={[mechanic]} save={() => {}} part="skills" />)
+        .split('class="skill-name">Computers')[1].split('class="skill-name">')[0]
+      return Number(/<b>\+?(-?\d+)/.exec(row)![1])
+    }
+    for (const [level, bonus] of [[3, 0], [4, 1], [8, 2], [14, 2], [15, 3]]) {
+      updateSettings({ testSubjectDatajackScaling: true })
+      const scaled = total(level)
+      updateSettings({ testSubjectDatajackScaling: false })
+      expect(scaled).toBe(total(level) + bonus)
+    }
   } finally {
     updateSettings({ testSubjectDatajackScaling: previous })
   }
 })
 
-it('applies the installed Superior Datajack only to system access', () => {
+it('omits the Datajack connection control and conditional note', () => {
   const c: Character = { ...base, systems: ['sf2e'], level: 15, className: 'Mechanic',
     augmentations: [{ id: 'datajack', entryId: SUPERIOR_DATAJACK.id, name: SUPERIOR_DATAJACK.name, slot: 'standard' }] }
   const html = renderToStaticMarkup(<SkillsSection c={c} entries={[mechanic, SUPERIOR_DATAJACK]} save={() => {}} part="skills" />)
-  expect(html).toContain('when accessing a system with the datajack (+3 item; item bonuses do not stack)')
-  expect(html).toContain('Datajack (Superior)')
+  expect(html).not.toContain('when accessing a system with the datajack')
+  expect(html).not.toContain('Datajack connected')
   expect(renderToStaticMarkup(<SkillsSection c={{ ...c, augmentations: [] }} entries={[mechanic, SUPERIOR_DATAJACK]}
     save={() => {}} part="skills" />)).not.toContain('when accessing a system with the datajack')
 })
 
-it('applies Datajack item bonuses when connected without stacking other item bonuses', () => {
+it('always applies Datajack item bonuses without stacking other item bonuses', () => {
   const plushie: ContentEntry = { ...mechanic, id: 'plushie', kind: 'item', name: "Programmer's Plushie (Advanced)" }
   const c: Character = { ...base, systems: ['sf2e'], level: 15, className: 'Mechanic',
     augmentations: [{ id: 'jack', entryId: SUPERIOR_DATAJACK.id, name: SUPERIOR_DATAJACK.name, slot: 'standard' }] }
@@ -1479,10 +1482,27 @@ it('applies Datajack item bonuses when connected without stacking other item bon
     <SkillsSection c={character} entries={[mechanic, SUPERIOR_DATAJACK, plushie]} save={() => {}} part="skills" />,
   ).split('class="skill-name">Computers')[1].split('class="skill-name">')[0]
   const total = (character: Character) => Number(/<b>\+?(-?\d+)/.exec(row(character))![1])
-  expect(total(c)).toBe(total({ ...c, datajackConnected: false }) + 3)
-  expect(row(c)).toContain('Datajack connected')
+  expect(total(c)).toBe(total({ ...c, augmentations: [] }) + 3)
+  expect(total(c)).toBe(total({ ...c, datajackConnected: false }))
+  expect(row(c)).not.toContain('Datajack connected')
   expect(total({ ...c, equipment: [{ name: plushie.name, qty: 1 }] })).toBe(total(c))
-  expect(total({ ...c, augmentations: [] })).toBe(total({ ...c, datajackConnected: false }))
+  expect(total({ ...c, augmentations: [] })).toBe(total(c) - 3)
+})
+
+it('applies Genetic Backup Medicine bonuses without stacking item bonuses', () => {
+  const normal: ContentEntry = { ...GREATER_GENETIC_BACKUP, id: 'normal-genetic-backup', name: 'Genetic Backup', source: 'official', level: 13 }
+  const medicines: ContentEntry = { ...normal, id: 'medicines', name: 'Marvelous Medicines (Greater)', systems: ['sf2e'] }
+  const c: Character = { ...base, systems: ['sf2e'], equipment: [] }
+  const entries = [normal, GREATER_GENETIC_BACKUP, medicines]
+  const total = (names: string[]) => {
+    const character = { ...c, equipment: names.map(name => ({ name, qty: 1 })) }
+    const row = renderToStaticMarkup(<SkillsSection c={character} entries={entries} save={() => {}} part="skills" />)
+      .split('class="skill-name">Medicine')[1].split('class="skill-name">')[0]
+    return Number(/<b>\+?(-?\d+)/.exec(row)![1])
+  }
+  expect(total(['Genetic Backup'])).toBe(total([]) + 2)
+  expect(total(['Genetic Backup (Greater)'])).toBe(total([]) + 3)
+  expect(total(['Genetic Backup (Greater)', 'Marvelous Medicines (Greater)'])).toBe(total([]) + 3)
 })
 
 it('applies installed Piloting Interface grade bonuses and preserves the tactical benefit', () => {

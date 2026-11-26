@@ -358,7 +358,7 @@ export interface Character {
     transmutativeCasing?: string
     exploitiveAssault?: string
   }>
-  mechanicTurretArray?: 'Chaingun' | 'Disintegrator' | 'Laser Beam' | 'Thunderclap' | 'Volt Thrower' | 'Zero Emitter'
+  mechanicTurretArray?: 'Chaingun' | 'Disintegrator' | 'Laser Beam' | 'Plasma' | 'Thunderclap' | 'Volt Thrower' | 'Zero Emitter'
     | 'Mental Array' | 'Poison Array' | 'Vitality Array' | 'Void Array'
   mechanicTurretExtraArrays?: ('Mental Array' | 'Poison Array' | 'Vitality Array' | 'Void Array' | null)[]
   mechanicTurretGrade?: HardlightGrade

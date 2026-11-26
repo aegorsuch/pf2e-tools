@@ -10,7 +10,7 @@ import { droneCustomizationSlots, droneForceField, droneStats } from './drone'
 import type { Character, ContentEntry } from './types'
 import { eligibleFeats, featChoiceOptions, featSelectionLevel, featSelectionPrerequisiteChecker } from './builder'
 import { turretArrays, turretWeapon } from './mechanicTurret'
-import { ArmorList, WeaponList } from './GearSection'
+import { ArmorList, GrenadeMods, WeaponList } from './GearSection'
 import { droneEquipmentCapacity, droneMountedWeapons, droneWeaponAttack } from './droneEquipmentRules'
 import { DroneEquipment } from './DroneEquipment'
 import { switchDroneChassis } from './droneChassis'
@@ -26,6 +26,19 @@ const mechanic: Character = {
   abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
   feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
 }
+
+it('omits Troubleshoot configuration from gear while retaining it for the drone', () => {
+  const entry: ContentEntry = { id: 'laser', name: 'Laser', kind: 'weapon', source: 'official', systems: ['sf2e'],
+    level: 1, traits: ['Tech'], description: '', data: { weapon_type: 'Ranged', weapon_category: 'Simple', damage: '1d6 fire', range: 60 },
+    effects: [], updatedAt: 0 }
+  const c: Character = { ...mechanic, subclass: 'Drone', mechanicDroneChassis: 'Agile',
+    weapons: [{ id: 'laser', name: 'Laser', potency: 0, striking: 0, runes: [] }] }
+  const grenade: ContentEntry = { ...entry, id: 'grenade', name: 'Grenade', kind: 'item' }
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[entry]} save={() => {}} />)).not.toContain('Troubleshoot')
+  expect(renderToStaticMarkup(<GrenadeMods c={c} grenade={grenade} itemKey="prepared:0" label="Grenade" save={() => {}} />))
+    .not.toContain('Troubleshoot')
+  expect(renderToStaticMarkup(<DroneFeatures c={c} entries={[]} save={() => {}} />)).toContain('Troubleshoot')
+})
 
 it('applies Protect Companion to the drone only under the all-minions rule', () => {
   const previous = getSettings().protectCompanionAll
@@ -426,6 +439,28 @@ it('calculates turret defenses and selected array', () => {
   expect(markup).toContain('Fortitude and Reflex +18')
   expect(markup).not.toContain('Manage turret grade, upgrades, and Strikes in Weapons')
   expect(renderToStaticMarkup(<TurretFeatures c={{ ...turret, className: 'Ranger' }} entries={[]} save={() => {}} />)).toBe('')
+})
+
+it('offers the homebrew plasma turret with scaling damage and upgrade modules', () => {
+  const previous = getSettings()
+  const c: Character = { ...mechanic, level: 15, subclass: 'Turret', mechanicTurretArray: 'Plasma' }
+  const modules: ContentEntry[] = ['Flaming', 'Shock'].map(name => ({
+    id: name, name: `${name} Module (Tactical)`, kind: 'item', systems: ['sf2e'], source: 'official',
+    level: 15, traits: [], description: '', data: { item_subcategory: 'Weapon Upgrades' }, effects: [], updatedAt: 0,
+  }))
+  try {
+    updateSettings({ plasmaTurret: true, automaticSfWeaponUpgrades: true })
+    expect(turretArrays(c)).toContain('Plasma')
+    expect(turretWeapon(c, modules)?.entry.data).toMatchObject({ damage: '3d8 fire', weapon_group: 'Plasma', range: 60 })
+    expect(turretWeapon(c, modules)?.attack.upgrades.map(upgrade => upgrade.name)).toEqual([
+      'Flaming Module (Tactical)', 'Shock Module (Tactical)',
+    ])
+    expect(renderToStaticMarkup(<TurretFeatures c={c} entries={modules} save={() => {}} />)).toContain('>Plasma</option>')
+    updateSettings({ plasmaTurret: false })
+    expect(turretArrays(c)).not.toContain('Plasma')
+    expect(turretWeapon(c, modules)).toBeUndefined()
+    expect(renderToStaticMarkup(<TurretFeatures c={c} entries={modules} save={() => {}} />)).toContain('Plasma (unavailable)')
+  } finally { updateSettings({ plasmaTurret: previous.plasmaTurret, automaticSfWeaponUpgrades: previous.automaticSfWeaponUpgrades }) }
 })
 
 it.each([[1, 'Commercial'], [2, 'Tactical'], [4, 'Advanced'], [10, 'Superior'],

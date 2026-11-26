@@ -7359,6 +7359,8 @@ export const armbandsOfAthleticismBonus = (c: Character, entries: ContentEntry[]
   ownedItemBonus(c, entries, { 'Armbands of Athleticism': 2, 'Armbands of Athleticism (Greater)': 3 })
 export const marvelousMedicinesBonus = (c: Character, entries: ContentEntry[]) =>
   ownedItemBonus(c, entries, { 'Marvelous Medicines': 2, 'Marvelous Medicines (Greater)': 3 })
+export const geneticBackupBonus = (c: Character, entries: ContentEntry[]) =>
+  ownedItemBonus(c, entries, { 'Genetic Backup': 2, 'Genetic Backup (Greater)': 3 })
 export const antigravHarnessBonus = (c: Character, entries: ContentEntry[]) =>
   ownedItemBonus(c, entries, {
     'Antigrav Harness': 1, 'Antigrav Harness (Commercial)': 1,
@@ -8913,7 +8915,8 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     'Volt Thrower': 'Shock Module', 'Zero Emitter': 'Frost Module',
   }
   const turret = entry.id === 'mechanic:turret'
-  const upgrades = turret ? [turretModule[String(entry.data.turret_array)]].filter((module): module is string => !!module)
+  const upgrades = turret ? entry.data.turret_array === 'Plasma' ? ['Flaming Module', 'Shock Module']
+    : [turretModule[String(entry.data.turret_array)]].filter((module): module is string => !!module)
     : entry.data.special_weapon_source === 'SLARP' || name === 'SLARP Rapid Laser Pistol' ? ["Smuggler's Grip", 'Flaming Module']
     : entry.data.special_weapon_source === 'Starday Night Special' ? ["Smuggler's Grip"]
     : ['Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle'].includes(name)
@@ -9267,7 +9270,7 @@ function inheritedGauntletTraits(c: Character, entries: ContentEntry[]): string[
       .filter(weapon => weaponCategory(weaponEntry(entries, weapon.name, weapon.id)) === 'Unarmed'),
   ]
   return [...new Set(unarmed.flatMap(weapon => {
-    return weaponAttack(activeCharacter, entries, weapon).traits
+    return weaponAttack(activeCharacter, entries, weapon, { skipRocketFist: true }).traits
   }).filter(trait => !/^(?:unarmed|free[- ]hand|nonlethal)$/i.test(trait.trim())))]
 }
 
@@ -9295,7 +9298,7 @@ function inheritedHandWeaponTraits(c: Character, entries: ContentEntry[], weapon
   const weaponDamage = damageDie(weaponAttack(c, entries, weapon, { skipHandInheritance: true }).damage)
   const traits: string[] = []
   for (const hand of handAttacks) {
-    const attack = weaponAttack(c, entries, hand, { skipHandInheritance: true })
+    const attack = weaponAttack(c, entries, hand, { skipHandInheritance: true, skipRocketFist: true })
     traits.push(...attack.traits.filter(trait => !/^(?:unarmed|free[- ]hand|nonlethal|vesk)$/i.test(trait.trim())))
     const damage = damageDie(attack.damage)
     if (weaponDamage && damage && ['bludgeoning', 'b'].includes(damage.type) && damage.size >= weaponDamage.size) {
@@ -9353,7 +9356,7 @@ export function tailbladeInheritance(c: Character, entries: ContentEntry[], weap
   return { traits: [...new Set(traits)], replacedTailIds }
 }
 
-export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeapon, options: { thrown?: boolean; skipTailbladeInheritance?: boolean; skipHandInheritance?: boolean } = {}) {
+export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeapon, options: { thrown?: boolean; skipTailbladeInheritance?: boolean; skipHandInheritance?: boolean; skipRocketFist?: boolean } = {}) {
   const upgrades = installedWeaponUpgrades(c, entries, w)
   w = effectiveWeapon(c, entries, w)
   const propulsiveShield = w.id === solarianFlare.id && c.systems.includes('sf2e')
@@ -9496,6 +9499,22 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
       ...(hydraulicFist ? ['Boost d4', 'Tech'] : []),
     ].filter(trait => !existingTraits.includes(trait.toLowerCase()))
     if (added.length) entry = { ...entry, traits: [...entry.traits, ...added] }
+  }
+  const rocketFistRange = c.systems.includes('sf2e')
+    ? Math.max(0, ...(c.augmentations ?? []).flatMap(item => {
+      const match = /^rocket fist(?:\s*\((commercial|tactical|advanced)\))?$/i.exec(item.name.trim())
+      return match ? [match[1]?.toLowerCase() === 'advanced' ? 60 : 30] : []
+    })) : 0
+  if (entry && rocketFistRange && !options.skipRocketFist && !formAttack && !isRanged(entry)
+    && (weaponCategory(entry) === 'Unarmed' && /\bfists?$/i.test(entry.name)
+      || getSettings().rocketFistHandWeapons && (isFistWeapon(entry, w) || isHandCoverWeapon(entry) || /\bgauntlets?\b/i.test(entry.name)))) {
+    const currentRange = num(entry.data.thrown_range)
+      || Number(entry.traits.map(trait => /^thrown\s+(\d+)/i.exec(trait.trim())?.[1]).find(Boolean) ?? 0)
+    if (currentRange <= rocketFistRange) {
+      entry = { ...entry, traits: [...entry.traits.filter(trait => !/^thrown\b/i.test(trait.trim())),
+        `Thrown ${rocketFistRange} ft.`, ...(options.thrown && !entry.traits.some(trait => /^tethered$/i.test(trait.trim())) ? ['Tethered'] : [])],
+        data: { ...entry.data, thrown_range: rocketFistRange } }
+    }
   }
   if (entry && !isRanged(entry) && w.runes.some(rune => runeName(rune) === 'Throwing')
     && weaponRuneApplies(entries, w, 'Throwing')) {

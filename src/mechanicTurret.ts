@@ -1,11 +1,13 @@
 import { activeFeatsNamed, automaticHardlightGrade, mechanicExocortexes, weaponAttack } from './builder'
 import { HARDLIGHT_GRADES } from './supplemental'
+import { getSettings } from './settings'
 import type { Character, ContentEntry, HardlightGrade, OwnedWeapon } from './types'
 
 export const TURRET_ARRAYS = {
   Chaingun: { damage: 'piercing', range: 90, trait: 'Analog', group: 'Projectile' },
   Disintegrator: { damage: 'acid', range: 60, trait: 'Tech', group: 'Corrosive' },
   'Laser Beam': { damage: 'fire', range: 60, trait: 'Tech', group: 'Laser' },
+  Plasma: { damage: 'fire', range: 60, trait: 'Tech', group: 'Plasma' },
   Thunderclap: { damage: 'sonic', range: 60, trait: 'Tech', group: 'Sonic' },
   'Volt Thrower': { damage: 'electricity', range: 60, trait: 'Tech', group: 'Shock' },
   'Zero Emitter': { damage: 'cold', range: 60, trait: 'Tech', group: 'Cryo' },
@@ -37,7 +39,7 @@ export function turretArrays(c: Character) {
   const active = new Set(activeFeatsNamed(c, 'Expansive Array'))
   const selected = feats.filter(feat => active.has(feat)).slice(0, 2)
     .flatMap(feat => extraArraysForFeat(c, feat, feats.indexOf(feat)))
-  return [...TURRET_NAMES, ...new Set(selected)]
+  return [...TURRET_NAMES.filter(name => name !== 'Plasma' || getSettings().plasmaTurret), ...new Set(selected)]
 }
 export function turretArray(c: Character) {
   const name = c.mechanicTurretArray
@@ -54,7 +56,8 @@ export function turretWeapon(c: Character, entries: ContentEntry[]) {
   const grade = TURRET_GRADES[Math.max(TURRET_GRADES.indexOf(saved), TURRET_GRADES.indexOf(automaticHardlightGrade(c.level)))]
   const { potency, striking, upgrades } = HARDLIGHT_GRADES[grade]
   const entry: ContentEntry = {
-    id: 'mechanic:turret', name: 'Mechanic Turret', kind: 'weapon', source: 'official', systems: ['sf2e'],
+    id: 'mechanic:turret', name: 'Mechanic Turret', kind: 'weapon',
+    source: c.mechanicTurretArray === 'Plasma' ? 'homebrew' : 'official', systems: ['sf2e'],
     level: c.level, traits: [array.trait], description: '', effects: [], updatedAt: 0,
     data: { weapon_category: 'Martial', weapon_type: 'Ranged', weapon_group: array.group, turret_array: c.mechanicTurretArray ?? '',
       damage: `${1 + striking}d8 ${array.damage}`, range: array.range, weapon_tracking: potency,

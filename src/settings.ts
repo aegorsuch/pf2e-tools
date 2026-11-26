@@ -74,6 +74,8 @@ export interface Settings {
   consolidateInnateTraditions: boolean
   uniqueInnateSpellChoices: boolean
   automaticSfWeaponUpgrades: boolean
+  plasmaTurret: boolean
+  rocketFistHandWeapons: boolean
   plasmaCasterOneHanded: boolean
   presenceIntensifierDaily: boolean
   testSubjectDatajackScaling: boolean
@@ -116,7 +118,7 @@ const DEFAULTS: Settings = {
   commanderBeastmaster: true, druidBeastmaster: true, rangerBeastmaster: true, championFormNoFlight: true,
   generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true,
   innateHighestMental: true, avengerEldritchHighestMental: true, innateAutoHeighten: true,
-  consolidateInnateTraditions: true,   uniqueInnateSpellChoices: true, automaticSfWeaponUpgrades: true, plasmaCasterOneHanded: true,
+  consolidateInnateTraditions: true,   uniqueInnateSpellChoices: true, automaticSfWeaponUpgrades: true, plasmaTurret: true, rocketFistHandWeapons: true, plasmaCasterOneHanded: true,
   presenceIntensifierDaily: true,
   testSubjectDatajackScaling: true,
   studentOfApotheosisStrengthWisdom: true, iconFreeBoosts: true, singleTrainingFeats: true, inventorFirearmAccess: true,

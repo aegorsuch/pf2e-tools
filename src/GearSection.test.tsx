@@ -3118,6 +3118,7 @@ it('configures shared handwraps without copying inherited runes into stored atta
   expect(renderToStaticMarkup(tree())).not.toContain(`aria-label="Remove ${HANDWRAPS.name}"`)
   const card = findElement(tree(), (element) => element.type === 'details' && element.props['aria-label'] === HANDWRAPS.name)
   if (!card) throw new Error('Missing handwrap card')
+  expect(card.props.open).toBeUndefined()
   expect(findElement(card, element => element.props.label === 'Potency' || element.props.label === 'Striking')).toBeUndefined()
   const properties = findElement(card, element => Array.isArray(element.props.runes) && typeof element.props.onChange === 'function')
   if (!properties) throw new Error('Missing shared property rune control')

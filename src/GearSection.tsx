@@ -13,7 +13,7 @@ import { DamageRoll, MultipleDamageRoll } from './SpellDamage'
 import { ABILITY_LABEL, APEX_AUGMENTATIONS, MOBILITY_ENHANCER_SPEEDS, activeApexAugmentation, armorBulk, armorStrengthMet, installedApexAugmentations } from './builder'
 import { barbarianInstinct, classHandwrapKind, isGiantWeapon } from './builder'
 import { equipmentDisplayName, specificMagicItemName } from './equipmentGroups'
-import { adoptedAncestryText, selectedFeatEntry } from './featChoices'
+import { adoptedAncestryText, hasCyborgHeritage, selectedFeatEntry } from './featChoices'
 import { GearTraits } from './GearTraits'
 import { gearAccess } from './gearAccess'
 import { ActionIcon } from './ActionIcon'
@@ -39,7 +39,6 @@ import { complexSimplicityTraits, hasWeaponRuneCapacity, weaponModificationOptio
 import { armorModifications, armorModificationOptions, armorModificationSlots, type ArmorModificationSlot } from './inventorArmor'
 import { turretWeapon } from './mechanicTurret'
 import { clearItemGlitching, enduringGrenadeMods, enduringWeaponMods, setEnduringMod } from './mechanicEnduring'
-import { ItemTroubleshoot } from './ItemTroubleshoot'
 import { namedArmorEnhancements, namedArmorRuneLimit } from './namedArmor'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
 import { fulminatingShotDamage } from './fulminatingShot'
@@ -183,6 +182,7 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const dermalGrade = DERMAL_GRADES.find(grade => grade.name === (c.dermalPlating?.grade ?? 'Commercial')) ?? DERMAL_GRADES[0]
   const datajack = testSubjectDatajack(c)
   const granted = [
+    ...(hasCyborgHeritage(c) ? [{ name: 'Comm Unit', source: 'Cyborg' }] : []),
     ...(datajack ? [{ name: datajack.name, source: 'Test-Subject Ysoki' }] : []),
     ...(activeFeatsNamed(c, 'Rat Retinal HUD').length ? [{ name: 'Autorecognition Lens', source: 'Rat Retinal HUD' }] : []),
     ...(activeFeatsNamed(c, 'Thresher Ko-1 Frame').length ? [{ name: `Dermal Plating (${dermalGrade.name})`, source: 'Thresher Ko-1 Frame' }] : []),
@@ -214,7 +214,9 @@ export function Augmentations({ c, entries, save }: SectionProps) {
     <ul>{displayed.map(({ kind, item }) => {
       if (kind === 'granted') return <li key={`granted:${item.source}:${item.name}`}><EntryDescription name={item.name}
         entry={entries.find(entry => entry.kind === 'item' && entry.name.toLowerCase() === item.name.toLowerCase() && entry.systems.includes('sf2e'))}
-        entries={entries} grantSource={item.source} />
+        entries={entries} grantSource={item.source}
+        descriptionNote={item.source === 'Cyborg' && item.name === 'Comm Unit'
+          ? 'Integrated comm unit operated by thought, including calls and photos without speaking or moving. Does not count as an augmentation.' : undefined} />
       </li>
       const entry = entries.find(candidate => candidate.id === item.entryId)
       const dailyUsed = !!c.augmentationDailyUses?.[item.id]
@@ -849,7 +851,7 @@ export function HandwrapsGear({ c, entries, save }: SectionProps) {
     : maxPropertyRunes(handwraps?.potency ?? 0, handwraps?.material)
   return (
     <div className="col gear-list">
-      {handwraps ? <details className="gear-card" aria-label={item.name} open>
+      {handwraps ? <details className="gear-card" aria-label={item.name}>
         <summary><strong><EntryDescription name={item.name}
           entry={entries.find(entry => entry.kind === 'item' && entry.name === item.name) ?? item} className="equipment-name" /></strong></summary>
         {handwraps.kind !== 'hardlight' && <WeaponFundamentals {...handwraps} entries={entries} />}
@@ -1108,7 +1110,6 @@ export function GrenadeMods({ c, grenade, itemKey, save, label }: {
       {mods.bunkerBuster && ` +${boostingTheBasics(c) ? 10 : 5} damage to objects, structures, vehicles, and creatures with Hardness.`}
       {c.level >= 5 && mods.damageType && damageTypes.some(type => type === mods.damageType) && ` Damage type: ${mods.damageType}.`}</small>
     <small>{mechanicModDuration(c)}</small>
-    {itemKey.startsWith('prepared:') && <ItemTroubleshoot c={c} save={save} kind="grenade" id={itemKey} label={label} />}
     {c.level >= 13 && <label>Enduring Mod{' '}
       <select aria-label={`Enduring mod: ${label}`}
         value={c.mechanicEnduringMod?.kind === 'grenade' && c.mechanicEnduringMod.item === itemKey ? c.mechanicEnduringMod.mod : ''}
@@ -1225,7 +1226,6 @@ export function MechanicWeaponMods({ c, weapon, attack, save, allowUnarmed = fal
       </select>
     </label>}
     <small>{mechanicModDuration(c)}</small>
-    {!allowUnarmed && <ItemTroubleshoot c={c} save={save} kind="weapon" id={weapon.id} label={weapon.name} />}
     {c.level >= 13 && <label>Enduring Mod{' '}
       <select aria-label={`Enduring mod: ${weapon.name}`}
         value={currentEnduring}

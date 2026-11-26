@@ -31,7 +31,6 @@ import { TotalBreakdown } from './TotalBreakdown'
 import { DeferredContent, DeferredDetails } from './DeferredDetails'
 import { HighTechMedic } from './HighTechMedic'
 import { clearItemGlitching, setEnduringMod } from './mechanicEnduring'
-import { ItemTroubleshoot } from './ItemTroubleshoot'
 import { TechnomancerFeatures } from './TechnomancerFeatures'
 import { GREATER_CROSS_PLATFORM_APPLICATION_FEAT, VERSATILE_FIRMWARE_FEAT } from './technomancer'
 import { CharacterPictures } from './CharacterPictures'
@@ -268,13 +267,12 @@ function AncestryDetails({ entry }: { entry: ContentEntry }) {
 
 type EquipmentRow = { item: Character['equipment'][number]; index: number; entry?: ContentEntry }
 
-function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracelets = [], simplePoisons = false }: SectionProps & { group: EquipmentGroupName; rows: EquipmentRow[]; integratedComm?: ContentEntry | null; bracelets?: string[]; simplePoisons?: boolean }) {
+function EquipmentGroup({ c, entries, save, group, rows, bracelets = [], simplePoisons = false }: SectionProps & { group: EquipmentGroupName; rows: EquipmentRow[]; bracelets?: string[]; simplePoisons?: boolean }) {
   const [adding, setAdding] = useState(false)
   const searchId = useId()
   const addButton = useRef<HTMLButtonElement>(null)
   const displayed = [
     ...rows.map(row => ({ kind: 'item' as const, name: equipmentDisplayName(row.item.name), row })),
-    ...(integratedComm !== undefined ? [{ kind: 'comm' as const, name: 'Comm Unit' }] : []),
     ...bracelets.map(id => ({ kind: 'bracelet' as const, name: 'Bracelet of Empathy', id })),
     ...(simplePoisons ? [{ kind: 'simple-poisons' as const, name: 'Poison Weapon' }] : []),
     ...(group === 'Mask' && c.systems.includes('pf2e') && activeFeatsNamed(c, 'Orc Warmask').length
@@ -301,8 +299,6 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
         return <li key="magic-warrior-mask"><EntryDescription name={SHADOWED_SCALE_MASK} entry={entry} className="equipment-name" />
           <ActionIcon entry={entry} /><NamedArmorAbilities entry={entry} /></li>
       }
-      if (display.kind === 'comm') return <li key="integrated-comm"><EntryDescription name="Comm Unit" entry={integratedComm ?? undefined}
-        descriptionNote="Integrated comm unit operated by thought, including calls and photos without speaking or moving. Does not count as an augmentation." /></li>
       if (display.kind === 'bracelet') return <li key={`bracelet-${display.id}`}><EntryDescription name="Bracelet of Empathy"
         entry={entries.find(entry => entry.kind === 'item' && entry.name === 'Collar of Empathy')} className="equipment-name" /></li>
       if (display.kind === 'simple-poisons') return <li key="simple-poisons"><SimplePoisons c={c} entries={entries} save={save} /></li>
@@ -324,8 +320,6 @@ function EquipmentGroup({ c, entries, save, group, rows, integratedComm, bracele
       })}>Remove</button>}
       <HighTechMedic c={c} save={save} index={index} entry={entry} />
       {entry?.name === 'Shadowed Scale, the Jungle Secret' && <NamedArmorAbilities entry={entry} />}
-      <ItemTroubleshoot c={c} save={save} kind="equipment" id={item.mechanicItemId} label={item.name}
-        attach={id => ({ equipment: c.equipment.map((gear, i) => i === index ? { ...gear, mechanicItemId: id } : gear) })} />
       {entry && isGrenade(entry) && c.className === 'Mechanic' && c.systems.includes('sf2e') && <>
         <GrenadeMods c={c} grenade={entry} label={item.name} itemKey={`equipment:${item.name}`} save={save} />
       </>}
@@ -957,9 +951,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <MunitionsCrafter {...section} />
           <EquipmentGroup {...section} group="Neck" rows={equipmentGroups.Neck} />
           <EquipmentGroup {...section} group="Necklaces" rows={equipmentGroups.Necklaces} />
-          <EquipmentGroup {...section} group="Other equipment" rows={equipmentGroups['Other equipment']}
-            integratedComm={hasCyborgHeritage(c) ? entries.find(entry => entry.kind === 'item'
-              && entry.name === 'Comm Unit' && entry.systems.includes('sf2e')) ?? null : undefined} />
+          <EquipmentGroup {...section} group="Other equipment" rows={equipmentGroups['Other equipment']} />
           <EquipmentGroup {...section} group="Other Worn Items" rows={equipmentGroups['Other Worn Items']} />
           <EquipmentGroup {...section} group="Poisons" rows={equipmentGroups.Poisons}
             simplePoisons={activeFeatsNamed(c, 'Poison Weapon').length > 0} />

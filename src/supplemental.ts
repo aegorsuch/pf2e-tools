@@ -256,6 +256,15 @@ export const SUPERIOR_DATAJACK: ContentEntry = {
   effects: [], updatedAt: 1,
 }
 
+export const GREATER_GENETIC_BACKUP: ContentEntry = {
+  id: 'homebrew:greater-genetic-backup', systems: ['sf2e'], kind: 'item', source: 'homebrew',
+  name: 'Genetic Backup (Greater)', level: 17, traits: ['Invested', 'Magical', 'Tech'],
+  description: 'This upgraded genetic backup grants a +3 item bonus to Medicine checks. Reset Code (one action, manipulate) can be activated once per day by you or an adjacent creature. You recover 8d8 Hit Points, attempt assisted recovery checks against persistent damage, and retry saves against ongoing paralysis, disease, or poison effects, using the new result.',
+  data: { item_category: 'Magic Items', usage: 'worn headband', sourceBook: 'Homebrew',
+    url: 'https://2e.aonsrd.com/treasure/390-genetic-backup', actions: 'Single Action' },
+  effects: [], updatedAt: 1,
+}
+
 export const PILOTING_INTERFACES: ContentEntry[] = [
   { grade: 'Commercial', level: 5, price: 1600, bonus: 1 },
   { grade: 'Tactical', level: 11, price: 13000, bonus: 2 },

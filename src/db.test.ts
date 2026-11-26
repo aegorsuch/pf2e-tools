@@ -27,7 +27,7 @@ vi.mock('dexie', () => ({
 }))
 
 import { ensureSupplementalContent } from './db'
-import { ADVANCED_PILOTING_INSTRUMENTS, FIST, homebrewWeapons, PILOTING_INTERFACES, PLASMA_ARRAY, SUPERIOR_DATAJACK } from './supplemental'
+import { ADVANCED_PILOTING_INSTRUMENTS, FIST, GREATER_GENETIC_BACKUP, homebrewWeapons, PILOTING_INTERFACES, PLASMA_ARRAY, SUPERIOR_DATAJACK } from './supplemental'
 
 const staleVersatileEnvoy = {
   id: 'homebrew:versatile-envoy',
@@ -105,6 +105,11 @@ it('installs the bundled Plasma Array in existing databases', async () => {
 it('installs the bundled Superior Datajack in existing databases', async () => {
   await ensureSupplementalContent()
   expect(mocks.content.add).toHaveBeenCalledWith(SUPERIOR_DATAJACK)
+})
+
+it('installs Greater Genetic Backup in existing databases', async () => {
+  await ensureSupplementalContent()
+  expect(mocks.content.add).toHaveBeenCalledWith(GREATER_GENETIC_BACKUP)
 })
 
 it('installs Piloting Interface grades and advanced instruments in existing databases', async () => {

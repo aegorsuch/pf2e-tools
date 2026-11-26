@@ -474,6 +474,63 @@ it('gives Throwing rune a range based on hands without reducing an existing rang
   }
 })
 
+it.each([
+  ['Rocket Fist', 30], ['Rocket Fist (Commercial)', 30],
+  ['Rocket Fist (Tactical)', 30], ['Rocket Fist (Advanced)', 60],
+])('adds Rocket Punch to fists and hand weapons with %s', (name, range) => {
+  const augmentation = { id: 'rocket', entryId: 'rocket', name, slot: 'arm:0' }
+  const c: Character = { ...base, systems: ['sf2e'], augmentations: [augmentation] }
+  const fist: OwnedWeapon = { id: 'supplemental:fist', name: 'Fist', potency: 0, striking: 0, runes: [] }
+  for (const weaponName of ['Crimson Claw', 'Battleglove', 'Pulse Gauntlet', 'Gauntlet']) {
+    const entry = { ...content('weapon', weaponName, {
+      weapon_type: 'Melee', weapon_category: 'Simple', damage: '1d4 bludgeoning', hands: 1,
+    }), systems: ['sf2e' as const] }
+    const weapon = { ...main, id: entry.id, name: weaponName }
+    const character = { ...c, weapons: [weapon] }
+    const melee = weaponAttack(character, [entry], weapon)
+    const thrown = weaponAttack(character, [entry], weapon, { thrown: true })
+    expect(melee.thrownRange).toBe(range)
+    expect(melee.traits.filter(trait => /^thrown\b/i.test(trait))).toEqual([`Thrown ${range} ft.`])
+    expect(melee.traits).not.toContain('Tethered')
+    expect(thrown).toMatchObject({ range, ability: 'dex' })
+    expect(thrown.traits).toContain('Tethered')
+    const markup = renderToStaticMarkup(<WeaponList c={character} entries={[entry]} save={() => {}} displayOnly />)
+    expect(markup).toContain(`Ranged (${range} feet): Attack`)
+  }
+  expect(weaponAttack(c, [], fist).thrownRange).toBe(range)
+})
+
+it('limits Rocket Fist to installed hand attacks and preserves longer native thrown range', () => {
+  const augmentation = { id: 'rocket', entryId: 'rocket', name: 'Rocket Fist (Advanced)', slot: 'arm:0' }
+  const c: Character = { ...base, systems: ['sf2e'], augmentations: [augmentation] }
+  const claw = { ...content('weapon', 'Claw', {
+    weapon_type: 'Melee', weapon_category: 'Unarmed', damage: '1d4 slashing',
+  }), systems: ['sf2e' as const] }
+  const gauntlet = { ...content('weapon', 'Long Gauntlet', {
+    weapon_type: 'Melee', weapon_category: 'Martial', damage: '1d4 bludgeoning', thrown_range: 90,
+  }, 0, ['Thrown 90 ft.']), systems: ['sf2e' as const] }
+  const weapon = { ...main, id: gauntlet.id, name: gauntlet.name }
+  const fist: OwnedWeapon = { id: 'supplemental:fist', name: 'Fist', potency: 0, striking: 0, runes: [] }
+  expect(weaponAttack(c, [claw], { ...main, name: claw.name }).thrownRange).toBe(0)
+  expect(weaponAttack(c, [gauntlet], weapon).thrownRange).toBe(90)
+  expect(weaponAttack(c, [gauntlet], weapon).traits.filter(trait => /^thrown\b/i.test(trait))).toEqual(['Thrown 90 ft.'])
+  expect(weaponAttack({ ...c, augmentations: [] }, [], fist).thrownRange).toBe(0)
+  expect(weaponAttack({ ...c, systems: ['pf2e'] }, [], fist).thrownRange).toBe(0)
+  expect(weaponAttack({ ...c, augmentations: [augmentation, { ...augmentation, name: 'Rocket Fist (Tactical)' }] }, [], fist).thrownRange).toBe(60)
+  const normalGauntlet = { ...gauntlet, data: { ...gauntlet.data, thrown_range: 0 }, traits: [] }
+  const previous = getSettings().rocketFistHandWeapons
+  try {
+    updateSettings({ rocketFistHandWeapons: false })
+    expect(weaponAttack(c, [], fist).thrownRange).toBe(60)
+    expect(weaponAttack(c, [normalGauntlet], weapon).thrownRange).toBe(0)
+    for (const name of ['Battleglove', 'Crimson Claw', 'Pulse Gauntlet']) {
+      const entry = { ...normalGauntlet, id: name, name }
+      const owned = { ...weapon, id: name, name }
+      expect(weaponAttack({ ...c, weapons: [owned] }, [entry], owned).thrownRange).toBe(0)
+    }
+  } finally { updateSettings({ rocketFistHandWeapons: previous }) }
+})
+
 it("shows Cavalier's Charge as a conditional attack bonus", () => {
   const c: Character = { ...base, level: 4, feats: [feat("Cavalier's Charge", 4)], weapons: [main] }
   const attack = weaponAttack(c, [sword], main)

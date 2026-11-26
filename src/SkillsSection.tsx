@@ -14,7 +14,7 @@ import { TotalBreakdown } from './TotalBreakdown'
 import { warmaskSource, warmaskItemBonus } from './warmask'
 import { armorModifications, armorOverdriveActive } from './inventorArmor'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
-import { apexSkillBonus, deityLabel, pilotingEquipmentBonus, temporaryHpGrant, tenaciousStanceActive, warriorLegendWeakness, wornArmor } from './builder'
+import { apexSkillBonus, deityLabel, geneticBackupBonus, pilotingEquipmentBonus, temporaryHpGrant, tenaciousStanceActive, warriorLegendWeakness, wornArmor } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { getSettings } from './settings'
 import { backgroundLoreChoiceOptions, backgroundLoreSlots, backgroundSkillSlots, chosenLoreFeats, normalizeGrantedSkillSpending, skillRankAllocations, skillRankRequirements, skillTokenPurchase, skillTokenState } from './builder'
@@ -510,11 +510,12 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         : s.name === 'Medicine' ? marvelousMedicinesBonus(c, entries) : undefined
     const additionalSkillGear = s.name === 'Acrobatics' ? antigravHarnessBonus(c, entries)
       : s.name === 'Athletics' ? ephemeralExoskeletonBonus(c, entries)
-        : s.name === 'Computers' ? programmersPlushieBonus(c, entries) : undefined
+        : s.name === 'Computers' ? programmersPlushieBonus(c, entries)
+          : s.name === 'Medicine' ? geneticBackupBonus(c, entries) : undefined
     const pilotingInterface = s.name === 'Piloting' ? pilotingEquipmentBonus(c, entries) : undefined
     const datajack = s.name === 'Computers' ? datajackBonus(c, entries) : undefined
     const item = s.name === 'Perception' ? perceptionItemBonus(c, entries)
-      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0, pack?.value ?? 0, skillGear?.value ?? 0, additionalSkillGear?.value ?? 0, pilotingInterface?.value ?? 0, c.datajackConnected !== false ? datajack?.bonus ?? 0 : 0, apexSkillBonus(c, s.name))
+      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0, pack?.value ?? 0, skillGear?.value ?? 0, additionalSkillGear?.value ?? 0, pilotingInterface?.value ?? 0, datajack?.bonus ?? 0, apexSkillBonus(c, s.name))
     const athleticRush = s.name === 'Athletics' && isSpellActive(c, entries, 'Athletic Rush')
     const ferocious = s.name === 'Athletics' && form?.source === 'Untamed Form' && !!activeFeatsNamed(c, 'Ferocious Shape').length
     const meyelsMelody = s.name === 'Performance' && activeFeatsNamed(c, "Meyel's Melody").length > 0
@@ -622,10 +623,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           {professionalTools.filter(tool => tool.skills.includes(s.name)).map(tool =>
             <SourceNote key={tool.name} source={tool.name}
               note={`${itemTotal(tool.bonus)} when used as a toolkit (+${tool.bonus} item; item bonuses do not stack).`} />)}
-          {!!datajack?.bonus && <SourceNote inlineSource={false} source={datajack.name}
-            note={`${itemTotal(datajack.bonus)} when accessing a system with the datajack (+${datajack.bonus} item; item bonuses do not stack).`} />}
-          {!!datajack?.bonus && <label> Datajack connected <input type="checkbox" aria-label="Datajack connected"
-            checked={c.datajackConnected !== false} onChange={event => save({ datajackConnected: event.target.checked })} /></label>}
           {pilotingInterface && <SourceNote inlineSource={false} source={pilotingInterface.source}
             note={`+${pilotingInterface.value} item bonus; item bonuses do not stack. Take Control as a free action once per turn${pilotingInterface.daily ? activeFeatsNamed(c, 'Finely Tuned').some(feat => feat.choice === pilotingInterface.source) ? ', twice per day' : ', once per day' : ''} unless it normally takes multiple actions.${pilotingInterface.tactical ? ' Ignore the usual Piloting penalties for Stunt and three-action Drive.' : ''}`} />}
           {s.name === 'Crafting' && dwarvenAxe && <SourceNote inlineSource={false} source="Axe of the Dwarven Lords"

@@ -22,7 +22,7 @@ export async function ensureSupplementalContent() {
   const {
     DISARMING_RUNE, GRAPPLING_MODULE, GRAPPLING_RUNE, PARRYING_RUNE, THROWING_RUNE,
     SHOVING_MODULE, SHOVING_RUNE, HAFT_STRIKER_WEAPON, HUNTERS_ARROWHEADS, KILLERS_BELT_MAJOR,
-    PLASMA_ARRAY, SUPERIOR_DATAJACK, PILOTING_INTERFACES, ADVANCED_PILOTING_INSTRUMENTS, homebrewCharacterOptions, homebrewCompanions, homebrewWeapons, migrateCopiedFeats, migrateMobileHunt,
+    PLASMA_ARRAY, SUPERIOR_DATAJACK, GREATER_GENETIC_BACKUP, PILOTING_INTERFACES, ADVANCED_PILOTING_INSTRUMENTS, homebrewCharacterOptions, homebrewCompanions, homebrewWeapons, migrateCopiedFeats, migrateMobileHunt,
     removeColdIronTusks,
   } = supplemental
   await db.transaction('rw', db.content, db.characters, async () => {
@@ -57,7 +57,7 @@ export async function ensureSupplementalContent() {
       const group = groups.find(candidate => candidate.id === gear.data.group && candidate.kind === `${gear.kind}Group`)
       if (group && !gear.data[field]) await db.content.put({ ...gear, data: { ...gear.data, [field]: group.name }, updatedAt: Date.now() })
     }
-    for (const entry of [DISARMING_RUNE, GRAPPLING_RUNE, PARRYING_RUNE, THROWING_RUNE, SHOVING_RUNE, GRAPPLING_MODULE, SHOVING_MODULE, KILLERS_BELT_MAJOR, PLASMA_ARRAY, SUPERIOR_DATAJACK, ADVANCED_PILOTING_INSTRUMENTS, ...PILOTING_INTERFACES, ...HUNTERS_ARROWHEADS, ...homebrewCompanions(bases), ...homebrewWeapons([...bases, ...specificWeapons]), ...specificWeapons, ...homebrewCharacterOptions(bases)]) {
+    for (const entry of [DISARMING_RUNE, GRAPPLING_RUNE, PARRYING_RUNE, THROWING_RUNE, SHOVING_RUNE, GRAPPLING_MODULE, SHOVING_MODULE, KILLERS_BELT_MAJOR, PLASMA_ARRAY, SUPERIOR_DATAJACK, GREATER_GENETIC_BACKUP, ADVANCED_PILOTING_INSTRUMENTS, ...PILOTING_INTERFACES, ...HUNTERS_ARROWHEADS, ...homebrewCompanions(bases), ...homebrewWeapons([...bases, ...specificWeapons]), ...specificWeapons, ...homebrewCharacterOptions(bases)]) {
       const existing = await db.content.get(entry.id)
       if (!existing) await db.content.add(entry)
       else if ((entry.id.startsWith('supplemental:sf2e:') || ['homebrew:clawed-gauntlet', 'homebrew:seax', DISARMING_RUNE.id, GRAPPLING_RUNE.id, PARRYING_RUNE.id, THROWING_RUNE.id, SHOVING_RUNE.id, KILLERS_BELT_MAJOR.id,
@@ -71,7 +71,7 @@ export async function ensureSupplementalContent() {
         'homebrew:ignition-divine', 'homebrew:tailwind-divine',
         'homebrew:persistent-magic-hide', 'homebrew:mobile-hunter', 'homebrew:divine-warrior', 'homebrew:primal-warrior', 'homebrew:instinctive-support',
         'homebrew:ears-of-the-forest-druid', 'homebrew:ears-of-the-forest-ranger', 'homebrew:opening-stance-ranger',
-        'homebrew:versatile-envoy', 'homebrew:versatile-operative', PLASMA_ARRAY.id, SUPERIOR_DATAJACK.id].includes(entry.id)
+        'homebrew:versatile-envoy', 'homebrew:versatile-operative', PLASMA_ARRAY.id, SUPERIOR_DATAJACK.id, GREATER_GENETIC_BACKUP.id].includes(entry.id)
         || entry.id.startsWith('homebrew:piloting-interface-')
         || entry.id.startsWith('homebrew:laser-focus-rifle') || entry.id.startsWith('homebrew:liminal-focus-rifle'))
         && existing.updatedAt === 1 && !existing.deleted) await db.content.put(entry)
