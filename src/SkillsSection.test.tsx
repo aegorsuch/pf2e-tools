@@ -1766,8 +1766,11 @@ it('locks Mission Lore proficiency to trained or expert based on legendary Socie
   expect(markup).toContain('aria-label="Mission Briefing note"')
   expect(markup).toContain('Legendary Society increases Mission Lore to expert.')
   const master = { ...c, rankOverrides: { Society: 3 } }
-  expect(renderToStaticMarkup(<SkillsSection c={master} entries={[]} save={() => {}} />))
-    .toContain('aria-label="Mission Briefing note"')
+  for (const character of [master, c]) {
+    const society = renderToStaticMarkup(<SkillsSection c={character} entries={[]} save={() => {}} />)
+    expect(society).toMatch(/aria-label="Society Master"[^>]*>M<\/button><\/span>/)
+    expect(society).toMatch(/aria-label="Society Legendary"[^>]*>L<\/button><button[^>]*aria-label="Mission Briefing note"/)
+  }
   expect(renderToStaticMarkup(<SkillsSection c={{ ...master, feats: [] }} entries={[]} save={() => {}} />))
     .not.toContain('aria-label="Mission Briefing note"')
 })

@@ -830,7 +830,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               >{letter}</button>{!!required?.length && <SourceNote inlineSource={false}
                 source={`${s.name} ${RANKS[i + 1]} prerequisites`}
                 note={`${required.join('; ')}. Current rank: ${RANKS[permanentRank]}.`} />}
-              {s.name === 'Society' && i === 2 && rank >= 3 && c.systems.includes('sf2e')
+              {s.name === 'Society' && i === 3 && rank >= 3 && c.systems.includes('sf2e')
                 && !!activeFeatsNamed(c, 'Mission Briefing').length && <SourceNote inlineSource={false}
                   source="Mission Briefing" note="Trained in Mission Lore for mission-related Recall Knowledge; a failure grants Dubious Knowledge unless answered during the briefing. Legendary Society increases Mission Lore to expert." />}
               </span>
