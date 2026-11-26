@@ -46,7 +46,7 @@ import { fulminatingShotDamage } from './fulminatingShot'
 import { ANCESTRAL_AVATAR } from './battleForms'
 import { spellActiveChange } from './builder'
 import { shieldEntry } from './builder'
-import { augmentationLimitSources, intensifiedElementDamage, inventiveOffensiveOptions, ranksAt, testSubjectDatajack } from './builder'
+import { augmentationLimitSources, hasDermalPlating, intensifiedElementDamage, inventiveOffensiveOptions, ranksAt, testSubjectDatajack } from './builder'
 import { cloakingSkinUsageKey, itemSpells, itemSpellUses, itemSpellUsesChange, presenceIntensifierUsageKey } from './itemSpells'
 import { AUTOMATIC_JETPACK_ID, armorUpgradeSlots, automaticArmorUpgradeSlotsUsed, automaticSpecificArmorUpgrades, jetpackSpeed } from './builder'
 import { weaponGradeFamily } from './builder'
@@ -162,8 +162,17 @@ const weaponCapacity = (entry?: ContentEntry) => {
   return Number(capacity?.[1] ?? capacity?.[2]) || 0
 }
 
+export function DermalPlatingToggle({ c, save, context }: Pick<SectionProps, 'c' | 'save'> & { context: string }) {
+  if (!hasDermalPlating(c)) return null
+  return <label><input type="checkbox" aria-label={`Raise Dermal Plating ${context}`}
+    checked={!!c.dermalPlating?.raised && !c.dermalPlating.damaged} disabled={!!c.dermalPlating?.damaged}
+    onChange={event => save({ dermalPlating: { ...c.dermalPlating, raised: event.target.checked } })} />
+    {' '}Raise Dermal Plating (+1 AC) <ActionIcon actions="Single Action" /></label>
+}
+
 export function Augmentations({ c, entries, save }: SectionProps) {
   const [apexOnly, setApexOnly] = useState(false)
+  const [trait, setTrait] = useState('')
   if (!c.systems.includes('sf2e')) return null
   const installed = c.augmentations ?? []
   const augmentationSpells = installed.some(item => item.name === 'Presence Intensifier' || /^Cloaking Skin(?: \(|$)/i.test(item.name))
@@ -193,7 +202,10 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const apexActive = activeApexAugmentation(c)
   const isApex = (entry: ContentEntry) => !!APEX_AUGMENTATIONS[entry.name] || entry.traits.some(trait => trait.toLowerCase() === 'apex')
   const installable = options.filter(entry => canInstallAugmentation(c, entry, 'standard'))
-  const shownOptions = apexOnly ? installable.filter(isApex) : installable
+  const traits = [...new Map(installable.flatMap(entry => entry.traits.map(value => [value.trim().toLowerCase(), value.trim()] as const))
+    .filter(([key]) => key)).entries()].sort((a, b) => a[1].localeCompare(b[1]))
+  const shownOptions = installable.filter(entry => (!apexOnly || isApex(entry))
+    && (!trait || entry.traits.some(value => value.trim().toLowerCase() === trait)))
   return <section className="equipment-group" aria-label="Augmentations">
     <h4>Augmentations <small aria-label="Augmentation capacity">{standardUsed}/{limit}</small>
       {limitSources.length > 0 && <SourceNote source="Augmentation slots"
@@ -242,7 +254,10 @@ export function Augmentations({ c, entries, save }: SectionProps) {
             const itemSpellUses = { ...c.itemSpellUses }
             delete itemSpellUses[presenceIntensifierUsageKey(item.id)]
             delete itemSpellUses[cloakingSkinUsageKey(item.id)]
-            save({ augmentations: installed.filter(existing => existing.id !== item.id), augmentationDailyUses, augmentationExtraDailyUses, itemSpellUses })
+            const augmentations = installed.filter(existing => existing.id !== item.id)
+            save({ augmentations, augmentationDailyUses, augmentationExtraDailyUses, itemSpellUses,
+              ...(hasDermalPlating(c) && !hasDermalPlating({ ...c, augmentations })
+                ? { dermalPlating: { ...c.dermalPlating, raised: false } } : {}) })
           })}>×</button></div>
         {/^Ultralight Wings\b/i.test(item.name) && <label>{' '}<input type="checkbox" aria-label={`Deploy ${item.name}`}
           checked={!!item.deployed} disabled={wingsRestricted && !item.deployed}
@@ -257,13 +272,20 @@ export function Augmentations({ c, entries, save }: SectionProps) {
       </li>
     })}</ul>
     {installable.length > 0 && <div className="augmentation-add"><SearchableSelect aria-label="Add augmentation" value="" primaryDetails
+      hasActiveFilters={apexOnly || !!trait}
       optionLevel={value => shownOptions.find(entry => entry.id === value)?.level}
       renderDetails={value => {
         const entry = shownOptions.find(option => option.id === value)
         return entry && <span className="picker-spell-name"><EntryDescription name={entry.name} entry={entry} entries={entries}
           character={c} buttonSuffix={` (level ${entry.level})`} deferDetails /></span>
       }}
-      filters={installable.some(isApex) && <label><input type="checkbox" checked={apexOnly} onChange={event => setApexOnly(event.target.checked)} /> Apex only</label>} onChange={event => {
+      filters={<>
+        <label>Trait{' '}<select aria-label="Filter augmentations by trait" value={trait} onChange={event => setTrait(event.target.value)}>
+          <option value="">All traits</option>
+          {traits.map(([value, name]) => <option key={value} value={value}>{name}</option>)}
+        </select></label>
+        {installable.some(isApex) && <label><input type="checkbox" checked={apexOnly} onChange={event => setApexOnly(event.target.checked)} /> Apex only</label>}
+      </>} onChange={event => {
       const chosen = installable.find(entry => entry.id === event.target.value)
       if (!chosen) return
       save({ augmentations: [...installed, { id: newId(), entryId: chosen.id, name: chosen.name, slot: augmentationExemption(chosen) ?? 'standard' }] })
@@ -281,11 +303,11 @@ export function Augmentations({ c, entries, save }: SectionProps) {
         </option>)}
       </select><SourceNote inlineSource={false} source="Thresher Ko-1 Frame"
         note="Commercial plating is free. Upgrades require paying the difference in price." /></label>
-      <label><input type="checkbox" checked={!!c.dermalPlating?.damaged} onChange={event => save({
+    </>}
+    {hasDermalPlating(c) && <label><input type="checkbox" checked={!!c.dermalPlating?.damaged} onChange={event => save({
         dermalPlating: { ...c.dermalPlating, damaged: event.target.checked, ...(event.target.checked ? { raised: false } : {}) },
       })} /> Dermal plating damaged <SourceNote inlineSource={false} source="Dermal plating"
-        note="After Shield Block, plating cannot be used for 24 hours while it repairs." /></label>
-    </>}
+        note="After Shield Block, plating cannot be used for 24 hours while it repairs." /></label>}
     {apexInstalled.length > 1 && <label>Apex attribute increase{' '}<select aria-label="Apex attribute increase" value={apexActive?.id ?? 'none'}
       onChange={event => save({ apexAugmentationId: event.target.value })}>
       {apexInstalled.map(item => <option key={item.id} value={item.id}>{item.name} ({ABILITY_LABEL[APEX_AUGMENTATIONS[item.name].ability]})</option>)}

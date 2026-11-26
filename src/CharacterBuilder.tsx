@@ -12,7 +12,7 @@ import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, 
 import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, boostSlots, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, ownedArmors, warriorLegendWeakness } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { classArchetypeSlotViews, featSectionGrants, SearchableFeatSlots } from './FeatSlots'
-import { ArmorList, Augmentations, BulkLimits, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
+import { ArmorList, Augmentations, BulkLimits, DermalPlatingToggle, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
 import { adoptedAncestryText } from './featChoices'
 import { ActionIcon } from './ActionIcon'
 import { DamageRoll } from './SpellDamage'
@@ -20,7 +20,7 @@ import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, WeaponProficiency, RageToggle, ResistanceSummary, SensesAndSpeed, SensesAndSpeedSummary, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsPanel } from './SpellsSection'
 import { DeviseAStratagemToggle, HuntPreyToggle, StatusesContent, StatusesSummary, parryTrait } from './StatusesSection'
-import { boneShieldActive, canUseGiantStature, effectiveHandwraps, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, temporaryHpGrant, twinnedDefenseActive } from './builder'
+import { boneShieldActive, canUseGiantStature, effectiveHandwraps, hasDermalPlating, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, temporaryHpGrant, twinnedDefenseActive } from './builder'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
 import { constructCompanionChange, faithfulSteedChange } from './companions'
@@ -878,7 +878,8 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <span onClick={event => { if (event.target instanceof Element && event.target.closest('button')) event.stopPropagation() }}>
             <ResistanceSummary c={c} entries={entries} />
           </span>
-          {(shield || shieldCantrip || boneShield || parry > 0) && <span className="combat-summary-toggles" onClick={(event) => event.stopPropagation()}>
+          {(shield || shieldCantrip || boneShield || parry > 0 || hasDermalPlating(c)) && <span className="combat-summary-toggles" onClick={(event) => event.stopPropagation()}>
+            <DermalPlatingToggle c={c} save={save} context="(summary)" />
             {shield && <label title={shieldAlwaysRaisedSource(c) ? `Always raised by ${shieldAlwaysRaisedSource(c)}` : undefined}>
               <input type="checkbox" aria-label={`${raiseShieldLabel} (summary)`} checked={shieldRaised(c)} disabled={!!shieldAlwaysRaisedSource(c)}
                 onChange={(event) => { if (!shieldAlwaysRaisedSource(c)) save(shieldRaisedChange(c, event.target.checked)) }} /> {raiseShieldLabel} (+{shieldAcBonus(c, entries)} AC)</label>}

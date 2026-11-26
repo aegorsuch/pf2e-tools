@@ -586,6 +586,10 @@ export function augmentationLimitUsed(c: Character) {
   // Saved feat-specific slots now count as ordinary implants.
   return (c.augmentations ?? []).filter(item => item.slot !== 'exempt').length
 }
+export function hasDermalPlating(c: Character) {
+  return c.systems.includes('sf2e') && (!!activeFeatsNamed(c, 'Thresher Ko-1 Frame').length
+    || (c.augmentations ?? []).some(item => /^dermal plating(?:\s*\([^)]*\))?$/i.test(item.name.trim())))
+}
 export function augmentationExemption(entry: ContentEntry) {
   if (entry.traits.some(trait => trait.toLowerCase() === 'apex')) return 'apex'
   return /\b(?:this|the) augmentation (?:doesn.t|does not) count (?:against|toward|towards) (?:your|the) (?:total )?implant limit\b/i.test(entry.description)
@@ -6953,7 +6957,7 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
   const parry = parryBonus(c, entries)
   const candidates = [
     { label: 'Raised shield', value: raised },
-    { label: 'Raised dermal plating', value: activeFeatsNamed(c, 'Thresher Ko-1 Frame').length
+    { label: 'Raised dermal plating', value: hasDermalPlating(c)
       && c.dermalPlating?.raised && !c.dermalPlating.damaged ? 1 : 0 },
     { label: 'Raise Shield cantrip', value: raisedCantrip },
     { label: 'Raise Bone Shield', value: raisedBoneShield },

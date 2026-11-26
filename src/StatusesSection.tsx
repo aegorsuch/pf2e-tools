@@ -4,7 +4,8 @@ import { FavoredTerrainSelector, HardenFleshToggle, RageToggle } from './SkillsS
 import { StancesContent } from './StancesSection'
 import { ActiveSpellActions, automatedSpellStatusControls, ProtectCompanionOptions, SpiritOfTheBeastOptions, SpellEffectActions, ZealousConvictionToggle } from './SpellsSection'
 import { EntryDescription } from './EntryDescription'
-import { SimplePoisons } from './GearSection'
+import { DermalPlatingToggle, SimplePoisons } from './GearSection'
+import { hasDermalPlating } from './builder'
 import { isAncestralEmbrace, isBastionNamedArmor, isImmortalBastion, isIncendiaryArmor, isMountainArmor, mountainPoisonImmunities } from './namedArmor'
 import { DamageRoll } from './SpellDamage'
 import { ANCESTRAL_AVATAR } from './battleForms'
@@ -149,6 +150,7 @@ export function StatusesSummary({ c, entries, save }: SectionProps) {
     ...(hasHuntPrey(c, entries) && c.huntPreyActive ? ['Hunt Prey'] : []),
     ...(c.raging ? ['Rage'] : []),
     ...(defense.shield && shieldRaised(c) ? [defense.shieldLabel] : []),
+    ...(hasDermalPlating(c) && c.dermalPlating?.raised && !c.dermalPlating.damaged ? ['Raise Dermal Plating'] : []),
     ...(defense.boneShield ? (c.boneShieldRaised ? ['Raise Bone Shield'] : [])
       : defense.cantrip && isSpellActive(c, entries, 'Shield') ? ['Raise Shield Cantrip (+1 AC)'] : []),
     ...(defense.parryWeapon && defense.parry > 0 && (c.parrying || defense.stanceParry) ? ['Parry'] : []),
@@ -528,6 +530,8 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       <input type="checkbox" aria-label={`${defense.shieldLabel} status`} checked={shieldRaised(c)} disabled={!!shieldAlwaysRaisedSource(c)}
         onChange={event => { if (!shieldAlwaysRaisedSource(c)) save(shieldRaisedChange(c, event.target.checked)) }} />
       {' '}{defense.shieldLabel} (+{shieldAcBonus(c, entries)} AC)</label> }] : []),
+    ...(hasDermalPlating(c) ? [{ name: 'Raise Dermal Plating',
+      element: <DermalPlatingToggle c={c} save={save} context="status" /> }] : []),
     ...(defense.boneShield ? [{ name: 'Raise Bone Shield', element: <label><input type="checkbox" aria-label="Raise Bone Shield status"
       checked={!!c.boneShieldRaised} onChange={event => save({ boneShieldRaised: event.target.checked })} /> Raise Bone Shield (+2 AC)</label> }]
       : defense.cantrip ? [{ name: 'Raise Shield Cantrip', element: <label><input type="checkbox" aria-label="Raise Shield Cantrip status"

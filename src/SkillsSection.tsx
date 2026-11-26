@@ -4,7 +4,7 @@ import { resistances, activeBattleForm,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, offensiveDefenseAttack, ownedWeapons, weaponEquipped, installedWeaponUpgrades, conditionPenalty, conditionValue, selectedSubclass, type SectionProps,
 } from './builder'
 import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, giantStatureSize, giantClumsySource, enlargedChassisSize, effectiveWeapon, weaponEntry, weaponHeld, datajackBonus } from './builder'
-import { ArmorList, ShieldEquipment, WeaponList } from './GearSection'
+import { ArmorList, DermalPlatingToggle, ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ActiveSpellActions } from './SpellsSection'
@@ -1024,12 +1024,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         <h4>Armor</h4>
         <ArmorList c={c} entries={entries} save={save} part="armor" />
         <ShieldEquipment c={c} entries={entries} save={save} />
-        {!!activeFeatsNamed(c, 'Thresher Ko-1 Frame').length && <label>
-          <input type="checkbox" checked={!!c.dermalPlating?.raised && !c.dermalPlating.damaged}
-            disabled={!!c.dermalPlating?.damaged} onChange={event => save({
-              dermalPlating: { ...c.dermalPlating, raised: event.target.checked },
-            })} /> Dermal plating raised
-        </label>}
+        <DermalPlatingToggle c={c} save={save} context="(defense)" />
         {c.raging && !!activeFeatsNamed(c, 'Ghost Wrangler').length && <label>
           <input type="checkbox" aria-label="Ghost Wrangler active" checked={isFeatEffectActive(c, 'Ghost Wrangler')}
             onChange={event => save(featEffectChange(c, 'Ghost Wrangler', event.target.checked))} /> Ghost Wrangler active

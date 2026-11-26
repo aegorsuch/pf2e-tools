@@ -18,6 +18,7 @@ type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue
   alwaysSearchable?: boolean
   defaultSortOrder?: PickerSortOrder
   filters?: ReactNode
+  hasActiveFilters?: boolean
   primaryDetails?: boolean
   renderDetails?: (value: string) => ReactNode
   searchText?: (value: string) => string
@@ -29,7 +30,7 @@ type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue
 
 const PAGE = 100
 
-export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, defaultSortOrder = 'name', filters, primaryDetails = false, renderDetails, searchText, optionLevel, optionSortName, optionSpell, optionSystems, children, onChange, value, ...props }: Props) {
+export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, defaultSortOrder = 'name', filters, hasActiveFilters = false, primaryDetails = false, renderDetails, searchText, optionLevel, optionSortName, optionSpell, optionSystems, children, onChange, value, ...props }: Props) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [limit, setLimit] = useState(PAGE)
@@ -127,7 +128,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
           </li>
         </Fragment>)}
       </ul>
-      {(activeQuery || defense !== 'all' || system !== 'both') && !matches && <small role="status">No matches.</small>}
+      {(activeQuery || defense !== 'all' || system !== 'both' || hasActiveFilters) && !matches && <small role="status">No matches.</small>}
       {matching.length > shown.length && <button type="button" onClick={() => setLimit(limit + PAGE)}>
         Show more ({matching.length - shown.length} left, or use search)
       </button>}

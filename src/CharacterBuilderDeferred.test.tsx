@@ -6,7 +6,9 @@ import { expect, it, vi } from 'vitest'
 import { CharacterBuilder, ClassPick, HeritagePick } from './CharacterBuilder'
 import { FeatSlots } from './FeatSlots'
 import { ArmorUpgrades, Augmentations } from './GearSection'
-import { plannedSlots } from './builder'
+import { armorClass, plannedSlots } from './builder'
+import { StatusesContent, StatusesSummary } from './StatusesSection'
+import { SkillsSection } from './SkillsSection'
 import type { Character, ContentEntry, EnergizedSpikesEnergy } from './types'
 
 it('selects and persists Stellar Nomad Lore heritage variants', async () => {
@@ -389,6 +391,111 @@ it('opens augmentation picker from plus below installed augmentations and instal
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ augmentations: expect.arrayContaining([
       expect.objectContaining({ entryId: 'wings', name: 'Ultralight Wings' }),
     ]) }))
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('filters augmentation choices by trait alongside search and apex filters', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const entry = (name: string, traits: string[]): ContentEntry => ({
+    id: name, name, systems: ['sf2e'], kind: 'item', source: 'official', level: 1,
+    traits, description: '', data: { item_category: 'Augmentations' }, effects: [], updatedAt: 0,
+  })
+  const entries = [
+    entry('Tech Implant', ['Tech']), entry('Biotech Implant', ['Biotech']),
+    entry('Necrograft Implant', ['Necrograft']), entry('Magitech Implant', ['Magitech', 'Apex']),
+    entry('Hybrid Implant', ['tech', 'Biotech']), entry('Unclassified Implant', []),
+  ]
+  const c: Character = { id: 'augment-traits', name: 'Test', systems: ['sf2e'], level: 5,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = vi.fn()
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<Augmentations c={c} entries={entries} save={save} />))
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Add augmentation"]')!.click())
+    const dialog = document.querySelector<HTMLElement>('[aria-label="Add augmentation picker"]')!
+    const trait = dialog.querySelector<HTMLSelectElement>('[aria-label="Filter augmentations by trait"]')!
+    const visible = (name: string) => !!dialog.querySelector(`[aria-label="Select ${name} (level 1)"]`)
+    const selectTrait = async (value: string) => act(async () => {
+      trait.value = value
+      trait.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    expect(visible('Unclassified Implant')).toBe(true)
+    expect([...trait.options].filter(option => option.value === 'tech')).toHaveLength(1)
+    for (const [value, name] of [['tech', 'Tech Implant'], ['biotech', 'Biotech Implant'],
+      ['necrograft', 'Necrograft Implant'], ['magitech', 'Magitech Implant']] as const) {
+      await selectTrait(value)
+      expect(visible(name)).toBe(true)
+      expect(visible('Unclassified Implant')).toBe(false)
+    }
+    await selectTrait('tech')
+    expect(visible('Hybrid Implant')).toBe(true)
+    const search = dialog.querySelector<HTMLInputElement>('[aria-label="Search augmentation"]')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(search, 'Hybrid')
+      search.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    expect(visible('Hybrid Implant')).toBe(true)
+    expect(visible('Tech Implant')).toBe(false)
+    const apex = dialog.querySelector<HTMLInputElement>('input[type="checkbox"]')!
+    await act(async () => apex.click())
+    expect(dialog.querySelector('[role="status"]')?.textContent).toBe('No matches.')
+    await act(async () => apex.click())
+    await act(async () => dialog.querySelector<HTMLButtonElement>('[aria-label="Select Hybrid Implant (level 1)"]')!.click())
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ augmentations: expect.arrayContaining([
+      expect.objectContaining({ entryId: 'Hybrid Implant' }),
+    ]) }))
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('raises installed dermal plating, applies AC, and disables it when damaged or removed', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  let c: Character = { id: 'plating', name: 'Test', systems: ['sf2e'], level: 5,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    augmentations: [{ id: 'plate', entryId: 'plate', name: 'Dermal Plating (Tactical)', slot: 'standard' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const render = async () => act(async () => root.render(<>
+    <StatusesContent c={c} entries={[]} save={save} />
+    <StatusesSummary c={c} entries={[]} save={save} />
+    <SkillsSection c={c} entries={[]} save={save} part="defense" />
+    <Augmentations c={c} entries={[]} save={save} />
+  </>))
+  try {
+    const baseAc = armorClass(c, [])
+    await render()
+    const toggle = () => container.querySelector<HTMLInputElement>('[aria-label="Raise Dermal Plating status"]')!
+    expect(toggle()).not.toBeNull()
+    await act(async () => toggle().click())
+    await render()
+    expect(c.dermalPlating?.raised).toBe(true)
+    expect(armorClass(c, [])).toBe(baseAc + 1)
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Raise Dermal Plating (defense)"]')?.checked).toBe(true)
+    expect(container.textContent).toContain('Raise Dermal Plating')
+    const shield = { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true }
+    expect(armorClass({ ...c, shield }, [])).toBe(armorClass({ ...c, shield, dermalPlating: undefined }, []))
+    c = { ...c, dermalPlating: { ...c.dermalPlating, damaged: true } }
+    await render()
+    expect(toggle().disabled).toBe(true)
+    expect(toggle().checked).toBe(false)
+    expect(armorClass(c, [])).toBe(baseAc)
+    c = { ...c, augmentations: [], dermalPlating: { raised: true } }
+    await render()
+    expect(container.querySelector('[aria-label="Raise Dermal Plating status"]')).toBeNull()
+    expect(armorClass(c, [])).toBe(baseAc)
   } finally {
     await act(async () => root.unmount())
     container.remove()
