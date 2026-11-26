@@ -1546,14 +1546,15 @@ it('displays Skill Download temporarily without changing permanent proficiency',
   expect(builder.skillDownload({ ...c, feats: [] }, [ranger])).toBeUndefined()
 })
 
-it('tracks Cyborg daily uses and displays Machine Heart recovery at the current level', () => {
+it('does not show Machine Heart or Grandmother’s Favorite usage toggles', () => {
   const c: Character = { ...base, level: 17, dailyFeatUses: { 'Machine Heart': true, 'Sensor Mask': true },
     feats: [{ name: 'Machine Heart', type: 'Ancestry Feat', level: 17 },
+      { name: "Grandmother's Favorite", type: 'Ancestry Feat', level: 17 },
       { name: 'Sensor Mask', type: 'Ancestry Feat', level: 9 },
       { name: 'Fire Crystal Beam', type: 'Ancestry Feat', level: 17 }] }
   const defense = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="defense" />)
-  expect(defense).toContain('Machine Heart used')
-  expect(defense).toContain('regain 17 Hit Points')
+  expect(defense).not.toContain('Machine Heart used')
+  expect(defense).not.toContain('Grandmother&#x27;s Favorite used')
   const offense = renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={() => {}} part="offense" />)
   expect(offense).not.toContain('Sensor Mask used')
   expect(offense).not.toContain('Fire Crystal Beam used')
@@ -1682,6 +1683,13 @@ it('locks Mission Lore proficiency to trained or expert based on legendary Socie
   expect(markup).toContain('title="Mission Briefing sets this rank from your Society proficiency"')
   expect(markup).toContain('aria-label="Mission Lore Expert" disabled=""')
   expect(markup).toContain('aria-label="Mission Lore Legendary" disabled=""')
+  expect(markup).toContain('aria-label="Mission Briefing note"')
+  expect(markup).toContain('Legendary Society increases Mission Lore to expert.')
+  const master = { ...c, rankOverrides: { Society: 3 } }
+  expect(renderToStaticMarkup(<SkillsSection c={master} entries={[]} save={() => {}} />))
+    .toContain('aria-label="Mission Briefing note"')
+  expect(renderToStaticMarkup(<SkillsSection c={{ ...master, feats: [] }} entries={[]} save={() => {}} />))
+    .not.toContain('aria-label="Mission Briefing note"')
 })
 
 it('grants elf feat skills or provides replacement training in Skills without double counting', () => {

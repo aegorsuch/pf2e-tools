@@ -381,7 +381,7 @@ it.each(['Pulse Gauntlet', 'Crimson Claw'])('inherits fist and claw traits for g
     expect(attack.traits).not.toContain('Unarmed')
     expect(attack.traits).not.toContain('Nonlethal')
     expect(attack.traits).not.toContain('Sweep')
-    if (name === 'Crimson Claw') expect(attack.damage).toMatch(weaponMode === 'mode-1' ? /^4d4 fire/ : /^4d6 slashing/)
+    if (name === 'Crimson Claw') expect(attack.damage).toMatch(/^4d4 fire/)
     else expect(attack.damage).toMatch(/^4d4/)
   }
   expect(hasParryWeapon(c, allEntries)).toBe(true)
@@ -532,6 +532,11 @@ it('automates Pahtra and Kasatha ancestry feats', () => {
   expect(weaponAttack(pahtra, catalog, jaws)).toMatchObject({ damage: expect.stringMatching(/d6.* piercing/), criticalSpecialization: true,
     traits: expect.arrayContaining(['Finesse', 'Grapple']) })
   expect(ownedWeapons(pahtra, catalog).some(weapon => weapon.id === 'sf2e:pahtra:claw')).toBe(false)
+  const clawPahtra: Character = { ...pahtra, feats: [taken('Predatory', { choice: 'Claw' })],
+    weapons: [{ id: 'sf2e:pahtra:claw', name: 'Claw', potency: 1, striking: 0, runes: [] }] }
+  const claws = ownedWeapons(clawPahtra, catalog).filter(weapon => weapon.id === 'sf2e:pahtra:claw')
+  expect(claws).toHaveLength(1)
+  expect(claws[0]).toMatchObject({ name: 'Claws', potency: 1 })
   expect(movementSpeeds(pahtra, catalog)).toContainEqual(expect.objectContaining({ name: 'Climb', feet: speed(pahtra, catalog) }))
   expect(automaticFeatGrants(pahtra, catalog)).toContainEqual(expect.objectContaining({ name: 'Additional Lore', choice: 'Pahtra' }))
   expect(senses(pahtra, catalog)).toEqual(expect.arrayContaining([{ value: 'Darkvision', source: 'Pahtra' }]))
@@ -557,12 +562,12 @@ it('provides Solarian attunement, solar weapons, twin weapons, flare, and Solar 
   expect(weapons.map(weapon => weapon.name)).toEqual(expect.arrayContaining(['Solar Weapon', 'Twin Solar Weapon', 'Solar Flare']))
   const weapon = weapons.find(item => item.name === 'Solar Weapon')!
   const weaponAttackResult = weaponAttack(solarian, [], weapon)
-  expect(weaponAttackResult.damage).toBe('1d8 slashing')
+  expect(weaponAttackResult.damage).toBe('2d8 slashing')
   expect(weaponAttackResult.additionalDamage).toEqual(expect.arrayContaining([
     expect.objectContaining({ source: 'Photon-Attuned', value: '3 fire' }),
   ]))
   const flare = weapons.find(item => item.name === 'Solar Flare')!
-  expect(weaponAttack(solarian, [], flare)).toMatchObject({ damage: '1d6 fire', criticalNote: '1d6 persistent fire damage on a critical hit.' })
+  expect(weaponAttack(solarian, [], flare)).toMatchObject({ damage: '2d6 fire', criticalNote: '1d6 persistent fire damage on a critical hit.' })
   expect(automaticFeatGrants(solarian, [])).toContainEqual({ name: 'Shield Block', source: 'Solar Shield', level: 1 })
   const shield = ownedShields(solarian).find(item => item.name === 'Solar Shield')!
   expect(shield).toMatchObject({ hardness: 3, hp: 15, equipped: true })

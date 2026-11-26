@@ -234,6 +234,7 @@ export interface Character {
   pioneerTerrain?: string
   skilledHumanSkill?: string
   solarianAttunement?: 'Graviton' | 'Photon' | 'Unattuned'
+  solarianOrbitalCrystals?: string[]
   solarianWeapon?: {
     damageType: 'Bludgeoning' | 'Piercing' | 'Slashing'
     traits?: string[]

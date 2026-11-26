@@ -420,6 +420,38 @@ it('calculates turret defenses and selected array', () => {
   expect(renderToStaticMarkup(<TurretFeatures c={{ ...turret, className: 'Ranger' }} entries={[]} save={() => {}} />)).toBe('')
 })
 
+it.each([[1, 'Commercial'], [2, 'Tactical'], [4, 'Advanced'], [10, 'Superior'],
+  [12, 'Elite'], [16, 'Ultimate'], [19, 'Paragon']] as const)(
+  'automatically upgrades the turret grade at level %i', (level, grade) => {
+    const c: Character = { ...mechanic, level, subclass: 'Turret', mechanicTurretArray: 'Laser Beam',
+      mechanicTurretGrade: 'Commercial' }
+    expect(turretWeapon(c, [])?.grade).toBe(grade)
+    expect(turretWeapon({ ...c, mechanicTurretGrade: 'Paragon' }, [])?.grade).toBe('Paragon')
+  })
+
+it('adds the matching turret module only when a slot is available', () => {
+  const previous = getSettings().automaticSfWeaponUpgrades
+  const modules: ContentEntry[] = ['Flaming', 'Acid', 'Shock', 'Frost'].flatMap(name => [8, 15].map(level => ({
+    id: `${name}-${level}`, name: `${name} Module (${level === 8 ? 'Commercial' : 'Tactical'})`,
+    kind: 'item' as const, systems: ['sf2e' as const], source: 'official' as const, level, traits: [],
+    description: '', data: { item_subcategory: 'Weapon Upgrades' }, effects: [], updatedAt: 0,
+  })))
+  const c: Character = { ...mechanic, level: 15, subclass: 'Turret', mechanicTurretArray: 'Laser Beam' }
+  try {
+    updateSettings({ automaticSfWeaponUpgrades: true })
+    for (const [array, name] of [['Laser Beam', 'Flaming'], ['Disintegrator', 'Acid'],
+      ['Volt Thrower', 'Shock'], ['Zero Emitter', 'Frost']] as const) {
+      expect(turretWeapon({ ...c, mechanicTurretArray: array }, modules)?.attack.upgrades.map(item => item.name))
+        .toEqual([`${name} Module (Tactical)`])
+    }
+    expect(turretWeapon({ ...c, level: 7 }, modules)?.attack.upgrades).toEqual([])
+    expect(turretWeapon({ ...c, mechanicTurretUpgrades: ['a', 'b', 'c', 'd'] }, modules)?.attack.upgrades).toEqual([])
+    expect(renderToStaticMarkup(<WeaponList c={c} entries={modules} save={() => {}} />)).toContain('Flaming Module (Tactical)')
+    updateSettings({ automaticSfWeaponUpgrades: false })
+    expect(turretWeapon(c, modules)?.attack.upgrades).toEqual([])
+  } finally { updateSettings({ automaticSfWeaponUpgrades: previous }) }
+})
+
 it('offers only active Expansive Arrays and preserves saved choices across level changes', () => {
   const c: Character = { ...mechanic, level: 14, subclass: 'Mine', mechanicTurretArray: 'Void Array',
     mechanicTurretExtraArrays: ['Mental Array', 'Poison Array', 'Vitality Array', 'Void Array'],
@@ -429,7 +461,7 @@ it('offers only active Expansive Arrays and preserves saved choices across level
       { name: 'Expansive Array', type: 'Class Feat', level: 8, slot: 'class:14:0' },
     ] }
   expect(turretArrays(c).slice(-4)).toEqual(c.mechanicTurretExtraArrays)
-  expect(turretWeapon(c, [])?.entry.data).toMatchObject({ damage: '1d8 void', weapon_group: 'Void', range: 60 })
+  expect(turretWeapon(c, [])?.entry.data).toMatchObject({ damage: '3d8 void', weapon_group: 'Void', range: 60 })
   expect(renderToStaticMarkup(<FeatChoice c={c} entries={mechanicFeatCatalog} save={() => {}} index={1} />)).toBe('')
   const html = renderToStaticMarkup(<MinionsSection c={c} entries={[]} save={() => {}} />)
   expect(html).toContain('data-minion-name="Turret"')
@@ -438,6 +470,24 @@ it('offers only active Expansive Arrays and preserves saved choices across level
   expect(turretArrays({ ...c, level: 10 }).slice(-2)).toEqual(['Mental Array', 'Poison Array'])
   expect(turretWeapon({ ...c, level: 10 }, [])).toBeUndefined()
   expect(renderToStaticMarkup(<TurretFeatures c={{ ...c, level: 5 }} entries={[]} save={() => {}} />)).toBe('')
+})
+
+it('applies selected customization feat variants to the drone', () => {
+  const c: Character = { ...mechanic, level: 6, subclass: 'Mine', mechanicDroneChassis: 'Powerful',
+    feats: [
+      { name: 'Exocortex Experimenter', type: 'Class Feat', level: 6, slot: 'class:6:0', choice: 'Drone' },
+      { name: 'Commercial Customization', type: 'Class Feat', level: 1, slot: 'class:8:0', choice: 'Flier' },
+    ] }
+  const later = { ...c, level: 8 }
+  expect(droneStats(later)?.speed.Fly).toBe(20)
+  expect(droneStats({ ...later, level: 7 })?.speed.Fly).toBeUndefined()
+  expect(droneStats({ ...later, feats: later.feats.slice(0, 1) })?.speed.Fly).toBeUndefined()
+  expect(droneStats({ ...later, mechanicDroneCustomizations: {
+    Commercial: [{ name: 'Grounded' }, { name: '' }, { name: '' }, { name: 'Climber' }],
+  } })?.speed.Fly).toBe(20)
+  expect(droneStats({ ...later, mechanicDroneCustomizations: {
+    Commercial: [{ name: 'Grounded' }, { name: '' }, { name: '' }, { name: 'Climber' }],
+  } })?.speed.Climb).toBeUndefined()
 })
 
 it.each([[4, 2], [7, 2], [8, 3], [11, 3], [12, 4], [16, 5], [20, 6]])(
@@ -473,7 +523,7 @@ it('calculates turret grade, weapon proficiency, specialization and active mods 
   expect(html).toContain('Mechanic Turret')
   expect(html).toContain('3d8+10 cold')
   expect(turretWeapon({ ...c, subclass: 'Mine' }, entries)).toBeUndefined()
-  expect(turretWeapon({ ...c, mechanicTurretGrade: 'Commercial', mechanicTurretUpgrades: ['a', 'b', 'c'] }, entries)?.weapon.upgrades)
+  expect(turretWeapon({ ...c, level: 1, mechanicTurretGrade: 'Commercial', mechanicTurretUpgrades: ['a', 'b', 'c'] }, entries)?.weapon.upgrades)
     .toEqual(['a', 'b'])
   expect(turretWeapon({ ...c, mechanicTurretGrade: 'Paragon' }, entries)?.entry.data.upgrade_slots).toBe(5)
   const explosive = { ...c, feats: [{ name: 'Explosive Shot', type: 'Class Feat', level: 1 }],

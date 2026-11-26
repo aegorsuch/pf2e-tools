@@ -1,4 +1,4 @@
-import { DRONE_CUSTOMIZATIONS, droneCustomizationSlots, droneStats } from './drone'
+import { DRONE_CUSTOMIZATIONS, droneCustomizationSlots, droneCustomizations, droneStats } from './drone'
 import { activeFeatsNamed, ranksAt, signed, type SectionProps } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { DroneEquipment } from './DroneEquipment'
@@ -23,7 +23,7 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
   const base = c.mechanicDroneBaseChassis ?? c.mechanicDroneChassis
   const alternates = DRONE_CHASSIS.filter(chassis => chassis !== base && convertible.some(feat => feat.choice === chassis))
   const configured = !!c.mechanicDroneBaseChassis || convertible.length > 0
-  const active = GRADES.flatMap(grade => (saved[grade] ?? []).slice(0, slots[grade]))
+  const active = GRADES.flatMap(grade => droneCustomizations(c, grade))
   const update = (grade: DroneCustomizationGrade, index: number, customization: DroneCustomization) => {
     const values = [...(saved[grade] ?? [])]
     while (values.length <= index) values.push({ name: '' })
@@ -202,16 +202,20 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
     {GRADES.map(grade => slots[grade] > 0 && <div className="col" key={grade}>
       <strong>{grade} customizations ({slots[grade]})</strong>
       {Array.from({ length: slots[grade] }, (_, index) => {
-        const selected = saved[grade]?.[index]
+        const selected = droneCustomizations(c, grade)[index]
+        const base = grade === 'Commercial' ? 3 : 2
+        const feat = index >= base ? activeFeatsNamed(c, `${grade} Customization`)[index - base] : undefined
+        const storageIndex = feat ? base + c.feats.filter(item => item.name === feat.name).indexOf(feat) : index
         const options = DRONE_CUSTOMIZATIONS[grade]
         const customization = options.find(option => option.name === selected?.name)
         const used = active.filter(item => item.name === selected?.name)
         const valid = !customization || customization.repeatable || used.length <= 1
         const needsPersonality = selected?.name === 'Linguistic Upload' || selected?.name === 'Glow Up'
-        const other = GRADES.flatMap(otherGrade => (saved[otherGrade] ?? []).slice(0, slots[otherGrade])
+        const other = GRADES.flatMap(otherGrade => droneCustomizations(c, otherGrade)
           .filter((_, otherIndex) => otherGrade !== grade || otherIndex !== index))
-        const withoutCurrent = { ...saved, [grade]: (saved[grade] ?? []).map((item, i) => i === index ? { name: '' } : item) }
-        const otherStats = droneStats({ ...c, mechanicDroneCustomizations: withoutCurrent }, entries)
+        const withoutCurrent = { ...saved, [grade]: (saved[grade] ?? []).map((item, i) => i === storageIndex ? { name: '' } : item) }
+        const otherStats = droneStats({ ...c, mechanicDroneCustomizations: withoutCurrent,
+          feats: feat ? c.feats.map(item => item === feat ? { ...item, choice: undefined } : item) : c.feats }, entries)
         const otherChoices = other.filter(item => item.name === selected?.name).flatMap(item => [item.choice, item.choice2])
         const characterRanks = selected?.name === 'Assistant' ? ranksAt(c, entries) : undefined
         const choiceAllowed = (choice: string) => {
@@ -223,12 +227,12 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
           return true
         }
         return <div className="col" key={index}>
-          <label>{grade} customization {index + 1}{' '}
+          {feat?.choice ? <strong>{grade} customization {index + 1}: {selected?.name}</strong> : <label>{grade} customization {index + 1}{' '}
             <select aria-label={`${grade} drone customization ${index + 1}`} value={selected?.name ?? ''} onChange={event => {
               const name = event.target.value
               const option = options.find(item => item.name === name)
               if (!name || option && (option.repeatable || !active.some(item => item.name === name))) {
-                const apply = () => update(grade, index, { name })
+                const apply = () => update(grade, storageIndex, { name })
                 if (selected?.name && name !== selected.name) confirmRemoval(`drone customization "${selected.name}"`, apply)
                 else apply()
               }
@@ -243,7 +247,7 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
                 {option.name}
               </option>)}
             </select>
-          </label>
+          </label>}
           {customization && <>
             <Info label="Customization details">{customization.description}</Info>
             {!valid && <small role="status">This customization cannot be selected more than once.</small>}
@@ -252,7 +256,7 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
               <select aria-label={`${grade} customization ${index + 1} choice`} value={selected?.choice ?? ''}
                 onChange={event => {
                   const choice = event.target.value
-                  if (!choice || choiceAllowed(choice)) update(grade, index, { ...selected!, choice: choice || undefined,
+                  if (!choice || choiceAllowed(choice)) update(grade, storageIndex, { ...selected!, choice: choice || undefined,
                     ...(selected?.name === 'Maneuver Module' && selected.choice2 === choice ? { choice2: undefined } : {}) })
                 }}>
                 <option value="">Choose</option>
@@ -266,7 +270,7 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
                 onChange={event => {
                   const choice = event.target.value
                   if (!choice || choice !== selected.choice && choiceAllowed(choice))
-                    update(grade, index, { ...selected, choice2: choice || undefined })
+                    update(grade, storageIndex, { ...selected, choice2: choice || undefined })
                 }}>
                 <option value="">Choose</option>
                 {customization.choices?.map(choice => <option key={choice} disabled={choice === selected.choice || !choiceAllowed(choice)}>{choice}</option>)}
@@ -275,12 +279,12 @@ export function DroneFeatures({ c, entries, save }: SectionProps) {
             {selected?.name === 'Linguistic Upload' && <>
               {(['choice', 'choice2'] as const).map((field, languageIndex) => <label key={field}>Language {languageIndex + 1}{' '}
                 <input aria-label={`Drone language ${languageIndex + 1}`} value={selected[field] ?? ''}
-                  onChange={event => update(grade, index, { ...selected, [field]: event.target.value })} />
+                  onChange={event => update(grade, storageIndex, { ...selected, [field]: event.target.value })} />
               </label>)}
             </>}
             {selected?.name === 'Camoflage' && <label>Biome{' '}
               <input aria-label="Drone camouflage biome" value={selected.choice ?? ''}
-                onChange={event => update(grade, index, { ...selected, choice: event.target.value })} />
+                onChange={event => update(grade, storageIndex, { ...selected, choice: event.target.value })} />
             </label>}
           </>}
         </div>

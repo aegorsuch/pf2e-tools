@@ -1,10 +1,9 @@
 import { isRanged, proficiencyBonus, signed, weaponAttack, weaponCategory, weaponEntry, weaponHands } from './builder'
-import { droneCustomizationSlots, droneStats } from './drone'
+import { droneCustomizations, droneStats } from './drone'
 import type { Character, ContentEntry, OwnedWeapon } from './types'
 
 export function droneEquipmentCapacity(c: Character) {
-  const slots = droneCustomizationSlots(c)
-  const commercial = slots ? (c.mechanicDroneCustomizations?.Commercial ?? []).slice(0, slots.Commercial) : []
+  const commercial = droneCustomizations(c, 'Commercial')
   return {
     mounts: commercial.filter(item => item.name === 'Integrated Weapon Mount').length,
     armorUpgrades: Number(commercial.some(item => item.name === 'Upgrade Slot')),

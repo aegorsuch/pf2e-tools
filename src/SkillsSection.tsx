@@ -9,7 +9,7 @@ import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ActiveSpellActions } from './SpellsSection'
 import { CONDITIONAL_BONUSES } from './conditionalBonuses'
-import { droneCustomizationSlots, droneStats } from './drone'
+import { droneCustomizationSlots, droneCustomizations, droneStats } from './drone'
 import { TotalBreakdown } from './TotalBreakdown'
 import { warmaskSource, warmaskItemBonus } from './warmask'
 import { armorModifications, armorOverdriveActive } from './inventorArmor'
@@ -427,7 +427,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const clumsy = giantWeaponClumsy(c, entries)
   const droneSlots = droneCustomizationSlots(c)
   const assistantSkill = c.mechanicDroneAssistantActive && droneSlots
-    ? (c.mechanicDroneCustomizations?.Tactical ?? []).slice(0, droneSlots.Tactical)
+    ? droneCustomizations(c, 'Tactical')
       .find(item => item.name === 'Assistant')?.choice : undefined
   const droneSkillRanks = assistantSkill ? droneStats(c, entries)?.ranks : undefined
   const sights = [...new Map(ownedWeapons(c, entries).filter(weapon => weaponEquipped(c, entries, weapon))
@@ -797,6 +797,9 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               >{letter}</button>{!!required?.length && <SourceNote inlineSource={false}
                 source={`${s.name} ${RANKS[i + 1]} prerequisites`}
                 note={`${required.join('; ')}. Current rank: ${RANKS[permanentRank]}.`} />}
+              {s.name === 'Society' && i === 2 && rank >= 3 && c.systems.includes('sf2e')
+                && !!activeFeatsNamed(c, 'Mission Briefing').length && <SourceNote inlineSource={false}
+                  source="Mission Briefing" note="Trained in Mission Lore for mission-related Recall Knowledge; a failure grants Dubious Knowledge unless answered during the briefing. Legendary Society increases Mission Lore to expert." />}
               </span>
             )
           })}
@@ -997,18 +1000,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             disabled={!!c.dermalPlating?.damaged} onChange={event => save({
               dermalPlating: { ...c.dermalPlating, raised: event.target.checked },
             })} /> Dermal plating raised
-        </label>}
-        {!!activeFeatsNamed(c, 'Machine Heart').length && <label>
-          <input type="checkbox" checked={!!c.dailyFeatUses?.['Machine Heart']}
-            onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, 'Machine Heart': event.target.checked } })} />
-          {' '}Machine Heart used <SourceNote inlineSource={false} source="Machine Heart"
-            note={`The first time each day you would die, you instead regain ${c.level} Hit Points without increasing wounded from losing dying. You no longer age or need sleep, food, drink, or air.`} />
-        </label>}
-        {!!activeFeatsNamed(c, "Grandmother's Favorite").length && <label>
-          <input type="checkbox" checked={!!c.monthlyFeatUses?.["Grandmother's Favorite"]}
-            onChange={event => save({ monthlyFeatUses: { ...c.monthlyFeatUses, "Grandmother's Favorite": event.target.checked } })} />
-          {' '}Grandmother's Favorite used <SourceNote inlineSource={false} source="Grandmother's Favorite"
-            note="Once per month when you would die, you disperse as rats and return to life at maximum Hit Points in 1d6 days at a safe place chosen by the GM." />
         </label>}
         {c.raging && !!activeFeatsNamed(c, 'Ghost Wrangler').length && <label>
           <input type="checkbox" aria-label="Ghost Wrangler active" checked={isFeatEffectActive(c, 'Ghost Wrangler')}

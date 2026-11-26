@@ -16,6 +16,10 @@ export const DRAGON_SPIT_ENERGY_BY_CANTRIP = {
 type NamedFeat = Pick<Character['feats'][number], 'name'> & Partial<Character['feats'][number]>
 export const featTakenLevel = (feat: Character['feats'][number]) => feat.takenLevel ?? (Number(feat.slot?.split(':')[1]) || feat.level)
 
+export const hasCyborgHeritage = (c: Character) => c.level >= 1 && c.systems.includes('sf2e')
+  && (c.heritage === 'Cyborg' || getSettings().cyborgTestSubject && c.ancestry === 'Ysoki'
+    && c.heritage === 'Test-Subject Ysoki' && c.testSubjectAdaptation === 'Cybernetic Augmentation')
+
 export const isStanceFeat = (entry: ContentEntry) =>
   entry.kind === 'feat' && entry.traits.some(trait => trait.toLowerCase() === 'stance')
 
@@ -81,8 +85,7 @@ export function adoptedAncestryText(c: Character, text: string) {
 
 export function ancestryFeatTraits(c: Character) {
   const active = c.feats.filter(feat => featTakenLevel(feat) <= c.level)
-  const cyborg = c.level >= 1 && c.systems.includes('sf2e') && c.ancestry === 'Ysoki'
-    && c.heritage === 'Test-Subject Ysoki' && getSettings().cyborgTestSubject
+  const cyborg = c.heritage !== 'Cyborg' && hasCyborgHeritage(c)
   return [c.ancestry, c.heritage, ...(c.heritage?.trim().toLowerCase() === 'dromaar' ? ['Orc'] : []),
     ...(c.systems.includes('pf2e') && ['aiuvarin', 'half-elf'].includes(c.heritage?.trim().toLowerCase() ?? '') ? ['Elf'] : []),
     ...(cyborg ? ['Cyborg'] : []), ...active.filter(feat => feat.name === 'Adopted Ancestry').map(feat => feat.choice),

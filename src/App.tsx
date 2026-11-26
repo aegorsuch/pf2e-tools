@@ -290,7 +290,7 @@ export default function App() {
       <div className="home-section-heading">
         <h2>Characters</h2>
         <button type="button" onClick={newCharacter}>New character</button>
-        <CharacterFilters characters={characters ?? []} filters={characterFilters} onChange={setCharacterFilters} />
+        <CharacterFilters characters={characters ?? []} entries={entries ?? NO_ENTRIES} filters={characterFilters} onChange={setCharacterFilters} />
       </div>
       {characters && (characterFilters.ancestry || characterFilters.className) && !sortedCharacters.length
         && <p role="status">No matching characters.</p>}

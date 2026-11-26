@@ -3,18 +3,20 @@ import type { Character, ContentEntry, FeatSlot, FeatSlotCategory, GameSystem, H
 import { ENERGY_SHIELDING_TYPES } from './types'
 import { ANCESTRAL_AVATAR, BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, ancestralAvatarForm, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm, pestBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
-import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
+import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasCyborgHeritage, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
 import { DOMAIN_FEATS, EXTRAPLANAR_SUPPLICATION_SPELLS, KITSUNE_SPELL_FAMILIARITY_CANTRIPS, activeCaypinAlly, activeLashuntaAlly, activeShirrenAlly, ancestralMagicAvailable, automaticFeatChoiceKey, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
 import { GODCLAW_DOMAINS, HELLKNIGHT_FAVORED_WEAPONS, ORDER_TRAINING_FEATS, PYRE_ENERGY_TYPES, hellknightBenefitActive, hellknightOrder, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
 import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore, PROFESSION_LORES } from './backgrounds'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
 import { armigerArmorEntry, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, grantedArmorEntries, hardwoodHasShield, INVENTOR_ARMOR_ID, isGrantedArmor } from './grantedArmor'
-export { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, selectedFeatEntry } from './featChoices'
+export { INITIATE_TRAINING, ancestryFeatTraits, featTakenLevel, hasCyborgHeritage, selectedFeatEntry } from './featChoices'
 import { getSettings } from './settings'
 import { BEASTMASTER_FEATS, beastmasterRequirementMissing } from './beastmasterFeats'
 import { companionAdvancement, companionAdvancementFor } from './companions'
 import { contentAccessGranted, featRarity, spellAccessGranted } from './featAccess'
 import { spellResolution } from './spellDefense'
+import { expansiveArrayChoices } from './mechanicTurret'
+import { DRONE_CUSTOMIZATIONS, droneCustomizations } from './drone'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, type PrerequisiteFacts } from './featPrerequisites'
 import { RUNESMITH_RUNES } from './runesmithRunes'
 import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, FIRST_WORLD_ARMAMENTS, AUTOMATON_CLAW, AUTOMATON_PINCER, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ENERGY_BLAST, SKYFIRE_WING, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
@@ -497,9 +499,6 @@ export const activeFeatsNamed = (c: Character, name: string) => {
   }
   return active
 }
-export const hasCyborgHeritage = (c: Character) => c.level >= 1 && c.systems.includes('sf2e')
-  && (c.heritage === 'Cyborg' || getSettings().cyborgTestSubject
-    && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki')
 export const testSubjectAdaptation = (c: Character) =>
   c.level >= 1 && c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki'
     ? c.testSubjectAdaptation : undefined
@@ -2486,6 +2485,21 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     const used = new Set([c.subclass?.toLowerCase(),
       ...c.feats.filter((feat, i) => i !== index && feat.name === name).map(feat => feat.choice?.toLowerCase())])
     return MECHANIC_EXOCORTEXES.filter(option => !used.has(option.toLowerCase()))
+  }
+  if (name === 'Expansive Array' && c.systems.includes('sf2e')) return expansiveArrayChoices(c, index)
+  const customization = /^(Commercial|Tactical|Advanced|Superior) Customization$/.exec(name)
+  if (customization && c.systems.includes('sf2e') && c.className === 'Mechanic') {
+    const grade = customization[1] as keyof typeof DRONE_CUSTOMIZATIONS
+    const base = grade === 'Commercial' ? 3 : 2
+    const feats = activeFeatsNamed(c, name)
+    const current = index < 0 ? -1 : feats.indexOf(c.feats[index])
+    const selected = (Object.keys(DRONE_CUSTOMIZATIONS) as Array<keyof typeof DRONE_CUSTOMIZATIONS>)
+      .flatMap(other => droneCustomizations(c, other).filter((_, position) =>
+        other !== grade || current < 0 || position !== base + current))
+    const personality = selected.some(item => item.name === 'Artificial Personality' || item.name === 'Sapient')
+    return DRONE_CUSTOMIZATIONS[grade].filter(option =>
+      (option.repeatable || !selected.some(item => item.name === option.name))
+      && (!['Linguistic Upload', 'Glow Up'].includes(option.name) || personality)).map(option => option.name)
   }
   if (name === 'Convertible Chassis' && c.systems.includes('sf2e')) {
     const base = c.mechanicDroneBaseChassis ?? c.mechanicDroneChassis
@@ -6941,7 +6955,7 @@ const solarianWeaponEntry = (twin = false): ContentEntry => ({
 })
 
 const pahtraAttacks: ContentEntry[] = [
-  { ...FIST, id: 'sf2e:pahtra:claw', name: 'Claw', systems: ['sf2e'],
+  { ...FIST, id: 'sf2e:pahtra:claw', name: 'Claws', systems: ['sf2e'],
     traits: ['Agile', 'Finesse', 'Pahtra', 'Unarmed'], data: { ...FIST.data, damage: '1d6 slashing' } },
   { ...FIST, id: 'sf2e:pahtra:jaws', name: 'Jaws', systems: ['sf2e'],
     traits: ['Finesse', 'Grapple', 'Pahtra', 'Unarmed'], data: { ...FIST.data, damage: '1d6 piercing' } },
@@ -7467,7 +7481,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
   const brutalAttacks = activeFeatsNamed(c, 'Brutal Anatomy').flatMap(feat =>
     veskAttacks.filter(entry => entry.id === `sf2e:vesk:${String(feat.choice).toLowerCase()}`))
   const predatoryAttacks = c.systems.includes('sf2e') ? activeFeatsNamed(c, 'Predatory').flatMap(feat =>
-    pahtraAttacks.filter(entry => entry.id === `sf2e:pahtra:${String(feat.choice).toLowerCase()}`)) : []
+    pahtraAttacks.filter(entry => entry.id === `sf2e:pahtra:${String(feat.choice).toLowerCase().replace(/^claws$/, 'claw')}`)) : []
   const witchSelected = activeWitchAttacks(c)
   const venomousJaws = c.systems.includes('sf2e') && c.ancestry === 'Vesk' && c.heritage === 'Fork-Tongued Vesk'
     ? [venomousVeskJaws] : []
@@ -7495,11 +7509,13 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
     && (!PLAYING_CARD_WEAPONS.some(card => card.id === weapon.id) || cards.some(card => card.id === weapon.id))
     && (![...animalAttacks, UNTAMED_CLAWS, UNTAMED_JAWS].some((entry) => entry.name === weapon.name)
       || [...selectedAttacks, ...untamedAttacks].some((entry) => entry.name === weapon.name)))
-    .map((weapon) => weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
+    .map((weapon) => weapon.id === 'sf2e:pahtra:claw' && weapon.name !== 'Claws' ? { ...weapon, name: 'Claws' }
+      : weapon.id === GAUNTLET.id && gauntlet && weapon.name !== gauntlet.name ? { ...weapon, name: gauntlet.name } : weapon)
   for (const entry of [...(ironFists ? [IRON_FIST] : []), ...(tusks ? [ORC_TUSKS] : []), ...iruxiAttacks, ...automatonAttacks, ...fadrimAttacks, ...energyBlasts, ...skyfireWings, ...nephilimSelected, ...tenguBite, ...nativeJaws, ...shirrenAttacks, ...brutalAttacks, ...predatoryAttacks, ...witchSelected, ...venomousJaws,
     ...(haftStriker ? [HAFT_STRIKER_WEAPON] : []), ...(oversizedThrow ? [OVERSIZED_THROW] : []),
     ...selectedAttacks, ...untamedAttacks, ...cairnAttacks, ...sparkAttacks, ...bestialAttacks, ...(gauntlet ? [{ id: GAUNTLET.id, name: gauntlet.name }] : [])]) {
-    if (!available.some((weapon) => iruxiAttackIds.has(entry.id) || witchAttackIds.has(entry.id) || nephilimAttacks.some(attack => attack.id === entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {
+    if (!available.some((weapon) => iruxiAttackIds.has(entry.id) || witchAttackIds.has(entry.id) || pahtraAttacks.some(attack => attack.id === entry.id)
+      || nephilimAttacks.some(attack => attack.id === entry.id) ? weapon.id === entry.id : weapon.name === entry.name)) {
       available.push({ id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] })
     }
   }
@@ -7891,7 +7907,7 @@ export function activeUntamedShiftEffects(c: Character, entries: ContentEntry[])
 }
 
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, CAIRN_FIST.name, SPARK_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name, UNTAMED_CLAWS.name, UNTAMED_JAWS.name].includes(name)
-  || bestialWeapons.some(entry => entry.name === name) || [...ysokiJaws, shirrenJaws, ...veskAttacks, ...pahtraAttacks, ...witchAttacks, ...nephilimAttacks, venomousVeskJaws].some(entry => entry.name === name)
+  || bestialWeapons.some(entry => entry.name === name) || [...ysokiJaws, shirrenJaws, ...veskAttacks, ...pahtraAttacks.filter(entry => entry.id !== 'sf2e:pahtra:claw'), ...witchAttacks, ...nephilimAttacks, venomousVeskJaws].some(entry => entry.name === name)
 export const PLAYING_CARD_WEAPONS = [
   { id: 'playing-card:dagger', name: 'Dagger (Playing Card)', base: 'Dagger' },
   { id: 'playing-card:dart', name: 'Dart (Playing Card)', base: 'Dart' },
@@ -7916,7 +7932,7 @@ export function shieldAttachmentSource(c: Character, weapon: OwnedWeapon) {
       || !attached && weapon.id === `shield-bash:${shield.id}` && weapon.name === SHIELD_BASH.name)
   })
 }
-export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry[] = [], id?: string) => isAutomaticUnarmed(name)
+export const isLockedWeapon = (c: Character, name: string, entries: ContentEntry[] = [], id?: string) => id === 'sf2e:pahtra:claw' || isAutomaticUnarmed(name)
   || BATTLE_FORM_WEAPONS.some(entry => entry.name === name)
   || PLAYING_CARD_WEAPONS.some(card => card.name === name && activeFeatsNamed(c, "Fane's Fourberie").length > 0)
   || name === HAFT_STRIKER_WEAPON.name && !!haftStrikerSource(c, entries)
@@ -8692,6 +8708,12 @@ export function hasAutomaticWeaponFundamentals(c: Character, entries: ContentEnt
 export const SOLARIAN_CRYSTAL_WEAPON_IDS = ['sf2e:solarian:solar-weapon', 'sf2e:solarian:twin-weapon', 'sf2e:solarian:flare']
 export const isSolarianCrystalWeapon = (weapon: { id: string }) => SOLARIAN_CRYSTAL_WEAPON_IDS.includes(weapon.id)
 
+export function solarianOrbitalCrystals(c: Character, weapon?: OwnedWeapon) {
+  if (c.solarianOrbitalCrystals) return c.solarianOrbitalCrystals
+  return [...new Set([...(c.weapons ?? []).filter(isSolarianCrystalWeapon).flatMap(item => item.upgrades ?? []),
+    ...(weapon?.upgrades ?? [])])]
+}
+
 // Core solarian crystals scale like weapon grades: Commercial, Tactical, then Advanced.
 export function solarianCoreCrystals(level: number) {
   const grade = (levels: number[]) => ['Commercial', 'Tactical', 'Advanced'][levels.filter(at => level >= at).length - 1]
@@ -8727,7 +8749,12 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
   const entry = weaponEntry(entries, weapon.name, weapon.id)
   if (!entry) return []
   const name = entry.name.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
-  const upgrades = entry.data.special_weapon_source === 'SLARP' || name === 'SLARP Rapid Laser Pistol' ? ["Smuggler's Grip", 'Flaming Module']
+  const turretModule: Record<string, string> = {
+    'Laser Beam': 'Flaming Module', Disintegrator: 'Acid Module', 'Volt Thrower': 'Shock Module', 'Zero Emitter': 'Frost Module',
+  }
+  const turret = entry.id === 'mechanic:turret'
+  const upgrades = turret ? [turretModule[String(entry.data.turret_array)]].filter((module): module is string => !!module)
+    : entry.data.special_weapon_source === 'SLARP' || name === 'SLARP Rapid Laser Pistol' ? ["Smuggler's Grip", 'Flaming Module']
     : entry.data.special_weapon_source === 'Starday Night Special' ? ["Smuggler's Grip"]
     : ['Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle'].includes(name)
       ? ['Flaming Module', 'Glarecaster', "Sniper's Scope"]
@@ -8745,7 +8772,7 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     : name === 'Pulse Gauntlet' ? ['Loudener']
     : /^Tail\s*Blade$/i.test(name) ? [c.className === 'Soldier' ? 'Suppression Matrix' : 'Fear Projector'] : []
   const automatic = automaticUpgradeEntries(c, entries, upgrades)
-  if (name !== 'Plasma Caster') return automatic
+  if (name !== 'Plasma Caster' && !turret) return automatic
   const effective = effectiveWeapon(c, entries, weapon)
   const slots = weaponEntry(entries, effective.name, effective.id)?.data.upgrade_slots
   const saved = weapon.upgrades ?? []
@@ -8788,11 +8815,30 @@ export function installedHardlightUpgrades(c: Character, entries: ContentEntry[]
 export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   if (isSolarianCrystalWeapon(weapon)) {
     if (!c.systems.includes('sf2e')) return []
-    return (weapon.upgrades ?? []).flatMap(id => {
+    const saved = solarianOrbitalCrystals(c, weapon)
+    const capacity = solarianCoreCrystals(c.level).potency
+    const installed = saved.flatMap(id => {
       const crystal = entries.find(candidate => candidate.id === id && !candidate.deleted && candidate.kind === 'item'
         && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Orbital Crystal')
       return crystal ? [crystal] : []
-    }).slice(0, solarianCoreCrystals(c.level).potency)
+    }).slice(0, capacity)
+    if (!getSettings().automaticSfWeaponUpgrades) return installed
+    const attuned = c.solarianAttunement ?? 'Graviton'
+    const names = ['Gluon', 'Quasar', ...(attuned === 'Photon' || attuned === 'Graviton' ? [attuned] : [])]
+    let remaining = Math.max(0, capacity - saved.length)
+    const automatic = names.flatMap(name => {
+      const candidates = entries.filter(candidate => candidate.kind === 'item' && !candidate.deleted
+        && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Orbital Crystal'
+        && candidate.name.replace(/\s*\([^)]*\)$/, '') === name && candidate.level <= c.level)
+        .sort((a, b) => b.level - a.level || Number(b.name.includes('(')) - Number(a.name.includes('(')))
+      const crystal = candidates[0]
+      if (!crystal) return []
+      if (installed.some(item => item.name.replace(/\s*\([^)]*\)$/, '') === name)) return [crystal]
+      if (!remaining) return []
+      remaining--
+      return [crystal]
+    })
+    return mergeWeaponUpgrades(installed, automatic)
   }
   const entry = weaponEntry(entries, weapon.name, weapon.id)
   const unarmed = weaponCategory(entry) === 'Unarmed'
@@ -9102,6 +9148,15 @@ function inheritedHandWeaponTraits(c: Character, entries: ContentEntry[], weapon
   return [...new Set(traits)]
 }
 
+export function crimsonClawUsesVersatileSlashing(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  const entry = weaponEntry(entries, weapon.name, weapon.id)
+  if (!entry || !/crimson claw/i.test(entry.name)) return false
+  const fire = entry.weaponModes?.find(mode => mode.damageType.toLowerCase() === 'fire')
+  if (!fire || !entry.weaponModes?.some(mode => mode.damageType.toLowerCase() === 'slashing')) return false
+  return inheritedHandWeaponTraits(c, entries, { ...weapon, weaponMode: fire.id })
+    .some(trait => /^versatile s$/i.test(trait))
+}
+
 function inheritedFreeHandManeuvers(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const entry = weaponEntry(entries, weapon.name, weapon.id)
   if (!entry || !weaponEquipped(c, entries, weapon)
@@ -9221,7 +9276,9 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     const dice = greaterSpecialization ? 3 : simpleSpecialization ? 2 : 1
     entry = { ...OVERSIZED_THROW, data: { ...OVERSIZED_THROW.data, damage: `${dice}d10 bludgeoning` } }
   }
-  entry = weaponWithMode(w, entry)
+  const fireMode = !options.skipHandInheritance && crimsonClawUsesVersatileSlashing(c, entries, w)
+    ? entry?.weaponModes?.find(mode => mode.damageType.toLowerCase() === 'fire') : undefined
+  entry = weaponWithMode(fireMode ? { ...w, weaponMode: fireMode.id } : w, entry)
   if (entry && /crimson claw/i.test(entry.name) && entry.traits.some(trait => /^analog$/i.test(trait))) {
     const clawDamages = ownedWeapons(c, entries).filter(weapon => weapon.id !== w.id && /\bclaws?\b/i.test(weapon.name))
       .map(weapon => damageDie(weaponAttack(c, entries, weapon, { skipHandInheritance: true }).damage))
@@ -9513,6 +9570,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const formAttackPenalty = conditionPenalty(c, ranged ? 'dex' : 'str')
   const untamedBonus = form?.source === 'Untamed Form' && ownUnarmed > form.attack ? 2 : 0
   const attack: number = formAttack && form ? Math.max(form.attack + divineAttackBonus, ownUnarmed + untamedBonus) + desperateWrath - formAttackPenalty : ownAttack
+  const photonCrystal = isSolarianCrystalWeapon(w) && (c.solarianAttunement ?? 'Graviton') === 'Photon'
+    ? upgrades.filter(upgrade => /^photon(?:\s*\(|$)/i.test(upgrade.name)).sort((a, b) => b.level - a.level)[0] : undefined
+  const gravitonCrystal = isSolarianCrystalWeapon(w) && (c.solarianAttunement ?? 'Graviton') === 'Graviton'
+    ? upgrades.filter(upgrade => /^graviton(?:\s*\(|$)/i.test(upgrade.name)).sort((a, b) => b.level - a.level)[0] : undefined
+  const gluonCrystal = isSolarianCrystalWeapon(w)
+    ? upgrades.filter(upgrade => /^gluon(?:\s*\(|$)/i.test(upgrade.name)).sort((a, b) => b.level - a.level)[0] : undefined
   return {
     entry,
     upgrades,
@@ -9565,6 +9628,17 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         && (c.solarianAttunement ?? 'Graviton') === 'Photon'
         ? [{ source: 'Photon-Attuned', value: `${Math.ceil(c.level / 2)} fire`,
           note: 'A photon-attuned solar weapon adds fire damage equal to half your level, rounded up.' }] : []),
+      ...(photonCrystal ? [{ source: photonCrystal.name, value: '1d6 fire',
+        note: photonCrystal.level >= 14
+          ? 'Photon attuned: critical hit forces DC 31 Fortitude or blinded for 2 rounds; fire damage ignores resistance.'
+          : 'Photon attuned: critical hit forces DC 23 Fortitude or blinded for 1 round.' }] : []),
+      ...(gravitonCrystal && modifiedDamageType ? [{ source: gravitonCrystal.name, value: `1d6 ${modifiedDamageType}`,
+        note: gravitonCrystal.level >= 14
+          ? 'Graviton attuned: critical hit forces DC 31 Fortitude or slowed 1 for 2 rounds; hitting an immobilized or suppressed creature forces DC 31 Fortitude or prone.'
+          : 'Graviton attuned: critical hit forces DC 23 Fortitude or slowed 1 until the end of your next turn.' }] : []),
+      ...(gluonCrystal ? [{ source: gluonCrystal.name,
+        value: `1d${gluonCrystal.level >= 15 ? 10 : gluonCrystal.level >= 12 ? 8 : gluonCrystal.level >= 9 ? 6 : 4} persistent bleed`,
+        note: 'On a critical hit, the target is clumsy 1 until it recovers from this bleed damage.' }] : []),
       ...(w.id === solarianFlare.id && activeFeatsNamed(c, 'Propulsive Shield').length > 0
         && c.solarianShield?.raised
         ? [{ source: 'Propulsive Shield',

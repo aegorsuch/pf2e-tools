@@ -1,4 +1,4 @@
-import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, selectedFeatEntry, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, weaponEntry, whirlwindStanceActive, wornArmor, type SectionProps } from './builder'
+import { activeFeatsNamed, activeStance, activeUntamedShiftEffects, armorEntry, armorProficiencyRank, boneShieldActive, conditionValue, crimsonClawUsesVersatileSlashing, equippedShield, featEffectChange, hasHuntPrey, hasParryWeapon, isBucklerShield, isFeatEffectActive, isSpellActive, knowsSpell, ownedArmors, parryValue, selectedFeatEntry, shieldAcBonus, shieldParagonActive, shieldRaised, shieldRaisedChange, spellActiveChange, twinnedDefenseActive, warriorLegendWeakness, weaponEntry, whirlwindStanceActive, wornArmor, type SectionProps } from './builder'
 import { grantedFeatSpells } from './featSpells'
 import { FavoredTerrainSelector, HardenFleshToggle, RageToggle } from './SkillsSection'
 import { StancesContent } from './StancesSection'
@@ -326,7 +326,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
     .filter(control => control.name !== 'Shield' || !defense.cantrip || defense.boneShield)
   const crimsonClawModes = (c.weapons ?? []).flatMap(weapon => {
     const entry = weaponEntry(entries, weapon.name, weapon.id)
-    if (!/^crimson claw\b/i.test(entry?.name ?? '')) return []
+    if (!/^crimson claw\b/i.test(entry?.name ?? '') || crimsonClawUsesVersatileSlashing(c, entries, weapon)) return []
     const modes = entry?.weaponModes ?? []
     const fire = modes.find(mode => mode.damageType.toLowerCase() === 'fire')
     const slashing = modes.find(mode => mode.damageType.toLowerCase() === 'slashing')

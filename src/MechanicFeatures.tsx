@@ -44,20 +44,22 @@ export function TurretFeatures({ c, entries, save }: SectionProps) {
   const maxHp = 10 + (2 + intelligence) * c.level
   const array = turretArray(c)
   const choices = c.mechanicTurretExtraArrays ?? []
-  const count = Math.min(4, activeFeatsNamed(c, 'Expansive Array').length * 2)
+  const expansive = c.feats.filter(feat => feat.name === 'Expansive Array')
+  const activeExpansive = new Set(activeFeatsNamed(c, 'Expansive Array'))
   const dice = 2 + Math.floor(Math.max(0, c.level - 4) / 4)
   return <div className="col">
-    {Array.from({ length: count }, (_, index) => <label key={index}>Expansive Array {index + 1}{' '}
+    {expansive.flatMap((feat, featIndex) => activeExpansive.has(feat) && !feat.choice
+      ? [featIndex * 2, featIndex * 2 + 1] : []).map(index => <label key={index}>Expansive Array {index + 1}{' '}
       <select aria-label={`Expansive Array ${index + 1}`} value={choices[index] ?? ''} onChange={event => {
         const selected = EXTRA_TURRET_NAMES.find(name => name === event.target.value)
-        if (event.target.value && (!selected || choices.slice(0, count).some((name, i) => i !== index && name === selected))) return
+        if (event.target.value && (!selected || turretArrays(c).some(name => name === selected && choices[index] !== selected))) return
         const next = [...choices]
         next[index] = selected ?? null
         save({ mechanicTurretExtraArrays: next })
       }}>
         <option value="">Choose array</option>
         {EXTRA_TURRET_NAMES.map(name => <option key={name} value={name}
-          disabled={choices.slice(0, count).some((other, i) => i !== index && other === name)}>{name}</option>)}
+          disabled={turretArrays(c).includes(name) && choices[index] !== name}>{name}</option>)}
       </select>
     </label>)}
     <label>Turret array{' '}

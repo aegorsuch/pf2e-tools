@@ -15,6 +15,8 @@ import { homebrewCharacterOptions } from './supplemental'
 import { TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
 import { SearchableSelect } from './SearchableSelect'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
+import { turretArrays } from './mechanicTurret'
+import { droneStats } from './drone'
 
 let previousPlanning: boolean
 beforeEach(() => {
@@ -2054,6 +2056,50 @@ it('selects Exocortex Experimenter variants without a separate choice control an
   expect(second).not.toContain('aria-label="L12 Class: Exocortex Experimenter (Drone)"')
   findButton(tree(), 'L12 Class: Exocortex Experimenter (Turret)')!()
   expect(c.feats.map(selected => selected.choice)).toEqual(['Mine', 'Turret'])
+})
+
+it('selects Expansive Array variants and applies both arrays to the turret', () => {
+  const feat: ContentEntry = { id: 'expansive', systems: ['sf2e'], kind: 'feat', name: 'Expansive Array', level: 8,
+    traits: ['Mechanic'], source: 'official', description: '', data: { repeatable: true }, effects: [], updatedAt: 1 }
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], className: 'Mechanic', subclass: 'Turret', level: 8 }
+  const tree = () => FeatSlots({ c, entries: [feat], categories: ['class'],
+    save: patch => { c = { ...c, ...patch } }, search: { 'class:8:0:open': '1' }, onSearch: () => {} })
+  expect(renderToStaticMarkup(tree())).toContain('L08 Class: Expansive Array (Mental Array + Poison Array)')
+  findButton(tree(), 'L08 Class: Expansive Array (Mental Array + Poison Array)')!()
+  expect(c.feats).toContainEqual(expect.objectContaining({ name: feat.name, choice: 'Mental Array + Poison Array' }))
+  expect(turretArrays(c).slice(-2)).toEqual(['Mental Array', 'Poison Array'])
+  expect(builder.featChoiceOptions(feat.name, { ...c, level: 10 }, [feat], 'class:10:0'))
+    .toEqual(['Vitality Array + Void Array'])
+})
+
+it('selects drone customization feat variants', () => {
+  const feat: ContentEntry = { id: 'commercial-customization', systems: ['sf2e'], kind: 'feat',
+    name: 'Commercial Customization', level: 1, traits: ['Mechanic'], source: 'official', description: '',
+    data: { repeatable: true, prerequisite: 'drone exocortex' }, effects: [], updatedAt: 1 }
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], className: 'Mechanic', subclass: 'Drone', level: 1,
+    mechanicDroneChassis: 'Powerful' }
+  const tree = () => FeatSlots({ c, entries: [feat], categories: ['class'],
+    save: patch => { c = { ...c, ...patch } }, search: { 'class:1:0:open': '1', 'class:1:0:query': 'Flier' }, onSearch: () => {} })
+  expect(renderToStaticMarkup(tree())).toContain('L01 Class: Commercial Customization (Flier)')
+  findButton(tree(), 'L01 Class: Commercial Customization (Flier)')!()
+  expect(c.feats).toContainEqual(expect.objectContaining({ name: feat.name, choice: 'Flier' }))
+  expect(droneStats(c)?.speed.Fly).toBe(20)
+})
+
+it('allows Impressive Healing Mines after obtaining Mine and Healing Mines', () => {
+  const healing: ContentEntry = { id: 'healing-mines', systems: ['sf2e'], kind: 'feat',
+    name: 'Healing Mines', level: 2, traits: ['Mechanic'], source: 'official', description: '',
+    data: { prerequisite: 'mine exocortex' }, effects: [], updatedAt: 1 }
+  const impressive: ContentEntry = { ...healing, id: 'impressive-mines', name: 'Impressive Healing Mines',
+    level: 12, data: { prerequisite: 'Healing Mines' } }
+  let c: Character = { ...emptyRanger(), systems: ['sf2e'], className: 'Mechanic', subclass: 'Turret', level: 12,
+    feats: [{ name: 'Exocortex Experimenter', type: 'Class Feat', level: 6, slot: 'class:6:0', choice: 'Mine' },
+      { name: 'Healing Mines', type: 'Class Feat', level: 2, slot: 'class:8:0' }] }
+  const tree = () => FeatSlots({ c, entries: [healing, impressive], categories: ['class'],
+    save: patch => { c = { ...c, ...patch } }, search: { 'class:12:0:open': '1' }, onSearch: () => {} })
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="L12 Class: Impressive Healing Mines"')
+  findButton(tree(), 'L12 Class: Impressive Healing Mines')!()
+  expect(c.feats).toContainEqual(expect.objectContaining({ name: impressive.name, slot: 'class:12:0' }))
 })
 
 it('offers explicit favored-terrain variants and persists the chosen terrain', () => {

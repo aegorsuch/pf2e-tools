@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
 import { CharacterFilters, filterCharacters } from './CharacterFilters'
 import { SearchableSelect } from './SearchableSelect'
-import type { Character } from './types'
+import type { Character, ContentEntry } from './types'
 
 const character = (name: string, ancestry?: string, className?: string, heritage?: string, subclass?: string): Character => ({
   id: name, name, ancestry, className, heritage, subclass, systems: ['pf2e'], level: 1,
@@ -48,4 +48,20 @@ it('keeps full-roster options alphabetized and allows clearing one filter withou
   expect(onChange).toHaveBeenLastCalledWith({ ancestry: '', className: 'Ranger' })
   klass.props.onChange!({ target: { value: 'Barbarian' } } as ChangeEvent<HTMLSelectElement>)
   expect(onChange).toHaveBeenLastCalledWith({ ancestry: 'Human', className: 'Barbarian' })
+})
+
+it('classifies class options by catalog system, including shared classes', () => {
+  const entry = (name: string, systems: ContentEntry['systems']): ContentEntry => ({
+    id: `${name}-${systems.join('-')}`, name, systems, kind: 'class', source: 'official',
+    level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 0,
+  })
+  const roster = [{ ...character('One', 'Human', 'Ranger'), systems: ['pf2e', 'sf2e'] as Character['systems'] },
+    character('Two', 'Human', 'Barbarian')]
+  const tree = CharacterFilters({ characters: roster, entries: [entry('Ranger', ['sf2e']), entry('Ranger', ['pf2e']),
+    entry('Barbarian', ['pf2e'])], filters: { ancestry: '', className: '' }, onChange: () => {} })
+  const controls = Children.toArray(tree.props.children).filter((node): node is ReactElement<Parameters<typeof SearchableSelect>[0]> =>
+    isValidElement<Parameters<typeof SearchableSelect>[0]>(node) && node.type === SearchableSelect)
+  expect(controls[1].props.optionSystems?.('Ranger')).toEqual(['sf2e', 'pf2e'])
+  expect(controls[1].props.optionSystems?.('Barbarian')).toEqual(['pf2e'])
+  expect(controls[0].props.optionSystems).toBeUndefined()
 })

@@ -13,6 +13,32 @@ vi.mock('react', async importOriginal => {
   return { ...react, useState: vi.fn((initial: unknown) => [initial, vi.fn()]), useRef: vi.fn(), useMemo: vi.fn(), useId: vi.fn() }
 })
 
+it.each([
+  ['pf2e', ['Fighter', 'Shared']],
+  ['sf2e', ['Mechanic', 'Shared']],
+] as const)('filters class options for %s while retaining shared classes', (system, expected) => {
+  vi.mocked(useState).mockReturnValueOnce(['', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
+    .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
+    .mockReturnValueOnce(['all', vi.fn()]).mockReturnValueOnce([system, vi.fn()])
+  vi.mocked(useRef).mockReturnValue({ current: null })
+  vi.mocked(useId).mockReturnValue('picker')
+  vi.mocked(useMemo).mockImplementation(fn => fn())
+  const found: Array<{ type: unknown; props: Record<string, unknown> }> = []
+  const visit = (node: ReactNode) => Children.forEach(node, child => {
+    if (!isValidElement<Record<string, unknown>>(child)) return
+    found.push({ type: child.type, props: child.props })
+    visit(child.props.children as ReactNode)
+  })
+  visit(SearchableSelect({ 'aria-label': 'Class', value: '', alwaysSearchable: true,
+    optionSystems: value => value === 'Fighter' ? ['pf2e'] : value === 'Mechanic' ? ['sf2e'] : ['pf2e', 'sf2e'],
+    children: <><option value="">None</option><option>Fighter</option><option>Mechanic</option><option>Shared</option></> }))
+  expect(found.filter(item => item.type === 'button' && expected.some(name => item.props['aria-label'] === `Class: ${name}`)))
+    .toHaveLength(2)
+  expect(found.filter(item => item.type === 'button' && ['Fighter', 'Mechanic', 'Shared']
+    .some(name => item.props['aria-label'] === `Class: ${name}`))).toHaveLength(2)
+  expect(found.some(item => item.type === GearSystemFilter)).toBe(true)
+})
+
 it('opens a searchable picker in the enclosing native dialog', () => {
   const dialog = {} as HTMLElement
   const setContainer = vi.fn()

@@ -617,15 +617,15 @@ it('shows background rules inline and keeps ancestry and background boost choice
   } finally { content.entries = [] }
 })
 
-it('shows Test-Subject adaptation options only for the matching heritage', () => {
+it('shows a saved Test-Subject adaptation in the heritage picker', () => {
   content.entries = []
   const c: Character = { id: 'ysoki', systems: ['sf2e'], name: 'Test', level: 1, ancestry: 'Ysoki',
     heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Extra Limbs',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-  expect(markup).toContain('aria-label="Test-Subject adaptation"')
-  expect(markup).toContain('<option selected="">Extra Limbs</option>')
+  expect(markup).not.toContain('aria-label="Test-Subject adaptation"')
+  expect(markup).toContain('Test-Subject Ysoki (Extra Limbs)')
   expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, heritage: undefined }} onClose={() => {}} />))
     .not.toContain('aria-label="Test-Subject adaptation"')
 })
@@ -699,7 +699,7 @@ it('shows Cyborg traits and its integrated comm unit without the optional house 
 it('shows Cyborg benefits for Test-Subject Ysoki only when the house rule is enabled', () => {
   const previous = getSettings().cyborgTestSubject
   const c: Character = { id: 'test-subject', systems: ['sf2e'], name: 'Test', level: 1, ancestry: 'Ysoki',
-    heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Extra Limbs',
+    heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Cybernetic Augmentation',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   try {
@@ -710,7 +710,7 @@ it('shows Cyborg benefits for Test-Subject Ysoki only when the house rule is ena
     expect(markup).toContain('>Tech trait</a>')
     expect(markup).toContain('Comm Unit')
     expect(markup).toContain('aria-label="Augmentation capacity">0/8</small>')
-    expect(markup).toContain('<option selected="">Extra Limbs</option>')
+    expect(markup).toContain('Test-Subject Ysoki (Cybernetic Augmentation)')
     updateSettings({ cyborgTestSubject: false })
     const disabled = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
     expect(disabled).not.toContain('>Cyborg trait</a>')

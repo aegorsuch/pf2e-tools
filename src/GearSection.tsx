@@ -24,7 +24,7 @@ import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { TotalBreakdown } from './TotalBreakdown'
 import { BRIAR_MAX_SHARPNESS, briarSharpnessPoints, namedWeaponAbilities, namedWeaponEnhancements, namedWeaponStrikeNote, withNamedWeaponState } from './namedWeapons'
-import { installedHardlightUpgrades, isFeatEffectActive, raptorialEdgeImproved } from './builder'
+import { crimsonClawUsesVersatileSlashing, installedHardlightUpgrades, isFeatEffectActive, raptorialEdgeImproved, solarianOrbitalCrystals } from './builder'
 import { getSettings } from './settings'
 import { ARMIGER_ARMOR_ID, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, IRON_FIST, OVERSIZED_THROW, SPARK_FIST, UNTAMED_CLAWS } from './supplemental'
@@ -1227,7 +1227,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
       && !entries.some(entry => entry.kind === 'weapon' && entry.id === weapon.id && entry.data.granted_by_heritage)),
       ...(c.weapons ?? []).filter((weapon) =>
       (isDuplicateVeskAttack(c, entries, weapon) || weapon.id === 'sf2e:soldier:offensive-defense'
-        || isAutomaticUnarmed(weapon.name) || weapon.name === HAFT_STRIKER_WEAPON.name || weapon.id === GAUNTLET.id || weapon.id === OVERSIZED_THROW.id)
+        || isAutomaticUnarmed(weapon.name) || weapon.id === 'sf2e:pahtra:claw' || weapon.name === HAFT_STRIKER_WEAPON.name || weapon.id === GAUNTLET.id || weapon.id === OVERSIZED_THROW.id)
         && !weapons.some((visible) => visible.id === weapon.id))],
     ...extra,
   })
@@ -1564,7 +1564,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 <option value="Flame">Flame pistol</option><option value="Frost">Frost pistol</option><option value="Merged">Merged (120 ft.)</option>
               </select>
             </label>}
-            {a.entry?.weaponModes && a.entry.weaponModes.length > 1 && (crimsonClawModes
+            {a.entry?.weaponModes && a.entry.weaponModes.length > 1
+              && !(crimsonClawModes && crimsonClawUsesVersatileSlashing(c, entries, w)) && (crimsonClawModes
               ? <label><input type="checkbox" aria-label={`Crimson Claw mode: ${displayName}`}
                 checked={crimsonClawModes.selected.id === crimsonClawModes.fire.id}
                 onChange={event => update(w.id, { weaponMode: event.target.checked
@@ -1816,14 +1817,8 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 onChange={(striking) => update(w.id, { striking })} />}
             </div>}
             {solarCrystals && a.entry && <div className="gear-runes">
-              {solarianCoreCrystals(c.level).potencyGrade && <GearTag name={`Weapon Potency (${solarianCoreCrystals(c.level).potencyGrade})`}
-                entry={entries.find(item => item.name === `Weapon Potency (${solarianCoreCrystals(c.level).potencyGrade})` && item.data.item_subcategory === 'Core Crystal')}
-                kind="upgrade" source="Core solarian crystal by level" />}
-              {solarianCoreCrystals(c.level).strikingGrade && <GearTag name={`Striking (${solarianCoreCrystals(c.level).strikingGrade})`}
-                entry={entries.find(item => item.name === `Striking (${solarianCoreCrystals(c.level).strikingGrade})` && item.data.item_subcategory === 'Core Crystal')}
-                kind="upgrade" source="Core solarian crystal by level" />}
-              <WeaponUpgrades crystals entries={entries} weapon={a.entry} upgrades={w.upgrades ?? []} effectiveUpgrades={a.upgrades}
-                limit={solarianCoreCrystals(c.level).potency} onChange={upgrades => update(w.id, { upgrades })} />
+              <WeaponUpgrades crystals entries={entries} weapon={a.entry} upgrades={solarianOrbitalCrystals(c, w)} effectiveUpgrades={a.upgrades}
+                limit={solarianCoreCrystals(c.level).potency} onChange={upgrades => save({ solarianOrbitalCrystals: upgrades })} />
             </div>}
             {upgradeWeapon && a.entry && !linkedSource && <>
               {(w.runes.length > 0 || w.potency > 0 || w.striking > 0) && <small role="status">Saved runes are inactive on this weapon.</small>}
@@ -1837,7 +1832,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 } : undefined}
                 onChange={upgrades => update(w.id, { upgrades })} />
             </>}
-            {!fixed && !upgradeWeapon && !(unarmed && handwraps?.kind === 'hardlight' && !iruxiGranted) && <Runes runes={livingWeapon ? shared.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(shared.potency))
+            {!fixed && !upgradeWeapon && !solarCrystals && !(unarmed && handwraps?.kind === 'hardlight' && !iruxiGranted) && <Runes runes={livingWeapon ? shared.runes.filter((rune) => runeName(rune) !== 'Shifting').slice(0, maxPropertyRunes(shared.potency))
               : (forms.length ? w.runes : enhanced.runes).filter((rune) => rune !== blessed && (!freeShifting || rune !== 'Shifting')
                 && (!iruxiGranted || runeBaseName(rune) !== 'Astral')
                 && (!decaying || runeBaseName(rune) !== 'Decaying')
@@ -1886,11 +1881,13 @@ export function TurretWeapon({ c, entries, save, displayOnly }: SectionProps & {
           const next = TURRET_GRADES.find(option => option === event.target.value)
           if (next) save({ mechanicTurretGrade: next })
         }}>
-          {TURRET_GRADES.map(option => <option key={option}>{option}</option>)}
+          {TURRET_GRADES.map(option => <option key={option}
+            disabled={TURRET_GRADES.indexOf(option) < TURRET_GRADES.indexOf(automaticHardlightGrade(c.level))}>{option}</option>)}
         </select>
       </label>
       <WeaponUpgrades entries={entries} weapon={entry} upgrades={c.mechanicTurretUpgrades ?? []}
-        limit={Number(entry.data.upgrade_slots)} onChange={upgrades => save({ mechanicTurretUpgrades: upgrades })} />
+        effectiveUpgrades={attack.upgrades} limit={Number(entry.data.upgrade_slots)}
+        onChange={upgrades => save({ mechanicTurretUpgrades: upgrades })} />
     </>}
     <small>Strike from the deployed turret within 150 feet; shares your multiple attack penalty. Cannot Strike while broken.</small>
   </div>

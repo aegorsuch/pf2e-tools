@@ -6,7 +6,7 @@ import { SpellDefenseFilter } from './SpellDefenseFilter'
 import { matchesSpellDefense, type SpellDefense } from './spellDefense'
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
-import type { ContentEntry } from './types'
+import type { ContentEntry, GameSystem } from './types'
 
 type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue' | 'value'> & {
   'aria-label': string
@@ -24,11 +24,12 @@ type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue
   optionLevel?: (value: string) => number | undefined
   optionSortName?: (value: string) => string | undefined
   optionSpell?: (value: string) => ContentEntry | undefined
+  optionSystems?: (value: string) => GameSystem[]
 }
 
 const PAGE = 100
 
-export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, defaultSortOrder = 'name', filters, primaryDetails = false, renderDetails, searchText, optionLevel, optionSortName, optionSpell, children, onChange, value, ...props }: Props) {
+export function SearchableSelect({ label, onPrepare, onClear, optionCount, alwaysSearchable = false, defaultSortOrder = 'name', filters, primaryDetails = false, renderDetails, searchText, optionLevel, optionSortName, optionSpell, optionSystems, children, onChange, value, ...props }: Props) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [limit, setLimit] = useState(PAGE)
@@ -59,7 +60,8 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
       && !!option.value && (match || option.value === value)
     const spell = needsSpell ? optionSpell(option.value) : undefined
     const defenseMatch = !optionSpell || defense === 'all' || matchesSpellDefense(spell, defense)
-    const systemMatch = !optionSpell || system === 'both' || !!spell && matchesGearSystem(spell, system, spell.systems)
+    const systemMatch = system === 'both' || (optionSystems ? optionSystems(option.value).includes(system)
+      : !optionSpell || !!spell && matchesGearSystem(spell, system, spell.systems))
     if (option.value && match && defenseMatch && systemMatch) matches++
     if ((!primaryDetails || option.value) && ((!option.value || match || option.value === value)
       && (!option.value || defenseMatch && systemMatch))) matching.push(option)
@@ -106,7 +108,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
       {optionLevel && <PickerSort label={`Sort ${props['aria-label']} by`} value={sort}
         includeHighestLevel={defaultSortOrder === 'level-desc'} onChange={next => { setSort(next); setLimit(PAGE) }} />}
       {optionSpell && <SpellDefenseFilter value={defense} onChange={next => { setDefense(next); setLimit(PAGE) }} />}
-      {optionSpell && <GearSystemFilter value={system} onChange={next => { setSystem(next); setLimit(PAGE) }} />}
+      {(optionSpell || optionSystems) && <GearSystemFilter value={system} onChange={next => { setSystem(next); setLimit(PAGE) }} />}
       {filters}
       <ul className="feat-modal-list">
         {shown.map((option, index) => <Fragment key={option.value}>

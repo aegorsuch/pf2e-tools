@@ -4,6 +4,7 @@ import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
 import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, enhancedSensesChoice, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, characterAncestryLabel, characterSummary, subclassOptions, subclassSkillChoice, subclassSkillGrants, selectedSubclass, investigatorSkillfulLessonSkills, availableOrders, featLores, trainedFeatLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, automaticSpecificArmorUpgrades, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, weaponHands, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange, syncClassArchetypeDedication, warriorLegendWeakness, parryValue, temporaryHpGrant } from './builder'
 import { getSettings, updateSettings } from './settings'
+import { characterHeritages } from './heritages'
 import { automaticFeatChoiceKey, coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting, wizardSchoolBookSpells } from './builder'
@@ -324,7 +325,8 @@ it('computes feat equivalence only for eligible candidates and reuses it across 
 
 it('refreshes heritage eligibility when the house rule changes', () => {
   const previous = getSettings().cyborgTestSubject
-  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki', level: 1 }
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki', level: 1,
+    testSubjectAdaptation: 'Cybernetic Augmentation' }
   const frame = { ...entry('feat', 'Gg-os Frame', {}, 1, ['Cyborg']), systems: ['sf2e' as const] }
   const slot = { key: 'ancestry:1:0', category: 'ancestry' as const, level: 1 }
   try {
@@ -1068,15 +1070,24 @@ it('applies Test-Subject Ysoki and Rat Retinal HUD training without duplicating 
 it('grants Test-Subject Ysoki Cyborg eligibility and benefits without granting Test-Subject to Cyborg', () => {
   const previous = getSettings().cyborgTestSubject
   const c: Character = { ...base, level: 1, systems: ['sf2e'], ancestry: 'Ysoki',
-    heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Extra Limbs', feats: [] }
+    heritage: 'Test-Subject Ysoki', testSubjectAdaptation: 'Cybernetic Augmentation', feats: [] }
   const cyborg = { ...entry('heritage', 'Cyborg'), systems: ['sf2e' as const] }
   const gated = { ...entry('feat', 'Heritage Gate', { prerequisite: 'Cyborg heritage' }), systems: ['sf2e' as const] }
-  const entries = [cyborg, gated]
+  const testSubject = { ...entry('heritage', 'Test-Subject Ysoki'), systems: ['sf2e' as const] }
+  const entries = [cyborg, testSubject, gated]
   try {
     updateSettings({ cyborgTestSubject: true })
     expect(featPrerequisiteChecker(c, entries)(gated).missing).toEqual([])
     expect(featChoices.ancestryFeatTraits(c)).toContain('cyborg')
-    expect(automaticFeatGrants(c, [])).not.toContainEqual(expect.objectContaining({ source: 'Test-Subject Ysoki' }))
+    expect(characterHeritages(c, entries).map(heritage => heritage.name)).toEqual(['Test-Subject Ysoki', 'Cyborg'])
+    expect(automaticFeatGrants({ ...c, testSubjectAdaptation: 'Extra Limbs' }, []))
+      .not.toContainEqual(expect.objectContaining({ source: 'Test-Subject Ysoki' }))
+    for (const adaptation of ['Extra Limbs', 'Psychic Augmentation', 'Radioactive', undefined] as const) {
+      const other = { ...c, testSubjectAdaptation: adaptation }
+      expect(featPrerequisiteChecker(other, entries)(gated).missing).not.toEqual([])
+      expect(featChoices.ancestryFeatTraits(other)).not.toContain('cyborg')
+      expect(characterHeritages(other, entries).map(heritage => heritage.name)).toEqual(['Test-Subject Ysoki'])
+    }
     const former = { ...c, heritage: 'Cyborg', testSubjectAdaptation: 'Cybernetic Augmentation' as const }
     expect(automaticFeatGrants(former, [])).not.toContainEqual(expect.objectContaining({ source: 'Test-Subject Ysoki' }))
     expect(featChoices.ancestryFeatTraits(former)).not.toContain('test-subject ysoki')
@@ -1094,7 +1105,7 @@ it('grants Test-Subject Ysoki Cyborg eligibility and benefits without granting T
 it('grants Cyberborn Test-Subject Cyborgs one additional first-level general feat slot', () => {
   const previous = getSettings()
   const c: Character = { ...base, level: 1, systems: ['sf2e'], ancestry: 'Ysoki',
-    heritage: 'Test-Subject Ysoki', background: 'Cyberborn', feats: [] }
+    heritage: 'Test-Subject Ysoki', background: 'Cyberborn', testSubjectAdaptation: 'Cybernetic Augmentation', feats: [] }
   const general = { ...entry('feat', 'Fleet', {}, 1, ['General']), systems: ['sf2e' as const] }
   const slot = 'general:1:cyberborn-test-subject'
   try {
@@ -1104,7 +1115,8 @@ it('grants Cyberborn Test-Subject Cyborgs one additional first-level general fea
     expect(eligibleFeats([general], c, granted)).toContain(general)
     expect(plannedSlots({ ...c, level: 20 }).filter(item => item.key === slot)).toHaveLength(1)
     for (const other of [{ ...c, background: undefined }, { ...c, ancestry: 'Human' },
-      { ...c, heritage: 'Cyborg' }, { ...c, systems: ['pf2e' as const] }, { ...c, level: 0 }]) {
+      { ...c, heritage: 'Cyborg' }, { ...c, testSubjectAdaptation: 'Extra Limbs' as const },
+      { ...c, systems: ['pf2e' as const] }, { ...c, level: 0 }]) {
       expect(plannedSlots(other).some(item => item.key === slot)).toBe(false)
     }
     updateSettings({ cyborgTestSubject: false })

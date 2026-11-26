@@ -1,7 +1,7 @@
-import { activeFeatsNamed, proficiencyBonus, protectCompanionApplies } from './builder'
+import { activeFeatsNamed, mechanicExocortexes, proficiencyBonus, protectCompanionApplies } from './builder'
 import { energyNeutralizerResistances } from './mechanicEnergy'
 import { boostingTheBasics } from './mechanicMods'
-import type { Character, ContentEntry, DroneCustomizationGrade } from './types'
+import type { Character, ContentEntry, DroneCustomization, DroneCustomizationGrade } from './types'
 
 type Customization = {
   name: string
@@ -79,7 +79,7 @@ export const DRONE_CUSTOMIZATIONS: Record<DroneCustomizationGrade, readonly Cust
 }
 
 export function droneCustomizationSlots(c: Character) {
-  if (c.className !== 'Mechanic' || !c.systems.includes('sf2e') || c.subclass !== 'Drone') return undefined
+  if (!c.systems.includes('sf2e') || !mechanicExocortexes(c).includes('Drone')) return undefined
   const count = (name: string) => Math.min(3, activeFeatsNamed(c, name).length)
   const tactical = count('Tactical Drone') > 0
   const advanced = tactical && count('Advanced Drone') > 0
@@ -90,6 +90,21 @@ export function droneCustomizationSlots(c: Character) {
     Advanced: advanced ? 2 + count('Advanced Customization') : 0,
     Superior: superior ? 2 + count('Superior Customization') : 0,
   }
+}
+
+export function droneCustomizations(c: Character, grade: DroneCustomizationGrade): DroneCustomization[] {
+  const slots = droneCustomizationSlots(c)
+  if (!slots?.[grade]) return []
+  const saved = c.mechanicDroneCustomizations?.[grade] ?? []
+  const base = grade === 'Commercial' ? 3 : 2
+  const feats = c.feats.filter(feat => feat.name === `${grade} Customization`)
+  const active = new Set(activeFeatsNamed(c, `${grade} Customization`))
+  const added = feats.flatMap((feat, index) => {
+    if (!active.has(feat)) return []
+    const stored = saved[base + index]
+    return [feat.choice ? { ...(stored?.name === feat.choice ? stored : {}), name: feat.choice } : stored ?? { name: '' }]
+  }).slice(0, slots[grade] - base)
+  return [...Array.from({ length: base }, (_, index) => saved[index] ?? { name: '' }), ...added]
 }
 
   const CHASSIS = {
@@ -124,7 +139,7 @@ export function droneCustomizationSlots(c: Character) {
       .filter((choice): choice is string => !!choice && ['Ambusher', 'Bully', 'Daredevil', 'Racer', 'Tracker', 'Wrecker'].includes(choice)))].slice(0, 3) : []
     const superior = specs.length > 0
     const selected = (Object.keys(slots) as DroneCustomizationGrade[])
-      .flatMap(grade => (c.mechanicDroneCustomizations?.[grade] ?? []).slice(0, slots[grade]))
+      .flatMap(grade => droneCustomizations(c, grade))
     const has = (name: string) => selected.some(item => item.name === name)
     const mods: Record<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha', number> = { str: chassis.str, dex: chassis.dex, con: chassis.con, int: chassis.int, wis: chassis.wis, cha: chassis.cha }
     if (tactical) for (const ability of ['str', 'dex', 'con', 'wis'] as const) mods[ability]++

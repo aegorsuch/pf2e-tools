@@ -514,7 +514,7 @@ export function MinionsSummary({ c, entries = [] }: Pick<SectionProps, 'c'> & Pa
   return <summary className="character-section-summary">
     <strong>Minions</strong>
     <span>{[...companions.map((_, index) => companionTitle(c, index)),
-      ...(c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' ? ['Drone'] : []),
+      ...(c.systems.includes('sf2e') && mechanicExocortexes(c).includes('Drone') ? ['Drone'] : []),
       ...(c.systems.includes('sf2e') && mechanicExocortexes(c).includes('Turret') ? ['Turret'] : []),
       ...(servoShell ? ['Personal Minibot'] : []),
       ...(familiarState ? [`${familiarName} (${familiarState.selectedCount}/${familiarState.totalCount})`] : []),
@@ -823,7 +823,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
         {c.summonedPlant && <SummonedFiendCard c={c} entries={entries} fiend={c.summonedPlant} plant save={save} protectedByCompanion={protectedByCompanion} />}
         {c.summonedUndead && <SummonedFiendCard c={c} entries={entries} fiend={c.summonedUndead} undead activeSpells={c.activeSpells} save={save} protectedByCompanion={protectedByCompanion} />}
         {activeSummonedFiend(c) && <SummonedFiendCard c={c} entries={entries} fiend={activeSummonedFiend(c)!} activeSpells={c.activeSpells} save={save} protectedByCompanion={protectedByCompanion} />}
-        {c.className === 'Mechanic' && c.systems.includes('sf2e') && c.subclass === 'Drone' && <details className="character-subsection" data-minion-name="Drone" open>
+        {c.systems.includes('sf2e') && mechanicExocortexes(c).includes('Drone') && <details className="character-subsection" data-minion-name="Drone" open>
           <summary><h4>Drone</h4></summary>
           <DroneFeatures c={c} entries={entries} save={save} />
         </details>}

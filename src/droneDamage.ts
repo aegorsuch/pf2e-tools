@@ -1,4 +1,4 @@
-import { droneCustomizationSlots, droneForceField, droneStats } from './drone'
+import { droneCustomizations, droneForceField, droneStats } from './drone'
 import type { Character, ContentEntry } from './types'
 
 export const DRONE_DAMAGE_TYPES = ['acid', 'bleed', 'bludgeoning', 'cold', 'electricity', 'fire', 'mental',
@@ -21,8 +21,7 @@ export function damageDrone(c: Character, entries: ContentEntry[], amount: numbe
   const id = c.mechanicDroneArmorUpgrades?.[0]
   const entry = id && entries.find(item => item.id === id && !item.deleted && item.kind === 'item'
     && item.systems.includes('sf2e') && item.data.item_subcategory === 'Armor Upgrades')
-  const slots = droneCustomizationSlots(c)
-  const hasSlot = (c.mechanicDroneCustomizations?.Commercial ?? []).slice(0, slots?.Commercial ?? 0)
+  const hasSlot = droneCustomizations(c, 'Commercial')
     .some(item => item.name === 'Upgrade Slot')
   const field = entry && hasSlot ? droneForceField(entry) : undefined
   const state = id && field ? c.mechanicDroneForceFields?.[id] : undefined

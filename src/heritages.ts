@@ -1,4 +1,4 @@
-import { featTakenLevel } from './featChoices'
+import { featTakenLevel, hasCyborgHeritage } from './featChoices'
 import type { Character, ContentEntry } from './types'
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -92,7 +92,10 @@ export function characterHeritages(c: Character, entries: ContentEntry[]) {
   const atavism = c.feats.some(feat => ['Elf Atavism', 'Elven Atavism'].includes(feat.name))
   const choices = new Set(atavism ? c.feats.filter(feat => ['Elf Atavism', 'Elven Atavism'].includes(feat.name)
     && featTakenLevel(feat) <= c.level).map(feat => feat.choice) : [])
+  const cyborg = primary?.name !== 'Cyborg' && hasCyborgHeritage(c)
+    ? namedEntries(entries).heritage.get('Cyborg')?.find(entry => entry.systems.includes('sf2e')) : undefined
   return [...(primary ? [primary] : []),
+    ...(cyborg ? [cyborg] : []),
     ...(choices.size ? elfAtavismOptions(c, entries).filter(entry => choices.has(entry.name) && entry.name !== primary?.name) : [])]
 }
 

@@ -123,6 +123,8 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
         </select>
       </label>}
       <SearchableSelect label={label} aria-label={label} value={selectedValue ?? ''} disabled={disabled} onPrepare={prepare} optionCount={labels.size}
+        alwaysSearchable={kind === 'class'}
+        optionSystems={kind === 'class' ? name => [...new Set(options.filter(entry => entry.name === name).flatMap(entry => entry.systems))] : undefined}
         searchText={kind === 'background' ? name => String(byName.get(name)?.data.feat ?? '') : undefined}
         renderDetails={name => {
           const entry = byName.get(name)
@@ -142,6 +144,28 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
 }
 
 const NONE_LORES: string[] = []
+
+const TEST_SUBJECT_ADAPTATIONS = ['Cybernetic Augmentation', 'Extra Limbs', 'Psychic Augmentation', 'Radioactive'] as const
+
+export function HeritagePick({ c, entries, save }: SectionProps) {
+  const canChooseAdaptation = c.systems.includes('sf2e') && c.ancestry === 'Ysoki'
+  const variants = TEST_SUBJECT_ADAPTATIONS.map(adaptation => ({
+    adaptation, name: `Test-Subject Ysoki (${adaptation})`,
+  }))
+  const options = heritagesFor(entries, c.ancestry)
+    .filter(entry => !getSettings().disableAncientElfMultitalented || entry.name !== 'Ancient Elf')
+    .flatMap(entry => canChooseAdaptation && entry.name === 'Test-Subject Ysoki' && entry.systems.includes('sf2e')
+      ? [...(c.heritage === entry.name && !c.testSubjectAdaptation ? [entry] : []),
+        ...variants.map(variant => ({ ...entry, name: variant.name }))]
+      : [entry])
+  const value = canChooseAdaptation && c.heritage === 'Test-Subject Ysoki' && c.testSubjectAdaptation
+    ? variants.find(variant => variant.adaptation === c.testSubjectAdaptation)?.name ?? c.heritage : c.heritage
+  return <Pick label="Heritage" kind="heritage" ancestry={c.ancestry} value={value} options={options}
+    onChange={name => {
+      const variant = variants.find(option => option.name === name)
+      save({ heritage: variant ? 'Test-Subject Ysoki' : name, testSubjectAdaptation: variant?.adaptation })
+    }} />
+}
 
 export function ClassPick({ c, entries, save, options }: SectionProps & { options: ContentEntry[] }) {
   const archetypes = c.systems.includes('pf2e') ? CLASS_ARCHETYPES : []
@@ -646,10 +670,8 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
         </summary>
         <DeferredContent>{() => <div className="character-section-content">
           <div className="row">
-            <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined, ethnicity: undefined })} />
-            <Pick label="Heritage" kind="heritage" ancestry={c.ancestry} value={c.heritage}
-              options={heritagesFor(entries, c.ancestry).filter(entry => !getSettings().disableAncientElfMultitalented || entry.name !== 'Ancient Elf')}
-              onChange={(v) => save({ heritage: v })} />
+            <Pick label="Ancestry" kind="ancestry" value={c.ancestry} options={of('ancestry')} onChange={(v) => save({ ancestry: v, heritage: undefined, ethnicity: undefined, testSubjectAdaptation: undefined })} />
+            <HeritagePick {...section} />
               {ethnicities.length > 0 && <SearchableSelect label="Ethnicity" aria-label="Ethnicity" value={selectedEthnicity} onChange={(e) => save({ ethnicity: e.target.value || undefined })}>
                 <option value="">Not specified</option>
                 {selectedEthnicity && !ethnicities.includes(selectedEthnicity) && <option value={selectedEthnicity} disabled={unavailableEthnicity}>
@@ -660,23 +682,6 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           </div>
           {ancestry && <AncestryDetails entry={ancestry} />}
           {heritage && <AncestryDetails entry={heritage} />}
-          {c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki' && <label>
-            Test-Subject adaptation{' '}
-            <select aria-label="Test-Subject adaptation" value={c.testSubjectAdaptation ?? ''}
-              onChange={event => {
-                const value = event.target.value
-                if (value === '' || value === 'Cybernetic Augmentation' || value === 'Extra Limbs'
-                  || value === 'Psychic Augmentation' || value === 'Radioactive') {
-                  save({ testSubjectAdaptation: value || undefined })
-                }
-              }}>
-              <option value="">Choose adaptation</option>
-              <option>Cybernetic Augmentation</option>
-              <option>Extra Limbs</option>
-              <option>Psychic Augmentation</option>
-              <option>Radioactive</option>
-            </select>
-          </label>}
           {(c.systems.includes('sf2e') && c.ancestry === 'Ysoki' && c.heritage === 'Test-Subject Ysoki')
             && <Info label="Test-Subject Ysoki">
               <a href="https://2e.aonsrd.com/heritages/141-test-subject-ysoki" target="_blank" rel="noreferrer">Heritage rules</a>

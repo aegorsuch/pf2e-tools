@@ -3,9 +3,82 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it, vi } from 'vitest'
-import { CharacterBuilder } from './CharacterBuilder'
+import { CharacterBuilder, ClassPick, HeritagePick } from './CharacterBuilder'
 import { plannedSlots } from './builder'
 import type { Character, ContentEntry } from './types'
+
+it('filters the character class picker by system without losing the selected class', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  } })
+  const c: Character = { id: 'class-picker', systems: ['pf2e', 'sf2e'], name: 'Test', level: 1, className: 'Fighter',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const entry = (name: string, systems: ContentEntry['systems']): ContentEntry => ({ id: name, name, systems,
+    kind: 'class', source: 'official', level: 1, traits: [], description: '', data: {}, effects: [], updatedAt: 0 })
+  const options = [entry('Fighter', ['pf2e']), entry('Mechanic', ['sf2e']), entry('Shared', ['pf2e', 'sf2e'])]
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<ClassPick c={c} entries={options} options={options} save={() => {}} />))
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Class"]')!.click())
+    const filter = document.querySelector<HTMLSelectElement>('select[aria-label="Systems"]')!
+    await act(async () => { filter.value = 'sf2e'; filter.dispatchEvent(new Event('change', { bubbles: true })) })
+    expect(document.querySelector('button[aria-label="Class: Mechanic"]')).toBeTruthy()
+    expect(document.querySelector('button[aria-label="Class: Shared"]')).toBeTruthy()
+    expect(document.querySelector('button[aria-label="Class: Fighter"]')).toBeNull()
+    expect(container.querySelector<HTMLSelectElement>('select[aria-label="Class"]')!.value).toBe('Fighter')
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('selects and preserves Test-Subject heritage variants', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  let c: Character = {
+    id: 'ysoki-variants', systems: ['sf2e'], name: 'Test', level: 1, ancestry: 'Ysoki',
+    heritage: 'Test-Subject Ysoki',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+  }
+  const heritage: ContentEntry = { id: 'ysoki-heritage', name: 'Test-Subject Ysoki', kind: 'heritage',
+    source: 'official', systems: ['sf2e'], level: 0, traits: ['Ysoki'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const other: ContentEntry = { ...heritage, id: 'other', name: 'Cyborg', traits: [] }
+  const entries = [heritage, other]
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const render = async () => {
+    await act(async () => root.render(<HeritagePick c={c} entries={entries} save={patch => { c = { ...c, ...patch } }} />))
+  }
+  try {
+    await render()
+    const select = container.querySelector<HTMLSelectElement>('select[aria-label="Heritage"]')!
+    expect(select.value).toBe('Test-Subject Ysoki')
+    await act(async () => select.dispatchEvent(new FocusEvent('focusin', { bubbles: true })))
+    for (const adaptation of ['Cybernetic Augmentation', 'Extra Limbs', 'Psychic Augmentation', 'Radioactive'] as const) {
+      const value = `Test-Subject Ysoki (${adaptation})`
+      expect([...select.options].some(option => option.value === value)).toBe(true)
+      await act(async () => { select.value = value; select.dispatchEvent(new Event('change', { bubbles: true })) })
+      expect(c.heritage).toBe('Test-Subject Ysoki')
+      expect(c.testSubjectAdaptation).toBe(adaptation)
+      c = JSON.parse(JSON.stringify(c))
+      await render()
+      expect(select.value).toBe(value)
+    }
+    await act(async () => { select.value = 'Cyborg'; select.dispatchEvent(new Event('change', { bubbles: true })) })
+    expect(c.heritage).toBe('Cyborg')
+    expect(c.testSubjectAdaptation).toBeUndefined()
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})
 
 it('keeps section summaries current without mounting closed section controls', () => {
   const c: Character = {

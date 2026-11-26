@@ -1631,6 +1631,36 @@ it('uses a Fire/Slashing toggle for Crimson Claw without generic powered-mode he
   expect(markup()).toContain('> Slashing <span class="action-cost"')
 })
 
+it('hides Crimson Claw mode when natural claws grant versatile slashing', () => {
+  const entry: ContentEntry = { ...weapon, name: 'Crimson Claw', systems: ['sf2e'],
+    traits: ['Agile', 'Powered'], data: { hands: 1, damage: '1d4 fire', weapon_type: 'Melee',
+      weapon_category: 'Advanced', weapon_tracking: 1, upgrade_slots: 1 },
+    weaponModes: [{ id: 'fire', damageType: 'fire', traits: ['Powered'] },
+      { id: 'slash', damageType: 'slashing', traits: ['Analog'] }] }
+  const c: Character = { ...character([{ name: 'Predatory', choice: 'Claw', type: 'Ancestry Feat', level: 1 }]),
+    systems: ['sf2e'], ancestry: 'Pahtra',
+    weapons: [{ id: 'claw-weapon', name: 'Crimson Claw', potency: 0, striking: 0, runes: [], weaponMode: 'slash' }] }
+  const attack = weaponAttack(c, [entry], c.weapons![0])
+  expect(attack.damage).toMatch(/fire/)
+  expect(attack.traits).toContain('Versatile S')
+  expect(renderToStaticMarkup(<WeaponList c={c} entries={[entry]} save={() => {}} />))
+    .not.toContain('Crimson Claw mode:')
+  expect(weaponAttack({ ...c, feats: [] }, [entry], c.weapons![0]).damage).toMatch(/slashing/)
+})
+
+it('shows orbital crystals without rune controls or core crystal ratings on solar manifestations', () => {
+  const crystal: ContentEntry = { ...weapon, id: 'photon', name: 'Photon (Commercial)', kind: 'item', systems: ['sf2e'],
+    level: 7, data: { item_subcategory: 'Orbital Crystal' } }
+  const c: Character = { ...character([{ name: 'Twin Weapons', type: 'Class Feat', level: 1 }]),
+    systems: ['sf2e'], className: 'Solarian', level: 10, solarianAttunement: 'Photon', weapons: [] }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[crystal,
+    { ...crystal, id: 'other', name: 'Other' }]} save={() => {}} />)
+  expect(markup).toContain('Add orbital crystal')
+  expect(markup).not.toContain('Add property rune')
+  expect(markup).not.toContain('Weapon Potency (')
+  expect(markup).not.toContain('Striking (')
+})
+
 it.each(['Lesser', 'Moderate', 'Major'] as const)('protects installed %s reinforcement while Blessed Shield is selected', rune => {
   const c: Character = { ...character([]), className: 'Champion', level: 10, blessing: 'Blessed Shield',
     shield: { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: false, reinforcingRune: rune } }

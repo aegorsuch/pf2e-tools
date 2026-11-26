@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { activeFeatsNamed, type SectionProps } from './builder'
-import { droneCustomizationSlots, droneStats } from './drone'
+import { droneCustomizationSlots, droneCustomizations, droneStats } from './drone'
 import { damageDrone, DRONE_DAMAGE_TYPES, type DroneDamageType } from './droneDamage'
 import { Info } from './Info'
 
@@ -15,7 +15,7 @@ export function DroneHealth({ c, entries, save }: SectionProps) {
   if (!stats || !slots) return null
   const hp = Math.min(stats.hp, Math.max(0, c.mechanicDroneHp ?? stats.hp))
   const temp = Math.max(0, c.mechanicDroneTemporaryHp ?? 0)
-  const emergency = (c.mechanicDroneCustomizations?.Advanced ?? []).slice(0, slots.Advanced)
+  const emergency = droneCustomizations(c, 'Advanced')
     .some(item => item.name === 'Emergency Repair')
   const value = Number(amount)
   return <details>

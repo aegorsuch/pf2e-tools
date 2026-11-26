@@ -27,7 +27,7 @@ it('selects unique extra arrays and rolls both Self-destruct damage types', asyn
     expect(container.querySelector<HTMLOptionElement>('[aria-label="Expansive Array 2"] option[value="Mental Array"]')?.disabled).toBe(true)
     const array = container.querySelector<HTMLSelectElement>('[aria-label="Turret array"]')!
     await act(async () => { array.value = 'Mental Array'; array.dispatchEvent(new Event('change', { bubbles: true })) })
-    expect(turretWeapon(c, [])?.entry.data.damage).toBe('1d8 mental')
+    expect(turretWeapon(c, [])?.entry.data.damage).toBe('2d8 mental')
     await act(async () => render())
     const roll = container.querySelector<HTMLButtonElement>('[aria-label="Roll Self-destruct: Damage and Fire damage"]')!
     expect(roll.title).toContain('3d6 piercing')

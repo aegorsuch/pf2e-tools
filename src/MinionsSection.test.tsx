@@ -2570,6 +2570,82 @@ it('scales solar weapon core crystals by level and limits orbital crystals to it
   expect(installedWeaponUpgrades(c, entries, { ...weapon, upgrades: ['o1', 'o2'] })).toHaveLength(2)
 })
 
+it('adds Photon crystal damage only while photon attuned and uses the highest installed grade', async () => {
+  const { weaponAttack } = await import('./builder')
+  const orbital = (id: string, name: string, level: number): ContentEntry => ({
+    id, name, kind: 'item', systems: ['sf2e'], level, source: 'official', traits: [],
+    description: '', data: { item_subcategory: 'Orbital Crystal' }, effects: [], updatedAt: 0,
+  })
+  const entries = [orbital('commercial', 'Photon (Commercial)', 7), orbital('tactical', 'Photon (Tactical)', 14)]
+  const c: Character = { id: 'photon', name: 'Test', systems: ['sf2e'], level: 16, className: 'Solarian',
+    solarianAttunement: 'Photon', abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Twin Weapons', type: 'Class Feat', level: 1 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const weapons = ownedWeapons(c, entries).filter(item => item.id.startsWith('sf2e:solarian:'))
+  expect(weapons).toHaveLength(3)
+  for (const weapon of weapons) {
+    const installed = { ...weapon, upgrades: ['commercial', 'tactical'] }
+    const bonuses = weaponAttack(c, entries, installed).additionalDamage.filter(item => item.source.startsWith('Photon ('))
+    expect(bonuses).toEqual([{ source: 'Photon (Tactical)', value: '1d6 fire',
+      note: expect.stringContaining('DC 31') }])
+    expect(weaponAttack({ ...c, solarianAttunement: 'Graviton' }, entries, installed).additionalDamage
+      .some(item => item.source.startsWith('Photon ('))).toBe(false)
+  }
+})
+
+it('shares orbital crystals between manifestations and preserves legacy crystal selections', async () => {
+  const { installedWeaponUpgrades, solarianOrbitalCrystals } = await import('./builder')
+  const crystal = (id: string): ContentEntry => ({ id, name: id, kind: 'item', systems: ['sf2e'], level: 7,
+    source: 'official', traits: [], description: '', data: { item_subcategory: 'Orbital Crystal' }, effects: [], updatedAt: 0 })
+  const entries = [crystal('A'), crystal('B')]
+  const c: Character = { id: 'shared', name: 'Test', systems: ['sf2e'], level: 10, className: 'Solarian',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    weapons: [{ id: 'sf2e:solarian:solar-weapon', name: 'Solar Weapon', potency: 0, striking: 0, runes: [], upgrades: ['A'] },
+      { id: 'sf2e:solarian:flare', name: 'Solar Flare', potency: 0, striking: 0, runes: [], upgrades: ['B', 'A'] }] }
+  const twin = { id: 'sf2e:solarian:twin-weapon', name: 'Twin Solar Weapon', potency: 0, striking: 0, runes: [] }
+  expect(solarianOrbitalCrystals(c, twin)).toEqual(['A', 'B'])
+  for (const weapon of [...c.weapons!, twin]) {
+    expect(installedWeaponUpgrades(c, entries, weapon).map(item => item.id)).toEqual(['A', 'B'])
+    expect(installedWeaponUpgrades({ ...c, solarianOrbitalCrystals: ['B'] }, entries, weapon).map(item => item.id)).toEqual(['B'])
+    expect(installedWeaponUpgrades({ ...c, solarianOrbitalCrystals: [] }, entries, weapon)).toEqual([])
+  }
+})
+
+it('automatically scales solar crystals within available shared slots and swaps attunement crystals', async () => {
+  const { installedWeaponUpgrades, weaponAttack } = await import('./builder')
+  const previous = getSettings().automaticSfWeaponUpgrades
+  onTestFinished(() => updateSettings({ automaticSfWeaponUpgrades: previous }))
+  updateSettings({ automaticSfWeaponUpgrades: true })
+  const crystal = (name: string, level: number): ContentEntry => ({ id: name, name, kind: 'item', systems: ['sf2e'], level,
+    source: 'official', traits: [], description: '', data: { item_subcategory: 'Orbital Crystal' }, effects: [], updatedAt: 0 })
+  const entries = [crystal('Gluon (Commercial)', 6), crystal('Gluon (Tactical)', 9),
+    crystal('Gluon (Advanced)', 12), crystal('Gluon (Superior)', 15),
+    crystal('Quasar', 13), crystal('Photon (Commercial)', 7),
+    crystal('Photon (Tactical)', 14), crystal('Graviton (Commercial)', 7), crystal('Graviton (Tactical)', 14),
+    crystal('Other', 1)]
+  const c: Character = { id: 'auto-crystals', name: 'Test', systems: ['sf2e'], level: 16, className: 'Solarian',
+    solarianAttunement: 'Photon', abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const weapon = ownedWeapons(c, entries).find(item => item.name === 'Solar Weapon')!
+  const names = (character: Character) => installedWeaponUpgrades(character, entries, weapon).map(item => item.name)
+  expect(names({ ...c, level: 6 })).toEqual(['Gluon (Commercial)'])
+  expect(names({ ...c, level: 10 })).toEqual(['Gluon (Tactical)', 'Photon (Commercial)'])
+  expect(names({ ...c, level: 13 })).toEqual(['Gluon (Advanced)', 'Quasar'])
+  expect(names(c)).toEqual(['Gluon (Superior)', 'Quasar', 'Photon (Tactical)'])
+  const graviton = { ...c, solarianAttunement: 'Graviton' as const }
+  expect(names(graviton)).toEqual(['Gluon (Superior)', 'Quasar', 'Graviton (Tactical)'])
+  expect(weaponAttack(graviton, entries, weapon).additionalDamage).toContainEqual(
+    expect.objectContaining({ source: 'Graviton (Tactical)', value: '1d6 bludgeoning' }))
+  expect(weaponAttack(graviton, entries, weapon).additionalDamage).toContainEqual(
+    expect.objectContaining({ source: 'Gluon (Superior)', value: '1d10 persistent bleed' }))
+  expect(names({ ...c, solarianOrbitalCrystals: ['Other'] })).toEqual(['Other', 'Gluon (Superior)', 'Quasar'])
+  expect(names({ ...c, solarianOrbitalCrystals: ['Photon (Commercial)'] }))
+    .toEqual(['Photon (Tactical)', 'Gluon (Superior)', 'Quasar'])
+  updateSettings({ automaticSfWeaponUpgrades: false })
+  expect(names(c)).toEqual([])
+})
+
 it('gives Kasatha four hands and Skyfire Wings takes one pair', async () => {
   const { totalHandCapacity } = await import('./builder')
   const c: Character = { id: 'ks', name: 'Test', systems: ['sf2e'], level: 6, ancestry: 'Kasatha',
