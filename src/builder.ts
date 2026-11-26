@@ -3245,7 +3245,7 @@ export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
   if (!armor?.systems.includes('sf2e')) return 0
   if (family === 'Carvesong') return 4
   if (family === "Drifter's Jacket") return 3
-  return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Clandestine Suit',
+  return ['Aeon Guard Battle Dress', 'Aquavarius Armor',
     'Myrmidon Siegebreaker Plate', 'Retrieval Harness',
     'Rocketeer Armor', 'Stormbreaker Armor']
     .includes(family ?? '') ? 2 : 0
@@ -3255,7 +3255,7 @@ export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upg
   const family = armorName?.replace(/^(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i, '')
   const base = upgrade.name.replace(/\s*\([^)]*\)$/, '')
   if (family === 'Carvesong') return true
-  if (['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Clandestine Suit', "Drifter's Jacket",
+  if (['Aeon Guard Battle Dress', 'Aquavarius Armor', "Drifter's Jacket",
     'Myrmidon Siegebreaker Plate', 'Retrieval Harness', 'Stormbreaker Armor'].includes(family ?? ''))
     return ['Jetpack', 'Force Field'].includes(base) || family === "Drifter's Jacket" && base === 'Active Camouflage'
   return family === 'Rocketeer Armor' && ['Force Field', 'Maneuvering Unit'].includes(base)
@@ -4593,9 +4593,24 @@ function damayaSelfPerfectionLoreGrants(c: Character) {
     })))
 }
 
+function fieldAgentAdditionalLoreGrants(c: Character, entries?: ContentEntry[]) {
+  if (!entries || !c.systems.includes('sf2e')) return []
+  return activeFeatsNamed(c, 'Starfinder Field Agent Dedication').flatMap(feat => {
+    const choice = c.automaticFeatChoices?.[automaticFeatChoiceKey(feat.name, 'Lore Skill')]?.trim()
+    const prior = { ...c, feats: c.feats.filter(candidate => candidate.name !== feat.name) }
+    if (!choice || (ranksAt(prior, entries, featTakenLevel(feat))['Starfinder Lore'] ?? 0) < 1) return []
+    const lore = /\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`
+    return [{ name: c.lores.find(existing => existing.name.toLowerCase() === lore.toLowerCase())?.name ?? lore,
+      source: feat.name }]
+  })
+}
+
 // Automatically advancing Lore skills, including ancestry-specific grants.
 export const featLores = (c: Character, entries: ContentEntry[]) => [...new Set([
   ...dongunEducationLores(c),
+  ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Starfinder Field Agent Dedication').length
+    ? ['Starfinder Lore'] : []),
+  ...fieldAgentAdditionalLoreGrants(c, entries).map(grant => grant.name),
   ...damayaSelfPerfectionLoreGrants(c).flatMap(grant => {
     const choice = c.automaticFeatChoices?.[grant.choiceKey]?.trim()
     return choice ? [/\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`] : []
@@ -4776,7 +4791,7 @@ export function deityLabel(deity: ContentEntry) {
     : deity.name
 }
 
-export function trainedFeatLores(c: Character) {
+export function trainedFeatLores(c: Character, entries?: ContentEntry[]) {
   return [
     ...(c.systems.includes('pf2e') && activeFeatsNamed(c, 'Underworld Investigator').length
       ? [{ name: 'Underworld Lore', source: 'Underworld Investigator' }] : []),
@@ -4786,6 +4801,7 @@ export function trainedFeatLores(c: Character) {
       const lore = /\s+lore$/i.test(choice) ? choice.replace(/\s+lore$/i, ' Lore') : `${choice} Lore`
       return [{ name: c.lores.find(existing => existing.name.toLowerCase() === lore.toLowerCase())?.name ?? lore, source: feat.name }]
     }) : []),
+    ...fieldAgentAdditionalLoreGrants(c, entries),
   ]
 }
 
@@ -5092,6 +5108,9 @@ export function automaticFeatGrants(c: Character, entries: ContentEntry[]) {
 
 function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
   const grants: { name: string; source: string; level: number; choice?: string; choiceKey?: string; choiceIndex?: number }[] = []
+  if (c.systems.includes('sf2e')) for (const feat of activeFeatsNamed(c, 'Starfinder Field Agent Dedication')) {
+    grants.push({ name: 'Additional Lore', choice: 'Starfinder', source: feat.name, level: featTakenLevel(feat) })
+  }
   if (c.systems.includes('sf2e') && c.className === 'Envoy') {
     for (const { entry, level } of envoyLeadershipStyles(c, entries)) {
       const name = entry.data.leadership_perk_feat
@@ -5358,7 +5377,7 @@ function baseRanks(c: Character, entries: ContentEntry[], beforeLevel = 99) {
   for (const name of dongunEducationLores({ ...c, level: educationLevel })) {
     ranks[name] = Math.max(ranks[name] ?? 0, educationLevel >= 15 ? 4 : educationLevel >= 7 ? 3 : educationLevel >= 2 ? 2 : 1)
   }
-  trainedFeatLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }).forEach(grant => bump(grant.name))
+  trainedFeatLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(grant => bump(grant.name))
   deityGrantedLores(c).forEach(bump)
   skillTrainingSkills({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).forEach(bump)
   c.lores.forEach((l) => { ranks[l.name] = Math.max(ranks[l.name] ?? 0, l.rank) })
@@ -5415,7 +5434,7 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   const rankUp = getSettings().autoClassSkills
   const loreUp = getSettings().autoLores
   const lores = loreUp ? [...backgroundSkills(byName(entries, 'background', c.background), c).filter((n) => /lore$/i.test(n)), ...c.lores.map((l) => l.name), ...featLores(c, entries), ...autoSkills.filter(name => / lore$/i.test(name))] : []
-  if (loreUp) lores.push(...trainedFeatLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }).map(grant => grant.name),
+  if (loreUp) lores.push(...trainedFeatLores({ ...c, level: Math.min(c.level, beforeLevel - 1) }, entries).map(grant => grant.name),
     ...deityGrantedLores(c))
   if (loreUp) lores.push(...activeFeatsNamed({ ...c, level: Math.min(c.level, beforeLevel - 1) }, "Officer's Medical Training")
     .flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) ? [feat.choice] : []))
@@ -5432,6 +5451,14 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
     const level = Math.min(...activeFeatsNamed(c, name).map(featTakenLevel).filter(level => level < beforeLevel))
     return Number.isFinite(level) ? [{ skill: training.skill, level }] : []
   })
+  const fieldAgentGrants = c.systems.includes('sf2e')
+    ? activeFeatsNamed(c, 'Starfinder Field Agent Dedication').flatMap(feat => {
+      const level = featTakenLevel(feat)
+      if (level >= beforeLevel) return []
+      const prior = { ...c, feats: c.feats.filter(candidate => candidate.name !== feat.name) }
+      const priorSociety = ranksAt(prior, entries, level).Society ?? 0
+      return priorSociety > 0 ? [{ skill: 'Society', level, rank: 2 }] : []
+    }) : []
   const pirate = c.systems.includes('sf2e') ? activeFeatsNamed(c, 'Space Pirate Dedication')
     .find(feat => featTakenLevel(feat) < beforeLevel) : undefined
   const pirateLevel = pirate && featTakenLevel(pirate)
@@ -5448,7 +5475,8 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
   const increases = new Set(skillIncreaseLevels(c).filter(level => level < beforeLevel))
   // Feat-granted ranks must precede skill increases spent at later levels.
   const levels = [...new Set([...increases, ...(scrapperLevel === undefined ? [] : [scrapperLevel]),
-    ...initiateGrants.map(grant => grant.level), ...(pirateLevel === undefined ? [] : [pirateLevel]), ...(ancestralLevel === undefined ? [] : [ancestralLevel]),
+    ...initiateGrants.map(grant => grant.level), ...fieldAgentGrants.map(grant => grant.level),
+    ...(pirateLevel === undefined ? [] : [pirateLevel]), ...(ancestralLevel === undefined ? [] : [ancestralLevel]),
     ...(longevityLevel === undefined ? [] : [longevityLevel]), ...educationSlots.map(slot => slot.level),
     ...ingenuitySlots.map(slot => slot.level), ...signiferSlots.map(slot => slot.level),
     ...backgroundSlots.map(slot => slot.level)])].sort((a, b) => a - b)
@@ -5490,6 +5518,8 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
       if (piratePrior.Intimidation === 1) ranks.Intimidation = Math.max(ranks.Intimidation ?? 0, 2)
     }
     for (const grant of initiateGrants.filter(grant => grant.level === l)) ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, 2)
+    for (const grant of fieldAgentGrants.filter(grant => grant.level === l))
+      ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, grant.rank)
     if (l === ancestralLevel) for (const name of ancestrySkills) ranks[name] = Math.max(ranks[name] ?? 0, 1)
   }
   if (withOverrides) {
@@ -5503,6 +5533,7 @@ function calculateRanks(c: Character, entries: ContentEntry[], beforeLevel: numb
     }
   }
   for (const grant of initiateGrants) ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, 2)
+  for (const grant of fieldAgentGrants) ranks[grant.skill] = Math.max(ranks[grant.skill] ?? 0, grant.rank)
   if (pirate) ranks.Piloting = Math.max(ranks.Piloting ?? 0, pirateRank)
   for (const name of ancestrySkills) ranks[name] = Math.max(ranks[name] ?? 0, 1)
   for (const name of [
@@ -5537,7 +5568,7 @@ export function temporarySkillTrainings(c: Character, entries: ContentEntry[]) {
     const skill = feat.choice
     const stat = skill ? statDefs(c).find(candidate => candidate.kind === 'skill' && candidate.name === skill) : undefined
     const valid = !!skill && (!!stat || c.lores.some(lore => lore.name === skill)
-      || featLores(c, entries).includes(skill) || trainedFeatLores(c).some(grant => grant.name === skill)
+      || featLores(c, entries).includes(skill) || trainedFeatLores(c, entries).some(grant => grant.name === skill)
       || deityGrantedLores(c).includes(skill)
       || backgroundSkills(byName(entries, 'background', c.background), c).includes(skill)
       || backgroundSkills(freeHeartBackground(c, entries), c).includes(skill)
@@ -8323,7 +8354,12 @@ export function installedHardlightUpgrades(c: Character, entries: ContentEntry[]
       && candidate.systems.includes('sf2e') && candidate.data.item_subcategory === 'Weapon Upgrades')
     return upgrade ? [upgrade] : []
   })
-  return mergeWeaponUpgrades(installed, automaticUpgradeEntries(c, entries, ['Grappling Module', 'Shoving Module']))
+  const automatic = automaticUpgradeEntries(c, entries, ['Grappling Module', 'Shoving Module'])
+  const slotNames = new Set([...installed, ...automatic].map(item => item.name.replace(/\s*\([^)]*\)$/, '')))
+  const hasProtectionGrid = installed.some(item => item.name.replace(/\s*\([^)]*\)$/, '') === 'Protection Grid')
+  const protectionGrid = (hasProtectionGrid || slotNames.size < HARDLIGHT_GRADES[handwraps.grade ?? 'Commercial'].upgrades)
+    ? automaticUpgradeEntries(c, entries, ['Protection Grid']) : []
+  return mergeWeaponUpgrades(installed, [...automatic, ...protectionGrid])
 }
 
 export function installedWeaponUpgrades(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {

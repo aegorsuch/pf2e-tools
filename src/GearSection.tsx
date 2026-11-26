@@ -29,7 +29,7 @@ import { getSettings } from './settings'
 import { ARMIGER_ARMOR_ID, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, IRON_FIST, OVERSIZED_THROW, SPARK_FIST, UNTAMED_CLAWS } from './supplemental'
 import { supportsMeleeWeaponUpgrade } from './builder'
-import { ENERGY_SHIELDING_TYPES, type Character, type ContentEntry, type EnergyShieldingType, type HardlightGrade, type OwnedArmor, type OwnedShield, type OwnedWeapon } from './types'
+import { ENERGIZED_SPIKES_ENERGIES, ENERGY_SHIELDING_TYPES, type Character, type ContentEntry, type EnergyShieldingType, type EnergizedSpikesEnergy, type HardlightGrade, type OwnedArmor, type OwnedShield, type OwnedWeapon } from './types'
 import { EnergyNeutralizer } from './EnergyNeutralizer'
 import { TransmutativeCasing } from './TransmutativeCasing'
 import { ExploitiveAssault } from './ExploitiveAssault'
@@ -496,7 +496,7 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, eff
       return { key: `${id}:${index}`, name: entry?.name ?? id, entry, index }
     }),
     ...granted.map(entry => ({ key: `granted:${entry.id}`, name: entry.name, entry, index: undefined })),
-    ...(raptorialEdgeUpgrade ? [{ key: 'improved-raptorial-edge', name: 'Improved Raptorial Edge', raptorialEdge: true }] : []),
+    ...(raptorialEdgeUpgrade ? [{ key: 'improved-raptorial-edge', name: 'Raptorial Edge (Upgraded)', raptorialEdge: true }] : []),
   ].sort((a, b) => a.name.localeCompare(b.name))
   const usage = (entry: ContentEntry) => String(entry.data.usage ?? '').toLowerCase().replace(/\s+/g, ' ')
   const traits = weapon.traits.map(trait => trait.toLowerCase())
@@ -526,9 +526,10 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, eff
   }).sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
   return <div className="gear-runes">
     {displayed.map(({ key, name, entry, index, raptorialEdge }) => raptorialEdge && raptorialEdgeUpgrade
-      ? <label className="rune" key={key}><input type="checkbox" aria-label="Improved Raptorial Edge upgrade"
+      ? <span className="rune" key={key}><label><input type="checkbox" aria-label="Improved Raptorial Edge upgrade"
         checked={raptorialEdgeUpgrade.checked} disabled={raptorialEdgeUpgrade.disabled}
-        onChange={event => raptorialEdgeUpgrade.onChange(event.target.checked)} /> {name}</label>
+        onChange={event => raptorialEdgeUpgrade.onChange(event.target.checked)} /></label>
+        <GearTag name={name} kind="upgrade" source="Automatic weapon upgrade" /></span>
       : <GearTag key={key} name={name} entry={entry}
         kind="upgrade" source="Automatic weapon upgrade"
         onRemove={index === undefined ? undefined : () => onChange(upgrades.filter((_, i) => i !== index))} />)}
@@ -545,12 +546,15 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, eff
   </div>
 }
 
-export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, energyShieldingTypes,
-  onToggleJetpack, onEnergyShieldingTypeChange, onChange, automaticUpgrades = [], armorName = 'armor' }: {
+export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, energyShieldingTypes, energizedSpikesEnergy,
+  onToggleJetpack, onEnergyShieldingTypeChange, onEnergizedSpikesEnergyChange, onChange,
+  automaticUpgrades = [], armorName = 'armor' }: {
   entries: ContentEntry[]; upgrades: string[]; limit: number; worn: boolean; activeJetpack?: string
   energyShieldingTypes?: OwnedArmor['energyShieldingTypes']
+  energizedSpikesEnergy?: EnergizedSpikesEnergy
   onToggleJetpack: (id: string) => void; onChange: (ids: string[]) => void
   onEnergyShieldingTypeChange: (id: string, type: EnergyShieldingType | undefined) => void
+  onEnergizedSpikesEnergyChange?: (energy: EnergizedSpikesEnergy | undefined) => void
   automaticUpgrades?: ContentEntry[]; armorName?: string
 }) {
   const catalog = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
@@ -562,6 +566,26 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
     && !isEnergyShieldingUpgrade(automatic) && sameUpgrade(automatic, entry))
   const automaticName = (entry: ContentEntry) => entry.data.automatic_energy_type === 'electricity'
     ? `${entry.name} (Electricity)` : entry.name
+  const energizedSpikesControl = (entry?: ContentEntry) => {
+    if (!entry || entry.name.replace(/\s*\([^)]*\)$/, '') !== 'Energized Spikes') return null
+    const dice = entry.name.includes('(Advanced)') ? 8 : entry.name.includes('(Tactical)') ? 5 : 2
+    return <>
+      <label>Charged by{' '}
+        <select aria-label="Energized Spikes charged energy" value={energizedSpikesEnergy ?? ''}
+          onChange={event => {
+            const energy = ENERGIZED_SPIKES_ENERGIES.find(candidate => candidate === event.target.value)
+            onEnergizedSpikesEnergyChange?.(energy)
+          }}>
+          <option value="">Uncharged (piercing)</option>
+          {ENERGIZED_SPIKES_ENERGIES.map(energy =>
+            <option key={energy} value={energy}>{energy[0].toUpperCase()}{energy.slice(1)}</option>)}
+        </select>
+      </label>
+      <DamageRoll name="Energized Spikes" damage={{ label: 'Damage', dice, sides: 4,
+        type: energizedSpikesEnergy ?? 'piercing' }} toggleResult preserveDamage
+        onRoll={() => onEnergizedSpikesEnergyChange?.(undefined)} />
+    </>
+  }
   const options = catalog.filter(entry => !installed.some(item => item?.id === entry.id)
     && !automaticUpgrades.some(automatic => sameUpgrade(automatic, entry)
       && !(isEnergyShieldingUpgrade(automatic) && isEnergyShieldingUpgrade(entry))))
@@ -596,6 +620,7 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
           aria-pressed={activeJetpack === AUTOMATIC_JETPACK_ID && worn} disabled={!worn}
           title={`${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? 'Dismiss' : 'Activate'} jetpack (1 minute; cannot lift while encumbered${jetpackSpeed(item.entry) === 20 ? '; off-guard while hovering' : ''})`}
           onClick={() => onToggleJetpack(AUTOMATIC_JETPACK_ID)}><ActionIcon actions="Single Action" /></button>}
+        {energizedSpikesControl(item.entry)}
       </span>
       const { id, index, entry, automatic } = item
       return <span className="rune" key={`${id}:${index}`}>
@@ -614,6 +639,7 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
           </option>)}
         </select>
       </label>}
+      {energizedSpikesControl(automatic ?? entry)}
       {jetpackSpeed(automatic ?? entry) > 0 && <button type="button" className={`spell-action-button${activeJetpack === id && worn ? ' on' : ''}`}
         aria-label={`${activeJetpack === id && worn ? 'Dismiss' : 'Activate'} ${automatic?.name ?? entry?.name}`}
         aria-pressed={activeJetpack === id && worn} disabled={!worn || index >= limit}
@@ -2265,6 +2291,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                 && <ArmorUpgrades entries={entries} upgrades={a.upgrades ?? []}
                   limit={upgradeSlots} worn={a.worn} activeJetpack={a.activeJetpack}
                     energyShieldingTypes={a.energyShieldingTypes}
+                    energizedSpikesEnergy={a.energizedSpikesEnergy}
                     automaticUpgrades={automaticSpecificArmorUpgrades(c, entries, entry)} armorName={a.name}
                   onToggleJetpack={id => update(a.id, { activeJetpack: a.activeJetpack === id ? undefined : id })}
                     onEnergyShieldingTypeChange={(id, type) => {
@@ -2273,11 +2300,17 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                       else delete energyShieldingTypes[id]
                       update(a.id, { energyShieldingTypes })
                     }}
+                    onEnergizedSpikesEnergyChange={energy => update(a.id, { energizedSpikesEnergy: energy })}
                     onChange={upgrades => {
                       const energyShieldingTypes = { ...(a.energyShieldingTypes ?? {}) }
                       for (const id of Object.keys(energyShieldingTypes))
                         if (!upgrades.includes(id)) delete energyShieldingTypes[id]
+                      const automatic = automaticSpecificArmorUpgrades(c, entries, entry)
+                      const hasEnergizedSpikes = upgrades.some(id => entries.find(candidate => candidate.id === id)?.name
+                        .replace(/\s*\([^)]*\)$/, '') === 'Energized Spikes')
+                        || automatic.some(item => item.name.replace(/\s*\([^)]*\)$/, '') === 'Energized Spikes')
                       update(a.id, { upgrades, energyShieldingTypes,
+                      energizedSpikesEnergy: hasEnergizedSpikes ? a.energizedSpikesEnergy : undefined,
                       ...(!upgrades.includes(a.activeJetpack ?? '') && a.activeJetpack !== AUTOMATIC_JETPACK_ID
                         ? { activeJetpack: undefined } : {}),
                       ...(a.activeForceField && !armorUpgradeEntries(c, entries, { ...a, upgrades })

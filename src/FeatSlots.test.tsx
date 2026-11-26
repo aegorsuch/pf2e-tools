@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
 import { FeatSlots, featPickerEligibility, featSectionGrants } from './FeatSlots'
 import { EntryDescription } from './EntryDescription'
-import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
+import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice, StarfinderFieldAgentLoreChoice } from './FeatChoice'
 import { mapAonHit } from './aon'
 import { eligibleFeats, featChoiceOptions, featPrerequisiteChecker, plannedSlots, ranksAt, unslottedFeats } from './builder'
 import { achievementOptions } from './featAccess'
@@ -65,6 +65,16 @@ it('keeps Effortless Influencer Assurance grants visible when Assurance is alrea
   const grants = featSectionGrants(c, [assurance], ['skill']).automaticFeats
     .filter(grant => grant.name === 'Assurance' && grant.source.startsWith('Effortless Influencer ('))
   expect(grants.map(grant => grant.choice).sort()).toEqual(['Deception', 'Diplomacy', 'Intimidation'])
+})
+
+it('offers Field Agent extra Lore only when Starfinder Lore was already trained', () => {
+  const c: Character = { ...emptyRanger(), systems: ['sf2e'], level: 2,
+    lores: [{ name: 'Starfinder Lore', rank: 1 }],
+    feats: [{ name: 'Starfinder Field Agent Dedication', type: 'Archetype Feat', level: 2 }] }
+  const render = (character: Character) => renderToStaticMarkup(
+    <StarfinderFieldAgentLoreChoice c={character} entries={[]} save={() => {}} />)
+  expect(render(c)).toContain('aria-label="Starfinder Field Agent additional Lore"')
+  expect(render({ ...c, lores: [] })).toBe('')
 })
 
 it('reuses picker prerequisite results when search changes', () => {

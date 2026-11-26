@@ -6,6 +6,9 @@ type Damage = { label: string; dice: number; sides: number; type: string; bonus?
   additional?: { dice: number; sides: number; type: string; label?: string; bonus?: number }; outcomes?: { label: string; dice: number }[]
   components?: { dice: number; sides: number; type: string }[]; note?: string }
 type DamageResult = number | number[] | { primary: number; additional: number }
+type DamageRollState = DamageResult | { damage: Damage; result: DamageResult }
+const hasDamageSnapshot = (value: DamageRollState | undefined): value is { damage: Damage; result: DamageResult } =>
+  typeof value === 'object' && value !== null && 'damage' in value
 type DragonBreathEnergy = 'acid' | 'cold' | 'electricity' | 'fire'
 const isDragonBreathEnergy = (energy: string | undefined): energy is DragonBreathEnergy =>
   energy === 'acid' || energy === 'cold' || energy === 'electricity' || energy === 'fire'
@@ -500,10 +503,13 @@ function damageTitle(damage: Damage) {
   return `${damage.label}: ${damageFormula(damage)}${damage.additional ? `${damage.additional.label ? `; ${damage.additional.label}: ` : ' + '}${damage.additional.dice ? `${damage.additional.dice}d${damage.additional.sides}${damage.additional.bonus ? `+${damage.additional.bonus}` : ''}` : damage.additional.bonus ?? 0} ${damage.additional.type}` : ''}${damage.components?.map(component => ` + ${component.dice}d${component.sides} ${component.type}`).join('') ?? ''}${damage.note ? `; ${damage.note}` : ''}`
 }
 
-export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll, toggleResult = false }: {
-  name: string; damage: Damage; actions?: string; showLabel?: boolean; disabled?: boolean; onRoll?: () => void; toggleResult?: boolean
+export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll, toggleResult = false, preserveDamage = false }: {
+  name: string; damage: Damage; actions?: string; showLabel?: boolean; disabled?: boolean; onRoll?: () => void
+  toggleResult?: boolean; preserveDamage?: boolean
 }) {
-  const [result, setResult] = useState<DamageResult>()
+  const [result, setResult] = useState<DamageRollState>()
+  const snapshot = hasDamageSnapshot(result)
+  const displayedDamage = snapshot ? result.damage : damage
   const title = damageTitle(damage)
   return <span>
     <button type="button" disabled={disabled} className={actions ? 'spell-action-button' : undefined}
@@ -516,12 +522,14 @@ export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll,
           return
         }
         onRoll?.()
-        setResult(rollDamage(damage))
+        const rolled = rollDamage(damage)
+        setResult(preserveDamage ? { damage, result: rolled } : rolled)
       }}>
       {actions ? <><ActionIcon actions={actions} />{showLabel && <small>{damage.label}</small>}</> : `${damage.label}: ${damageFormula(damage)}`}
     </button>
-    {result !== undefined && <output aria-live="polite" aria-label={`${name}: ${damage.label} result`}>
-      <DamageResultText damage={damage} result={result} />
+    {result !== undefined && <output aria-live="polite" aria-label={`${name}: ${displayedDamage.label} result`}>
+      <DamageResultText damage={displayedDamage}
+        result={hasDamageSnapshot(result) ? result.result : result} />
     </output>}
   </span>
 }

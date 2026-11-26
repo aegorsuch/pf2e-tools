@@ -1,5 +1,5 @@
 import { adoptedAncestryText, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry, wardenSpellOptions } from './featChoices'
-import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, knownSpellNames, nephilimLineageLore, orderMagicOptions, statDefs, subclassOptions, subclassSkillChoice, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
+import { CANNY_STATS, cannyAcumenOptions, availableOrders, clanLoreLabel, combinationName, dailyLongevityRanks, featChoiceOptions, featSkillChoiceLabel, featTakenLevel, knownSpellNames, nephilimLineageLore, orderMagicOptions, ranksAt, statDefs, subclassOptions, subclassSkillChoice, terrainExpertiseOptions, unconventionalWeaponChoice, weaponEntry } from './builder'
 import { automaticFeatGrants } from './builder'
 import type { SectionProps } from './builder'
 import { DOMAIN_FEATS, automaticFeatChoiceKey, coreAttunementOptions, featSpellOptions, isInnateSpellChoice } from './featSpells'
@@ -45,6 +45,25 @@ export function CarryTheirMemoriesChoice({ c, entries, save, index }: SectionPro
       </select>
     </label>
   </span>
+}
+
+export function StarfinderFieldAgentLoreChoice({ c, entries, save }: SectionProps) {
+  const feat = c.feats.find(candidate => candidate.name === 'Starfinder Field Agent Dedication'
+    && featTakenLevel(candidate) <= c.level)
+  if (!feat) return null
+  const prior = { ...c, feats: c.feats.filter(candidate => candidate.name !== 'Starfinder Field Agent Dedication') }
+  if ((ranksAt(prior, entries, featTakenLevel(feat))['Starfinder Lore'] ?? 0) < 1) return null
+  const key = automaticFeatChoiceKey(feat.name, 'Lore Skill')
+  return <label className="feat-choice">Additional Lore skill{' '}
+    <input aria-label="Starfinder Field Agent additional Lore" value={c.automaticFeatChoices?.[key] ?? ''}
+      onChange={event => {
+        const automaticFeatChoices = { ...c.automaticFeatChoices }
+        const value = event.target.value
+        if (value) automaticFeatChoices[key] = value
+        else delete automaticFeatChoices[key]
+        save({ automaticFeatChoices })
+      }} />
+  </label>
 }
 
 export function AutomaticFeatChoice({ c, entries, save, name, source, choice, choiceKey, choiceIndex }: SectionProps & {

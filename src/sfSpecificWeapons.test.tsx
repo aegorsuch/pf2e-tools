@@ -116,9 +116,10 @@ it('preserves Raptorial Edge modes, acid damage and permanently occupied upgrade
   expect(html).toContain('aria-label="Improved Raptorial Edge upgrade"')
   expect(html).not.toContain('Improved acid upgrade (60,000 credits)')
   const upgradeList = html.split('<div class="gear-runes">').find(group =>
-    group.includes('Flaming Module (Commercial)') && group.includes('Improved Raptorial Edge'))
+    group.includes('Flaming Module (Commercial)') && group.includes('Raptorial Edge (Upgraded)'))
   expect(upgradeList).toBeDefined()
-  expect(upgradeList!.indexOf('Flaming Module (Commercial)')).toBeLessThan(upgradeList!.indexOf('Improved Raptorial Edge'))
+  expect(upgradeList!.indexOf('Flaming Module (Commercial)')).toBeLessThan(upgradeList!.indexOf('Raptorial Edge (Upgraded)'))
+  expect(html).toContain('>Raptorial Edge (Upgraded)</button>')
 })
 
 it('displays Raptorial Edge with its phase cutlass type without changing saved identity', () => {

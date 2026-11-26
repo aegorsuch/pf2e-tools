@@ -2,9 +2,9 @@ import { parseClericSpells, parseDeityAbout, parseFeatLanguages } from './aonQue
 import { mapAonHit } from './aon'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import * as featChoices from './featChoices'
-import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, characterAncestryLabel, characterSummary, subclassOptions, subclassSkillChoice, subclassSkillGrants, selectedSubclass, investigatorSkillfulLessonSkills, availableOrders, featLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange, syncClassArchetypeDedication, warriorLegendWeakness, parryValue, temporaryHpGrant } from './builder'
+import { ancestralSkills, movementSpeeds, armorRanks, weaponRanks, featChoiceOptions, armorSpecialization, autoClassSkills, automaticFeatGrants, bulkLimits, classLabel, characterAncestryLabel, characterSummary, subclassOptions, subclassSkillChoice, subclassSkillGrants, selectedSubclass, investigatorSkillfulLessonSkills, availableOrders, featLores, trainedFeatLores, senses, additionalSkillCount, ancestryLabel, armorClass, boostSlots, cannyAcumenOptions, classFeatures, classSkills, computeAbilities, baseItems, eligibleFeats, featPrerequisiteChecker, isMagicItem, isVersatileHeritage, heritagesFor, languageAllowance, languageGroups, maxHp, normalizeConditionalSkillChoices, orphanedArchetypeFeats, focusSpells, orderMagicOptions, propertyRunes, resistances, savingThrowBreakdown, starfinderArmorPenalties, untrainedSkillProficiency, unslottedFeats, speed, initiativeBonus, perceptionCircumstance, plannedSlots, ranksAt, skillRankBudget, weaponAttack, activeFeatsNamed, precisionEdgeDamageDice, enlargedChassisSize, giantWeaponClumsy, giantClumsySource, unconventionalWeaponChoice, weaponAccessSources, spellRemovalChange, syncClassArchetypeDedication, warriorLegendWeakness, parryValue, temporaryHpGrant } from './builder'
 import { getSettings, updateSettings } from './settings'
-import { coreAttunementOptions, grantedFeatSpells } from './featSpells'
+import { automaticFeatChoiceKey, coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting, wizardSchoolBookSpells } from './builder'
 import { hasRemainingFeatSelections } from './builder'
@@ -1988,6 +1988,27 @@ describe('official passive feat mechanics', () => {
     const dedication = entry('feat', 'Wild Hunter Dedication', { grants_lore: 'Hunting Lore' }, 2)
     const c = { ...base, level: 15, feats: [selected(dedication.name, 2)] }
     expect(ranksAt(c, [...entries, dedication])).toMatchObject({ 'Hunting Lore': 4, 'Academia Lore': 1 })
+  })
+
+  it('upgrades Society and grants Field Agent lore choices only when Starfinder Lore was already trained', () => {
+    const dedication = selected('Starfinder Field Agent Dedication', 2)
+    const choiceKey = automaticFeatChoiceKey(dedication.name, 'Lore Skill')
+    const c: Character = { ...base, systems: ['sf2e'], className: 'Envoy', level: 8,
+      skillPicks: ['Society'], lores: [{ name: 'Starfinder Lore', rank: 1 }], feats: [dedication] }
+    expect(ranksAt({ ...c, feats: [] }, []).Society).toBe(1)
+    expect(ranksAt(c, []).Society).toBe(2)
+    expect(automaticFeatGrants(c, [])).toContainEqual({
+      name: 'Additional Lore', choice: 'Starfinder', source: dedication.name, level: 2,
+    })
+    expect(featLores(c, [])).toContain('Starfinder Lore')
+    const withChoice = { ...c, automaticFeatChoices: { [choiceKey]: 'Underworld' } }
+    expect(trainedFeatLores(withChoice, [])).toContainEqual({
+      name: 'Underworld Lore', source: dedication.name,
+    })
+    expect(featLores(withChoice, [])).toContain('Underworld Lore')
+    expect(ranksAt(withChoice, [])['Underworld Lore']).toBe(3)
+    expect(trainedFeatLores({ ...withChoice, lores: [] }, [])).toEqual([])
+    expect(ranksAt({ ...c, className: undefined, skillPicks: [], lores: [] }, []).Society ?? 0).toBe(0)
   })
 
   it('trains the saved Skill Training choice without granting a second discretionary skill', () => {

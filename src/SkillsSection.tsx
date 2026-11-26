@@ -257,7 +257,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
   const temporaryTrainings = temporarySkillTrainings(c, entries)
   const ranks = temporaryTrainings.reduce((result, training) => training.skill
     ? { ...result, [training.skill]: Math.max(result[training.skill] ?? 0, training.rank) } : result, permanentRanks)
-  const trainedLores = trainedFeatLores(c)
+  const trainedLores = trainedFeatLores(c, entries)
   const lores = editingSkills ? [...new Set([...c.lores.map((l) => l.name), ...featLores(c, entries), ...trainedLores.map(grant => grant.name), ...deityGrantedLores(c), ...autoClassSkills(c, entries).filter((s) => / lore$/i.test(s)), ...activeFeatsNamed(c, "Officer's Medical Training").flatMap(feat => feat.choice && /.+\s+lore$/i.test(feat.choice) && (ranks[feat.choice] ?? 0) > 0 ? [feat.choice] : []), ...backgroundSkills(bg, c).filter((s) => /lore$/i.test(s)), ...extraBackgroundSkills.filter(s => /lore$/i.test(s))])] : []
   const picks = c.skillPicks ?? []
   const budget = editingSkills ? skillRankBudget(c, entries) : { trained: 0, expert: 0, master: 0, legendary: 0 }
@@ -626,8 +626,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             source="Rider" note={`${conditionalTotal(1)} to Command an Animal checks for your own animal companion, if a check is required.`} />}
           {CONDITIONAL_BONUSES.filter(b => b.stats.includes(s.name) && activeFeatsNamed(c, b.feat).length > 0).map(b => <SourceNote key={b.feat} inlineSource={false}
             source={b.feat} note={`${b.type === 'status' ? signed(total + b.bonus) : conditionalTotal(b.bonus)} ${b.text} (+${b.bonus} ${b.type}).`} />)}
-          {holoRoger && <SourceNote source="Holo-Roger"
-            note={`${conditionalTotal(1)} to Intimidation checks (+1 circumstance; circumstance bonuses do not stack).`} />}
           {s.name === 'Diplomacy' && !!activeFeatsNamed(c, 'Extended Family').length && <SourceNote inlineSource={false}
             source="Extended Family" note={`${conditionalTotal(1)} to Make an Impression or Request against ysoki (+1 circumstance).`} />}
           {s.name === 'Diplomacy' && hasDivineIntercession(c, 'Sarenrae', 'major-boon') && <SourceNote inlineSource={false}
@@ -797,7 +795,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
         <span className="skill-part"><small>Proficiency</small>{signed(prof)}</span>
         {s.kind === 'skill' ? <SkillItemPicker c={c} entries={entries} save={save} skill={skillLabel} value={signed(item)} />
           : <span className="skill-part"><small>Item</small>{signed(item)}</span>}
-        {circumstance && circumstance.source !== 'Hellknight Preferment' && <span className="skill-part skill-circumstance"><small>Circumstance</small>{signed(circumstance.value)} <small>({circumstance.source})</small></span>}
+        {circumstance && circumstance.source !== 'Hellknight Preferment' && circumstance.source !== 'Holo-Roger'
+          && <span className="skill-part skill-circumstance"><small>Circumstance</small>{signed(circumstance.value)} <small>({circumstance.source})</small></span>}
       </div>
     )
   })

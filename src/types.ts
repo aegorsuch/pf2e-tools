@@ -94,6 +94,8 @@ export interface OwnedWeapon {
 }
 export const ENERGY_SHIELDING_TYPES = ['acid', 'cold', 'electricity', 'fire'] as const
 export type EnergyShieldingType = typeof ENERGY_SHIELDING_TYPES[number]
+export const ENERGIZED_SPIKES_ENERGIES = ['acid', 'cold', 'electricity', 'fire', 'force', 'sonic', 'vitality', 'void'] as const
+export type EnergizedSpikesEnergy = typeof ENERGIZED_SPIKES_ENERGIES[number]
 
 export interface OwnedArmor {
   id: string
@@ -104,6 +106,7 @@ export interface OwnedArmor {
   runes: string[]
   upgrades?: string[]
   energyShieldingTypes?: Record<string, EnergyShieldingType>
+  energizedSpikesEnergy?: EnergizedSpikesEnergy
   activeJetpack?: string
   activeForceField?: boolean
   strongholdWallActive?: boolean

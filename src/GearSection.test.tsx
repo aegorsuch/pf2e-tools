@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ArmorList, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
+import { ArmorList, ArmorUpgrades, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
 import { AnimalFeatureOptions } from './SpellsSection'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, armorUpgradeSlots as resolvedArmorUpgradeSlots, automaticArmorUpgradeSlotsUsed, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon, installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
@@ -2714,13 +2714,17 @@ it('keeps saved hardlight runes inactive and provides grade-based upgrade slots'
 
 it('automatically installs hardlight grapple and shove modules at level 8 without duplicating saved upgrades', () => {
   const previous = getSettings().automaticSfWeaponUpgrades
-  const entries = [GRAPPLING_MODULE, SHOVING_MODULE]
+  const protectionGrid = (name: string, level: number): ContentEntry => ({ ...SHOVING_MODULE,
+    id: `protection-grid-${level}`, name, level, data: { item_subcategory: 'Weapon Upgrades' } })
+  const entries = [GRAPPLING_MODULE, SHOVING_MODULE, protectionGrid('Protection Grid (Commercial)', 8),
+    protectionGrid('Protection Grid (Tactical)', 17)]
   const c: Character = { ...character([]), systems: ['sf2e'], level: 8, className: 'Fighter', weapons: [],
     handwraps: { kind: 'hardlight', grade: 'Advanced', potency: 0, striking: 0, runes: [], upgrades: [GRAPPLING_MODULE.id] } }
   const fist = ownedWeapons(c, entries).find(item => item.name === 'Fist')!
   try {
     updateSettings({ automaticSfWeaponUpgrades: true })
     expect(installedWeaponUpgrades(c, entries, fist).map(item => item.name)).toEqual(['Grappling Module', 'Shoving Module'])
+    expect(installedWeaponUpgrades(c, entries, fist).some(item => item.name.startsWith('Protection Grid'))).toBe(false)
     expect(weaponAttack(c, entries, fist).traits).toEqual(expect.arrayContaining(['Grapple', 'Shove']))
     const markup = renderToStaticMarkup(<HandwrapsGear c={c} entries={entries} save={() => {}} />)
     expect(markup).toContain('Grappling Module')
@@ -2731,6 +2735,15 @@ it('automatically installs hardlight grapple and shove modules at level 8 withou
     expect(installedWeaponUpgrades(before, entries, fist)).toEqual([])
     expect(weaponAttack(before, entries, fist).traits).not.toContain('Grapple')
     expect(installedWeaponUpgrades({ ...c, handwraps: undefined, className: undefined }, entries, fist)).toEqual([])
+    const level16 = { ...c, level: 16, handwraps: { ...c.handwraps!, grade: 'Ultimate' as const } }
+    const fist16 = ownedWeapons(level16, entries).find(item => item.name === 'Fist')!
+    expect(installedWeaponUpgrades(level16, entries, fist16).map(item => item.name)).toEqual([
+      'Grappling Module', 'Shoving Module', 'Protection Grid (Commercial)',
+    ])
+    const level17 = { ...level16, level: 17 }
+    const fist17 = ownedWeapons(level17, entries).find(item => item.name === 'Fist')!
+    expect(installedWeaponUpgrades(level17, entries, fist17).map(item => item.name)).toContain('Protection Grid (Tactical)')
+    expect(hasParryWeapon(level17, entries)).toBe(true)
     updateSettings({ automaticSfWeaponUpgrades: false })
     expect(installedWeaponUpgrades(c, entries, fist).map(item => item.name)).toEqual(['Grappling Module'])
     expect(weaponAttack(c, entries, fist).traits).not.toContain('Shove')
@@ -2953,13 +2966,14 @@ it('reserves Clandestine Suit slots for its built-in Jetpack and Force Field', (
     return (component.type as (props: typeof component.props) => ReactNode)(component.props)
   }
   const markup = renderToStaticMarkup(tree())
-  expect(automaticArmorUpgradeSlotsUsed(suit)).toBe(2)
+  expect(automaticArmorUpgradeSlotsUsed(suit)).toBe(0)
   expect(markup).toContain('Jetpack (Commercial)')
   expect(markup).toContain('Force Field (Advanced)')
+  expect(markup).toContain('Jetpack (Commercial) *')
+  expect(markup).toContain('Force Field (Advanced) *')
   expect(markup).toContain('Active Camouflage (Tactical) *')
   expect(markup).toContain('Cloaking Device (Commercial) *')
-  expect(markup).not.toContain('Jetpack (Commercial) *')
-  expect(markup).not.toContain('Force Field (Advanced) *')
+  expect(resolvedArmorUpgradeSlots(suit) - automaticArmorUpgradeSlotsUsed(suit)).toBe(2)
   expect(markup).not.toContain('Add armor upgrade')
   expect(markup).not.toContain('Free (no upgrade slot)')
   expect(markup).not.toContain('Installed upgrades exceed available slots')
@@ -2969,6 +2983,24 @@ it('reserves Clandestine Suit slots for its built-in Jetpack and Force Field', (
   expect(movementSpeeds(c, entries).find(speed => speed.name === 'Fly')).toMatchObject({
     feet: 20, source: 'Jetpack (Commercial)',
   })
+})
+
+it('rolls Energized Spikes using their grade and clears their stored charge', () => {
+  for (const [grade, level, dice] of [['Commercial', 4, 2], ['Tactical', 12, 5], ['Advanced', 19, 8]] as const) {
+    const item: ContentEntry = { ...shifting, id: `spikes-${grade}`, name: `Energized Spikes (${grade})`, level,
+      systems: ['sf2e'], data: { item_subcategory: 'Armor Upgrades' } }
+    let charged: string | undefined = 'electricity'
+    const tree = ArmorUpgrades({ entries: [item], upgrades: [], limit: 2, worn: true,
+      onToggleJetpack: () => {}, onEnergyShieldingTypeChange: () => {}, onChange: () => {},
+      onEnergizedSpikesEnergyChange: energy => { charged = energy }, energizedSpikesEnergy: 'electricity',
+      automaticUpgrades: [item] })
+    const roll = findElement(tree, element => element.type === DamageRoll)
+    if (!roll) throw new Error('Missing Energized Spikes damage roll')
+    expect(roll.props.damage).toMatchObject({ dice, sides: 4, type: 'electricity' })
+    ;(roll.props.onRoll as () => void)()
+    expect(charged).toBeUndefined()
+    expect(renderToStaticMarkup(tree)).toContain('aria-label="Energized Spikes charged energy"')
+  }
 })
 
 it('auto-installs Drifter Jacket upgrades, reserving slots for Jetpack, Force Field, and Active Camouflage', () => {

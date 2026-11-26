@@ -589,8 +589,9 @@ it('adds Holo-Roger circumstance bonus to Intimidation while active', () => {
   const inactive = render(c)
   const active = render({ ...c, holoRogerActive: true })
   expect(total(active)).toBe(total(inactive) + 1)
-  expect(active).toContain('aria-label="Holo-Roger note"')
-  expect(inactive).not.toContain('Holo-Roger note')
+  expect(active).not.toContain('Holo-Roger')
+  expect(active).not.toContain('circumstance bonuses do not stack')
+  expect(inactive).not.toContain('Holo-Roger')
 })
 
 it('summarizes used/total skill allocations, including exchanged tokens and temporary Skill Download', () => {

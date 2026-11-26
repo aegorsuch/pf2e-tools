@@ -462,6 +462,14 @@ it('toggles spell damage off before rolling again without counting a clear as a 
   expect(isValidElement<{ toggleResult: boolean }>(roll) && roll.props.toggleResult).toBe(true)
 })
 
+it('keeps rolled damage type when activation changes current damage options', () => {
+  const charged = { label: 'Damage', dice: 2, sides: 4, type: 'electricity' }
+  const uncharged = { label: 'Damage', dice: 2, sides: 4, type: 'piercing' }
+  vi.mocked(useState).mockReturnValueOnce([{ damage: charged, result: 5 }, vi.fn()])
+  expect(renderToStaticMarkup(<DamageRoll name="Energized Spikes" damage={uncharged} toggleResult preserveDamage />))
+    .toContain('5 electricity')
+})
+
 it.each([[1, 1], [3, 2], [5, 3], [9, 5]])('scales Caustic Blast rank %i to %id8 acid', (rank, dice) => {
   const entry: ContentEntry = { id: 'caustic-blast', name: 'Caustic Blast', systems: ['sf2e'], kind: 'spell',
     source: 'official', level: 1, traits: ['Cantrip', 'Acid'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }

@@ -8,7 +8,7 @@ import { PickerDialog } from './PickerDialog'
 import { DeferredContent, DeferredDetails } from './DeferredDetails'
 import { sortPickerOptions } from './PickerSort'
 import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, byName, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, knownSpellNames, matchesSkill, plannedSlots, ranksAt, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassOptions, subclassSkillChoice, temporarySkillTrainings, type PlannedSlot, type SectionProps } from './builder'
-import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice } from './FeatChoice'
+import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice, StarfinderFieldAgentLoreChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
 import { actionOptionLabel } from './actionCost'
@@ -579,6 +579,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 {row.kind === 'automatic' && !row.feat.fixedLore && <AutomaticFeatChoice c={c} entries={entries} save={save}
                   name={feat.name} source={row.feat.source} choice={row.feat.choice}
                   choiceKey={row.feat.choiceKey} choiceIndex={row.feat.choiceIndex} />}
+                {row.kind === 'automatic' && feat.name === 'Additional Lore'
+                  && row.feat.source === 'Starfinder Field Agent Dedication'
+                  && <StarfinderFieldAgentLoreChoice c={c} entries={entries} save={save} />}
                 <button type="button" aria-label={`Add L${String(row.level).padStart(2, '0')} ${LABEL[category]} feat slot`}
                   onClick={() => addSlot(category, row.level)}>+</button>
               </li>
