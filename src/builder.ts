@@ -3825,18 +3825,22 @@ function researchedTraditionOptions(ranks: Record<string, number>, traditions: s
 
 function researchedSpellResistanceVariants(c: Character, entries: ContentEntry[]) {
   const ranks = ranksAt(c, entries)
-  const variants = new Map<string, string>()
+  const variants = new Set<string>()
+  let maxTraditions = 0
   const visit = (traditions: string[]) => {
     for (const tradition of researchedTraditionOptions(ranks, traditions)) {
       const next = [...traditions, tradition]
       const key = [...next].sort().join(', ')
-      if (variants.has(key)) continue
-      variants.set(key, key)
+      if (next.length > maxTraditions) {
+        maxTraditions = next.length
+        variants.clear()
+      }
+      if (next.length === maxTraditions) variants.add(key)
       visit(next)
     }
   }
   visit([])
-  return [...variants.values()].sort((a, b) => a.localeCompare(b))
+  return [...variants].sort((a, b) => a.localeCompare(b))
 }
 
 export function researchedSpellResistanceChoices(c: Character, entries: ContentEntry[], feat: Character['feats'][number]) {
