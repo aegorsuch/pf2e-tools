@@ -585,6 +585,16 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
       damage={{ label: 'Damage', dice, sides: 4, type: energizedSpikesEnergy ?? 'piercing' }}
       onRoll={() => onEnergizedSpikesEnergyChange?.(undefined)} />
   }
+  const kineticGeneratorRoll = (entry: ContentEntry | undefined, disabled: boolean) => {
+    const grade = /^Kinetic Generator(?: \((Commercial|Tactical|Advanced|Superior|Elite)\))?$/i.exec(entry?.name ?? '')?.[1]?.toLowerCase()
+      ?? (/^Kinetic Generator$/i.test(entry?.name ?? '') ? 'commercial' : undefined)
+    const stats = Object.entries({ commercial: [2, 17], tactical: [4, 23], advanced: [6, 28],
+      superior: [10, 34], elite: [14, 41] } as const).find(([name]) => name === grade)?.[1]
+    if (!stats) return null
+    return <DamageRoll name="Short Circuit" actions="Reaction" disabled={disabled} toggleResult preserveDamage showNote
+      damage={{ label: 'Damage', dice: stats[0], sides: 6, type: 'electricity',
+        note: `DC ${stats[1]} basic Reflex; requires an attached battery with at least 10 charges and consumes all its charges` }} />
+  }
   const options = catalog.filter(entry => !isEnergyShieldingUpgrade(entry) && !installed.some(item => item?.id === entry.id)
     && !(isDriftDriveRelay(entry) && installed.some(isDriftDriveRelay))
     && !automaticUpgrades.some(automatic => sameUpgrade(automatic, entry)
@@ -629,12 +639,14 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
           title={`${activeJetpack === AUTOMATIC_JETPACK_ID && worn ? 'Dismiss' : 'Activate'} jetpack (1 minute; cannot lift while encumbered${jetpackSpeed(item.entry) === 20 ? '; off-guard while hovering' : ''})`}
           onClick={() => onToggleJetpack(AUTOMATIC_JETPACK_ID)}><ActionIcon actions="Single Action" /></button>}
         {energizedSpikesRoll(item.entry)}
+        {kineticGeneratorRoll(item.entry, !worn)}
       </span>
       const { id, index, entry, automatic } = item
       return <span className="rune" key={`${id}:${index}`}>
         <GearTag name={item.name} entry={automatic ?? entry} kind="upgrade" dialogContent={energizedSpikesControl(automatic ?? entry)}
           onRemove={() => onChange(upgrades.filter((_, i) => i !== index))} />
       {energizedSpikesRoll(automatic ?? entry)}
+      {kineticGeneratorRoll(automatic ?? entry, !worn || !automatic && index >= limit)}
       {jetpackSpeed(automatic ?? entry) > 0 && <button type="button" className={`spell-action-button${activeJetpack === id && worn ? ' on' : ''}`}
         aria-label={`${activeJetpack === id && worn ? 'Dismiss' : 'Activate'} ${automatic?.name ?? entry?.name}`}
         aria-pressed={activeJetpack === id && worn} disabled={!worn || index >= limit}

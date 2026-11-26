@@ -8,7 +8,7 @@ import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
 import { EquipmentSearch } from './EquipmentSearch'
 export { EquipmentSearch } from './EquipmentSearch'
-import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isBucklerShield, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
+import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldRaiseLabel, showParryControl, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, boostSlots, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, ownedArmors, warriorLegendWeakness } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { classArchetypeSlotViews, featSectionGrants, SearchableFeatSlots } from './FeatSlots'
@@ -596,8 +596,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
   const shield = equippedShield(c)
   const shieldCantrip = knowsSpell(c, entries, 'Shield')
   const boneShield = boneShieldActive(c)
-  const shieldRaiseLabel = shield?.id === 'granted-shield:chitinous' ? 'Raise Chitinous Shield'
-    : shield && isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raise Shield'
+  const raiseShieldLabel = shieldRaiseLabel(shield)
   const weaponCount = ownedWeapons(c, entries).length
   const handsUsed = equippedHands(c, entries)
   const handLimit = totalHandCapacity(c)
@@ -873,14 +872,14 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           </span>
           {(shield || shieldCantrip || boneShield || parry > 0) && <span className="combat-summary-toggles" onClick={(event) => event.stopPropagation()}>
             {shield && <label title={shieldAlwaysRaisedSource(c) ? `Always raised by ${shieldAlwaysRaisedSource(c)}` : undefined}>
-              <input type="checkbox" aria-label={`${shieldRaiseLabel} (summary)`} checked={shieldRaised(c)} disabled={!!shieldAlwaysRaisedSource(c)}
-                onChange={(event) => { if (!shieldAlwaysRaisedSource(c)) save(shieldRaisedChange(c, event.target.checked)) }} /> {shieldRaiseLabel} (+{shieldAcBonus(c, entries)} AC)</label>}
+              <input type="checkbox" aria-label={`${raiseShieldLabel} (summary)`} checked={shieldRaised(c)} disabled={!!shieldAlwaysRaisedSource(c)}
+                onChange={(event) => { if (!shieldAlwaysRaisedSource(c)) save(shieldRaisedChange(c, event.target.checked)) }} /> {raiseShieldLabel} (+{shieldAcBonus(c, entries)} AC)</label>}
             {boneShield ? <label><input type="checkbox" aria-label="Raise Bone Shield (summary)"
               checked={!!c.boneShieldRaised} onChange={event => save({ boneShieldRaised: event.target.checked })} /> Raise Bone Shield (+2 AC)</label>
             : shieldCantrip && <label><input type="checkbox" aria-label="Raise Shield Cantrip (summary)"
               checked={isSpellActive(c, entries, 'Shield')}
               onChange={event => save(spellActiveChange(c, 'Shield', event.target.checked))} /> Raise Shield Cantrip (+1 AC)</label>}
-            {parryWeapon && parry > 0 && <span><input type="checkbox" aria-label="Parry active (summary)" checked={!!c.parrying || stanceParry}
+            {parryWeapon && parry > 0 && showParryControl(c, shield) && <span><input type="checkbox" aria-label="Parry active (summary)" checked={!!c.parrying || stanceParry}
               disabled={stanceParry} onChange={(event) => { if (!stanceParry) save({ parrying: event.target.checked }) }} />{' '}
               <EntryDescription name="Parry" entry={parryTrait(c, entries)} character={c} entries={entries} deferDetails /> (+{parry} AC)</span>}
           </span>}

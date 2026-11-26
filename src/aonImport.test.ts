@@ -160,7 +160,7 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
   const names = new Set(families.flatMap(name => [name, ...grades.map(grade => `${grade} ${name}`)]))
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)
   const upgrades = ['Jetpack', 'Force Field', 'Aqua Jets', 'Active Camouflage', 'Cloaking Device', 'Drift Drive Relay',
-    'Mobility Enhancer', 'Maneuvering Unit', 'Easypatcher', 'Adrenal Autoinjectors', 'Energized Spikes', 'Energy Shielding',
+    'Mobility Enhancer', 'Maneuvering Unit', 'Easypatcher', 'Adrenal Autoinjectors', 'Energized Spikes', 'Energy Shielding', 'Kinetic Generator',
     'Spell Gauntlet', 'Spell Refactoring Matrix', 'Flechette Launcher']
   const entries = mapAonHits(hits.filter(hit => {
     const name = String(hit._source?.name)
@@ -182,7 +182,7 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
     expect(autoUpgrades.map(entry => entry.name)).toContain('Force Field (Paragon)')
     if (name === 'Aquavarius Armor') expect(autoUpgrades.map(entry => entry.name)).not.toContain('Jetpack (Tactical)')
     else expect(autoUpgrades.map(entry => entry.name)).toContain('Jetpack (Tactical)')
-    expect(autoUpgrades).toHaveLength(name === 'Stormbreaker Armor' ? 5 : name === "Drifter's Jacket" || name === 'Clandestine Suit' ? 5
+    expect(autoUpgrades).toHaveLength(name === 'Stormbreaker Armor' ? 6 : name === "Drifter's Jacket" || name === 'Clandestine Suit' ? 5
       : name === 'Aquavarius Armor' || name === 'Rocketeer Armor' ? 3
       : name === 'Carvesong' || name === 'Myrmidon Siegebreaker Plate' ? 4
       : name === 'Retrieval Harness' ? 4
@@ -219,10 +219,13 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
       .toContain('Maneuvering Unit (Superior)')
     if (name === 'Stormbreaker Armor') {
       expect(autoUpgrades.map(entry => entry.name)).toEqual(expect.arrayContaining([
-        'Force Field (Paragon)', 'Energized Spikes (Advanced)', 'Energy Shielding (Advanced)',
+        'Force Field (Paragon)', 'Energized Spikes (Advanced)', 'Energy Shielding (Advanced)', 'Kinetic Generator (Elite)',
       ]))
       expect(autoUpgrades.find(entry => entry.name === 'Energy Shielding (Advanced)')?.data.automatic_energy_type)
         .toBe('electricity')
+      for (const [level, grade] of [[10, 'Tactical'], [11, 'Advanced'], [15, 'Superior'], [19, 'Elite']] as const)
+        expect(automaticSpecificArmorUpgrades({ ...character, level }, entries, expandedArmor).map(entry => entry.name))
+          .toContain(`Kinetic Generator (${grade})`)
     }
     if (name === 'Carvesong') expect(autoUpgrades.map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Spell Gauntlet', 'Spell Refactoring Matrix']))
@@ -235,7 +238,7 @@ it('prioritizes lowest-level automatic armor upgrades within real grade capaciti
   const entries = mapAonHits(hits.filter(hit => {
     const name = String(hit._source?.name)
     return /^(?:(?:Advanced|Superior|Elite|Ultimate|Paragon) )?(?:Myrmidon Siegebreaker Plate|Stormbreaker Armor)$/.test(name)
-      || /^(?:Jetpack|Force Field|Mobility Enhancer|Flechette Launcher|Energized Spikes|Energy Shielding)(?: \(|$)/.test(name)
+      || /^(?:Jetpack|Force Field|Mobility Enhancer|Flechette Launcher|Energized Spikes|Energy Shielding|Kinetic Generator)(?: \(|$)/.test(name)
   }), 'sf2e')
   for (const name of ['Myrmidon Siegebreaker Plate', 'Stormbreaker Armor']) {
     const owned: OwnedArmor = { id: 'armor', name, potency: 0, resilient: 0, runes: [], worn: true }
@@ -264,6 +267,8 @@ it('prioritizes lowest-level automatic armor upgrades within real grade capaciti
     } else {
       expect(selected.filter(entry => entry.data.automatic_energy_type).map(entry => entry.data.automatic_energy_type))
         .toEqual(['electricity'])
+      expect(selected.map(entry => entry.name)).toContain('Kinetic Generator (Elite)')
+      expect(automaticArmorUpgradeUsesSlot(armor.name, selected.find(entry => entry.name === 'Kinetic Generator (Elite)')!)).toBe(true)
       const withExtraSlot = automaticSpecificArmorUpgrades({ ...c, heritage: 'Mod Fanatic Android' }, entries, armor)
       expect(withExtraSlot.filter(entry => entry.data.automatic_energy_type).map(entry => entry.data.automatic_energy_type))
         .toEqual(['electricity'])

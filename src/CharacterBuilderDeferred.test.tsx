@@ -288,6 +288,51 @@ it.each([
   },
 )
 
+it.each([
+  ['Commercial', 2, 17], ['Tactical', 4, 23], ['Advanced', 6, 28],
+  ['Superior', 10, 34], ['Elite', 14, 41],
+] as const)('rolls %s Kinetic Generator reaction damage', async (grade, dice, dc) => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+  const item: ContentEntry = { id: grade, name: `Kinetic Generator (${grade})`, systems: ['sf2e'], kind: 'item',
+    source: 'official', level: 1, traits: [], description: '', data: { item_subcategory: 'Armor Upgrades' }, effects: [], updatedAt: 0 }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    const render = async (worn: boolean) => act(async () => root.render(<ArmorUpgrades entries={[item]} upgrades={[]}
+      automaticUpgrades={[item]} limit={1} worn={worn} onChange={() => {}} onToggleJetpack={() => {}} />))
+    await render(false)
+    const button = container.querySelector<HTMLButtonElement>('[aria-label="Roll Short Circuit: Damage"]')!
+    expect(button.disabled).toBe(true)
+    expect(button.querySelector('[aria-label="Reaction"]')).toBeTruthy()
+    await render(true)
+    expect(button.disabled).toBe(false)
+    await act(async () => button.click())
+    const result = container.querySelector('[aria-label="Short Circuit: Damage result"]')!
+    expect(result.textContent).toContain(`${dice} electricity`)
+    expect(result.textContent).toContain(`DC ${dc} basic Reflex`)
+    expect(result.textContent).toContain('at least 10 charges')
+    expect(random).toHaveBeenCalledTimes(dice)
+    await act(async () => button.click())
+    expect(container.querySelector('[aria-label="Short Circuit: Damage result"]')).toBeNull()
+    expect(random).toHaveBeenCalledTimes(dice)
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    random.mockRestore()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('disables manually installed Kinetic Generator beyond armor capacity', () => {
+  const item: ContentEntry = { id: 'kinetic', name: 'Kinetic Generator (Commercial)', systems: ['sf2e'], kind: 'item',
+    source: 'official', level: 3, traits: [], description: '', data: { item_subcategory: 'Armor Upgrades' }, effects: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<ArmorUpgrades entries={[item]} upgrades={[item.id]} limit={0} worn
+    onChange={() => {}} onToggleJetpack={() => {}} />)
+  expect(markup).toMatch(/disabled=""[^>]*aria-label="Roll Short Circuit: Damage"/)
+})
+
 it('opens augmentation picker from plus below installed augmentations and installs a choice', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   const entry: ContentEntry = { id: 'wings', name: 'Ultralight Wings', systems: ['sf2e'], kind: 'item',
@@ -406,6 +451,21 @@ it('opens Parry rules from Defense and Statuses summaries without toggling eithe
     Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
     vi.unstubAllGlobals()
   }
+})
+
+it('labels Solar Shield and hides inactive Parry in the Defense summary', () => {
+  const c: Character = { id: 'solar-defense', systems: ['sf2e'], name: 'Test', level: 2, className: 'Solarian',
+    solarianAttunement: 'Photon', feats: [{ name: 'Solar Shield', type: 'Class Feat', level: 1 }],
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    weapons: [{ id: 'weapon', name: 'Parry Sword', potency: 0, striking: 0, runes: [] }] }
+  const weapon: ContentEntry = { id: 'weapon', name: 'Parry Sword', kind: 'weapon', source: 'official', systems: ['sf2e'],
+    level: 1, traits: ['Parry'], description: '', data: { weapon_category: 'Martial', hands: 1 }, effects: [], updatedAt: 0 }
+  const render = (character: Character) => renderToStaticMarkup(<CharacterBuilder character={character} catalog={[weapon]} onClose={() => {}} />)
+  expect(render(c)).toContain('aria-label="Raise Solar Shield (summary)"')
+  expect(render(c)).not.toContain('aria-label="Parry active (summary)"')
+  expect(render({ ...c, parrying: true })).toContain('aria-label="Parry active (summary)"')
+  expect(render({ ...c, solarianAttunement: 'Unattuned' })).toContain('aria-label="Parry active (summary)"')
 })
 
 it('updates equipment groups when inventory or catalog changes', async () => {

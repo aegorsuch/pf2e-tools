@@ -750,6 +750,15 @@ export function shieldAcBonus(c: Character, entries: ContentEntry[]) {
   return Math.max(raisedShieldBonus(c, entries), cover)
 }
 export const isBucklerShield = (name: string) => /buckler/i.test(name)
+export function shieldRaiseLabel(shield?: OwnedShield) {
+  return shield?.id === 'granted-shield:solarian' ? 'Raise Solar Shield'
+    : shield?.id === 'granted-shield:chitinous' ? 'Raise Chitinous Shield'
+      : shield && isBucklerShield(shield.name) ? 'Raise Buckler' : 'Raise Shield'
+}
+export function showParryControl(c: Character, shield?: OwnedShield) {
+  // Keep an existing active parry accessible so it can be cleared.
+  return shield?.id !== 'granted-shield:solarian' || !!c.parrying
+}
 export function shieldRaisedChange(c: Character, raised: boolean, entries?: ContentEntry[], target?: OwnedShield): Partial<Character> {
   const shield = target ?? equippedShield(c)
   if (!shield) return {}
@@ -3532,7 +3541,7 @@ export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upg
     return ['Jetpack', 'Force Field'].includes(base) || family === "Drifter's Jacket" && base === 'Active Camouflage'
       || family === 'Clandestine Suit' && base === 'Drift Drive Relay'
       || family === 'Myrmidon Siegebreaker Plate' && ['Mobility Enhancer', 'Flechette Launcher'].includes(base)
-      || family === 'Stormbreaker Armor' && base === 'Mobility Enhancer'
+      || family === 'Stormbreaker Armor' && ['Mobility Enhancer', 'Kinetic Generator'].includes(base)
       || family === 'Stormbreaker Armor' && base === 'Energy Shielding'
         && ['cold', 'fire'].includes(String(upgrade.data.automatic_energy_type))
       || family === 'Retrieval Harness' && base === 'Adrenal Autoinjectors'
@@ -3551,7 +3560,7 @@ const DRIFTER_JACKET_ARMOR_UPGRADES = ['Active Camouflage', 'Drift Drive Relay',
 const MYRMIDON_ARMOR_UPGRADES = ['Mobility Enhancer', 'Flechette Launcher']
 const ROCKETEER_ARMOR_UPGRADES = ['Maneuvering Unit']
 const RETRIEVAL_HARNESS_ARMOR_UPGRADES = ['Easypatcher', 'Adrenal Autoinjectors']
-const STORMBREAKER_ARMOR_UPGRADES = ['Energized Spikes', 'Energy Shielding', 'Mobility Enhancer']
+const STORMBREAKER_ARMOR_UPGRADES = ['Energized Spikes', 'Energy Shielding', 'Mobility Enhancer', 'Kinetic Generator']
 const AQUAVARIUS_ARMOR_UPGRADES = ['Aqua Jets', 'Energy Shielding']
 const SPELL_ARMOR_UPGRADES = ['Spell Gauntlet', 'Spell Refactoring Matrix', 'Jetpack', 'Force Field']
 const SF_UPGRADE_GRADES = 'Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon'

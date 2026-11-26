@@ -522,9 +522,9 @@ function damageTitle(damage: Damage) {
   return `${damage.label}: ${damageFormula(damage)}${damage.additional ? `${damage.additional.label ? `; ${damage.additional.label}: ` : ' + '}${damage.additional.dice ? `${damage.additional.dice}d${damage.additional.sides}${damage.additional.bonus ? `+${damage.additional.bonus}` : ''}` : damage.additional.bonus ?? 0} ${damage.additional.type}` : ''}${damage.components?.map(component => ` + ${component.dice}d${component.sides} ${component.type}`).join('') ?? ''}${damage.note ? `; ${damage.note}` : ''}`
 }
 
-export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll, toggleResult = false, preserveDamage = false }: {
+export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll, toggleResult = false, preserveDamage = false, showNote = false }: {
   name: string; damage: Damage; actions?: string; showLabel?: boolean; disabled?: boolean; onRoll?: () => void
-  toggleResult?: boolean; preserveDamage?: boolean
+  toggleResult?: boolean; preserveDamage?: boolean; showNote?: boolean
 }) {
   const [result, setResult] = useState<DamageRollState>()
   const snapshot = hasDamageSnapshot(result)
@@ -549,6 +549,7 @@ export function DamageRoll({ name, damage, actions, showLabel, disabled, onRoll,
     {result !== undefined && <output aria-live="polite" aria-label={`${name}: ${displayedDamage.label} result`}>
       <DamageResultText damage={displayedDamage}
         result={hasDamageSnapshot(result) ? result.result : result} />
+      {showNote && displayedDamage.note && ` (${displayedDamage.note})`}
     </output>}
   </span>
 }

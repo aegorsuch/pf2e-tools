@@ -550,6 +550,26 @@ it('toggles Parry with one control that includes its AC bonus', () => {
   expect(activeMarkup).toContain('aria-label="Parry active" checked=""')
 })
 
+it('labels Solar Shield and hides inactive Parry without trapping an existing active Parry', () => {
+  const weapon: ContentEntry = { id: 'parry-weapon', name: 'Parry Weapon', systems: ['sf2e'], kind: 'weapon',
+    source: 'official', level: 1, traits: ['Parry'], description: '', data: { weapon_type: 'Melee', hands: 1 },
+    effects: [], updatedAt: 0 }
+  const c: Character = { id: 'solar-shield-status', name: 'Test', systems: ['sf2e'], level: 2, className: 'Solarian',
+    solarianAttunement: 'Photon', feats: [{ name: 'Solar Shield', type: 'Class Feat', level: 1 }],
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    weapons: [{ id: weapon.id, name: weapon.name, potency: 0, striking: 0, runes: [] }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const render = (character: Character) => renderToStaticMarkup(<StatusesContent c={character} entries={[weapon]} save={() => {}} />)
+  expect(render(c)).toContain('aria-label="Raise Solar Shield status"')
+  expect(render(c)).not.toContain('aria-label="Parry active"')
+  expect(render({ ...c, parrying: true })).toContain('aria-label="Parry active" checked=""')
+  expect(render({ ...c, solarianAttunement: 'Unattuned' })).toContain('aria-label="Parry active"')
+  const ordinary = { ...c, solarianAttunement: 'Unattuned' as const,
+    shield: { id: 'shield', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, equipped: true, raised: false } }
+  expect(render(ordinary)).toContain('aria-label="Raise Shield status"')
+  expect(render(ordinary)).toContain('aria-label="Parry active"')
+})
+
 it('shows Tactical Protection Grid parry as +2 in its rules description', () => {
   const weapon: ContentEntry = { id: 'tech-weapon', name: 'Tech Weapon', systems: ['sf2e'], kind: 'weapon',
     source: 'official', level: 1, traits: ['Tech'], description: '',
