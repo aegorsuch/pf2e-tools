@@ -9205,7 +9205,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const modifiedDamageType = c.level >= 5 && chosenDamageType
     && (physicalTypes.includes(damageType ?? '') && physicalTypes.includes(chosenDamageType)
       || energyTypes.includes(damageType ?? '') && energyTypes.includes(chosenDamageType)) ? chosenDamageType : m?.[3]
-  const dice = m ? w.id === ENERGY_BLAST.id ? +m[1] : Math.max(cairn ? Math.max(+m[1], 1 + w.striking) : (+m[1]) * (1 + w.striking), num(entry?.data.named_weapon_damage_dice)) : 0
+  const dice = m ? w.id === ENERGY_BLAST.id || w.id === SKYFIRE_WING.id ? +m[1] : Math.max(cairn ? Math.max(+m[1], 1 + w.striking) : (+m[1]) * (1 + w.striking), num(entry?.data.named_weapon_damage_dice)) : 0
   const attachedSource = w.attachedTo
     ? ownedWeapons(c, entries).find(source => source.id === w.attachedTo && !source.attachedTo) : undefined
   const twoHandDie = weaponHands(entries, attachedSource ?? w, c) === 2

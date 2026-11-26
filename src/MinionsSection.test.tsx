@@ -2544,3 +2544,14 @@ it('applies a toggled Resist Energy as resistance of the chosen type', async () 
   expect(resistances({ ...c, activeSpells: ['Resist Energy'] }, [])).toContainEqual(
     expect.objectContaining({ damage: 'Cold', value: 10 }))
 })
+
+it('does not multiply Skyfire Wings dice by striking', async () => {
+  const { weaponAttack, effectiveWeapon } = await import('./builder')
+  const c: Character = { id: 'sky2', name: 'Test', systems: ['sf2e'], level: 20, ancestry: 'Human', className: 'Soldier',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: [],
+    spells: [{ name: 'Skyfire Wings', rank: 3, cantrip: false }], activeSpells: ['Skyfire Wings'],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const wing = effectiveWeapon(c, [], { ...ownedWeapons(c, []).find(weapon => weapon.name === 'Wing')!, striking: 3 })
+  expect(weaponAttack(c, [], wing).damage).toMatch(/^4d8/)
+  expect(weaponAttack(c, [], wing).additionalDamage.some(item => /^8 persistent/.test(item.value))).toBe(true)
+})
