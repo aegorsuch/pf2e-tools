@@ -3350,11 +3350,10 @@ export function automaticArmorUpgradeSlotsUsed(armor?: ContentEntry) {
   if (!armor?.systems.includes('sf2e')) return 0
   if (SPELL_ARMOR_FAMILIES.has(family ?? '')) return 4
   if (family === "Drifter's Jacket") return 3
-  if (family === 'Retrieval Harness') return 2
   return ['Aeon Guard Battle Dress', 'Aquavarius Armor', 'Clandestine Suit',
     'Myrmidon Siegebreaker Plate', 'Retrieval Harness',
     'Rocketeer Armor', 'Stormbreaker Armor']
-    .includes(family ?? '') ? 2 : 0
+    .includes(family ?? '') ? family === 'Retrieval Harness' ? 3 : 2 : 0
 }
 
 export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upgrade: ContentEntry) {
@@ -3364,7 +3363,7 @@ export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upg
   if (family === 'Aquavarius Armor') return ['Force Field', 'Energy Shielding'].includes(base)
   if (['Aeon Guard Battle Dress', 'Clandestine Suit', "Drifter's Jacket",
     'Myrmidon Siegebreaker Plate', 'Retrieval Harness', 'Stormbreaker Armor'].includes(family ?? ''))
-    return (family === 'Retrieval Harness' ? base === 'Force Field' : ['Jetpack', 'Force Field'].includes(base)) || family === "Drifter's Jacket" && base === 'Active Camouflage'
+    return ['Jetpack', 'Force Field'].includes(base) || family === "Drifter's Jacket" && base === 'Active Camouflage'
       || family === 'Retrieval Harness' && base === 'Adrenal Autoinjectors'
   return family === 'Rocketeer Armor' && ['Force Field', 'Maneuvering Unit'].includes(base)
 }

@@ -3132,7 +3132,7 @@ it('auto-installs Retrieval Harness Easypatcher and scaling Adrenal Autoinjector
     { id: harness.id, name: harness.name, potency: 0, resilient: 0, runes: [], worn: true },
   ] }
   const markup = renderToStaticMarkup(ArmorList({ c, entries: [harness, ...upgrades], save: () => {} }))
-  expect(automaticArmorUpgradeSlotsUsed(harness)).toBe(2)
+  expect(automaticArmorUpgradeSlotsUsed(harness)).toBe(3)
   const adrenalNameAt = (level: number) => automaticSpecificArmorUpgrades({ ...c, level }, [harness, ...upgrades], harness)
     .find(item => item.name.startsWith('Adrenal Autoinjectors'))?.name
   expect(adrenalNameAt(7)).toBeUndefined()
@@ -3146,9 +3146,9 @@ it('auto-installs Retrieval Harness Easypatcher and scaling Adrenal Autoinjector
   expect(markup).not.toContain('Adrenal Autoinjectors (Advanced) *')
   expect(markup).toContain('Jetpack (Commercial)')
   expect(markup).toContain('Force Field (Superior)')
-  expect(markup).toContain('Jetpack (Commercial) *')
+  expect(markup).not.toContain('Jetpack (Commercial) *')
   expect(markup).not.toContain('Force Field (Superior) *')
-  expect(markup).toContain('Add armor upgrade')
+  expect(markup).not.toContain('Add armor upgrade')
 })
 
 it('auto-installs Stormbreaker electrical upgrades and reserves slots for Jetpack and Force Field', () => {
