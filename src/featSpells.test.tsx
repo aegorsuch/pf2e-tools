@@ -376,6 +376,32 @@ const feat = (name: string, markdown: string, level = 1) => mapAonHit({
 }, 'pf2e')!
 const taken = (name: string, level = 1, choice?: string) => ({ name, type: 'Ancestry Feat', level, choice })
 
+it('lists Melodic Adaptation as constant Detect Magic and synchronizes its rank with the sense', () => {
+  const spell = { ...entry('Detect Magic', 'spell', {}, ['Cantrip']), systems: ['sf2e' as const] }
+  const source = { ...entry('Melodic Adaptation', 'feat'), systems: ['sf2e' as const], level: 9 }
+  const catalog = [source, spell]
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Pahtra', level: 9, feats: [taken(source.name, 9)] }
+  for (const [level, rank] of [[9, 1], [12, 1], [13, 3], [16, 3], [17, 4], [20, 4]]) {
+    const character = { ...c, level }
+    expect(grantedFeatSpells(character, catalog)).toMatchObject([{ entry: { name: 'Detect Magic' }, source: source.name, rank,
+      rule: { kind: 'innate', frequency: 'constant', condition: 'Constant detection in a 30-foot emanation; this is not a cast spell.' } }])
+    expect(senses(character, catalog)).toContainEqual({ value: `Detect magic (30-foot emanation, rank ${rank})`, source: source.name })
+  }
+  updateSettings({ innateAutoHeighten: true })
+  for (const [level, rank] of [[9, 5], [13, 7], [17, 9], [20, 10]]) {
+    const character = { ...c, level }
+    expect(grantedFeatSpells(character, catalog)[0].rank).toBe(rank)
+    expect(senses(character, catalog)).toContainEqual({ value: `Detect magic (30-foot emanation, rank ${rank})`, source: source.name })
+  }
+  const markup = renderToStaticMarkup(<SpellsSection c={c} entries={catalog} save={() => {}} />)
+  expect(markup).toContain('>Detect Magic</button>')
+  expect(markup).toContain('Spell Rank 5')
+  expect(markup).toContain('Constant detection in a 30-foot emanation; this is not a cast spell.')
+  expect(grantedFeatSpells({ ...c, level: 8 }, catalog)).toEqual([])
+  expect(grantedFeatSpells({ ...c, systems: ['pf2e'] }, catalog)).toEqual([])
+  expect(unresolvedFeatSpells(c, [source])).toMatchObject([{ name: 'Detect Magic', sourceName: source.name }])
+})
+
 it('grants remastered Dragon Spit cantrips and heightens matching Dragon Breath', () => {
   const cantripNames = ['Caustic Blast', 'Electric Arc', 'Frostbite', 'Ignition']
   const cantrips = cantripNames.map(name => entry(name, 'spell', { tradition: 'Arcane' }, ['Cantrip']))

@@ -540,7 +540,9 @@ it('automates Pahtra and Kasatha ancestry feats', () => {
   expect(movementSpeeds(pahtra, catalog)).toContainEqual(expect.objectContaining({ name: 'Climb', feet: speed(pahtra, catalog) }))
   expect(automaticFeatGrants(pahtra, catalog)).toContainEqual(expect.objectContaining({ name: 'Additional Lore', choice: 'Pahtra' }))
   expect(senses(pahtra, catalog)).toEqual(expect.arrayContaining([{ value: 'Darkvision', source: 'Pahtra' }]))
-  expect(senses(pahtra, catalog)).toEqual(expect.arrayContaining([{ value: 'Detect magic (30-foot emanation, rank 3)', source: 'Melodic Adaptation' }]))
+  expect(senses(pahtra, catalog)).toEqual(expect.arrayContaining([{
+    value: `Detect magic (30-foot emanation, rank ${getSettings().innateAutoHeighten ? 7 : 3})`, source: 'Melodic Adaptation',
+  }]))
   expect(resistances(pahtra, catalog)).toContainEqual({ damage: 'Sonic', value: 6, source: 'Harmonic Shielding' })
   expect(savingThrowBreakdown(pahtra, catalog, 'Will').notes?.join(' ')).toContain('a successful save against a sonic effect becomes a critical success')
   expect(eligibleFeats(catalog, pahtra, { key: 'ancestry:13:0', category: 'ancestry', level: 13 }).map(feat => feat.name))

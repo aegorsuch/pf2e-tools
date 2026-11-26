@@ -7,7 +7,7 @@ import { getSettings } from './settings'
 import { cantripOptions } from './minorMagic'
 import { GODCLAW_DOMAINS, hellknightTrainingBenefit, hellknightTrainingSpellRules } from './hellknight'
 import { spellAccessGranted } from './featAccess'
-import { classSpellcasting, classSpellSlots, featChoiceOptions, investigatorMethodologies } from './builder'
+import { classSpellcasting, classSpellSlots, featChoiceOptions, investigatorMethodologies, melodicAdaptationRank } from './builder'
 
 export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 export const KITSUNE_SPELL_FAMILIARITY_CANTRIPS = ['Daze', 'Forbidding Ward', 'Ghost Sound']
@@ -563,6 +563,14 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
     if (featTakenLevel(feat) > c.level) continue
     const selection = feat.slot ?? `${feat.name}:${c.feats.slice(0, index).filter(other => other.name === feat.name).length}`
     const source = featSource(c, entries, feat.name, feat.sourceId)
+    if (feat.name === 'Melodic Adaptation' && c.systems.includes('sf2e')) {
+      const entry = matchingSpells(entries, 'Detect Magic').find(spell => spell.systems.includes('sf2e'))
+      if (entry) out.push({ entry, source: feat.name,
+        rule: { kind: 'innate', spells: [entry.name], frequency: 'constant',
+          condition: 'Constant detection in a 30-foot emanation; this is not a cast spell.' },
+        rank: melodicAdaptationRank(c.level), usageKey: JSON.stringify([selection, feat.name, 'detect magic']) })
+      continue
+    }
     if (feat.name.startsWith('Dragon Spit (') && c.systems.includes('pf2e')) {
       const sourceCantrip = typeof source?.data.dragon_spit_cantrip === 'string' ? source.data.dragon_spit_cantrip : undefined
       const entry = sourceCantrip && matchingSpells(entries, sourceCantrip).find(spell => spell.systems.includes('pf2e'))
@@ -1148,6 +1156,10 @@ export function unresolvedFeatSpells(c: Character, entries: ContentEntry[]): { n
   }
   return [...missingBoonSpells, ...missingHeritageSpells, ...c.feats.filter(feat => featTakenLevel(feat) <= c.level).flatMap(feat => {
     const source = featSource(c, entries, feat.name)
+    if (feat.name === 'Melodic Adaptation' && c.systems.includes('sf2e')) {
+      return matchingSpells(entries, 'Detect Magic').some(entry => entry.systems.includes('sf2e'))
+        ? [] : [{ name: 'Detect Magic', source, sourceName: feat.name }]
+    }
     if (feat.name.startsWith('Dragon Spit (') && c.systems.includes('pf2e')) {
       const variantEnergy = /^Dragon Spit \((Acid|Electricity|Fire|Cold)\)$/.exec(feat.name)?.[1].toLowerCase()
       const variantCantrip = variantEnergy

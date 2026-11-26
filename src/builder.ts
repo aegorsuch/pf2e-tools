@@ -5255,6 +5255,11 @@ function limitedTelepathy(c: Character, entries: ContentEntry[]) {
   return telepathy
 }
 
+export function melodicAdaptationRank(level: number) {
+  const rank = level >= 17 ? 4 : level >= 13 ? 3 : 1
+  return getSettings().innateAutoHeighten ? Math.max(rank, Math.min(10, Math.ceil(level / 2))) : rank
+}
+
 // Senses from the ancestry and from feats
 export function senses(c: Character, entries: ContentEntry[]) {
   const ancestry = byName(entries, 'ancestry', c.ancestry)?.data.vision
@@ -5291,7 +5296,7 @@ export function senses(c: Character, entries: ContentEntry[]) {
     addVision(`Thoughtsense (${c.level >= 9 ? 'imprecise' : 'vague'}) 30 feet`, 'Sensitive Antennae')
   }
   if (c.systems.includes('sf2e') && activeFeatsNamed(c, 'Melodic Adaptation').length) {
-    const rank = c.level >= 17 ? 4 : c.level >= 13 ? 3 : 1
+    const rank = melodicAdaptationRank(c.level)
     addVision(`Detect magic (30-foot emanation, rank ${rank})`, 'Melodic Adaptation')
   }
   if (activeFeatsNamed(c, 'Soulsight').length) addVision('Spiritsense (imprecise) 60 feet', 'Soulsight')
