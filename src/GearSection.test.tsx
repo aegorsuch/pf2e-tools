@@ -4057,3 +4057,19 @@ it.each([false, true])('orders weapons alphabetically by displayed name regardle
   expect(at('Axe')).toBeLessThan(at('Longsword'))
   expect(at('Longsword')).toBeLessThan(at('Spear'))
 })
+
+it('tracks Cloaking Skin and Cloaking Device invisibility separately', () => {
+  const skin: ContentEntry = { ...shifting, id: 'skin', name: 'Cloaking Skin (Tactical)', systems: ['sf2e'],
+    level: 10, data: { item_category: 'Augmentations', item_activation_action_ids: '175-cloak' } }
+  const suit: ContentEntry = { ...weapon, id: 'clandestine', name: 'Clandestine Suit', kind: 'armor', systems: ['sf2e'],
+    level: 9, data: { armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 2 } }
+  const device: ContentEntry = { ...shifting, id: 'device', name: 'Cloaking Device (Commercial)', level: 8, systems: ['sf2e'],
+    data: { item_subcategory: 'Armor Upgrades' } }
+  const c: Character = { ...character([]), systems: ['sf2e'], level: 10, weapons: [],
+    augmentations: [{ id: 'installed', entryId: skin.id, name: skin.name, slot: 'standard' }],
+    armors: [{ id: 'clandestine', name: suit.name, potency: 0, resilient: 0, runes: [], worn: true }] }
+  const spells = itemSpells(c, [skin, suit, device])
+  expect(spells.map(spell => [spell.source.name, spell.name])).toEqual([
+    ['Cloaking Device (Commercial)', 'Invisibility'], ['Cloaking Skin (Tactical)', 'Invisibility']])
+  expect(new Set(spells.map(spell => spell.usageKey)).size).toBe(2)
+})

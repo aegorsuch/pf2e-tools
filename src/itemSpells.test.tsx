@@ -147,7 +147,7 @@ it('adds scaling Invisibility from Clandestine Suit and scales Cloaking Device u
   const first = itemSpells(c, entries)[0]
   expect(first).toMatchObject({
     name: 'Invisibility', rank: 5, actions: 'Single Action', frequency: 'once per day',
-    note: 'Invisible for 1 minute.', usageKey: JSON.stringify([armor.id, 'cloaking-device', 'invisibility']),
+    usageKey: JSON.stringify([armor.id, 'cloaking-device', 'invisibility']),
     source: { name: commercial.name },
   })
   const upgraded = itemSpells({ ...c, level: 10 }, entries)[0]
@@ -156,7 +156,7 @@ it('adds scaling Invisibility from Clandestine Suit and scales Cloaking Device u
   const highest = itemSpells({ ...c, level: 20 }, entries)[0]
   expect(highest).toMatchObject({ rank: 10, frequency: 'three times per day' })
   const html = renderToStaticMarkup(<SpellsSection c={{ ...c, level: 10 }} entries={entries} save={() => {}} />)
-  expect(html).toContain('Invisible for 1 minute.')
+  expect(html).not.toContain('Invisible for 1 minute.')
   expect(html).toContain('aria-label="3 of 3 uses remaining"')
 })
 

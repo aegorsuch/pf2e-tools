@@ -152,7 +152,6 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
       addSpell('Invisibility', Math.max(2, Math.ceil(c.level / 2)), {
         actions: 'Single Action',
         frequency: /\(Tactical\)$/i.test(source.name) ? 'three times per day' : 'once per day',
-        note: 'Invisible for 1 minute.',
         usageKey: JSON.stringify([automaticArmorSources.get(source.id) ?? source.id, 'cloaking-device', 'invisibility']),
       })
     }
