@@ -480,16 +480,18 @@ it.each([
 })
 
 it('grants both gauntlets with either worn suit, preserving saved equipment when switched off', () => {
-  const previous = getSettings().inventorArmorGauntlets
+  const { inventorArmorGauntlets, gauntletHandwrapRunes } = getSettings()
   let c: Character = { ...base, level: 10, className: 'Inventor', subclass: 'Armor', inventorArmorSuit: 'Subterfuge Suit',
     shield: { id: 'steel', name: 'Steel Shield', hardness: 5, hp: 20, raised: true, damage: 2 },
     armors: [{ id: INVENTOR_ARMOR_ID, name: 'Subterfuge Suit', worn: true, potency: 0, resilient: 0, runes: [], gauntlet: 'Clawed Gauntlet' }],
     weapons: [{ id: 'blade', name: 'Bladed Gauntlet', potency: 0, striking: 0, runes: ['Ghost Touch'] }] }
   const savedArmor = JSON.stringify(c.armors)
   try {
-    updateSettings({ inventorArmorGauntlets: true })
+    updateSettings({ inventorArmorGauntlets: true, gauntletHandwrapRunes: true })
     expect(armorGauntlet(c, [])).toMatchObject({ name: 'Bladed Gauntlet', locked: true })
     expect(ownedWeapons(c, []).filter(weapon => weapon.name === 'Bladed Gauntlet')).toHaveLength(1)
+    expect(effectiveWeapon(c, [], c.weapons![0])).toMatchObject({ potency: 2, striking: 1, runes: ['Ghost Touch', 'Grievous'] })
+    updateSettings({ gauntletHandwrapRunes: false })
     expect(effectiveWeapon(c, [], c.weapons![0])).toMatchObject({ potency: 2, striking: 1, runes: ['Ghost Touch'] })
     const buckler = inventorBuckler(c)!
     c = { ...c, ...shieldEquipChange(c, buckler, true) }
@@ -509,7 +511,7 @@ it('grants both gauntlets with either worn suit, preserving saved equipment when
     expect(inventorBuckler(c)?.damage).toBe(4)
     expect(inventorBuckler({ ...c, subclass: 'Construct' })).toBeUndefined()
     expect(inventorBuckler({ ...c, armors: c.armors!.map(armor => ({ ...armor, worn: false })) })).toBeUndefined()
-  } finally { updateSettings({ inventorArmorGauntlets: previous }) }
+  } finally { updateSettings({ inventorArmorGauntlets, gauntletHandwrapRunes }) }
 })
 
 it.each([
