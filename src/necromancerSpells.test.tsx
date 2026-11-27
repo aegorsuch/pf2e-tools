@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { expect, it, vi } from 'vitest'
-import { armorRanks, beckoningDirgeMaxRank, classSpellcasting, classSpellSlots, eligibleFeats, featPrerequisiteChecker, focusSpells, knowsSpell, necromancerConjurerRank, necromancerDirge, necromancerDirgeLearnChecker, necromancerExtraSlots, necromancerSpellList, subclassOptions, weaponRanks } from './builder'
+import { armorRanks, beckoningDirgeMaxRank, classSpellcasting, classSpellSlots, eligibleFeats, featPrerequisiteChecker, focusSpells, knowsSpell, necromancerConjurerRank, necromancerDirge, necromancerDirgeLearnChecker, necromancerExtraSlots, necromancerSpellList, selectedGrantedSpellNames, subclassOptions, weaponRanks } from './builder'
 import { mapAonHit } from './aon'
 import { DirgeLearnOptions, DirgeRankButton, SpellsContent, SpellsPanel, SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
@@ -24,8 +24,8 @@ const spell = (name: string, level = 1, tradition = 'Occult', traits: string[] =
 const taken = (name: string, level: number) => ({ name, level, type: 'Class Feat' })
 const render = (c: Character, entries: ContentEntry[]) =>
   renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => { throw Error('Rendering must preserve saved data') }} />)
-const renderAtDirgeRank = (c: Character, entries: ContentEntry[], rank: number, query = '', defense = 'all') => {
-  for (const value of ['class', c.spellcasting?.tradition ?? '', undefined, true, 'Dirge', rank, undefined, query, defense, 'both'])
+const renderAtDirgeRank = (c: Character, entries: ContentEntry[], rank: number, query = '', defense = 'all', sort = 'name') => {
+  for (const value of ['class', c.spellcasting?.tradition ?? '', undefined, true, 'Dirge', rank, undefined, query, defense, 'both', sort])
     vi.mocked(useState).mockReturnValueOnce([value, vi.fn()])
   return render(c, entries)
 }
@@ -249,7 +249,7 @@ it.each(['Wizard Dedication', 'Spellshot Dedication'])('opens %s slot books and 
     spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: {} },
     spells: [{ name: guidance.name, entryId: guidance.id, rank: 0, cantrip: true, bookSlot: 'wizard:0:1' }] }
   const save = vi.fn()
-  const stateValues = ['class', 'Arcane', undefined, true, 'Wizard', 0, 'wizard:0:0', '', 'all', 'both']
+  const stateValues = ['class', 'Arcane', undefined, true, 'Wizard', 0, 'wizard:0:0', '', 'all', 'both', 'name']
   stateValues.forEach(value => vi.mocked(useState).mockReturnValueOnce([value, vi.fn()]))
   vi.mocked(useMemo).mockImplementation(fn => fn())
   vi.mocked(useRef).mockReturnValue({ current: null })
@@ -262,6 +262,7 @@ it.each(['Wizard Dedication', 'Spellshot Dedication'])('opens %s slot books and 
       if (child.type === DirgeLearnOptions) bookOptions = child.props
       visit(child.props.children)
     })
+
     visit(tree)
     expect(bookOptions?.options.map(entry => entry.name)).toEqual([detectMagic.name])
     bookOptions!.onLearn(detectMagic)
@@ -277,6 +278,30 @@ it.each(['Wizard Dedication', 'Spellshot Dedication'])('opens %s slot books and 
     vi.mocked(useId).mockReset()
     vi.mocked(useState).mockReset()
   }
+})
+
+it('offers learned Spellshot cantrips despite stale prepared slots outside the current slot count', () => {
+  const ignition = spell('Ignition', 1, 'Arcane', ['Cantrip'])
+  const liveWire = spell('Live Wire', 1, 'Arcane', ['Cantrip'])
+  const c: Character = { ...base, className: 'Gunslinger', level: 4,
+    feats: [taken('Spellshot Dedication', 2), taken('Basic Wizard Spellcasting', 4)],
+    spells: [ignition, liveWire].map(entry => ({ name: entry.name, entryId: entry.id, rank: 0, cantrip: true })),
+    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: {},
+      prepared: { '0:0': liveWire.id, '0:5': ignition.id } } }
+  const html = render(c, [ignition, liveWire])
+  expect(choices(html, 'Cantrip slot 2')).toContain('Ignition')
+  expect(choices(html, 'Cantrip slot 2')).not.toContain('Live Wire')
+})
+
+it('allows preparing a learned cantrip also granted by another source', () => {
+  const ignition = spell('Ignition', 1, 'Arcane', ['Cantrip'])
+  const grant: ContentEntry = { ...spell('Test Innate Magic'), kind: 'feat',
+    spellGrants: [{ kind: 'innate', spells: ['Ignition'], tradition: 'Arcane' }] }
+  const c: Character = { ...base, className: 'Gunslinger', level: 2,
+    feats: [taken('Spellshot Dedication', 2), taken(grant.name, 1)],
+    spells: [{ name: ignition.name, entryId: ignition.id, rank: 0, cantrip: true }] }
+  expect(selectedGrantedSpellNames(c, [ignition, grant]).has('ignition')).toBe(true)
+  expect(choices(render(c, [ignition, grant]), 'Cantrip slot 1')).toContain('Ignition')
 })
 
 it('excludes the Epitaph slot when granting Spell Battery at level 20', () => {
@@ -527,6 +552,13 @@ it('filters learnable Dirge spells by defense and search', () => {
   expect(results).not.toContain('aria-label="Learn Flame Bolt"')
 })
 
+it('sorts learnable Dirge spells by damage type', () => {
+  const entries = [{ ...spell('Blaze'), description: 'Deals fire damage.' },
+    { ...spell('Chill'), description: 'Deals cold damage.' }, spell('Fear')]
+  const html = learnOptions(renderAtDirgeRank(base, entries, 1, '', 'all', 'damage'))
+  expect(html).toMatch(/Learn Chill[\s\S]*Cold[\s\S]*Learn Blaze[\s\S]*Fire[\s\S]*Learn Fear[\s\S]*Other/)
+})
+
 it('marks Wizard school spells in the learn list', () => {
   const html = renderToStaticMarkup(DirgeLearnOptions({ options: [spell('Bane'), spell('Fear')], onLearn: () => {},
     marked: new Set(['fear']) }))
@@ -562,7 +594,7 @@ it('keeps the Dirge editor open when a nested spell description closes', () => {
     .mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce([true, setOpen])
     .mockReturnValueOnce(['Dirge', vi.fn()]).mockReturnValueOnce([1, vi.fn()])
     .mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['fear', vi.fn()])
-    .mockReturnValueOnce(['all', vi.fn()]).mockReturnValueOnce(['both', vi.fn()])
+    .mockReturnValueOnce(['all', vi.fn()]).mockReturnValueOnce(['both', vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
   vi.mocked(useMemo).mockImplementation(fn => fn())
   vi.mocked(useRef).mockReturnValue({ current: null })
   vi.mocked(useId).mockReturnValue('dirge')

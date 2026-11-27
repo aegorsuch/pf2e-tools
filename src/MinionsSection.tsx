@@ -26,7 +26,7 @@ import { isPurchasableMinibot, minibotUpgradeCost, minibotUpgradeOptions, servoS
 import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityEffects, familiarAbilityEntries, familiarAbilitySlots, familiarMedicRank,
   familiarAbilityEntry, familiarAbilityUnavailableReason, GLYPH_FAMILIAR_ABILITIES, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds,
   isDivineEmissaryAbility, PURIFY_AIR_DESCRIPTION, SQUOX_TRICKS_DESCRIPTION, specificFamiliarAbilityName, specificFamiliarGrantedLabels,
-  specificFamiliarSections } from './familiarAbilities'
+  specificFamiliarInherentDragon, specificFamiliarSections } from './familiarAbilities'
 import type { Character, CompanionEquipment, CompanionEquipmentSlot, ContentEntry } from './types'
 
 const RANK_LETTER = ['U', 'T', 'E', 'M', 'L']
@@ -128,7 +128,8 @@ function familiarDisplayState(c: Character, entries: ContentEntry[], isWasp = fa
   const skillNames = [...FAMILIAR_SKILLS, 'Perception']
   const grantedCount = grants.reduce((count, grant) => count + (/^skilled\s*\(/i.test(grant)
     ? /choice/i.test(grant) ? (/\btwo\b/i.test(grant) ? 2 : 1)
-      : Math.max(1, skillNames.filter(skill => new RegExp(`\\b${skill}\\b`, 'i').test(grant)).length) : 1), 0)
+      : Math.max(1, skillNames.filter(skill => new RegExp(`\\b${skill}\\b`, 'i').test(grant)).length)
+    : grant === 'Dragon' && specificFamiliarInherentDragon(activeSpecific) ? 0 : 1), 0)
   const selectedCount = activeAbilityChoices.length + Number(!!patronAbility) + Number(!!emissaryAbility) + Number(!!leshySecret) + grantedCount
   const hasLeshySecretSlot = !isWasp && familiarSelection(c).leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0
   const totalCount = activeSpecific || glyph ? selectableAbilityLimit + Number(!!patronAbility) + Number(!!emissaryAbility)
@@ -1438,7 +1439,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           <section className="companion-actions">
           <h5>Speed</h5><div>{familiarEffects.speeds.map(speed =>
             `${speed.movement === 'Land' ? '' : `${speed.movement} `}${speed.feet} feet`).join(', ')}</div>
-          {movementAbilities.some(ability => ability.toLowerCase() === 'fast movement') && baseSpeeds.length > 1 && <label>Fast Movement{' '}
+          {!getSettings().familiarFastMovementAllSpeeds && movementAbilities.some(ability => ability.toLowerCase() === 'fast movement') && baseSpeeds.length > 1 && <label>Fast Movement{' '}
             <select aria-label={`${familiarLabel} Fast Movement speed`} value={selectedSpeed}
               onChange={event => saveAbilityOptions({ fastMovement: event.target.value })}>
               {baseSpeeds.map(speed => <option key={speed.movement} value={speed.movement}>{speed.movement} ({speed.feet} feet)</option>)}

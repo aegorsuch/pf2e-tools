@@ -3,6 +3,7 @@ import { activeFeatsNamed, classSpellcasting, classSpellSlots, selectedSubclass 
 import { attunementFamiliarAbilities, hasArcaneThesis } from './arcaneTheses'
 import { hasDivineIntercession } from './divineIntercessions'
 import { contentAccessGranted } from './featAccess'
+import { getSettings } from './settings'
 
 export const FAMILIAR_RESISTANCE_TYPES = ['acid', 'cold', 'electricity', 'fire', 'poison', 'sonic'] as const
 export const FAMILIAR_SKILLS = [
@@ -243,6 +244,10 @@ export function familiarAbilityUnavailableReason(entry: ContentEntry, c: Charact
     && (/^(?:constructed?|dragon|plant|fungus)$/i.test(entry.name) || changesCreatureTrait(entry))) {
     return 'This familiar already has an ability that changes its trait.'
   }
+  if (selected.some(name => key(name) === 'dragon') && key(entry.name) !== 'dragon'
+    && (/^(?:constructed?|plant|fungus)$/i.test(entry.name) || changesCreatureTrait(entry))) {
+    return 'This familiar already has an ability that changes its trait.'
+  }
   if (selected.some(name => key(name) === key(entry.name)) && !isFamiliarAbilityRepeatable(entry)) {
     return 'This ability has already been selected.'
   }
@@ -322,7 +327,10 @@ export function familiarAbilityEffects(abilities: string[], level: number,
   const skillModifier = level + spellcastingModifier
   return {
     hitPoints: level * (5 + (has('Tough') ? 2 : 0)),
-    speeds: minionMovementSpeeds(abilities, options?.fastMovement),
+    speeds: getSettings().familiarFastMovementAllSpeeds && has('Fast Movement')
+      ? minionMovementSpeeds(abilities.filter(ability => key(ability) !== 'fast movement'))
+        .map(speed => ({ ...speed, feet: speed.feet + 15 }))
+      : minionMovementSpeeds(abilities, options?.fastMovement),
     senses: [
       ...(has('Darkvision') ? ['Darkvision'] : []),
       ...(has('Scent') ? ['Scent (imprecise, 30 feet)'] : []),
@@ -408,14 +416,31 @@ const builtInSpecific = (entry?: ContentEntry) =>
 export function specificFamiliarGrants(entry?: ContentEntry): { abilities: string[]; skilled: string[] } {
   const parsed = parseSpecificGrants(entry)
   const builtIn = builtInSpecific(entry)
-  return !parsed.abilities.length && builtIn && builtIn !== entry ? parseSpecificGrants(builtIn) : parsed
+  const grants = !parsed.abilities.length && builtIn && builtIn !== entry ? parseSpecificGrants(builtIn) : parsed
+  return hasInherentDragonTrait(entry) && !grants.abilities.some(ability => key(ability) === 'dragon')
+    ? { ...grants, abilities: [...grants.abilities, 'Dragon'] } : grants
+}
+
+function hasInherentDragonTrait(entry?: ContentEntry) {
+  return !!entry && isSpecificFamiliar(entry) && [...entry.traits, ...(builtInSpecific(entry)?.traits ?? [])]
+    .some(trait => key(trait) === 'dragon')
+}
+
+export function specificFamiliarInherentDragon(entry?: ContentEntry) {
+  if (!hasInherentDragonTrait(entry)) return false
+  const parsed = parseSpecificGrants(entry)
+  const fallback = builtInSpecific(entry)
+  const grants = !parsed.abilities.length && fallback && fallback !== entry ? parseSpecificGrants(fallback) : parsed
+  return !grants.abilities.some(ability => key(ability) === 'dragon')
 }
 
 export function specificFamiliarGrantedLabels(entry?: ContentEntry): string[] {
   const raw = String(entry?.data.granted_abilities ?? '') || GRANTED_LIST.exec(entry?.description ?? '')?.[1] || ''
   const fallback = builtInSpecific(entry)
   if (!raw && fallback && fallback !== entry) return specificFamiliarGrantedLabels(fallback)
-  return raw.split(/,(?![^()]*\))/).map(item => titleCase(item.trim().replace(/[.;]$/, ''))).filter(Boolean)
+  const labels = raw.split(/,(?![^()]*\))/).map(item => titleCase(item.trim().replace(/[.;]$/, ''))).filter(Boolean)
+  if (hasInherentDragonTrait(entry) && !labels.some(label => key(label) === 'dragon')) labels.push('Dragon')
+  return labels
 }
 
 function parseSpecificGrants(entry?: ContentEntry) {

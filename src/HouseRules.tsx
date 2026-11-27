@@ -111,6 +111,8 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
     description: "Feat skill prerequisites use actual skill ranks at your character's selected build level, even for earlier feat slots. Unassigned ranks do not qualify. Other prerequisites are unchanged." },
   { key: 'protectCompanionAll', label: 'Protect Companion Targets All Minions',
     description: 'Protect Companion applies to all your minions and companions instead of one target.' },
+  { key: 'familiarFastMovementAllSpeeds', label: 'Familiar Fast Movement Applies to All Speeds',
+    description: 'Fast Movement increases each familiar Speed by 15 feet, including burrow Speed.' },
   { key: 'rangerBeastmaster', label: 'Ranger Beastmaster Dedication' },
   { key: 'orcTattooedHistorian', label: 'Orc Tattooed Historian Dedication' },
   { key: 'rangerCavalier', label: 'Ranger Cavalier Dedication' },

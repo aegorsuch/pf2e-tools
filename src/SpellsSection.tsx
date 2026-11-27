@@ -30,6 +30,8 @@ import { isAncestralEmbrace } from './namedArmor'
 import { familiarSpellBenefits } from './familiarAbilities'
 import { PYRE_ENERGY_TYPES } from './hellknight'
 import { SpellDefenseFilter } from './SpellDefenseFilter'
+import { PickerSort, type PickerSortOrder } from './PickerSort'
+import { sortSpellsByDamage, spellDamageLabel } from './spellDamageTypes'
 import { matchesSpellDefense, spellResolution, type SpellDefense } from './spellDefense'
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
@@ -1086,12 +1088,13 @@ export function PyreResistEnergyActions({ c, save, entry, rank }: Pick<SectionPr
   </ActiveSpellActions>
 }
 
-export function DirgeLearnOptions({ options, onLearn, marked }: { options: ContentEntry[]; onLearn: (entry: ContentEntry) => void; marked?: Set<string> }) {
+export function DirgeLearnOptions({ options, onLearn, marked, showDamage }: { options: ContentEntry[]; onLearn: (entry: ContentEntry) => void; marked?: Set<string>; showDamage?: boolean }) {
   return <ul className="dirge-options">
     {options.map(entry => <li key={entry.id}>
       <button type="button" aria-label={`Learn ${entry.name}`} onClick={() => onLearn(entry)}>+</button>
       <EntryDescription name={entry.name} entry={entry} />
       {' '}<small>{entry.systems.map(system => system.toUpperCase()).join(' / ')}</small>
+      {showDamage && <> <small>{spellDamageLabel(entry)}</small></>}
       {marked?.has(entry.name.toLowerCase()) && <> <strong>School</strong></>}
     </li>)}
   </ul>
@@ -1926,6 +1929,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const [bookQuery, setBookQuery] = useState('')
   const [bookDefense, setBookDefense] = useState<SpellDefense>('all')
   const [bookSystem, setBookSystem] = useState<GearSystem>('both')
+  const [bookSort, setBookSort] = useState<PickerSortOrder>('name')
   const bookDialog = useRef<HTMLDialogElement>(null)
   const bookTitleId = useId()
   const casting = classSpellcasting(c, entries)
@@ -2049,8 +2053,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     .map(name => spellName(entries, name).toLowerCase())), [c, entries, bookRank])
   const schoolFirst = (list: ContentEntry[]) => bookSource === 'Wizard' && schoolSpells.size
     ? [...list].sort((a, b) => Number(schoolSpells.has(b.name.toLowerCase())) - Number(schoolSpells.has(a.name.toLowerCase()))) : list
-  const rankedBookOptions = bookSource === 'Dirge' ? rankedDirgeOptions
+  const bookOptions = bookSource === 'Dirge' ? rankedDirgeOptions
     : bookSource === 'Witch' ? rankedWitchBookOptions : schoolFirst(rankedArcaneBookOptions)
+  const rankedBookOptions = bookSort === 'damage' ? sortSpellsByDamage(bookOptions, entry => entry, entry => entry.name) : bookOptions
   const { spells, granted, featSpells, innate, special, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
   const available = spellCategoryAvailability(c, entries, data ?? spellSummaryData(c, entries))
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
@@ -2345,11 +2350,13 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     const databaseSpells = [...(c.spells ?? []).filter(spell => !programmedNames.has(spell.name.toLowerCase())),
       ...programmedSpellEntries.map(entry => ({ name: entry.name, entryId: entry.id, rank: entry.level,
         cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }))]
+    const learnedNames = new Set(databaseSpells.map(spell => spell.name.toLowerCase()))
     const grantedDirge = new Set(necromancerGrantedDirgeSpells(c))
     const available = [...((warriorSpells ?? bloodragerSpells ?? clericSpells ?? witchAvailable ?? druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
       rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: grantedDirge.has(entry.name) })) ?? databaseSpells
       .filter(spell => !forced.some(extra => extra.name === spell.name)).map(spell => ({ ...spell, forced: false }))), ...forced]
-      .filter(spell => spell.forced || !preventDuplicateSpells || !selectedGrantNames.has(spell.name.toLowerCase()))
+      .filter(spell => spell.forced || preparedClass && learnedNames.has(spell.name.toLowerCase())
+        || !preventDuplicateSpells || !selectedGrantNames.has(spell.name.toLowerCase()))
       .map(spell => {
         const entry = spell.entryId ? spellIndex.byId.get(spell.entryId) : spellIndex.byName.get(spell.name)
         const baseRank = entry && Number.isInteger(entry.level) && entry.level >= 1 && entry.level <= 10
@@ -2451,7 +2458,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }] })
       return
     }
-    const slot = wizardSpellbookSlots.find(candidate => candidate.key === bookSlotKey)
+    const rankSlots = wizardSpellbookSlots.filter(candidate => candidate.rank === bookRank)
+    const assigned = new Set((c.spells ?? []).map(spell => spell.bookSlot))
+    const slot = rankSlots.find(candidate => candidate.key === bookSlotKey)
+      ?? rankSlots.find(candidate => !assigned.has(candidate.key)) ?? rankSlots[0]
     if ((c.spells ?? []).some(spell => spell.name.toLowerCase() === entry.name.toLowerCase()
       && spell.bookSlot !== slot?.key)) return
     const spells = slot ? (c.spells ?? []).filter(spell => spell.bookSlot !== slot.key) : [...(c.spells ?? [])]
@@ -2602,9 +2612,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           </div>)}
         <label>Search spells{' '}<input type="search" aria-label={`Search ${bookSource.toLowerCase()} spells`} value={bookQuery}
           onChange={event => setBookQuery(event.target.value)} /></label>
+        <PickerSort label="Sort spellbook by" value={bookSort} onChange={setBookSort} includeLevel={false} includeDamage />
         <SpellDefenseFilter value={bookDefense} onChange={setBookDefense} />
         <GearSystemFilter value={bookSystem} onChange={setBookSystem} />
         {bookOpen && <DirgeLearnOptions options={rankedBookOptions} onLearn={learnSpellbookSpell}
+          showDamage={bookSort === 'damage'}
           marked={bookSource === 'Wizard' ? schoolSpells : undefined} />}
         <form method="dialog"><button autoFocus>Close</button></form>
       </dialog>}
@@ -2721,8 +2733,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 })
               }
               if (cantrip && preparedClass) {
+                const activeKeys = new Set(Array.from({ length: count }, (_, i) => slotKeyForIndex(i).slotKey))
                 const taken = new Set(Object.entries(sc.prepared ?? {})
-                  .filter(([key, value]) => (key.startsWith('0:') || key === 'curriculum:0') && key !== slotKey && value).map(([, value]) => value))
+                  .filter(([key, value]) => activeKeys.has(key) && key !== slotKey && value)
+                  .flatMap(([, value]) => [value, (spellIndex.byId.get(value) ?? spellIndex.byName.get(value))?.name ?? value]))
                 slotOptions = slotOptions.filter(option => !taken.has(option.entryId ?? option.name)
                   && !taken.has(option.name))
               }

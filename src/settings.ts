@@ -102,6 +102,7 @@ export interface Settings {
   // House rule: a character has at most one animal companion; extra companion grants strengthen it instead
   singleAnimalCompanion: boolean
   protectCompanionAll: boolean
+  familiarFastMovementAllSpeeds: boolean
 }
 
 const KEY = 'app-settings'
@@ -128,7 +129,7 @@ const DEFAULTS: Settings = {
   inventorArmorGauntlets: true, bucklerMeleeFinesse: true, freeHandFinesse: true, staffAcrobatSpear: true,
   staffAcrobatNoPrerequisites: true, whirlwindStanceNoPrerequisites: true, unarmedCountsAsWeapons: true,
   barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true,
-  singleAnimalCompanion: true, protectCompanionAll: true,
+  singleAnimalCompanion: true, protectCompanionAll: true, familiarFastMovementAllSpeeds: true,
 }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]

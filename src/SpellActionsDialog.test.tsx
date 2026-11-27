@@ -92,6 +92,54 @@ it('uses the Technomancer spell database to learn and prepare Starfinder arcane 
   }
 })
 
+it('learns and prepares Spellshot cantrips after changing ranks in the spellbook', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  } })
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.removeAttribute('open')
+    this.dispatchEvent(new Event('close'))
+  } })
+  const ignition: ContentEntry = { id: 'ignition', name: 'Ignition', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: ['Cantrip'], description: 'Fire damage.',
+    data: { tradition: 'Arcane' }, effects: [], updatedAt: 0 }
+  const initial: Character = { id: 'spellshot', name: 'Test', systems: ['pf2e'], level: 4, className: 'Gunslinger',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [{ name: 'Spellshot Dedication', type: 'Archetype Feat', level: 2 },
+      { name: 'Basic Wizard Spellcasting', type: 'Archetype Feat', level: 4 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  let current = initial
+  function Sheet() {
+    const [c, setC] = useState(initial)
+    current = c
+    return <SpellsSection c={c} entries={[ignition]} save={patch => setC(previous => ({ ...previous, ...patch }))} />
+  }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<Sheet />))
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Open Wizard rank 1"]')!.click())
+    await act(async () => container.querySelector<HTMLButtonElement>('dialog[open] [aria-label="Cantrips"]')!.click())
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Learn Ignition"]')!.click())
+    expect(current.spells).toContainEqual(expect.objectContaining({ name: 'Ignition', rank: 0, cantrip: true, bookSlot: 'wizard:0:0' }))
+    const slot = container.querySelector<HTMLSelectElement>('select[aria-label="Cantrip slot 1"]')!
+    expect([...slot.options].map(option => option.value)).toContain('ignition')
+    await act(async () => {
+      slot.value = 'ignition'
+      slot.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    expect(current.spellcasting?.prepared?.['0:0']).toBe('ignition')
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'close')
+    vi.unstubAllGlobals()
+  }
+})
+
 it('tracks Summon Animal and Creature Ally in statuses', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   const initial: Character = { id: 'summon', name: 'Test', systems: ['sf2e'], level: 13, ancestry: 'Vesk',

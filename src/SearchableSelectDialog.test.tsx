@@ -190,6 +190,7 @@ it('sorts by underlying spell name before pagination, ignoring heightened labels
     found.push({ type: child.type, props: child.props })
     visit(child.props.children as ReactNode)
   })
+
   visit(SearchableSelect({ 'aria-label': 'Spell', value: '', primaryDetails: true,
     optionLevel: value => value === 'zebra' ? 1 : 2,
     optionSortName: value => ({ zebra: 'Zebra', alpha: 'Alpha', beta: 'Beta' } as Record<string, string>)[value],
@@ -197,6 +198,51 @@ it('sorts by underlying spell name before pagination, ignoring heightened labels
       <option value="alpha">+1 Alpha</option></> }))
   expect(found.filter(item => item.type === 'button' && String(item.props['aria-label']).startsWith('Select '))
     .map(item => item.props['aria-label'])).toEqual(['Select +1 Alpha', 'Select Beta'])
+})
+
+it('sorts spell choices by damage type without requiring level metadata', () => {
+  vi.mocked(useState).mockReturnValueOnce(['', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
+    .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['damage', vi.fn()])
+    .mockReturnValueOnce(['all', vi.fn()]).mockReturnValueOnce(['both', vi.fn()])
+  vi.mocked(useRef).mockReturnValue({ current: null })
+  vi.mocked(useId).mockReturnValue('picker')
+  vi.mocked(useMemo).mockImplementation(fn => fn())
+  const spell = (name: string, description: string): ContentEntry => ({ id: name, name, kind: 'spell',
+    systems: ['pf2e'], source: 'official', level: 1, traits: [], description, data: {}, effects: [], updatedAt: 0 })
+  const spells = [spell('Fire', 'Deals fire damage.'), spell('Shield', 'Protects you.'), spell('Cold', 'Deals cold damage.')]
+  const found: Array<{ type: unknown; props: Record<string, unknown> }> = []
+  const visit = (node: ReactNode) => Children.forEach(node, child => {
+    if (!isValidElement<Record<string, unknown>>(child)) return
+    found.push({ type: child.type, props: child.props })
+    visit(child.props.children as ReactNode)
+  })
+
+  visit(SearchableSelect({ 'aria-label': 'Spell', value: '', optionSpell: value => spells.find(spell => spell.name === value),
+    children: <>{spells.map(spell => <option key={spell.id}>{spell.name}</option>)}</> }))
+  expect(found.find(item => item.type === PickerSort)?.props.includeDamage).toBe(true)
+  expect(found.filter(item => item.type === 'button' && String(item.props['aria-label']).startsWith('Spell: '))
+    .map(item => item.props['aria-label'])).toEqual(['Spell: Cold', 'Spell: Fire', 'Spell: Shield'])
+  expect(found.filter(item => item.type === 'small').map(item => item.props.children)).toEqual(['Cold', 'Fire', 'Other'])
+})
+
+it('sorts spell choices alphabetically within their groups without level metadata', () => {
+  vi.mocked(useState).mockReturnValueOnce(['', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
+    .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
+    .mockReturnValueOnce(['all', vi.fn()]).mockReturnValueOnce(['both', vi.fn()])
+  vi.mocked(useRef).mockReturnValue({ current: null })
+  vi.mocked(useId).mockReturnValue('picker')
+  vi.mocked(useMemo).mockImplementation(fn => fn())
+  const found: Array<{ type: unknown; props: Record<string, unknown> }> = []
+  const visit = (node: ReactNode) => Children.forEach(node, child => {
+    if (!isValidElement<Record<string, unknown>>(child)) return
+    found.push({ type: child.type, props: child.props })
+    visit(child.props.children as ReactNode)
+  })
+  visit(SearchableSelect({ 'aria-label': 'Spell', value: '', optionSpell: () => undefined,
+    children: <><optgroup label="First"><option>Zebra</option><option>Alpha</option></optgroup>
+      <optgroup label="Second"><option>Delta</option><option>Beta</option></optgroup></> }))
+  expect(found.filter(item => item.type === 'button' && String(item.props['aria-label']).startsWith('Spell: '))
+    .map(item => item.props['aria-label'])).toEqual(['Spell: Alpha', 'Spell: Zebra', 'Spell: Beta', 'Spell: Delta'])
 })
 
 it('does not resolve option levels while the picker is closed', () => {

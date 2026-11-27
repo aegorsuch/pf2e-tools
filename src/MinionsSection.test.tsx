@@ -5,7 +5,7 @@ import { CompanionEquipmentSlots, FollowerCards, MinionsContent, MinionsSection,
 import { SearchableSelect } from './SearchableSelect'
 import { CaypinAllyToggle, CompanionSpellOptions, CreatureShapeOptions, LashuntaAllyOptions, ShirrenAllyToggle, SpellsSection, SpiritOfTheBeastOptions } from './SpellsSection'
 import { activeBattleForm, armorClass, eligibleFeats, featChoiceOptions, featPrerequisiteChecker, movementSpeeds, ownedWeapons, spellActiveChange, summonedMounts } from './builder'
-import { familiarAbilityEffects, familiarAbilityUnavailableReason } from './familiarAbilities'
+import { familiarAbilityEffects, familiarAbilityUnavailableReason, minionMovementSpeeds } from './familiarAbilities'
 import { EntryDescription } from './EntryDescription'
 import { DamageRoll } from './SpellDamage'
 import { bardingOptions, companionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME } from './companions'
@@ -1162,7 +1162,7 @@ it('shows specific familiar grants alongside choices without removal controls an
   html = renderToStaticMarkup(tree())
   expect(html).toContain('<h4>Calligraphy Wyrm Familiar</h4> (11/11)')
   expect(html).toContain('Skilled (Arcana, Society)')
-  for (const grant of ['Darkvision', 'Flier', 'Manual Dexterity', 'Scent', 'Skilled (Arcana, Society)', 'Speech']) {
+  for (const grant of ['Darkvision', 'Dragon', 'Flier', 'Manual Dexterity', 'Scent', 'Skilled (Arcana, Society)', 'Speech']) {
     const card = html.split('<div class="familiar-ability">').find(part => part.includes(`>${grant}<`))
     expect(card).toBeDefined()
     expect(card).not.toContain('aria-label="Remove Familiar ability')
@@ -1739,6 +1739,28 @@ it('applies familiar Fast Movement to valid speeds and keeps amphibious movement
   const html = renderToStaticMarkup(<MinionsContent c={c} entries={familiarEntries} save={() => {}} />)
   expect(html).toContain('40 feet, Swim 40 feet')
   expect(html).not.toContain('Familiar Fast Movement speed')
+})
+
+it('applies Fast Movement to all familiar speeds without changing pets, and restores the saved selection when disabled', () => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  const c: Character = {
+    id: 'all-familiar-speeds', systems: ['pf2e'], name: 'Test', level: 8, className: 'Wizard',
+    abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }, { name: 'Enhanced Familiar', type: 'Class Feat', level: 2 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { abilities: ['Fast Movement', 'Burrower', 'Flier'], abilityOptions: { fastMovement: 'Fly' } },
+  }
+  updateSettings({ familiarFastMovementAllSpeeds: true })
+  const render = () => renderToStaticMarkup(<MinionsContent c={c} entries={familiarEntries} save={() => {}} />)
+  expect(render()).toContain('40 feet, Burrow 20 feet, Fly 40 feet')
+  expect(render()).not.toContain('Familiar Fast Movement speed')
+  expect(minionMovementSpeeds(['Fast Movement', 'Flier'], 'Fly'))
+    .toEqual([{ movement: 'Land', feet: 25 }, { movement: 'Fly', feet: 40 }])
+  updateSettings({ familiarFastMovementAllSpeeds: false })
+  expect(render()).toContain('25 feet, Burrow 5 feet, Fly 40 feet')
+  expect(render()).toContain('Familiar Fast Movement speed')
+  expect(c.familiar?.abilityOptions?.fastMovement).toBe('Fly')
 })
 
 it('applies active familiar Tough and displays recognized daily ability effects', () => {

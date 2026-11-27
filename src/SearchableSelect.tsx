@@ -6,6 +6,7 @@ import { SpellDefenseFilter } from './SpellDefenseFilter'
 import { matchesSpellDefense, type SpellDefense } from './spellDefense'
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
+import { sortSpellsByDamage, spellDamageLabel } from './spellDamageTypes'
 import type { ContentEntry, GameSystem } from './types'
 
 type Props = Omit<ComponentPropsWithoutRef<'select'>, 'multiple' | 'defaultValue' | 'value'> & {
@@ -67,10 +68,17 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
     if ((!primaryDetails || option.value) && ((!option.value || match || option.value === value)
       && (!option.value || defenseMatch && systemMatch))) matching.push(option)
   }
-  const ordered = optionLevel && open ? [
+  const sortable = matching.filter(option => !!option.value)
+  const groupOrder = new Map<string | undefined, number>()
+  for (const option of sortable) if (!groupOrder.has(option.group)) groupOrder.set(option.group, groupOrder.size)
+  const ordered = (optionLevel || optionSpell) && open ? [
     ...matching.filter(option => !option.value),
-    ...sortPickerOptions(matching.filter(option => !!option.value), sort,
-      option => optionSortName?.(option.value) ?? option.label, option => levelFor?.(option.value)),
+    ...(sort === 'damage' && optionSpell
+      ? sortSpellsByDamage(sortable, option => optionSpell(option.value), option => optionSortName?.(option.value) ?? option.label)
+      : optionLevel ? sortPickerOptions(sortable, sort,
+        option => optionSortName?.(option.value) ?? option.label, option => levelFor?.(option.value))
+        : sortPickerOptions(sortable, 'name', option => optionSortName?.(option.value) ?? option.label, () => undefined)
+          .sort((a, b) => groupOrder.get(a.group)! - groupOrder.get(b.group)!)),
   ] : matching
   const shown = ordered.slice(0, limit)
   const choose = (next: string) => {
@@ -106,14 +114,15 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
     {searchable && open && <PickerDialog label={`${props['aria-label']} picker`} searchLabel={searchLabel}
       container={container}
       query={query} onQuery={next => { setQuery(next); setLimit(PAGE) }} onClose={() => setOpen(false)}>
-      {optionLevel && <PickerSort label={`Sort ${props['aria-label']} by`} value={sort}
+      {(optionLevel || optionSpell) && <PickerSort label={`Sort ${props['aria-label']} by`} value={sort}
+        includeLevel={!!optionLevel} includeDamage={!!optionSpell}
         includeHighestLevel={defaultSortOrder === 'level-desc'} onChange={next => { setSort(next); setLimit(PAGE) }} />}
       {optionSpell && <SpellDefenseFilter value={defense} onChange={next => { setDefense(next); setLimit(PAGE) }} />}
       {(optionSpell || optionSystems) && <GearSystemFilter value={system} onChange={next => { setSystem(next); setLimit(PAGE) }} />}
       {filters}
       <ul className="feat-modal-list">
         {shown.map((option, index) => <Fragment key={option.value}>
-          {!optionLevel && option.group && (index === 0 || shown[index - 1].group !== option.group)
+          {!optionLevel && sort !== 'damage' && option.group && (index === 0 || shown[index - 1].group !== option.group)
             && <li className="feat-modal-level">{option.group}</li>}
           <li className="picker-option-row">
             {primaryDetails ? <>
@@ -125,6 +134,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
                 className={option.value === value ? 'active' : undefined} onClick={() => choose(option.value)}>{option.label}</button>
               {renderDetails?.(option.value)}
             </>}
+            {sort === 'damage' && optionSpell && option.value && <small>{spellDamageLabel(optionSpell(option.value))}</small>}
           </li>
         </Fragment>)}
       </ul>

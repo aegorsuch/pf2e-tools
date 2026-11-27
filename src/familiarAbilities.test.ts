@@ -1,7 +1,8 @@
-import { expect, it } from 'vitest'
+import { expect, it, onTestFinished } from 'vitest'
 import { activeFamiliarAbilities, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries, familiarMedicRank,
   familiarAbilityUnavailableReason, familiarSelection, familiarSpellBenefits, specificFamiliarGrants, specificFamiliarOptions, specificFamiliarSections } from './familiarAbilities'
 import { featChoiceOptions } from './builder'
+import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
 
 const character: Character = {
@@ -32,12 +33,20 @@ it('derives familiar HP, movement, senses, resistance, and skilled modifiers fro
 
   expect(effects.hitPoints).toBe(56)
   expect(effects.speeds).toEqual([
-    { movement: 'Land', feet: 25 }, { movement: 'Swim', feet: 25 }, { movement: 'Burrow', feet: 5 },
-    { movement: 'Climb', feet: 25 }, { movement: 'Fly', feet: 40 },
+    { movement: 'Land', feet: 40 }, { movement: 'Swim', feet: 40 }, { movement: 'Burrow', feet: 20 },
+    { movement: 'Climb', feet: 40 }, { movement: 'Fly', feet: 40 },
   ])
   expect(effects.senses).toEqual(['Darkvision', 'Scent (imprecise, 30 feet)', 'Hearing (precise, 20 feet)'])
   expect(effects.resistances).toEqual([{ damage: 'fire', value: 8 }, { damage: 'cold', value: 8 }])
   expect(effects.skilled).toEqual([{ skill: 'Arcana', modifier: 12 }])
+})
+
+it('restores selected-speed Fast Movement when the house rule is disabled', () => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ familiarFastMovementAllSpeeds: false })
+  expect(familiarAbilityEffects(['Fast Movement', 'Burrower', 'Flier'], 8, { fastMovement: 'Fly' }).speeds)
+    .toEqual([{ movement: 'Land', feet: 25 }, { movement: 'Burrow', feet: 5 }, { movement: 'Fly', feet: 40 }])
 })
 
 it('enforces explicit ability prerequisites, repeatability, and undead trait restrictions', () => {
@@ -196,9 +205,9 @@ it('activates specific familiar grants only with access and remaining ability ca
   const entries = [specific, ability('Tough', '')]
   expect(activeFamiliarAbilities(witch, entries)).toEqual(['Tough'])
   const approved = { ...witch, featAccessOverrides: [specific.id] }
-  expect(activeFamiliarAbilities(approved, entries)).toEqual(['Tough', 'Darkvision', 'Flier', 'Skilled'])
+  expect(activeFamiliarAbilities(approved, entries)).toEqual(['Tough', 'Darkvision', 'Flier', 'Skilled', 'Dragon'])
   const trained = { ...witch, achievements: ['Trained with the Pathfinder Society'] }
-  expect(activeFamiliarAbilities(trained, entries)).toEqual(['Tough', 'Darkvision', 'Flier', 'Skilled'])
+  expect(activeFamiliarAbilities(trained, entries)).toEqual(['Tough', 'Darkvision', 'Flier', 'Skilled', 'Dragon'])
   expect(activeFamiliarAbilities({ ...approved, level: 1, feats: [] }, entries)).toEqual(['Tough'])
   expect(activeFamiliarAbilities({ ...trained, level: 1, feats: [] }, entries)).toEqual(['Tough'])
 })
@@ -220,10 +229,10 @@ it('offers specific familiars by required abilities, reduced by Improved Familia
 it('applies granted abilities of the selected specific familiar without using daily slots', () => {
   const wyrm = { ...ability('Calligraphy Wyrm', 'Required Number of Abilities 2\nGranted Abilities darkvision, flier, manual dexterity, scent, skilled (arcana, society), speech\nInk Spray'),
     data: { ability_type: 'Specific Familiar' } }
-  expect(specificFamiliarGrants(wyrm)).toEqual({ abilities: ['Darkvision', 'Flier', 'Manual Dexterity', 'Scent', 'Skilled', 'Speech'], skilled: ['Arcana', 'Society'] })
+  expect(specificFamiliarGrants(wyrm)).toEqual({ abilities: ['Darkvision', 'Flier', 'Manual Dexterity', 'Scent', 'Skilled', 'Speech', 'Dragon'], skilled: ['Arcana', 'Society'] })
   const wizard: Character = { ...character, className: 'Wizard', familiar: { specificFamiliar: 'Calligraphy Wyrm' },
     feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }] }
-  expect(activeFamiliarAbilities(wizard, [wyrm])).toEqual(['Darkvision', 'Flier', 'Manual Dexterity', 'Scent', 'Skilled', 'Speech'])
+  expect(activeFamiliarAbilities(wizard, [wyrm])).toEqual(['Darkvision', 'Flier', 'Manual Dexterity', 'Scent', 'Skilled', 'Speech', 'Dragon'])
 })
 
 it('offers Calligraphy Wyrm with granted abilities and unique actions without synced data', () => {
@@ -231,7 +240,7 @@ it('offers Calligraphy Wyrm with granted abilities and unique actions without sy
     feats: [{ name: 'Familiar', type: 'Class Feat', level: 1 }, { name: 'Incredible Familiar', type: 'Class Feat', level: 8 }] }
   const [wyrm] = specificFamiliarOptions(wizard, [])
   expect(wyrm).toMatchObject({ required: 6, available: true })
-  expect(specificFamiliarGrants(wyrm.entry).abilities).toEqual(['Darkvision', 'Flier', 'Manual Dexterity', 'Scent', 'Skilled', 'Speech'])
+  expect(specificFamiliarGrants(wyrm.entry).abilities).toEqual(['Darkvision', 'Flier', 'Manual Dexterity', 'Scent', 'Skilled', 'Speech', 'Dragon'])
   const sections = specificFamiliarSections(wyrm.entry)
   expect(sections.summary[0]).toMatch(/^Calligraphy wyrms are curious dragons/)
   expect(sections.summary[1]).toContain('know-it-alls')

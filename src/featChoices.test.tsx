@@ -893,6 +893,15 @@ it('treats the first Dogma feat as level 4 and later ones as level 6 or higher',
   expect(eligibleFeats(entries, c, slot).map(entry => entry.name)).toContain('Reach Spell')
 })
 
+it.each(['Wizard Dedication', 'Spellshot Dedication'])('grants cantrips and a spellbook from %s before basic spellcasting', dedication => {
+  const c: Character = { ...base, className: 'Gunslinger', level: 2,
+    feats: [{ name: dedication, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }] }
+  expect(classSpellSlots(c)).toEqual({ 0: 2 })
+  expect(classSpellcasting(c, [])).toEqual({ traditions: ['Arcane'], rank: 1, ability: 'int' })
+  expect(wizardArchetypeSpellbookChoices(c)).toHaveLength(4)
+  expect(classSpellSlots({ ...c, level: 1 })).toBeUndefined()
+})
+
 it('gives Spellshot Wizard spellcasting its slots, book choices, and arcana feat selections', () => {
   const dedication = { name: 'Spellshot Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }
   const basic = { name: 'Basic Wizard Spellcasting', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' }
@@ -900,7 +909,7 @@ it('gives Spellshot Wizard spellcasting its slots, book choices, and arcana feat
   const c: Character = { ...base, className: 'Gunslinger', level: 8, feats: [dedication, basic, breadth] }
   expect(classSpellcasting(c, [])).toEqual({ traditions: ['Arcane'], rank: 1, ability: 'int' })
   expect(classSpellSlots(c)).toEqual({ 0: 2, 1: 2, 2: 1, 3: 1 })
-  expect(wizardArchetypeSpellbookChoices(c)).toHaveLength(8)
+  expect(wizardArchetypeSpellbookChoices(c)).toHaveLength(10)
 
   const wizardFeat = (name: string, level: number): ContentEntry => ({
     id: name, systems: ['pf2e'], kind: 'feat', source: 'official', name, level, traits: ['Wizard'],
@@ -913,7 +922,7 @@ it('gives Spellshot Wizard spellcasting its slots, book choices, and arcana feat
   const cantripExpansion: Character = { ...c, feats: [...c.feats,
     { name: 'Basic Arcana', type: 'Archetype Feat', level: 4, slot: 'archetype:4:1', choice: 'Cantrip Expansion' }] }
   expect(classSpellSlots(cantripExpansion)).toEqual({ 0: 4, 1: 2, 2: 1, 3: 1 })
-  expect(wizardArchetypeSpellbookChoices(cantripExpansion).filter(slot => slot.rank === 0)).toHaveLength(4)
+  expect(wizardArchetypeSpellbookChoices(cantripExpansion).filter(slot => slot.rank === 0)).toHaveLength(6)
   const withArcana: Character = { ...c, level: 16, feats: [...c.feats,
     { name: 'Basic Arcana', type: 'Archetype Feat', level: 4, slot: 'archetype:4:1', choice: 'Reach Spell' }] }
   expect(featChoiceOptions('Advanced Arcana', withArcana, catalog, 'archetype:16:0'))
@@ -923,7 +932,7 @@ it('gives Spellshot Wizard spellcasting its slots, book choices, and arcana feat
     { name: 'Expert Wizard Spellcasting', type: 'Archetype Feat', level: 12, slot: 'archetype:12:0' }] }
   expect(classSpellcasting(expert, [])).toEqual({ traditions: ['Arcane'], rank: 2, ability: 'int' })
   expect(classSpellSlots(expert)).toEqual({ 0: 2, 1: 2, 2: 2, 3: 2, 4: 2, 5: 1, 6: 1 })
-  expect(wizardArchetypeSpellbookChoices(expert)).toHaveLength(14)
+  expect(wizardArchetypeSpellbookChoices(expert)).toHaveLength(16)
 })
 
 it('grants Arcane School Spell focus spell selected by its school variant', () => {
