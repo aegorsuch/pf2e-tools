@@ -4,7 +4,7 @@ import {
   activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, hasDailyAugmentationActivation, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, isSolarianCrystalWeapon, solarianCoreCrystals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, type SectionProps,
 } from './builder'
 import { newId } from './db'
-import { modFanaticArmorSlot, armorUpgradeEntries, armorUpgradeEntry, automaticArmorUpgradeUsesSlot, blessedShieldBenefit, canEquipShield, canRaiseShield, championBlessings, clanPistolRunes, energyShieldingVariantId, equippedHands, equippedOtherShield, forceFieldStats, isEnergyShieldingUpgrade, myrmidonPhaseShield, scaleOfIgroonWeaponRunes, shieldAllowsAttachments, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldBraceEligible, shieldEquipChange, weaponEntry } from './builder'
+import { hasPersonalUpgradeSlot, armorUpgradeEntries, armorUpgradeEntry, automaticArmorUpgradeUsesSlot, blessedShieldBenefit, canEquipShield, canRaiseShield, championBlessings, clanPistolRunes, energyShieldingVariantId, equippedHands, equippedOtherShield, forceFieldStats, isEnergyShieldingUpgrade, myrmidonPhaseShield, scaleOfIgroonWeaponRunes, shieldAllowsAttachments, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldBraceEligible, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { isAncestralEmbrace, isBastionNamedArmor, isHighhelmPlate, isImmortalBastion, isInheritorPlate, isIncendiaryArmor, isLibraryRobes, isMountainArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
@@ -590,13 +590,13 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, eff
 
 export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, energyShieldingTypes, energizedSpikesEnergy,
   onToggleJetpack, onEnergizedSpikesEnergyChange, onChange,
-  automaticUpgrades = [], armorName = 'armor' }: {
+  automaticUpgrades = [], armorName = 'armor', slotLabel = 'armor upgrade' }: {
   entries: ContentEntry[]; upgrades: string[]; limit: number; worn: boolean; activeJetpack?: string
   energyShieldingTypes?: OwnedArmor['energyShieldingTypes']
   energizedSpikesEnergy?: EnergizedSpikesEnergy
   onToggleJetpack: (id: string) => void; onChange: (ids: string[]) => void
   onEnergizedSpikesEnergyChange?: (energy: EnergizedSpikesEnergy | undefined) => void
-  automaticUpgrades?: ContentEntry[]; armorName?: string
+  automaticUpgrades?: ContentEntry[]; armorName?: string; slotLabel?: string
 }) {
   const catalog = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
     && entry.data.item_subcategory === 'Armor Upgrades')
@@ -698,11 +698,11 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
     })}
     {installed.some(item => !item) && <small role="status">Saved armor upgrade unavailable. Sync official content to restore its effects.</small>}
     {upgrades.length > limit && <small role="status">Installed upgrades exceed available slots.</small>}
-    {upgrades.length < limit && allOptions.length > 0 && <SearchableSelect aria-label="Add armor upgrade" value=""
+    {upgrades.length < limit && allOptions.length > 0 && <SearchableSelect aria-label={`Add ${slotLabel}`} value=""
       optionLevel={value => allOptions.find(entry => entry.id === value)?.level} onChange={event => {
       if (allOptions.some(entry => entry.id === event.target.value)) onChange([...upgrades, event.target.value])
     }}>
-      <option value="">Add armor upgrade...</option>
+      <option value="">Add {slotLabel}...</option>
       {allOptions.map(entry => <option key={entry.id} value={entry.id}>{entry.name} (Level {entry.level})</option>)}
     </SearchableSelect>}
   </div>
@@ -2143,9 +2143,8 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const displayName = armorDisplayName({ ...a, name: specificMagicItemName(entry, a.name, true) }, entry)
         const labelName = armorDisplayName({ name: a.name }, entry)
         const upgradeSlots = Math.max(0, armorUpgradeSlots(entry)
-          + (sf2eArmor && entry?.data.upgrades_allowed !== false ? modFanaticArmorSlot(c, a) : 0)
-          - automaticArmorUpgradeSlotsUsed(entry, c, entries, a))
-        const automaticUpgrades = sf2eArmor && entry ? automaticSpecificArmorUpgrades(c, entries, entry, a) : []
+          - automaticArmorUpgradeSlotsUsed(entry, c, entries))
+        const automaticUpgrades = sf2eArmor && entry ? automaticSpecificArmorUpgrades(c, entries, entry) : []
         const runesAllowed = !sf2eArmor && entry?.data.runes_allowed !== false
         const granted = isGrantedArmor(a.id)
         const automaticFundamentals = granted && entry?.data.automatic_fundamentals !== false
@@ -2337,7 +2336,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                       const energyShieldingTypes = { ...(a.energyShieldingTypes ?? {}) }
                       for (const id of Object.keys(energyShieldingTypes))
                         if (!upgrades.includes(id)) delete energyShieldingTypes[id]
-                      const automatic = automaticSpecificArmorUpgrades(c, entries, entry, a)
+                      const automatic = automaticSpecificArmorUpgrades(c, entries, entry)
                       const hasEnergizedSpikes = upgrades.some(id => entries.find(candidate => candidate.id === id)?.name
                         .replace(/\s*\([^)]*\)$/, '') === 'Energized Spikes')
                         || automatic.some(item => item.name.replace(/\s*\([^)]*\)$/, '') === 'Energized Spikes')
@@ -2348,6 +2347,10 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                       ...(a.activeForceField && !armorUpgradeEntries(c, entries, { ...a, upgrades })
                           .some(upgrade => forceFieldStats(upgrade)) ? { activeForceField: false } : {}) })
                     }} />}
+              {sf2eArmor && entry && hasPersonalUpgradeSlot(c) && entry.data.upgrades_allowed !== false
+                && <ArmorUpgrades entries={entries} upgrades={a.personalUpgrades ?? []} limit={1} worn={a.worn}
+                  armorName={a.name} slotLabel="personal upgrade" onToggleJetpack={() => undefined}
+                  onChange={personalUpgrades => update(a.id, { personalUpgrades })} />}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, runeLimit(potency, a.material)) })} />}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}

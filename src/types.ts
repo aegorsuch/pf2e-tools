@@ -106,6 +106,8 @@ export interface OwnedArmor {
   resilient: number
   runes: string[]
   upgrades?: string[]
+  // Mod Fanatic Android body slot: separate from the armor's upgrade slots
+  personalUpgrades?: string[]
   energyShieldingTypes?: Record<string, EnergyShieldingType>
   energizedSpikesEnergy?: EnergizedSpikesEnergy
   activeJetpack?: string

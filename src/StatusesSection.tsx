@@ -136,7 +136,7 @@ function armorDeviceStatuses(c: SectionProps['c'], entries: SectionProps['entrie
     forceField: undefined, forceFieldStats: undefined, forceFieldActive: false }
   if (!armor) return empty
   const armorItem = armorEntry(c, entries, armor.name, armor.id)
-  const automatic = automaticSpecificArmorUpgrades(c, entries, armorItem, armor)
+  const automatic = automaticSpecificArmorUpgrades(c, entries, armorItem)
   const upgrades = armorUpgradeEntries(c, entries, armor)
   const automaticJetpack = automatic.find(entry => jetpackSpeed(entry) > 0)
   const jetpack = automaticJetpack ?? upgrades.find(entry => jetpackSpeed(entry) > 0)

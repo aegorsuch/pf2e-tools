@@ -109,7 +109,7 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
   for (const armor of ownedArmors(c, entries)) if (armor.worn || isHighhelmPlate(armor.name) && armor.strongholdWallActive) {
     const armorItem = armorEntry(c, entries, armor.name, armor.id)
     add(armorItem)
-    if (armor.worn) for (const upgrade of automaticSpecificArmorUpgrades(c, entries, armorItem, armor)) {
+    if (armor.worn) for (const upgrade of automaticSpecificArmorUpgrades(c, entries, armorItem)) {
       add(upgrade)
       automaticArmorSources.set(upgrade.id, armor.id)
     }

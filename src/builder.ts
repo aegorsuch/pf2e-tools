@@ -3582,12 +3582,8 @@ export function armorUpgradeSlots(entry?: ContentEntry) {
   return Number(/\bUpgrades\W{0,6}(\d+)/i.exec(entry.description ?? '')?.[1] ?? 0) + additionalSlots
 }
 
-export function modFanaticArmorSlot(c: Character, owned?: OwnedArmor) {
-  return c.heritage === 'Mod Fanatic Android' && (!owned || owned.worn) ? 1 : 0
-}
-
-export function automaticArmorUpgradeSlotsUsed(armor: ContentEntry | undefined, c: Character, entries: ContentEntry[], owned?: OwnedArmor) {
-  return automaticSpecificArmorUpgrades(c, entries, armor, owned)
+export function automaticArmorUpgradeSlotsUsed(armor: ContentEntry | undefined, c: Character, entries: ContentEntry[]) {
+  return automaticSpecificArmorUpgrades(c, entries, armor)
     .filter(upgrade => automaticArmorUpgradeUsesSlot(armor?.name, upgrade)).length
 }
 
@@ -3631,7 +3627,7 @@ function armorUpgradeFamily(name: string) {
     .replace(/^(Stormbreaker Armor) \((?:Cold|Fire)\)$/i, '$1')
 }
 
-export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEntry[], armor?: ContentEntry, owned?: OwnedArmor) {
+export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEntry[], armor?: ContentEntry) {
   if (!c.systems.includes('sf2e') || armor?.kind !== 'armor' || !armor.systems.includes('sf2e')) return []
   const family = armorUpgradeFamily(armor.name)
   const standardArmor = AUTOMATIC_UPGRADE_ARMORS.has(family)
@@ -3668,8 +3664,7 @@ export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEnt
       ? { ...selected, data: { ...selected.data, automatic_energy_type: automaticEnergyType } }
       : selected }]
   })
-  const capacity = Math.max(0, armorUpgradeSlots(armor)
-    + (armor.data.upgrades_allowed !== false ? modFanaticArmorSlot(c, owned) : 0))
+  const capacity = Math.max(0, armorUpgradeSlots(armor))
   let used = 0
   return candidates.sort((a, b) => a.priority - b.priority || a.order - b.order).flatMap(({ entry }) => {
     if (!automaticArmorUpgradeUsesSlot(armor.name, entry)) return [entry]
@@ -3686,15 +3681,17 @@ export function jetpackSpeed(entry?: ContentEntry) {
     : /^Jetpack \(Tactical\)$/i.test(entry.name) ? 40 : 0
 }
 
+export const hasPersonalUpgradeSlot = (c: Character) => c.systems.includes('sf2e') && c.heritage === 'Mod Fanatic Android'
+
 export function armorUpgradeEntries(c: Character, entries: ContentEntry[], armor: OwnedArmor) {
   const armorItem = armorEntry(c, entries, armor.name, armor.id)
-  const automatic = automaticSpecificArmorUpgrades(c, entries, armorItem, armor)
+  const automatic = automaticSpecificArmorUpgrades(c, entries, armorItem)
   const limit = !armorItem || armorItem.data.upgrades_allowed === false ? 0
-    : Math.max(0, armorUpgradeSlots(armorItem)
-      + modFanaticArmorSlot(c, armor)
-      - automaticArmorUpgradeSlotsUsed(armorItem, c, entries, armor))
+    : Math.max(0, armorUpgradeSlots(armorItem) - automaticArmorUpgradeSlotsUsed(armorItem, c, entries))
   const installed = (armor.upgrades ?? []).slice(0, limit).flatMap(id => armorUpgradeEntry(entries, id) ?? [])
-  return [...automatic, ...installed]
+  const personal = armorItem && armorItem.data.upgrades_allowed !== false && hasPersonalUpgradeSlot(c)
+    ? (armor.personalUpgrades ?? []).slice(0, 1).flatMap(id => armorUpgradeEntry(entries, id) ?? []) : []
+  return [...automatic, ...installed, ...personal]
 }
 
 export function energyShieldingVariantId(id: string, type: typeof ENERGY_SHIELDING_TYPES[number]) {
@@ -3904,15 +3901,14 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
   if (magneticLevitatorsActive(c, entries)) movement.push(fixed('Fly', boostingTheBasics(c) ? 20 : 10, 'Magnetic Levitators'))
   const jetpackArmor = c.systems.includes('sf2e') ? wornArmor(c, entries) : undefined
   const jetpackArmorEntry = jetpackArmor && armorEntry(c, entries, jetpackArmor.name, jetpackArmor.id)
-  const automaticJetpack = automaticSpecificArmorUpgrades(c, entries, jetpackArmorEntry, jetpackArmor)
+  const automaticJetpack = automaticSpecificArmorUpgrades(c, entries, jetpackArmorEntry)
     .find(entry => jetpackSpeed(entry) > 0)
   const automaticJetpackActive = jetpackArmor?.activeJetpack === AUTOMATIC_JETPACK_ID
   const savedJetpack = jetpackArmor?.activeJetpack ? entries.find(entry => entry.id === jetpackArmor.activeJetpack) : undefined
   const jetpackEntry = automaticJetpackActive || automaticJetpack && jetpackSpeed(savedJetpack) > 0
     ? automaticJetpack : savedJetpack
   const jetpackLimit = Math.max(0, armorUpgradeSlots(jetpackArmorEntry)
-    + (jetpackArmorEntry?.data.upgrades_allowed !== false ? modFanaticArmorSlot(c, jetpackArmor) : 0)
-    - automaticArmorUpgradeSlotsUsed(jetpackArmorEntry, c, entries, jetpackArmor))
+    - automaticArmorUpgradeSlotsUsed(jetpackArmorEntry, c, entries))
   const jetpackIndex = jetpackArmor?.upgrades?.findIndex(id => id === jetpackArmor.activeJetpack) ?? -1
   const jetpack = jetpackSpeed(jetpackEntry)
   if (jetpack && jetpackArmorEntry?.systems.includes('sf2e') && jetpackArmorEntry.data.upgrades_allowed !== false

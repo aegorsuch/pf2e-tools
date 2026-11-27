@@ -1338,7 +1338,7 @@ it('preserves installed armor upgrades when automatic upgrades fill slots', () =
   expect(armorUpgradeEntries({ ...c, level: 3 }, entries, owned).map(entry => entry.name)).toEqual([field.name, launcher.name])
   expect(owned.upgrades).toEqual([extra.id])
   expect(armorUpgradeEntries({ ...c, level: 3, heritage: 'Mod Fanatic Android' }, entries, owned).map(entry => entry.name))
-    .toEqual([field.name, launcher.name, extra.name])
+    .toEqual([field.name, launcher.name])
 })
 
 it('grants Chitinous Shield without occupying a hand and automatically improves its grade', () => {
@@ -3551,7 +3551,8 @@ it('uses armor upgrades instead of runes for SF2E-tagged armor', () => {
   expect(c.armors?.[0]).toMatchObject({ upgrades: ['armor-upgrade'], runes: ['Shadow'] })
   expect(renderToStaticMarkup(tree())).not.toContain('Add armor upgrade')
   const extraSlot = renderToStaticMarkup(ArmorList({ c: { ...c, heritage: 'Mod Fanatic Android' }, entries, save: () => {} }))
-  expect(extraSlot).toContain('Add armor upgrade')
+  expect(extraSlot).not.toContain('Add armor upgrade')
+  expect(extraSlot).toContain('Add personal upgrade')
   expect(extraSlot).not.toContain('Armor upgrade slots:')
 })
 
@@ -3674,9 +3675,13 @@ it('leaves one Paragon Clandestine Suit upgrade slot, or two for Mod Fanatic And
     .toEqual(expect.arrayContaining(['extra-1', ...builtIn.map(entry => entry.id)]))
   const android = characterWith('Mod Fanatic Android')
   expect(armorUpgradeEntries(android, entries, android.armors![0]).map(entry => entry.id))
-    .toEqual(expect.arrayContaining(['extra-1', 'extra-2', ...builtIn.map(entry => entry.id)]))
-  const unworn = { ...android, armors: [{ ...android.armors![0], worn: false }] }
-  expect(armorUpgradeEntries(unworn, entries, unworn.armors![0]).map(entry => entry.id)).not.toContain('extra-2')
+    .toEqual(expect.arrayContaining(['extra-1', ...builtIn.map(entry => entry.id)]))
+  expect(armorUpgradeEntries(android, entries, android.armors![0]).map(entry => entry.id)).not.toContain('extra-2')
+  const personal = { ...android, armors: [{ ...android.armors![0], personalUpgrades: ['extra-3', 'extra-2'] }] }
+  expect(armorUpgradeEntries(personal, entries, personal.armors![0]).map(entry => entry.id)).toContain('extra-3')
+  expect(armorUpgradeEntries(personal, entries, personal.armors![0]).map(entry => entry.id)).not.toContain('extra-2')
+  const human = { ...personal, heritage: undefined }
+  expect(armorUpgradeEntries(human, entries, human.armors![0]).map(entry => entry.id)).not.toContain('extra-3')
 })
 
 it('prevents installing more than one grade of Drift Drive Relay', () => {
