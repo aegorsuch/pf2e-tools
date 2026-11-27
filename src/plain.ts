@@ -3,5 +3,5 @@ export const plain = (md: string) => {
   if (md.includes('[')) md = md.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
   if (md.includes('<')) md = md.replace(/<[^>]*>/g, ' ')
   if (/[*_`]/.test(md)) md = md.replace(/[*_`]/g, '')
-  return md.replace(/\s+/g, ' ').trim()
+  return md.replace(/\s{2,}|[^\S ]/g, ' ').trim()
 }
