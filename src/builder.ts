@@ -8153,7 +8153,7 @@ export function weaponEntry(entries: ContentEntry[], name: string, id?: string) 
     const grades = ['Commercial', 'Tactical', 'Advanced', 'Superior', 'Elite', 'Ultimate', 'Paragon']
     const index = Math.min(3, Math.max(0, grades.findIndex(value => value.toLowerCase() === grade?.toLowerCase())
       - (entry.data.raptorial_edge ? 3 : 0)))
-    entry = { ...entry, data: { ...entry.data, upgrade_slots: index + 1 + (entry.data.raptorial_edge ? 1 : 0) } }
+    entry = { ...entry, data: { ...entry.data, upgrade_slots: index + 1 } }
   }
   if (entry?.source === 'official' && entry.name === 'Reinforced Stock'
     && !entry.traits.some(trait => /^two-hand\s+d\d+$/i.test(trait.trim()))) {
@@ -8968,12 +8968,13 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     : name === 'Plasma Sword' ? ['Flaming Module', 'Shock Module', 'Glarecaster']
     : name === 'Plasma Doshko' ? ['Flaming Module', 'Shock Module', 'Glarecaster', 'Suppression Matrix']
     : name === 'Plasma Array' ? ['Flaming Module', 'Shock Module', 'Glarecaster', 'Suppression Matrix']
+    : name === 'Plasma Sniper Rifle' ? ['Flaming Module', 'Shock Module', "Sniper's Scope"]
     : name === 'Plasma Caster' ? ["Smuggler's Grip", 'Flaming Module', 'Shock Module', 'Glarecaster']
     : name === 'Rotolaser' ? ['Flaming Module']
     : name === 'Pulse Gauntlet' ? ['Loudener']
     : /^Tail\s*Blade$/i.test(name) ? [c.className === 'Soldier' ? 'Suppression Matrix' : 'Fear Projector'] : []
   const automatic = automaticUpgradeEntries(c, entries, upgrades)
-  const trimmed = name === 'Plasma Caster' || turret || name === 'Phase Cutlass' || !!entry.data.raptorial_edge
+  const trimmed = name === 'Plasma Caster' || name === 'Plasma Sniper Rifle' || turret || name === 'Phase Cutlass' || !!entry.data.raptorial_edge
   if (!trimmed) return automatic
   const effective = effectiveWeapon(c, entries, weapon)
   const slots = weaponEntry(entries, effective.name, effective.id)?.data.upgrade_slots

@@ -690,6 +690,18 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
       data: { ...entry.data, weapon_category: 'Martial', weapon_group: 'Sniper', range: 120, range_increment: 120,
         weapon_grade_family: family }, updatedAt: 1 }
   })
+  const plasmaCasters = entries.filter(entry => entry.kind === 'weapon' && entry.source === 'official' && !entry.deleted
+    && entry.systems.includes('sf2e') && /^(?:(?:Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) )?Plasma Caster$/.test(entry.name))
+  const plasmaSnipers = plasmaCasters.map<ContentEntry>(entry => {
+    const grade = entry.name.replace(/Plasma Caster$/, '').trim()
+    const { url: _url, ...data } = entry.data
+    return { ...entry, id: `homebrew:plasma-sniper-rifle${grade ? `:${grade.toLowerCase()}` : ''}`,
+      name: `${grade ? `${grade} ` : ''}Plasma Sniper Rifle`, source: 'homebrew' as const,
+      traits: [...new Set([...entry.traits, 'Unwieldy', 'Volley 30 ft.'])],
+      description: 'A plasma guide rifle that keeps a magnetic guidance field around its plasma discharge, steering the shot after it is fired. This gives it long range, and the shot curves around partial cover: lesser cover does not grant a bonus to AC against its Strikes.',
+      data: { ...data, weapon_category: 'Martial', weapon_group: 'Sniper', range: 120, range_increment: 120,
+        weapon_grade_family: 'homebrew:plasma-sniper-rifle' }, updatedAt: 1 }
+  })
   const rapidLaser = laser.map<ContentEntry>(entry => {
     const grade = entry.name.replace(/Laser Pistol$/, '').trim()
     const { url: _url, ...data } = entry.data
@@ -726,7 +738,7 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
     ...flyssa, id: 'homebrew:seax', source: 'homebrew' as const, name: 'Seax',
     description: 'A broad-backed blade with a long cutting edge and a sharp point, carried as both a tool and a close-quarters weapon.',
     updatedAt: 1,
-  }] : []), ...focusRifles, ...rapidLaser, ...slarpRapid]
+  }] : []), ...focusRifles, ...plasmaSnipers, ...rapidLaser, ...slarpRapid]
 }
 
 export const ANIMAL_FEATURE_CLAWS: ContentEntry = {
