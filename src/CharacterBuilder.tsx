@@ -2,7 +2,7 @@ import { Info, SourceNote } from './Info'
 import { confirmRemoval, REMOVAL_EVENT } from './confirmRemoval'
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { AbilitiesContent, AbilityBoostChoices } from './AbilitiesSection'
+import { AbilitiesContent } from './AbilitiesSection'
 import { Achievements } from './Achievements'
 import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
@@ -857,7 +857,6 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
               {choices.map(ability => <option key={ability} value={ability}>{ABILITY_LABEL[ability]}</option>)}
             </select></label>
           })()}
-          <AbilityBoostChoices {...section} groups={['class']} />
           <SearchableFeatSlots {...section} categories={['class']} title="Class Features & Feats" plannedFeatSlots={featSlots}
             features={c.className ? classFeatures(entries, c) : []} prelude={<ClassFeatures {...section} />} />
         </div>}</DeferredContent>
