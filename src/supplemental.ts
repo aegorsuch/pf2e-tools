@@ -698,7 +698,7 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
     return { ...entry, id: `homebrew:plasma-sniper-rifle${grade ? `:${grade.toLowerCase()}` : ''}`,
       name: `${grade ? `${grade} ` : ''}Plasma Sniper Rifle`, source: 'homebrew' as const,
       traits: [...new Set([...entry.traits, 'Unwieldy', 'Volley 30 ft.'])],
-      description: 'A plasma guide rifle that keeps a magnetic guidance field around its plasma discharge, steering the shot after it is fired. This gives it long range, and the shot curves around partial cover: lesser cover does not grant a bonus to AC against its Strikes.',
+      description: 'A plasma guide rifle that keeps a magnetic guidance field around its plasma discharge, steering the shot after it is fired. This gives it accuracy at long range.',
       data: { ...data, weapon_category: 'Martial', weapon_group: 'Sniper', range: 120, range_increment: 120,
         weapon_grade_family: 'homebrew:plasma-sniper-rifle' }, updatedAt: 1 }
   })
