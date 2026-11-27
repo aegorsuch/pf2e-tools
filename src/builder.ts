@@ -6300,7 +6300,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
     && entry.traits.some(trait => /^(agile|finesse)$/i.test(trait))
   const operativeRank = operative ? Math.max(
     gun && category === 'Advanced' ? c.level >= 19 ? 4 : c.level >= 13 ? 3 : c.level >= 5 ? 2 : 1 : 0,
-    gun && (category === 'Simple' || category === 'Martial' && !hasOperativeStriker(c, entries)) || strikerWeapon
+    gun && (category === 'Simple' || category === 'Martial' && c.subclass !== 'Striker') || strikerWeapon
       ? c.level >= 13 ? 4 : c.level >= 5 ? 3 : 2 : 0,
   ) : 0
   const gunslingerFirearmRank = c.systems.includes('pf2e') && c.className === 'Gunslinger'
