@@ -695,19 +695,19 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
   const plasmaSnipers = plasmaCasters.map<ContentEntry>(entry => {
     const grade = entry.name.replace(/Plasma Caster$/, '').trim()
     const { url: _url, ...data } = entry.data
-    return { ...entry, id: `homebrew:plasma-sniper-rifle${grade ? `:${grade.toLowerCase()}` : ''}`,
-      name: `${grade ? `${grade} ` : ''}Plasma Sniper Rifle`, source: 'homebrew' as const,
+    return { ...entry, id: `homebrew:plasma-guide${grade ? `:${grade.toLowerCase()}` : ''}`,
+      name: `${grade ? `${grade} ` : ''}Plasma Guide`, source: 'homebrew' as const,
       traits: [...new Set([...entry.traits, 'Unwieldy', 'Volley 30 ft.'])],
       description: 'A plasma guide rifle that keeps a magnetic guidance field around its plasma discharge, steering the shot after it is fired. This gives it accuracy at long range.',
       data: { ...data, weapon_category: 'Martial', weapon_group: 'Sniper', range: 120, range_increment: 120,
-        weapon_grade_family: 'homebrew:plasma-sniper-rifle' }, updatedAt: 1 }
+        weapon_grade_family: 'homebrew:plasma-guide' }, updatedAt: 1 }
   })
   const liminalPlasmaSnipers = plasmaSnipers.map<ContentEntry>(entry => ({
-    ...entry, id: entry.id.replace('plasma-sniper-rifle', 'liminal-plasma-sniper-rifle'),
-    name: entry.name.replace('Plasma Sniper Rifle', 'Liminal Plasma Sniper Rifle'),
+    ...entry, id: entry.id.replace('plasma-guide', 'liminal-plasma-guide'),
+    name: entry.name.replace('Plasma Guide', 'Liminal Plasma Guide'),
     traits: [...new Set([...entry.traits, 'Magical'])],
     description: `${entry.description}\n\nActivate—Liminal Lock; Cost 2 charges. The next ranged Strike against a target with cover reduces its cover bonus to AC by 1.`,
-    data: { ...entry.data, special_weapon_source: 'Liminal Plasma Sniper Rifle', weapon_grade_family: 'homebrew:liminal-plasma-sniper-rifle' },
+    data: { ...entry.data, special_weapon_source: 'Liminal Plasma Guide', weapon_grade_family: 'homebrew:liminal-plasma-guide' },
   }))
   const rapidLaser = laser.map<ContentEntry>(entry => {
     const grade = entry.name.replace(/Laser Pistol$/, '').trim()

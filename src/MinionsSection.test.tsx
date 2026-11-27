@@ -2704,19 +2704,19 @@ it('shows upgrades on Phase Cutlass and Raptorial Edge', async () => {
   expect(slots(edge, 'Paragon Raptorial Edge')).toBe(4)
 })
 
-it('scales a Plasma Sniper Rifle from Plasma Caster grades', async () => {
+it('scales a Plasma Guide from Plasma Caster grades', async () => {
   const { homebrewWeapons } = await import('./supplemental')
   const { weaponAttack } = await import('./builder')
   const caster = (name: string, level: number, damage: string): ContentEntry => ({ id: name, kind: 'weapon', source: 'official',
     name, systems: ['sf2e'], level, traits: ['Tech'], description: '', effects: [], updatedAt: 0,
     data: { weapon_category: 'Martial', weapon_group: 'Plasma', weapon_type: 'Ranged', damage, hands: 2, range: 60, reload: 1, upgrade_slots: 2 } })
   const casters = [caster('Plasma Caster', 0, '1d8 F'), caster('Advanced Plasma Caster', 4, '2d8 F')]
-  const sniper = homebrewWeapons(casters).find(entry => entry.name === 'Plasma Sniper Rifle')!
+  const sniper = homebrewWeapons(casters).find(entry => entry.name === 'Plasma Guide')!
   expect(sniper).toMatchObject({ source: 'homebrew', data: { weapon_group: 'Sniper', range: 120 } })
-  expect(homebrewWeapons(casters).find(entry => entry.name === 'Advanced Liminal Plasma Sniper Rifle')?.description).toContain('Liminal Lock')
+  expect(homebrewWeapons(casters).find(entry => entry.name === 'Advanced Liminal Plasma Guide')?.description).toContain('Liminal Lock')
   expect(sniper.traits).toEqual(expect.arrayContaining(['Unwieldy', 'Volley 30 ft.']))
   const weapon = { id: sniper.id, name: sniper.name, potency: 0, striking: 0, runes: [] }
   const c = { id: 'p', systems: ['sf2e'], name: 'P', level: 4, abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0, weapons: [weapon] } as unknown as Character
-  expect(weaponAttack(c, [...casters, ...homebrewWeapons(casters)], weapon).entry?.name).toBe('Advanced Plasma Sniper Rifle')
+  expect(weaponAttack(c, [...casters, ...homebrewWeapons(casters)], weapon).entry?.name).toBe('Advanced Plasma Guide')
 })
