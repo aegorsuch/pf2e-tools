@@ -1308,7 +1308,11 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
   const dedications = taken.filter(({ entry }) => isDedication(entry))
   const dedicationNames = new Set(dedications.flatMap(({ entry }) => dedicationArchetypes(entry)))
   const exemptSlots = new Set<string>(activeHomebrewDedications(c).map(rule => rule.slot))
-  return (e: ContentEntry) => {
+  const hasDedication = (e: ContentEntry) => {
+    const archetypes = archetypesOf(e)
+    return !archetypes.length || isDedication(e) || archetypes.some(name => dedicationNames.has(name))
+  }
+  const missing = (e: ContentEntry) => {
     const archetypes = archetypesOf(e)
     if (!archetypes.length || !asArchetype && !e.traits.some((t) => t.toLowerCase() === 'archetype')) return []
     const shares = (entry: ContentEntry, names = archetypes) =>
@@ -1325,6 +1329,7 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
       return needed > 0 ? [`${needed} more ${archetypesOf(dedication).join(' or ')} archetype feat${needed === 1 ? '' : 's'} before another dedication`] : []
     })
   }
+  return { hasDedication, missing }
 }
 
 // Feats sitting in a slot that no longer exists at the current level (e.g. a Free Archetype slot taken over by a
@@ -1819,7 +1824,7 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
         { ...options, substituteMentalAbility: dedicationAbility })(entry) : unplannedCheck?.(entry) : undefined
     // Future feats can satisfy requirements; unrelated level progression cannot.
     const missing = [...result.missing.filter(requirement => !planned || !unplanned
-      || planned.missing.includes(requirement) || !unplanned.missing.includes(requirement)), ...(isDedication(entry) ? archetype(entry) : plannedArchetype(entry)),
+      || planned.missing.includes(requirement) || !unplanned.missing.includes(requirement)), ...(isDedication(entry) ? archetype.missing(entry) : plannedArchetype.missing(entry)),
       ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
     if (entry.id === 'homebrew:guardbreak' && !c.feats.some(feat => feat.slot !== slot.key && feat.name === 'Shield Block')
       && !automaticFeatGrants(character, entries).some(feat => feat.name === 'Shield Block')
@@ -2024,6 +2029,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || !!classArchetypeDedication && !!classArchetype && archetypesOf(e).includes(classArchetype)
           && !(classArchetype === 'Spellshot' && archetypesOf(e).includes('Wizard') && traits.has('archetype'))
         || classArchetype === 'Spellshot' && archetypesOf(e).includes('Wizard') && !traits.has('archetype') && traits.has('wizard'))
+      && (!ownedArchetype || ownedArchetype.hasDedication(e))
       && (e.name === 'Magical Trickster' && slot.category === 'class'
       && rogueRackets({ ...c, level: Math.min(c.level, slot.level) }, entries).includes('Eldritch Trickster') ? 2
       : featSelectionLevel(e, c, entries, slot.category, slot)) <= (slot.grantedBy === 'Eldritch Trickster'
@@ -2043,7 +2049,6 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && (traits.has('archetype') || archetypesOf(e).length > 0)
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === e.name && (!feat.sourceId || feat.sourceId === e.id)))
       && (!slot.grantedFeat || e.name.toLowerCase() === slot.grantedFeat.toLowerCase())
-      && (!ownedArchetype || isDedication(e) || ownedArchetype(e).length === 0)
       && (slot.grantedBy !== 'Multitalented' || e.level === 2 && traits.has('multiclass') && traits.has('dedication'))
       && (!spellcastingDedications || spellcastingDedications.has(e.name))
       && artisanSkillEligible
@@ -8773,6 +8778,7 @@ export function championBlessings(c: Character) {
 export function isFavoredWeapon(c: Character, entries: ContentEntry[], name: string) {
   const favored = tokens(byName(entries, 'deity', c.deity)?.data.favored_weapon)
     .flatMap((weapon) => weapon.split(/\s+or\s+/i)).map((weapon) => weapon.toLowerCase())
+  if (!favored.length) return false
   const entry = weaponEntry(entries, name)
   const base = entry?.data.named_weapon ? namedWeaponBaseName(entry) : name === FINESSE_SCIMITAR.name ? FINESSE_SCIMITAR.counts : name
   return favored.includes(base.replace(/ \(Animal Feature\)$/, '')

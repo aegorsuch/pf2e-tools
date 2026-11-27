@@ -328,6 +328,28 @@ it('reserves the second-level class feat for Spellshot Dedication and restores d
   expect(syncClassArchetypeDedication({ ...c, level: 1, feats: [] }, [dedication])).toBeUndefined()
 })
 
+it('filters archetype feats by owned dedication while keeping missing-requirement details', () => {
+  const spellshot = entry('feat', 'Spellshot Dedication', { archetype: 'Spellshot' }, 2, ['Archetype', 'Dedication'])
+  const otherDedication = entry('feat', 'Other Dedication', { archetype: 'Other' }, 2, ['Archetype', 'Dedication'])
+  const wizard = entry('feat', 'Wizard Option', { archetype: 'Wizard' }, 4, ['Archetype'])
+  const shared = entry('feat', 'Shared Option', { archetype: 'Other, Spellshot' }, 4, [])
+  const other = entry('feat', 'Other Option', { archetype: 'Other' }, 4, ['Archetype'])
+  const generic = entry('feat', 'Generic Option', {}, 4, ['Archetype'])
+  const catalog = [spellshot, otherDedication, wizard, shared, other, generic]
+  const c: Character = { ...base, className: 'Gunslinger', feats: [
+    { name: spellshot.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+  ] }
+  const slot = { key: 'archetype:4:0', category: 'archetype' as const, level: 4 }
+  const choices = eligibleFeats(catalog, c, slot, { includeUnmetPrerequisites: true })
+  expect(choices).toEqual(expect.arrayContaining([otherDedication, wizard, shared, generic]))
+  expect(choices).not.toContain(other)
+  expect(featSelectionPrerequisiteChecker(c, catalog, slot)(other).missing).toContain('Other Dedication')
+  const withoutDedication = eligibleFeats(catalog, { ...c, feats: [] }, slot, { includeUnmetPrerequisites: true })
+  expect(withoutDedication).toContain(generic)
+  expect(withoutDedication).not.toContain(wizard)
+  expect(withoutDedication).not.toContain(shared)
+})
+
 it('allows Steel Skin through Stalwart Defender at level 6 while retaining Survival training', () => {
   const defender = entry('feat', 'Stalwart Defender Dedication', { archetype: 'Stalwart Defender' }, 2, ['Archetype', 'Dedication'])
   const sentinel = entry('feat', 'Sentinel Dedication', { archetype: 'Sentinel' }, 2, ['Archetype', 'Dedication'])

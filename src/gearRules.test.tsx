@@ -2768,6 +2768,9 @@ it('copies Deadly Simplicity for Champion and offers it only with a trained simp
   expect(eligibleFeats(entries, base, slot).map((entry) => entry.id)).toContain(copy.id)
   expect(eligibleFeats(entries.filter((entry) => entry !== champion), base, slot).map((entry) => entry.id)).not.toContain(copy.id)
   expect(eligibleFeats(entries, { ...base, deity: undefined }, slot).map((entry) => entry.id)).not.toContain(copy.id)
+  expect(eligibleFeats(entries, { ...base, deity: 'Unknown Deity' }, slot).map((entry) => entry.id)).not.toContain(copy.id)
+  const noFavoredWeapon = { ...deity, data: {} }
+  expect(eligibleFeats([official, champion, staff, noFavoredWeapon, copy], base, slot).map((entry) => entry.id)).not.toContain(copy.id)
   expect(eligibleFeats([official, champion, sword, deity, copy], base, slot).map((entry) => entry.id)).not.toContain(copy.id)
   const irori = { ...deity, data: { favored_weapon: 'fist' } }
   expect(eligibleFeats([official, champion, irori, copy], base, slot).map((entry) => entry.id)).toContain(copy.id)
