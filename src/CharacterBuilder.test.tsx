@@ -40,6 +40,24 @@ it('shows active temporary HP in the collapsed Defense summary', () => {
   expect(render({ ...c, raging: false })).not.toMatch(/Hit Points \d+\+/)
 })
 
+it('shows unconditional and conditional fast healing in the Defense summary', () => {
+  content.entries = []
+  const c: Character = { id: 'fast-healing', name: 'Test', systems: ['pf2e'], level: 20,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: "Grand Medic's Mask", type: 'Class Feat', level: 20 },
+      { name: 'Sanguine Mastery', type: 'Class Feat', level: 12 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const html = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
+  const summary = html.slice(html.indexOf('<strong>Defense</strong>'), html.indexOf('<strong>Deity</strong>'))
+  expect(summary).toContain('Fast Healing 5')
+  expect(summary).toContain('Fast Healing 10 (conditional)')
+  expect(summary).toContain('Grand Medic&#x27;s Mask note')
+  expect(summary).toContain('an enemy within 30 feet is bleeding')
+  expect(summary).toContain('Hit Points')
+  expect(summary).toContain('Resistances:')
+  expect(summary).not.toContain('fast healing while')
+})
+
 it('counts and preserves the automatic Starfinder Field Agent Dedication', () => {
   content.entries = [
     { id: 'field-agent-dedication', name: 'Starfinder Field Agent Dedication', kind: 'feat', source: 'official',

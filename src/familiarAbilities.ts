@@ -18,6 +18,10 @@ const key = (name: string) => name.trim().toLocaleLowerCase()
 
 export const GLYPH_FAMILIAR_ABILITIES = ['Construct', 'Flier', 'Tough']
 
+export function aquaticPetFamiliar(c: Character) {
+  return getSettings().aquaticPetFamiliar && activeFeatsNamed(c, 'Friend of the Sea').length > 0
+}
+
 export function familiarSelection(c: Character) {
   const leshyGrant = activeFeatsNamed(c, 'Leshy Familiar').length > 0
   const undeadGrant = activeFeatsNamed(c, 'Undead Familiar').length > 0
@@ -123,7 +127,16 @@ export function familiarAbilitySlots(c: Character, entries: ContentEntry[], isWa
 
 export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
   const state = familiarSelection(c)
-  if (!state.familiar && !state.wasp) return []
+  const aquatic = aquaticPetFamiliar(c)
+  const aquaticChoices = aquatic ? (c.pet?.abilities ?? []).filter(name => !!name && !['darkvision', 'tough'].includes(key(name))).slice(0, 2) : []
+  const catalog = familiarAbilityEntries(entries, c)
+  const aquaticAbilities = aquaticChoices.flatMap((name, index) => {
+    const entry = familiarAbilityEntry(name, catalog, c)
+    if (!entry || /^specific familiar\b/i.test(String(entry.data.ability_type ?? ''))) return []
+    const others = ['Darkvision', 'Tough', ...aquaticChoices.filter((_, otherIndex) => otherIndex !== index)]
+    return familiarAbilityUnavailableReason(entry, c, others, false, entries, aquaticChoices.slice(0, index), true) ? [] : [entry.name]
+  })
+  if (!state.familiar && !state.wasp) return aquaticAbilities
   const data = state.wasp ? c.waspFamiliar : c.familiar
   const { activeSpecific, selectableAbilityLimit, emissaryAbility, leshySecret, leshyAbility } = familiarAbilitySlots(c, entries, state.wasp)
   const grants = activeSpecific
@@ -131,14 +144,13 @@ export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
       : leshyAbility ? [leshyAbility] : []
   const choices = (data?.abilities ?? []).filter(name => !emissaryAbility || !isDivineEmissaryAbility(name))
     .slice(0, selectableAbilityLimit)
-  const catalog = familiarAbilityEntries(entries, c)
   return [...choices.flatMap((name, index) => {
     const entry = familiarAbilityEntry(name, catalog, c)
     if (!entry || /^specific familiar\b/i.test(String(entry.data.ability_type ?? ''))) return []
     const others = [...grants, ...(emissaryAbility ? [emissaryAbility] : []), ...choices.filter((_, otherIndex) => otherIndex !== index)]
     return familiarAbilityUnavailableReason(entry, c, others, state.undeadFamiliar, entries, choices.slice(0, index)) ? [] : [entry.name]
   }), ...(emissaryAbility && (key(emissaryAbility) !== 'medic' || familiarMedicRank(c) !== undefined) ? [emissaryAbility] : []),
-  ...(leshySecret ? [leshySecret] : []), ...grants]
+  ...(leshySecret ? [leshySecret] : []), ...grants, ...aquaticAbilities]
 }
 
 export function familiarSpellBenefits(c: Character, entries: ContentEntry[], slots: Record<number, number>) {
@@ -234,13 +246,13 @@ function changesCreatureTrait(entry: ContentEntry) {
 }
 
 export function familiarAbilityUnavailableReason(entry: ContentEntry, c: Character, selected: string[], undead = false,
-  entries: ContentEntry[] = [], selectedChoices = selected) {
+  entries: ContentEntry[] = [], selectedChoices = selected, independent = false) {
   const spellcasting = classSpellcasting(c, entries) ?? c.spellcasting
   const slots = classSpellSlots(c) ?? c.spellcasting?.slots
   if (undead && (/^(?:constructed?|dragon)$/i.test(entry.name) || changesCreatureTrait(entry))) {
     return 'An undead familiar cannot select an ability that changes its trait.'
   }
-  if ((familiarSelection(c).leshy || familiarSelection(c).glyph)
+  if (!independent && (familiarSelection(c).leshy || familiarSelection(c).glyph)
     && (/^(?:constructed?|dragon|plant|fungus)$/i.test(entry.name) || changesCreatureTrait(entry))) {
     return 'This familiar already has an ability that changes its trait.'
   }
@@ -252,7 +264,7 @@ export function familiarAbilityUnavailableReason(entry: ContentEntry, c: Charact
     return 'This ability has already been selected.'
   }
   const selectedNames = new Set(selected.map(key))
-  const emissary = activeFeatsNamed(c, 'Divine Emissary').length > 0
+  const emissary = !independent && activeFeatsNamed(c, 'Divine Emissary').length > 0
   if (emissaryNames.has(key(entry.name))) {
     if (!emissary) return 'Requires the Divine Emissary feat.'
     if (selected.some(name => emissaryNames.has(key(name)))) {
@@ -286,7 +298,7 @@ export function familiarAbilityUnavailableReason(entry: ContentEntry, c: Charact
   }
   if (key(entry.name) === 'skilled' && !spellcasting?.ability) return 'Requires a spellcasting ability modifier.'
   if (/\byour familiar must be an animal\b/i.test(entry.description)
-    && (undead || c.feats.some(feat => ['Leshy Familiar', 'Undead Familiar'].includes(feat.name)))) {
+    && (undead || !independent && c.feats.some(feat => ['Leshy Familiar', 'Undead Familiar'].includes(feat.name)))) {
     return 'Requires an animal familiar.'
   }
   if (/\byour familiar must have the speech ability\b/i.test(entry.description)
@@ -316,7 +328,7 @@ export function minionMovementSpeeds(abilities: string[], fastMovement?: string,
 }
 
 export function familiarAbilityEffects(abilities: string[], level: number,
-  options?: NonNullable<Character['familiar']>['abilityOptions'], spellcastingModifier = 0) {
+  options?: NonNullable<Character['familiar']>['abilityOptions'], spellcastingModifier = 0, aquatic = false) {
   const selected = abilities.map(key)
   const has = (name: string) => selected.includes(key(name))
   const resistanceRank = has('Major Resistance') ? level
@@ -328,9 +340,9 @@ export function familiarAbilityEffects(abilities: string[], level: number,
   return {
     hitPoints: level * (5 + (has('Tough') ? 2 : 0)),
     speeds: getSettings().familiarFastMovementAllSpeeds && has('Fast Movement')
-      ? minionMovementSpeeds(abilities.filter(ability => key(ability) !== 'fast movement'))
+      ? minionMovementSpeeds(abilities.filter(ability => key(ability) !== 'fast movement'), undefined, aquatic)
         .map(speed => ({ ...speed, feet: speed.feet + 15 }))
-      : minionMovementSpeeds(abilities, options?.fastMovement),
+      : minionMovementSpeeds(abilities, options?.fastMovement, aquatic),
     senses: [
       ...(has('Darkvision') ? ['Darkvision'] : []),
       ...(has('Scent') ? ['Scent (imprecise, 30 feet)'] : []),

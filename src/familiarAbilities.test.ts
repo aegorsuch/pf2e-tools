@@ -101,6 +101,25 @@ it('activates spell benefits only for valid familiar choices within the daily li
     .toEqual({ cantrip: false, batteryRank: undefined })
 })
 
+it('applies aquatic familiar master abilities independently of the primary familiar', () => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ aquaticPetFamiliar: true })
+  const entries = [
+    { ...ability('Cantrip Connection', 'You must be able to prepare cantrips or add them to your repertoire.'), data: { ability_type: 'Master' } },
+    { ...ability('Spell Battery', 'You must be able to cast 4th-rank spells using spell slots.'), data: { ability_type: 'Master' } },
+    ability('Flier', ''),
+  ]
+  const c: Character = { ...character, className: 'Druid',
+    feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 }, { name: 'Friend of the Sea', type: 'Class Feat', level: 1 }],
+    familiar: { leshyAbility: 'Fungus', abilities: ['Flier'] },
+    pet: { abilities: ['Darkvision', '', 'Cantrip Connection', 'Tough', 'Spell Battery'] } }
+  expect(activeFamiliarAbilities(c, entries)).toEqual(expect.arrayContaining(['Flier', 'Cantrip Connection', 'Spell Battery']))
+  expect(familiarSpellBenefits(c, entries, { 0: 5, 1: 2, 4: 1 })).toEqual({ cantrip: true, batteryRank: 1 })
+  updateSettings({ aquaticPetFamiliar: false })
+  expect(familiarSpellBenefits(c, entries, { 0: 5, 1: 2, 4: 1 })).toEqual({ cantrip: false, batteryRank: undefined })
+})
+
 it('recognizes Animist Spirit Familiar and offers only the Spirit specific familiar', () => {
   const c: Character = { ...character, className: 'Animist', feats: [
     { name: 'Spirit Familiar (Animist)', type: 'Class Feat', level: 1 },

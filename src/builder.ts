@@ -30,7 +30,7 @@ import { MYSTIC_CONNECTIONS } from './mystic'
 import { STARFINDER_MYSTIC_TRADITIONS, STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 import { eruditeWarrior, isSoldier, soldierStyle } from './soldier'
 import { isWitchwarper, witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellcasting, witchwarperSpellOptions, witchwarperSpellSlots } from './witchwarper'
-import { familiarSelection, familiarSpellBenefits, purifyAirActive } from './familiarAbilities'
+import { aquaticPetFamiliar, familiarSelection, familiarSpellBenefits, purifyAirActive } from './familiarAbilities'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
 import { FORCE_FIELD_PGA_RESISTANCE_TYPES, greaterCrossPlatformLanguageOptions, TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES, versatileFirmwareLanguageOptions, versatileTechnomancerLanguageOptions } from './technomancer'
@@ -6804,6 +6804,17 @@ const FEAT_RESISTANCES: Record<string, Record<string, number | 'half'>> = {
   'Skeletal Resistance': { cold: 2, electricity: 2, fire: 2, piercing: 2, slashing: 2 },
 }
 
+export function fastHealing(c: Character) {
+  if (!c.systems.includes('pf2e')) return []
+  return [
+    ...(activeFeatsNamed(c, "Grand Medic's Mask").length ? [{ value: 5, source: "Grand Medic's Mask" }] : []),
+    ...(activeFeatsNamed(c, 'Golden Body').length ? [{ value: 20, source: 'Golden Body',
+      note: 'Applies while you have at least 1 HP.' }] : []),
+    ...(activeFeatsNamed(c, 'Sanguine Mastery').length ? [{ value: Math.floor(c.level / 2), source: 'Sanguine Mastery',
+      note: 'Applies while an enemy within 30 feet is bleeding; inactive while dying.' }] : []),
+  ]
+}
+
 export function resistances(c: Character, entries: ContentEntry[]) {
   const sources = [
     ...characterHeritages(c, entries),
@@ -6878,7 +6889,6 @@ export function resistances(c: Character, entries: ContentEntry[]) {
   }
   if (activeFeatsNamed(c, 'Sanguine Mastery').length) {
     out.push({ damage: 'bleed', value: half, source: 'Sanguine Mastery' })
-    out.push({ damage: 'fast healing while an enemy within 30 feet is bleeding (inactive while dying)', value: half, source: 'Sanguine Mastery' })
   }
   if (activeFeatsNamed(c, 'Become as Spirit').length) {
     out.push({ damage: 'all damage except force, ghost touch, spirit, and vitality (for 1 round after destroying a thrall)',
@@ -8206,6 +8216,8 @@ export function protectCompanionTargets(c: Character) {
       companionId: undefined, familiar: 'primary' as const }] : []),
     ...(wasp ? [{ key: 'familiar:wasp', name: c.waspFamiliar?.name || 'Wasp Familiar',
       companionId: undefined, familiar: 'wasp' as const }] : []),
+    ...(aquaticPetFamiliar(c) ? [{ key: 'familiar:aquatic', name: c.pet?.name || 'Aquatic Pet',
+      companionId: undefined, familiar: 'aquatic' as const }] : []),
   ]
 }
 
@@ -8217,7 +8229,7 @@ export function protectCompanionTarget(c: Character) {
 }
 
 export function protectCompanionApplies(c: Character, entries: ContentEntry[],
-  target?: { companionId?: string; familiar?: 'primary' | 'wasp' }) {
+  target?: { companionId?: string; familiar?: 'primary' | 'wasp' | 'aquatic' }) {
   if (!isSpellActive(c, entries, 'Protect Companion')) return false
   if (getSettings().protectCompanionAll) return true
   const selected = protectCompanionTarget(c)

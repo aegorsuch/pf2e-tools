@@ -480,7 +480,7 @@ export interface Character {
   summonedUndead?: import('./summonedFiends.ts').SummonedFiend
   zealousConvictionRank?: number
   protectCompanionId?: string
-  protectCompanionFamiliar?: 'primary' | 'wasp'
+  protectCompanionFamiliar?: 'primary' | 'wasp' | 'aquatic'
   untamedForm?: {
     form?: string
     shape?: string
@@ -518,7 +518,7 @@ export interface Character {
   followers?: { name?: string; type?: string; ancestry?: string; adeptSkill?: string; energyTypes?: string[] }[]
   familiar?: { name?: string; specificFamiliar?: string; spiritManifested?: boolean; spiritDestroyed?: boolean; leshyAbility?: 'Plant' | 'Fungus'; leshySecret?: 'Grasping Tendrils' | 'Purify Air' | 'Verdant Burst'; purifyAirActive?: boolean; abilities?: string[]; dailyUses?: Partial<Record<'Medic' | 'Restorative Familiar', boolean>>; abilityOptions?: { resistance?: string[]; skilled?: string[]; fastMovement?: string }; oakenResilienceActive?: boolean; oakenResilienceRank?: number }
   waspFamiliar?: Character['familiar']
-  pet?: { name?: string; aquatic?: boolean; abilities?: string[]; fastMovement?: string }
+  pet?: NonNullable<Character['familiar']> & { aquatic?: boolean; fastMovement?: string }
   faithfulSteedGranted?: boolean
   // Manually added slots on top of those from class/ancestry and granted effects
   extraSlots: FeatSlot[]

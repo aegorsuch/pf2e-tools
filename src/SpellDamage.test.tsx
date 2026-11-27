@@ -91,6 +91,39 @@ it('rolls Disintegrate damage without applying Fortitude outcomes', () => {
   }
 })
 
+it('rolls Silver Spear piercing and conditional spirit damage at heightened ranks', () => {
+  const entry: ContentEntry = { id: 'silver-spear', name: 'Silver Spear', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 6, traits: ['Attack', 'Metal'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 0 }
+  expect(spellDamage('Silver Spear', 5)).toEqual([])
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  for (const rank of [6, 8, 10]) {
+    const [damage] = spellDamage('Silver Spear', rank)
+    expect(damage).toEqual({ label: 'Damage', dice: rank * 2, sides: 6, type: 'piercing',
+      additional: { label: 'Extra damage against fiends', dice: rank * 2, sides: 6, type: 'spirit' },
+      note: 'Spear is silver' })
+    expect(rollSpellDamage(damage)).toBe(rank * 2)
+    const markup = renderToStaticMarkup(<SpellActions name="Silver Spear" rank={rank} entry={entry} />)
+    expect(markup).toContain(`${rank * 2}d6 piercing`)
+    expect(markup).toContain(`Extra damage against fiends: ${rank * 2}d6 spirit`)
+  }
+})
+
+it('rolls Rend Magic initial and spellcasting-triggered damage separately at heightened ranks', () => {
+  expect(spellDamage('Rend Magic', 2)).toEqual([])
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  for (const [rank, initial, triggered] of [[3, 3, 1], [4, 3, 1], [5, 5, 2], [9, 9, 4], [10, 9, 4]]) {
+    const rolls = spellDamage('Rend Magic', rank)
+    expect(rolls).toEqual([
+      { label: 'Initial damage', dice: initial, sides: 10, type: 'force' },
+      { label: 'Damage when target casts a spell', dice: triggered, sides: 10, type: 'force' },
+    ])
+    expect(rolls.map(rollSpellDamage)).toEqual([initial, triggered])
+    const markup = renderToStaticMarkup(<SpellActions name="Rend Magic" rank={rank} />)
+    expect(markup).toContain(`Initial damage: ${initial}d10 force`)
+    expect(markup).toContain(`Damage when target casts a spell: ${triggered}d10 force`)
+  }
+})
+
 it('rolls Splinter Volley per target, with critical persistent bleed at heightened ranks', () => {
   expect(spellDamage('Splinter Volley', 1)).toEqual([])
   vi.spyOn(Math, 'random').mockReturnValue(0)

@@ -1,6 +1,7 @@
 import { updateSettings, useSettings, type Settings } from './settings'
 
 const RULES: { key: keyof Settings; label: string; description?: string }[] = [
+  { key: 'aquaticPetFamiliar', label: 'Friend of the Sea Aquatic Pet Uses Familiar Rules' },
   { key: 'singleAdditionalArms', label: 'Additional Arms: Once' },
   { key: 'singleAugmentedBody', label: 'Augmented Body: Once' },
   { key: 'singleDistantTelepath', label: 'Distant Telepath: Once' },

@@ -2,8 +2,7 @@ import { Fragment, useId, useMemo, useRef, useState, type ComponentPropsWithoutR
 import { PickerDialog } from './PickerDialog'
 import { selectOptionCount, selectOptionList } from './searchSelectOptions'
 import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
-import { SpellDefenseFilter } from './SpellDefenseFilter'
-import { matchesSpellDefense, type SpellDefense } from './spellDefense'
+import { matchesSpellTrait, spellTraits, SpellTraitFilter } from './SpellTraitFilter'
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { sortSpellsByDamage, spellDamageLabel } from './spellDamageTypes'
@@ -37,7 +36,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
   const [limit, setLimit] = useState(PAGE)
   const [container, setContainer] = useState<HTMLElement>()
   const [sort, setSort] = useState<PickerSortOrder>(defaultSortOrder)
-  const [defense, setDefense] = useState<SpellDefense>('all')
+  const [trait, setTrait] = useState('all')
   const [system, setSystem] = useState<GearSystem>('both')
   const select = useRef<HTMLSelectElement>(null)
   const generatedId = useId()
@@ -56,17 +55,18 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
   const activeQuery = searchable && open ? query.trim().toLowerCase() : ''
   let matches = 0
   const matching: typeof options = []
+  const traitEntries: ContentEntry[] = []
   if (open) for (const option of options) {
     const match = !activeQuery || `${option.label} ${option.value} ${searchText?.(option.value) ?? ''}`.toLowerCase().includes(activeQuery)
-    const needsSpell = optionSpell && (defense !== 'all' || system !== 'both')
-      && !!option.value && (match || option.value === value)
+    const needsSpell = optionSpell && !!option.value && (match || option.value === value)
     const spell = needsSpell ? optionSpell(option.value) : undefined
-    const defenseMatch = !optionSpell || defense === 'all' || matchesSpellDefense(spell, defense)
+    const traitMatch = !optionSpell || matchesSpellTrait(spell, trait)
     const systemMatch = system === 'both' || (optionSystems ? optionSystems(option.value).includes(system)
       : !optionSpell || !!spell && matchesGearSystem(spell, system, spell.systems))
-    if (option.value && match && defenseMatch && systemMatch) matches++
+    if (spell && match && systemMatch) traitEntries.push(spell)
+    if (option.value && match && traitMatch && systemMatch) matches++
     if ((!primaryDetails || option.value) && ((!option.value || match || option.value === value)
-      && (!option.value || defenseMatch && systemMatch))) matching.push(option)
+      && (!option.value || traitMatch && systemMatch))) matching.push(option)
   }
   const sortable = matching.filter(option => !!option.value)
   const groupOrder = new Map<string | undefined, number>()
@@ -88,7 +88,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
     control.dispatchEvent(new Event('change', { bubbles: true }))
     setOpen(false)
     setQuery('')
-    setDefense('all')
+    setTrait('all')
     setSystem('both')
   }
   return <span className="searchable-select">
@@ -117,7 +117,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
       {(optionLevel || optionSpell) && <PickerSort label={`Sort ${props['aria-label']} by`} value={sort}
         includeLevel={!!optionLevel} includeDamage={!!optionSpell}
         includeHighestLevel={defaultSortOrder === 'level-desc'} onChange={next => { setSort(next); setLimit(PAGE) }} />}
-      {optionSpell && <SpellDefenseFilter value={defense} onChange={next => { setDefense(next); setLimit(PAGE) }} />}
+      {optionSpell && <SpellTraitFilter value={trait} traits={spellTraits(traitEntries)} onChange={next => { setTrait(next); setLimit(PAGE) }} />}
       {(optionSpell || optionSystems) && <GearSystemFilter value={system} onChange={next => { setSystem(next); setLimit(PAGE) }} />}
       {filters}
       <ul className="feat-modal-list">
@@ -138,7 +138,7 @@ export function SearchableSelect({ label, onPrepare, onClear, optionCount, alway
           </li>
         </Fragment>)}
       </ul>
-      {(activeQuery || defense !== 'all' || system !== 'both' || hasActiveFilters) && !matches && <small role="status">No matches.</small>}
+      {(activeQuery || trait !== 'all' || system !== 'both' || hasActiveFilters) && !matches && <small role="status">No matches.</small>}
       {matching.length > shown.length && <button type="button" onClick={() => setLimit(limit + PAGE)}>
         Show more ({matching.length - shown.length} left, or use search)
       </button>}

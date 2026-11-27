@@ -23,7 +23,7 @@ import { TurretFeatures } from './MechanicFeatures'
 import { turretName } from './mechanicTurret'
 import { FOLLOWER_STAGES, FOLLOWER_TYPES, followerStage, followerStats } from './followers'
 import { isPurchasableMinibot, minibotUpgradeCost, minibotUpgradeOptions, servoShellMinibotMaxHp } from './servoshell'
-import { FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityEffects, familiarAbilityEntries, familiarAbilitySlots, familiarMedicRank,
+import { aquaticPetFamiliar, FAMILIAR_RESISTANCE_TYPES, FAMILIAR_SKILLS, familiarAbilityEffects, familiarAbilityEntries, familiarAbilitySlots, familiarMedicRank,
   familiarAbilityEntry, familiarAbilityUnavailableReason, GLYPH_FAMILIAR_ABILITIES, familiarSelection, isFamiliarAbilityRepeatable, minionMovementSpeeds,
   isDivineEmissaryAbility, PURIFY_AIR_DESCRIPTION, SQUOX_TRICKS_DESCRIPTION, specificFamiliarAbilityName, specificFamiliarGrantedLabels,
   specificFamiliarInherentDragon, specificFamiliarSections } from './familiarAbilities'
@@ -112,7 +112,19 @@ function minionAbilityPicker({ label, items, optionGroups, onAdd, entries, chara
   </div>
 }
 
-function familiarDisplayState(c: Character, entries: ContentEntry[], isWasp = false) {
+function familiarDisplayState(c: Character, entries: ContentEntry[], isWasp = false, isAquatic = false) {
+  if (isAquatic) {
+    const data = c.pet && { ...c.pet, abilityOptions: { ...c.pet.abilityOptions,
+      fastMovement: c.pet.abilityOptions?.fastMovement ?? c.pet.fastMovement } }
+    const grants = ['Darkvision', 'Tough']
+    const savedAbilities = (data?.abilities ?? []).map((ability, index) => ({ ability, index }))
+      .filter(item => !!item.ability && !grants.some(grant => grant.toLowerCase() === item.ability.toLowerCase()))
+    const activeAbilityChoices = savedAbilities.slice(0, 2)
+    return { data, patronAbility: undefined, specificFamiliars: [], selectedSpecific: undefined,
+      activeSpecific: undefined, grants, selectableAbilityLimit: 2, savedAbilities, activeAbilityChoices,
+      skillNames: [...FAMILIAR_SKILLS, 'Perception'], selectedCount: activeAbilityChoices.length + grants.length,
+      totalCount: 4, emissaryAbility: undefined, leshySecret: undefined, leshyAbility: undefined }
+  }
   const data = isWasp ? c.waspFamiliar : c.familiar
   const { patronAbility, dailyAbilityLimit, specificFamiliars, selectedSpecific, activeSpecific, selectableAbilityLimit, emissaryAbility, leshySecret, leshyAbility } =
     familiarAbilitySlots(c, entries, isWasp)
@@ -519,6 +531,7 @@ export function CompanionEquipmentSlots({ c, companion, entries, save, size }: {
 
 export function MinionsSummary({ c, entries = [] }: Pick<SectionProps, 'c'> & Partial<Pick<SectionProps, 'entries'>>) {
   const { companions, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, spiritFamiliar, glyph, seaFriend, pet } = minionSummaryData(c)
+  const aquaticFamiliar = aquaticPetFamiliar(c)
   const lashuntaAlly = activeLashuntaAlly(c)
   const servoShell = technomancerFirmwareLanguages(c, entries).has('ServoShell')
   const familiarState = familiar ? familiarDisplayState(c, entries) : undefined
@@ -534,7 +547,8 @@ export function MinionsSummary({ c, entries = [] }: Pick<SectionProps, 'c'> & Pa
       ...(servoShell ? ['Personal Minibot'] : []),
       ...(familiarState ? [`${familiarName} (${familiarState.selectedCount}/${familiarState.totalCount})`] : []),
       ...(waspState ? [`Wasp Familiar (${waspState.selectedCount}/${waspState.totalCount})`] : []),
-      ...(pet ? [seaFriend ? 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
+      ...(pet ? [seaFriend ? aquaticFamiliar
+        ? `Aquatic Pet (${familiarDisplayState(c, entries, false, true).selectedCount}/4)` : 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
       ...(activeCatAlly(c) ? ['Summoned Cat'] : []),
       ...Array.from({ length: followerCount(c) }, (_, index) => {
         return followerTitle(c, index)
@@ -737,6 +751,7 @@ export function FollowerCards({ c, entries, save }: SectionProps) {
 
 export function MinionsContent({ c, entries, save }: SectionProps) {
   const { companions, constructAdvancement, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, spiritFamiliar, glyph, seaFriend, pet } = minionSummaryData(c)
+  const aquaticFamiliar = aquaticPetFamiliar(c)
   const lashuntaAlly = activeLashuntaAlly(c)
   const ferocity = minionFerocity(c)
   const protectedByCompanion = protectCompanionApplies(c, entries)
@@ -1189,27 +1204,29 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             )
           })}
         {FollowerCards({ c, entries, save })}
-        {[...(familiar ? [false] : []), ...(wasp ? [true] : [])].map(isWasp => {
-          const isLeshy = leshy && !isWasp
-          const isUndead = undeadFamiliar && !isWasp
-          const isCrocodile = crocodileFamiliar && !isWasp && !isUndead && !isLeshy
+        {[...(familiar ? ['primary'] : []), ...(wasp ? ['wasp'] : []), ...(aquaticFamiliar ? ['aquatic'] : [])].map(kind => {
+          const isWasp = kind === 'wasp'
+          const isAquatic = kind === 'aquatic'
+          const isLeshy = leshy && !isWasp && !isAquatic
+          const isUndead = undeadFamiliar && !isWasp && !isAquatic
+          const isCrocodile = crocodileFamiliar && !isWasp && !isAquatic && !isUndead && !isLeshy
           const familiarOaken = isLeshy && knowsSpell(c, entries, 'Oaken Resilience') ? oaken : undefined
           const { data, patronAbility, specificFamiliars, selectedSpecific, activeSpecific, grants,
             selectableAbilityLimit, savedAbilities, activeAbilityChoices, skillNames, selectedCount, totalCount, emissaryAbility, leshySecret, leshyAbility } =
-            familiarDisplayState(c, entries, isWasp)
+            familiarDisplayState(c, entries, isWasp, isAquatic)
           const medicRank = familiarMedicRank(c)
           const specificAccess = selectedSpecific && featAccess(c, selectedSpecific)
           const grantedNames = [...grants.map(specificFamiliarAbilityName), ...(emissaryAbility ? [emissaryAbility] : [])]
-          const familiarType = spiritFamiliar ? 'Spirit familiar' : isUndead ? 'Undead familiar' : isLeshy ? 'Leshy familiar'
+          const familiarType = isAquatic ? 'Aquatic pet' : spiritFamiliar ? 'Spirit familiar' : isUndead ? 'Undead familiar' : isLeshy ? 'Leshy familiar'
             : isCrocodile ? 'Crocodile familiar' : glyph ? 'Glyph familiar' : 'Familiar'
           const familiarLabel = isWasp ? 'Wasp familiar' : familiarType
-          const protectedFamiliar = protectCompanionApplies(c, entries, { familiar: isWasp ? 'wasp' : 'primary' })
+          const protectedFamiliar = protectCompanionApplies(c, entries, { familiar: isAquatic ? 'aquatic' : isWasp ? 'wasp' : 'primary' })
           const abilityStatus = (ability: string, index: number) => {
             const entry = familiarAbilityEntry(ability, familiarAbilityCatalog, c)
             if (!entry) return { entry, reason: 'Ability rules are unavailable.' }
             const others = [...grantedNames, ...activeAbilityChoices.filter(item => item.index !== index).map(item => item.ability)]
             const priorChoices = activeAbilityChoices.filter(item => item.index < index).map(item => item.ability)
-            return { entry, reason: familiarAbilityUnavailableReason(entry, c, others, isUndead, entries, priorChoices) }
+            return { entry, reason: familiarAbilityUnavailableReason(entry, c, others, isUndead, entries, priorChoices, isAquatic) }
           }
           const activeAbilities = activeAbilityChoices.flatMap(({ ability, index }) => {
             const status = abilityStatus(ability, index)
@@ -1230,15 +1247,16 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             ...data?.abilityOptions,
             skilled: [...grantedSkills, ...(data?.abilityOptions?.skilled ?? []).slice(0, skilledCount)],
             resistance: [...grantedResistance, ...(data?.abilityOptions?.resistance ?? []).slice(0, resistanceCount * 2)],
-          }, spellcastingModifier)
+          }, spellcastingModifier, isAquatic)
           const amphibious = movementAbilities.some(ability => ability.toLowerCase() === 'amphibious')
-          const baseSpeeds = minionMovementSpeeds(movementAbilities.filter(ability => ability.toLowerCase() !== 'fast movement'))
+          const baseSpeeds = minionMovementSpeeds(movementAbilities.filter(ability => ability.toLowerCase() !== 'fast movement'), undefined, isAquatic)
             .filter(speed => speed.feet === 25 && !(amphibious && speed.movement === 'Swim'))
           const savedSpeed = amphibious && data?.abilityOptions?.fastMovement === 'Swim' ? 'Land' : data?.abilityOptions?.fastMovement
           const selectedSpeed = baseSpeeds.find(speed => speed.movement === savedSpeed)?.movement
             ?? baseSpeeds[0]?.movement
           const saveFamiliar = (changes: Partial<NonNullable<Character['familiar']>>) =>
-            save(isWasp ? { waspFamiliar: { ...data, ...changes } } : { familiar: { ...data, ...changes } })
+            save(isAquatic ? { pet: { ...c.pet, ...changes } }
+              : isWasp ? { waspFamiliar: { ...data, ...changes } } : { familiar: { ...data, ...changes } })
           const healingAbilityControls = (ability: 'Medic' | 'Restorative Familiar') => {
             const dice = ability === 'Medic' ? medicRank : Math.max(1, Math.floor(c.level / 2))
             if (!dice) return undefined
@@ -1262,11 +1280,11 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
               || type === 'Leshy Familiar' || type === 'Leshy Familiar Secrets' || type === 'Divine Emissary'
               || /^specific familiar\b/i.test(String(ability.data.ability_type ?? ''))
               || familiarAbilityUnavailableReason(ability, c, [...grantedNames, ...savedAbilities.map(item => item.ability)], isUndead, entries,
-                activeAbilityChoices.map(item => item.ability))) return
+                activeAbilityChoices.map(item => item.ability), isAquatic)) return
             const abilities = [...(data?.abilities ?? [])]
             const usable = abilities.map((name, index) => ({ name, index }))
               .filter(item => !emissaryAbility || !isDivineEmissaryAbility(item.name))
-            const slot = usable.slice(0, selectableAbilityLimit).find(item => !item.name)?.index
+            const slot = (isAquatic ? usable : usable.slice(0, selectableAbilityLimit)).find(item => !item.name)?.index
             if (slot === undefined) abilities.push(ability.name)
             else abilities[slot] = ability.name
             saveFamiliar({ abilities })
@@ -1279,7 +1297,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             return !/^specific familiar\b/i.test(String(entry.data.ability_type ?? ''))
               && (!alreadySelected || isFamiliarAbilityRepeatable(entry))
               && !familiarAbilityUnavailableReason(entry, c, [...grantedNames, ...savedAbilities.map(item => item.ability)], isUndead, entries,
-                activeAbilityChoices.map(item => item.ability))
+                activeAbilityChoices.map(item => item.ability), isAquatic)
           })
           const familiarOptionGroups = ['Familiar', 'Master'].map(type => ({
             label: type,
@@ -1337,7 +1355,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                 : undefined,
               unavailable: leshySecret === 'Verdant Burst' && highestSlot < 2 ? entry.description : undefined })
           }
-          if (c.className === 'Witch') {
+          if (!isAquatic && c.className === 'Witch') {
             const activities = [
               { feat: 'Patron', name: 'Patron’s Claim', damage: 'spirit', dice: 10, sides: 10 },
               { feat: 'Stitched Familiar', name: 'Stitching Strike', damage: 'slashing', dice: 6 + 2 * Math.max(0, Math.floor((c.level - 7) / 2)), sides: 6 },
@@ -1363,10 +1381,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           const specificSections = specificFamiliarSections(activeSpecific ? selectedSpecific : undefined)
           const specificSummary = selectedSpecific?.data.granted_abilities && !/\bGranted Abilities\b/i.test(selectedSpecific.description)
             ? selectedSpecific.description.split(/\n\s*\n/).filter(Boolean) : specificSections.summary
-          return <details key={isWasp ? 'wasp' : 'familiar'} className="character-subsection" data-minion-name={activeSpecific ? specificFamiliarHeader(activeSpecific.name) : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : c.className === 'Witch' ? "Witch's Familiar" : 'Familiar'} open>
-          <summary><h4>{activeSpecific ? specificFamiliarHeader(activeSpecific.name) : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
+          return <details key={kind} className="character-subsection" data-minion-name={isAquatic ? 'Aquatic Pet' : activeSpecific ? specificFamiliarHeader(activeSpecific.name) : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar' : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : c.className === 'Witch' ? "Witch's Familiar" : 'Familiar'} open>
+          <summary><h4>{isAquatic ? 'Aquatic Pet' : activeSpecific ? specificFamiliarHeader(activeSpecific.name) : isWasp ? 'Wasp Familiar' : spiritFamiliar ? 'Spirit Familiar' : isUndead ? 'Undead Familiar' : isLeshy ? 'Leshy Familiar'
             : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : c.className === 'Witch' ? "Witch's Familiar" : 'Familiar'}</h4> ({selectedCount}/{totalCount})</summary>
           <article className="gear-card">
+          {isAquatic && <div className="gear-traits"><span>Aquatic<SourceNote source="Aquatic"
+            note={amphibious ? 'Breathes air and water.' : 'Breathes water instead of air.'} /></span></div>}
           {!isWasp && !spiritFamiliar && !isUndead && specificFamiliars.length > 0 && <header className="row">
             <SearchableSelect aria-label="Specific familiar" value={data?.specificFamiliar ?? ''} onChange={event => {
               const selected = specificFamiliars.find(option => option.entry.name === event.target.value)
@@ -1446,7 +1466,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             </select>
           </label>}
           </section>
-          {c.className === 'Witch' && activeFeatsNamed(c, 'Rites of Transfiguration').length > 0 && (() => {
+          {!isAquatic && c.className === 'Witch' && activeFeatsNamed(c, 'Rites of Transfiguration').length > 0 && (() => {
             const spell = entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name.toLowerCase() === 'cursed metamorphosis'
               && entry.systems.some(system => c.systems.includes(system)))
               ?? entries.find(entry => entry.kind === 'spell' && !entry.deleted && entry.name.toLowerCase() === 'baleful polymorph'
@@ -1483,7 +1503,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           <MinionFerocity c={c} ferocity={ferocity} />
           </article>
         </details>})}
-        {pet && <details className="character-subsection" data-minion-name={seaFriend ? 'Aquatic Pet' : 'Pet'} open>
+        {pet && !aquaticFamiliar && <details className="character-subsection" data-minion-name={seaFriend ? 'Aquatic Pet' : 'Pet'} open>
           <summary><h4>{seaFriend ? 'Aquatic Pet' : 'Pet'}</h4></summary>
           <article className="gear-card">
           {!seaFriend && <label><input type="checkbox" aria-label="Aquatic pet" checked={!!c.pet?.aquatic}

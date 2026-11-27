@@ -29,10 +29,10 @@ import { ANCESTRAL_AVATAR, ANIMAL_FORMS, CAYPIN_FORM, LASHUNTA_CREATURE_FORMS, a
 import { isAncestralEmbrace } from './namedArmor'
 import { familiarSpellBenefits } from './familiarAbilities'
 import { PYRE_ENERGY_TYPES } from './hellknight'
-import { SpellDefenseFilter } from './SpellDefenseFilter'
+import { matchesSpellTrait, spellTraits, SpellTraitFilter } from './SpellTraitFilter'
 import { PickerSort, type PickerSortOrder } from './PickerSort'
 import { sortSpellsByDamage, spellDamageLabel } from './spellDamageTypes'
-import { matchesSpellDefense, spellResolution, type SpellDefense } from './spellDefense'
+import { spellResolution } from './spellDefense'
 import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { FORCE_FIELD_PGA_RESISTANCE_TYPES, TECHNOMANCER_LANGUAGE_RULES } from './technomancer'
@@ -1927,7 +1927,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const [bookRank, setBookRank] = useState(0)
   const [bookSlotKey, setBookSlotKey] = useState<string>()
   const [bookQuery, setBookQuery] = useState('')
-  const [bookDefense, setBookDefense] = useState<SpellDefense>('all')
+  const [bookTrait, setBookTrait] = useState('all')
   const [bookSystem, setBookSystem] = useState<GearSystem>('both')
   const [bookSort, setBookSort] = useState<PickerSortOrder>('name')
   const bookDialog = useRef<HTMLDialogElement>(null)
@@ -2003,7 +2003,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
     : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
     && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase())
-    && matchesSpellDefense(entry, bookDefense) && matchesGearSystem(entry, bookSystem, c.systems)
+    && matchesGearSystem(entry, bookSystem, c.systems)
     && !knownArcaneSpells.has(entry.name.toLowerCase()))
   const druidList = useMemo(() => druid ? druidSpellList(c, spellIndex.spells)
     : witch ? witchSpellList(c, entries) : undefined,
@@ -2037,14 +2037,14 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const rankedDirgeOptions = dirgeOptions.filter(entry => (bookRank === 0
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
     : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
-    && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase()) && matchesSpellDefense(entry, bookDefense)
+    && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase())
     && matchesGearSystem(entry, bookSystem, c.systems)
     && !(c.spells ?? []).some(spell => spell.name.toLowerCase() === entry.name.toLowerCase())
     && (!preventDuplicateSpells || !selectedGrantNames.has(entry.name.toLowerCase())))
   const rankedWitchBookOptions = (bookOpen && bookSource === 'Witch' ? witchBookOptions : []).filter(entry => (bookRank === 0
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
     : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
-    && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase()) && matchesSpellDefense(entry, bookDefense)
+    && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase())
     && matchesGearSystem(entry, bookSystem, c.systems) && !knownWitchSpells.has(entry.name.toLowerCase())
     && (!preventDuplicateSpells || !selectedGrantNames.has(entry.name.toLowerCase())))
   const schoolBookSpells = useMemo(() => wizardSchoolBookSpells(c, entries), [c, entries])
@@ -2055,7 +2055,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     ? [...list].sort((a, b) => Number(schoolSpells.has(b.name.toLowerCase())) - Number(schoolSpells.has(a.name.toLowerCase()))) : list
   const bookOptions = bookSource === 'Dirge' ? rankedDirgeOptions
     : bookSource === 'Witch' ? rankedWitchBookOptions : schoolFirst(rankedArcaneBookOptions)
-  const rankedBookOptions = bookSort === 'damage' ? sortSpellsByDamage(bookOptions, entry => entry, entry => entry.name) : bookOptions
+  const filteredBookOptions = bookOptions.filter(entry => matchesSpellTrait(entry, bookTrait))
+  const rankedBookOptions = bookSort === 'damage' ? sortSpellsByDamage(filteredBookOptions, entry => entry, entry => entry.name) : filteredBookOptions
   const { spells, granted, featSpells, innate, special, focus, focusPoints, manualSpells, items } = data ?? spellSummaryData(c, entries)
   const available = spellCategoryAvailability(c, entries, data ?? spellSummaryData(c, entries))
   const otherFocus = focus.filter(spell => !granted.some(warden => warden.name === spell.name))
@@ -2438,7 +2439,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     setBookRank(rank)
     setBookSlotKey(slotKey)
     setBookQuery('')
-    setBookDefense('all')
+    setBookTrait('all')
     setBookSystem('both')
     setBookOpen(true)
     bookDialog.current?.showModal()
@@ -2613,7 +2614,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         <label>Search spells{' '}<input type="search" aria-label={`Search ${bookSource.toLowerCase()} spells`} value={bookQuery}
           onChange={event => setBookQuery(event.target.value)} /></label>
         <PickerSort label="Sort spellbook by" value={bookSort} onChange={setBookSort} includeLevel={false} includeDamage />
-        <SpellDefenseFilter value={bookDefense} onChange={setBookDefense} />
+        <SpellTraitFilter value={bookTrait} traits={spellTraits(bookOptions)} onChange={setBookTrait} />
         <GearSystemFilter value={bookSystem} onChange={setBookSystem} />
         {bookOpen && <DirgeLearnOptions options={rankedBookOptions} onLearn={learnSpellbookSpell}
           showDamage={bookSort === 'damage'}

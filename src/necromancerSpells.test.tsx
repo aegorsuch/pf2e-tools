@@ -24,8 +24,8 @@ const spell = (name: string, level = 1, tradition = 'Occult', traits: string[] =
 const taken = (name: string, level: number) => ({ name, level, type: 'Class Feat' })
 const render = (c: Character, entries: ContentEntry[]) =>
   renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => { throw Error('Rendering must preserve saved data') }} />)
-const renderAtDirgeRank = (c: Character, entries: ContentEntry[], rank: number, query = '', defense = 'all', sort = 'name') => {
-  for (const value of ['class', c.spellcasting?.tradition ?? '', undefined, true, 'Dirge', rank, undefined, query, defense, 'both', sort])
+const renderAtDirgeRank = (c: Character, entries: ContentEntry[], rank: number, query = '', trait = 'all', sort = 'name') => {
+  for (const value of ['class', c.spellcasting?.tradition ?? '', undefined, true, 'Dirge', rank, undefined, query, trait, 'both', sort])
     vi.mocked(useState).mockReturnValueOnce([value, vi.fn()])
   return render(c, entries)
 }
@@ -540,16 +540,19 @@ it('learns accessible, current-rank occult spells rather than granting the entir
   expect(learnOptions(renderAtDirgeRank({ ...base, ethnicity: 'Kellid' }, entries, 1))).toContain('aria-label="Learn Restricted Magic"')
 })
 
-it('filters learnable Dirge spells by defense and search', () => {
+it('filters learnable Dirge spells by trait and search', () => {
   const entries = [
-    { ...spell('Fear'), data: { tradition: 'Occult', saving_throw: 'Will' } },
-    { ...spell('Fireball'), data: { tradition: 'Occult', saving_throw: 'basic Reflex' } },
-    { ...spell('Flame Bolt'), data: { tradition: 'Occult', saving_throw: 'AC' } },
+    spell('Fear', 1, 'Occult', ['Mental']),
+    spell('Fireball', 1, 'Occult', ['Fire']),
+    spell('Flame Bolt', 1, 'Occult', ['Attack', 'Fire']),
   ]
-  const results = learnOptions(renderAtDirgeRank(base, entries, 1, 'f', 'reflex'))
-  expect(results).toContain('aria-label="Learn Fireball"')
+  const html = renderAtDirgeRank(base, entries, 1, 'f', 'attack')
+  const results = learnOptions(html)
+  expect(results).toContain('aria-label="Learn Flame Bolt"')
   expect(results).not.toContain('aria-label="Learn Fear"')
-  expect(results).not.toContain('aria-label="Learn Flame Bolt"')
+  expect(results).not.toContain('aria-label="Learn Fireball"')
+  expect(choices(html, 'Spell trait')).toContain('value="fire"')
+  expect(html).not.toContain('aria-label="Spell defense"')
 })
 
 it('sorts learnable Dirge spells by damage type', () => {

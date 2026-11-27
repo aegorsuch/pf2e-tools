@@ -4,7 +4,7 @@ import { PickerDialog } from './PickerDialog'
 import { SearchableSelect } from './SearchableSelect'
 import { EntryDescription } from './EntryDescription'
 import { PickerSort } from './PickerSort'
-import { SpellDefenseFilter } from './SpellDefenseFilter'
+import { SpellTraitFilter } from './SpellTraitFilter'
 import { GearSystemFilter } from './GearSystemFilter'
 import type { ContentEntry } from './types'
 
@@ -281,30 +281,30 @@ it('resolves levels only for matching or selected options when sorting search re
     .map(item => item.props['aria-label'])).toEqual(['Spell: None', 'Spell: Flame B', 'Spell: Flame A', 'Spell: Shield', 'Spell: Flame C'])
 })
 
-it('does not resolve spells when defense and system filters are inactive', () => {
+it('resolves trait options only for search matches and the retained selection', () => {
   vi.mocked(useState).mockReturnValueOnce(['flame', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
     .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
     .mockReturnValueOnce(['all', vi.fn()]).mockReturnValueOnce(['both', vi.fn()])
   vi.mocked(useRef).mockReturnValue({ current: null })
   vi.mocked(useId).mockReturnValue('picker')
   vi.mocked(useMemo).mockImplementation(fn => fn())
-  const optionSpell = vi.fn(() => undefined)
+  const optionSpell = vi.fn((_value: string) => undefined)
   SearchableSelect({ 'aria-label': 'Spell', value: 'shield', alwaysSearchable: true, optionSpell,
     children: <><option value="">None</option><option value="flame">Flame</option>
       <option value="shield">Shield</option><option value="ice">Ice</option></> })
-  expect(optionSpell).not.toHaveBeenCalled()
+  expect(optionSpell.mock.calls.map(([value]) => value)).toEqual(['flame', 'shield'])
 })
 
 it('resolves filters for search matches and the retained selection only', () => {
   vi.mocked(useState).mockReturnValueOnce(['flame', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
     .mockReturnValueOnce([100, vi.fn()]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
-    .mockReturnValueOnce(['reflex', vi.fn()]).mockReturnValueOnce(['both', vi.fn()])
+    .mockReturnValueOnce(['attack', vi.fn()]).mockReturnValueOnce(['both', vi.fn()])
   vi.mocked(useRef).mockReturnValue({ current: null })
   vi.mocked(useId).mockReturnValue('picker')
   vi.mocked(useMemo).mockImplementation(fn => fn())
   const optionSpell = vi.fn((value: string): ContentEntry => ({ id: value, name: value, kind: 'spell',
-    systems: ['pf2e'], source: 'official', level: 1, traits: [], description: '',
-    data: { saving_throw: 'Reflex' }, effects: [], updatedAt: 0 }))
+    systems: ['pf2e'], source: 'official', level: 1, traits: ['Attack'], description: '',
+    data: {}, effects: [], updatedAt: 0 }))
   const found: Array<{ type: unknown; props: Record<string, unknown> }> = []
   const visit = (node: ReactNode) => Children.forEach(node, child => {
     if (!isValidElement<Record<string, unknown>>(child)) return
@@ -319,18 +319,18 @@ it('resolves filters for search matches and the retained selection only', () => 
     .map(item => item.props['aria-label'])).toEqual(['Spell: None', 'Spell: Flame', 'Spell: Shield'])
 })
 
-it('filters spell choices by defense together with search and resets pagination', () => {
-  const setDefense = vi.fn()
+it('filters spell choices by trait together with search and resets pagination', () => {
+  const setTrait = vi.fn()
   const setLimit = vi.fn()
   vi.mocked(useState).mockReturnValueOnce(['flame', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
     .mockReturnValueOnce([100, setLimit]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
-    .mockReturnValueOnce(['reflex', setDefense])
+    .mockReturnValueOnce(['attack', setTrait])
   vi.mocked(useRef).mockReturnValue({ current: null })
   vi.mocked(useId).mockReturnValue('picker')
   vi.mocked(useMemo).mockImplementation(fn => fn())
-  const spell = (name: string, defense: string): ContentEntry => ({ id: name, name, kind: 'spell', systems: ['sf2e'],
-    source: 'official', level: 1, traits: [], description: '', data: { saving_throw: defense }, effects: [], updatedAt: 0 })
-  const entries = [spell('Flame Burst', 'basic Reflex'), spell('Flame Bolt', 'AC'), spell('Frost', 'Reflex')]
+  const spell = (name: string, trait: string): ContentEntry => ({ id: name, name, kind: 'spell', systems: ['sf2e'],
+    source: 'official', level: 1, traits: [trait], description: '', data: {}, effects: [], updatedAt: 0 })
+  const entries = [spell('Flame Burst', 'Attack'), spell('Flame Bolt', 'Fire'), spell('Frost', 'Attack')]
   const found: Array<{ type: unknown; props: Record<string, unknown> }> = []
   const visit = (node: ReactNode) => Children.forEach(node, child => {
     if (!isValidElement<Record<string, unknown>>(child)) return
@@ -343,9 +343,10 @@ it('filters spell choices by defense together with search and resets pagination'
     children: <>{entries.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</> }))
   expect(found.filter(item => item.type === 'button' && String(item.props['aria-label']).startsWith('Select '))
     .map(item => item.props['aria-label'])).toEqual(['Select Flame Burst'])
-  const filter = found.find(item => item.type === SpellDefenseFilter)!
-  ;(filter.props.onChange as (value: string) => void)('ac')
-  expect(setDefense).toHaveBeenCalledWith('ac')
+  const filter = found.find(item => item.type === SpellTraitFilter)!
+  expect(filter.props.traits).toEqual([['attack', 'Attack'], ['fire', 'Fire']])
+  ;(filter.props.onChange as (value: string) => void)('fire')
+  expect(setTrait).toHaveBeenCalledWith('fire')
   expect(setLimit).toHaveBeenCalledWith(100)
 })
 
@@ -353,19 +354,19 @@ it.each([
     ['both', ['Select Shared PF2E', 'Select Shared SF2E']],
     ['pf2e', ['Select Shared PF2E']],
     ['sf2e', ['Select Shared SF2E']],
-  ] as const)('filters spell choices by %s and defense', (system, expected) => {
+  ] as const)('filters spell choices by %s and trait', (system, expected) => {
     const setSystem = vi.fn()
     const setLimit = vi.fn()
     vi.mocked(useState).mockReturnValueOnce(['shared', vi.fn()]).mockReturnValueOnce([true, vi.fn()])
       .mockReturnValueOnce([100, setLimit]).mockReturnValueOnce([undefined, vi.fn()]).mockReturnValueOnce(['name', vi.fn()])
-      .mockReturnValueOnce(['reflex', vi.fn()]).mockReturnValueOnce([system, setSystem])
+      .mockReturnValueOnce(['attack', vi.fn()]).mockReturnValueOnce([system, setSystem])
     vi.mocked(useRef).mockReturnValue({ current: null })
     vi.mocked(useId).mockReturnValue('picker')
     vi.mocked(useMemo).mockImplementation(fn => fn())
-    const spell = (id: string, game: 'pf2e' | 'sf2e', defense: string): ContentEntry =>
+    const spell = (id: string, game: 'pf2e' | 'sf2e', trait: string): ContentEntry =>
       ({ id, name: 'Shared', kind: 'spell', systems: [game], source: 'official', level: 1,
-        traits: [], description: '', data: { saving_throw: defense }, effects: [], updatedAt: 0 })
-    const entries = [spell('pf', 'pf2e', 'Reflex'), spell('sf', 'sf2e', 'Reflex'), spell('ac', 'sf2e', 'AC')]
+        traits: [trait], description: '', data: {}, effects: [], updatedAt: 0 })
+    const entries = [spell('pf', 'pf2e', 'Attack'), spell('sf', 'sf2e', 'ATTACK'), spell('ac', 'sf2e', 'Fire')]
     const found: Array<{ type: unknown; props: Record<string, unknown> }> = []
     const visit = (node: ReactNode) => Children.forEach(node, child => {
       if (!isValidElement<Record<string, unknown>>(child)) return

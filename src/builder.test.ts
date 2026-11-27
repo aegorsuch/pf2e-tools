@@ -8,7 +8,7 @@ import { characterHeritages } from './heritages'
 import { automaticFeatChoiceKey, coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting, wizardSchoolBookSpells } from './builder'
-import { hasRemainingFeatSelections } from './builder'
+import { fastHealing, hasRemainingFeatSelections, protectCompanionTargets } from './builder'
 import { homebrewCharacterOptions } from './supplemental'
 import { maxEtchedRunes, runicRepertoireSize } from './runesmithRunes'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
@@ -762,6 +762,39 @@ it('applies persistent Lizardfolk and Necromancer feat benefits to defenses, sen
   ]))
   expect(savingThrowBreakdown(c, [], 'Fortitude').notes).toContain(
     'Parthenogenic Hatchling +1 circumstance against diseases; a success becomes a critical success. If another ability would improve the save this way, a critical failure becomes a failure instead.')
+})
+
+it('reports active fast healing separately from resistances and preserves its conditions', () => {
+  const c: Character = { ...base, level: 20, feats: [
+    { name: "Grand Medic's Mask", type: 'Class Feat', level: 20 },
+    { name: 'Sanguine Mastery', type: 'Class Feat', level: 12 },
+    { name: 'Golden Body', type: 'Class Feat', level: 20 },
+  ] }
+  expect(fastHealing(c)).toEqual([
+    { value: 5, source: "Grand Medic's Mask" },
+    { value: 20, source: 'Golden Body', note: expect.stringContaining('1 HP') },
+    { value: 10, source: 'Sanguine Mastery', note: expect.stringContaining('bleeding') },
+  ])
+  expect(resistances(c, []).some(item => /fast healing/i.test(item.damage))).toBe(false)
+  expect(fastHealing({ ...c, level: 11 })).toEqual([])
+  expect(fastHealing({ ...c, level: 19 })).toEqual([
+    { value: 9, source: 'Sanguine Mastery', note: expect.stringContaining('bleeding') },
+  ])
+  expect(fastHealing({ ...c, systems: ['sf2e'] })).toEqual([])
+})
+
+it('offers the aquatic familiar as a separate Protect Companion target only while enabled', () => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ aquaticPetFamiliar: true })
+  const c: Character = { ...base, feats: [
+    { name: 'Familiar', type: 'Class Feat', level: 1 }, { name: 'Friend of the Sea', type: 'Class Feat', level: 1 },
+  ], pet: { name: 'Fish' } }
+  expect(protectCompanionTargets(c)).toEqual(expect.arrayContaining([
+    expect.objectContaining({ familiar: 'primary' }), expect.objectContaining({ familiar: 'aquatic', name: 'Fish' }),
+  ]))
+  updateSettings({ aquaticPetFamiliar: false })
+  expect(protectCompanionTargets(c).some(target => target.familiar === 'aquatic')).toBe(false)
 })
 
 it('scales Stormbreaker electricity shielding with character level', () => {

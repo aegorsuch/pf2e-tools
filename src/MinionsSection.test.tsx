@@ -956,6 +956,9 @@ it('shows the same advancement used for companion stats when multiple feats have
 })
 
 it('shows feat-granted familiar choices and a separate aquatic pet with bonus abilities', () => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ aquaticPetFamiliar: false })
   const c: Character = {
     id: 'minions', systems: ['pf2e'], name: 'Test', level: 8, className: 'Druid',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -979,6 +982,9 @@ it('shows feat-granted familiar choices and a separate aquatic pet with bonus ab
 })
 
 it('alphabetizes chosen Pet abilities with non-removable Friend of the Sea grants', () => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ aquaticPetFamiliar: false })
   const c: Character = {
     id: 'minions', systems: ['pf2e'], name: 'Test', level: 8, className: 'Druid',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -998,6 +1004,40 @@ it('alphabetizes chosen Pet abilities with non-removable Friend of the Sea grant
   expect(html).toContain('aria-label="Remove Pet ability 2"')
   expect(html).not.toContain('Remove Pet ability 3')
   expect(html).not.toContain('Remove Pet ability 4')
+})
+
+it('treats the aquatic pet as an independent familiar while preserving legacy abilities', () => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ aquaticPetFamiliar: true })
+  vi.stubGlobal('window', { confirm: () => true })
+  let c: Character = {
+    id: 'aquatic-familiar', systems: ['pf2e'], name: 'Test', level: 8, className: 'Druid',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 18, cha: 10 },
+    feats: ['Leshy Familiar', 'Friend of the Sea'].map(name => ({ name, type: 'Class Feat', level: 1 })),
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    familiar: { abilities: ['Flier'] },
+    pet: { name: 'Fish', abilities: ['Darkvision', 'Tough', '', 'Climber'], fastMovement: 'Swim' },
+  }
+  const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
+  let html = renderToStaticMarkup(tree())
+  expect(html).toContain('Aquatic Pet')
+  expect(html).toContain('<small>Hit Points</small><b>56</b>')
+  expect(html).toContain('Swim 25 feet, Climb 25 feet')
+  expect(html).toContain('aria-label="Aquatic pet ability"')
+  findSelect(tree(), 'Aquatic pet ability')!({ target: { value: 'familiar:Fast Movement' } })
+  expect(c.pet?.abilities).toEqual(['Darkvision', 'Tough', 'Fast Movement', 'Climber'])
+  expect(c.familiar?.abilities).toEqual(['Flier'])
+  html = renderToStaticMarkup(tree())
+  expect(html).toContain('Swim 40 feet')
+  expect(html).not.toContain('aria-label="Aquatic pet ability"')
+  findButton(tree(), 'Remove Aquatic pet ability 3')!()
+  expect(c.pet?.abilities).toEqual(['Darkvision', 'Tough', 'Climber'])
+  findSelect(tree(), 'Aquatic pet ability')!({ target: { value: 'familiar:Flier' } })
+  expect(c.pet?.abilities).toEqual(['Darkvision', 'Tough', 'Climber', 'Flier'])
+  expect(c.pet?.name).toBe('Fish')
+  updateSettings({ aquaticPetFamiliar: false })
+  expect(renderToStaticMarkup(tree())).toContain('aria-label="Remove Pet ability')
 })
 
 it.each(['Pet', 'Familiar'])('shows %s defenses without the owner’s status penalties', name => {

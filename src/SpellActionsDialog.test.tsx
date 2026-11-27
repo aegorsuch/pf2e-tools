@@ -69,7 +69,8 @@ it('uses the Technomancer spell database to learn and prepare Starfinder arcane 
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const spell = (name: string, tradition: string): ContentEntry => ({ id: name, name, systems: ['sf2e'], kind: 'spell',
     source: 'official', level: 1, traits: [], description: `${name} rules`, data: { tradition }, effects: [], updatedAt: 0 })
-  const entries = [spell('Arcane Test', 'Arcane'), spell('Divine Test', 'Divine')]
+  const entries = [{ ...spell('Arcane Test', 'Arcane'), traits: ['Attack', 'Fire'] },
+    { ...spell('Arcane Shield', 'Arcane'), traits: ['Force'] }, spell('Divine Test', 'Divine')]
   let current = initial
   function Sheet() {
     const [c, setC] = useState(initial)
@@ -84,6 +85,13 @@ it('uses the Technomancer spell database to learn and prepare Starfinder arcane 
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Open Spell Database rank 1"]')!.click())
     expect(container.querySelector('dialog[open]')?.textContent).toContain('Spell Database')
     expect(container.querySelector('[aria-label="Learn Divine Test"]')).toBeNull()
+    const filter = container.querySelector<HTMLSelectElement>('[aria-label="Spell trait"]')!
+    expect([...filter.options].map(option => option.value)).toContain('attack')
+    await act(async () => { filter.value = 'attack'; filter.dispatchEvent(new Event('change', { bubbles: true })) })
+    expect(container.querySelector('[aria-label="Learn Arcane Test"]')).not.toBeNull()
+    expect(container.querySelector('[aria-label="Learn Arcane Shield"]')).toBeNull()
+    await act(async () => { filter.value = 'all'; filter.dispatchEvent(new Event('change', { bubbles: true })) })
+    expect(container.querySelector('[aria-label="Learn Arcane Shield"]')).not.toBeNull()
     expect(container.querySelector('.dirge-options dialog')).toBeNull()
     const detail = [...container.querySelectorAll<HTMLButtonElement>('.dirge-options button')]
       .find(button => button.textContent === 'Arcane Test')!

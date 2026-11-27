@@ -48,6 +48,7 @@ import { syncDivineBoonFeats } from './divineIntercessions'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
 import { backgroundVariants, type BackgroundVariant } from './builder'
 import { hasMagicWarriorMask, SHADOWED_SCALE_MASK } from './magicWarriorMasks'
+import { fastHealing } from './builder'
 import { characterDeityLores, normalizeAcolyte } from './backgrounds'
 import { getSettings } from './settings'
 import { arcaneThesisOptions, selectedArcaneThesis, VERSATILE_THESIS_FEAT, type ArcaneThesis } from './arcaneTheses'
@@ -925,7 +926,10 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Defense</strong>
-          <span>Armor Class <TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />, Hit Points {defense.hp}
+          <span>Armor Class <TotalBreakdown label="Armor Class" breakdown={armorClassBreakdown(c, entries)} />
+            {fastHealing(c).map(healing => <span key={healing.source}>, Fast Healing {healing.value}
+              {healing.source === 'Sanguine Mastery' && ' (conditional)'}
+              <SourceNote source={healing.source} note={healing.note ?? `Grants fast healing ${healing.value}.`} /></span>)}, Hit Points {defense.hp}
             {temporaryHp && `+${temporaryHp.value}`}</span>
           <span onClick={event => { if (event.target instanceof Element && event.target.closest('button')) event.stopPropagation() }}>
             <ResistanceSummary c={c} entries={entries} />

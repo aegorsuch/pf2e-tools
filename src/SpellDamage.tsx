@@ -50,6 +50,18 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return rank >= 4 ? [{ label: 'Damage', dice: rank + 1, sides: 10, type: 'void' }] : []
     case 'Disintegrate':
       return rank >= 6 ? [{ label: 'Damage', dice: rank * 2, sides: 10, type: 'untyped' }] : []
+    case 'Silver Spear':
+      return rank >= 6 ? [{ label: 'Damage', dice: rank * 2, sides: 6, type: 'piercing',
+        additional: { label: 'Extra damage against fiends', dice: rank * 2, sides: 6, type: 'spirit' },
+        note: 'Spear is silver' }] : []
+    case 'Rend Magic': {
+      if (rank < 3) return []
+      const heightened = Math.floor((rank - 3) / 2)
+      return [
+        { label: 'Initial damage', dice: 3 + 2 * heightened, sides: 10, type: 'force' },
+        { label: 'Damage when target casts a spell', dice: 1 + heightened, sides: 10, type: 'force' },
+      ]
+    }
     case 'Splinter Volley': {
       if (rank < 2) return []
       const step = Math.floor(rank / 2)
@@ -693,6 +705,11 @@ export function SpellActions({ name, rank, entry, spellcastingModifier, actionOv
   if (name === 'Curse of Death' && rank >= 5)
     return <CurseOfDeathActions rank={rank}
       actions={actionOverride ?? (typeof entry?.data.actions === 'string' ? entry.data.actions : undefined)} />
+  if (name === 'Rend Magic' && rank >= 3) {
+    const [initial, triggered] = spellDamage(name, rank)
+    return <><DamageRoll name={name} damage={initial} actions={actionOverride ?? 'Two Actions'} toggleResult />
+      <DamageRoll name={name} damage={triggered} toggleResult /></>
+  }
   const allRolls = spellActionRolls(name, rank, entry, spellcastingModifier)
   const action = actionOverride?.replace(/^Single Action$/i, 'One Action')
   const rolls = ['Heal', 'Rebuke Death'].includes(name) && action && /^(?:One|Two|Three) Actions?$/i.test(action)
