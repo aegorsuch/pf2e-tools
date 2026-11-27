@@ -710,6 +710,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
           const solarDamage = c.systems.includes('sf2e') && currentEntry
             && ['Black Hole', 'Supernova', 'Plasma Ejection', 'Constellation Vortex', 'Big Bang', 'Singularity'].includes(currentEntry.name)
             && activeFeatsNamed(c, currentEntry.name).length ? currentEntry.name : undefined
+          const perfectlyAttuned = c.solarianAttunement !== 'Unattuned' && activeFeatsNamed(c, 'Perfectly-Attuned').length > 0
+          const attunedTo = (kind: 'Graviton' | 'Photon') => perfectlyAttuned || (c.solarianAttunement ?? 'Graviton') === kind
           const access = currentEntry ? featAccess(c, currentEntry) : undefined
           const ambiguous = new Set(sources.map((entry) => String(entry.data.prerequisite ?? ''))).size > 1
           const ruleGranted = activeFeatsNamed(c, current).some(feat => feat.slot === s.key)
@@ -915,28 +917,28 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                   {showTenthLifeRoll && <DamageRoll name="Tenth Life" actions="Reaction" toggleResult
                     damage={{ label: 'Healing', dice: 6, sides: 8, bonus: Math.floor(c.level / 2), type: 'HP' }} />}
                   {solarDamage === 'Black Hole' && <DamageRoll name="Black Hole" actions="Two Actions" toggleResult
-                    disabled={(c.solarianAttunement ?? 'Graviton') !== 'Graviton'}
+                    disabled={!attunedTo('Graviton')}
                     damage={{ label: 'Damage', dice: Math.floor(c.level / 2), sides: 8, type: 'bludgeoning' }} />}
                   {solarDamage === 'Supernova' &&
                     <MultipleDamageRoll name="Supernova" actions="Two Actions"
-                      disabled={(c.solarianAttunement ?? 'Graviton') !== 'Photon'}
+                      disabled={!attunedTo('Photon')}
                       damages={([15, 30] as const).map(distance => ({
                         label: `${distance}-foot damage`, dice: c.level, sides: distance === 15 ? 8 : 6, type: 'fire' }))} />}
                   {solarDamage === 'Plasma Ejection' &&
                     <MultipleDamageRoll name="Plasma Ejection" actions="Two Actions"
                       disabled={c.solarianAttunement === 'Unattuned'}
                       damages={[{ label: 'Damage', dice: Math.floor(c.level / 2) + 1,
-                        sides: c.solarianAttunement === 'Photon' ? 8 : 6, type: 'fire' },
+                        sides: c.solarianAttunement === 'Photon' || perfectlyAttuned ? 8 : 6, type: 'fire' },
                       { label: 'Critical failure persistent damage', dice: 1, sides: 8, type: 'electricity' }]} />}
                   {solarDamage === 'Constellation Vortex' && <ConstellationVortexRoll c={c} entries={entries} />}
                   {solarDamage === 'Big Bang' &&
                     <MultipleDamageRoll name="Big Bang" actions="Three Actions"
-                      disabled={c.solarianAttunement !== 'Photon'}
+                      disabled={!attunedTo('Photon')}
                       damages={[{ label: 'Damage', dice: c.level - 4, sides: 6, type: 'fire' },
                         { label: 'Failure persistent damage', dice: 2, sides: 6, type: 'fire' },
                         { label: 'Critical failure persistent damage', dice: 4, sides: 6, type: 'fire' }]} />}
                   {solarDamage === 'Singularity' && <DamageRoll name="Singularity" actions="Three Actions" toggleResult
-                    disabled={(c.solarianAttunement ?? 'Graviton') !== 'Graviton'}
+                    disabled={!attunedTo('Graviton')}
                     damage={{ label: 'Damage', dice: 10 + 2 * Math.floor((c.level - 14) / 2), sides: 8, type: 'void' }} />}
                 </>
               ) : popup ? (
