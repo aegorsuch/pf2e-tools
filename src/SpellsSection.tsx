@@ -2519,8 +2519,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     </section>)
   const mergedGrantSources = [...tricksterAceSpells, ...loanerSpells]
   const mergeIntoClass = !witchwarper && !!sc && traditions.length > 0 && classSlotRanks.length > 0
-  const mergedGrantRanks = new Set(mergeIntoClass ? classSlotRanks.map(slot => slot.rank) : [])
-  const mergedGrants = mergedGrantSources.filter(grant => mergedGrantRanks.has(grant.rank))
+  const mergedGrants = mergeIntoClass ? mergedGrantSources : []
+  const extraGrantRanks = [...new Set(mergedGrants.map(grant => grant.rank))]
+    .filter(rank => !classSlotRanks.some(slot => slot.rank === rank)).sort((a, b) => a - b)
   const standaloneGrants = (grants: typeof special) => grants.filter(grant => !mergedGrants.includes(grant))
 
   return (
@@ -2850,6 +2851,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             {rank === classSlotRanks[0].rank && <>{renderTricksterAceChoices()}{renderLoanerSpellChoices()}</>}
           </section>
         })}
+        {extraGrantRanks.map(rank => <section className="spell-slot-group" key={`granted:${rank}`}>
+          <h5>Spell Rank {rank}</h5>
+          <SpellColumns />
+          <ul>{mergedGrants.filter(grant => grant.rank === rank).map(renderGrantRow)}</ul>
+        </section>)}
       </div>}
       </>}
       {c.className === 'Animist' && c.systems.includes('pf2e')

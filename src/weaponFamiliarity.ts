@@ -49,7 +49,7 @@ const RULES: Record<string, FamiliarityRule> = {
     access: ['Blowgun', 'Fighting Fan', 'Kris', 'Kukri', 'Shuriken'], trained: true },
 }
 
-const key = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '')
+const key = (name: string) => name.replace(/^Finesse Scimitar$/, 'Scimitar').toLowerCase().replace(/[^a-z0-9]/g, '')
 const named = (names: string[] | undefined, weapon: ContentEntry) => names?.some(name => key(name) === key(weapon.name)) ?? false
 const DWARF_STARFINDER_WEAPONS = ['Artillery Laser', 'Breaching Gun', 'Hammer', 'Machine Gun', 'Roto Laser', 'Stellar Cannon']
 const gradeFamilies = new WeakMap<ContentEntry[], Map<string, Set<string>>>()

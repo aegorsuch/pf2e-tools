@@ -75,6 +75,7 @@ function adoptedAncestry(c: Character, pattern: RegExp) {
 }
 
 export function adoptedAncestryText(c: Character, text: string) {
+  text = text.replace(/\bFinesse Scimitar\b/g, 'Scimitar')
   if (adoptedAncestry(c, /^dwarf$/i)) text = text.replace(/\bDwarven (Doughtiness|Reinforcement|Honor|Gravity Hammer|Zero-G Familiarity)\b/g, '$1')
   if (!adoptedAncestry(c, /^orc$/i) || [c.ancestry, c.heritage].some(name => /^(orc|dromaar|half-orc)$/i.test(name?.trim() ?? ''))) return text
   return text.replace(/\bOrc (Ferocity|Superstition|Warmask)\b/g, '$1').replace(/\btusks?\b/gi, word => {

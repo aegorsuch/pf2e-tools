@@ -8139,6 +8139,12 @@ export function activeUntamedShiftEffects(c: Character, entries: ContentEntry[])
 
 export const isAutomaticUnarmed = (name: string) => [FIST.name, IRON_FIST.name, CAIRN_FIST.name, SPARK_FIST.name, ORC_TUSKS.name, ANIMAL_FEATURE_CLAWS.name, ANIMAL_FEATURE_JAWS.name, UNTAMED_CLAWS.name, UNTAMED_JAWS.name].includes(name)
   || bestialWeapons.some(entry => entry.name === name) || [...ysokiJaws, shirrenJaws, ...veskAttacks, ...pahtraAttacks.filter(entry => entry.id !== 'sf2e:pahtra:claw'), ...witchAttacks, ...nephilimAttacks, venomousVeskJaws].some(entry => entry.name === name)
+export const FINESSE_SCIMITAR = { id: 'finesse-scimitar', name: 'Finesse Scimitar', base: 'Dogslicer', counts: 'Scimitar' } as const
+function finesseScimitarEntry(entries: ContentEntry[]): ContentEntry | undefined {
+  const base = byName(entries, 'weapon', FINESSE_SCIMITAR.base)
+  return base ? { ...base, id: FINESSE_SCIMITAR.id, name: FINESSE_SCIMITAR.name,
+    traits: base.traits.filter(trait => !/^uncommon$/i.test(trait.trim())), data: { ...base.data, rarity: 'Common' } } : undefined
+}
 export const PLAYING_CARD_WEAPONS = [
   { id: 'playing-card:dagger', name: 'Dagger (Playing Card)', base: 'Dagger' },
   { id: 'playing-card:dart', name: 'Dart (Playing Card)', base: 'Dart' },
@@ -8240,6 +8246,7 @@ function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) 
       && entry.systems.includes(system))
     return variant ? { ...variant, name } : undefined
   }
+  if (name === FINESSE_SCIMITAR.name) return finesseScimitarEntry(entries)
   const card = PLAYING_CARD_WEAPONS.find(option => option.name === name)
   const base = card && byName(entries, 'weapon', card.base)
   if (card && base) return { ...base, id: card.id, name: card.name }
@@ -8629,7 +8636,7 @@ export function isFavoredWeapon(c: Character, entries: ContentEntry[], name: str
   const favored = tokens(byName(entries, 'deity', c.deity)?.data.favored_weapon)
     .flatMap((weapon) => weapon.split(/\s+or\s+/i)).map((weapon) => weapon.toLowerCase())
   const entry = weaponEntry(entries, name)
-  const base = entry?.data.named_weapon ? namedWeaponBaseName(entry) : name
+  const base = entry?.data.named_weapon ? namedWeaponBaseName(entry) : name === FINESSE_SCIMITAR.name ? FINESSE_SCIMITAR.counts : name
   return favored.includes(base.replace(/ \(Animal Feature\)$/, '')
     .replace(/^(Shobhad Longrifle) \((?:Pathfinder|Starfinder)\)$/, '$1').toLowerCase())
 }
@@ -10590,7 +10597,7 @@ export function gearPickerEntries(entries: ContentEntry[], kind: 'weapon' | 'arm
     ...(kind === 'armor' ? namedArmorEntries(entries) : kind === 'shield'
       ? ['Scale of Igroon', SCALE_OF_IGROON_FORTRESS].map(name => makeNamedShieldEntry(entries, name))
         .filter((entry): entry is ContentEntry => !!entry) : []),
-    ...(kind === 'weapon' ? [...hammerMultipistolEntries(entries),
+    ...(kind === 'weapon' ? [...hammerMultipistolEntries(entries), ...[finesseScimitarEntry(entries)].filter((entry): entry is ContentEntry => !!entry),
       ...namedWeaponEntries(entries).filter(entry => !entry.data.named_weapon_resolver_only)] : [])])
   return pool.map(entry => kind === 'weapon' && entry.name === 'Shobhad Longrifle' && entry.source === 'official'
     ? { ...entry, name: `Shobhad Longrifle (${entry.systems.includes('sf2e') ? 'Starfinder' : 'Pathfinder'})` } : entry).filter(entry => {
