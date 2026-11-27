@@ -54,6 +54,7 @@ import { arcaneThesisOptions, selectedArcaneThesis, VERSATILE_THESIS_FEAT, type 
 import { fatalMethodOptions, selectedFatalMethod, type FatalMethod } from './fatalMethods'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
 import { GAUNTLET, HAFT_STRIKER_WEAPON, OVERSIZED_THROW } from './supplemental'
+import { ScrollAdept, OwnedScrollSpell } from './ScrollsSection'
 
 const LEVELED_SUBCLASS_CLASSES = ['Alchemist', 'Animist', 'Barbarian', 'Champion', 'Gunslinger', 'Inventor', 'Ranger', 'Rogue']
 
@@ -293,7 +294,7 @@ function EquipmentGroup({ c, entries, save, group, rows, bracelets = [], simpleP
       ? [{ kind: 'storied-skin' as const, name: 'Storied Skin' }] : []),
   ].sort((a, b) => a.name.localeCompare(b.name))
   const alwaysAvailable = WORN_EQUIPMENT_GROUPS.some(name => name === group)
-    || ['Grafts', 'Grenades', 'Tattoos', 'Toolkits'].includes(group)
+    || ['Grafts', 'Grenades', 'Scrolls', 'Tattoos', 'Toolkits'].includes(group)
   if (!displayed.length && !alwaysAvailable) return null
   const body = displayed.length > 0 && <ul>
     {displayed.map(display => {
@@ -327,6 +328,7 @@ function EquipmentGroup({ c, entries, save, group, rows, bracelets = [], simpleP
             ? { mechanicEnduringMod: undefined } : {}) })
       })}>Remove</button>}
       <HighTechMedic c={c} save={save} index={index} entry={entry} />
+      {group === 'Scrolls' && <OwnedScrollSpell c={c} entries={entries} save={save} index={index} entry={entry} />}
       {entry?.name === 'Shadowed Scale, the Jungle Secret' && <NamedArmorAbilities entry={entry} />}
       {entry && isGrenade(entry) && c.className === 'Mechanic' && c.systems.includes('sf2e') && <>
         <GrenadeMods c={c} grenade={entry} label={item.name} itemKey={`equipment:${item.name}`} save={save} />
@@ -349,6 +351,7 @@ function EquipmentGroup({ c, entries, save, group, rows, bracelets = [], simpleP
     </div>
     {group === 'Handwraps' && <HandwrapsGear c={c} entries={entries} save={save} />}
     {body}
+    {group === 'Scrolls' && <ScrollAdept c={c} entries={entries} save={save} />}
   </div>
 }
 
@@ -581,7 +584,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
   }, [entries])
   const equipmentGroups = useMemo(() => {
     const groups: Record<EquipmentGroupName, EquipmentRow[]> = {
-      Arrows: [], Bolts: [], Bullets: [], Grafts: [], Grenades: [], 'Other equipment': [], Poisons: [], Tattoos: [], Toolkits: [],
+      Arrows: [], Bolts: [], Bullets: [], Grafts: [], Grenades: [], 'Other equipment': [], Poisons: [], Scrolls: [], Tattoos: [], Toolkits: [],
       Arms: [], Backpacks: [], Belt: [], Body: [], Boots: [], Bracelets: [], Chest: [], Cloaks: [], Clothing: [],
       Eyes: [], Eyewear: [], Face: [], Feet: [], Gloves: [], Hands: [], Handwraps: [], Head: [], Headband: [], Headwear: [],
       Mask: [], Neck: [], Necklaces: [], Rings: [], Shoulders: [], Throat: [], Torso: [], Wrists: [], 'Other Worn Items': [],
@@ -962,7 +965,8 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       <DeferredDetails>
         <summary className="character-section-summary">
           <strong>Equipment</strong>
-          <span>{c.equipment.length + (effectiveHandwraps(c, entries) ? 1 : 0) + (c.augmentations?.length ?? 0) + pairedEmpathyBracelets.length
+          <span>{c.equipment.length + (c.scrollAdeptPreparations ?? []).filter(scroll => scroll && !scroll.used).length
+            + (effectiveHandwraps(c, entries) ? 1 : 0) + (c.augmentations?.length ?? 0) + pairedEmpathyBracelets.length
             + (c.weapons ?? []).filter(weapon => !weapon.attachedTo && weapon.id !== GAUNTLET.id
               && weapon.id !== OVERSIZED_THROW.id && weapon.id !== 'sf2e:soldier:offensive-defense'
               && !weapon.id.startsWith('sf2e:solarian:') && weapon.name !== HAFT_STRIKER_WEAPON.name
@@ -1013,6 +1017,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <EquipmentGroup {...section} group="Poisons" rows={equipmentGroups.Poisons}
             simplePoisons={activeFeatsNamed(c, 'Poison Weapon').length > 0} />
           <EquipmentGroup {...section} group="Rings" rows={equipmentGroups.Rings} />
+          <EquipmentGroup {...section} group="Scrolls" rows={equipmentGroups.Scrolls} />
           <h4>Shield</h4>
           <ArmorList {...section} part="shield" />
           <EquipmentGroup {...section} group="Shoulders" rows={equipmentGroups.Shoulders} />

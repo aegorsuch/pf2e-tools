@@ -13,6 +13,7 @@ import { OVERSIZED_THROW } from './supplemental'
 import { companionStats } from './companions'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
+import { mapAonHit } from './aon'
 
 it('rides an eligible summoned creature using its movement instead of the rider bonuses', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -106,7 +107,7 @@ it('uses the Technomancer spell database to learn and prepare Starfinder arcane 
   }
 })
 
-it('learns and prepares Spellshot cantrips after changing ranks in the spellbook', async () => {
+it.each([false, true])('learns and prepares Spellshot Ignition after changing spellbook ranks (basic casting: %s)', async basic => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
     this.setAttribute('open', '')
@@ -115,13 +116,13 @@ it('learns and prepares Spellshot cantrips after changing ranks in the spellbook
     this.removeAttribute('open')
     this.dispatchEvent(new Event('close'))
   } })
-  const ignition: ContentEntry = { id: 'ignition', name: 'Ignition', systems: ['pf2e'], kind: 'spell',
-    source: 'official', level: 1, traits: ['Cantrip'], description: 'Fire damage.',
-    data: { tradition: 'Arcane' }, effects: [], updatedAt: 0 }
+  const ignition = mapAonHit({ _id: 'spell-1565', _source: { name: 'Ignition', category: 'spell', level: 1,
+    tradition: ['Arcane', 'Primal'], trait: ['Attack', 'Cantrip', 'Concentrate', 'Fire', 'Manipulate'],
+    rarity: 'common', markdown: 'Fire damage.' } }, 'pf2e')!
   const initial: Character = { id: 'spellshot', name: 'Test', systems: ['pf2e'], level: 4, className: 'Gunslinger',
     abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
     feats: [{ name: 'Spellshot Dedication', type: 'Archetype Feat', level: 2 },
-      { name: 'Basic Wizard Spellcasting', type: 'Archetype Feat', level: 4 }],
+      ...(basic ? [{ name: 'Basic Wizard Spellcasting', type: 'Archetype Feat', level: 4 }] : [])],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   let current = initial
   function Sheet() {
@@ -134,17 +135,18 @@ it('learns and prepares Spellshot cantrips after changing ranks in the spellbook
   const root = createRoot(container)
   try {
     await act(async () => root.render(<Sheet />))
-    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Open Wizard rank 1"]')!.click())
+    await act(async () => container.querySelector<HTMLButtonElement>(basic
+      ? '[aria-label="Open Wizard rank 1"]' : '[aria-label="Open Wizard cantrips"]')!.click())
     await act(async () => container.querySelector<HTMLButtonElement>('dialog[open] [aria-label="Cantrips"]')!.click())
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Learn Ignition"]')!.click())
     expect(current.spells).toContainEqual(expect.objectContaining({ name: 'Ignition', rank: 0, cantrip: true, bookSlot: 'wizard:0:0' }))
     const slot = container.querySelector<HTMLSelectElement>('select[aria-label="Cantrip slot 1"]')!
-    expect([...slot.options].map(option => option.value)).toContain('ignition')
+    expect([...slot.options].map(option => option.value)).toContain(ignition.id)
     await act(async () => {
-      slot.value = 'ignition'
+      slot.value = ignition.id
       slot.dispatchEvent(new Event('change', { bubbles: true }))
     })
-    expect(current.spellcasting?.prepared?.['0:0']).toBe('ignition')
+    expect(current.spellcasting?.prepared?.['0:0']).toBe(ignition.id)
   } finally {
     await act(async () => root.unmount())
     container.remove()

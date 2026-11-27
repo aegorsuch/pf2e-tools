@@ -1139,7 +1139,7 @@ it('orders equipment groups alphabetically and separates grafts and tattoos from
     expect(headers).toEqual(['Armor', 'Arms', 'Arrows', 'Augmentations', 'Backpacks', 'Belt', 'Body', 'Bolts', 'Boots', 'Bracelets', 'Bullets',
       'Chest', 'Cloaks', 'Clothing', 'Eyes', 'Eyewear', 'Face', 'Feet', 'Gadgets', 'Gloves', 'Grafts', 'Grenade Specialist',
       'Grenades', 'Hands', 'Handwraps', 'Head', 'Headband', 'Headwear', 'Mask', 'Munitions', 'Neck', 'Necklaces',
-      'Other equipment', 'Other Worn Items', 'Poisons', 'Rings', 'Shield', 'Shoulders', 'Tattoos', 'Throat', 'Toolkits', 'Torso', 'Weapons', 'Wrists'])
+      'Other equipment', 'Other Worn Items', 'Poisons', 'Rings', 'Scrolls', 'Shield', 'Shoulders', 'Tattoos', 'Throat', 'Toolkits', 'Torso', 'Weapons', 'Wrists'])
     expect(equipment).not.toContain('Cheek Pouches')
     expect(equipment).not.toContain('Store in cheek pouch')
     expect(equipment.slice(equipment.indexOf('<h4>Grafts</h4>'), equipment.indexOf('<h4>Handwraps</h4>'))).toContain('Caligni Eyes')

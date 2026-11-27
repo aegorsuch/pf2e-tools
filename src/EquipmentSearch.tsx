@@ -93,6 +93,7 @@ export function EquipmentSearch({ c, entries, save, category, onClose, fixedSkil
             || c.systems.includes('pf2e') && activeFeatsNamed(c, 'Tattooed Historian Dedication').length > 0)}
           title={equipmentGroupName(g) === 'Rings' && ringsFull ? 'Ring capacity reached' : undefined} onClick={() => {
           const have = c.equipment.find(item => item.name === g.name
+            && (equipmentGroupName(g) !== 'Scrolls' || !item.scrollSpell)
             && (!category || equipmentGroupName(g, item.name, item.group) === category))
           save({ equipment: have ? c.equipment.map(item => item === have ? { ...item, qty: item.qty + 1 } : item)
             : [...c.equipment, { name: g.name, qty: 1, ...(category ? { group: category } : {}) }] })

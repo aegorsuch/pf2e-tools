@@ -4,7 +4,7 @@ export const WORN_EQUIPMENT_GROUPS = [
   'Face', 'Feet', 'Gloves', 'Hands', 'Handwraps', 'Head', 'Headband', 'Headwear', 'Mask', 'Neck', 'Necklaces', 'Rings', 'Shoulders',
   'Throat', 'Torso', 'Wrists', 'Other Worn Items',
 ] as const
-export const EQUIPMENT_GROUPS = ['Arrows', 'Bolts', 'Bullets', 'Grafts', 'Grenades', 'Other equipment', 'Poisons', 'Tattoos', 'Toolkits', ...WORN_EQUIPMENT_GROUPS] as const
+export const EQUIPMENT_GROUPS = ['Arrows', 'Bolts', 'Bullets', 'Grafts', 'Grenades', 'Other equipment', 'Poisons', 'Scrolls', 'Tattoos', 'Toolkits', ...WORN_EQUIPMENT_GROUPS] as const
 export type EquipmentGroupName = typeof EQUIPMENT_GROUPS[number]
 export type EntryKind =
   | 'feat' | 'weapon' | 'armor' | 'spell' | 'ritual' | 'item' | 'ancestry' | 'class'
@@ -323,7 +323,8 @@ export interface Character {
   classArchetypeDisplacedFeats?: { className: string; feat: Character['feats'][number] }[]
   skippedFeatSlots?: string[]
   dismissedFeatSlots?: string[]
-  equipment: { name: string; qty: number; group?: EquipmentGroupName | 'Belts' | 'Waist'; cheekQty?: number; cheekPreparedQty?: number; mechanicRigQty?: number; mechanicMedicMods?: MedicMod[]; mechanicItemId?: string }[]
+  equipment: { name: string; qty: number; group?: EquipmentGroupName | 'Belts' | 'Waist'; scrollSpell?: string; cheekQty?: number; cheekPreparedQty?: number; mechanicRigQty?: number; mechanicMedicMods?: MedicMod[]; mechanicItemId?: string }[]
+  scrollAdeptPreparations?: ({ spellId: string; name: string; rank: number; used?: boolean } | null)[]
   simplePoisonsSpent?: number
   poisonWeaponActive?: boolean
   apexAugmentationId?: string
