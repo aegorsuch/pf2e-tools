@@ -88,7 +88,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     traits: ['Tech'], data: { weapon_category: 'Martial', damage: '1d6 F', hands: 1, upgrade_slots: 4 } })
   const weapons = ['SLARP Rapid Laser Pistol', 'Shuriken Drone', 'Singing Spear', 'Battleglove', 'Doshko', 'Plasma Doshko', 'Plasma Array',
     'Crimson Claw', 'Shock Pad', 'Shock Truncheon', 'Plasma Sword', 'Plasma Caster', 'Tactical Plasma Caster', 'Rotolaser',
-    'Pulse Gauntlet', 'Knife', 'Tailblade', 'Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle', 'Other']
+    'Pulse Gauntlet', 'Knife', 'Phase Cutlass', 'Tailblade', 'Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle', 'Other']
     .map(name => {
       const entry = sfWeapon(name)
       return name === 'Plasma Array' ? { ...entry, data: { ...entry.data, upgrade_slots: 5 } } : entry
@@ -110,6 +110,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(at('SLARP Rapid Laser Pistol', 15, ['Flaming Module (Commercial)']))
       .toEqual(['Flaming Module (Tactical)', "Smuggler's Grip (Tactical)"])
     expect(at('Knife', 6)).toEqual(['Retrieval Boosters', "Smuggler's Grip (Tactical)"])
+    expect(at('Phase Cutlass', 6)).toEqual(["Smuggler's Grip (Tactical)"])
     expect(at('Shuriken Drone', 3)).toEqual(['Retrieval Boosters'])
     expect(at('Singing Spear', 15)).toEqual(['Retrieval Boosters', 'Loudener (Tactical)'])
     expect(at('Battleglove', 3)).toEqual([])
