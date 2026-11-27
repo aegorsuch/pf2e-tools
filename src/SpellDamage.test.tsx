@@ -12,6 +12,50 @@ vi.mock('react', async importOriginal => {
 
 afterEach(() => vi.restoreAllMocks())
 
+it('rolls Snowball cold damage at its heightened rank', () => {
+  const entry: ContentEntry = { id: 'snowball', name: 'Snowball', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 1, traits: ['Cold'], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage('Snowball', 0)).toEqual([])
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  for (const rank of [1, 3, 10]) {
+    const [damage] = spellDamage('Snowball', rank)
+    expect(damage).toEqual({ label: 'Damage', dice: rank * 2, sides: 4, type: 'cold' })
+    expect(rollSpellDamage(damage)).toBe(rank * 2)
+    expect(renderToStaticMarkup(<SpellActions name="Snowball" rank={rank} entry={entry} />))
+      .toContain(`Damage: ${rank * 2}d4 cold`)
+  }
+})
+
+it('rolls both Magnetic Acceleration damage types at the cast rank', () => {
+  const entry: ContentEntry = { id: 'magnetic-acceleration', name: 'Magnetic Acceleration', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 3, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 2)).toEqual([])
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  for (const rank of [3, 5, 10]) {
+    const [damage] = spellDamage(entry.name, rank)
+    expect(damage).toEqual({ label: 'Damage', dice: rank, sides: 6, type: 'bludgeoning',
+      components: [{ dice: rank, sides: 6, type: 'piercing' }] })
+    expect(rollSpellDamage(damage)).toBe(rank)
+    expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+      .toContain(`Damage: ${rank}d6 bludgeoning + ${rank}d6 piercing`)
+  }
+})
+
+it('rolls Splinter Volley per target, with critical persistent bleed at heightened ranks', () => {
+  expect(spellDamage('Splinter Volley', 1)).toEqual([])
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  for (const [rank, dice, bleed] of [[2, 4, 1], [3, 4, 1], [4, 8, 2], [10, 20, 5]]) {
+    const [damage] = spellDamage('Splinter Volley', rank)
+    expect(damage).toEqual({ label: 'Damage', dice, sides: 6, type: 'piercing',
+      additional: { label: 'Critical persistent bleed', dice: 0, sides: 0, bonus: bleed, type: 'persistent bleed' } })
+    expect(rollSpellDamage(damage)).toBe(dice)
+    const markup = renderToStaticMarkup(<SpellActions name="Splinter Volley" rank={rank} />)
+    expect(markup).toContain(`2-action damage: ${dice}d6 piercing`)
+    expect(markup).toContain(`3-action damage per target: ${dice}d6 piercing`)
+    expect(markup).toContain(`Critical persistent bleed: ${bleed} persistent bleed`)
+  }
+})
+
 it.each([[2, 2, 4], [3, 3, 6], [10, 10, 20]])(
   'rolls Blazing Bolt damage per target at rank %i for each action cost', (rank, single, multiple) => {
     const rolls = spellActionRolls('Blazing Bolt', rank)

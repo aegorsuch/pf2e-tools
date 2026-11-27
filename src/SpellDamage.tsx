@@ -41,6 +41,17 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
         ? [{ label: 'Healing', dice: rank, sides: 10, bonus: spellcastingModifier, type: 'HP' }] : []
     case 'Admonishing Ray':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'bludgeoning' }] : []
+    case 'Snowball':
+      return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 4, type: 'cold' }] : []
+    case 'Magnetic Acceleration':
+      return rank >= 3 ? [{ label: 'Damage', dice: rank, sides: 6, type: 'bludgeoning',
+        components: [{ dice: rank, sides: 6, type: 'piercing' }] }] : []
+    case 'Splinter Volley': {
+      if (rank < 2) return []
+      const step = Math.floor(rank / 2)
+      return [{ label: 'Damage', dice: 4 * step, sides: 6, type: 'piercing',
+        additional: { label: 'Critical persistent bleed', dice: 0, sides: 0, bonus: step, type: 'persistent bleed' } }]
+    }
     case 'Flense':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'slashing',
         additional: { label: 'Persistent bleed (living creature, critical hit)', dice: rank, sides: 4, type: 'persistent bleed' } }] : []
@@ -502,6 +513,10 @@ export function spellActionRolls(name: string, rank: number, entry?: ContentEntr
   if (name === 'Lay on Hands') return rolls.map(damage => ({ damage, actions: 'Single Action' }))
   if (name === "Vindicator's Mark") return rolls.map((damage, index) => ({ damage, actions: index === 0 ? 'Two Actions' : 'One Action' }))
   if (name === 'Vampiric Revelry') return rolls.map(damage => ({ damage, actions: 'Two Actions' }))
+  if (name === 'Splinter Volley') return rolls.flatMap(damage => [
+    { damage: { ...damage, label: '2-action damage' }, actions: 'Two Actions' },
+    { damage: { ...damage, label: '3-action damage per target' }, actions: 'Three Actions' },
+  ])
   if (name === 'Harm') return rolls.flatMap(damage =>
     ['One Action', 'Two Actions', 'Three Actions'].map((actions, index) =>
       ({ damage: { ...damage, label: `${index + 1}-action damage` }, actions })))
