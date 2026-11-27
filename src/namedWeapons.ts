@@ -262,7 +262,7 @@ export function withNamedWeaponState(entry: ContentEntry | undefined, weapon: Ow
     return { ...entry, data: { ...entry.data,
       named_weapon_potency: at >= 18 ? 3 : 2, named_weapon_striking: at >= 13 ? 2 : 1,
       named_weapon_runes: [...new Set([...runes.filter(rune => runeBase(rune) !== 'Flaming' && runeBase(rune) !== element),
-        at >= 18 ? `${element} (Greater)` : element, 'Hooked', 'Grappling', 'Grievous'])].join(';') } }
+        at >= 18 ? `${element} (Greater)` : element, 'Grappling', 'Grievous'])].join(';') } }
   }
   if (source === 'Shadowpiercer') {
     const at = level ?? entry.level
