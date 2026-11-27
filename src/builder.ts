@@ -8170,7 +8170,8 @@ export function weaponEntry(entries: ContentEntry[], name: string, id?: string) 
 }
 
 function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) {
-  name = name.replace(/\bLaser Focus Rifle$/, 'Focus Rifle')
+  name = name.replace(/\bLaser Focus Rifle$/, 'Focus Rifle').replace(/\bPlasma Sniper Rifle$/, 'Plasma Guide')
+  if (id) id = id.replace('plasma-sniper-rifle', 'plasma-guide')
   if (id === solarianFlare.id || name === solarianFlare.name) return solarianFlare
   if (id === 'sf2e:solarian:solar-weapon' || name === 'Solar Weapon') return solarianWeaponEntry(false)
   if (id === 'sf2e:solarian:twin-weapon' || name === 'Twin Solar Weapon') return solarianWeaponEntry(true)
