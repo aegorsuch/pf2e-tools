@@ -1257,7 +1257,16 @@ export const archetypesOf = (e?: ContentEntry): string[] => {
   archetypeCache.set(e!, { source: a, names })
   return names
 }
-const isDedication = (e?: ContentEntry) => !!e?.traits.some((t) => t.toLowerCase() === 'dedication')
+const dedicationTraitCache = new WeakMap<string[], boolean>()
+const isDedication = (e?: ContentEntry) => {
+  if (!e) return false
+  let result = dedicationTraitCache.get(e.traits)
+  if (result === undefined) {
+    result = e.traits.some((t) => t.toLowerCase() === 'dedication')
+    dedicationTraitCache.set(e.traits, result)
+  }
+  return result
+}
 const dedicationArchetypes = (e: ContentEntry) => e.name === 'Spellshot Dedication'
   ? [...new Set([...archetypesOf(e), 'Wizard'])]
   : archetypesOf(e)
@@ -1276,24 +1285,32 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
     })
   const taken = [...selected, ...granted]
   const dedications = taken.filter(({ entry }) => isDedication(entry))
+  const dedicationNames = new Set(dedications.flatMap(({ entry }) => dedicationArchetypes(entry)))
   const exemptSlots = new Set<string>(activeHomebrewDedications(c).map(rule => rule.slot))
   let availableDedications: ContentEntry[] | undefined
   let dedicationsByArchetype: Map<string, ContentEntry[]> | undefined
+  const missingByArchetypes = new Map<string, string[]>()
   return (e: ContentEntry) => {
     const archetypes = archetypesOf(e)
     if (!archetypes.length || !asArchetype && !e.traits.some((t) => t.toLowerCase() === 'archetype')) return []
     const shares = (entry: ContentEntry, names = archetypes) =>
       (isDedication(entry) ? dedicationArchetypes(entry) : archetypesOf(entry)).some((name) => names.includes(name))
     if (!isDedication(e)) {
-      if (dedications.some(({ entry }) => shares(entry))) return []
+      if (archetypes.some(name => dedicationNames.has(name))) return []
       availableDedications ??= entries.filter((entry) => entry.kind === 'feat' && !entry.deleted && isDedication(entry))
       dedicationsByArchetype ??= availableDedications.reduce((map, dedication) => {
         for (const name of dedicationArchetypes(dedication)) map.set(name, [...(map.get(name) ?? []), dedication])
         return map
       }, new Map<string, ContentEntry[]>())
-      const names = [...new Set(availableDedications.filter((dedication) => archetypes.some(name => dedicationsByArchetype!.get(name)?.includes(dedication)))
-        .map((dedication) => dedication.name))]
-      return [names.length ? names.join(' or ') : `${archetypes.join(' or ')} Dedication`]
+      const key = archetypes.join('|')
+      let missing = missingByArchetypes.get(key)
+      if (!missing) {
+        const names = [...new Set(availableDedications.filter((dedication) => archetypes.some(name => dedicationsByArchetype!.get(name)?.includes(dedication)))
+          .map((dedication) => dedication.name))]
+        missing = [names.length ? names.join(' or ') : `${archetypes.join(' or ')} Dedication`]
+        missingByArchetypes.set(key, missing)
+      }
+      return [...missing]
     }
     if (ignoreDedicationLock || getSettings().ignoreArchetypeFeatMinimums) return []
     return dedications.flatMap(({ entry: dedication, feat }) => {
@@ -1421,6 +1438,29 @@ function featsWithTrait(entries: ContentEntry[], trait: string) {
   return matches
 }
 
+const dedicationCache = new WeakMap<Character, WeakMap<ContentEntry[], Map<string, Set<string>>>>()
+function slotDedications(c: Character, entries: ContentEntry[], slot?: { key: string; level: number }) {
+  const byEntries = dedicationCache.get(c) ?? new WeakMap<ContentEntry[], Map<string, Set<string>>>()
+  dedicationCache.set(c, byEntries)
+  const bySlot = byEntries.get(entries) ?? new Map<string, Set<string>>()
+  byEntries.set(entries, bySlot)
+  const key = slot ? `${slot.key}|${slot.level}` : ''
+  const cached = bySlot.get(key)
+  if (cached) return cached
+  const dedications = new Set(c.feats.flatMap((feat) => {
+    if (slot && (feat.slot === slot.key || featTakenLevel(feat) > slot.level)) return []
+    const content = featByName(entries).get(feat.name)
+    return isDedication(content) ? archetypesOf(content) : []
+  }))
+  for (const feat of activeFeatsNamed({ ...c, level: Math.min(c.level, slot?.level ?? c.level) }, 'Starfinder Field Agent Dedication')) {
+    if (slot && feat.slot === slot.key) continue
+    const content = featByName(entries).get(feat.name)
+    if (isDedication(content)) for (const archetype of archetypesOf(content)) dedications.add(archetype)
+  }
+  bySlot.set(key, dedications)
+  return dedications
+}
+
 export function featSelectionLevel(entry: ContentEntry, c: Character, entries: ContentEntry[], category: FeatSlotCategory,
   slot?: { key: string; level: number }) {
   if (entry.name === 'Ancestral Magic' && category === 'ancestry' && slot) {
@@ -1444,16 +1484,7 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
   const archetypeSkill = (category === 'skill' || category === 'general')
     && entry.traits.some(trait => trait.toLowerCase() === 'archetype')
   if (category !== 'archetype' && !classArchetype && !archetypeSkill || typeof entry.data.archetype_levels !== 'string') return entry.level
-  const dedications = new Set(c.feats.flatMap((feat) => {
-    if (slot && (feat.slot === slot.key || featTakenLevel(feat) > slot.level)) return []
-    const content = featByName(entries).get(feat.name)
-    return isDedication(content) ? archetypesOf(content) : []
-  }))
-  for (const feat of activeFeatsNamed({ ...c, level: Math.min(c.level, slot?.level ?? c.level) }, 'Starfinder Field Agent Dedication')) {
-    if (slot && feat.slot === slot.key) continue
-    const content = featByName(entries).get(feat.name)
-    if (isDedication(content)) for (const archetype of archetypesOf(content)) dedications.add(archetype)
-  }
+  const dedications = slotDedications(c, entries, slot)
   const levels = new Map(entry.data.archetype_levels.split(', ').map((pair) => {
     const colon = pair.lastIndexOf(':')
     const name = pair.slice(0, colon)
@@ -1896,6 +1927,15 @@ export function matchesSkill(entry: ContentEntry, skill: string, feats: Readonly
   })
 }
 
+const rulesTextCache = new WeakMap<ContentEntry, { source: string; rules: string }>()
+function normalizedRules(entry: ContentEntry) {
+  const cached = rulesTextCache.get(entry)
+  if (cached && cached.source === entry.description) return cached.rules
+  const rules = entry.description.split(/\n\s*---\s*\n/).at(-1)!.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  rulesTextCache.set(entry, { source: entry.description, rules })
+  return rules
+}
+
 export function eligibleFeats(entries: ContentEntry[], c: Character, slot: PlannedSlot,
   options: { includeUnmetPrerequisites?: boolean; name?: string } = {}) {
   const wanted: Partial<Record<FeatSlotCategory, string | undefined>> = {
@@ -2145,7 +2185,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       if (seen.has(equivalence)) return false
       seen.add(equivalence)
       if (entry.source === 'official' && entry.description.trim()) {
-        const rules = entry.description.split(/\n\s*---\s*\n/).at(-1)!.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+        const rules = normalizedRules(entry)
         const sameText = `${entry.name.toLowerCase()}|${entry.level}|${String(entry.data.prerequisite ?? '').toLowerCase()}|${rules}`
         if (seen.has(sameText) && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name && feat.sourceId === entry.id)) return false
         seen.add(sameText)
@@ -2160,9 +2200,23 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
 }
 
 // Directly offered Arcana/Dogma feats taken in earlier archetype slots: the first is Basic, later ones are Advanced.
+const earlierDirectCache = new WeakMap<Character, WeakMap<ContentEntry[], Map<string, number>>>()
 function earlierDirectClassFeats(c: Character, entries: ContentEntry[], slot: { key: string; level: number }, sample: ContentEntry) {
   const classTraits = new Set(Object.values(CLASS_FEAT_GRANTS).map(granted => granted.toLowerCase()))
   const classTrait = sample.traits.map(trait => trait.toLowerCase()).find(trait => classTraits.has(trait))
+  const byEntries = earlierDirectCache.get(c) ?? new WeakMap<ContentEntry[], Map<string, number>>()
+  earlierDirectCache.set(c, byEntries)
+  const counts = byEntries.get(entries) ?? new Map<string, number>()
+  byEntries.set(entries, counts)
+  const key = `${slot.key}|${classTrait}`
+  const cached = counts.get(key)
+  if (cached !== undefined) return cached
+  const count = countEarlierDirectClassFeats(c, entries, slot, classTrait)
+  counts.set(key, count)
+  return count
+}
+
+function countEarlierDirectClassFeats(c: Character, entries: ContentEntry[], slot: { key: string; level: number }, classTrait?: string) {
   const order = (key: string) => { const [, level, index] = key.split(':'); return Number(level) * 1000 + (Number(index) || 0) }
   return c.feats.filter(feat => feat.slot?.startsWith('archetype:') && feat.slot !== slot.key && order(feat.slot) < order(slot.key)
     && entries.some(entry => entry.name === feat.name && entry.kind === 'feat' && !entry.deleted && entry.systems.includes('pf2e')

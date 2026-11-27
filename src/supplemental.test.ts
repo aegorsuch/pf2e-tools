@@ -145,9 +145,9 @@ it.each([
   const slot = { category: 'class' as const, level: 4, key: 'class:4:0' }
   const c: Character = { ...base, className, subclass, level: 4,
     feats: [{ name: `${archetype} Dedication`, type: 'Class Feat', level: 2, slot: 'class:2:0' },
-      { name: symbol.name, type: 'Class Feat', level: 1, slot: 'class:1:0' }] }
+      { name: symbol.name, type: 'Class Feat', level: 2, slot: 'class:2:1' }] }
   const generated = [symbol, jousting, tethered]
-  expect(symbol).toMatchObject({ level: 1, traits: [archetype], data: { class: className, archetype } })
+  expect(symbol).toMatchObject({ level: 2, traits: [archetype], data: { class: className, archetype } })
   expect(jousting).toMatchObject({ level: 4, data: { class: className, archetype, prerequisite: symbol.name } })
   expect(tethered).toMatchObject({ level: 20, data: { class: className, archetype } })
   expect(eligibleFeats(generated, c, slot)).toContain(jousting)
