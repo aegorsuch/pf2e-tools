@@ -1528,6 +1528,7 @@ const PREREQUISITE_EXCLUSIVE_FEAT_GROUPS = [['Chiardmar Steed', 'Nidarrmar Steed
   ['Dragon Spit', 'Dragon Spit (Acid)', 'Dragon Spit (Electricity)', 'Dragon Spit (Fire)', 'Dragon Spit (Cold)'],
   ['Hellknight Preferment', 'Hellknight Signifer Preferment', 'Hellknight-Errant']]
 const MUTUALLY_EXCLUSIVE_FEAT_GROUPS = [...PREREQUISITE_EXCLUSIVE_FEAT_GROUPS,
+  ['Twin Parry', 'Twin Parry (Avenger)'],
   ['The Hallowed Dead', 'Hallowed Dead', 'The Unholy Dead', 'Unholy Dead'],
   ['Vow of Mortal Defiance', 'Sanctified Soul', 'The Hallowed Dead', 'Hallowed Dead', 'The Unholy Dead', 'Unholy Dead']]
 const CYBORG_HEART_FEATS = ['Machine Heart', 'Mortal Heart']
@@ -1548,7 +1549,7 @@ export function mechanicExocortexes(c: Character) {
 }
 
 export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], level = c.level, excludedIndex = -1,
-  options: { ignoreAttributePrerequisites?: boolean; planSkillPrerequisites?: boolean; captainIntelligence?: boolean; substituteMentalAbility?: Ability } = {}) {
+  options: { ignoreAttributePrerequisites?: boolean; planSkillPrerequisites?: boolean; planFeatPrerequisites?: boolean; captainIntelligence?: boolean; substituteMentalAbility?: Ability } = {}) {
   const facts = new Map<number, PrerequisiteFacts>()
   let buildSkillRanks: PrerequisiteFacts['ranks'] | undefined
   const check = createFeatPrerequisiteChecker(entries, {
@@ -1621,7 +1622,10 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           sourceId: feat.sourceId,
           waivedPrerequisites: feat.name === 'Captain Dedication' && feat.slot === 'archetype:2:g85'
             && activeHomebrewDedications(character).some(rule => rule.slot === feat.slot),
-        })), ...character.feats.filter(feat => CLASS_FEAT_GRANTS[feat.name]
+        })), ...character.feats.flatMap(feat => feat.name === 'Twin Parry' || feat.name === 'Twin Parry (Avenger)'
+          ? [{ name: feat.name === 'Twin Parry' ? 'Twin Parry (Avenger)' : 'Twin Parry',
+            level: featTakenLevel(feat), category: feat.slot?.split(':')[0] ?? feat.type.replace(/ Feat$/, '').toLowerCase() }] : []),
+        ...character.feats.filter(feat => CLASS_FEAT_GRANTS[feat.name]
           && feat.choice && featTakenLevel(feat) <= Math.min(level, atLevel)).map(feat => ({
             name: feat.choice!, level: featTakenLevel(feat), category: 'class' as const,
           }))],
@@ -1801,9 +1805,8 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     planSkillPrerequisites: getSettings().planSkillPrerequisites,
   }
   const check = featPrerequisiteChecker(c, entries, level, excludedIndex, options)
-  const futureFeats = c.feats.some((feat, index) => index !== excludedIndex && featTakenLevel(feat) > level)
-  const plannedCheck = futureFeats ? featPrerequisiteChecker(c, entries, buildLevel, excludedIndex, options) : undefined
-  const unplannedCheck = futureFeats ? featPrerequisiteChecker({ ...c, feats: character.feats }, entries, buildLevel, -1, options) : undefined
+  const plannedCheck = featPrerequisiteChecker(c, entries, buildLevel, excludedIndex, { ...options, planFeatPrerequisites: true })
+  const unplannedCheck = featPrerequisiteChecker({ ...c, feats: character.feats }, entries, buildLevel, -1, options)
   const archetype = archetypePrerequisites(character, entries, slot.key, slot.category === 'archetype', multitalented)
   const plannedArchetype = archetypePrerequisites(c, entries, slot.key, slot.category === 'archetype', multitalented)
   const requirements: Record<string, string[]> = {
@@ -1823,9 +1826,9 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
     const result = useBestMental
       ? featPrerequisiteChecker(c, entries, level, excludedIndex, { ...options, substituteMentalAbility: dedicationAbility })(entry)
       : check(entry)
-    const planned = result.missing.length ? useBestMental && futureFeats
-      ? featPrerequisiteChecker(c, entries, buildLevel, excludedIndex, { ...options, substituteMentalAbility: dedicationAbility })(entry)
-      : plannedCheck?.(entry) : undefined
+    const planned = result.missing.length ? useBestMental
+      ? featPrerequisiteChecker(c, entries, buildLevel, excludedIndex, { ...options, planFeatPrerequisites: true, substituteMentalAbility: dedicationAbility })(entry)
+      : plannedCheck(entry) : undefined
     const unplanned = planned && !planned.manual.length ? useBestMental
       ? featPrerequisiteChecker({ ...c, feats: character.feats }, entries, buildLevel, -1,
         { ...options, substituteMentalAbility: dedicationAbility })(entry) : unplannedCheck?.(entry) : undefined
@@ -2257,7 +2260,7 @@ function earlierDirectClassFeats(c: Character, entries: ContentEntry[], slot: { 
   earlierDirectCache.set(c, byEntries)
   const counts = byEntries.get(entries) ?? new Map<string, number>()
   byEntries.set(entries, counts)
-  const key = `${slot.key}|${classTrait}`
+  const key = `${slot.key}|${slot.level}|${classTrait}`
   const cached = counts.get(key)
   if (cached !== undefined) return cached
   const count = countEarlierDirectClassFeats(c, entries, slot, classTrait)
@@ -2266,10 +2269,19 @@ function earlierDirectClassFeats(c: Character, entries: ContentEntry[], slot: { 
 }
 
 function countEarlierDirectClassFeats(c: Character, entries: ContentEntry[], slot: { key: string; level: number }, classTrait: string) {
-  const order = (key: string) => { const [, level, index] = key.split(':'); return Number(level) * 1000 + (Number(index) || 0) }
   const classFeats = directClassFeats(entries, classTrait)
-  return c.feats.filter(feat => feat.slot?.startsWith('archetype:') && feat.slot !== slot.key && order(feat.slot) < order(slot.key)
-    && classFeats.some(entry => entry.name === feat.name)).length
+  const basic = Object.entries(CLASS_FEAT_GRANTS).find(([name, trait]) =>
+    name.startsWith('Basic ') && trait.toLowerCase() === classTrait)?.[0]
+  const selected = c.feats.find(feat => feat.slot === slot.key)
+  const selectedDirect = !!selected && classFeats.some(entry => entry.name === selected.name)
+  return c.feats.filter(feat => {
+    if (feat.slot === slot.key || featTakenLevel(feat) > slot.level) return false
+    const direct = feat.slot?.startsWith('archetype:') && classFeats.some(entry => entry.name === feat.name)
+    if (!direct && feat.name !== basic) return false
+    if (featTakenLevel(feat) < slot.level || !selectedDirect || !direct) return true
+    const index = (key: string) => Number(key.split(':')[2]) || 0
+    return index(feat.slot!) < index(slot.key)
+  }).length
 }
 
 // Basic/Advanced Arcana and Dogma are offered as the class feats they grant: the first is level 2 or lower, every later one (Advanced is repeatable) up to half the level.

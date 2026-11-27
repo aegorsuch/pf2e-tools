@@ -837,6 +837,48 @@ it('allows archetype feats before a later planned Dedication', () => {
   expect(featSelectionPrerequisiteChecker(c, [dedication, dogma], slot)(dogma).missing).toEqual([])
 })
 
+it('allows Divine Breadth before planned Cleric prerequisites only when those feats are selected', () => {
+  const dedication: ContentEntry = { id: 'cleric-dedication', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Cleric Dedication',
+    level: 2, traits: ['Archetype', 'Dedication'], description: '', data: { archetype: 'Cleric' }, effects: [], updatedAt: 1 }
+  const basic: ContentEntry = { ...dedication, id: 'basic-cleric', name: 'Basic Cleric Spellcasting',
+    level: 4, traits: ['Archetype'], data: { archetype: 'Cleric', prerequisite: 'Cleric Dedication' } }
+  const breadth: ContentEntry = { ...basic, id: 'breadth', name: 'Divine Breadth', level: 8,
+    data: { archetype: 'Cleric', prerequisite: 'Basic Cleric Spellcasting' } }
+  const catalog = [dedication, basic, breadth]
+  const c: Character = { ...base, className: 'Fighter', level: 10, feats: [
+    { name: dedication.name, type: 'Archetype Feat', level: 2, slot: 'archetype:10:0' },
+    { name: basic.name, type: 'Archetype Feat', level: 4, slot: 'archetype:10:1' }] }
+  const slot = { key: 'archetype:8:0', category: 'archetype' as const, level: 8 }
+  expect(featSelectionPrerequisiteChecker(c, catalog, slot)(breadth).missing).toEqual([])
+  expect(eligibleFeats(catalog, c, slot)).toContain(breadth)
+  const missingBasic = { ...c, feats: [c.feats[0]] }
+  expect(featSelectionPrerequisiteChecker(missingBasic, catalog, slot)(breadth).missing).toContain('Basic Cleric Spellcasting')
+  expect(eligibleFeats(catalog, missingBasic, slot)).not.toContain(breadth)
+})
+
+it('plans later Cleric Dedication through earlier selected spellcasting prerequisites', () => {
+  const dedication: ContentEntry = { id: 'cleric-dedication', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Cleric Dedication',
+    level: 2, traits: ['Archetype', 'Dedication'], description: '', data: { archetype: 'Cleric' }, effects: [], updatedAt: 1 }
+  const basic: ContentEntry = { ...dedication, id: 'basic-cleric', name: 'Basic Cleric Spellcasting',
+    level: 4, traits: ['Archetype'], data: { archetype: 'Cleric', prerequisite: 'Cleric Dedication' } }
+  const breadth: ContentEntry = { ...basic, id: 'breadth', name: 'Divine Breadth', level: 8,
+    data: { archetype: 'Cleric', prerequisite: 'Basic Cleric Spellcasting' } }
+  const expert: ContentEntry = { ...basic, id: 'expert', name: 'Expert Cleric Spellcasting', level: 12,
+    data: { archetype: 'Cleric', prerequisite: 'Basic Cleric Spellcasting; master in Religion' } }
+  const catalog = [dedication, basic, breadth, expert]
+  const c: Character = { ...base, className: 'Rogue', subclass: 'Avenger', level: 20,
+    rankOverrides: { Religion: 3 }, feats: [
+      { name: basic.name, type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' },
+      { name: dedication.name, type: 'Archetype Feat', level: 2, takenLevel: 10, slot: 'archetype:1:eldritch-trickster:class:10:0' },
+    ] }
+  const breadthSlot = { key: 'archetype:8:0', category: 'archetype' as const, level: 8 }
+  const expertSlot = { key: 'archetype:12:0', category: 'archetype' as const, level: 12 }
+  expect(featSelectionPrerequisiteChecker(c, catalog, breadthSlot)(breadth).missing).toEqual([])
+  expect(featSelectionPrerequisiteChecker(c, catalog, expertSlot)(expert).missing).toEqual([])
+  expect(featSelectionPrerequisiteChecker({ ...c, feats: [c.feats[0]] }, catalog, expertSlot)(expert).missing)
+    .toContain('Cleric Dedication')
+})
+
 it('offers Dogma class feats directly in archetype slots', () => {
   const dedication: ContentEntry = { id: 'cleric-dedication', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Cleric Dedication',
     level: 2, traits: ['Archetype', 'Dedication'], description: '', data: { archetype: 'Cleric' }, effects: [], updatedAt: 1 }
@@ -891,6 +933,42 @@ it('treats the first Dogma feat as level 4 and later ones as level 6 or higher',
   expect(level('archetype:6:0')).toBe(6)
   const slot = plannedSlots(c, entries).find(candidate => candidate.key === 'archetype:6:0')!
   expect(eligibleFeats(entries, c, slot).map(entry => entry.name)).toContain('Reach Spell')
+})
+
+it('allows only one Basic Dogma choice across same-level slots and recognizes saved Basic Dogma', () => {
+  const mk = (name: string, level: number, traits: string[]): ContentEntry => ({ id: name, systems: ['pf2e'], kind: 'feat',
+    source: 'official', name, level, traits, description: '', data: {}, effects: [], updatedAt: 1 })
+  const dedication = mk('Cleric Dedication', 2, ['Archetype', 'Dedication'])
+  const domain = mk('Domain Initiate', 1, ['Cleric'])
+  const reach = mk('Reach Spell', 1, ['Cleric'])
+  const catalog = [dedication, domain, reach]
+  const c: Character = { ...base, className: 'Fighter', level: 10, extraSlots: [{ category: 'archetype', level: 4, count: 1 }],
+    feats: [{ name: dedication.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+      { name: domain.name, type: 'Archetype Feat', level: 1, slot: 'archetype:4:1' }] }
+  const slot = plannedSlots(c, catalog).find(candidate => candidate.key === 'archetype:4:0')!
+  expect(featSelectionLevel(reach, c, catalog, 'archetype', slot)).toBe(6)
+  expect(eligibleFeats(catalog, c, slot).map(entry => entry.name)).not.toContain(reach.name)
+  expect(eligibleFeats(catalog, { ...c, feats: c.feats.slice(0, 1) }, slot).map(entry => entry.name)).toContain(reach.name)
+  const legacy: Character = { ...c, feats: [c.feats[0], { name: 'Basic Dogma', choice: domain.name,
+    type: 'Archetype Feat', level: 4, slot: 'archetype:4:1' }] }
+  expect(featSelectionLevel(reach, legacy, catalog, 'archetype', slot)).toBe(6)
+  expect(eligibleFeats(catalog, legacy, slot).map(entry => entry.name)).not.toContain(reach.name)
+  const later = { ...c, feats: [c.feats[0], { ...c.feats[1], slot: 'archetype:6:0' }] }
+  expect(eligibleFeats(catalog, later, slot).map(entry => entry.name)).toContain(reach.name)
+})
+
+it('offers Twin Takedown as a level 4 Avenger class feat', () => {
+  const dedication: ContentEntry = { id: 'avenger', systems: ['pf2e'], kind: 'feat', source: 'official',
+    name: 'Avenger Dedication', level: 2, traits: ['Archetype', 'Dedication'], description: '',
+    data: { archetype: 'Avenger' }, effects: [], updatedAt: 1 }
+  const twin: ContentEntry = { ...dedication, id: 'twin', name: 'Twin Takedown', level: 1,
+    traits: ['Ranger', 'Flourish'], data: { archetype: 'Avenger', archetype_levels: 'Avenger: 4' } }
+  const c: Character = { ...base, className: 'Rogue', subclass: 'Avenger', level: 4,
+    feats: [{ name: dedication.name, type: 'Class Feat', level: 2, slot: 'class:2:0' }] }
+  const slot = { key: 'class:4:0', category: 'class' as const, level: 4 }
+  expect(featSelectionLevel(twin, c, [dedication, twin], 'class', slot)).toBe(4)
+  expect(eligibleFeats([dedication, twin], c, slot)).toContain(twin)
+  expect(eligibleFeats([dedication, twin], c, { ...slot, key: 'class:2:1', level: 2 })).not.toContain(twin)
 })
 
 it.each(['Wizard Dedication', 'Spellshot Dedication'])('grants cantrips and a spellbook from %s before basic spellcasting', dedication => {

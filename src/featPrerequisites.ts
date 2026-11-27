@@ -280,6 +280,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
   entryIds: string[]
   knownOrders: string[]
   ignoreAttributePrerequisites?: boolean
+  planFeatPrerequisites?: boolean
   warriorLegendClearTheWay?: boolean
   facts: (level: number) => PrerequisiteFacts
 }) {
@@ -617,7 +618,8 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       || !!facts.ancestryTraits?.some(trait => key(trait) === reference), text)
     if (content.some((entry) => entry.kind === 'ancestry')) return resultFor(key(facts.ancestry ?? '') === reference, text)
     if (content.some((entry) => entry.kind === 'class')) return resultFor(key(facts.className ?? '') === reference, text)
-    const selected = facts.feats.filter((feat) => references.includes(key(feat.name)))
+    const selected = (context.planFeatPrerequisites ? context.facts(context.level) : facts).feats
+      .filter((feat) => references.includes(key(feat.name)))
     if (selected.length) {
       if (references.some(value => trail.has(value))) return missing(`Circular prerequisite: ${text}`)
       const next = new Set([...trail, ...references])

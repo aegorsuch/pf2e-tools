@@ -557,6 +557,18 @@ it('copies Twinned Defense for Ranger and adds Avenger Twin Parry stance options
       { name: 'Twin Parry (Avenger)', type: 'Class Feat', level: 4 }] }
   const avengerEntries = [avengerTwinParry, avengerStance]
   expect(eligibleFeats(avengerEntries, avenger, { key: 'class:16:0', category: 'class', level: 16 })).toContain(avengerStance)
+  const officialTwinParry: ContentEntry = { ...twinParry, data: { ...twinParry.data, archetype: 'Avenger', archetype_levels: 'Avenger: 6' } }
+  const dedication: ContentEntry = { ...twinParry, id: 'avenger', name: 'Avenger Dedication', level: 2,
+    traits: ['Archetype', 'Dedication'], data: { archetype: 'Avenger' } }
+  const catalog = [dedication, officialTwinParry, avengerTwinParry, avengerStance]
+  const slotForAvenger = { key: 'class:8:0', category: 'class' as const, level: 8 }
+  for (const [chosen, duplicate] of [[officialTwinParry, avengerTwinParry], [avengerTwinParry, officialTwinParry]]) {
+    const character: Character = { ...avenger, feats: [
+      { name: dedication.name, type: 'Class Feat', level: 2, slot: 'class:2:0' },
+      { name: chosen.name, type: 'Class Feat', level: 6, slot: 'class:6:0' }] }
+    expect(eligibleFeats(catalog, character, slotForAvenger)).not.toContain(duplicate)
+    expect(eligibleFeats(catalog, character, { key: 'class:16:0', category: 'class', level: 16 })).toContain(avengerStance)
+  }
   const c: Character = { ...base, level: 16, feats: [{ name: 'Twin Parry', type: 'Class Feat', level: 4 }] }
   const slot = { key: 'class:16:0', category: 'class' as const, level: 16 }
   expect(eligibleFeats([original, copy, twinParry], c, slot)).toContain(copy)
@@ -781,7 +793,7 @@ it('copies the specified Tekko-Kagi as Clawed Gauntlet without its Bastet flavor
     traits: expect.arrayContaining(clawed.traits) })
   const regular: Character = { ...c, armors: c.armors!.map((armor) => ({ ...armor, gauntlet: 'Gauntlet' })) }
   const back = ownedWeapons(regular, [clawed]).find((weapon) => weapon.id === GAUNTLET.id)!
-  expect(effectiveWeapon(regular, [clawed], back).runes).toEqual([])
+  expect(effectiveWeapon(regular, [clawed], back).runes).toEqual(['Grievous', 'Grappling', 'Shoving', 'Flaming'])
   expect(c.weapons![0].runes).toEqual(['Wounding'])
   expect(homebrewWeapons([{ ...tekko, deleted: true }])).toEqual([])
   expect(homebrewWeapons([{ ...tekko, id: 'aon:pf2e:weapon-101' }])).toEqual([])
@@ -1048,14 +1060,16 @@ it('offers handwrap runes for compatible unarmed attacks without requiring the b
   expect(options.some(name => name.includes('Impactful'))).toBe(false)
 })
 
-it('ignores directly configured unarmed runes while leaving saved data and manufactured weapons unchanged', () => {
+it('ignores directly configured unarmed runes without changing saved data or gauntlet fundamentals', () => {
   const unarmed = { id: FIST.id, name: FIST.name, potency: 3, striking: 3, runes: ['Flaming'] }
   expect(effectiveWeapon(base, [], unarmed)).toMatchObject({ potency: 2, striking: 1, runes: ['Grievous', 'Grappling'] })
   expect(weaponAttack(base, [], unarmed)).toMatchObject({ item: 2, damage: '2d4+1 bludgeoning' })
   expect(unarmed).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
   const c: Character = { ...base, handwraps: { potency: 1, striking: 1, runes: ['Impactful'] } }
   expect(effectiveWeapon(c, [], unarmed)).toMatchObject({ potency: 2, striking: 1, runes: ['Grievous', 'Grappling', 'Impactful'] })
-  expect(effectiveWeapon(c, [], { ...unarmed, name: 'Gauntlet' })).toMatchObject({ potency: 3, striking: 3, runes: ['Flaming'] })
+  expect(effectiveWeapon(c, [], { ...unarmed, name: 'Gauntlet' })).toMatchObject({
+    potency: 3, striking: 3, runes: ['Flaming', 'Grievous', 'Grappling', 'Impactful'],
+  })
   expect(effectiveWeapon({ ...c, handwraps: undefined }, [], unarmed)).toMatchObject({ potency: 2, striking: 1, runes: ['Grievous', 'Grappling'] })
 })
 

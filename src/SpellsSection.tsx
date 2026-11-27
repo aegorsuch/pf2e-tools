@@ -2503,11 +2503,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </SearchableSelect>
     </label>
   })
-  const loanerRank = (feat: Character['feats'][number]) => loanerSpells.find(grant => grant.entry.name === feat.choice)?.rank
+  const loanerRank = (feat: Character['feats'][number]) => loanerSpells.find(grant => grant.entry.name === feat.choice)?.entry.level
   const renderLoanerSpellChoices = (rank?: number) => loanerSpellSlotsForCharacter.map(({ feat, index, options }, slotIndex) => {
     if (rank !== undefined) {
       const placed = loanerRank(feat)
-      if ((placed !== undefined && (classSlotRanks.some(slot => slot.rank === placed) || extraGrantRanks.includes(placed)) ? placed : classSlotRanks[0].rank) !== rank) return null
+      if (placed !== undefined) return null
+      if (classSlotRanks[0].rank !== rank) return null
     }
     const label = `Loaner Spell${loanerSpellSlotsForCharacter.length > 1 ? ` ${slotIndex + 1}` : ''}`
     return <SearchableSelect key={`loaner-spell:${index}`} aria-label={label} value={feat.choice ?? ''} alwaysSearchable
@@ -2526,18 +2527,20 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         {[...new Set(options.map(entry => entry.name))].map(name => <option key={name}>{name}</option>)}
       </SearchableSelect>
   })
-  const renderGrantRow = (grant: typeof special[number]) => {
+  const renderGrantRow = (grant: typeof special[number], onClear?: () => void, sharedCast?: ReactNode) => {
         const details = grant.source === 'Natural Illusionist'
           ? { note: grant.rule.condition, dc: undefined, attackBonus: undefined, spellcastingModifier: undefined } : grantDetails(grant)
         return <SpellItem c={c} key={`${grant.usageKey}:${grant.entry.name}`} name={grant.entry.name}
           entry={grant.entry} rank={grant.rank} note={details.note} saveDC={details.dc} attackBonus={details.attackBonus} spellcastingModifier={details.spellcastingModifier}
+          nameControl={onClear ? <SelectedSlotSpell name={grant.entry.name} entry={grant.entry} source={grant.source} onClear={onClear} /> : undefined}
           actionControls={grant.entry.name === 'Summon Undead'
             ? <SummonUndeadActions c={c} save={save} entry={grant.entry} rank={grant.rank} />
             : grant.entry.name === 'Marvelous Mount' ? <MarvelousMountActions c={c} save={save} entry={grant.entry} />
             : ['Summon Fiend', 'Summon Celestial'].includes(grant.entry.name) ? <SummonFiendActions c={c} entries={entries} save={save} entry={grant.entry} rank={grant.rank}
               requiredTrait={grant.rule.condition === 'Devils only' ? 'devil' : undefined} />
               : grant.entry.name === 'Summon Plant or Fungus' ? <SummonPlantActions c={c} save={save} entry={grant.entry} rank={grant.rank} /> : undefined}
-          inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}<InnateSpellUses c={c} save={save} grant={grant} /></>}
+          inlineControls={<>{inlineControls(grant.entry.name, grant.rank)}
+            {sharedCast ?? <InnateSpellUses c={c} save={save} grant={grant} />}</>}
           effectControls={effectControls(grant.entry.name)} effectRank={activeRank(grant.entry.name)} {...buffProps(grant.entry.name)}>
           {controls(grant.entry.name, grant.rank, details.spellcastingModifier, grant.entry)}
         </SpellItem>
@@ -2546,15 +2549,39 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     .map(source => <section className="innate-spell-group" key={source}>
       <h5>{source} · Spell Rank {grants.find(grant => grant.source === source)?.rank}</h5>
       <SpellColumns />
-      <ul>{grants.filter(grant => grant.source === source).map(renderGrantRow)}</ul>
+      <ul>{grants.filter(grant => grant.source === source).map(grant => renderGrantRow(grant))}</ul>
     </section>)
-  const mergedGrantSources = [...tricksterAceSpells, ...loanerSpells]
+  const mergedGrantSources = [...tricksterAceSpells, ...loanerSpells.map(grant => ({ ...grant, rank: grant.entry.level }))]
   const mergeIntoClass = !witchwarper && !!sc && traditions.length > 0 && classSlotRanks.length > 0
   const minorMerged = mergeIntoClass && !!inheritedMinorTradition
   const mergedGrants = mergeIntoClass ? mergedGrantSources : []
   const extraGrantRanks = [...new Set(mergedGrants.map(grant => grant.rank))]
     .filter(rank => !classSlotRanks.some(slot => slot.rank === rank)).sort((a, b) => a - b)
-  const standaloneGrants = (grants: typeof special) => grants.filter(grant => !mergedGrants.includes(grant))
+  const standaloneGrants = (grants: typeof special) => mergeIntoClass ? [] : grants
+  const slotKeyForIndex = (rank: number, count: number, index: number) => {
+    const extras = extraSlots.filter(slot => slot.rank === rank)
+    const manualCacheCount = automaticSlots === undefined ? extras.filter(slot => slot.source === 'Cache Caster').length : 0
+    const normalCount = Math.max(0, Math.min(20, Math.trunc(Number(sc?.slots[rank]) || 0))) - extras.length + manualCacheCount
+    const extra = extras[index - (count - extras.length)]
+    const slotKey = extra?.key ?? (index === normalCount && rank === 0 && benefits.cantrip
+      ? 'familiar-cantrip-connection' : index === normalCount && rank === benefits.batteryRank
+        ? `familiar-spell-battery:${rank}` : `${rank}:${index}`)
+    return { extra, slotKey }
+  }
+  const renderMergedGrant = (grant: typeof special[number]) => {
+    const slot = grant.source === 'Loaner Spell'
+      ? loanerSpellSlotsForCharacter.find(({ feat }) => feat.choice === grant.entry.name) : undefined
+    const count = classSlotRanks.find(item => item.rank === grant.rank)?.count ?? 0
+    const slots = Array.from({ length: count }, (_, index) => slotKeyForIndex(grant.rank, count, index))
+    const spent = sc?.spentSlots ?? []
+    const exhausted = bard && !!automaticSlots && slots.filter(({ slotKey }) => spent.includes(slotKey)).length >= (automaticSlots[grant.rank] ?? 0)
+    const free = exhausted ? undefined : slots.find(({ extra, slotKey }) => !spent.includes(slotKey)
+      && !extra?.spell && (!extra?.allowedSpells || extra.allowedSpells.includes(grant.entry.name)))?.slotKey
+    return renderGrantRow(grant, slot ? () => save({ feats: c.feats.map((feat, index) =>
+      index === slot.index ? { ...feat, choice: undefined } : feat) }) : undefined,
+    slot ? <button type="button" disabled={!free} aria-label={`Cast Loaner Spell ${grant.entry.name}`}
+      onClick={() => { if (free) setSc({ spentSlots: [...new Set([...spent, free])] }) }}>Cast</button> : undefined)
+  }
 
   return (
       <div className="character-section-content">
@@ -2665,25 +2692,14 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           const title = cantrip ? `Cantrips (Heightened Level ${Math.ceil(c.level / 2)})` : `Spell Rank ${rank}`
           const { options, choices } = preparedOptions[rank]
           const extras = extraSlots.filter(slot => slot.rank === rank)
-          const manualCacheCount = automaticSlots === undefined
-            ? extras.filter(slot => slot.source === 'Cache Caster').length : 0
-          const normalCount = Math.max(0, Math.min(20, Math.trunc(Number(sc.slots[rank]) || 0)))
-            - extras.length + manualCacheCount
-          const slotKeyForIndex = (index: number) => {
-            const extra = extras[index - (count - extras.length)]
-            const slotKey = extra?.key ?? (index === normalCount && cantrip && benefits.cantrip
-              ? 'familiar-cantrip-connection' : index === normalCount && rank === benefits.batteryRank
-                ? `familiar-spell-battery:${rank}` : `${rank}:${index}`)
-            return { extra, slotKey }
-          }
           const selectedCount = Array.from({ length: count }, (_, index) => {
-            const { extra, slotKey } = slotKeyForIndex(index)
+            const { extra, slotKey } = slotKeyForIndex(rank, count, index)
             return !!extra?.spell || !!sc.prepared?.[slotKey]
           }).filter(Boolean).length
           const increaseNotes = slotIncreaseNotesByRank.get(rank)
           const sourceLabel = cantrip ? 'Cantrip slots' : `Rank ${rank} slots`
           const classRows = Array.from({ length: count }, (_, index) => {
-            const { extra, slotKey } = slotKeyForIndex(index)
+            const { extra, slotKey } = slotKeyForIndex(rank, count, index)
             const selectedValue = extra?.spell ? spellIndex.byName.get(extra.spell)?.id ?? extra.spell
               : sc.prepared?.[slotKey] ?? ''
             const selectedSpell = (c.spells ?? []).find(spell => (spell.entryId ?? spell.name) === selectedValue)
@@ -2712,7 +2728,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             <SpellColumns />
             <ul>{rows.map(row => {
               if (row.kind === 'choice') return renderChoiceSlot(row.slot)
-              if (row.kind === 'grant') return renderGrantRow(row.grant)
+              if (row.kind === 'grant') return renderMergedGrant(row.grant)
               const { index, extra, slotKey, selectedValue, selectedSpell, selectedEntry } = row
               const restricted = !!extra?.spell
               const metadata = spellMetadata(selectedEntry, cantrip ? Math.ceil(c.level / 2) : rank, c)
@@ -2744,7 +2760,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 })
               }
               if (cantrip && preparedClass) {
-                const activeKeys = new Set(Array.from({ length: count }, (_, i) => slotKeyForIndex(i).slotKey))
+                const activeKeys = new Set(Array.from({ length: count }, (_, i) => slotKeyForIndex(rank, count, i).slotKey))
                 const taken = new Set(Object.entries(sc.prepared ?? {})
                   .filter(([key, value]) => activeKeys.has(key) && key !== slotKey && value)
                   .flatMap(([, value]) => [value, (spellIndex.byId.get(value) ?? spellIndex.byName.get(value))?.name ?? value]))
@@ -2899,7 +2915,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           <h5>Spell Rank {rank}</h5>
           <SpellColumns />
           <ul>{mergedGrants.filter(grant => grant.rank === rank)
-            .sort((a, b) => compareSelectedSpells(a.entry.name, b.entry.name)).map(renderGrantRow)}</ul>
+            .sort((a, b) => compareSelectedSpells(a.entry.name, b.entry.name)).map(renderMergedGrant)}</ul>
           {renderLoanerSpellChoices(rank)}
         </section>)}
       </div>}
