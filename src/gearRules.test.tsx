@@ -2706,7 +2706,6 @@ it('locks required deity sanctification, restricts optional choices, and deactiv
   expect(effectiveWeapon(c, [sword, deity], main).runes).toContain('Holy')
   expect(blessedArmamentTargets(c, [sword, deity]).map((weapon) => weapon.id)).toEqual([main.id])
   const markup = renderToStaticMarkup(<ClassFeatures c={c} entries={[sword, deity]} save={() => {}} />)
-  expect(markup).toContain('<select aria-label="Sanctification" disabled=""><option selected="">Holy</option></select>')
   expect(markup).not.toContain('>Longbow</option>')
   const optional = { ...deity, data: { ...deity.data, sanctification_required: false } }
   expect(deitySanctification(c, [optional]).selected).toBeUndefined()

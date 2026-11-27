@@ -10,7 +10,7 @@ import { EquipmentSearch } from './EquipmentSearch'
 export { EquipmentSearch } from './EquipmentSearch'
 import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldRaiseLabel, showParryControl, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { featTakenLevel } from './featChoices'
-import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, boostSlots, classFeatures, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, hasPersonalUpgradeSlot, ownedArmors, warriorLegendWeakness } from './builder'
+import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, deitySanctification, boostSlots, classFeatures, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, hasPersonalUpgradeSlot, ownedArmors, warriorLegendWeakness } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { classArchetypeSlotViews, featSectionGrants, SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, PersonalUpgradeSlot, Augmentations, BulkLimits, DermalPlatingToggle, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
@@ -562,6 +562,10 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
     }) : []
   const fatalMethods = fatalMethodOptions(entries)
   const fatalMethod = selectedFatalMethod(c)
+  const sanctification = deitySanctification(c, entries)
+  const sanctificationOptions: ContentEntry[] = sanctification.options.map(option => ({ id: `sanctification:${option}`, systems: ['pf2e'],
+    kind: 'classFeature', source: 'official', name: option, level: 1, traits: [option], data: {}, effects: [], updatedAt: 0,
+    description: `You gain the ${option.toLowerCase()} trait.` }))
   const arcaneTheses = arcaneThesisOptions(entries)
   const arcaneThesis = selectedArcaneThesis(c)
   const subclassChoice = subclassSkillChoice(c, entries)
@@ -830,6 +834,12 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                 describe={entry => LEVELED_SUBCLASS_CLASSES.includes(c.className ?? '') && c.systems.includes('pf2e')
                   ? { ...entry, description: subclassBaseDescription(entry) } : entry}
                 onChange={name => save({ subclass: name ?? '' })} /> }] : []),
+              ...(c.systems.includes('pf2e') && (c.className === 'Cleric' || c.className === 'Champion') && sanctificationOptions.length ? [{
+                key: 'sanctification', level: 1, name: sanctification.selected ?? 'Sanctification', control: <SubclassSlot c={c} entries={entries}
+                  label="Sanctification" options={sanctificationOptions} disabled={!!sanctification.required
+                    || c.feats.some(feat => feat.name === 'Vow of Mortal Defiance')}
+                  selected={sanctificationOptions.find(entry => entry.name === sanctification.selected)}
+                  onChange={name => save({ sanctification: name === 'Holy' || name === 'Unholy' ? name : undefined })} /> }] : []),
               ...(c.className === 'Wizard' && c.systems.includes('pf2e') ? [{ key: 'arcane-thesis', level: 1,
                 name: arcaneThesis ?? 'Arcane Thesis', control: <SubclassSlot c={c} entries={entries}
                   label="Arcane Thesis" options={arcaneTheses.filter(entry => entry.name === arcaneThesis

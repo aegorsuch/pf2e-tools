@@ -1,5 +1,5 @@
 import { Info } from './Info'
-import { activeFeatsNamed, barbarianInstinct, byName, canBeGiantWeapon, canBeOsteoArmament, canBeVerdantWeapon, isGiantInstinct, ownedWeapons, weaponEquipped, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, precisionEdgeDamageDice, runeBaseName, runeName, selectedSubclass, solarWeaponTraitBudget, solarWeaponTraits, SOLAR_WEAPON_TRAITS, weaponRuneApplies, type SectionProps } from './builder'
+import { activeFeatsNamed, barbarianInstinct, byName, canBeGiantWeapon, canBeOsteoArmament, canBeVerdantWeapon, isGiantInstinct, ownedWeapons, weaponEquipped, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, precisionEdgeDamageDice, runeBaseName, runeName, selectedSubclass, solarWeaponTraitBudget, solarWeaponTraits, SOLAR_WEAPON_TRAITS, weaponRuneApplies, type SectionProps } from './builder'
 import type { OwnedWeapon } from './types'
 import { HANDWRAPS } from './supplemental'
 import { SearchableSelect } from './SearchableSelect'
@@ -28,7 +28,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
   const showArmament = c.className === 'Champion' && c.level >= 3 && championBlessings(c).includes('Blessed Armament')
   const targets = showArmament ? blessedArmamentTargets(c, entries) : []
   const target = c.blessedArmament?.weaponId ? targets.find(weapon => weapon.id === c.blessedArmament?.weaponId) : targets[0]
-  const sanctification = deitySanctification(c, entries)
   const fontOptions = String(byName(entries, 'deity', c.deity)?.data.divine_font ?? '').split(/,\s*/).map(font => font.toLowerCase())
   const weapons = ownedWeapons(withoutBattleForm(c), entries)
   const giant = isGiantInstinct(c, entries)
@@ -362,15 +361,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           Glimpse of Redemption grants resistance {7 + c.level}; Liberating Step grants +4 circumstance to its checks and allows two Steps.
           These benefits apply only to the corresponding legacy champion reactions; verify legacy prerequisites with your GM.</Info>
       </div>}
-      {c.systems.includes('pf2e') && c.level >= 1 && (c.className === 'Champion' || c.className === 'Cleric') && <label>Sanctification{' '}
-        <select aria-label="Sanctification" value={sanctification.selected ?? ''} disabled={!!sanctification.required || !sanctification.options.length} onChange={(e) => {
-          const choice = sanctification.options.find((option) => option === e.target.value)
-          if (!sanctification.required) save({ sanctification: choice })
-        }}>
-          {!sanctification.required && <option value="">None</option>}
-          {sanctification.options.map((option) => <option key={option} disabled={c.feats.some(feat => feat.name === 'Vow of Mortal Defiance')}>{option}</option>)}
-        </select>
-      </label>}
       {c.systems.includes('pf2e') && c.className === 'Cleric' && fontOptions.includes('heal') && fontOptions.includes('harm')
         && <label>Divine Font{' '}<select aria-label="Divine Font" value={c.divineFont ?? ''}
           onChange={event => save({ divineFont: event.target.value === 'Heal' ? 'Heal' : event.target.value === 'Harm' ? 'Harm' : undefined })}>

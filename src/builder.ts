@@ -8787,6 +8787,7 @@ export function weaponRuneApplies(entries: ContentEntry[], weapon: OwnedWeapon, 
   const content = runeContent(entries, rune, 'Weapon')
   const usage = String(content?.data.usage ?? FALLBACK_RUNE_USAGE[name] ?? 'etched onto a weapon').toLowerCase().replace(/\s+/g, ' ')
   if ((name === 'Shifting' || name === 'Throwing') && weaponCategory(entry) === 'Unarmed') return false
+  if (name === 'Hooked' && /\bClawed Gauntlet$/.test(weapon.name)) return false
   if (/\bmelee\b/.test(usage) && (!entry || isRanged(entry))) return false
   if (/\branged\b/.test(usage) && !isRanged(entry)) return false
   if (/\bthrown\b/.test(usage) && !traits.some((trait) => /^thrown\b/.test(trait))

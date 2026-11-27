@@ -1452,7 +1452,6 @@ it('shows champion sanctification and devotion spell choices without a blessing'
   expect(spells).not.toContain('Devotion Spells')
   expect(spells).not.toContain('Touch of the Void')
   const features = renderToStaticMarkup(<ClassFeatures c={c} entries={[deity]} save={() => {}} />)
-  expect(features).toContain('aria-label="Sanctification"')
   expect(features).not.toContain('aria-label="Devotion spell"')
 })
 

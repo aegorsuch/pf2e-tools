@@ -1060,6 +1060,15 @@ it('offers handwrap runes for compatible unarmed attacks without requiring the b
   expect(options.some(name => name.includes('Impactful'))).toBe(false)
 })
 
+it('does not offer Hooked on a Clawed Gauntlet', () => {
+  const hooked = { id: 'hooked', systems: ['pf2e'], kind: 'item', source: 'official', name: 'Hooked', level: 5, traits: [],
+    description: '', data: { item_subcategory: 'Weapon Property Runes', usage: 'etched onto a melee weapon' }, effects: [], updatedAt: 1 } as ContentEntry
+  const weapon = { id: 'claw', name: 'Clawed Gauntlet', potency: 0, striking: 0, runes: [] }
+  const claw = { ...hooked, id: 'claw-entry', kind: 'weapon', name: 'Clawed Gauntlet', data: { weapon_category: 'Martial', weapon_type: 'Melee', damage: '1d4 slashing' } } as ContentEntry
+  expect(eligibleWeaponRunes([hooked, claw], weapon).map(rune => rune.name)).not.toContain('Hooked')
+  expect(eligibleWeaponRunes([hooked, { ...claw, name: 'Sword' }], { ...weapon, name: 'Sword' }).map(rune => rune.name)).toContain('Hooked')
+})
+
 it('ignores directly configured unarmed runes without changing saved data or gauntlet fundamentals', () => {
   const unarmed = { id: FIST.id, name: FIST.name, potency: 3, striking: 3, runes: ['Flaming'] }
   expect(effectiveWeapon(base, [], unarmed)).toMatchObject({ potency: 2, striking: 1, runes: ['Grievous', 'Grappling'] })
