@@ -819,7 +819,7 @@ it('provides the Plasma Array homebrew weapon with its specified ranged stats', 
     id: 'homebrew:plasma-array', source: 'homebrew', kind: 'weapon', systems: ['sf2e'],
     name: 'Plasma Array', traits: ['Automatic', 'Tech'],
     data: { weapon_category: 'Martial', weapon_group: 'Plasma', weapon_type: 'Ranged', damage: '1d8 F',
-      bulk: 2, hands: 2, range: 30, reload: 1, upgrade_slots: 3, weapon_ammunition: '10 charges', price: 60 },
+      bulk: 2, hands: 2, range: 30, reload: 1, upgrade_slots: 5, weapon_ammunition: '10 charges', price: 60 },
   })
   expect(PLASMA_ARRAY.description).toContain('Expend 1')
   expect(gearPickerEntries([PLASMA_ARRAY], 'weapon')).toEqual([PLASMA_ARRAY])

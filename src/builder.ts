@@ -8957,7 +8957,7 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     : name === 'Shock Pad' || name === 'Shock Truncheon' ? ['Shock Module']
     : name === 'Plasma Sword' ? ['Flaming Module', 'Shock Module', 'Glarecaster']
     : name === 'Plasma Doshko' ? ['Flaming Module', 'Shock Module', 'Glarecaster', 'Suppression Matrix']
-    : name === 'Plasma Array' ? ['Flaming Module', 'Shock Module']
+    : name === 'Plasma Array' ? ['Flaming Module', 'Shock Module', 'Glarecaster', 'Suppression Matrix']
     : name === 'Plasma Caster' ? ["Smuggler's Grip", 'Flaming Module', 'Shock Module', 'Glarecaster']
     : name === 'Rotolaser' ? ['Flaming Module']
     : name === 'Pulse Gauntlet' ? ['Loudener']

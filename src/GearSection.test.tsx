@@ -91,7 +91,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     'Pulse Gauntlet', 'Tailblade', 'Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle', 'Other']
     .map(name => {
       const entry = sfWeapon(name)
-      return name === 'Plasma Array' ? { ...entry, data: { ...entry.data, upgrade_slots: 3 } } : entry
+      return name === 'Plasma Array' ? { ...entry, data: { ...entry.data, upgrade_slots: 5 } } : entry
     })
   weapons.push({ ...sfWeapon('Starday Night Special (Semi-Auto Pistol)'),
     data: { ...sfWeapon('Starday Night Special (Semi-Auto Pistol)').data, special_weapon_source: 'Starday Night Special' } })
@@ -131,8 +131,8 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(at('Plasma Sword', 8)).toEqual(['Flaming Module (Commercial)', 'Shock Module (Commercial)', 'Glarecaster (Commercial)'])
     expect(at('Rotolaser', 8)).toEqual(['Flaming Module (Commercial)'])
     expect(at('Rotolaser', 15)).toEqual(['Flaming Module (Tactical)'])
-    expect(at('Plasma Array', 8)).toEqual(['Flaming Module (Commercial)', 'Shock Module (Commercial)'])
-    expect(at('Plasma Array', 15)).toEqual(['Flaming Module (Tactical)', 'Shock Module (Tactical)'])
+    expect(at('Plasma Array', 8)).toEqual(['Flaming Module (Commercial)', 'Shock Module (Commercial)', 'Glarecaster (Commercial)', 'Suppression Matrix (Commercial)'])
+    expect(at('Plasma Array', 15)).toEqual(['Flaming Module (Tactical)', 'Shock Module (Tactical)', 'Glarecaster (Tactical)', 'Suppression Matrix (Tactical)'])
     expect(at('Plasma Caster', 4)).toEqual(["Smuggler's Grip (Commercial)"])
     expect(at('Plasma Caster', 6)).toEqual(["Smuggler's Grip (Tactical)", 'Glarecaster (Commercial)'])
     expect(at('Tactical Plasma Caster', 8)).toEqual([
@@ -172,6 +172,8 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
       entries={entries} save={() => {}} />)
     expect(plasmaArrayHtml).toContain('Flaming Module (Commercial)')
     expect(plasmaArrayHtml).toContain('Shock Module (Commercial)')
+    expect(plasmaArrayHtml).toContain('Glarecaster (Commercial)')
+    expect(plasmaArrayHtml).toContain('Suppression Matrix (Commercial)')
     expect(plasmaArrayHtml).toContain('Add weapon upgrade')
     expect(plasmaArrayHtml).not.toContain('Installed upgrades exceed available slots.')
     const caster = entries.find(entry => entry.name === 'Plasma Caster')!
