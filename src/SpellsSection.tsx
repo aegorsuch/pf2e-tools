@@ -2484,7 +2484,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </SearchableSelect>
     </label>
   })
-  const renderLoanerSpellChoices = () => loanerSpellSlotsForCharacter.map(({ feat, index, options }, slotIndex) => {
+  const loanerRank = (feat: Character['feats'][number]) => loanerSpells.find(grant => grant.entry.name === feat.choice)?.rank
+  const renderLoanerSpellChoices = (rank?: number) => loanerSpellSlotsForCharacter.map(({ feat, index, options }, slotIndex) => {
+    if (rank !== undefined) {
+      const placed = loanerRank(feat)
+      if ((placed !== undefined && (classSlotRanks.some(slot => slot.rank === placed) || extraGrantRanks.includes(placed)) ? placed : classSlotRanks[0].rank) !== rank) return null
+    }
     const label = `Loaner Spell${loanerSpellSlotsForCharacter.length > 1 ? ` ${slotIndex + 1}` : ''}`
     return <SearchableSelect key={`loaner-spell:${index}`} aria-label={label} value={feat.choice ?? ''} alwaysSearchable
         optionSpell={value => options.find(entry => entry.name === value)}
@@ -2857,13 +2862,14 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
             })}{cantrip && investigatorClassChoices.map(renderChoiceSlot)}
               {cantrip && minorMerged && minorMagicChoiceSlots.map(renderChoiceSlot)}
               {mergedGrants.filter(grant => grant.rank === rank).map(renderGrantRow)}</ul>
-            {rank === classSlotRanks[0].rank && <>{renderTricksterAceChoices()}{renderLoanerSpellChoices()}</>}
+            {rank === classSlotRanks[0].rank && renderTricksterAceChoices()}{renderLoanerSpellChoices(rank)}
           </section>
         })}
         {extraGrantRanks.map(rank => <section className="spell-slot-group" key={`granted:${rank}`}>
           <h5>Spell Rank {rank}</h5>
           <SpellColumns />
           <ul>{mergedGrants.filter(grant => grant.rank === rank).map(renderGrantRow)}</ul>
+          {renderLoanerSpellChoices(rank)}
         </section>)}
       </div>}
       </>}
