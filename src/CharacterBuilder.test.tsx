@@ -830,7 +830,7 @@ it('shows Versatile Operative specialization choices and selected benefits in Cl
     expect(markup).not.toContain('specialization (Versatile Operative)')
     const selecting = renderToStaticMarkup(<CharacterBuilder character={{ ...c, feats: [{ ...c.feats[0], choice: undefined }] }}
       onClose={() => {}} />)
-    expect(selecting).toContain('aria-label="Versatile Operative specialization"')
+    expect(selecting).toContain('aria-label="Versatile Specialization choice"')
     expect(selecting).toContain('<option>Ghost</option>')
   } finally { content.entries = [] }
 })
@@ -1915,6 +1915,21 @@ it('offers all four Grim Fascinations when adding Necromancer and keeps the sele
   expect(saved).toContain('aria-label="Clear Grim Fascination"')
   expect(saved).toContain('Spirit rules.')
   content.entries = []
+})
+
+it('shows Arcane Thesis as a Wizard class selector and preserves saved choices', () => {
+  content.entries = []
+  const c: Character = { id: 'wizard-thesis', systems: ['pf2e'], name: 'Test', level: 1, className: 'Wizard',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const render = (character: Character) => renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
+  expect(render(c)).toContain('aria-label="Arcane Thesis feat"')
+  expect(render(c)).not.toContain('<select aria-label="Arcane Thesis"')
+  const saved = render({ ...c, arcaneThesis: 'Spell Substitution' })
+  expect(saved).toContain('aria-label="Clear Arcane Thesis"')
+  expect(saved).toContain('You can exchange prepared spells')
+  expect(render({ ...c, className: 'Ranger' })).not.toContain('aria-label="Arcane Thesis feat"')
+  expect(render({ ...c, systems: ['sf2e'] })).not.toContain('aria-label="Arcane Thesis feat"')
 })
 
 it('keeps Fatal Method separate from Grim Fascination and displays the persisted choice', () => {

@@ -39,7 +39,7 @@ import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoice
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
 import { divineAttackDamage, hasDivineIntercession, TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
 import { characterHeritages, characterSize, elfAtavismOptions, isVersatileHeritage } from './heritages'
-import { selectedArcaneThesis } from './arcaneTheses'
+import { hasArcaneThesis, selectedArcaneThesis, versatileThesisOptions, VERSATILE_THESIS_FEAT } from './arcaneTheses'
 import { fatalMethodGrants, selectedFatalMethod } from './fatalMethods'
 import { ELEMENTAL_GAUNTLET_SOURCES, makeNamedWeaponEntries, namedWeaponBaseName, namedWeaponDamage, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
 export { heritagesFor, isVersatileHeritage } from './heritages'
@@ -960,6 +960,13 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
           ? { displayCategory: 'archetype' as const } : {}),
         ...(archetype ? { grantedBy: archetype.name, grantedFeat: `${archetype.name} Dedication` } : {}) })
     }
+    if (selectedArcaneThesis(c) !== 'Metamagical Experimentation' && hasArcaneThesis(c, 'Metamagical Experimentation')) {
+      const feat = c.feats.find(feat => feat.name === VERSATILE_THESIS_FEAT.name && feat.choice === 'Metamagical Experimentation'
+        && featTakenLevel(feat) <= c.level)!
+      const level = featTakenLevel(feat)
+      if (!groupOrder.has(`class:${level}`)) groupOrder.set(`class:${level}`, groupOrder.size)
+      slots.push({ key: 'class:1:versatile-thesis-metamagic', category: 'class', level, maxFeatLevel: 1, grantedBy: 'Versatile Thesis' })
+    }
     if (barbarianInstinct(c, entries) === 'fury') {
       if (!groupOrder.has('class:1')) groupOrder.set('class:1', groupOrder.size)
       slots.push({ key: 'class:1:fury-instinct', category: 'class', level: 1, maxFeatLevel: 1, grantedBy: 'Fury Instinct' })
@@ -1183,7 +1190,7 @@ export function plannedSlots(c: Character, entries: ContentEntry[] = []): Planne
     || slot.grantedBy === 'Eldritch Trickster' || slot.grantedBy === 'Order Explorer'
     || slot.grantedBy === "Officer's Education" || slot.grantedBy === "Mechanic's Ingenuity" || slot.grantedBy === 'Social Chameleon'
     || slot.grantedBy === 'Natural Performer' || slot.grantedBy === 'Pitborn' || slot.grantedBy === 'Scion of Many Planes' || slot.grantedBy === 'In Another Life' || slot.grantedBy === "Operative's Specialization"
-    || slot.grantedBy === 'Versatile Operative' || slot.grantedBy === 'Sniper' || slot.grantedBy === 'Cyberborn Test-Subject' || !!slot.grantedAncestry)
+    || slot.grantedBy === 'Versatile Operative' || slot.grantedBy === 'Versatile Thesis' || slot.grantedBy === 'Sniper' || slot.grantedBy === 'Cyberborn Test-Subject' || !!slot.grantedAncestry)
   for (const slot of slots) {
     if (!visible.some((other) => other.category === slot.category && other.level === slot.level)) visible.push(slot)
   }
@@ -1710,7 +1717,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         familiar: character.className === 'Witch'
           || (character.className === 'Animist' && character.systems.includes('pf2e')
             && activeFeatsNamed(character, 'Spirit Familiar (Animist)').length > 0)
-          || selectedArcaneThesis(character) === 'Improved Familiar Attunement'
+          || hasArcaneThesis(character, 'Improved Familiar Attunement')
           || character.feats.some(feat => ['Familiar', 'Leshy Familiar', 'Animal Accomplice', 'Glyph Familiar'].includes(feat.name))
           || hasDivineIntercession(character, 'Calistria', 'moderate-boon'),
         get primalInnateSpell() { return getInnateGrants().some(grant => grant.rule.tradition?.toLowerCase() === 'primal') },
@@ -2118,6 +2125,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name))
       && (e.name !== 'Versatile Operative' || !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name))
+      && (e.name !== VERSATILE_THESIS_FEAT.name || getSettings().wizardVersatileThesis
+        && (!!featChoiceOptions(e.name, c, entries, slot.key)?.length || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name)))
+      && (slot.grantedBy !== 'Versatile Thesis' || traits.has('metamagic') || traits.has('spellshape'))
       && (e.name !== 'Mercy' || c.feats.some(feat => feat.slot === slot.key && feat.name === e.name)
         || c.feats.filter(feat => feat.name === 'Mercy' && feat.slot !== slot.key).length < 3
           && !!featChoiceOptions(e.name, c, entries, slot.key)?.length)
@@ -2503,6 +2513,7 @@ export function augmentationBaseDailyUses(entry: ContentEntry) {
 export function featChoiceOptions(name: string, c: Character, entries: ContentEntry[], slotKey: string, selectedIndex?: number,
   category?: FeatSlotCategory): string[] | undefined {
   const index = selectedIndex ?? c.feats.findIndex((feat) => feat.slot === slotKey)
+  if (name === VERSATILE_THESIS_FEAT.name) return versatileThesisOptions(c, index)
   if (name === 'Adaptive Visual Receptors' && c.systems.includes('sf2e')) {
     const level = index >= 0 ? featTakenLevel(c.feats[index]) : Number(slotKey.split(':')[1]) || c.level
     const prior = { ...c, level, feats: c.feats.filter((feat, i) => i !== index
@@ -3447,19 +3458,26 @@ export function necromancerGrantedDirgeSpells(c: Character) {
   return spells
 }
 
-export function necromancerDirgeCanLearn(c: Character, entries: ContentEntry[], candidate: ContentEntry) {
-  if (c.className !== 'Necromancer' || candidate.level > Math.ceil(c.level / 2)
-    || !necromancerSpellList(c, entries).some(entry => entry.id === candidate.id)) return false
+export function necromancerDirgeLearnChecker(c: Character, entries: ContentEntry[], list = necromancerSpellList(c, entries)) {
+  const allowedIds = new Set(list.map(entry => entry.id))
   const known = necromancerDirge(c, entries)
-  if (known.some(entry => entry.name === candidate.name)) return false
+  const knownNames = new Set(known.map(entry => entry.name))
   const granted = new Set(necromancerGrantedDirgeSpells(c))
   const learned = known.filter(entry => !granted.has(entry.name))
   const cantrips = learned.filter(entry => entry.traits.some(trait => trait.toLowerCase() === 'cantrip')).length
   const rankOne = learned.filter(entry => entry.level === 1 && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip')).length
   const extraLearned = learned.filter(entry => entry.level > 1).length + Math.max(0, cantrips - 8) + Math.max(0, rankOne - 4)
-  const isCantrip = candidate.traits.some(trait => trait.toLowerCase() === 'cantrip')
-  if (isCantrip && cantrips < 8 || !isCantrip && candidate.level === 1 && rankOne < 4) return true
-  return extraLearned < 2 * Math.max(0, c.level - 1)
+  return (candidate: ContentEntry) => {
+    if (c.className !== 'Necromancer' || candidate.level > Math.ceil(c.level / 2)
+      || !allowedIds.has(candidate.id) || knownNames.has(candidate.name)) return false
+    const isCantrip = candidate.traits.some(trait => trait.toLowerCase() === 'cantrip')
+    if (isCantrip && cantrips < 8 || !isCantrip && candidate.level === 1 && rankOne < 4) return true
+    return extraLearned < 2 * Math.max(0, c.level - 1)
+  }
+}
+
+export function necromancerDirgeCanLearn(c: Character, entries: ContentEntry[], candidate: ContentEntry) {
+  return necromancerDirgeLearnChecker(c, entries)(candidate)
 }
 
 export function beckoningDirgeMaxRank(c: Character) {

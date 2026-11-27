@@ -8,6 +8,7 @@ import { FeatSlots } from './FeatSlots'
 import { ArmorUpgrades, Augmentations } from './GearSection'
 import { armorClass, plannedSlots } from './builder'
 import { StatusesContent, StatusesSummary } from './StatusesSection'
+import * as statuses from './StatusesSection'
 import { SkillsSection } from './SkillsSection'
 import type { Character, ContentEntry, EnergizedSpikesEnergy } from './types'
 
@@ -690,6 +691,44 @@ it('updates class feat slots and progress when a blank slot is added and filled'
     expect(section.querySelectorAll('[aria-label="L02 Class feat"]')).toHaveLength(2)
   } finally {
     await act(async () => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
+it('skips unchanged statuses for blank slots but refreshes for status and feat-slot changes', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const c: Character = { id: 'status-slot-render', systems: ['pf2e'], name: 'Test', level: 2, className: 'Barbarian',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const catalog: ContentEntry[] = []
+  const statusRender = vi.spyOn(statuses, 'StatusesContent')
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const render = async (character: Character) => act(async () => root.render(
+    <CharacterBuilder character={character} catalog={catalog} onClose={() => {}} />,
+  ))
+  try {
+    await render(c)
+    const section = [...container.querySelectorAll('details')].find(details =>
+      details.querySelector(':scope > summary > strong')?.textContent === 'Statuses')!
+    await act(async () => { section.open = true; section.dispatchEvent(new Event('toggle')) })
+    const initial = statusRender.mock.calls.length
+    expect(initial).toBeGreaterThan(0)
+    const withSlot: Character = { ...c, extraSlots: [{ category: 'class', level: 2, count: 1 }], updatedAt: 1 }
+    await render(withSlot)
+    expect(statusRender).toHaveBeenCalledTimes(initial)
+    await render({ ...withSlot, raging: true })
+    expect(statusRender.mock.calls.length).toBeGreaterThan(initial)
+    const withOrphan: Character = { ...c, feats: [{ name: 'Test', type: 'Class Feat', level: 2, slot: 'class:2:1' }] }
+    await render(withOrphan)
+    const beforeRestoringSlot = statusRender.mock.calls.length
+    await render({ ...withOrphan, extraSlots: withSlot.extraSlots })
+    expect(statusRender.mock.calls.length).toBeGreaterThan(beforeRestoringSlot)
+  } finally {
+    await act(async () => root.unmount())
+    statusRender.mockRestore()
     container.remove()
     vi.unstubAllGlobals()
   }

@@ -1,8 +1,17 @@
 import type { Character, ContentEntry } from './types'
+import { featTakenLevel } from './featChoices'
+import { getSettings } from './settings'
 
 export type ArcaneThesis = NonNullable<Character['arcaneThesis']>
 
 const THESES: ArcaneThesis[] = ['Improved Familiar Attunement', 'Metamagical Experimentation', 'Spell Blending', 'Spell Substitution', 'Staff Nexus']
+
+export const VERSATILE_THESIS_FEAT: ContentEntry = {
+  id: 'builtin:versatile-thesis', systems: ['pf2e'], kind: 'feat', source: 'homebrew', name: 'Versatile Thesis',
+  level: 16, traits: ['Wizard'],
+  description: 'Choose an arcane thesis you do not already have. You gain its benefits. You can select this feat multiple times, choosing a different thesis each time.',
+  data: { class: 'Wizard', repeatable: true }, effects: [], updatedAt: 0,
+}
 
 const fallbackDescriptions: Record<ArcaneThesis, string> = {
   'Improved Familiar Attunement': 'You gain the Familiar wizard feat. Your familiar gains an extra ability, and it gains an additional extra ability when you reach 6th, 12th, and 18th levels. Your arcane bond stores magical energy in your familiar instead of an item, and you gain the Drain Familiar free action instead of Drain Bonded Item.',
@@ -35,6 +44,19 @@ export function selectedArcaneThesis(c: Character): ArcaneThesis | undefined {
     ? c.arcaneThesis : undefined
 }
 
+export function versatileThesisOptions(c: Character, selectedIndex = -1): ArcaneThesis[] {
+  if (!getSettings().wizardVersatileThesis || c.className !== 'Wizard' || !c.systems.includes('pf2e')) return []
+  const taken = new Set([selectedArcaneThesis(c), ...c.feats.flatMap((feat, index) =>
+    index !== selectedIndex && feat.name === VERSATILE_THESIS_FEAT.name && feat.choice ? [feat.choice] : [])])
+  return THESES.filter(thesis => !taken.has(thesis))
+}
+
+export function hasArcaneThesis(c: Character, thesis: ArcaneThesis): boolean {
+  if (selectedArcaneThesis(c) === thesis) return true
+  return getSettings().wizardVersatileThesis && c.className === 'Wizard' && c.systems.includes('pf2e')
+    && c.feats.some(feat => feat.name === VERSATILE_THESIS_FEAT.name && feat.choice === thesis && featTakenLevel(feat) <= c.level)
+}
+
 export const attunementFamiliarAbilities = (c: Character) =>
-  selectedArcaneThesis(c) === 'Improved Familiar Attunement'
+  hasArcaneThesis(c, 'Improved Familiar Attunement')
     ? 1 + [6, 12, 18].filter(level => c.level >= level).length : 0

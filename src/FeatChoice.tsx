@@ -28,6 +28,7 @@ function isRepeatableFeat(entries: SectionProps['entries'], name: string) {
 export function CarryTheirMemoriesChoice({ c, entries, save, index }: SectionProps & { index: number }) {
   const feat = c.feats[index]
   if (!feat) return null
+  if (feat.name === 'Versatile Thesis' && c.systems.includes('pf2e') && c.className === 'Wizard') return null
   const ranks = dailyLongevityRanks(c, entries)
   const options = [...new Set([...statDefs(c).filter(stat => stat.kind === 'skill').map(stat => stat.name),
     ...c.lores.map(lore => lore.name), ...Object.keys(ranks).filter(name => /\blore$/i.test(name))])]
@@ -514,7 +515,7 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
           && <option value={gunslingerValue} disabled>{feat.choice}{gunslingerChoice?.options.length ? ' (choose skill)' : ' (unavailable)'}</option>}
         {[...gunslingerVariants].sort((a, b) => a.label.localeCompare(b.label))
           .map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </SearchableSelect> : <SearchableSelect label={`Additional ${kind}`} aria-label={`${feat.name} ${kind}`} value={feat.choice ?? ''} onChange={event => {
+      </SearchableSelect> : <SearchableSelect label={`Additional ${kind}`} aria-label={feat.name === 'Versatile Operative' ? 'Versatile Specialization choice' : `${feat.name} ${kind}`} value={feat.choice ?? ''} onChange={event => {
         const choice = event.target.value
         if (choice && !options.includes(choice)) return
         save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice: choice || undefined } : existing) })

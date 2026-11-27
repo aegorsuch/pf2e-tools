@@ -1,5 +1,6 @@
 import type { Character, ContentEntry, HardlightGrade, OwnedArmor } from './types'
 import { BONY_PLATES_DESCRIPTION } from './grantedArmor'
+import { VERSATILE_THESIS_FEAT } from './arcaneTheses'
 
 export function removeColdIronTusks(c: Character): Character {
   const feats = c.feats.filter(feat => feat.name !== 'Cold Iron Tusks')
@@ -435,6 +436,7 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
     { ...homebrewFeat('solarian-paragons-guard', "Paragon's Guard", 12, ['Solarian', 'Stance'],
       'Requirements: You are wielding a shield. While in this stance, your shield remains raised.',
       { class: 'Solarian', actions: 'Single Action', requirements: 'You are wielding a shield.' }), systems: ['sf2e'] },
+    VERSATILE_THESIS_FEAT,
     { ...homebrewFeat('versatile-envoy', 'Versatile Envoy', 10, ['Envoy'],
       'Choose a different Envoy leadership style you do not already have. You gain its associated trained skill and Leadership Perk.\n\nSpecial: You can select this feat multiple times, choosing a different leadership style each time.',
       { class: 'Envoy', repeatable: true }), systems: ['sf2e'] },

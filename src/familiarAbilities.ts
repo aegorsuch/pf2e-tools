@@ -1,6 +1,6 @@
 import type { Character, ContentEntry } from './types'
 import { activeFeatsNamed, classSpellcasting, classSpellSlots, selectedSubclass } from './builder'
-import { attunementFamiliarAbilities, selectedArcaneThesis } from './arcaneTheses'
+import { attunementFamiliarAbilities, hasArcaneThesis } from './arcaneTheses'
 import { hasDivineIntercession } from './divineIntercessions'
 import { contentAccessGranted } from './featAccess'
 
@@ -33,7 +33,7 @@ export function familiarSelection(c: Character) {
   const crocodileFamiliar = !classFamiliar && activeFeatsNamed(c, "Crocodile's Twin").length > 0
   const familiar = !!classFamiliar || crocodileFamiliar
     || ['Animal Accomplice', 'Familiar', 'Glyph Familiar'].some(name => activeFeatsNamed(c, name).length > 0)
-    || selectedArcaneThesis(c) === 'Improved Familiar Attunement'
+    || hasArcaneThesis(c, 'Improved Familiar Attunement')
   const wasp = !familiar && hasDivineIntercession(c, 'Calistria', 'moderate-boon')
   const divineEmissary = activeFeatsNamed(c, 'Divine Emissary').length > 0 ? 1 : 0
   const leshySecret = leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0 ? 1 : 0

@@ -4,7 +4,39 @@ import { createRoot } from 'react-dom/client'
 import { expect, it, vi } from 'vitest'
 import * as builder from './builder'
 import { SearchableFeatSlots } from './FeatSlots'
+import { VERSATILE_THESIS_FEAT } from './arcaneTheses'
 import type { Character, ContentEntry } from './types'
+
+it('selects an available Versatile Thesis variant in a Wizard class feat slot', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const c: Character = { id: 'wizard', name: 'Test', systems: ['pf2e'], className: 'Wizard', level: 16,
+    arcaneThesis: 'Spell Blending', abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = vi.fn()
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<SearchableFeatSlots c={c} entries={[VERSATILE_THESIS_FEAT]} categories={['class']} save={save} />))
+    await act(async () => {
+      const section = container.querySelector('details')!
+      section.open = true
+      section.dispatchEvent(new Event('toggle'))
+    })
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="L16 Class feat"]')!.click())
+    const dialog = document.querySelector('[aria-label="L16 Class feat picker"]')!
+    expect(dialog.textContent).not.toContain('Versatile Thesis (Spell Blending)')
+    const choice = dialog.querySelector<HTMLButtonElement>('[aria-label="L16 Class: Versatile Thesis (Staff Nexus)"]')!
+    await act(async () => choice.click())
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      feats: [expect.objectContaining({ name: 'Versatile Thesis', choice: 'Staff Nexus', slot: 'class:16:0' })],
+    }))
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    vi.unstubAllGlobals()
+  }
+})
 
 it('pages expanded feat variants and selects a later choice', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)

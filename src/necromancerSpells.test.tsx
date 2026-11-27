@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { expect, it, vi } from 'vitest'
-import { armorRanks, beckoningDirgeMaxRank, classSpellcasting, classSpellSlots, eligibleFeats, featPrerequisiteChecker, focusSpells, knowsSpell, necromancerConjurerRank, necromancerDirge, necromancerExtraSlots, necromancerSpellList, subclassOptions, weaponRanks } from './builder'
+import { armorRanks, beckoningDirgeMaxRank, classSpellcasting, classSpellSlots, eligibleFeats, featPrerequisiteChecker, focusSpells, knowsSpell, necromancerConjurerRank, necromancerDirge, necromancerDirgeLearnChecker, necromancerExtraSlots, necromancerSpellList, subclassOptions, weaponRanks } from './builder'
 import { mapAonHit } from './aon'
 import { DirgeLearnOptions, DirgeRankButton, SpellsContent, SpellsPanel, SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
@@ -47,6 +47,24 @@ const renderAtWitchBookRank = (c: Character, entries: ContentEntry[], rank: numb
 const choices = (html: string, label: string) =>
   new RegExp(`<select aria-label="${label}"[^>]*>([\\s\\S]*?)</select>`).exec(html)?.[1] ?? ''
 const learnOptions = (html: string) => /<ul class="dirge-options">([\s\S]*?)<\/ul>/.exec(html)?.[1] ?? ''
+
+it('checks Dirge candidates against rank, spell list, known spells, and learning limits', () => {
+  const cantrips = Array.from({ length: 8 }, (_, i) => spell(`Cantrip ${i}`, 1, 'Occult', ['Cantrip']))
+  const rankOne = Array.from({ length: 4 }, (_, i) => spell(`Rank One ${i}`))
+  const extra = spell('Extra')
+  const higher = spell('Higher', 2)
+  const arcane = spell('Arcane', 1, 'Arcane')
+  const entries = [...cantrips, ...rankOne, extra, higher, arcane, spell('Harm', 1, 'Divine')]
+  const c: Character = { ...base, spells: [...cantrips, ...rankOne].map(entry =>
+    ({ name: entry.name, entryId: entry.id, rank: entry.level, cantrip: entry.traits.includes('Cantrip') })) }
+  const canLearn = necromancerDirgeLearnChecker(c, entries)
+  expect(canLearn(cantrips[0])).toBe(false)
+  expect(canLearn(extra)).toBe(false)
+  expect(canLearn(higher)).toBe(false)
+  expect(canLearn(arcane)).toBe(false)
+  expect(necromancerDirgeLearnChecker({ ...c, level: 3 }, entries)(extra)).toBe(true)
+  expect(necromancerDirgeLearnChecker({ ...c, spells: [] }, entries)(extra)).toBe(true)
+})
 
 it.each([
   [1, [5, 1]], [2, [5, 2]], [3, [5, 2, 1]], [6, [5, 2, 2, 2]], [7, [5, 2, 2, 2, 1]],

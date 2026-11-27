@@ -12,6 +12,7 @@ import { getSettings } from './settings'
 import { hellknightTrainingBenefit } from './hellknight'
 import { domainSpellDescription, featSpellOptions } from './featSpells'
 import { TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES } from './technomancer'
+import { arcaneThesisOptions, VERSATILE_THESIS_FEAT } from './arcaneTheses'
 
 const featIndexes = new WeakMap<ContentEntry[], { urls: Map<string, ContentEntry>; names: Map<string, ContentEntry> }>()
 const STAFF_ACROBAT_FEATS = new Set([
@@ -150,6 +151,8 @@ function EntryDescriptionContents({ name, entry, choice, prerequisites, access, 
     : undefined
   const technomancerFirmware = entry?.kind === 'feat' && entry.name === 'Versatile Firmware' && technomancerLanguage
     ? TECHNOMANCER_LANGUAGE_RULES[technomancerLanguage].firmware : undefined
+  const thesis = !history.length && entry?.name === VERSATILE_THESIS_FEAT.name && entries && choice
+    ? arcaneThesisOptions(entries).find(option => option.name === choice) : undefined
   const choiceSpell = includeChoiceSpell && !history.length && character && entries && entry?.kind === 'feat' && choice
     ? technomancerHackName
       ? entries.find(spell => spell.kind === 'spell' && !spell.deleted && spell.name === technomancerHackName
@@ -176,6 +179,7 @@ function EntryDescriptionContents({ name, entry, choice, prerequisites, access, 
         {choiceSpellName && <p><strong>{text(choiceSpellName)}:</strong>{' '}
           {text(choiceSpell?.description || 'Spell description unavailable; sync Archives of Nethys content to load it.')}</p>}
         {technomancerFirmware && <p><strong>Firmware Enhancement:</strong> {text(technomancerFirmware)}</p>}
+        {thesis && <p><strong>{text(thesis.name)}:</strong> {text(thesis.description)}</p>}
         {training && <p><strong>{training.name} ({training.order}):</strong> {training.description}
           {training.name === 'Dedication to the Five' && training.choice && character && entries
             && <> {text(domainSpellDescription(character, entries, 'Domain Initiate', training.choice))}</>}

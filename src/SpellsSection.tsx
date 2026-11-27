@@ -16,7 +16,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { animistApparitionSlots, avengerClericSpellSlots, minorMagicInheritedTradition, minorMagicSpells, avengerEldritchCastingClass, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, knownSpellNames, selectedGrantedSpellNames, necromancerDirge, necromancerDirgeCanLearn, necromancerGrantedDirgeSpells, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
+import { animistApparitionSlots, avengerClericSpellSlots, minorMagicInheritedTradition, minorMagicSpells, avengerEldritchCastingClass, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, knownSpellNames, selectedGrantedSpellNames, necromancerDirge, necromancerDirgeLearnChecker, necromancerGrantedDirgeSpells, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, itemSpellUsesChange, type ItemSpell } from './itemSpells'
@@ -1962,9 +1962,11 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const wizardBookUser = wizard || technomancer || wizardSpellbookSlots.length > 0
   const preparedClass = ['Animist', 'Cleric', 'Druid', 'Magus', 'Necromancer', 'Technomancer', 'Witch', 'Wizard']
     .includes(c.className ?? '') || wizardSpellbookSlots.length > 0 || avengerCleric
+  const systemsKey = c.systems.join(',')
   const spellIndex = useMemo(() => {
+    const systems = systemsKey.split(',')
     const spells = entries.filter(entry => entry.kind === 'spell' && !entry.deleted
-      && entry.systems.some(system => c.systems.includes(system)))
+      && entry.systems.some(system => systems.includes(system)))
     const byId = new Map<string, ContentEntry>()
     const byName = new Map<string, ContentEntry>()
     for (const spell of spells) {
@@ -1972,12 +1974,12 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       if (!byName.has(spell.name)) byName.set(spell.name, spell)
     }
     return { spells, byId, byName }
-  }, [entries, c.systems])
+  }, [entries, systemsKey])
   const spellEntry = (name: string, id?: string) => id ? spellIndex.byId.get(id) : spellIndex.byName.get(name)
-  const arcaneBookOptions = useMemo(() => uniqueSpellVariants(
+  const arcaneBookOptions = useMemo(() => bookOpen && bookSource !== 'Dirge' && bookSource !== 'Witch' ? uniqueSpellVariants(
     arcaneSpellbookOptions(c, spellIndex.spells, bookRank, bookSource === 'Technomancer' ? 'sf2e' : 'pf2e'),
-    entry => [...entry.systems].sort().join(',')),
-    [c, spellIndex, bookRank, bookSource])
+    entry => [...entry.systems].sort().join(',')) : [],
+    [c, spellIndex, bookRank, bookSource, bookOpen])
   const programmedSpellEntries = useMemo(() => technomancer && c.technomancerProgrammingLanguage
     ? TECHNOMANCER_LANGUAGE_RULES[c.technomancerProgrammingLanguage].spellCache.flatMap(name => {
       const entry = spellIndex.spells.find(spell => spell.systems.includes('sf2e')
@@ -2021,10 +2023,13 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     : undefined, [witch, witchBookOptions, knownWitchSpells])
   const dirge = useMemo(() => necromancer ? necromancerDirge(c, spellIndex.spells) : undefined,
     [necromancer, c, spellIndex])
-  const dirgeOptions = useMemo(() => necromancer ? uniqueSpellVariants(necromancerSpellList(c, spellIndex.spells)
-    .filter(entry => spellAccessGranted(c, entry) && necromancerDirgeCanLearn(c, spellIndex.spells, entry)),
-    entry => [...entry.systems].sort().join(',')) : [],
-    [necromancer, c, spellIndex, dirge])
+  const dirgeOptions = useMemo(() => {
+    if (!necromancer || !bookOpen || bookSource !== 'Dirge') return []
+    const list = necromancerSpellList(c, spellIndex.spells)
+    const canLearn = necromancerDirgeLearnChecker(c, spellIndex.spells, list)
+    return uniqueSpellVariants(list.filter(entry => spellAccessGranted(c, entry) && canLearn(entry)),
+      entry => [...entry.systems].sort().join(','))
+  }, [necromancer, c, spellIndex, bookOpen, bookSource])
   const rankedDirgeOptions = dirgeOptions.filter(entry => (bookRank === 0
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
     : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
@@ -2032,7 +2037,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     && matchesGearSystem(entry, bookSystem, c.systems)
     && !(c.spells ?? []).some(spell => spell.name.toLowerCase() === entry.name.toLowerCase())
     && (!preventDuplicateSpells || !selectedGrantNames.has(entry.name.toLowerCase())))
-  const rankedWitchBookOptions = witchBookOptions.filter(entry => (bookRank === 0
+  const rankedWitchBookOptions = (bookOpen && bookSource === 'Witch' ? witchBookOptions : []).filter(entry => (bookRank === 0
     ? entry.traits.some(trait => trait.toLowerCase() === 'cantrip')
     : entry.level === bookRank && !entry.traits.some(trait => trait.toLowerCase() === 'cantrip'))
     && entry.name.toLowerCase().includes(bookQuery.trim().toLowerCase()) && matchesSpellDefense(entry, bookDefense)

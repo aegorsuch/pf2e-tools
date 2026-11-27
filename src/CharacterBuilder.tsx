@@ -1,6 +1,6 @@
 import { Info, SourceNote } from './Info'
 import { confirmRemoval, REMOVAL_EVENT } from './confirmRemoval'
-import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Fragment, memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { AbilitiesContent } from './AbilitiesSection'
 import { Achievements } from './Achievements'
@@ -50,7 +50,7 @@ import { backgroundVariants, type BackgroundVariant } from './builder'
 import { hasMagicWarriorMask, SHADOWED_SCALE_MASK } from './magicWarriorMasks'
 import { characterDeityLores, normalizeAcolyte } from './backgrounds'
 import { getSettings } from './settings'
-import { arcaneThesisOptions, selectedArcaneThesis, type ArcaneThesis } from './arcaneTheses'
+import { arcaneThesisOptions, selectedArcaneThesis, VERSATILE_THESIS_FEAT, type ArcaneThesis } from './arcaneTheses'
 import { fatalMethodOptions, selectedFatalMethod, type FatalMethod } from './fatalMethods'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
 import { GAUNTLET, HAFT_STRIKER_WEAPON, OVERSIZED_THROW } from './supplemental'
@@ -58,6 +58,18 @@ import { GAUNTLET, HAFT_STRIKER_WEAPON, OVERSIZED_THROW } from './supplemental'
 const LEVELED_SUBCLASS_CLASSES = ['Alchemist', 'Animist', 'Barbarian', 'Champion', 'Gunslinger', 'Inventor', 'Ranger', 'Rogue']
 
 const NONE: ContentEntry[] = []
+
+const StableStatusesContent = memo(
+  ({ c, entries, save }: SectionProps & { settings: ReturnType<typeof getSettings> }) => <StatusesContent c={c} entries={entries} save={save} />,
+  (previous, next) => {
+    if (previous.entries !== next.entries || previous.save !== next.save || previous.settings !== next.settings) return false
+    const statusKey = (c: Character) => JSON.stringify({ ...c, extraSlots: undefined, updatedAt: undefined })
+    if (statusKey(previous.c) !== statusKey(next.c)) return false
+    const before = new Set(plannedSlots(previous.c, previous.entries).map(slot => slot.key))
+    const after = new Set(plannedSlots(next.c, next.entries).map(slot => slot.key))
+    return next.c.feats.every(feat => !feat.slot || before.has(feat.slot) === after.has(feat.slot))
+  },
+)
 
 function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, backgroundLores, deityLores, disabled }: {
   label: string
@@ -390,6 +402,8 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
   const systemsKey = c.systems.join()
   const baseEntries = characterCatalog(catalog, systemsKey)
   const entries = useMemo(() => {
+    if (c.systems.includes('pf2e') && c.className === 'Wizard')
+      return baseEntries.some(entry => entry.id === VERSATILE_THESIS_FEAT.id) ? baseEntries : [...baseEntries, VERSATILE_THESIS_FEAT]
     if (!c.systems.includes('sf2e') || c.className !== 'Technomancer') return baseEntries
     return [...baseEntries,
       ...[VERSATILE_FIRMWARE_FEAT, GREATER_CROSS_PLATFORM_APPLICATION_FEAT]
@@ -410,7 +424,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
     window.addEventListener(REMOVAL_EVENT, onRemoval)
     return () => { window.removeEventListener(REMOVAL_EVENT, onRemoval); window.clearTimeout(timer) }
   }, [])
-  const save = (patch: Partial<Character>) => {
+  const save = useCallback((patch: Partial<Character>) => {
     return db.transaction('rw', db.characters, async () => {
       const current = await db.characters.get(c.id)
       if (!current) throw new Error('Character no longer exists')
@@ -457,7 +471,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       if (next.boosts) next.abilities = computeAbilities(next, entries)
       await db.characters.put(next)
     })
-  }
+  }, [c.id, entries])
   // House rules: keep the free Dedications (e.g. Ranger's Snarecrafter) in step with the rule, class and level
   const wanted = activeHomebrewDedications(c)
   const missing = wanted.filter((d) => !c.feats.some((f) => f.slot === d.slot) && entries.some((e) => e.kind === 'feat' && e.name === d.name))
@@ -812,8 +826,14 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                 describe={entry => LEVELED_SUBCLASS_CLASSES.includes(c.className ?? '') && c.systems.includes('pf2e')
                   ? { ...entry, description: subclassBaseDescription(entry) } : entry}
                 onChange={name => save({ subclass: name ?? '' })} /> }] : []),
-              ...((c.className === 'Druid' || c.className === 'Investigator' && (subclasses.length > 0 || !!subclassName) || c.className === 'Necromancer'
-              || c.className === 'Wizard' && c.systems.includes('pf2e')) ? [{ key: 'class-choice', level: 1, control: <>
+              ...(c.className === 'Wizard' && c.systems.includes('pf2e') ? [{ key: 'arcane-thesis', level: 1,
+                name: arcaneThesis ?? 'Arcane Thesis', control: <SubclassSlot c={c} entries={entries}
+                  label="Arcane Thesis" options={arcaneTheses.filter(entry => entry.name === arcaneThesis
+                    || !getSettings().wizardVersatileThesis || !c.feats.some(feat => feat.name === VERSATILE_THESIS_FEAT.name && feat.choice === entry.name))}
+                  selected={arcaneTheses.find(entry => entry.name === arcaneThesis)}
+                  onChange={name => save({ arcaneThesis: name as ArcaneThesis | undefined })} /> }] : []),
+              ...((c.className === 'Druid' || c.className === 'Investigator' && (subclasses.length > 0 || !!subclassName) || c.className === 'Necromancer')
+              ? [{ key: 'class-choice', level: 1, control: <>
           {c.className === 'Investigator' && (subclasses.length > 0 || !!subclassName) && <>
             {c.className === 'Investigator' ? <SearchableSelect label="Methodology" aria-label="Methodology"
               value={methodPickerValue} disabled={!!selectedClassArchetype(c, entries)} onChange={event => {
@@ -837,10 +857,6 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           {c.className === 'Necromancer' && <>
             <Pick label="Fatal Method" kind="fatal method" value={fatalMethod} options={fatalMethods}
               onChange={value => save({ fatalMethod: value as FatalMethod | undefined })} />
-          </>}
-          {c.className === 'Wizard' && c.systems.includes('pf2e') && <>
-            <Pick label="Arcane Thesis" kind="arcane thesis" value={arcaneThesis} options={arcaneTheses}
-              onChange={value => save({ arcaneThesis: value as ArcaneThesis | undefined })} />
           </>}
           {c.className === 'Druid' && (
               <SearchableSelect label="Druidic Order" aria-label="Druidic Order" value={subclassName ?? ''} onChange={(e) => save({ order: e.target.value })}>
@@ -1067,7 +1083,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       <SpellsPanel {...section} />
       <DeferredDetails>
         <StatusesSummary {...section} />
-        <StatusesContent {...section} />
+        <StableStatusesContent {...section} settings={getSettings()} />
       </DeferredDetails>
     </section>
   )

@@ -134,6 +134,8 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'whirlwindStanceNoPrerequisites', label: 'Whirlwind Stance: No Prerequisites' },
   { key: 'warriorLegendClearTheWay', label: 'Warrior of Legend: Clear the Way',
     description: 'Warrior of Legend Dedication satisfies the Mauler Dedication prerequisite for Clear the Way.' },
+  { key: 'wizardVersatileThesis', label: 'Wizard: Versatile Thesis',
+    description: 'Wizards can select the repeatable level 16 Versatile Thesis feat to gain additional arcane theses.' },
 ]
 RULES.sort((a, b) => a.label.localeCompare(b.label))
 

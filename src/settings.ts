@@ -61,6 +61,7 @@ export interface Settings {
   soldierGrenadier: boolean
   technomancerFieldAgent: boolean
   technomancerAugmented: boolean
+  wizardVersatileThesis: boolean
   witchwarperFieldAgent: boolean
   // House rule: suppress flight grants from Animal Feature, Auspice, Celestial/Fiendish Form and Mount, and Untamed Shift
   championFormNoFlight: boolean
@@ -115,7 +116,7 @@ const DEFAULTS: Settings = {
   androidAugmented: true,
   technomancerGrenadier: true, technomancerJunkomancer: true, operativeFieldAgent: true,
   solarianFieldAgent: true, solarianShieldAce: true, solarianParagonsGuard: true, soldierFieldAgent: true, soldierGrenadier: true, technomancerFieldAgent: true,
-  technomancerAugmented: true, witchwarperFieldAgent: true, championCavalier: false, commanderCavalier: true,
+  technomancerAugmented: true, wizardVersatileThesis: true, witchwarperFieldAgent: true, championCavalier: false, commanderCavalier: true,
   commanderCaptain: true, druidCavalier: false, rangerCavalier: true, championBeastmaster: true,
   commanderBeastmaster: true, druidBeastmaster: true, rangerBeastmaster: true, championFormNoFlight: true,
   generalFeatsOnly: false, planSkillPrerequisites: true, skillTokenConversion: true, fighterPhysicalSkills: true,

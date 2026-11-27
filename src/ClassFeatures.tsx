@@ -1,5 +1,5 @@
 import { Info } from './Info'
-import { activeFeatsNamed, barbarianInstinct, canBeGiantWeapon, canBeOsteoArmament, canBeVerdantWeapon, isGiantInstinct, ownedWeapons, weaponEquipped, blessedArmamentRuneOptions, blessedArmamentTarget, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, precisionEdgeDamageDice, runeBaseName, runeName, selectedSubclass, solarWeaponTraitBudget, solarWeaponTraits, SOLAR_WEAPON_TRAITS, weaponRuneApplies, type SectionProps } from './builder'
+import { activeFeatsNamed, barbarianInstinct, canBeGiantWeapon, canBeOsteoArmament, canBeVerdantWeapon, isGiantInstinct, ownedWeapons, weaponEquipped, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, precisionEdgeDamageDice, runeBaseName, runeName, selectedSubclass, solarWeaponTraitBudget, solarWeaponTraits, SOLAR_WEAPON_TRAITS, weaponRuneApplies, type SectionProps } from './builder'
 import type { OwnedWeapon } from './types'
 import { HANDWRAPS } from './supplemental'
 import { SearchableSelect } from './SearchableSelect'
@@ -25,8 +25,9 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
   const precisionEdgeDice = precisionEdgeDamageDice(c, entries)
   const blessing = championBlessing(c)
   const extraBlessings = c.feats.flatMap((feat) => ['Second Blessing', 'Third Blessing'].includes(feat.name) && feat.choice ? [feat.choice] : [])
-  const targets = c.className === 'Champion' && c.level >= 3 ? blessedArmamentTargets(c, entries) : []
-  const target = blessedArmamentTarget(c, entries)
+  const showArmament = c.className === 'Champion' && c.level >= 3 && championBlessings(c).includes('Blessed Armament')
+  const targets = showArmament ? blessedArmamentTargets(c, entries) : []
+  const target = c.blessedArmament?.weaponId ? targets.find(weapon => weapon.id === c.blessedArmament?.weaponId) : targets[0]
   const sanctification = deitySanctification(c, entries)
   const weapons = ownedWeapons(withoutBattleForm(c), entries)
   const giant = isGiantInstinct(c, entries)
@@ -68,8 +69,8 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
       {!options.length && <small role="status">Equip an eligible weapon in Gear to select it here.</small>}
     </div>
   }
-  const runes = blessedArmamentRuneOptions(c, entries).filter((rune) => target && !target.runes.some((existing) => runeBaseName(existing) === runeBaseName(rune)) && (target.id === HANDWRAPS.id
-    ? !['Returning', 'Shifting'].includes(rune) : weaponRuneApplies(entries, target, rune)))
+  const runes = target ? blessedArmamentRuneOptions(c, entries).filter((rune) => !target.runes.some((existing) => runeBaseName(existing) === runeBaseName(rune)) && (target.id === HANDWRAPS.id
+    ? !['Returning', 'Shifting'].includes(rune) : weaponRuneApplies(entries, target, rune))) : []
   const solarTraits = (twin: boolean) => {
     const config = twin ? c.solarianTwinWeapon : c.solarianWeapon
     const selected = solarWeaponTraits(c, twin)
@@ -384,7 +385,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           </select>
         </label>
         {extraBlessings.length > 0 && <small>Additional blessings: {extraBlessings.join(', ')}.</small>}
-        {championBlessings(c).includes('Blessed Armament') && <>
+        {showArmament && <>
           {targets.length > 1 ? <span>Blessed armament{' '}
             <SearchableSelect aria-label="Blessed armament" value={target?.id ?? ''} onChange={(e) => {
               if (!e.target.value || targets.some((weapon) => weapon.id === e.target.value))

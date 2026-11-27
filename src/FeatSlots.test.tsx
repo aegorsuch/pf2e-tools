@@ -104,10 +104,10 @@ it('offers Versatile Operative again in the class feat picker with unused specia
   const entries = [...specializations, feat]
   const tree = () => FeatSlots({ c, entries, categories: ['class'], save: patch => { c = { ...c, ...patch } },
     search: { 'class:12:0:open': '1' }, onSearch: () => {} })
-  expect(renderToStaticMarkup(tree())).toContain('L12 Class: Versatile Operative (Infiltrator)')
-  expect(renderToStaticMarkup(tree())).not.toContain('L12 Class: Versatile Operative (Ghost)')
-  expect(renderToStaticMarkup(tree())).not.toContain('L12 Class: Versatile Operative (Sniper)')
-  findButton(tree(), 'L12 Class: Versatile Operative (Infiltrator)')!()
+  expect(renderToStaticMarkup(tree())).toContain('L12 Class: Versatile Specialization (Infiltrator)')
+  expect(renderToStaticMarkup(tree())).not.toContain('L12 Class: Versatile Specialization (Ghost)')
+  expect(renderToStaticMarkup(tree())).not.toContain('L12 Class: Versatile Specialization (Sniper)')
+  findButton(tree(), 'L12 Class: Versatile Specialization (Infiltrator)')!()
   expect(c.feats).toContainEqual(expect.objectContaining({
     name: feat.name, slot: 'class:12:0', choice: 'Infiltrator',
   }))
