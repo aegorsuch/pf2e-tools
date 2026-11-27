@@ -837,6 +837,22 @@ it('allows archetype feats before a later planned Dedication', () => {
   expect(featSelectionPrerequisiteChecker(c, [dedication, dogma], slot)(dogma).missing).toEqual([])
 })
 
+it('offers Dogma class feats directly in archetype slots', () => {
+  const dedication: ContentEntry = { id: 'cleric-dedication', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Cleric Dedication',
+    level: 2, traits: ['Archetype', 'Dedication'], description: '', data: { archetype: 'Cleric' }, effects: [], updatedAt: 1 }
+  const dogma: ContentEntry = { ...dedication, id: 'basic-dogma', name: 'Basic Dogma', level: 4, traits: ['Archetype'], data: { archetype: 'Cleric' } }
+  const spellcasting: ContentEntry = { ...dogma, id: 'bcs', name: 'Basic Cleric Spellcasting' }
+  const initiate: ContentEntry = { ...dedication, id: 'di', name: 'Domain Initiate', level: 1, traits: ['Cleric'], data: {} }
+  const entries = [dedication, dogma, spellcasting, initiate]
+  const c: Character = { ...base, className: 'Fighter', level: 10,
+    feats: [{ name: 'Cleric Dedication', type: 'Archetype Feat', level: 10, slot: 'archetype:10:0' }] }
+  const slot = plannedSlots(c, entries).find(candidate => candidate.key === 'archetype:4:0')!
+  const names = eligibleFeats(entries, c, slot).map(entry => entry.name)
+  expect(names).toContain('Basic Cleric Spellcasting')
+  expect(names).toContain('Domain Initiate')
+  expect(names).not.toContain('Basic Dogma')
+})
+
 it('gives Spellshot Wizard spellcasting its slots, book choices, and arcana feat selections', () => {
   const dedication = { name: 'Spellshot Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }
   const basic = { name: 'Basic Wizard Spellcasting', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' }

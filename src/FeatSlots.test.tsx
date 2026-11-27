@@ -3382,7 +3382,7 @@ it('hides unowned archetype feats, keeps Dedication choices, and shows other unm
   findButton(tree(), label)!()
   expect(save).not.toHaveBeenCalled()
   c = { ...c, level: 6, feats: [{ ...c.feats[0], takenLevel: 6, slot: 'archetype:6:0' }] }
-  expect(renderToStaticMarkup(tree())).not.toContain(child.name)
+  expect(renderToStaticMarkup(tree())).toContain(child.name)
 })
 
 it('shows missing prerequisites even when the feat currently has no available subchoices', () => {

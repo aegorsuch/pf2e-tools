@@ -1950,9 +1950,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && entry.systems.some(system => c.systems.includes(system))
         && entry.level <= Math.min(c.level, slot.level) && !prerequisites(entry).missing.length))
   }))
-  const ownedArchetype = slot.category === 'archetype' ? archetypePrerequisites({
-    ...c, feats: c.feats.filter(feat => featTakenLevel(feat) <= Math.min(c.level, slot.level)),
-  }, entries, slot.key, true) : undefined
+  const ownedArchetype = slot.category === 'archetype' ? archetypePrerequisites(c, entries, slot.key, true) : undefined
   const candidateTraits = [...new Set([trait, ...ancestryTraits].filter((value): value is string => !!value))]
   const searchable = slot.category !== 'bonus' && slot.category !== 'archetype' && !classArchetype && candidateTraits.length === 1
     ? featsWithTrait(entries, candidateTraits[0]) : featIndex(entries)
@@ -2127,7 +2125,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       })) duplicateLore.add(entry.id)
     }
   }
-  return candidates.filter(({ entry, equivalence }) => {
+  const result = candidates.filter(({ entry, equivalence }) => {
        if (slot.grantedBy !== 'Scion of Many Planes' && entry.traits.some(trait => trait.toLowerCase() === 'lineage')
          && (slot.level !== 1 || takenLineage)
          && !c.feats.some(feat => feat.slot === slot.key && feat.name === entry.name)) return false
@@ -2149,6 +2147,31 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       }
       return true
     }).map(({ entry }) => entry)
+  if (slot.category !== 'archetype' || !c.systems.includes('pf2e')) return result
+  const direct = directDedicationClassFeats(c, entries, slot, taken, prerequisites)
+  const selectedName = c.feats.find(feat => feat.slot === slot.key)?.name
+  return [...result.filter(entry => !CLASS_FEAT_GRANTS[entry.name] || entry.name === selectedName),
+    ...direct.filter(entry => !result.some(other => other.name === entry.name))]
+}
+
+// Basic/Advanced Arcana and Dogma are offered as the class feats they grant: the first is level 2 or lower, the second up to half the level.
+function directDedicationClassFeats(c: Character, entries: ContentEntry[], slot: PlannedSlot, taken: Set<string>,
+  prerequisites: (entry: ContentEntry) => { missing: string[] }) {
+  const found = new Map<string, ContentEntry>()
+  for (const classTrait of new Set(Object.values(CLASS_FEAT_GRANTS))) {
+    if (!c.feats.some(feat => feat.name === `${classTrait} Dedication` && feat.slot !== slot.key)) continue
+    const isClassFeat = (entry: ContentEntry) => entry.kind === 'feat' && !entry.deleted && entry.systems.includes('pf2e')
+      && entry.traits.some(trait => trait.toLowerCase() === classTrait.toLowerCase())
+      && !entry.traits.some(trait => /^(archetype|dedication)$/i.test(trait))
+    const owned = c.feats.filter(feat => feat.slot !== slot.key && feat.slot?.startsWith('archetype:')
+      && entries.some(entry => entry.name === feat.name && isClassFeat(entry))).length
+    const cap = owned === 0 ? 2 : owned === 1 ? Math.floor(slot.level / 2) : 0
+    for (const entry of entries) {
+      if (entry.level >= 1 && entry.level <= cap && isClassFeat(entry) && !taken.has(entry.name)
+        && !prerequisites(entry).missing.length) found.set(entry.name, entry)
+    }
+  }
+  return [...found.values()].sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
 }
 
 export function syncOrderExplorerFeats(c: Character, entries: ContentEntry[]): Partial<Character> | undefined {
