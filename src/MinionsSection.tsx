@@ -93,11 +93,6 @@ function minionAbilityPicker({ label, items, optionGroups, onAdd, entries, chara
       </>
       return expanded ? <div key={item.key} className="familiar-ability">
         <div className="familiar-ability-title">{title}</div>
-        {!!item.entry?.traits.length && <div className="gear-traits">{item.entry.traits.map(trait => <span key={trait}>{trait}</span>)}</div>}
-        {typeof item.entry?.data.sourceBook === 'string' && item.entry.data.sourceBook && <small><b>Source</b> {item.entry.data.sourceBook}</small>}
-        {item.entry?.description && <p className="companion-description">{spellDCText(character, entries, item.entry.description)
-          .split(/\b(Critical Success|Critical Failure|Success|Failure)\b(?=\s)/g)
-          .map((part, index) => index % 2 ? <Fragment key={index}>{'\n'}<b>{part}</b></Fragment> : part)}</p>}
       </div> : <div key={item.key} className="rune">{title}</div>
     })}
     {children}

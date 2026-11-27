@@ -1091,7 +1091,6 @@ it('selects, details, removes, and applies familiar abilities without exposing s
   html = renderToStaticMarkup(MinionsContent({ c, entries: [...familiarEntries, spell], save: () => {} }))
   expect(html).toContain('<h5>Spells</h5>')
   expect(html).toContain('aria-haspopup="dialog">Cursed Metamorphosis</button>')
-  expect(html).toContain('<p class="companion-description">Polymorph.</p>')
   c = saved
   html = renderToStaticMarkup(tree())
   expect(html).toContain('<small>Hit Points</small><b>56</b>')
@@ -1169,8 +1168,6 @@ it('shows specific familiar grants alongside choices without removal controls an
   expect(html).toContain('They can be know-it-alls.')
   expect(html).toContain('Ink Spray')
   expect(html).toContain('aria-label="Single Action"')
-  expect(html).toContain('<b>Critical Success</b>')
-  expect(html).toContain('Rival Academies')
   expect(html).toContain('<div>Arcana +16 (T)</div><div>Society +16 (T)</div>')
   expect(html).toContain('Scent (imprecise, 30 feet)')
   expect(html).toContain('Fly 25 feet')
@@ -1198,7 +1195,6 @@ it('shows the selected Witch patron ability as granted and reserves its familiar
   expect(html).toContain('<h4>Witch&#x27;s Familiar</h4> (1/4)')
   expect(html).not.toContain('Patron familiar ability')
   expect(html).toContain('aria-haspopup="dialog">Familiar of Keen Senses</button>')
-  expect(html).toContain('<p class="companion-description">Your familiar gains scent or tremorsense')
   expect(html).not.toContain('Remove Familiar ability')
   expect(html).not.toContain('One ability must be your patron')
 })
@@ -1222,7 +1218,6 @@ it('shows feat-selected familiar abilities and Witch activities as locked cards'
   expect(html).toContain('7d8')
   expect(html).toContain('aria-haspopup="dialog">Shed Spirit</button>')
   expect(html).toContain('aria-haspopup="dialog">Patron’s Claim</button>')
-  expect(html).toContain('<p class="companion-description">Your familiar gains Shed Spirit.')
   expect(html.match(/aria-label="Remove Familiar ability \d+"/g)).toHaveLength(1)
   const radiant = { ...c, feats: c.feats.map(feat => feat.name === 'Divine Emissary' ? { ...feat, choice: 'Radiant' } : feat),
     familiar: { abilities: [] } }
@@ -1525,7 +1520,7 @@ it('keeps one familiar while preserving dormant Calistria wasp choices', () => {
   expect(JSON.stringify(c.familiar)).toBe(before)
   html = markup()
   expect(html).toContain('</h4> (2/2)')
-  expect(html.match(/fly Speed of 25 feet/g)).toHaveLength(3)
+  expect(html.match(/fly Speed of 25 feet/g)).toHaveLength(2)
 
   c = { ...c, feats: [{ name: 'Leshy Familiar', type: 'Class Feat', level: 1 }] }
   expect(markup()).not.toContain('Wasp Familiar')
