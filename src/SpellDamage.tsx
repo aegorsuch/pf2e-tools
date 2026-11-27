@@ -48,6 +48,8 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
         components: [{ dice: rank, sides: 6, type: 'piercing' }] }] : []
     case 'Shadow Strike':
       return rank >= 4 ? [{ label: 'Damage', dice: rank + 1, sides: 10, type: 'void' }] : []
+    case 'Disintegrate':
+      return rank >= 6 ? [{ label: 'Damage', dice: rank * 2, sides: 10, type: 'untyped' }] : []
     case 'Splinter Volley': {
       if (rank < 2) return []
       const step = Math.floor(rank / 2)

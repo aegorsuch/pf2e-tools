@@ -77,6 +77,20 @@ it('rolls heightened Shadow Strike void damage', () => {
   }
 })
 
+it('rolls Disintegrate damage without applying Fortitude outcomes', () => {
+  const entry: ContentEntry = { id: 'disintegrate', name: 'Disintegrate', systems: ['pf2e', 'sf2e'], kind: 'spell',
+    source: 'official', level: 6, traits: [], description: '', data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 5)).toEqual([])
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  for (const rank of [6, 8, 10]) {
+    const [damage] = spellDamage(entry.name, rank)
+    expect(damage).toEqual({ label: 'Damage', dice: rank * 2, sides: 10, type: 'untyped' })
+    expect(rollSpellDamage(damage)).toBe(rank * 2)
+    expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+      .toContain(`Damage: ${rank * 2}d10 untyped`)
+  }
+})
+
 it('rolls Splinter Volley per target, with critical persistent bleed at heightened ranks', () => {
   expect(spellDamage('Splinter Volley', 1)).toEqual([])
   vi.spyOn(Math, 'random').mockReturnValue(0)
