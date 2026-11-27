@@ -106,8 +106,6 @@ export interface OwnedArmor {
   resilient: number
   runes: string[]
   upgrades?: string[]
-  // Mod Fanatic Android body slot: separate from the armor's upgrade slots
-  personalUpgrades?: string[]
   energyShieldingTypes?: Record<string, EnergyShieldingType>
   energizedSpikesEnergy?: EnergizedSpikesEnergy
   activeJetpack?: string
@@ -421,6 +419,8 @@ export interface Character {
   playingCardEnhancements?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes'>
   handwraps?: Pick<OwnedWeapon, 'potency' | 'striking' | 'runes' | 'upgrades' | 'material'> & { kind?: 'hardlight'; grade?: HardlightGrade }
   armors?: OwnedArmor[]
+  // Mod Fanatic Android body slot: separate from any armor's upgrade slots
+  personalUpgrades?: string[]
   inventorArmorSuit?: 'Power Suit' | 'Subterfuge Suit'
   inventorArmorModifications?: Partial<Record<'initial' | 'breakthrough' | 'revolutionary' | 'manifold' | 'basic', string>> & {
     enhanced?: string; incredible?: string; overdrive?: boolean; voidHealing?: boolean

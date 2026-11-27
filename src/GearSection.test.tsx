@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { ArmorList, ArmorUpgrades, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
+import { ArmorList, ArmorUpgrades, PersonalUpgradeSlot, armorUpgradeSlots, Augmentations, BulkLimits, HandwrapsGear, isSpecificGear, Search, ShieldAttachment, ShieldEquipment, WeaponList, WeaponUpgrades } from './GearSection'
 import { AnimalFeatureOptions, ItemSpellUses } from './SpellsSection'
 import { itemSpells, itemSpellUses } from './itemSpells'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, armorUpgradeSlots as resolvedArmorUpgradeSlots,
@@ -3552,7 +3552,9 @@ it('uses armor upgrades instead of runes for SF2E-tagged armor', () => {
   expect(renderToStaticMarkup(tree())).not.toContain('Add armor upgrade')
   const extraSlot = renderToStaticMarkup(ArmorList({ c: { ...c, heritage: 'Mod Fanatic Android' }, entries, save: () => {} }))
   expect(extraSlot).not.toContain('Add armor upgrade')
-  expect(extraSlot).toContain('Add personal upgrade')
+  expect(extraSlot).not.toContain('Add personal upgrade')
+  expect(renderToStaticMarkup(PersonalUpgradeSlot({ c: { ...c, heritage: 'Mod Fanatic Android' }, entries, save: () => {} })))
+    .toContain('Add personal upgrade')
   expect(extraSlot).not.toContain('Armor upgrade slots:')
 })
 
@@ -3677,7 +3679,7 @@ it('leaves one Paragon Clandestine Suit upgrade slot, or two for Mod Fanatic And
   expect(armorUpgradeEntries(android, entries, android.armors![0]).map(entry => entry.id))
     .toEqual(expect.arrayContaining(['extra-1', ...builtIn.map(entry => entry.id)]))
   expect(armorUpgradeEntries(android, entries, android.armors![0]).map(entry => entry.id)).not.toContain('extra-2')
-  const personal = { ...android, armors: [{ ...android.armors![0], personalUpgrades: ['extra-3', 'extra-2'] }] }
+  const personal = { ...android, personalUpgrades: ['extra-3', 'extra-2'] }
   expect(armorUpgradeEntries(personal, entries, personal.armors![0]).map(entry => entry.id)).toContain('extra-3')
   expect(armorUpgradeEntries(personal, entries, personal.armors![0]).map(entry => entry.id)).not.toContain('extra-2')
   const human = { ...personal, heritage: undefined }

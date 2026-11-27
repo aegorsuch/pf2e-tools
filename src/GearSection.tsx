@@ -2073,6 +2073,13 @@ export function WarmaskGear({ c, entries }: SectionProps) {
     descriptionNote={!entry ? chosen : undefined} entries={entries} className="equipment-name" />
 }
 
+export function PersonalUpgradeSlot({ c, entries, save }: SectionProps) {
+  if (!hasPersonalUpgradeSlot(c)) return null
+  return <ArmorUpgrades entries={entries} upgrades={c.personalUpgrades ?? []} limit={1}
+    worn={!!c.armors?.some(armor => armor.worn)} armorName="your body" slotLabel="personal upgrade"
+    onToggleJetpack={() => undefined} onChange={personalUpgrades => save({ personalUpgrades })} />
+}
+
 export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { part?: 'armor' | 'shield' | 'all' }) {
   const armors = ownedArmors(c, entries)
   const attached = armors.map(armor => armorEntry(c, entries, armor.name, armor.id)).find(entry => entry?.data.attached)
@@ -2347,10 +2354,6 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                       ...(a.activeForceField && !armorUpgradeEntries(c, entries, { ...a, upgrades })
                           .some(upgrade => forceFieldStats(upgrade)) ? { activeForceField: false } : {}) })
                     }} />}
-              {sf2eArmor && entry && hasPersonalUpgradeSlot(c) && entry.data.upgrades_allowed !== false
-                && <ArmorUpgrades entries={entries} upgrades={a.personalUpgrades ?? []} limit={1} worn={a.worn}
-                  armorName={a.name} slotLabel="personal upgrade" onToggleJetpack={() => undefined}
-                  onChange={personalUpgrades => update(a.id, { personalUpgrades })} />}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, runeLimit(potency, a.material)) })} />}
               {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}

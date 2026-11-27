@@ -3690,7 +3690,8 @@ export function armorUpgradeEntries(c: Character, entries: ContentEntry[], armor
     : Math.max(0, armorUpgradeSlots(armorItem) - automaticArmorUpgradeSlotsUsed(armorItem, c, entries))
   const installed = (armor.upgrades ?? []).slice(0, limit).flatMap(id => armorUpgradeEntry(entries, id) ?? [])
   const personal = armorItem && armorItem.data.upgrades_allowed !== false && hasPersonalUpgradeSlot(c)
-    ? (armor.personalUpgrades ?? []).slice(0, 1).flatMap(id => armorUpgradeEntry(entries, id) ?? []) : []
+    && armor.worn
+    ? (c.personalUpgrades ?? []).slice(0, 1).flatMap(id => armorUpgradeEntry(entries, id) ?? []) : []
   return [...automatic, ...installed, ...personal]
 }
 
