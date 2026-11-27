@@ -51,6 +51,7 @@ const ACTIONS: Record<string, { name: string; actions: string }[]> = {
   'Starday Night Special': [{ name: 'Lucky Bullet', actions: 'Free Action' }],
   SLARP: [{ name: 'Sample Return', actions: 'Free Action' }],
   'Liminal Laser Rifle': [{ name: 'Liminal Lock', actions: 'Single Action' }],
+  'Liminal Plasma Sniper Rifle': [{ name: 'Liminal Lock', actions: 'Single Action' }],
   'Stun Stick': [{ name: 'Short, Sharp Shock', actions: 'Single Action' }],
   'Raptorial Edge': [{ name: 'Mind Slice', actions: 'Free Action' }],
   'Wintershot (Artifact)': [{ name: 'Auroral Shine', actions: 'Single Action' }, { name: 'Signal Flare', actions: 'Single Action' },

@@ -702,6 +702,13 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
       data: { ...data, weapon_category: 'Martial', weapon_group: 'Sniper', range: 120, range_increment: 120,
         weapon_grade_family: 'homebrew:plasma-sniper-rifle' }, updatedAt: 1 }
   })
+  const liminalPlasmaSnipers = plasmaSnipers.map<ContentEntry>(entry => ({
+    ...entry, id: entry.id.replace('plasma-sniper-rifle', 'liminal-plasma-sniper-rifle'),
+    name: entry.name.replace('Plasma Sniper Rifle', 'Liminal Plasma Sniper Rifle'),
+    traits: [...new Set([...entry.traits, 'Magical'])],
+    description: `${entry.description}\n\nActivate—Liminal Lock; Cost 2 charges. The next ranged Strike against a target with cover reduces its cover bonus to AC by 1.`,
+    data: { ...entry.data, special_weapon_source: 'Liminal Plasma Sniper Rifle', weapon_grade_family: 'homebrew:liminal-plasma-sniper-rifle' },
+  }))
   const rapidLaser = laser.map<ContentEntry>(entry => {
     const grade = entry.name.replace(/Laser Pistol$/, '').trim()
     const { url: _url, ...data } = entry.data
@@ -738,7 +745,7 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
     ...flyssa, id: 'homebrew:seax', source: 'homebrew' as const, name: 'Seax',
     description: 'A broad-backed blade with a long cutting edge and a sharp point, carried as both a tool and a close-quarters weapon.',
     updatedAt: 1,
-  }] : []), ...focusRifles, ...plasmaSnipers, ...rapidLaser, ...slarpRapid]
+  }] : []), ...focusRifles, ...plasmaSnipers, ...liminalPlasmaSnipers, ...rapidLaser, ...slarpRapid]
 }
 
 export const ANIMAL_FEATURE_CLAWS: ContentEntry = {
