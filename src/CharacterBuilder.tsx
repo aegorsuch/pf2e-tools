@@ -853,7 +853,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                 return entry ? [{ entry, label: `${feat.choice} order (Order Explorer)` }] : []
               }),
               ...additionalOperativeSpecializations.map(entry => ({ entry, label: `${entry.name} specialization (Versatile Operative)` })),
-            ].map(({ entry, label }) => ({ ...entry, name: label, level: /\((Versatile |Second Innovation|Third Innovation|Order Explorer)/.test(label)
+            ].map(({ entry, label }) => ({ ...entry, name: label, description: /^Trained in [^.]*\.\s*$/.test(entry.description ?? '') ? '' : entry.description, level: /\((Versatile |Second Innovation|Third Innovation|Order Explorer)/.test(label)
               ? featTakenLevel(c.feats.find(feat => (feat.name.startsWith('Versatile ') || /Innovation|Order Explorer/.test(feat.name)) && (feat.choice === entry.name || feat.choice === 'Untamed' && entry.name === 'Wild')) ?? { level: 1 } as Character['feats'][number]) : 1 })), ...(c.className ? classFeatures(entries, c) : [])]} prelude={<ClassFeatures {...section} />} />
         </div>}</DeferredContent>
       </DeferredDetails>
