@@ -182,6 +182,12 @@ it('rolls Holy Light fire damage with extra spirit damage against unholy', () =>
     additional: { label: 'Extra damage against unholy', dice: 9, sides: 6, type: 'spirit' } }])
 })
 
+it('rolls Blazing Blade fire plus good damage with heightened critical persistent damage', () => {
+  expect(spellDamage('Blazing Blade', 2, 3)).toEqual([{ label: 'Damage', dice: 1, sides: 6, bonus: 3, type: 'fire',
+    additional: { label: 'Good damage', dice: 1, sides: 6, type: 'good' } }])
+  expect(spellDamage('Blazing Blade', 6, 3)[1]).toEqual({ label: 'Critical persistent damage', dice: 2, sides: 6, type: 'persistent good' })
+})
+
 it('rolls Burstmoji damage and shows heightened hazardous terrain damage', () => {
   expect(spellDamage('Burstmoji', 3)).toEqual([])
   for (const [rank, dice, terrain] of [[4, 6, 5], [7, 12, 11], [10, 18, 17]]) {

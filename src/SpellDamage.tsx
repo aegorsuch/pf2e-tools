@@ -50,6 +50,15 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return [{ label: 'Damage', dice, sides: 6, type: 'fire',
         additional: { label: 'Extra damage against unholy', dice, sides: 6, type: 'spirit' } }]
     }
+    case 'Blazing Blade': {
+      if (rank < 2) return []
+      const fire = 1 + Math.floor((rank - 2) / 2)
+      return [
+        { label: 'Damage', dice: fire, sides: 6, ...(spellcastingModifier !== undefined ? { bonus: spellcastingModifier } : {}), type: 'fire',
+          additional: { label: 'Good damage', dice: 1, sides: 6, type: 'good' } },
+        ...(fire > 1 ? [{ label: 'Critical persistent damage', dice: fire - 1, sides: 6, type: 'persistent good' }] : []),
+      ]
+    }
     case 'Verdant Code':
       return rank >= 2 ? [{ label: 'Damage', dice: 2, sides: 6, type: 'piercing' }] : []
     case 'Wall of Fire':
