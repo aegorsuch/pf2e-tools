@@ -1079,7 +1079,7 @@ it('alphabetizes granted and installed augmentations together without changing s
       { id: 'z', entryId: 'z', name: 'Zeta Implant', slot: 'standard' },
       { id: 'b', entryId: 'b', name: 'Beta Implant', slot: 'standard' },
     ] }
-  const choices: ContentEntry[] = ['Zeta Implant', 'Beta Implant'].map(name => ({
+  const choices: ContentEntry[] = ['Zeta Implant', 'Beta Implant', 'Omega Implant', 'Alpha Implant'].map(name => ({
     ...weapon, id: name, name, kind: 'item', systems: ['sf2e'], data: { item_category: 'Augmentations' },
   }))
   const markup = renderToStaticMarkup(<Augmentations c={c} entries={choices} save={() => {}} />)
@@ -1087,7 +1087,8 @@ it('alphabetizes granted and installed augmentations together without changing s
   const names = ['Autorecognition Lens', 'Beta Implant', 'Datajack', 'Zeta Implant']
   expect(names.map(name => list.indexOf(name))).toEqual([...names.map(name => list.indexOf(name))].sort((a, b) => a - b))
   expect(names.every(name => list.includes(name))).toBe(true)
-  expect(markup.indexOf('Beta Implant (level')).toBeLessThan(markup.indexOf('Zeta Implant (level'))
+  expect(markup.indexOf('Alpha Implant (level')).toBeLessThan(markup.indexOf('Omega Implant (level'))
+  expect(markup).not.toContain('Beta Implant (level')
   expect(c.augmentations?.map(item => item.name)).toEqual(['Zeta Implant', 'Beta Implant'])
 })
 

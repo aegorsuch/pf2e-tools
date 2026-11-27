@@ -595,9 +595,13 @@ export function augmentationExemption(entry: ContentEntry) {
   return /\b(?:this|the) augmentation (?:doesn.t|does not) count (?:against|toward|towards) (?:your|the) (?:total )?implant limit\b/i.test(entry.description)
     ? 'exempt' : undefined
 }
+const augmentationFamily = (name: string) => name.toLowerCase().replace(/\s*\([^)]*\)\s*$/, '')
+  .replace(/\s+(?:commercial|commericial|tactical|advanced|superior|elite|major|greater|lesser)$/, '').trim()
 export function canInstallAugmentation(c: Character, entry: ContentEntry, slot: string) {
   if (entry.kind !== 'item' || entry.deleted || !entry.systems.includes('sf2e')
     || String(entry.data.item_category).toLowerCase() !== 'augmentations') return false
+  const family = augmentationFamily(entry.name)
+  if ((c.augmentations ?? []).some(item => augmentationFamily(item.name) === family)) return false
   if (augmentationExemption(entry) === 'exempt') return true
   return (slot === 'standard' || slot === 'apex') && augmentationLimitUsed(c) < augmentationLimit(c)
 }

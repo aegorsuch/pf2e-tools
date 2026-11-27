@@ -2223,6 +2223,13 @@ it('keeps Augmented Dedication implant increases alongside its granted Augmented
   expect(augmentationLimit(c)).toBe(7)
 })
 
+it('blocks installing another grade of an augmentation already installed', () => {
+  const c: Character = { ...base, systems: ['sf2e'], level: 9, augmentations: [{ id: '1', entryId: 'a', name: 'Piloting Interface (Commercial)', slot: 'standard' }] }
+  const entry = (name: string): ContentEntry => ({ ...content('item', name, { item_category: 'Augmentations' }), systems: ['sf2e'] })
+  expect(canInstallAugmentation(c, entry('Piloting Interface (Tactical)'), 'standard')).toBe(false)
+  expect(canInstallAugmentation(c, entry('Cloaking Skin (Commercial)'), 'standard')).toBe(true)
+})
+
 it('increases Cyborg implant limit independently of the Test-Subject house rule', () => {
   const c: Character = { ...base, systems: ['sf2e'], level: 9, heritage: 'Cyborg',
     feats: [feat('Reconfigurable Frame', 5)] }
