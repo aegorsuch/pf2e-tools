@@ -196,6 +196,11 @@ it('rolls Burstmoji damage and shows heightened hazardous terrain damage', () =>
   }
 })
 
+it('scales Howling Blizzard damage by rank', () => {
+  expect(spellDamage('Howling Blizzard', 5)).toMatchObject([{ dice: 10, sides: 6, type: 'cold' }])
+  expect(spellDamage('Howling Blizzard', 7)).toMatchObject([{ dice: 14, sides: 6, type: 'cold' }])
+})
+
 it('rolls Wall of Fire damage at its actual cast rank', () => {
   const entry: ContentEntry = { id: 'wall-of-fire', name: 'Wall of Fire', systems: ['sf2e'], kind: 'spell',
     source: 'official', level: 4, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }
