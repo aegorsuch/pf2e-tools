@@ -853,6 +853,16 @@ it('offers Dogma class feats directly in archetype slots', () => {
   expect(names).not.toContain('Basic Dogma')
 })
 
+it('offers Wizard class feats directly under Spellshot Dedication', () => {
+  const mk = (id: string, name: string, level: number, traits: string[]): ContentEntry => ({ id, systems: ['pf2e'], kind: 'feat',
+    source: 'official', name, level, traits, description: '', data: {}, effects: [], updatedAt: 1 })
+  const entries = [mk('sd', 'Spellshot Dedication', 2, ['Archetype', 'Dedication']), mk('rs', 'Reach Spell', 1, ['Wizard', 'Metamagic'])]
+  const c: Character = { ...base, className: 'Gunslinger', level: 10,
+    feats: [{ name: 'Spellshot Dedication', type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' }] }
+  const slot = plannedSlots(c, entries).find(candidate => candidate.key === 'archetype:4:0')!
+  expect(eligibleFeats(entries, c, slot).map(entry => entry.name)).toContain('Reach Spell')
+})
+
 it('gives Spellshot Wizard spellcasting its slots, book choices, and arcana feat selections', () => {
   const dedication = { name: 'Spellshot Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }
   const basic = { name: 'Basic Wizard Spellcasting', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' }

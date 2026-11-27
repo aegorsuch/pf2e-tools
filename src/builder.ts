@@ -2163,7 +2163,8 @@ function directDedicationClassFeats(c: Character, entries: ContentEntry[], slot:
   prerequisites: (entry: ContentEntry) => { missing: string[] }) {
   const found = new Map<string, ContentEntry>()
   for (const classTrait of new Set(Object.values(CLASS_FEAT_GRANTS))) {
-    if (!c.feats.some(feat => feat.name === `${classTrait} Dedication` && feat.slot !== slot.key)) continue
+    const dedications = classTrait === 'Wizard' ? ['Wizard Dedication', 'Spellshot Dedication'] : [`${classTrait} Dedication`]
+    if (!c.feats.some(feat => dedications.includes(feat.name) && feat.slot !== slot.key)) continue
     const isClassFeat = (entry: ContentEntry) => entry.kind === 'feat' && !entry.deleted && entry.systems.includes('pf2e')
       && entry.traits.some(trait => trait.toLowerCase() === classTrait.toLowerCase())
       && !entry.traits.some(trait => /^(archetype|dedication)$/i.test(trait))
