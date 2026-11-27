@@ -6303,7 +6303,7 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
   const operative = c.systems.includes('sf2e') && c.className === 'Operative'
   const gun = operativeGun(entry)
   const strikerWeapon = operative && hasOperativeStriker(c, entries) && !!entry && !isRanged(entry)
-    && (category === 'Unarmed' || weaponHands(entries, weapon, c) === 1)
+    && (category === 'Unarmed' || (weaponHands(entries, weapon, c) ?? 2) <= 1)
     && entry.traits.some(trait => /^(agile|finesse)$/i.test(trait))
   const operativeRank = operative ? Math.max(
     gun && category === 'Advanced' ? c.level >= 19 ? 4 : c.level >= 13 ? 3 : c.level >= 5 ? 2 : 1 : 0,

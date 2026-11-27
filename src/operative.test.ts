@@ -30,6 +30,7 @@ const martialGun = weapon('Martial Gun', 'Martial', ['Analog'], true)
 const advancedGun = weapon('Advanced Gun', 'Advanced', ['Tech'], true)
 const bow = weapon('Bow', 'Martial', [], true)
 const blade = weapon('Blade', 'Martial', ['Agile'], false)
+const freeHandClaw = weapon('Free Claw', 'Martial', ['Agile', 'Finesse', 'Free-hand'], false)
 const heavyBlade = weapon('Heavy Blade', 'Martial', ['Agile'], false, 2)
 
 it.each([[1, 2, 1, 1], [5, 3, 2, 1], [13, 4, 3, 2], [19, 4, 4, 2]])(
@@ -326,4 +327,8 @@ it('allows only Computers or Crafting Assurance in Mechanic ingenuity slots', ()
   const slot = plannedSlots(c, entries).find(item => item.grantedBy === "Mechanic's Ingenuity")!
   expect(eligibleFeats(entries, c, slot, { includeUnmetPrerequisites: true }).map(feat => feat.name)).toContain('Assurance')
   expect(featChoiceOptions('Assurance', c, entries, slot.key)).toEqual(['Computers', 'Crafting'])
+})
+
+it('applies Striker proficiency to agile free-hand weapons like Crimson Claw', () => {
+  expect(attack({ ...base, level: 13, subclass: 'Striker' }, freeHandClaw).rank).toBe(4)
 })
