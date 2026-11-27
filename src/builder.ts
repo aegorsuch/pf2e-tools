@@ -1271,6 +1271,28 @@ const dedicationArchetypes = (e: ContentEntry) => e.name === 'Spellshot Dedicati
   ? [...new Set([...archetypesOf(e), 'Wizard'])]
   : archetypesOf(e)
 
+const dedicationOptionsCache = new WeakMap<ContentEntry[], {
+  available: ContentEntry[]; missing: Map<string, string[]>
+}>()
+function missingDedicationOptions(entries: ContentEntry[], archetypes: string[]) {
+  let cache = dedicationOptionsCache.get(entries)
+  if (!cache) {
+    cache = { available: entries.filter(entry => entry.kind === 'feat' && !entry.deleted && isDedication(entry)),
+      missing: new Map() }
+    dedicationOptionsCache.set(entries, cache)
+  }
+  const key = archetypes.join('|')
+  let missing = cache.missing.get(key)
+  if (!missing) {
+    const names = [...new Set(cache.available.filter(dedication =>
+      dedicationArchetypes(dedication).some(name => archetypes.includes(name))).map(dedication => dedication.name))]
+    missing = [names.length ? names.join(' or ') : `${archetypes.join(' or ')} Dedication`]
+    if (cache.missing.size >= 256) cache.missing.delete(cache.missing.keys().next().value!)
+    cache.missing.set(key, missing)
+  }
+  return [...missing]
+}
+
 // Archetype rules: other archetype feats need that archetype's Dedication, and a new Dedication needs
 // two other feats from every Dedication already taken
 function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: string, asArchetype: boolean, ignoreDedicationLock = false) {
@@ -1287,9 +1309,6 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
   const dedications = taken.filter(({ entry }) => isDedication(entry))
   const dedicationNames = new Set(dedications.flatMap(({ entry }) => dedicationArchetypes(entry)))
   const exemptSlots = new Set<string>(activeHomebrewDedications(c).map(rule => rule.slot))
-  let availableDedications: ContentEntry[] | undefined
-  let dedicationsByArchetype: Map<string, ContentEntry[]> | undefined
-  const missingByArchetypes = new Map<string, string[]>()
   return (e: ContentEntry) => {
     const archetypes = archetypesOf(e)
     if (!archetypes.length || !asArchetype && !e.traits.some((t) => t.toLowerCase() === 'archetype')) return []
@@ -1297,20 +1316,7 @@ function archetypePrerequisites(c: Character, entries: ContentEntry[], slotKey: 
       (isDedication(entry) ? dedicationArchetypes(entry) : archetypesOf(entry)).some((name) => names.includes(name))
     if (!isDedication(e)) {
       if (archetypes.some(name => dedicationNames.has(name))) return []
-      availableDedications ??= entries.filter((entry) => entry.kind === 'feat' && !entry.deleted && isDedication(entry))
-      dedicationsByArchetype ??= availableDedications.reduce((map, dedication) => {
-        for (const name of dedicationArchetypes(dedication)) map.set(name, [...(map.get(name) ?? []), dedication])
-        return map
-      }, new Map<string, ContentEntry[]>())
-      const key = archetypes.join('|')
-      let missing = missingByArchetypes.get(key)
-      if (!missing) {
-        const names = [...new Set(availableDedications.filter((dedication) => archetypes.some(name => dedicationsByArchetype!.get(name)?.includes(dedication)))
-          .map((dedication) => dedication.name))]
-        missing = [names.length ? names.join(' or ') : `${archetypes.join(' or ')} Dedication`]
-        missingByArchetypes.set(key, missing)
-      }
-      return [...missing]
+      return missingDedicationOptions(entries, archetypes)
     }
     if (ignoreDedicationLock || getSettings().ignoreArchetypeFeatMinimums) return []
     return dedications.flatMap(({ entry: dedication, feat }) => {
@@ -1474,9 +1480,11 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
     && c.feats.some(feat => feat.name === entry.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level)) return 14
   if (entry.name === 'Rupture Stomp' && entry.systems.includes('pf2e') && slot && slot.level >= 16
     && c.feats.filter(feat => feat.name === entry.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1) return 16
-  if (category === 'archetype' && entry.systems.includes('pf2e') && !entry.traits.some(trait => /^(archetype|dedication)$/i.test(trait))
-    && entry.traits.some(trait => Object.values(CLASS_FEAT_GRANTS).some(granted => granted.toLowerCase() === trait.toLowerCase()))) {
-    const owned = slot ? earlierDirectClassFeats(c, entries, slot, entry) : 0
+  const directClassTrait = category === 'archetype' && entry.systems.includes('pf2e')
+    && !entry.traits.some(trait => /^(archetype|dedication)$/i.test(trait))
+    ? entry.traits.map(trait => trait.toLowerCase()).find(trait => directClassTraits.has(trait)) : undefined
+  if (directClassTrait) {
+    const owned = slot ? earlierDirectClassFeats(c, entries, slot, directClassTrait) : 0
     return owned === 0 && entry.level <= 2 ? 4 : Math.max(entry.level * 2, 6)
   }
   const classArchetype = category === 'class' && !entry.traits.some(trait => trait.toLowerCase() === c.className?.toLowerCase())
@@ -2201,9 +2209,24 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
 
 // Directly offered Arcana/Dogma feats taken in earlier archetype slots: the first is Basic, later ones are Advanced.
 const earlierDirectCache = new WeakMap<Character, WeakMap<ContentEntry[], Map<string, number>>>()
-function earlierDirectClassFeats(c: Character, entries: ContentEntry[], slot: { key: string; level: number }, sample: ContentEntry) {
-  const classTraits = new Set(Object.values(CLASS_FEAT_GRANTS).map(granted => granted.toLowerCase()))
-  const classTrait = sample.traits.map(trait => trait.toLowerCase()).find(trait => classTraits.has(trait))
+const directClassFeatCache = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
+function directClassFeats(entries: ContentEntry[], classTrait: string) {
+  let byTrait = directClassFeatCache.get(entries)
+  if (!byTrait) {
+    byTrait = new Map()
+    directClassFeatCache.set(entries, byTrait)
+  }
+  let feats = byTrait.get(classTrait)
+  if (!feats) {
+    feats = entries.filter(entry => entry.kind === 'feat' && !entry.deleted && entry.systems.includes('pf2e')
+      && entry.traits.some(trait => trait.toLowerCase() === classTrait)
+      && !entry.traits.some(trait => /^(archetype|dedication)$/i.test(trait)))
+    byTrait.set(classTrait, feats)
+  }
+  return feats
+}
+
+function earlierDirectClassFeats(c: Character, entries: ContentEntry[], slot: { key: string; level: number }, classTrait: string) {
   const byEntries = earlierDirectCache.get(c) ?? new WeakMap<ContentEntry[], Map<string, number>>()
   earlierDirectCache.set(c, byEntries)
   const counts = byEntries.get(entries) ?? new Map<string, number>()
@@ -2216,12 +2239,11 @@ function earlierDirectClassFeats(c: Character, entries: ContentEntry[], slot: { 
   return count
 }
 
-function countEarlierDirectClassFeats(c: Character, entries: ContentEntry[], slot: { key: string; level: number }, classTrait?: string) {
+function countEarlierDirectClassFeats(c: Character, entries: ContentEntry[], slot: { key: string; level: number }, classTrait: string) {
   const order = (key: string) => { const [, level, index] = key.split(':'); return Number(level) * 1000 + (Number(index) || 0) }
+  const classFeats = directClassFeats(entries, classTrait)
   return c.feats.filter(feat => feat.slot?.startsWith('archetype:') && feat.slot !== slot.key && order(feat.slot) < order(slot.key)
-    && entries.some(entry => entry.name === feat.name && entry.kind === 'feat' && !entry.deleted && entry.systems.includes('pf2e')
-      && entry.traits.some(trait => trait.toLowerCase() === classTrait)
-      && !entry.traits.some(trait => /^(archetype|dedication)$/i.test(trait)))).length
+    && classFeats.some(entry => entry.name === feat.name)).length
 }
 
 // Basic/Advanced Arcana and Dogma are offered as the class feats they grant: the first is level 2 or lower, every later one (Advanced is repeatable) up to half the level.
@@ -2231,14 +2253,12 @@ function directDedicationClassFeats(c: Character, entries: ContentEntry[], slot:
   for (const classTrait of new Set(Object.values(CLASS_FEAT_GRANTS))) {
     const dedications = classTrait === 'Wizard' ? ['Wizard Dedication', 'Spellshot Dedication'] : [`${classTrait} Dedication`]
     if (!c.feats.some(feat => dedications.includes(feat.name) && feat.slot !== slot.key)) continue
-    const isClassFeat = (entry: ContentEntry) => entry.kind === 'feat' && !entry.deleted && entry.systems.includes('pf2e')
-      && entry.traits.some(trait => trait.toLowerCase() === classTrait.toLowerCase())
-      && !entry.traits.some(trait => /^(archetype|dedication)$/i.test(trait))
-    const owned = earlierDirectClassFeats(c, entries, slot, { traits: [classTrait] } as ContentEntry)
+    const trait = classTrait.toLowerCase()
+    const owned = earlierDirectClassFeats(c, entries, slot, trait)
     const hasSymbol = [...taken].some(name => /^Favored Weapon Symbol\b/.test(name))
     const cap = owned === 0 ? slot.level >= 4 ? 2 : 0 : slot.level >= 6 ? Math.floor(slot.level / 2) : 0
-    for (const entry of entries) {
-      if (entry.level >= 1 && entry.level <= cap && isClassFeat(entry) && !taken.has(entry.name)
+    for (const entry of directClassFeats(entries, trait)) {
+      if (entry.level >= 1 && entry.level <= cap && !taken.has(entry.name)
         && !(hasSymbol && /^(Favored Weapon (Symbol|Jousting)|Tethered Favored Weapon)$/.test(entry.name))
         && !prerequisites(entry).missing.length) found.set(entry.name, entry)
     }
@@ -2312,6 +2332,7 @@ export function avengerEldritchCastingClass(c: Character, entries: ContentEntry[
 export const CLASS_FEAT_GRANTS: Record<string, string> = Object.assign(Object.create(null), {
   'Basic Arcana': 'Wizard', 'Advanced Arcana': 'Wizard', 'Basic Dogma': 'Cleric', 'Advanced Dogma': 'Cleric',
 })
+const directClassTraits = new Set(Object.values(CLASS_FEAT_GRANTS).map(name => name.toLowerCase()))
 
 export function hasHuntPrey(c: Character, entries: ContentEntry[]) {
   return c.systems.includes('pf2e') && (c.className === 'Ranger' || rogueRackets(c, entries).includes('Avenger'))

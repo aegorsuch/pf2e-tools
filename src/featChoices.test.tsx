@@ -863,6 +863,22 @@ it('offers Wizard class feats directly under Spellshot Dedication', () => {
   expect(eligibleFeats(entries, c, slot).map(entry => entry.name)).toContain('Reach Spell')
 })
 
+it('refreshes direct class feat choices when the catalog changes', () => {
+  const mk = (id: string, name: string, traits: string[]): ContentEntry => ({ id, systems: ['pf2e'], kind: 'feat',
+    source: 'official', name, level: 1, traits, description: '', data: {}, effects: [], updatedAt: 1 })
+  const dedication = mk('dedication', 'Cleric Dedication', ['Archetype', 'Dedication'])
+  const first = mk('first', 'Domain Initiate', ['Cleric'])
+  const later = mk('later', 'Domain Initiate', ['Cleric'])
+  const entries = [dedication, first, later]
+  const c: Character = { ...base, className: 'Fighter', level: 10,
+    feats: [{ name: dedication.name, type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' }] }
+  const slot = plannedSlots(c, entries).find(candidate => candidate.key === 'archetype:4:0')!
+  expect(eligibleFeats(entries, c, slot).find(entry => entry.name === first.name)?.id).toBe('later')
+  const added = mk('new', 'Reach Spell', ['Cleric'])
+  expect(eligibleFeats([...entries, added], c, slot).map(entry => entry.id)).toContain('new')
+  expect(eligibleFeats([dedication, first], c, slot).find(entry => entry.name === first.name)?.id).toBe('first')
+})
+
 it('treats the first Dogma feat as level 4 and later ones as level 6 or higher', () => {
   const mk = (id: string, name: string, level: number, traits: string[]): ContentEntry => ({ id, systems: ['pf2e'], kind: 'feat',
     source: 'official', name, level, traits, description: '', data: {}, effects: [], updatedAt: 1 })
