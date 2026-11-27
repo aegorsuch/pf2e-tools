@@ -3654,7 +3654,7 @@ export function automaticSpecificArmorUpgrades(c: Character, entries: ContentEnt
       .sort((a, b) => b.level - a.level || Number(b.name.includes('(')) - Number(a.name.includes('(')))
     const selected = matches[0]
     if (!selected) return []
-    const priority = Math.min(...matches.map(entry => entry.level))
+    const priority = family === 'Clandestine Suit' && base === 'Drift Drive Relay' ? -1 : Math.min(...matches.map(entry => entry.level))
     if (base === 'Energy Shielding' && family === 'Stormbreaker Armor') {
       return [{ order, priority, entry: { ...selected,
         data: { ...selected.data, automatic_energy_type: 'electricity' } } }]

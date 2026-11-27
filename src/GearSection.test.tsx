@@ -7,7 +7,7 @@ import { itemSpells, itemSpellUses } from './itemSpells'
 import { activeAnimalFeatures, animalStrengthRuneSources, armorClass, armorDisplayName, armorUpgradeSlots as resolvedArmorUpgradeSlots,
   automaticArmorUpgradeSlotsUsed, automaticArmorUpgradeUsesSlot, automaticSpecificArmorUpgrades,
   armorUpgradeEntries, effectiveArmor, effectiveWeapon, equippedWeaponHands, featEffectChange, hardpointWeaponEligible, hasParryWeapon,
-  installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, offensiveDefenseAttack, ownedWeapons, parryValue,
+  installedWeaponUpgrades, inventiveOffensiveChange, movementSpeeds, ownedWeapons, parryValue,
   resistances, senses, spellActiveChange, totalHandCapacity, usesWeaponUpgrades, weaponAttack, weaponEquipped, weaponHands } from './builder'
 import { INVENTOR_ARMOR_ID } from './grantedArmor'
 import type { Character, ContentEntry, OwnedArmor, OwnedShield, OwnedWeapon } from './types'
@@ -3617,7 +3617,7 @@ it.each([
   expect(c.armors?.[0].activeJetpack).toBeUndefined()
 })
 
-it('reserves Clandestine Suit slots for its built-in Jetpack and Force Field', () => {
+it('reserves Clandestine Suit slots for its built-in Drift Drive Relay first, then Jetpack', () => {
   const suit: ContentEntry = { ...weapon, id: 'clandestine', name: 'Clandestine Suit', kind: 'armor', systems: ['sf2e'],
     level: 9, data: { url: 'clandestine', armor_category: 'Light', ac: 3, armor_grade: 'Advanced', upgrade_slots: 2 } }
   const module = (name: string, level: number): ContentEntry => ({ ...shifting, id: name, name, level,
@@ -3639,10 +3639,9 @@ it('reserves Clandestine Suit slots for its built-in Jetpack and Force Field', (
   }
   const markup = renderToStaticMarkup(tree())
   expect(markup).toContain('Jetpack (Commercial)')
-  expect(markup).toContain('Force Field (Advanced)')
-  expect(markup).not.toContain('Drift Drive Relay (Commercial)')
+  expect(markup).toContain('Drift Drive Relay (Commercial)')
+  expect(markup).not.toContain('Force Field (Advanced)')
   expect(markup).not.toContain('Jetpack (Commercial) *')
-  expect(markup).not.toContain('Force Field (Advanced) *')
   expect(markup).not.toContain('Drift Drive Relay (Commercial) *')
   expect(automaticArmorUpgradeUsesSlot(suit.name, upgrades[4])).toBe(true)
   expect(markup).toContain('Active Camouflage (Tactical) *')
@@ -3650,7 +3649,6 @@ it('reserves Clandestine Suit slots for its built-in Jetpack and Force Field', (
   expect(markup).not.toContain('Add armor upgrade')
   expect(markup).not.toContain('Free (no upgrade slot)')
   expect(markup).not.toContain('Installed upgrades exceed available slots')
-  expect(offensiveDefenseAttack(c, entries)).toBeDefined()
   const activate = findElement(upgradeContent(), element => element.props['aria-label'] === 'Activate Jetpack (Commercial)')!
   ;(activate.props.onClick as () => void)()
   expect(movementSpeeds(c, entries).find(speed => speed.name === 'Fly')).toMatchObject({
