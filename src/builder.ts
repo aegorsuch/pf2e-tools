@@ -878,6 +878,10 @@ const OPERATIVE_SPECIALIZATION_SKILLS: Record<string, string> = {
 const operativeSpecializationSkill = (c: Character) => c.className === 'Operative' && c.systems.includes('sf2e')
   ? OPERATIVE_SPECIALIZATION_SKILLS[c.subclass ?? ''] : undefined
 
+function hasOperativeSniper(c: Character, entries: ContentEntry[], minLevel = 1) {
+  return operativeSpecializations(c, entries).some(({ entry, level }) => entry.name === 'Sniper' && c.level >= Math.max(minLevel, level))
+}
+
 function operativeSpecializations(c: Character, entries: ContentEntry[]) {
   if (!c.systems.includes('sf2e') || c.className !== 'Operative' || c.level < 1) return []
   const options = subclassOptions({ ...c, className: 'Operative' }, entries)
@@ -9873,8 +9877,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
         value: `1d${gluonCrystal.level >= 15 ? 10 : gluonCrystal.level >= 12 ? 8 : gluonCrystal.level >= 9 ? 6 : 4} persistent bleed`,
         note: 'On a critical hit, the target is clumsy 1 until it recovers from this bleed damage.' }] : []),
       ])],
-    traits: [...new Set([...(entry?.traits ?? []).filter(trait => !(c.systems.includes('sf2e')
-      && c.className === 'Operative' && c.subclass === 'Sniper' && isRanged(entry)
+    traits: [...new Set([...(entry?.traits ?? []).filter(trait => !(hasOperativeSniper(c, entries) && isRanged(entry)
       && String(entry?.data.weapon_group ?? '').toLowerCase() === 'sniper'
       && /^(unwieldy|volley)(?:\s|$)/i.test(trait))),
       ...w.runes.map((rune) => runeName(rune)).filter((rune) => rune === 'Holy' || rune === 'Unholy'),
@@ -10034,7 +10037,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           && weaponHands(entries, w, c) === 1
           ? ['Skirmisher: ranged Strikes with this weapon do not trigger reactions triggered by ranged attacks.',
             ...(c.level >= 9 ? [`Against an adjacent enemy, maximize the ${c.level >= 17 ? 'two lowest-rolled weapon damage dice' : 'lowest-rolled weapon damage die'}.`] : [])] : []),
-        ...(c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Sniper' && c.level >= 9
+        ...(hasOperativeSniper(c, entries, 9)
           && ranged && String(entry?.data.weapon_group ?? '').toLowerCase() === 'sniper'
           ? ['Sniper: your first failed ranged Strike against your mark does not count toward your multiple attack penalty; Reload this weapon as a free action once per turn.'] : []),
         ...(bestial && w.id === 'bestial:Spider:Web' ? [`Web deals no damage. On a hit, the target takes a -10-foot circumstance penalty to Speeds for 1 round; a second hit while penalized immobilizes it until it Escapes against ${classDifficultyClass(c, entries) ?? 'your class DC'}.`] : []),

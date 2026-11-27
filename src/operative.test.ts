@@ -21,9 +21,9 @@ const weapon = (name: string, category: string, traits: string[], ranged: boolea
   data: { weapon_category: category, weapon_type: ranged ? 'Ranged' : 'Melee', range: ranged ? 60 : 0,
     hands, damage: '1d6 piercing' }, description: '', effects: [], updatedAt: 0,
 })
-const attack = (c: Character, entry: ContentEntry) => {
+const attack = (c: Character, entry: ContentEntry, extra: ContentEntry[] = []) => {
   const owned: OwnedWeapon = { id: entry.id, name: entry.name, potency: 0, striking: 0, runes: [] }
-  return weaponAttack(c, [...entries, entry], owned)
+  return weaponAttack(c, [...entries, ...extra, entry], owned)
 }
 const simpleGun = weapon('Simple Gun', 'Simple', ['Tech'], true)
 const martialGun = weapon('Martial Gun', 'Martial', ['Analog'], true)
@@ -282,6 +282,10 @@ it('applies specialization-specific weapon effects only to eligible weapons', ()
   expect(attack({ ...base, level: 9, subclass: 'Ghost' }, sniper).traits).toContain('Unwieldy')
   expect(attack({ ...base, level: 9, subclass: 'Ghost' }, sniper).traits).toContain('Volley 30 ft.')
   expect(attack({ ...base, level: 9 }, sniper).breakdown.notes?.join(' ')).toContain('first failed ranged Strike')
+  const feat = homebrewCharacterOptions([]).find(entry => entry.name === 'Versatile Operative')!
+  const versatile = { ...base, level: 10, subclass: 'Ghost', feats: [{ name: feat.name, type: 'Class Feat', level: 10, choice: 'Sniper' }] }
+  expect(attack(versatile, sniper, [feat]).traits).not.toContain('Unwieldy')
+  expect(attack(versatile, sniper, [feat]).traits).not.toContain('Volley 30 ft.')
   expect(attack({ ...base, level: 17, subclass: 'Skirmisher' }, simpleGun).breakdown.notes?.join(' '))
     .toContain('two lowest-rolled weapon damage dice')
   expect(attack({ ...base, level: 17, subclass: 'Skirmisher' }, { ...simpleGun, data: { ...simpleGun.data, hands: 2 } })
