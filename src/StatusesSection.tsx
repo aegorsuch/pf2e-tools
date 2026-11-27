@@ -63,9 +63,11 @@ const HUNT_PREY: ContentEntry = {
 
 export const AIM: ContentEntry = {
   id: 'action:aim', systems: ['sf2e'], kind: 'classFeature', source: 'official', name: 'Aim',
-  level: 1, traits: ['Concentrate'], effects: [], updatedAt: 0,
-  description: 'Choose a creature you can see or hear as your mark. Your next ranged Strike against your mark this turn deals extra precision damage and reduces its cover bonus to AC. Aiming ends if you are no longer able to target the mark.',
-  data: { actions: 'Single Action' },
+  level: 1, traits: ['Concentrate', 'Operative'], effects: [], updatedAt: 0,
+  description: "Requirements You're wielding a ranged weapon that doesn't have the area trait. "
+    + "You take careful aim at a single creature that you're aware of, designating it as your mark until your next turn. Your ranged Strikes against your mark using the required ranged weapon deal an additional 1d4 precision damage and reduce the circumstance bonus to AC your mark gains from cover by 1. These benefits only apply if your mark is within your weapon's first range increment. You can only have one mark at a time. "
+    + "As your operative level increases, so does your ability to Aim. Increase the number of dice for the precision damage by one at 5th, 11th, and 17th levels. At 11th level, you reduce the circumstance bonus to AC your mark gains from cover by 2 rather than 1. At 17th level, you reduce the circumstance bonus to AC your mark gains from cover by 4 rather than 2.",
+  data: { actions: 'Single Action', url: 'https://2e.aonprd.com/Actions.aspx?ID=136' },
 }
 
 const PARRY: ContentEntry = {
