@@ -9,6 +9,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { EquipmentSearch } from './EquipmentSearch'
 export { EquipmentSearch } from './EquipmentSearch'
 import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldRaiseLabel, showParryControl, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
+import { featTakenLevel } from './featChoices'
 import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, boostSlots, classFeatures, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, hasPersonalUpgradeSlot, ownedArmors, warriorLegendWeakness } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { classArchetypeSlotViews, featSectionGrants, SearchableFeatSlots } from './FeatSlots'
@@ -842,8 +843,18 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
               }),
               ...additionalInvestigatorMethods.map(entry => ({ entry, label: `${entry.name} methodology (Versatile Investigator)` })),
               ...additionalEnvoyStyles.map(entry => ({ entry, label: `${entry.name} leadership style (Versatile Envoy)` })),
+              ...c.feats.filter(feat => ['Second Innovation', 'Third Innovation'].includes(feat.name)).flatMap(feat => {
+                const entry = subclasses.find(candidate => candidate.name === feat.choice)
+                return entry ? [{ entry, label: `${entry.name} innovation (${feat.name})` }] : []
+              }),
+              ...c.feats.filter(feat => feat.name === 'Order Explorer').flatMap(feat => {
+                const order = feat.choice === 'Untamed' ? 'Wild' : feat.choice
+                const entry = subclasses.find(candidate => candidate.name === order || candidate.name === feat.choice)
+                return entry ? [{ entry, label: `${feat.choice} order (Order Explorer)` }] : []
+              }),
               ...additionalOperativeSpecializations.map(entry => ({ entry, label: `${entry.name} specialization (Versatile Operative)` })),
-            ].map(({ entry, label }) => ({ ...entry, name: label, level: 1 })), ...(c.className ? classFeatures(entries, c) : [])]} prelude={<ClassFeatures {...section} />} />
+            ].map(({ entry, label }) => ({ ...entry, name: label, level: /\((Versatile |Second Innovation|Third Innovation|Order Explorer)/.test(label)
+              ? featTakenLevel(c.feats.find(feat => (feat.name.startsWith('Versatile ') || /Innovation|Order Explorer/.test(feat.name)) && (feat.choice === entry.name || feat.choice === 'Untamed' && entry.name === 'Wild')) ?? { level: 1 } as Character['feats'][number]) : 1 })), ...(c.className ? classFeatures(entries, c) : [])]} prelude={<ClassFeatures {...section} />} />
         </div>}</DeferredContent>
       </DeferredDetails>
 
