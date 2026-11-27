@@ -7385,6 +7385,16 @@ function ownedGradedItemBonus(c: Character, entries: ContentEntry[], family: str
 
 export const voyagerPackBonus = (c: Character, entries: ContentEntry[]) => ownedItemBonus(c, entries, { "Voyager's Pack": 3 })
 export const killerBeltBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, "Killer's Belt")
+export function activeCamouflageBonus(c: Character, entries: ContentEntry[]) {
+  const armor = c.systems.includes('sf2e') ? wornArmor(c, entries) : undefined
+  if (!armor) return undefined
+  return armorUpgradeEntries(c, entries, armor).flatMap(entry => {
+    const match = /^Active Camouflage(?: \((Commercial|Tactical|Advanced)\))?$/i.exec(entry.name)
+    if (!match) return []
+    const grade = match[1]?.toLowerCase()
+    return [{ source: entry.name, value: grade === 'advanced' ? 3 : grade === 'tactical' ? 2 : 1 }]
+  }).sort((a, b) => b.value - a.value)[0]
+}
 export const wildwoodInkBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, 'Wildwood Ink')
 export const tradecraftTattooBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, 'Tradecraft Tattoo', 2)
 export const hunterArrowheadBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, "Hunter's Arrowhead")

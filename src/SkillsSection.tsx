@@ -3,7 +3,7 @@ import { resistances, activeBattleForm,
   ancestralSkills, trainedFeatLores, deityGrantedLores, FAVORED_TERRAINS, EXPERT_GRANT_FEATS, hellknightArmorWorn, signiferExpertSlots, backgroundLoreIncreaseSlots, MASTERMIND_SKILLS, favoredTerrainBenefits, favoredTerrainChange, selectedFavoredTerrain, featTakenLevel, hitPointBonuses, isPioneerHuman, maxHp, terrainExpertiseBenefits,
   proficiencyBonus, untrainedSkillProficiency, ranksAt, temporarySkillTrainings, normalizeLongevitySkills, normalizeConditionalSkillChoices, longevityExpertLevel, LONGEVITY_EXPERT_SLOT, officerEducationSlots, mechanicIngenuitySlots, armorSaveBonus, armorClassBreakdown, savingThrowBreakdown, perceptionItemBonus, perceptionCircumstance, raisedShieldBonus, shieldRaised, signed, skillIncreaseLevels, skillRankBudget, statDefs, isSpellActive, oakenResilience, clanDaggerFiligreeBonus, starfinderArmorPenalties, testSubjectAdaptation, offensiveDefenseAttack, ownedWeapons, weaponEquipped, installedWeaponUpgrades, conditionPenalty, conditionValue, selectedSubclass, type SectionProps,
 } from './builder'
-import { killerBeltBonus, wildwoodInkBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, giantStatureSize, giantClumsySource, enlargedChassisSize, effectiveWeapon, weaponEntry, weaponHeld, datajackBonus } from './builder'
+import { killerBeltBonus, wildwoodInkBonus, activeCamouflageBonus, tradecraftTattooBonus, voyagerPackBonus, barbarianInstinct, giantWeaponClumsy, giantStatureSize, giantClumsySource, enlargedChassisSize, effectiveWeapon, weaponEntry, weaponHeld, datajackBonus } from './builder'
 import { ArmorList, DermalPlatingToggle, ShieldEquipment, WeaponList } from './GearSection'
 import { SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
@@ -501,6 +501,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const filigreeItem = ['Athletics', 'Diplomacy', 'Society'].includes(s.name) ? filigree : 0
     const belt = s.name === 'Intimidation' ? killerBeltBonus(c, entries) : undefined
     const ink = s.name === 'Stealth' ? wildwoodInkBonus(c, entries) : undefined
+    const camouflage = s.name === 'Stealth' ? activeCamouflageBonus(c, entries) : undefined
     const tattoo = s.name === 'Crafting' ? tradecraftTattooBonus(c, entries) : undefined
     const artifact = artifactItemSkillBonus(c, entries, s.name)
     const arrowhead = s.name === 'Survival' ? hunterArrowheadBonus(c, entries) : undefined
@@ -515,7 +516,7 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const pilotingInterface = s.name === 'Piloting' ? pilotingEquipmentBonus(c, entries) : undefined
     const datajack = s.name === 'Computers' ? datajackBonus(c, entries) : undefined
     const item = s.name === 'Perception' ? perceptionItemBonus(c, entries)
-      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0, pack?.value ?? 0, skillGear?.value ?? 0, additionalSkillGear?.value ?? 0, pilotingInterface?.value ?? 0, datajack?.bonus ?? 0, apexSkillBonus(c, s.name))
+      : s.kind === 'save' ? armorBonus : Math.max(warmaskBonus, filigreeItem, belt?.value ?? 0, ink?.value ?? 0, camouflage?.value ?? 0, tattoo?.value ?? 0, artifact?.value ?? 0, pack?.value ?? 0, skillGear?.value ?? 0, additionalSkillGear?.value ?? 0, pilotingInterface?.value ?? 0, datajack?.bonus ?? 0, apexSkillBonus(c, s.name))
     const athleticRush = s.name === 'Athletics' && isSpellActive(c, entries, 'Athletic Rush')
     const ferocious = s.name === 'Athletics' && form?.source === 'Untamed Form' && !!activeFeatsNamed(c, 'Ferocious Shape').length
     const meyelsMelody = s.name === 'Performance' && activeFeatsNamed(c, "Meyel's Melody").length > 0
@@ -616,6 +617,8 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               No free hand required; success suppresses until your next turn.`} />}
           {ink && <SourceNote inlineSource={false} source={ink.source}
             note={`Stealth ${signed(total + forestIncrease)} in forests`} />}
+          {camouflage && <SourceNote inlineSource={false} source={camouflage.source}
+            note={`+${camouflage.value} item bonus to Stealth while wearing the armor; item bonuses do not stack.`} />}
           {artifact && <SourceNote inlineSource={false} source={artifact.source} note={`+${artifact.value} item bonus while carried; item bonuses do not stack.`} />}
           {s.name === 'Medicine' && skillGear && skillGear.source !== 'Marvelous Medicines (Greater)'
             && <SourceNote inlineSource={false} source={skillGear.source}

@@ -232,6 +232,17 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
       actions: 'Two Actions', frequency: houseRule ? tuned ? 'twice per day' : 'once per day' : 'once per hour',
       dc: 38, usesSpellcasting: false })
   }
+  const cloaking = out.filter(spell => /"cloaking-(?:device|skin)"/.test(spell.usageKey))
+  if (cloaking.length > 1) {
+    const pool = cloaking.reduce((sum, spell) => sum + (limitedSpellUses(spell.frequency)?.limit ?? 0), 0)
+    const lead = cloaking.find(spell => spell.augmentationUses) ?? cloaking[0]
+    const merged: ItemSpell = { ...lead, augmentationUses: undefined,
+      rank: Math.max(...cloaking.map(spell => spell.rank)),
+      frequency: pool === 2 ? 'twice per day' : `${pool} times per day` }
+    const first = out.indexOf(cloaking[0])
+    out.splice(first, 0, merged)
+    for (const spell of cloaking) out.splice(out.indexOf(spell), 1)
+  }
   const unique = new Map<string, ItemSpell>()
   for (const spell of out) unique.set(JSON.stringify([spell.usageKey, spell.name, spell.rank, spell.frequency, spell.actions, spell.condition]), spell)
   return [...unique.values()].sort((a, b) => a.name.localeCompare(b.name) || a.source.name.localeCompare(b.source.name) || a.rank - b.rank)
