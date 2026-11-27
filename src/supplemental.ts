@@ -410,7 +410,7 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       data: { ...entry.data, class: className, archetype, ...(prerequisite ? { prerequisite } : {}) },
       updatedAt: 1,
     })
-    const symbol = copy(favoredWeaponSymbol)
+    const symbol = { ...copy(favoredWeaponSymbol), level: 2 }
     return [
       symbol,
       copy(favoredWeaponJousting, `Favored Weapon Symbol (${archetype})`),
