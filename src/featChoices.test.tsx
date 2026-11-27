@@ -1270,6 +1270,7 @@ it('lets Cleric Dedication choose the deity sanctification', () => {
     feats: [{ name: 'Cleric Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }] }
   expect(featChoiceOptions('Cleric Dedication', c, [deity], 'archetype:2:0')).toEqual(['Holy'])
   expect(deitySanctification(c, [deity]).selected).toBeUndefined()
+  expect(renderToStaticMarkup(<FeatChoice c={c} entries={[deity]} save={() => {}} index={0} />)).toContain('Cleric Dedication sanctification')
   const chosen = { ...c, feats: [{ ...c.feats[0], choice: 'Holy' }] }
   expect(deitySanctification(chosen, [deity]).selected).toBe('Holy')
 })

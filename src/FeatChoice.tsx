@@ -585,6 +585,18 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
       </details>
       : choiceControl
   }
+  if (feat.name === 'Cleric Dedication' && c.systems.includes('pf2e')) {
+    const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index) ?? []
+    if (!options.length) return null
+    return <SearchableSelect label="Sanctification" aria-label="Cleric Dedication sanctification" value={feat.choice ?? ''} onChange={event => {
+      const choice = event.target.value || undefined
+      if (choice && !options.includes(choice)) return
+      save({ feats: c.feats.map((existing, i) => i === index ? { ...existing, choice } : existing) })
+    }}>
+      <option value="">Choose sanctification</option>
+      {options.map(option => <option key={option}>{option}</option>)}
+    </SearchableSelect>
+  }
   if (feat.name === 'Additional Lore') {
     return <label className="feat-choice">
       Lore subcategory{' '}
