@@ -697,7 +697,7 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
     const { url: _url, ...data } = entry.data
     return { ...entry, id: `homebrew:plasma-guide${grade ? `:${grade.toLowerCase()}` : ''}`,
       name: `${grade ? `${grade} ` : ''}Plasma Guide`, source: 'homebrew' as const,
-      traits: [...new Set([...entry.traits, 'Unwieldy', 'Volley 30 ft.'])],
+      traits: [...new Set([...entry.traits.filter(trait => !/^boost\b/i.test(trait.trim())), 'Unwieldy', 'Volley 30 ft.'])],
       description: 'A plasma guide rifle that keeps a magnetic guidance field around its plasma discharge, steering the shot after it is fired. This gives it accuracy at long range.',
       data: { ...data, weapon_category: 'Martial', weapon_group: 'Sniper', range: 120, range_increment: 120,
         weapon_grade_family: 'homebrew:plasma-guide' }, updatedAt: 1 }
