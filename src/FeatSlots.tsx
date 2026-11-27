@@ -859,6 +859,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             </button>
             <EntryDescription character={c} name={`${displayName(option.entry.name)}${DOMAIN_FEATS.includes(option.entry.name) && option.choice ? ` (${option.choice})` : ''}`}
               entry={option.entry} choice={option.choice} entries={entries} buttonLabel="Details" className="picker-details" deferDetails
+              displayLevel={byLevel(option.entry)}
               prerequisites={option.prerequisites} access={option.access}
               descriptionNote={option.entry.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'
                 : DOMAIN_FEATS.includes(option.entry.name) && option.choice
@@ -897,6 +898,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 current === 'N/A' ? <span>N/A</span> : <>
                   <EntryDescription character={c} name={descriptionName} entry={descriptionEntry}
                     choice={arcanaChoiceEntry ? undefined : selection?.choice} entries={entries} className="feat-name"
+                    displayLevel={descriptionEntry && featSelectionLevel(descriptionEntry, c, entries, s.category, s)}
                     prerequisites={arcanaChoiceEntry ? selectedPrerequisites(s, arcanaChoiceEntry) : prerequisites}
                     access={descriptionEntry ? featAccess(c, descriptionEntry) : access}
                     grantSource={arcanaChoiceEntry ? CLASS_FEAT_GRANTS[selection!.name] === 'Cleric' ? undefined : selection?.name : grantSource}

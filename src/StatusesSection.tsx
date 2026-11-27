@@ -219,6 +219,7 @@ export function StatusesSummary({ c, entries, save }: SectionProps) {
     ...(stance ? [stance.name] : []),
     ...(activeFeatsNamed(c, 'Poison Weapon').length
       ? [`Poison Weapon ${poisonTotal - poisonSpent}/${poisonTotal}${c.poisonWeaponActive ? ' (active)' : ''}`] : []),
+    ...(activeFeatsNamed(c, 'Divine Strike').length && c.dailyFeatUses?.['Divine Strike'] ? ['Divine Strike used'] : []),
     ...(c.companions ?? []).filter(companion => isBadgerCompanion(companion) && companion.badgerRageActive)
       .map(companion => `Badger Rage (${companion.name || companion.type})`),
     ...(c.companions ?? []).filter(companion => companion.id === c.mountedCompanionId)
@@ -462,6 +463,12 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
     </> }] : []),
     ...(activeFeatsNamed(c, 'Poison Weapon').length
       ? [{ name: 'Poison Weapon', element: <SimplePoisons c={c} entries={entries} save={save} /> }] : []),
+    ...(activeFeatsNamed(c, 'Divine Strike').length ? [{ name: 'Divine Strike', element:
+      <button type="button" className={`spell-action-button status-action-button${c.dailyFeatUses?.['Divine Strike'] ? ' on' : ''}`}
+        aria-label="Divine Strike used" aria-pressed={!!c.dailyFeatUses?.['Divine Strike']}
+        onClick={() => save({ dailyFeatUses: { ...c.dailyFeatUses, 'Divine Strike': !c.dailyFeatUses?.['Divine Strike'] } })}>
+        {c.dailyFeatUses?.['Divine Strike'] && <span aria-hidden="true">✓</span>} Divine Strike <ActionIcon actions="Two Actions" />
+      </button> }] : []),
     ...(canDeviseAStratagem(c)
       ? [{ name: 'Devise a Stratagem', element: <DeviseAStratagemToggle c={c} save={save} /> }] : []),
     ...(canAim(c)

@@ -133,6 +133,35 @@ it('adds Emblazon Armament status damage to the deity favored weapon only', () =
   expect(markup).not.toContain('>*</button> (Emblazon Armament)')
 })
 
+it('uses Emblazon Energy variants and upgrades matching known domain spells', () => {
+  const deity: ContentEntry = { ...rogue, id: 'deity', kind: 'deity', name: 'Deity',
+    data: { favored_weapon: 'Sawtooth Saber', domain_primary: 'Fire' } }
+  const saber: ContentEntry = { ...dagger, name: 'Sawtooth Saber' }
+  const fire: ContentEntry = { ...rogue, id: 'fire-ray', kind: 'spell', name: 'Fire Ray', level: 1,
+    traits: ['Focus', 'Fire'], data: { domain: 'Fire' } }
+  const weapon = { id: 'first', name: saber.name, potency: 0, striking: 0, runes: [] }
+  const other = { ...weapon, id: 'second' }
+  const c: Character = { ...base, deity: deity.name, weapons: [weapon, other], feats: [
+    { name: 'Emblazon Armament', type: 'Class Feat', level: 2, slot: 'class:2:0' },
+    { name: 'Emblazon Energy', type: 'Class Feat', level: 8, slot: 'class:8:0' },
+  ] }
+  const entries = [rogue, deity, saber, fire]
+  const attack = (character: Character, selected = weapon) => weaponAttack(character, entries, selected)
+  expect(attack(c).emblazon).toEqual({ type: 'normal' })
+  expect(attack(c, other).emblazon).toBeUndefined()
+  const chosen = { ...c, feats: c.feats.map(feat => feat.name === 'Emblazon Energy' ? { ...feat, choice: 'Fire' } : feat) }
+  expect(attack(chosen).additionalDamage).toContainEqual(expect.objectContaining({ source: 'Emblazon Energy', value: '1d4 fire' }))
+  const withDomain = { ...chosen, feats: [...chosen.feats,
+    { name: 'Domain Initiate', type: 'Class Feat', level: 1, slot: 'class:4:0', choice: 'Fire' }] }
+  expect(attack(withDomain).additionalDamage).toContainEqual(expect.objectContaining({ source: 'Emblazon Energy', value: '1d6 fire' }))
+  const automatic = { ...withDomain, feats: withDomain.feats.map(feat => feat.name === 'Emblazon Energy' ? { ...feat, choice: undefined } : feat) }
+  expect(attack(automatic).emblazon).toEqual({ type: 'energy', energy: 'fire', die: 6 })
+  expect(attack({ ...withDomain, feats: withDomain.feats.map(feat => feat.name === 'Emblazon Energy' ? { ...feat, choice: 'Cold' } : feat) })
+    .additionalDamage).toContainEqual(expect.objectContaining({ source: 'Emblazon Energy', value: '1d4 cold' }))
+  expect(attack({ ...withDomain, feats: withDomain.feats.map(feat => feat.name === 'Emblazon Energy' ? { ...feat, choice: 'Normal' } : feat) }).emblazon)
+    .toEqual({ type: 'normal' })
+})
+
 it('trains Intimidation, Religion, and Stealth from the Avenger racket', () => {
   const avenger = { ...base, level: 1, subclass: 'Avenger', deity: undefined }
   expect(ranksAt(avenger, [rogue])).toMatchObject({ Intimidation: 1, Religion: 1, Stealth: 1 })

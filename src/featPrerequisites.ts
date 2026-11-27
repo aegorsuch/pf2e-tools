@@ -37,6 +37,8 @@ export interface PrerequisiteFacts {
   weaponRank?: (name: string) => number | undefined
   hellknightWeapons?: string[]
   deityFavoredWeapons?: string[]
+  hasDivineFont?: boolean
+  deityFontOptions?: string[]
   healingFont?: boolean
   canCreateOrControlUndead?: boolean
   abilities: Character['abilities']
@@ -47,6 +49,8 @@ export interface PrerequisiteFacts {
   canCastSpells?: boolean
   maxSpellRank?: number
   focusPool?: boolean
+  hasFocusSpells?: boolean
+  divineSpells?: boolean
   untamedForm?: boolean
   wardenSpells?: string[]
   companionTypes?: string[]
@@ -314,9 +318,30 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       && /^(?:bones|bones mystery)$/i.test(facts.subclass ?? ''), text)
     if (name === 'necromancer wizard') return resultFor(facts.className === 'Wizard'
       && /^(?:necromancy|necromancer|school of necromancy)$/i.test(facts.subclass ?? ''), text)
-    if (name === 'healing font' && trail.has('guiding heal')) {
-      return facts.healingFont === undefined ? manual(text) : resultFor(facts.healingFont, text)
+    if (name === 'healing font' || name === 'harmful font') {
+      if (!facts.hasDivineFont) return missing(text)
+      return facts.healingFont === undefined ? manual(text) : resultFor(facts.healingFont === (name === 'healing font'), text)
     }
+    if (name === 'harmful font or healing font' || name === 'healing font or harmful font') {
+      return resultFor(!!facts.hasDivineFont, text)
+    }
+    if (name === 'deity that allows clerics to have both fonts') {
+      if (!facts.deity) return missing(text)
+      if (!facts.deityFontOptions?.length) return manual(text)
+      return resultFor(['heal', 'harm'].every(font => facts.deityFontOptions!.includes(font)), text)
+    }
+    if (name === 'you follow a deity') return resultFor(!!facts.deity, text)
+    const worshipper = /^(?:worshipper|worshiper) of (.+)$/.exec(name)
+    if (worshipper) return resultFor(key(facts.deity ?? '') === worshipper[1], text)
+    if (name === 'divine spells') return resultFor(!!facts.divineSpells, text)
+    if (name === 'ability to cast focus spells') return resultFor(!!facts.hasFocusSpells, text)
+    if (name === 'holy or unholy trait') {
+      if (facts.feats.some(feat => ['the hallowed dead', 'hallowed dead', 'the unholy dead', 'unholy dead'].includes(key(feat.name)))) return met()
+      if (!facts.sanctification) return manual(text)
+      return resultFor(facts.sanctification === 'Holy' || facts.sanctification === 'Unholy', text)
+    }
+    if (name === 'warpriest doctrine') return resultFor(facts.className === 'Cleric'
+      && /^warpriest(?: doctrine)?$/i.test(facts.subclass ?? ''), text)
     if (name === "pistolero's challenge" && facts.className === 'Gunslinger') {
       return resultFor([facts.subclass ?? '', ...facts.additionalSubclasses]
         .some(subclass => key(subclass) === 'way of the pistolero'), text)
@@ -419,7 +444,7 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
       return resultFor(key(facts.sanctification) !== forbiddenSanctification, text)
     }
     const requiredSanctification = /^you are (holy|unholy)$/.exec(name)?.[1]
-      ?? (facts.className === 'Champion' && ['holy', 'unholy'].includes(name) ? name : undefined)
+      ?? (['holy', 'unholy'].includes(name) ? name : undefined)
     if (requiredSanctification) {
       const grantingFeats = requiredSanctification === 'holy'
         ? ['the hallowed dead', 'hallowed dead'] : ['the unholy dead', 'unholy dead']

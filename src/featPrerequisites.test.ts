@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, movementSpeeds, plannedSlots, ranksAt, resistances, senses, syncClassArchetypeDedication, syncOrderExplorerFeats } from './builder'
+import { additionalSkillCount, ancestryFeatTraits, automaticFeatGrants, championDevotionOptions, classExtraSlots, dailyLongevityRanks, eligibleFeats, featChoiceOptions, featLores, featPrerequisiteChecker, featSelectionLevel, featSelectionPrerequisiteChecker, featTakenLevel, focusSpells, maxHp, movementSpeeds, orphanedArchetypeFeats, plannedSlots, ranksAt, resistances, senses, syncClassArchetypeDedication, syncOrderExplorerFeats } from './builder'
 import { createFeatPrerequisiteChecker, featPrerequisiteSources, featPrerequisiteSuggestions, ignoresFeatPrerequisites, type PrerequisiteFacts } from './featPrerequisites'
 import { mapAonHit } from './aon'
 import snapshot from '../public/data/aon-pf2e.json?raw'
@@ -245,6 +245,101 @@ it('checks Guiding Heal against known deity font options without guessing a mixe
   expect(result('Harm').missing).toEqual(['healing font'])
   expect(result('Heal, Harm').manual).toEqual(['healing font'])
   expect(featPrerequisiteChecker({ ...c, deity: undefined }, [feat])(feat).manual).toEqual(['healing font'])
+})
+
+it('checks official Cleric prerequisites against actual deity, sanctification, and font', () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+  const names = ['False Faith', 'Healing Hands', 'Harming Hands', 'Divine Castigation', 'Versatile Font',
+    'Sacred Ground', 'Sanctify Armament', 'Eternal Blessing', 'Eternal Bane', 'Warpriest’s Armor']
+  const feats = names.flatMap(name => {
+    const hit = hits.find(item => item._source?.name === name)
+    const feat = hit && mapAonHit(hit, 'pf2e')
+    return feat ? [feat] : []
+  })
+  const find = (name: string) => feats.find(feat => feat.name === name)!
+  const patron = entry('deity', 'Patron', { divine_font: 'Heal, Harm', sanctification: 'holy, unholy' })
+  const cleric: Character = { ...base, className: 'Cleric', deity: 'Patron', divineFont: 'Heal', sanctification: 'Holy' }
+  const result = (name: string, c: Character = cleric, deity: ContentEntry = patron) =>
+    featPrerequisiteChecker(c, [...feats, deity])(find(name))
+  expect(result('Healing Hands')).toEqual({ missing: [], manual: [] })
+  expect(result('Harming Hands').missing).toEqual(['harmful font'])
+  expect(result('Harming Hands', { ...cleric, divineFont: 'Harm' })).toEqual({ missing: [], manual: [] })
+  expect(result('Healing Hands', { ...cleric, divineFont: undefined }).manual).toEqual(['healing font'])
+  expect(result('Versatile Font', { ...cleric, divineFont: undefined })).toEqual({ missing: [], manual: [] })
+  expect(result('Versatile Font', cleric, { ...patron, data: { divine_font: 'Heal' } }).missing)
+    .toContain('deity that allows clerics to have both fonts')
+  expect(result('Sacred Ground')).toEqual({ missing: [], manual: [] })
+  expect(result('Divine Castigation')).toEqual({ missing: [], manual: [] })
+  expect(result('Sanctify Armament', { ...cleric, sanctification: undefined }).missing).toEqual(['holy or unholy trait'])
+  expect(result('Eternal Blessing')).toEqual({ missing: [], manual: [] })
+  expect(result('Eternal Bane').missing).toEqual(['unholy'])
+  expect(result('False Faith').missing).toEqual(['worshipper of Droskar'])
+  expect(result('False Faith', { ...cleric, deity: 'Droskar' })).toEqual({ missing: [], manual: [] })
+  const multiclass = { ...cleric, className: 'Rogue', feats: [selected('Cleric Dedication', 2)] }
+  expect(result('Healing Hands', multiclass).missing).toEqual(['healing font'])
+  expect(result('Versatile Font', multiclass).missing).toContain('harmful font or healing font')
+  expect(result('Divine Castigation', multiclass)).toEqual({ missing: [], manual: [] })
+  expect(classExtraSlots(cleric, [patron]).find(slot => slot.source === 'Divine Font')?.allowedSpells).toEqual(['Heal'])
+  expect(classExtraSlots({ ...cleric, feats: [selected('Versatile Font', 2)] }, [patron])
+    .find(slot => slot.source === 'Divine Font')?.allowedSpells).toEqual(['Heal', 'Harm'])
+})
+
+it('shows level 4 Cleric feats at archetype level 8 and permits planned Divine Breadth', () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+  const names = ['Cleric Dedication', 'Basic Cleric Spellcasting', 'Divine Breadth', 'Cantrip Expansion', 'Directed Channel']
+  const catalog = hits.filter(hit => names.includes(String(hit._source?.name)))
+    .map(hit => mapAonHit(hit, 'pf2e')).filter((item): item is ContentEntry => !!item)
+  const find = (name: string) => catalog.find(feat => feat.name === name)!
+  const c: Character = { ...base, className: 'Rogue', subclass: 'Avenger', abilities: { ...base.abilities, wis: 18 },
+    feats: [
+      { name: 'Basic Cleric Spellcasting', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' },
+      { name: 'Cantrip Expansion', type: 'Archetype Feat', level: 2, slot: 'archetype:4:1' },
+      { name: 'Cleric Dedication', type: 'Archetype Feat', level: 2, takenLevel: 10, slot: 'archetype:1:eldritch-trickster:class:10:0' },
+    ] }
+  const slot = { category: 'archetype' as const, key: 'archetype:8:0', level: 8 }
+  expect(featSelectionLevel(find('Directed Channel'), c, catalog, 'archetype', slot)).toBe(8)
+  expect(eligibleFeats(catalog, c, slot)).toContain(find('Directed Channel'))
+  expect(featSelectionPrerequisiteChecker(c, catalog, slot)(find('Divine Breadth'))).toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats(catalog, c, slot)).toContain(find('Divine Breadth'))
+})
+
+it('offers actual Domain Initiate through Cleric Dedication, including another domain', () => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+  const catalog = hits.filter(hit => ['Domain Initiate', 'Cleric Dedication', 'Sarenrae'].includes(String(hit._source?.name)))
+    .map(hit => mapAonHit(hit, 'pf2e')).filter((item): item is ContentEntry => !!item)
+  const domain = catalog.find(item => item.name === 'Domain Initiate')!
+  const c: Character = { ...base, className: 'Rogue', subclass: 'Avenger', deity: 'Sarenrae',
+    abilities: { ...base.abilities, wis: 18 }, feats: [
+    { name: 'Cleric Dedication', type: 'Archetype Feat', level: 2, takenLevel: 10, slot: 'archetype:1:eldritch-trickster:class:10:0' },
+  ] }
+  const slot = { category: 'archetype' as const, key: 'archetype:4:0', level: 4 }
+  expect(featSelectionPrerequisiteChecker(c, catalog, slot)(domain)).toEqual({ missing: [], manual: [] })
+  expect(eligibleFeats(catalog, c, slot)).toContain(domain)
+  const prior = { ...c, feats: [...c.feats, { name: domain.name, type: 'Archetype Feat', level: 1, slot: slot.key, choice: 'Fire' }] }
+  expect(orphanedArchetypeFeats(prior, catalog)).not.toContainEqual(prior.feats[1])
+  const later = { ...slot, key: 'archetype:6:0', level: 6 }
+  expect(eligibleFeats(catalog, prior, later)).toContain(domain)
+  expect(featChoiceOptions(domain.name, prior, catalog, later.key)).toContain('Healing')
+  expect(featChoiceOptions(domain.name, prior, catalog, later.key)).not.toContain('Fire')
+})
+
+it.each([['Second Sting', 14], ['Improved Twin Riposte (Fighter)', 16]])(
+  'offers the official %s at Avenger level %i', (name, level) => {
+  const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
+  const catalog = hits.filter(hit => [name, 'Avenger Dedication', 'Twin Riposte'].includes(String(hit._source?.name)))
+    .map(hit => mapAonHit(hit, 'pf2e')).filter((item): item is ContentEntry => !!item)
+  const feat = catalog.find(item => item.name === name)!
+  const dedication = catalog.find(item => item.name === 'Avenger Dedication')!
+  const c: Character = { ...base, className: 'Rogue', subclass: 'Avenger', feats: [
+    { name: dedication.name, type: 'Class Feat', level: 2, slot: 'class:2:0' },
+    ...(name === 'Second Sting' ? [] : [{ name: 'Twin Riposte', type: 'Class Feat', level: 10, slot: 'class:12:0' }]),
+  ] }
+  const slot = { category: 'class' as const, key: `class:${level}:0`, level }
+  expect(String(feat.data.archetype_levels)).toContain(`Avenger:${level}`)
+  expect(featSelectionLevel(feat, c, catalog, 'class', slot)).toBe(level)
+  expect(eligibleFeats(catalog, c, slot)).toContain(feat)
+  expect(eligibleFeats(catalog, c, { ...slot, key: `class:${level - 2}:0`, level: level - 2 })).not.toContain(feat)
+  expect(featSelectionLevel(feat, c, catalog, 'archetype', { key: `archetype:${level}:0`, level })).toBe(level)
 })
 
 it('checks undead creation and legacy class prerequisites separately for Reanimator feats', () => {
@@ -908,7 +1003,10 @@ it.each([
   const checkFeat = featPrerequisiteChecker(c, [feat, other])
   expect(checkFeat(feat)).toEqual({ missing: [], manual: [] })
   expect(checkFeat(other).missing).toContain(skillRequirement)
-  expect(checkFeat(other).manual).toHaveLength(1)
+  if (prerequisite.endsWith('you follow a deity')) {
+    expect(checkFeat(other).missing).toContain('you follow a deity')
+    expect(checkFeat(other).manual).toHaveLength(0)
+  } else expect(checkFeat(other).manual).toHaveLength(1)
 })
 
 it.each(['Religious Talisman', 'Deific Obedience'])('removes %s prerequisites for Starfinder characters', (name) => {

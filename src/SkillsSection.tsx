@@ -864,11 +864,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             onChange={event => save({ ysokiDailyUses: { ...c.ysokiDailyUses, contaminate: event.target.checked } })} />
           {' '}<a href="https://2e.aonsrd.com/actions/232-contaminate" target="_blank" rel="noreferrer">Contaminate</a> used
         </label>}
-        {!!activeFeatsNamed(c, 'Divine Strike').length && <label>
-          <input type="checkbox" aria-label="Divine Strike used" checked={!!c.dailyFeatUses?.['Divine Strike']}
-            onChange={event => save({ dailyFeatUses: { ...c.dailyFeatUses, 'Divine Strike': event.target.checked } })} />
-          {' '}Divine Strike used <SourceNote source="Divine Strike" note="Once per day. Wield your deity's favored weapon and expend a Cleric spell slot for a one- or two-action spell attack; use the Strike result for both effects." />
-        </label>}
         {!!activeFeatsNamed(c, "Grandmother's Curse").length && <label>
           <input type="checkbox" checked={!!c.hourlyFeatUses?.["Grandmother's Curse"]}
             onChange={event => save({ hourlyFeatUses: { ...c.hourlyFeatUses, "Grandmother's Curse": event.target.checked } })} />

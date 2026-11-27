@@ -266,6 +266,7 @@ export interface Character {
   backgroundLores?: Record<string, string[]>
   backgroundSkillChoices?: Record<string, string>
   deity?: string
+  divineFont?: 'Heal' | 'Harm'
   divineIntercessions?: Record<string, string[]>
   inactiveDivineBoonFeats?: Character['feats']
   blessing?: '' | 'Blessed Armament' | 'Blessed Shield' | 'Blessed Swiftness'

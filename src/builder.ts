@@ -4,7 +4,7 @@ import { ENERGY_SHIELDING_TYPES } from './types'
 import { ANCESTRAL_AVATAR, BATTLE_FORM_SPELLS, BATTLE_FORM_WEAPONS, ancestralAvatarForm, animalBattleForm, crocodileBattleForm, dinosaurBattleForm, dragonTransformationForm, insectBattleForm, pestBattleForm } from './battleForms'
 import { ANIMAL_BRUTALITY_TRAITS, ANIMAL_INSTINCTS, DRAGON_FORMS, DRAGON_INSTINCTS, ELEMENTAL_INSTINCTS } from './barbarian'
 import { INITIATE_TRAINING, alloyedAttackChoice, ancestralUnarmedFeatNames, ancestryFeatTraits, canSelectWardenFeat, companionProgressionStage, featTakenLevel, grantedWardenSpells, hasCyborgHeritage, hasWardenChoice, isCompanionAdvancement, isCompanionSpecialization, isRepeatableCompanionSpecialization, selectedFeatEntry, wardenSpellOptions, wardenTierOf } from './featChoices'
-import { DOMAIN_FEATS, EXTRAPLANAR_SUPPLICATION_SPELLS, KITSUNE_SPELL_FAMILIARITY_CANTRIPS, activeCaypinAlly, activeLashuntaAlly, activeShirrenAlly, ancestralMagicAvailable, automaticFeatChoiceKey, boneMagicChoiceOptions, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
+import { DOMAIN_FEATS, EXTRAPLANAR_SUPPLICATION_SPELLS, KITSUNE_SPELL_FAMILIARITY_CANTRIPS, activeCaypinAlly, activeLashuntaAlly, activeShirrenAlly, ancestralMagicAvailable, automaticFeatChoiceKey, boneMagicChoiceOptions, domainFeatSpells, featSpellOptions, grantedFeatSpells, widespreadFascinationOptions } from './featSpells'
 import { GODCLAW_DOMAINS, HELLKNIGHT_FAVORED_WEAPONS, ORDER_TRAINING_FEATS, PYRE_ENERGY_TYPES, hellknightBenefitActive, hellknightOrder, hellknightSkillNotes, hellknightTrainingBenefit, hellknightTrainingBenefits, orderTrainingChoices } from './hellknight'
 import { backgroundLoreCount, backgroundLoreOptions, isOpenBackgroundLore, PROFESSION_LORES } from './backgrounds'
 import { familiarityChoiceOptions, uncommonWeapon, weaponFamiliarity } from './weaponFamiliarity'
@@ -1362,10 +1362,18 @@ export function orphanedArchetypeFeats(c: Character, entries: ContentEntry[]) {
     ...info.flatMap(({ sources }) => sources.flatMap(e => isDedication(e) ? dedicationArchetypes(e) : [])),
     ...provided,
   ])
-  return info.filter(({ f, sources }) => sources.length > 0 && sources.every(e => !isDedication(e) && archetypesOf(e).length
+  return info.filter(({ f, sources }) => sources.length > 0 && sources.every(e => !isDirectDedicationClassFeat(c, e, f.slot)
+    && !isDedication(e) && archetypesOf(e).length
     && (e.traits.some(t => t.toLowerCase() === 'archetype') || f.slot?.startsWith('archetype:'))
     && !archetypesOf(e).some(name => dedications.has(name))))
     .map(({ f }) => f)
+}
+
+function isDirectDedicationClassFeat(c: Character, entry: ContentEntry, slotKey?: string) {
+  return !!slotKey?.startsWith('archetype:') && !entry.traits.some(trait => /^(archetype|dedication)$/i.test(trait))
+    && entry.traits.some(trait => directClassTraits.has(trait.toLowerCase()) && c.feats.some(feat => feat.slot !== slotKey
+      && (feat.name.toLowerCase() === `${trait.toLowerCase()} dedication`
+        || trait.toLowerCase() === 'wizard' && feat.name === 'Spellshot Dedication')))
 }
 
 // Feats only, with lowercased traits, cached per entries array so each picker render skips the full scan
@@ -1654,10 +1662,14 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         hellknightWeapons: HELLKNIGHT_FAVORED_WEAPONS[hellknightOrder(character) ?? ''],
         deityFavoredWeapons: tokens(byName(entries, 'deity', character.deity)?.data.favored_weapon)
           .flatMap(value => value.split(/\s+or\s+/i)).map(value => value.trim()).filter(Boolean),
+        hasDivineFont: character.className === 'Cleric' && character.level >= 1,
+        deityFontOptions: tokens(byName(entries, 'deity', character.deity)?.data.divine_font).map(value => value.toLowerCase()),
         healingFont: (() => {
           if (character.className !== 'Cleric' || character.level < 1) return false
           const font = tokens(byName(entries, 'deity', character.deity)?.data.divine_font).map(value => value.toLowerCase())
-          if (!font.length || font.includes('heal') && font.includes('harm')) return undefined
+          if (!font.length) return undefined
+          if (font.includes('heal') && font.includes('harm'))
+            return character.divineFont ? character.divineFont === 'Heal' : undefined
           return font.includes('heal')
         })(),
         get canCreateOrControlUndead() {
@@ -1701,13 +1713,21 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           return hasFocusPool ??= getFocus().points > 0
             || features.some(feature => /\byou (?:start with|gain) a focus pool\b/i.test(feature.description))
         },
+        get hasFocusSpells() { return getFocus().spells.length > 0 },
+        get divineSpells() {
+          return character.className === 'Cleric' || activeFeatsNamed(character, 'Cleric Dedication').length > 0
+            || (classSpellcasting(character, entries)?.traditions ?? []).some(tradition => /^divine$/i.test(tradition))
+            || getInnateGrants().some(grant => /^divine$/i.test(grant.rule.tradition ?? ''))
+            || getFocus().spells.some(spell => /\bdivine\b/i.test(String(byName(entries, 'spell', spell.name)?.data.tradition ?? '')))
+        },
         get canCastSpells() { return !!(value.spellcastingClassFeature || value.focusPool || character.spells?.length) },
         get untamedForm() { return knowsSpell(character, entries, 'Untamed Form') },
         championBlessings: championBlessings(character), deity: character.deity,
         sanctification: (character.systems.includes('pf2e') ? activeFeatsNamed(character, 'Sanctified Soul')
           .map(feat => feat.choice === 'Holy' ? 'Holy' as const : feat.choice === 'Unholy' ? 'Unholy' as const : undefined)
           .find(choice => choice !== undefined) : undefined)
-          ?? (character.className === 'Champion'
+          ?? (character.className === 'Champion' || character.className === 'Cleric'
+            || activeFeatsNamed(character, 'Cleric Dedication').length > 0
           ? byName(entries, 'deity', character.deity)?.data.sanctification
             ? deitySanctification(character, entries).selected ?? 'None' : undefined
           : character.sanctification ?? 'None'),
@@ -1833,8 +1853,9 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
       ? featPrerequisiteChecker({ ...c, feats: character.feats }, entries, buildLevel, -1,
         { ...options, substituteMentalAbility: dedicationAbility })(entry) : unplannedCheck?.(entry) : undefined
     // Future feats can satisfy requirements; unrelated level progression cannot.
+    const directClassDedication = slot.category === 'archetype' && isDirectDedicationClassFeat(c, entry, slot.key)
     const missing = [...result.missing.filter(requirement => !planned || !unplanned
-      || planned.missing.includes(requirement) || !unplanned.missing.includes(requirement)), ...(isDedication(entry) ? archetype.missing(entry) : plannedArchetype.missing(entry)),
+      || planned.missing.includes(requirement) || !unplanned.missing.includes(requirement)), ...(directClassDedication ? [] : isDedication(entry) ? archetype.missing(entry) : plannedArchetype.missing(entry)),
       ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
     if (entry.id === 'homebrew:guardbreak' && !c.feats.some(feat => feat.slot !== slot.key && feat.name === 'Shield Block')
       && !automaticFeatGrants(character, entries).some(feat => feat.name === 'Shield Block')
@@ -2296,7 +2317,7 @@ function directDedicationClassFeats(c: Character, entries: ContentEntry[], slot:
     const hasSymbol = [...taken].some(name => /^Favored Weapon Symbol\b/.test(name))
     const cap = owned === 0 ? slot.level >= 4 ? 2 : 0 : slot.level >= 6 ? Math.floor(slot.level / 2) : 0
     for (const entry of directClassFeats(entries, trait)) {
-      if (entry.level >= 1 && entry.level <= cap && !taken.has(entry.name)
+      if (entry.level >= 1 && entry.level <= cap && (!taken.has(entry.name) || entry.data.repeatable === true)
         && !(hasSymbol && /^(Favored Weapon (Symbol|Jousting)|Tethered Favored Weapon)$/.test(entry.name))
         && !prerequisites(entry).missing.length) found.set(entry.name, entry)
     }
@@ -2915,6 +2936,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       .map(specialization => specialization.name))]
   }
   if (name === 'Hold Mark') return ['Burning Sun', "Death's Head", 'Defiled Corpse', 'Empty Hand']
+  if (name === 'Emblazon Energy' && c.systems.includes('pf2e')) return ['Normal', 'Acid', 'Cold', 'Electricity', 'Fire', 'Sonic']
   if (name === 'Orc Warmask') return Object.keys(WARMASK_SOURCES)
   if (name === 'Alloyed Attacks') return ['Cold Iron', 'Silver', ...(c.level >= 13 ? ['Adamantine'] : [])]
   if (name === 'Favored Prey') return ['Animals', 'Beasts', 'Dragons', 'Fungi and Plants']
@@ -3337,8 +3359,11 @@ export function classExtraSlots(c: Character, entries: ContentEntry[] = []) {
     extras.push({ key: 'library-robes', rank: libraryRobesRank(c.level), source: 'Library Scroll Robes' })
   if (c.className === 'Cleric' && c.systems.includes('pf2e') && c.level >= 1) {
     const rank = Math.min(9, Math.ceil(c.level / 2))
+    const deityFonts = tokens(byName(entries, 'deity', c.deity)?.data.divine_font).map(font => font.toLowerCase())
+    const fontSpells = c.divineFont && deityFonts.includes('heal') && deityFonts.includes('harm')
+      && !activeFeatsNamed(c, 'Versatile Font').length ? [c.divineFont] : ['Heal', 'Harm']
     extras.push(...Array.from({ length: clericDivineFontSlotCount(c) }, (_, index) => ({
-      key: `divine-font:${rank}:${index}`, rank, source: 'Divine Font', allowedSpells: ['Heal', 'Harm'],
+      key: `divine-font:${rank}:${index}`, rank, source: 'Divine Font', allowedSpells: fontSpells,
     })))
   }
   return extras
@@ -8831,6 +8856,22 @@ export function isFavoredWeapon(c: Character, entries: ContentEntry[], name: str
     .replace(/^(Shobhad Longrifle) \((?:Pathfinder|Starfinder)\)$/, '$1').toLowerCase())
 }
 
+export function emblazonWeaponBenefit(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
+  if (!c.systems.includes('pf2e') || !activeFeatsNamed(c, 'Emblazon Armament').length
+    || !isFavoredWeapon(c, entries, weapon.name)) return undefined
+  const favored = c.weapons?.filter(candidate => isFavoredWeapon(c, entries, candidate.name)) ?? []
+  const first = favored.find(candidate => weaponHeld(c, entries, candidate)) ?? favored[0]
+  if (first && first.id !== weapon.id) return undefined
+  const energyFeat = activeFeatsNamed(c, 'Emblazon Energy')[0]
+  if (!energyFeat) return { type: 'normal' as const }
+  const types = ['Acid', 'Cold', 'Electricity', 'Fire', 'Sonic']
+  const domainTypes = new Set(c.feats.flatMap(feat => featTakenLevel(feat) <= c.level && feat.choice && DOMAIN_FEATS.includes(feat.name)
+    ? domainFeatSpells(c, entries, feat.name, feat.choice).flatMap(spell => spell.traits.filter(trait => types.includes(trait))) : []))
+  const choice = energyFeat.choice ?? (domainTypes.size === 1 ? [...domainTypes][0] : 'Normal')
+  if (!types.includes(choice)) return { type: 'normal' as const }
+  return { type: 'energy' as const, energy: choice.toLowerCase(), die: domainTypes.has(choice) ? 6 : 4 }
+}
+
 function isDeadlySimplicityWeapon(c: Character, entries: ContentEntry[], entry?: ContentEntry) {
   if (!entry || !isFavoredWeapon(c, entries, entry.name)) return false
   const category = weaponCategory(entry)
@@ -9987,10 +10028,11 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const spiritDamage = rageDamage && c.raging && c.spiritRage && barbarianInstinct(c, entries) === 'spirit'
   const warriorLegendDamage = !formAttack && isWarriorOfLegend(c) && isWarriorLegendWeapon(entry)
     ? conditionValue(c, 'doomed') : 0
+  const emblazon = !formAttack ? emblazonWeaponBenefit(c, entries, w) : undefined
   const damageBonus = (formAttack && form ? (formAttack.data.form_damage_bonus === undefined ? form.damageBonus : num(formAttack.data.form_damage_bonus)) + (dragonFormAttack && !dragonDamage && !elementalDamage && !spiritDamage ? rageDamage : 0) : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + (dragonDamage || elementalDamage || spiritDamage ? 0 : rageDamage)
     + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
   ) + (scionTransformation && !ranged ? 2 : 0) + warriorLegendDamage - damagePenalty + (propulsiveShield ? dice : 0)
-  + (c.systems.includes('pf2e') && activeFeatsNamed(c, 'Emblazon Armament').length && isFavoredWeapon(c, entries, w.name) ? 1 : 0)
+  + (emblazon?.type === 'normal' ? 1 : 0)
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
     c.level >= 4 && hasActiveFeatVariant(c, 'Favored Weapon Jousting') && isFavoredWeapon(c, entries, livingSource?.name ?? w.name)
@@ -10065,12 +10107,15 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     ? upgrades.filter(upgrade => /^gluon(?:\s*\(|$)/i.test(upgrade.name)).sort((a, b) => b.level - a.level)[0] : undefined
   return {
     entry,
+    emblazon,
     upgrades,
     pristineLivingWeapon,
     pristineWeapon,
     rageDamage,
     areaAttacks,
     additionalDamage: [...supportDamage,
+      ...(emblazon?.type === 'energy' ? [{ source: 'Emblazon Energy', value: `1d${emblazon.die} ${emblazon.energy}`,
+        note: 'Replaces Emblazon Armament’s normal weapon benefit.' }] : []),
       ...(c.aimActive && c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack
         && (ranged && !traits.some(trait => /^area(?:\s|$)/i.test(trait))
           || hasOperativeStriker(c, entries) && !ranged && (category === 'Unarmed' || weaponHands(entries, w, c) === 1)

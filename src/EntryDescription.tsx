@@ -38,7 +38,7 @@ function featIndex(entries: ContentEntry[]) {
 
 type EntryDescriptionProps = {
   name: string; entry?: ContentEntry; choice?: string; className?: string; prerequisites?: PrerequisiteCheck; access?: FeatAccessCheck; buttonLabel?: string; buttonSuffix?: string; buttonActions?: string; hideButtonActions?: boolean; grantSource?: string; descriptionNote?: string; entries?: ContentEntry[]; character?: Character
-  deferDetails?: boolean; dialogContent?: ReactNode
+  deferDetails?: boolean; dialogContent?: ReactNode; displayLevel?: number
 }
 
 export function EntryDescription({ name, entry, className, prerequisites, access, buttonLabel, buttonSuffix, buttonActions, hideButtonActions, grantSource, entries, character, deferDetails, ...details }: EntryDescriptionProps) {
@@ -86,7 +86,7 @@ export function EntryDescription({ name, entry, className, prerequisites, access
   )
 }
 
-function EntryDescriptionContents({ name, entry, choice, prerequisites, access, descriptionNote, dialogContent, entries, character, history, setHistory, dialog, titleId, includeChoiceSpell }: EntryDescriptionProps & {
+function EntryDescriptionContents({ name, entry, choice, prerequisites, access, descriptionNote, dialogContent, displayLevel, entries, character, history, setHistory, dialog, titleId, includeChoiceSpell }: EntryDescriptionProps & {
   history: ContentEntry[]; setHistory: Dispatch<SetStateAction<ContentEntry[]>>
   dialog: RefObject<HTMLDialogElement | null>; titleId: string; includeChoiceSpell: boolean
 }) {
@@ -164,7 +164,7 @@ function EntryDescriptionContents({ name, entry, choice, prerequisites, access, 
   const choiceSpellName = technomancerHackName ?? choiceSpell?.name
   return (
     <>
-        <h4 id={titleId} tabIndex={-1}>{title(history.length ? active?.name ?? name : name)}{featActions && <> <ActionIcon entry={active} /></>}{active && !['trait', 'weaponGroup'].includes(active.kind) && <small> (Level {active.level}{rarity ? `; ${rarity}` : ''})</small>}</h4>
+        <h4 id={titleId} tabIndex={-1}>{title(history.length ? active?.name ?? name : name)}{featActions && <> <ActionIcon entry={active} /></>}{active && !['trait', 'weaponGroup'].includes(active.kind) && <small> (Level {history.length ? active.level : displayLevel ?? active.level}{rarity ? `; ${rarity}` : ''})</small>}</h4>
         {!history.length && !!prerequisites?.missing.length && <p className="feat-prerequisite-note" role="status">
           Prerequisites unmet: {text(prerequisites.missing.join('; '))}
         </p>}

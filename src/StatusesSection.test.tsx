@@ -45,6 +45,21 @@ function findSelect(node: ReactNode, label: string): ((event: { target: { value:
   return result
 }
 
+it('tracks Divine Strike use in statuses without changing other daily uses', () => {
+  let c: Character = { id: 'divine-strike', name: 'Test', systems: ['pf2e'], level: 10,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Divine Strike', type: 'Class Feat', level: 10, slot: 'class:10:0' }],
+    dailyFeatUses: { Other: true }, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  expect(renderToStaticMarkup(<SkillsSection c={c} entries={[]} save={save} part="offense" />)).not.toContain('Divine Strike used')
+  expect(renderToStaticMarkup(<StatusesContent c={{ ...c, level: 9 }} entries={[]} save={save} />)).not.toContain('Divine Strike used')
+  findButton(StatusesContent({ c, entries: [], save }), 'Divine Strike used')!()
+  expect(c.dailyFeatUses).toEqual({ Other: true, 'Divine Strike': true })
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={save} />)).toContain('Divine Strike used')
+  findButton(StatusesContent({ c, entries: [], save }), 'Divine Strike used')!()
+  expect(c.dailyFeatUses).toEqual({ Other: true, 'Divine Strike': false })
+})
+
 it('toggles Boost independently for each held weapon and shows active damage in statuses', () => {
   const caster: ContentEntry = { id: 'caster', name: 'Advanced Plasma Caster', systems: ['sf2e'], kind: 'weapon',
     source: 'official', level: 8, traits: ['Boost d10'], description: '', effects: [], updatedAt: 0,

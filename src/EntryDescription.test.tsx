@@ -61,13 +61,13 @@ it('opens deferred details with focus, follows links, and resets on close', asyn
     traits: [], description: 'Source rules.', data: {}, effects: [], updatedAt: 0,
     featLinks: [{ name: 'Next Feat', url: '/next' }],
   }
-  const target: ContentEntry = { ...source, id: 'next', name: 'Next Feat', description: 'Next rules.',
+  const target: ContentEntry = { ...source, id: 'next', name: 'Next Feat', level: 3, description: 'Next rules.',
     data: { url: '/next' }, featLinks: [] }
   const container = document.createElement('div')
   document.body.append(container)
   const root = createRoot(container)
   await act(async () => root.render(<EntryDescription name={source.name} entry={source}
-    entries={[source, target]} buttonLabel="Details" deferDetails />))
+    entries={[source, target]} buttonLabel="Details" deferDetails displayLevel={2} />))
 
   const button = container.querySelector<HTMLButtonElement>('button')!
   expect(container.querySelector('dialog')).toBeNull()
@@ -75,10 +75,12 @@ it('opens deferred details with focus, follows links, and resets on close', asyn
   let dialog = container.querySelector<HTMLDialogElement>('dialog')!
   expect(dialog.open).toBe(true)
   expect(document.activeElement).toBe(dialog.querySelector('h4'))
+  expect(dialog.querySelector('h4')?.textContent).toContain('Level 2')
   expect(dialog.textContent).toContain('Source rules.')
   const next = [...dialog.querySelectorAll('button')].find(item => item.textContent === 'Next Feat')!
   await act(async () => next.click())
   expect(dialog.textContent).toContain('Next rules.')
+  expect(dialog.querySelector('h4')?.textContent).toContain('Level 3')
   await act(async () => dialog.close())
   expect(container.querySelector('dialog')).toBeNull()
   await act(async () => button.click())
