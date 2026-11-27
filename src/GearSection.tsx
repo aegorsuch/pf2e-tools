@@ -2340,7 +2340,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                     energyShieldingTypes={a.energyShieldingTypes}
                     energizedSpikesEnergy={a.energizedSpikesEnergy}
                     automaticUpgrades={automaticUpgrades} armorName={a.name}
-                    blockedUpgrades={a.worn ? (c.personalUpgrades ?? []).flatMap(id => armorUpgradeEntry(entries, id) ?? []) : []}
+                    blockedUpgrades={(c.personalUpgrades ?? []).flatMap(id => armorUpgradeEntry(entries, id) ?? [])}
                   onToggleJetpack={id => update(a.id, { activeJetpack: a.activeJetpack === id ? undefined : id })}
                     onEnergizedSpikesEnergyChange={energy => update(a.id, { energizedSpikesEnergy: energy })}
                     onChange={upgrades => {
