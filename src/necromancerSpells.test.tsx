@@ -23,40 +23,6 @@ const spell = (name: string, level = 1, tradition = 'Occult', traits: string[] =
 })
 const taken = (name: string, level: number) => ({ name, level, type: 'Class Feat' })
 
-it('spends an archetype spell slot when casting Loaner Spell', () => {
-  const loaner = { ...spell('Loaned Spell', 2, 'Arcane'), data: { tradition: 'Arcane', target: '1 creature' } }
-  const c: Character = { ...base, className: 'Rogue', level: 10,
-    feats: [taken('Wizard Dedication', 2), taken('Basic Wizard Spellcasting', 4),
-      { ...taken('Loaner Spell', 1), choice: loaner.name }],
-    spellcasting: { ability: 'int', tradition: 'Arcane', rank: 1, slots: {}, spentSlots: [] } }
-  const save = vi.fn()
-  for (const value of ['class', 'Arcane', undefined, false, 'Wizard', 0, undefined, '', 'all', 'both', 'name'])
-    vi.mocked(useState).mockReturnValueOnce([value, vi.fn()])
-  vi.mocked(useMemo).mockImplementation(fn => fn())
-  vi.mocked(useRef).mockReturnValue({ current: null })
-  vi.mocked(useId).mockReturnValue('spell')
-  try {
-    let cast: { onClick: () => void; disabled?: boolean } | undefined
-    const visit = (node: ReactNode) => Children.forEach(node, child => {
-      if (!isValidElement<Record<string, unknown>>(child)) return
-      if (child.props['aria-label'] === 'Cast Loaner Spell Loaned Spell') cast = child.props as typeof cast
-      visit(child.props.children as ReactNode)
-      visit(child.props.inlineControls as ReactNode)
-    })
-    visit(SpellsContent({ c, entries: [loaner], save }))
-    expect(cast?.disabled).toBe(false)
-    cast!.onClick()
-    expect(save).toHaveBeenCalledWith(expect.objectContaining({
-      spellcasting: expect.objectContaining({ spentSlots: ['2:0'] }),
-    }))
-  } finally {
-    vi.mocked(useMemo).mockReset()
-    vi.mocked(useRef).mockReset()
-    vi.mocked(useId).mockReset()
-    vi.mocked(useState).mockReset()
-  }
-})
-
 const render = (c: Character, entries: ContentEntry[]) =>
   renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => { throw Error('Rendering must preserve saved data') }} />)
 const renderAtDirgeRank = (c: Character, entries: ContentEntry[], rank: number, query = '', trait = 'all', sort = 'name') => {

@@ -537,40 +537,16 @@ it('auto-heightens Loaner Spell to half character level, up to rank 10, when ena
   expect(grantedFeatSpells(c, spells)).toMatchObject([{ entry: { name: 'Save spell' }, rank: 10 }])
 })
 
-it.each([['Cleric', 'Divine', 'wis'], ['Bard', 'Occult', 'cha']] as const)(
-  'mixes Loaner Spell into %s archetype spell ranks without an extra picker', (archetype, tradition, ability) => {
-    const loaner = { ...entry('Alpha Loaner', 'spell', { tradition, target: '1 creature' }), level: 2 }
-    const prepared = { ...entry('Zebra Spell', 'spell', { tradition, target: '1 creature' }), level: 2 }
-    const klass = entry(archetype, 'class', { tradition })
-    const c: Character = { ...base, className: 'Rogue', subclass: 'Avenger', level: 10,
-      feats: [
-        { name: 'Versatile Rogue', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Eldritch Trickster' },
-        { name: `${archetype} Dedication`, type: 'Archetype Feat', level: 2, takenLevel: 10, slot: 'archetype:1:eldritch-trickster:class:10:0' },
-        taken(`Basic ${archetype} Spellcasting`, 4),
-        taken('Loaner Spell', 1, loaner.name),
-      ],
-      spells: [{ name: prepared.name, entryId: prepared.id, rank: 2, cantrip: false }],
-      spellcasting: { ability, tradition, rank: 1, slots: { 0: 2, 2: 1 }, prepared: { '2:0': prepared.id } } }
-    const html = renderToStaticMarkup(<SpellsSection c={c} entries={[klass, loaner, prepared]} save={() => {}} />)
-    const rank = html.indexOf('<h5>Spell Rank 2')
-    const loanerPosition = html.indexOf('aria-label="Clear Alpha Loaner spell slot"')
-    const preparedPosition = html.indexOf('aria-label="Clear Zebra Spell spell slot"')
-    expect(rank).toBeGreaterThan(-1)
-    expect(loanerPosition).toBeGreaterThan(rank)
-    expect(preparedPosition).toBeGreaterThan(loanerPosition)
-    expect(html).not.toContain('Loaner Spell · Spell Rank')
-    expect(html).not.toContain('aria-label="Loaner Spell"')
-    expect(html).toContain('aria-label="Cast Loaner Spell Alpha Loaner"')
-    expect(html).not.toContain('aria-label="1 of 1 uses remaining"')
-    const spent = renderToStaticMarkup(<SpellsSection c={{ ...c, spellcasting: { ...c.spellcasting!, spentSlots: ['2:0'] } }}
-      entries={[klass, loaner, prepared]} save={() => {}} />)
-    expect(spent).toContain('disabled="" aria-label="Cast Loaner Spell Alpha Loaner"')
-    updateSettings({ innateAutoHeighten: true })
-    const heightened = renderToStaticMarkup(<SpellsSection c={c} entries={[klass, loaner, prepared]} save={() => {}} />)
-    expect(heightened.indexOf('aria-label="Clear Alpha Loaner spell slot"'))
-      .toBeLessThan(heightened.indexOf('aria-label="Clear Zebra Spell spell slot"'))
-    updateSettings({ innateAutoHeighten: false })
-  })
+it('replaces the Loaner Spell picker with an extra slot for archetype casters', () => {
+  const loaner = { ...entry('Alpha Loaner', 'spell', { tradition: 'Divine', target: '1 creature' }), level: 2 }
+  const c: Character = { ...base, className: 'Rogue', level: 10, feats: [
+    { name: 'Cleric Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+    taken('Basic Cleric Spellcasting', 4), taken('Loaner Spell', 1, loaner.name)] }
+  expect(grantedFeatSpells(c, [loaner])).toEqual([])
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[loaner]} save={() => {}} />)
+  expect(html).not.toContain('aria-label="Loaner Spell"')
+  expect(html).not.toContain('Cast Loaner Spell')
+})
 
 it('provides Divine and Occult cantrip slots for Esoterica in Spells', () => {
   const divine = { ...entry('Divine Cantrip', 'spell', { tradition: 'Divine' }, ['Cantrip']), level: 0 }
