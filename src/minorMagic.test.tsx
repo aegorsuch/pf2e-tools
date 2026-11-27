@@ -41,6 +41,23 @@ it('grants two distinct eligible cantrips and retains dormant tradition choices'
   expect(empty).toContain('0/2 spells')
 })
 
+it('alphabetizes merged Minor Magic and Cleric Dedication cantrips together', () => {
+  const catalog = ['Bane Light', 'Daze Light', 'Gentle Light', 'Zealous Light']
+    .map(name => spell(name, 'Divine'))
+  const chosen: Character = { ...c, level: 10, subclass: 'Avenger',
+    feats: [...c.feats,
+      { name: 'Versatile Rogue', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Eldritch Trickster' },
+      { name: 'Cleric Dedication', type: 'Archetype Feat', level: 2, takenLevel: 10, slot: 'archetype:1:eldritch-trickster:class:10:0' }],
+    minorMagic: { cantrips: { Divine: ['Zealous Light', 'Daze Light'] } },
+    spellcasting: { ability: 'wis', tradition: 'Divine', rank: 1, slots: {},
+      prepared: { '0:0': 'Gentle Light', '0:1': 'Bane Light' } } }
+  const html = renderToStaticMarkup(<SpellsSection c={chosen} entries={catalog} save={() => {}} />)
+  const positions = catalog.map(entry => html.indexOf(`aria-label="Clear ${entry.name} spell slot"`))
+  expect(positions.every(position => position >= 0)).toBe(true)
+  expect(positions).toEqual([...positions].sort((a, b) => a - b))
+  expect(chosen.spellcasting?.prepared).toEqual({ '0:0': 'Gentle Light', '0:1': 'Bane Light' })
+})
+
 it('gives Mage Automaton one saved arcane innate cantrip slot with automatic heightening', () => {
   const catalog = [
     spell('Light', 'Arcane, Divine, Occult, Primal'), spell('Daze', 'Arcane, Occult'),

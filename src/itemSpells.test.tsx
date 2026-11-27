@@ -65,6 +65,23 @@ it('derives castable equipment spells without changing learned spells or retaini
   expect(itemSpells(c, [{ ...charm, deleted: true }, { ...other, systems: ['sf2e'] }, heal])).toEqual([])
 })
 
+it('grants Shadowed Scale summoning from an active mask feat and avoids duplicate item grants', () => {
+  const mask = official('Shadowed Scale, the Jungle Secret')
+  const summon = official('Summon Plant or Fungus')
+  const entries = [mask, summon]
+  const c: Character = { ...base, feats: [{ name: "Grand Medic's Mask", type: 'Archetype Feat', level: 20 }] }
+  const spells = itemSpells(c, entries)
+  expect(spells).toMatchObject([{ source: { id: mask.id }, name: summon.name, actions: 'Single Action',
+    frequency: 'once per hour', rank: 1 }])
+  expect(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />))
+    .toContain('aria-label="Summon Plant or Fungus options"')
+  expect(itemSpells({ ...c, equipment: [{ name: mask.name, qty: 1 }] }, entries)).toHaveLength(1)
+  expect(itemSpells({ ...c, level: 19 }, entries)).toEqual([])
+  expect(itemSpells({ ...c, systems: ['sf2e'] }, entries)).toEqual([])
+  updateSettings({ innateAutoHeighten: true })
+  expect(itemSpells(c, entries)).toMatchObject([{ rank: 10, usageKey: spells[0].usageKey }])
+})
+
 it('grants Presence Intensifier Suggestion with its daily house rule and Finely Tuned', () => {
   const previous = getSettings().presenceIntensifierDaily
   try {

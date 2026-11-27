@@ -127,6 +127,10 @@ it('adds Emblazon Armament status damage to the deity favored weapon only', () =
   const without = attack(saber.name, { ...c, feats: [] })
   expect(attack(saber.name, c)).not.toBe(without)
   expect(attack(dagger.name, c)).toBe(attack(dagger.name, { ...c, feats: [] }))
+  const withWeapon = { ...c, weapons: [{ id: 'saber', name: saber.name, potency: 0, striking: 0, runes: [] }] }
+  const markup = renderToStaticMarkup(createElement(WeaponList, { c: withWeapon, entries: [rogue, deity, saber], save: () => {} }))
+  expect(markup).toContain('aria-label="Emblazon Armament note"')
+  expect(markup).not.toContain('>*</button> (Emblazon Armament)')
 })
 
 it('trains Intimidation, Religion, and Stealth from the Avenger racket', () => {

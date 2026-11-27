@@ -113,28 +113,20 @@ function minionAbilityPicker({ label, items, optionGroups, onAdd, entries, chara
 }
 
 function familiarDisplayState(c: Character, entries: ContentEntry[], isWasp = false, isAquatic = false) {
-  if (isAquatic) {
-    const data = c.pet && { ...c.pet, abilityOptions: { ...c.pet.abilityOptions,
-      fastMovement: c.pet.abilityOptions?.fastMovement ?? c.pet.fastMovement } }
-    const grants = ['Darkvision', 'Tough']
-    const savedAbilities = (data?.abilities ?? []).map((ability, index) => ({ ability, index }))
-      .filter(item => !!item.ability && !grants.some(grant => grant.toLowerCase() === item.ability.toLowerCase()))
-    const activeAbilityChoices = savedAbilities.slice(0, 2)
-    return { data, patronAbility: undefined, specificFamiliars: [], selectedSpecific: undefined,
-      activeSpecific: undefined, grants, selectableAbilityLimit: 2, savedAbilities, activeAbilityChoices,
-      skillNames: [...FAMILIAR_SKILLS, 'Perception'], selectedCount: activeAbilityChoices.length + grants.length,
-      totalCount: 4, emissaryAbility: undefined, leshySecret: undefined, leshyAbility: undefined }
-  }
-  const data = isWasp ? c.waspFamiliar : c.familiar
+  const data = isAquatic ? c.pet && { ...c.pet, abilityOptions: { ...c.pet.abilityOptions,
+    fastMovement: c.pet.abilityOptions?.fastMovement ?? c.pet.fastMovement } } : isWasp ? c.waspFamiliar : c.familiar
   const { patronAbility, dailyAbilityLimit, specificFamiliars, selectedSpecific, activeSpecific, selectableAbilityLimit, emissaryAbility, leshySecret, leshyAbility } =
-    familiarAbilitySlots(c, entries, isWasp)
+    isAquatic ? { patronAbility: undefined, dailyAbilityLimit: 2, specificFamiliars: [], selectedSpecific: undefined,
+      activeSpecific: undefined, selectableAbilityLimit: 2, emissaryAbility: undefined, leshySecret: undefined, leshyAbility: undefined }
+      : familiarAbilitySlots(c, entries, isWasp)
   const state = familiarSelection(c)
-  const glyph = !isWasp && state.glyph
-  const leshy = !isWasp && state.leshy
-  const grants = activeSpecific ? specificFamiliarGrantedLabels(selectedSpecific) : glyph ? GLYPH_FAMILIAR_ABILITIES
+  const glyph = !isWasp && !isAquatic && state.glyph
+  const leshy = !isWasp && !isAquatic && state.leshy
+  const grants = isAquatic ? ['Darkvision', 'Tough'] : activeSpecific ? specificFamiliarGrantedLabels(selectedSpecific) : glyph ? GLYPH_FAMILIAR_ABILITIES
     : leshyAbility ? [leshyAbility] : []
   const abilitySlots = (data?.abilities ?? []).map((ability, index) => ({ ability, index }))
     .filter(item => !emissaryAbility || !isDivineEmissaryAbility(item.ability))
+    .filter(item => !isAquatic || !!item.ability && !grants.some(grant => grant.toLowerCase() === item.ability.toLowerCase()))
   const savedAbilities = abilitySlots.filter(item => !!item.ability)
   const activeAbilityChoices = abilitySlots.slice(0, selectableAbilityLimit).filter(item => !!item.ability)
   const skillNames = [...FAMILIAR_SKILLS, 'Perception']
@@ -144,7 +136,7 @@ function familiarDisplayState(c: Character, entries: ContentEntry[], isWasp = fa
     : grant === 'Dragon' && specificFamiliarInherentDragon(activeSpecific) ? 0 : 1), 0)
   const selectedCount = activeAbilityChoices.length + Number(!!patronAbility) + Number(!!emissaryAbility) + Number(!!leshySecret) + grantedCount
   const hasLeshySecretSlot = !isWasp && familiarSelection(c).leshy && activeFeatsNamed(c, 'Leshy Familiar Secrets').length > 0
-  const totalCount = activeSpecific || glyph ? selectableAbilityLimit + Number(!!patronAbility) + Number(!!emissaryAbility)
+  const totalCount = isAquatic ? selectableAbilityLimit + grantedCount : activeSpecific || glyph ? selectableAbilityLimit + Number(!!patronAbility) + Number(!!emissaryAbility)
     + Number(hasLeshySecretSlot) + grantedCount : dailyAbilityLimit + Number(leshy)
   return { data, patronAbility, specificFamiliars, selectedSpecific,
     activeSpecific, grants, selectableAbilityLimit, savedAbilities, activeAbilityChoices, skillNames, selectedCount, totalCount, emissaryAbility, leshySecret, leshyAbility }
@@ -548,7 +540,8 @@ export function MinionsSummary({ c, entries = [] }: Pick<SectionProps, 'c'> & Pa
       ...(familiarState ? [`${familiarName} (${familiarState.selectedCount}/${familiarState.totalCount})`] : []),
       ...(waspState ? [`Wasp Familiar (${waspState.selectedCount}/${waspState.totalCount})`] : []),
       ...(pet ? [seaFriend ? aquaticFamiliar
-        ? `Aquatic Pet (${familiarDisplayState(c, entries, false, true).selectedCount}/4)` : 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
+        ? (() => { const state = familiarDisplayState(c, entries, false, true); return `Aquatic Pet (${state.selectedCount}/${state.totalCount})` })()
+        : 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
       ...(activeCatAlly(c) ? ['Summoned Cat'] : []),
       ...Array.from({ length: followerCount(c) }, (_, index) => {
         return followerTitle(c, index)
@@ -1316,7 +1309,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   && activeAbilityChoices.some(item => item.index === index) && !reason
                   ? healingAbilityControls(ability) : undefined,
                 inactive: !activeAbilityChoices.some(item => item.index === index),
-                unavailable: reason && index < selectableAbilityLimit ? reason : undefined,
+                unavailable: reason && activeAbilityChoices.some(item => item.index === index) ? reason : undefined,
                 removeLabel: `Remove ${familiarLabel} ability ${index + 1}`,
                 confirmation: `familiar ability "${ability}"`,
                 onRemove: () => saveFamiliar({ abilities: (data?.abilities ?? [])

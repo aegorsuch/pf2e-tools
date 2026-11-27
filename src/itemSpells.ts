@@ -4,6 +4,7 @@ import { withNamedWeaponState } from './namedWeapons'
 import { limitedSpellUses } from './featSpells'
 import { getSettings } from './settings'
 import { isHighhelmPlate } from './namedArmor'
+import { hasMagicWarriorMask, SHADOWED_SCALE_MASK } from './magicWarriorMasks'
 
 export interface ItemSpell {
   source: ContentEntry
@@ -87,7 +88,8 @@ const rankIn = (text: string) => {
 }
 
 export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
-  if (!c.equipment.some(item => item.qty > 0) && !c.weapons?.length && !c.armors?.length && !c.shield && !c.augmentations?.length) return []
+  if (!c.equipment.some(item => item.qty > 0) && !c.weapons?.length && !c.armors?.length && !c.shield && !c.augmentations?.length
+    && !hasMagicWarriorMask(c)) return []
   const minimumRank = getSettings().innateAutoHeighten ? Math.ceil(c.level / 2) : 0
   const index = catalog(entries)
   const eligible = (entry?: ContentEntry): entry is ContentEntry => !!entry && !entry.deleted
@@ -95,6 +97,7 @@ export function itemSpells(c: Character, entries: ContentEntry[]): ItemSpell[] {
   const sources = new Map<string, ContentEntry>()
   const automaticArmorSources = new Map<string, string>()
   const add = (entry?: ContentEntry) => { if (eligible(entry) && !sources.has(entry.id)) sources.set(entry.id, entry) }
+  if (hasMagicWarriorMask(c)) add(entries.find(entry => entry.kind === 'item' && entry.name === SHADOWED_SCALE_MASK && eligible(entry)))
   const addRunes = (runes: string[]) => {
     for (const name of runes) add(entries.find(entry => entry.kind === 'item' && entry.name === runeName(name) && eligible(entry)))
   }

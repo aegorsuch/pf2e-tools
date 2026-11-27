@@ -5968,7 +5968,8 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
   if (activeFeatsNamed(c, 'Snarecrafter Dedication').length) {
     grants.push({ name: 'Snare Crafting', source: 'Snarecrafter Dedication', level: sourceLevel('Snarecrafter Dedication') })
   }
-  if (activeFeatsNamed(c, 'Friend of the Sea').length) {
+  if (activeFeatsNamed(c, 'Friend of the Sea').length
+    && !grants.some(grant => grant.name === 'Pet' && grant.source === 'Friend of the Sea')) {
     grants.push({ name: 'Pet', source: 'Friend of the Sea', level: sourceLevel('Friend of the Sea') })
   }
   for (const source of ['Predictive Purchase', ...(c.systems.includes('sf2e') ? ['Veskarium Logistics Specialist'] : [])]) {
@@ -9340,7 +9341,7 @@ function weaponGrades(entries: ContentEntry[], family: string) {
   return groups.get(family) ?? []
 }
 
-export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon): OwnedWeapon {
+export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: OwnedWeapon, inheritGauntletRunes = true): OwnedWeapon {
   if (BATTLE_FORM_WEAPONS.some(entry => entry.id === weapon.id))
     return { ...weapon, potency: 0, striking: 0, runes: [], material: undefined }
   if (hasFavoredWeaponProgression(c, entries) && isFavoredWeapon(c, entries, weapon.name))
@@ -9456,10 +9457,19 @@ export function effectiveWeapon(c: Character, entries: ContentEntry[], weapon: O
         : enhanced.runes }
     }
     if (entry?.data.named_weapon_source === "Hunter's Dawn") enhanced = { ...enhanced, material: builtIn?.material }
-    return withBlessedArmament(c, entries, withFavoredWeaponProgression(c, entries, weapon.id === GAUNTLET.id ? { ...enhanced,
+    const result = withBlessedArmament(c, entries, withFavoredWeaponProgression(c, entries, weapon.id === GAUNTLET.id ? { ...enhanced,
       runes: enhanced.runes.filter((rune) => weaponRuneApplies(entries, enhanced, rune))
         .slice(0, maxPropertyRunes(enhanced.potency, enhanced.material,
           hasWeaponRuneCapacity(c, weapon, weaponEntry(entries, weapon.name)))) } : enhanced))
+    if (!inheritGauntletRunes || !getSettings().gauntletHandwrapRunes || !/\bgauntlet\b/i.test(result.name)) return result
+    const handwraps = effectiveHandwraps(c, entries)
+    if (!handwraps || handwraps.kind === 'hardlight') return result
+    const runes = [...result.runes]
+    for (const rune of handwraps.runes) {
+      if (!runes.some(existing => runeBaseName(existing) === runeBaseName(rune))
+        && weaponRuneApplies(entries, { ...result, runes }, rune)) runes.push(rune)
+    }
+    return { ...result, runes }
   }
   const animalSource = animalStrengthSource(c, entries, weapon)
   if (animalSource) {

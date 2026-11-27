@@ -1022,6 +1022,12 @@ it('treats the aquatic pet as an independent familiar while preserving legacy ab
   const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
   let html = renderToStaticMarkup(tree())
   expect(html).toContain('Aquatic Pet')
+  const aquatic = html.split('data-minion-name="Aquatic Pet"')[1].split('</details>')[0]
+  expect(aquatic).toContain('class="familiar-abilities"')
+  expect(aquatic).toContain('<optgroup label="Familiar">')
+  expect(aquatic).toContain('<optgroup label="Master">')
+  expect(aquatic).not.toContain('aria-label="Specific familiar"')
+  expect(renderToStaticMarkup(<MinionsSummary c={c} entries={familiarEntries} />)).toContain('Aquatic Pet (3/4)')
   expect(html).toContain('<small>Hit Points</small><b>56</b>')
   expect(html).toContain('Swim 25 feet, Climb 25 feet')
   expect(html).toContain('aria-label="Aquatic pet ability"')

@@ -15,6 +15,58 @@ import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
 import { mapAonHit } from './aon'
 
+it('uses the heightened Shadowed Scale rank for plant choices and restores slain-creature rank when disabled', async () => {
+  const previous = getSettings().innateAutoHeighten
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  } })
+  const plants = [
+    { id: 'weak', name: 'Sapling', level: -1, traits: ['Plant'] },
+    { id: 'strong', name: 'Ancient Fungus', level: 15, traits: ['Fungus'] },
+  ]
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => plants })))
+  const mask: ContentEntry = { id: 'mask', name: 'Shadowed Scale, the Jungle Secret', kind: 'item', systems: ['pf2e'],
+    source: 'official', level: 22, traits: [], description: 'Activate Single Action; Frequency once per hour; Effect You cast summon plant or fungus.',
+    data: {}, effects: [], updatedAt: 0 }
+  const spell: ContentEntry = { ...mask, id: 'summon', name: 'Summon Plant or Fungus', kind: 'spell', level: 1, description: '' }
+  const c: Character = { id: 'mask-summon', name: 'Test', systems: ['pf2e'], level: 20,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: "Grand Medic's Mask", type: 'Archetype Feat', level: 20 }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    updateSettings({ innateAutoHeighten: true })
+    await act(async () => root.render(<SpellsSection c={c} entries={[mask, spell]} save={() => {}} />))
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Summon Plant or Fungus options"]')!.click())
+    const level = container.querySelector<HTMLInputElement>('input[type="number"]')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(level, '2')
+      level.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    const options = () => [...container.querySelectorAll<HTMLSelectElement>('select[aria-label="Summoned plant or fungus"] option')]
+      .map(option => option.value)
+    expect(options()).toContain('strong')
+    updateSettings({ innateAutoHeighten: false })
+    await act(async () => root.render(<SpellsSection c={c} entries={[mask, spell]} save={() => {}} />))
+    expect(options()).toContain('weak')
+    expect(options()).not.toContain('strong')
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(level, '20')
+      level.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    expect(options()).toContain('strong')
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+    updateSettings({ innateAutoHeighten: previous })
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
+    vi.unstubAllGlobals()
+  }
+})
+
 it('rides an eligible summoned creature using its movement instead of the rider bonuses', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   const initial: Character = { id: 'rider', name: 'Test', systems: ['sf2e'], level: 13, ancestry: 'Lashunta',

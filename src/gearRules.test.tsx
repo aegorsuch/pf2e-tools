@@ -2370,6 +2370,31 @@ it('gives Handwraps of Mighty Blows automatic property runes by potency', () => 
   }
 })
 
+it('inherits compatible handwrap property runes on gauntlets without changing their saved runes or fundamentals', () => {
+  const gauntlet = content('weapon', 'Spiked Gauntlet', { weapon_type: 'Melee', damage: '1d4 piercing' })
+  const sword = content('weapon', 'Longsword', { weapon_type: 'Melee', damage: '1d8 slashing' })
+  const owned = { ...main, id: 'owned-gauntlet', name: gauntlet.name, potency: 1, striking: 0, runes: ['Flaming'] }
+  const armorGauntlet = { ...main, id: GAUNTLET.id, name: GAUNTLET.name, runes: [] }
+  const c: Character = { ...base, level: 16, handwraps: { potency: 3, striking: 2, runes: ['Wounding'] } }
+  const before = JSON.stringify(c)
+  const effective = effectiveWeapon(c, [gauntlet, sword], owned)
+  expect(effective).toMatchObject({ ...effectiveWeapon(c, [gauntlet, sword], owned, false),
+    runes: ['Flaming', 'Grievous', 'Grappling', 'Shoving', 'Wounding'] })
+  expect(weaponAttack(c, [gauntlet], owned).traits).toEqual(expect.arrayContaining(['Grapple', 'Shove']))
+  expect(effectiveWeapon(c, [], armorGauntlet).runes).toEqual(expect.arrayContaining(['Grievous', 'Grappling', 'Shoving']))
+  expect(effectiveWeapon(c, [sword], { ...owned, name: sword.name }).runes).toEqual(['Flaming'])
+  expect(effectiveWeapon(c, [gauntlet], { ...owned, runes: ['Grappling'] }).runes.filter(r => r === 'Grappling')).toHaveLength(1)
+  expect(JSON.stringify(c)).toBe(before)
+  expect(owned.runes).toEqual(['Flaming'])
+  const original = getSettings().gauntletHandwrapRunes
+  try {
+    updateSettings({ gauntletHandwrapRunes: false })
+    expect(effectiveWeapon(c, [gauntlet], owned).runes).toEqual(['Flaming'])
+  } finally {
+    updateSettings({ gauntletHandwrapRunes: original })
+  }
+})
+
 it('chooses automatic handwraps from class metadata with both systems enabled, including homebrew classes', () => {
   const fighter = content('class', 'Fighter')
   const mechanic: ContentEntry = { ...content('class', 'Mechanic'), systems: ['sf2e'] }
@@ -2512,7 +2537,7 @@ it.each([17, 18])('uses the same Peachwood grade for Living and Verdant tags at 
 it.each([0, 1, 2, 3])('converts armor resilient tier %i directly into its provided gauntlet striking tier', (tier) => {
   const c: Character = { ...base, armors: [{ id: 'plate', name: 'Full Plate', worn: true, potency: tier, resilient: tier, runes: ['Shadow'] }] }
   const gauntlet = ownedWeapons(c, []).find(w => w.id === GAUNTLET.id)!
-  expect(effectiveWeapon(c, [], gauntlet)).toMatchObject({ potency: tier, striking: tier, runes: [] })
+  expect(effectiveWeapon(c, [], gauntlet)).toMatchObject({ potency: tier, striking: tier, runes: ['Grievous', 'Grappling'] })
   expect(weaponAttack(c, [], gauntlet).damage).toMatch(new RegExp(`^${tier + 1}d4`))
   expect(effectiveWeapon(c, [], { ...gauntlet, id: 'purchased', potency: 0, striking: 0 })).toMatchObject({ potency: 2, striking: 1 })
 })

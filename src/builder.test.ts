@@ -797,6 +797,17 @@ it('offers the aquatic familiar as a separate Protect Companion target only whil
   expect(protectCompanionTargets(c).some(target => target.familiar === 'aquatic')).toBe(false)
 })
 
+it('grants Pet only once from Friend of the Sea whether or not its catalog grant is present', () => {
+  const c: Character = { ...base, feats: [{ name: 'Friend of the Sea', type: 'Ancestry Feat', level: 1 }] }
+  const friend = entry('feat', 'Friend of the Sea', { grants_feats: 'Pet' })
+  expect(automaticFeatGrants(c, [friend]).filter(grant => grant.name === 'Pet'))
+    .toEqual([{ name: 'Pet', source: 'Friend of the Sea', level: 1 }])
+  expect(automaticFeatGrants(c, []).filter(grant => grant.name === 'Pet'))
+    .toEqual([{ name: 'Pet', source: 'Friend of the Sea', level: 1 }])
+  expect(automaticFeatGrants({ ...c, feats: [{ ...c.feats[0], level: 2 }] }, [friend])
+    .some(grant => grant.name === 'Pet')).toBe(false)
+})
+
 it('scales Stormbreaker electricity shielding with character level', () => {
   const armor = { ...entry('armor', 'Stormbreaker Armor', {
     url: 'stormbreaker', armor_grade: 'Advanced', upgrade_slots: 2,

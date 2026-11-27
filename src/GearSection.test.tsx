@@ -2934,6 +2934,22 @@ it.each([['Hooked', 'Trip'], ['Grappling', 'Grapple'], ['Disarming', 'Disarm'], 
   }
 })
 
+it('shows gauntlet handwrap runes as inherited and does not save them when editing', () => {
+  const gauntlet = { ...weapon, name: 'Spiked Gauntlet', data: { weapon_type: 'Melee', damage: '1d4 piercing', hands: 1 } }
+  let c: Character = { ...character([]), level: 16, weapons: [{ id: 'w', name: gauntlet.name, potency: 3, striking: 1, runes: ['Flaming'] }] }
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[gauntlet]} save={save} />)
+  expect(markup).toContain('Inherited from Handwraps of Mighty Blows')
+  expect(markup).not.toContain('aria-label="Remove Grappling rune"')
+  expect(markup).not.toContain('aria-label="Remove Shoving rune"')
+  expect(markup).not.toContain('aria-label="Remove Grievous rune"')
+  const runes = findElement(WeaponList({ c, entries: [gauntlet], save }), element =>
+    Array.isArray(element.props.freeRunes) && element.props.freeRunes.some((rune: { name: string }) => rune.name === 'Grappling'))
+  if (!runes) throw new Error('Missing gauntlet rune control')
+  ;(runes.props.onChange as (runes: string[]) => void)(['Flaming', 'Shock'])
+  expect(c.weapons?.[0].runes).toEqual(['Flaming', 'Shock'])
+})
+
 it.each([
   { rune: GRAPPLING_RUNE, trait: 'Grapple', note: 'you can attempt to Grapple the target as a reaction' },
   { rune: DISARMING_RUNE, trait: 'Disarm', note: 'The weapon gains the disarm trait.' },
@@ -3065,7 +3081,8 @@ it.each(ARMOR_GAUNTLETS)('inherits plate material and fundamentals for armor-pro
   const material = () => findElement(WeaponList({ c, entries: [], save: () => {} }), (element) => element.props['aria-label'] === 'Weapon material')
   expect(material()).toBeUndefined()
   expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)).not.toContain('aria-haspopup="dialog">Orichalcum</button>')
-  expect(effectiveWeapon(c, [], saved)).toMatchObject({ material: 'Orichalcum', potency: 0, striking: 0, runes: [] })
+  expect(effectiveWeapon(c, [], saved)).toMatchObject({ material: 'Orichalcum', potency: 0, striking: 0,
+    runes: name === 'Gauntlet' ? ['Grievous', 'Grappling'] : ['Grievous'] })
   const card = findElement(WeaponList({ c, entries: [], save: () => {} }),
     element => element.type === 'details' && element.props['aria-label'] === name)!
   const markup = renderToStaticMarkup(card)
@@ -3075,7 +3092,8 @@ it.each(ARMOR_GAUNTLETS)('inherits plate material and fundamentals for armor-pro
   expect(effectiveWeapon(c, [], { ...saved, id: 'purchased' }).material).toBe('Peachwood (Standard-Grade)')
   c = { ...c, armors: c.armors!.map((armor) => ({ ...armor, material: undefined })) }
   expect(material()).toBeUndefined()
-  expect(effectiveWeapon(c, [], saved)).toMatchObject({ material: undefined, runes: [] })
+  expect(effectiveWeapon(c, [], saved)).toMatchObject({ material: undefined,
+    runes: name === 'Gauntlet' ? ['Grievous', 'Grappling'] : ['Grievous'] })
   c = { ...c, armors: c.armors!.map((armor) => ({ ...armor, material: 'Duskwood' })) }
   expect(material()).toBeUndefined()
   expect(renderToStaticMarkup(<WeaponList c={c} entries={[]} save={() => {}} />)).toContain('aria-haspopup="dialog">Duskwood (Standard-Grade)</button>')

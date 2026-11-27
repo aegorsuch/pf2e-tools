@@ -1437,12 +1437,16 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const freeShifting = livingWeapon || inheritedLivingWeapon && enhanced.runes.some(rune => runeName(rune) === 'Shifting')
         const blessed = strengthSource ? undefined : blessedArmamentRune(c, entries, { ...enhanced, runes: unarmed ? handwraps?.runes ?? []
           : livingWeapon ? livingWeaponRunes({ ...w, ...shared }) : haft ? enhanced.runes : [...w.runes, ...grantedWeaponRunes] })
+        const uninheritedRunes = getSettings().gauntletHandwrapRunes && /\bgauntlet\b/i.test(enhanced.name)
+          ? effectiveWeapon(c, entries, w, false).runes : enhanced.runes
+        const gauntletRunes = enhanced.runes.filter(rune => !uninheritedRunes.some(existing => runeBaseName(existing) === runeBaseName(rune)))
         const iruxiGranted = unarmed && c.ancestry === 'Lizardfolk' && activeFeatsNamed(c, 'Iruxi Spirit Strike').length > 0
           && !effectiveWeapon({ ...c, feats: c.feats.filter(feat => feat.name !== 'Iruxi Spirit Strike') }, entries, w)
             .runes.some(rune => runeBaseName(rune) === 'Astral')
         const iruxiRune = c.level >= 15 ? 'Astral (Greater)' : 'Astral'
         const ghostWrangler = !!c.raging && /^fist$/i.test(w.name) && isFeatEffectActive(c, 'Ghost Wrangler')
         const freeRunes = [...(builtIn?.runes.map(name => ({ name, source: `Built into ${String(a.entry?.data.named_weapon_source)}` })) ?? []),
+          ...gauntletRunes.map(name => ({ name, source: `Inherited from ${handwrapItem.name}` })),
           ...scaleRunes.map(name => ({ name, source: 'Granted by Scale of Igroon' })),
           ...clanRunes.map(name => ({ name, source: 'Granted by Clan Pistol' })),
           ...(freeShifting ? [{ name: 'Shifting', source: 'Granted by Living Weapon' }] : []),
@@ -1541,7 +1545,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           {summary.attackForm && `${summary.attackForm}${inlineRange(summary) ? ` (${summary.attack.range} feet)` : ''}: `}Attack <WeaponAttackBonuses label={`${displayName} ${summary.form ? `${summary.form} ` : ''}attack`} attack={summary.attack} />
           {summary.attack.damage && <>, Damage {compactDamage(summary.attack.damage)}{summary.attack.propulsiveShield && <SourceNote
             source="Propulsive Shield" note="+1 damage per weapon damage die while the solar shield is raised." />}{c.systems.includes('pf2e') && activeFeatsNamed(c, 'Emblazon Armament').length > 0 && isFavoredWeapon(c, entries, w.name)
-              && <SourceNote source="Emblazon Armament" note="Includes a +1 status bonus to damage with your deity's favored weapon." inlineSource />}{summary.strikeNote && <SourceNote
+              && <SourceNote source="Emblazon Armament" note="Includes a +1 status bonus to damage with your deity's favored weapon." />}{summary.strikeNote && <SourceNote
             source={String(summary.attack.entry?.data.named_weapon_source ?? summary.attack.entry?.data.special_weapon_source)}
             note={summary.strikeNote} />}{summary.damageRunes.length > 0 && ' + '}{summary.damageRunes.map((rune, runeIndex) =>
             <Fragment key={`${rune.source}:${runeIndex}`}>{runeIndex > 0 && ' + '}{rune.value}{rune.note
@@ -1864,9 +1868,11 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               : (forms.length ? w.runes : enhanced.runes).filter((rune) => rune !== blessed && (!freeShifting || rune !== 'Shifting')
                 && (!iruxiGranted || runeBaseName(rune) !== 'Astral')
                 && (!decaying || runeBaseName(rune) !== 'Decaying')
+                && !gauntletRunes.some(grant => runeBaseName(grant) === runeBaseName(rune))
                 && !grantedWeaponRunes.some(grant => runeBaseName(grant) === runeBaseName(rune))
                 && !builtIn?.runes.includes(rune))}
-              entries={entries} options={unarmed || linkedSource ? [] : eligibleWeaponRunes(entries, { ...w, runes: [...shared.runes, ...enhanced.runes] }).filter((rune) => !freeShifting || rune.name !== 'Shifting')}
+              entries={entries} options={unarmed || linkedSource ? [] : eligibleWeaponRunes(entries, { ...w, runes: [...shared.runes, ...enhanced.runes] }).filter((rune) => (!freeShifting || rune.name !== 'Shifting')
+                && !gauntletRunes.some(grant => runeBaseName(grant) === runeBaseName(rune.name)))}
               limit={Math.max(0, maxPropertyRunes(enhanced.potency, enhanced.material, runeCapacity) - (builtIn?.runes.length ?? 0) - grantedWeaponRunes.length)} freeRunes={freeRunes}
               source={strengthSource ? `Animal Strength: ${strengthSource.name}` : linkedSource ? `Inherited from ${linkedSource.name}` : inherited ? `Inherited from ${handwrapItem.name}` : undefined}
               onChange={unarmed || linkedSource ? undefined : (runes) => update(w.id, { runes: [

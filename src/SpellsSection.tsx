@@ -697,7 +697,8 @@ export function SummonPlantActions({ c, save, entry, rank, disabled, slainCreatu
   const [slainLevel, setSlainLevel] = useState('')
   const level = Number(slainLevel)
   const validLevel = slainLevel !== '' && Number.isInteger(level) && level >= 1 && level <= 20
-  const effectiveRank = slainCreatureRank ? Math.ceil(level / 2) : rank
+  const effectiveRank = slainCreatureRank
+    ? Math.max(Math.ceil(level / 2), getSettings().innateAutoHeighten ? rank : 0) : rank
   const options = slainCreatureRank && !validLevel ? [] : plantOptions(creatures ?? [], effectiveRank)
   const open = () => {
     dialog.current?.showModal()
@@ -2681,6 +2682,22 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           }).filter(Boolean).length
           const increaseNotes = slotIncreaseNotesByRank.get(rank)
           const sourceLabel = cantrip ? 'Cantrip slots' : `Rank ${rank} slots`
+          const classRows = Array.from({ length: count }, (_, index) => {
+            const { extra, slotKey } = slotKeyForIndex(index)
+            const selectedValue = extra?.spell ? spellIndex.byName.get(extra.spell)?.id ?? extra.spell
+              : sc.prepared?.[slotKey] ?? ''
+            const selectedSpell = (c.spells ?? []).find(spell => (spell.entryId ?? spell.name) === selectedValue)
+            const selectedEntry = selectedSpell ? spellEntry(selectedSpell.name, selectedSpell.entryId)
+              : spellIndex.byId.get(selectedValue) ?? spellIndex.byName.get(selectedValue)
+            return { kind: 'class' as const, name: selectedSpell?.name ?? selectedEntry?.name ?? selectedValue,
+              index, extra, slotKey, selectedValue, selectedSpell, selectedEntry }
+          })
+          const rows = [...classRows,
+            ...(cantrip ? [...investigatorClassChoices, ...(minorMerged ? minorMagicChoiceSlots : [])] : [])
+              .map(slot => ({ kind: 'choice' as const, name: slot.entry?.name ?? slot.current, slot })),
+            ...mergedGrants.filter(grant => grant.rank === rank)
+              .map(grant => ({ kind: 'grant' as const, name: grant.entry.name, grant })),
+          ].sort((a, b) => compareSelectedSpells(a.name, b.name))
           return <section className="spell-slot-group" key={rank}>
             <h5>{title} ({spellSlotCount(selectedCount, count)})
               {increaseNotes?.length && <SourceNote source={sourceLabel} note={increaseNotes.join('; ')} />}
@@ -2693,17 +2710,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
               {technomancer && <> <SpellbookRankButton book="Spell Database" rank={rank} onOpen={rank => openSpellbook('Technomancer', rank)} /></>}
               {witch && <> <SpellbookRankButton book="Witch" rank={rank} onOpen={rank => openSpellbook('Witch', rank)} /></>}</h5>
             <SpellColumns />
-            <ul>{Array.from({ length: count }, (_, index) => {
-              const { extra, slotKey } = slotKeyForIndex(index)
-              const selectedValue = extra?.spell ? spellIndex.byName.get(extra.spell)?.id ?? extra.spell
-                : sc.prepared?.[slotKey] ?? ''
-              const selectedSpell = (c.spells ?? []).find(spell => (spell.entryId ?? spell.name) === selectedValue)
-              const selectedEntry = selectedSpell ? spellEntry(selectedSpell.name, selectedSpell.entryId)
-                : spellIndex.byId.get(selectedValue) ?? spellIndex.byName.get(selectedValue)
-              return { index, extra, slotKey, selectedValue, selectedSpell, selectedEntry }
-            }).sort((a, b) => compareSelectedSpells(a.selectedSpell?.name ?? a.selectedEntry?.name ?? a.selectedValue,
-              b.selectedSpell?.name ?? b.selectedEntry?.name ?? b.selectedValue))
-              .map(({ index, extra, slotKey, selectedValue, selectedSpell, selectedEntry }) => {
+            <ul>{rows.map(row => {
+              if (row.kind === 'choice') return renderChoiceSlot(row.slot)
+              if (row.kind === 'grant') return renderGrantRow(row.grant)
+              const { index, extra, slotKey, selectedValue, selectedSpell, selectedEntry } = row
               const restricted = !!extra?.spell
               const metadata = spellMetadata(selectedEntry, cantrip ? Math.ceil(c.level / 2) : rank, c)
               const spent = !bloodrager && (sc.spentSlots?.includes(slotKey) ?? false)
@@ -2881,16 +2891,15 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                   Selected spell unavailable for your current spell list or slot rank.
                 </small>}
               </li>
-            })}{cantrip && investigatorClassChoices.map(renderChoiceSlot)}
-              {cantrip && minorMerged && minorMagicChoiceSlots.map(renderChoiceSlot)}
-              {mergedGrants.filter(grant => grant.rank === rank).map(renderGrantRow)}</ul>
+            })}</ul>
             {rank === classSlotRanks[0].rank && renderTricksterAceChoices()}{renderLoanerSpellChoices(rank)}
           </section>
         })}
         {extraGrantRanks.map(rank => <section className="spell-slot-group" key={`granted:${rank}`}>
           <h5>Spell Rank {rank}</h5>
           <SpellColumns />
-          <ul>{mergedGrants.filter(grant => grant.rank === rank).map(renderGrantRow)}</ul>
+          <ul>{mergedGrants.filter(grant => grant.rank === rank)
+            .sort((a, b) => compareSelectedSpells(a.entry.name, b.entry.name)).map(renderGrantRow)}</ul>
           {renderLoanerSpellChoices(rank)}
         </section>)}
       </div>}

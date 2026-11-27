@@ -89,6 +89,7 @@ export interface Settings {
   // House rule: Inventors have Access to uncommon firearms, firearm ammunition, and the Bladed Gauntlet
   inventorFirearmAccess: boolean
   inventorArmorGauntlets: boolean
+  gauntletHandwrapRunes: boolean
   bucklerMeleeFinesse: boolean
   freeHandFinesse: boolean
   staffAcrobatSpear: boolean
@@ -127,7 +128,7 @@ const DEFAULTS: Settings = {
   presenceIntensifierDaily: true,
   testSubjectDatajackScaling: true,
   studentOfApotheosisStrengthWisdom: true, iconFreeBoosts: true, cultistFreeBoosts: true, singleTrainingFeats: true, inventorFirearmAccess: true,
-  inventorArmorGauntlets: true, bucklerMeleeFinesse: true, freeHandFinesse: true, staffAcrobatSpear: true,
+  inventorArmorGauntlets: true, gauntletHandwrapRunes: true, bucklerMeleeFinesse: true, freeHandFinesse: true, staffAcrobatSpear: true,
   staffAcrobatNoPrerequisites: true, whirlwindStanceNoPrerequisites: true, unarmedCountsAsWeapons: true,
   barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true,
   singleAnimalCompanion: true, protectCompanionAll: true, familiarFastMovementAllSpeeds: true, aquaticPetFamiliar: true,
