@@ -1436,7 +1436,8 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
     && c.feats.filter(feat => feat.name === entry.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1) return 16
   if (category === 'archetype' && entry.systems.includes('pf2e') && !entry.traits.some(trait => /^(archetype|dedication)$/i.test(trait))
     && entry.traits.some(trait => Object.values(CLASS_FEAT_GRANTS).some(granted => granted.toLowerCase() === trait.toLowerCase()))) {
-    return entry.level <= 2 ? 4 : Math.max(entry.level * 2, 6)
+    const owned = slot ? earlierDirectClassFeats(c, entries, slot, entry) : 0
+    return owned === 0 && entry.level <= 2 ? 4 : Math.max(entry.level * 2, 6)
   }
   const classArchetype = category === 'class' && !entry.traits.some(trait => trait.toLowerCase() === c.className?.toLowerCase())
     ? selectedClassArchetype(c, entries)?.name : undefined
@@ -2158,6 +2159,17 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     ...direct.filter(entry => !result.some(other => other.name === entry.name))]
 }
 
+// Directly offered Arcana/Dogma feats taken in earlier archetype slots: the first is Basic, later ones are Advanced.
+function earlierDirectClassFeats(c: Character, entries: ContentEntry[], slot: { key: string; level: number }, sample: ContentEntry) {
+  const classTraits = new Set(Object.values(CLASS_FEAT_GRANTS).map(granted => granted.toLowerCase()))
+  const classTrait = sample.traits.map(trait => trait.toLowerCase()).find(trait => classTraits.has(trait))
+  const order = (key: string) => { const [, level, index] = key.split(':'); return Number(level) * 1000 + (Number(index) || 0) }
+  return c.feats.filter(feat => feat.slot?.startsWith('archetype:') && feat.slot !== slot.key && order(feat.slot) < order(slot.key)
+    && entries.some(entry => entry.name === feat.name && entry.kind === 'feat' && !entry.deleted && entry.systems.includes('pf2e')
+      && entry.traits.some(trait => trait.toLowerCase() === classTrait)
+      && !entry.traits.some(trait => /^(archetype|dedication)$/i.test(trait)))).length
+}
+
 // Basic/Advanced Arcana and Dogma are offered as the class feats they grant: the first is level 2 or lower, every later one (Advanced is repeatable) up to half the level.
 function directDedicationClassFeats(c: Character, entries: ContentEntry[], slot: PlannedSlot, taken: Set<string>,
   prerequisites: (entry: ContentEntry) => { missing: string[] }) {
@@ -2168,8 +2180,7 @@ function directDedicationClassFeats(c: Character, entries: ContentEntry[], slot:
     const isClassFeat = (entry: ContentEntry) => entry.kind === 'feat' && !entry.deleted && entry.systems.includes('pf2e')
       && entry.traits.some(trait => trait.toLowerCase() === classTrait.toLowerCase())
       && !entry.traits.some(trait => /^(archetype|dedication)$/i.test(trait))
-    const owned = c.feats.filter(feat => feat.slot !== slot.key && feat.slot?.startsWith('archetype:')
-      && entries.some(entry => entry.name === feat.name && isClassFeat(entry))).length
+    const owned = earlierDirectClassFeats(c, entries, slot, { traits: [classTrait] } as ContentEntry)
     const hasSymbol = [...taken].some(name => /^Favored Weapon Symbol\b/.test(name))
     const cap = owned === 0 ? slot.level >= 4 ? 2 : 0 : slot.level >= 6 ? Math.floor(slot.level / 2) : 0
     for (const entry of entries) {

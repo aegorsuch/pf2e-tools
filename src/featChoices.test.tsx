@@ -10,7 +10,7 @@ import { FeatSlots } from './FeatSlots'
 import { LanguagesSection } from './LanguagesSection'
 import { SpellsSection } from './SpellsSection'
 import { canSelectWardenFeat, compareFeatSelections, featDisplayName, grantedWardenSpells, selectedFeatEntry, spellWardenLabel, wardenSpellOptions } from './featChoices'
-import { featSelectionPrerequisiteChecker, plannedSlots, activeFeatsNamed, classSpellSlots, eligibleFeats, focusSpells, languageAllowance, migrateAncestralLinguistics, wizardArchetypeSpellbookChoices } from './builder'
+import { featSelectionLevel, featSelectionPrerequisiteChecker, plannedSlots, activeFeatsNamed, classSpellSlots, eligibleFeats, focusSpells, languageAllowance, migrateAncestralLinguistics, wizardArchetypeSpellbookChoices } from './builder'
 import { classSpellcasting, featChoiceOptions, movementSpeeds, ranksAt, researchedSpellResistanceChoices, resistances, senses, weaponAttack } from './builder'
 import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 import type { Character, ContentEntry } from './types'
@@ -860,6 +860,20 @@ it('offers Wizard class feats directly under Spellshot Dedication', () => {
   const c: Character = { ...base, className: 'Gunslinger', level: 10,
     feats: [{ name: 'Spellshot Dedication', type: 'Dedication Feat', level: 2, slot: 'archetype:2:0' }] }
   const slot = plannedSlots(c, entries).find(candidate => candidate.key === 'archetype:4:0')!
+  expect(eligibleFeats(entries, c, slot).map(entry => entry.name)).toContain('Reach Spell')
+})
+
+it('treats the first Dogma feat as level 4 and later ones as level 6 or higher', () => {
+  const mk = (id: string, name: string, level: number, traits: string[]): ContentEntry => ({ id, systems: ['pf2e'], kind: 'feat',
+    source: 'official', name, level, traits, description: '', data: {}, effects: [], updatedAt: 1 })
+  const entries = [mk('d', 'Cleric Dedication', 2, ['Archetype', 'Dedication']), mk('a', 'Domain Initiate', 1, ['Cleric']), mk('b', 'Reach Spell', 1, ['Cleric'])]
+  const c: Character = { ...base, className: 'Fighter', level: 10, feats: [
+    { name: 'Cleric Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+    { name: 'Domain Initiate', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' }] }
+  const level = (key: string) => featSelectionLevel(entries[2], c, entries, 'archetype', { key, level: Number(key.split(':')[1]) })
+  expect(level('archetype:4:0')).toBe(4)
+  expect(level('archetype:6:0')).toBe(6)
+  const slot = plannedSlots(c, entries).find(candidate => candidate.key === 'archetype:6:0')!
   expect(eligibleFeats(entries, c, slot).map(entry => entry.name)).toContain('Reach Spell')
 })
 
