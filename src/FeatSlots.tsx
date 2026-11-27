@@ -307,6 +307,8 @@ export function classArchetypeSlotViews(c: Character, entries: ContentEntry[], s
     .map(slot => ({ ...slot, displayCategory: 'archetype' as const }))
 }
 
+const rowCollator = new Intl.Collator()
+
 export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch,
   pickerEligibility, pickerVariantCache, plannedFeatSlots, features = [], prelude, selectors = [] }: FeatSlotsProps) {
   const checks = selectedChecks(c, entries)
@@ -584,6 +586,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     else remove()
   }
 
+  const featBySlot = new Map<string | undefined, Character['feats'][number]>()
+  for (const feat of c.feats) if (!featBySlot.has(feat.slot)) featBySlot.set(feat.slot, feat)
   const multi = new Set(slots.map((slot) => slot.category)).size > 1
   const grantedCount = backgroundFeats.length + automaticFeats.length + memories.length
   const rows = [
@@ -593,18 +597,17 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     ...automaticFeats.map(feat => ({ kind: 'automatic' as const, level: feat.level, feat })),
     ...memories,
     ...slots.map((slot, index) => ({ kind: 'slot' as const, level: slot.level, slot, index })),
-  ].sort((a, b) => {
-    if (a.level !== b.level) return a.level - b.level
-    const nameOf = (row: typeof a) => row.kind === 'selector' ? '\0' : row.kind === 'feature' ? row.feature.name
-      : row.kind === 'slot' ? c.feats.find(feat => feat.slot === row.slot.key)?.name
-        : row.kind === 'memory' ? 'Assurance' : row.feat.name
-    const aName = nameOf(a)
-    const bName = nameOf(b)
-    if (!aName || !bName) return Number(!aName) - Number(!bName)
-    const aFeat = a.kind === 'slot' ? c.feats.find(feat => feat.slot === a.slot.key) : a.kind === 'feature' || a.kind === 'memory' || a.kind === 'selector' ? undefined : a.feat
-    const bFeat = b.kind === 'slot' ? c.feats.find(feat => feat.slot === b.slot.key) : b.kind === 'feature' || b.kind === 'memory' || b.kind === 'selector' ? undefined : b.feat
-    return displayName(aName).localeCompare(displayName(bName)) || (aFeat && bFeat ? compareFeatSelections(aFeat, bFeat) : 0)
-  })
+  ].map(row => {
+    const selected = row.kind === 'slot' ? featBySlot.get(row.slot.key) : undefined
+    const feat = row.kind === 'slot' ? selected : row.kind === 'feature' || row.kind === 'memory' || row.kind === 'selector' ? undefined : row.feat
+    const name = row.kind === 'selector' ? '\0' : row.kind === 'feature' ? row.feature.name
+      : row.kind === 'slot' ? selected?.name : row.kind === 'memory' ? 'Assurance' : row.feat.name
+    return { row, feat, sortName: name ? displayName(name) : undefined }
+  }).sort((a, b) => {
+    if (a.row.level !== b.row.level) return a.row.level - b.row.level
+    if (!a.sortName || !b.sortName) return Number(!a.sortName) - Number(!b.sortName)
+    return rowCollator.compare(a.sortName, b.sortName) || (a.feat && b.feat ? compareFeatSelections(a.feat, b.feat) : 0)
+  }).map(({ row }) => row)
   const Wrapper = bare ? 'div' : 'details'
   return (
     <Wrapper className={bare ? undefined : 'character-subsection'}>
