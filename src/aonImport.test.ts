@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { AON_IMPORT_VERSION, importFromAon, mapAonHits } from './aon'
+import { AON_IMPORT_VERSION, importFromAon, mapAonHit, mapAonHits } from './aon'
 import { armorUpgradeEntries, armorUpgradeSlots, automaticArmorUpgradeSlotsUsed, automaticArmorUpgradeUsesSlot, automaticFeatGrants, automaticSpecificArmorUpgrades, automaticWeaponUpgrades, boostSlots, classDifficultyClass, effectiveArmor, effectiveWeapon, eligibleFeats, gearPickerEntries, resistances } from './builder'
 import { isSpecificGear } from './GearSection'
 import { groupHomebrew } from './HomebrewList'
@@ -19,6 +19,18 @@ vi.mock('./db', () => ({
   ensureSupplementalContent: async () => {},
 }))
 afterEach(() => vi.unstubAllGlobals())
+
+it('copies catalog fields in schema order and preserves inherited and non-enumerable values', () => {
+  const source = { name: 'Test', category: 'feat', range: 30, hp: 0, mount: false, language: ['Common', 'Elven'], skill: [] }
+  Object.defineProperty(source, 'size', { value: 'Small' })
+  const data = mapAonHit({ _source: source }, 'pf2e')!.data
+  expect(data).toMatchObject({ hp: 0, size: 'Small', language: 'Common, Elven', range: 30, mount: false })
+  expect(data.skill).toBeUndefined()
+  expect(Object.keys(data).filter(key => ['hp', 'size', 'language', 'range', 'mount'].includes(key)))
+    .toEqual(['hp', 'size', 'language', 'range', 'mount'])
+  const inherited = Object.assign(Object.create({ hp: 10 }), { name: 'Inherited', category: 'feat' })
+  expect(mapAonHit({ _source: inherited }, 'pf2e')!.data.hp).toBe(10)
+})
 
 it('imports Boost dice for every Plasma Caster grade', () => {
   const hits: Parameters<typeof mapAonHits>[0] = JSON.parse(sf2eSnapshot)

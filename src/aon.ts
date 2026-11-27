@@ -11,6 +11,11 @@ export const AON_SITES: Record<GameSystem, string> = {
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '')
 
+const dataFieldOrder = new Map<string, number>()
+DATA_FIELDS.forEach((field, index) => {
+  if (!dataFieldOrder.has(field)) dataFieldOrder.set(field, index)
+})
+
 const heritageSpeedModes = ['land', 'climb', 'swim', 'fly', 'burrow'] as const
 const heritageMovementPatterns = heritageSpeedModes.slice(1).map(mode => ({
   mode,
@@ -341,7 +346,12 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     .replace(/<column\b[^>]*>[\s\S]*?<\/column>/gi, '')
     .replace(/^\s*\*\*(?:Source|Ability Type)\*\*[^\n]*\n/gim, '') : ''
   if (kind === 'background' && markdown.trim()) data.full_description = true
-  for (const f of DATA_FIELDS) {
+  const prototype = Object.getPrototypeOf(s)
+  const fields = prototype === Object.prototype || prototype === null
+    ? Object.getOwnPropertyNames(s).filter(field => dataFieldOrder.has(field))
+      .sort((a, b) => dataFieldOrder.get(a)! - dataFieldOrder.get(b)!)
+    : DATA_FIELDS
+  for (const f of fields) {
     const v = s[f]
     if (typeof v === 'number' || typeof v === 'boolean') data[f] = v
     else if (typeof v === 'string' && v) data[f] = v
