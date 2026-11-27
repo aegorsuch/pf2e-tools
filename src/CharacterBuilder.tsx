@@ -36,6 +36,7 @@ import { TechnomancerFeatures } from './TechnomancerFeatures'
 import { GREATER_CROSS_PLATFORM_APPLICATION_FEAT, VERSATILE_FIRMWARE_FEAT } from './technomancer'
 import { CharacterPictures } from './CharacterPictures'
 import { isGrenade, withBreachingGrenades } from './formulas'
+import { MYSTIC_CONNECTIONS } from './mystic'
 import { OPERATIVE_EXPLOITS } from './starfinderSubclasses'
 import type { Character, ContentEntry, EntryKind } from './types'
 import { WORN_EQUIPMENT_GROUPS, equipmentDisplayName, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
@@ -853,6 +854,10 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                 const entry = subclasses.find(candidate => candidate.name === order || candidate.name === feat.choice)
                 return entry ? [{ entry, label: `${feat.choice} order (Order Explorer)` }] : []
               }),
+              ...(c.className === 'Mystic' && c.systems.includes('sf2e') && subclass && MYSTIC_CONNECTIONS[subclass.name] ? [
+                { entry: { ...subclass, description: MYSTIC_CONNECTIONS[subclass.name].harmony }, label: `${subclass.name} Harmony`, level: 1 },
+                { entry: { ...subclass, description: MYSTIC_CONNECTIONS[subclass.name].perfectHarmony }, label: `${subclass.name} Perfect Harmony`, level: 19 },
+              ].filter(row => row.level <= c.level) : []),
               ...(c.className === 'Operative' && c.systems.includes('sf2e') ? [
                 ...(subclass ? [{ entry: subclass, level: 1 }] : []),
                 ...additionalOperativeSpecializations.map(entry => ({ entry, level: featTakenLevel(

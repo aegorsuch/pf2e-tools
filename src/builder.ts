@@ -26,6 +26,7 @@ import { isAncestralEmbrace, isHighhelmPlate, isImmortalBastion, isInheritorPlat
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { weaponWithMode } from './weaponModes'
 import { minorMagicSpells } from './minorMagic'
+import { MYSTIC_CONNECTIONS } from './mystic'
 import { STARFINDER_MYSTIC_TRADITIONS, STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 import { eruditeWarrior, isSoldier, soldierStyle } from './soldier'
 import { isWitchwarper, witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellcasting, witchwarperSpellOptions, witchwarperSpellSlots } from './witchwarper'
@@ -4620,6 +4621,12 @@ export function focusSpells(c: Character, entries: ContentEntry[]) {
     if (typeof fascination?.data.grants_focus_spells === 'string') {
       for (const spell of fascination.data.grants_focus_spells.split(', ')) add(spell, `${fascination.name} grim fascination`)
     }
+  }
+  const connection = c.systems.includes('sf2e') && c.className === 'Mystic' && c.level >= 1 ? MYSTIC_CONNECTIONS[selectedSubclass(c, entries) ?? ''] : undefined
+  if (connection) {
+    add(connection.initial, `${selectedSubclass(c, entries)} connection`)
+    if (active.some(feat => feat.name === 'Advanced Epiphany')) add(connection.advanced, 'Advanced Epiphany')
+    if (active.some(feat => feat.name === 'Greater Epiphany')) add(connection.greater, 'Greater Epiphany')
   }
   const paradox = witchwarperParadox(c)
   if (c.systems.includes('sf2e') && active.some(feat => feat.name === 'Quantum Negation')) add('Quantum Negation', 'Quantum Negation')
