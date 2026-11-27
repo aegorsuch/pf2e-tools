@@ -31,6 +31,8 @@ interface FeatSlotsProps extends SectionProps {
   pickerEligibility?: (slot: PlannedSlot) => ContentEntry[]
   pickerVariantCache?: Map<string, FeatOption[]>
   plannedFeatSlots?: PlannedSlot[]
+  features?: ContentEntry[]
+  prelude?: ReactNode
 }
 
 function ConstellationVortexRoll({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
@@ -305,7 +307,7 @@ export function classArchetypeSlotViews(c: Character, entries: ContentEntry[], s
 }
 
 export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', bare, search = {}, onSearch,
-  pickerEligibility, pickerVariantCache, plannedFeatSlots }: FeatSlotsProps) {
+  pickerEligibility, pickerVariantCache, plannedFeatSlots, features = [], prelude }: FeatSlotsProps) {
   const checks = selectedChecks(c, entries)
   const selectedPrerequisites = (slot: PlannedSlot, entry: ContentEntry) => {
     const key = JSON.stringify([slot, entry])
@@ -584,6 +586,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   const multi = new Set(slots.map((slot) => slot.category)).size > 1
   const grantedCount = backgroundFeats.length + automaticFeats.length + memories.length
   const rows = [
+    ...features.map(feature => ({ kind: 'feature' as const, level: feature.level ?? 1, feature })),
     ...backgroundFeats.map(feat => ({ kind: 'background' as const, level: 1, feat })),
     ...automaticFeats.map(feat => ({ kind: 'automatic' as const, level: feat.level, feat })),
     ...memories,
@@ -591,8 +594,8 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   ].sort((a, b) => {
     if (a.level !== b.level) return a.level - b.level
     if (categories?.length !== 1 || !['archetype', 'general', 'skill'].includes(categories[0])) return 0
-    const aFeat = a.kind === 'slot' ? c.feats.find(feat => feat.slot === a.slot.key) : a.feat
-    const bFeat = b.kind === 'slot' ? c.feats.find(feat => feat.slot === b.slot.key) : b.feat
+    const aFeat = a.kind === 'slot' ? c.feats.find(feat => feat.slot === a.slot.key) : a.kind === 'feature' ? undefined : a.feat
+    const bFeat = b.kind === 'slot' ? c.feats.find(feat => feat.slot === b.slot.key) : b.kind === 'feature' ? undefined : b.feat
     if (!aFeat || !bFeat) return Number(!aFeat) - Number(!bFeat) || a.level - b.level
     return displayName(aFeat.name).localeCompare(displayName(bFeat.name)) || compareFeatSelections(aFeat, bFeat) || a.level - b.level
   })
@@ -600,6 +603,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   return (
     <Wrapper className={bare ? undefined : 'character-subsection'}>
       {!bare && <summary><h4>{title} {slots.filter(slot => c.feats.some(feat => feat.slot === slot.key)).length + grantedCount}/{slots.length + grantedCount}</h4></summary>}
+      {prelude}
       <ul className="feat-slot-list">
         {rows.map((row, rowIndex) => {
           const newLevel = rowIndex === 0 || rows[rowIndex - 1].level !== row.level
@@ -613,6 +617,13 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
               <CarryTheirMemoriesChoice c={c} entries={entries} save={save} index={row.index} />
               <button type="button" aria-label={`Add L${String(row.level).padStart(2, '0')} Skill feat slot`}
                 onClick={() => addSlot('skill', row.level)}>+</button>
+            </li>
+          </Fragment>
+          if (row.kind === 'feature') return <Fragment key={`feature:${row.feature.id}`}>
+            {heading}
+            <li className={`feat-slot-row automatic-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
+              <EntryDescription character={c} name={row.feature.name} entry={row.feature} entries={entries}
+                className="feat-name" deferDetails={!!onSearch} /> <ActionIcon entry={row.feature} />
             </li>
           </Fragment>
           if (row.kind !== 'slot') {

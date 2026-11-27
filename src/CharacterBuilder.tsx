@@ -9,7 +9,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { EquipmentSearch } from './EquipmentSearch'
 export { EquipmentSearch } from './EquipmentSearch'
 import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldRaiseLabel, showParryControl, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
-import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, boostSlots, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, hasPersonalUpgradeSlot, ownedArmors, warriorLegendWeakness } from './builder'
+import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, boostSlots, classFeatures, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, hasPersonalUpgradeSlot, ownedArmors, warriorLegendWeakness } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { classArchetypeSlotViews, featSectionGrants, SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, PersonalUpgradeSlot, Augmentations, BulkLimits, DermalPlatingToggle, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
@@ -858,8 +858,8 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
             </select></label>
           })()}
           <AbilityBoostChoices {...section} groups={['class']} />
-          <ClassFeatures {...section} />
-          <SearchableFeatSlots {...section} categories={['class']} title="Class Feats" plannedFeatSlots={featSlots} />
+          <SearchableFeatSlots {...section} categories={['class']} title="Class Features & Feats" plannedFeatSlots={featSlots}
+            features={c.className ? classFeatures(entries, c) : []} prelude={<ClassFeatures {...section} />} />
         </div>}</DeferredContent>
       </DeferredDetails>
 

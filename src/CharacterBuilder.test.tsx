@@ -534,7 +534,7 @@ it('shows Witchwarper anchor selection alongside class choices even without a pa
   expect(markup).toContain('>Core Memories</option>')
   expect(markup).toContain('>Focal Point</option>')
   expect(markup).toContain('>Tangible Object</option>')
-  expect(markup.indexOf('aria-label="Anchor"')).toBeLessThan(markup.indexOf('Class Features ('))
+  expect(markup.indexOf('aria-label="Anchor"')).toBeLessThan(markup.indexOf('Class Features &amp; Feats'))
   expect(render({ ...c, subclass: 'Analyst', witchwarper: { anchor: 'Focal Point' } }))
     .toContain('<option selected="">Focal Point</option>')
   expect(render({ ...c, className: 'Mystic' })).not.toContain('aria-label="Anchor"')

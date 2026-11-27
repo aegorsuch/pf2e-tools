@@ -1,7 +1,6 @@
 import { Info } from './Info'
 import { activeFeatsNamed, barbarianInstinct, canBeGiantWeapon, canBeOsteoArmament, canBeVerdantWeapon, isGiantInstinct, ownedWeapons, weaponEquipped, blessedArmamentRuneOptions, blessedArmamentTarget, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, deitySanctification, precisionEdgeDamageDice, runeBaseName, runeName, selectedSubclass, solarWeaponTraitBudget, solarWeaponTraits, SOLAR_WEAPON_TRAITS, weaponRuneApplies, type SectionProps } from './builder'
 import type { OwnedWeapon } from './types'
-import { ActionIcon } from './ActionIcon'
 import { HANDWRAPS } from './supplemental'
 import { SearchableSelect } from './SearchableSelect'
 import { championCauseTenets } from './featPrerequisites'
@@ -104,8 +103,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
     </label>)
   }
   return (
-    <details className="character-subsection">
-      <summary><h4>Class Features ({features.length})</h4></summary>
+    <div className="class-feature-controls">
       {!imported && <p>Class feature data is still loading.</p>}
       <MechanicFeatures c={c} save={save} />
       <WitchwarperFeatures c={c} save={save} />
@@ -410,15 +408,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           </span>
         </>}
       </div>}
-      <ul>
-        {features.map((f) => (
-          <li key={f.id}>
-            {f.description
-              ? <Info label={`L${String(f.level).padStart(2, '0')} ${f.name}`}>{f.description}</Info>
-              : <b>L{String(f.level).padStart(2, '0')} {f.name}</b>} <ActionIcon entry={f} />
-          </li>
-        ))}
-      </ul>
-    </details>
+    </div>
   )
 }

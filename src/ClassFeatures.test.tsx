@@ -1,3 +1,4 @@
+import { FeatSlots } from './FeatSlots'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
@@ -81,7 +82,7 @@ it('tracks Precision Edge damage dice and resets at a new round', () => {
   expect(findDamageRoll(tree(), 'Precision Edge')?.damage?.dice).toBe(3)
 })
 
-it('labels class features with leading, zero-padded levels', () => {
+it('lists class features beside class feats with description buttons and no remove control', () => {
   const c: Character = {
     id: 'c', systems: ['pf2e'], name: 'Alex', level: 10, className: 'Ranger',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -89,17 +90,16 @@ it('labels class features with leading, zero-padded levels', () => {
   }
   const feature = (name: string, level: number): ContentEntry => ({
     id: name, systems: ['pf2e'], kind: 'classFeature', source: 'official', name, level, traits: [],
-    description: '', data: { class: 'Ranger' }, effects: [], updatedAt: 0,
+    description: 'Feature text.', data: { class: 'Ranger' }, effects: [], updatedAt: 0,
   })
-
+  const features = [feature('First Feature', 1), feature('Later Feature', 10)]
   const markup = renderToStaticMarkup(
-    <ClassFeatures c={c} entries={[feature('First Feature', 1), feature('Later Feature', 10)]} save={() => {}} />,
+    <FeatSlots c={c} entries={features} save={() => {}} categories={['class']} features={features} />,
   )
-  expect(markup).toContain('Class Features (2)')
-  expect(markup).toContain('<details class="character-subsection"><summary>')
-  expect(markup).not.toContain('open=""')
-  expect(markup).toContain('L01 First Feature')
-  expect(markup).toContain('L10 Later Feature')
+  expect(markup).toContain('>First Feature<')
+  expect(markup).toContain('>Later Feature<')
+  expect(markup).not.toContain('aria-label="Remove First Feature')
+  expect(markup.indexOf('First Feature')).toBeLessThan(markup.indexOf('Later Feature'))
 })
 
 it('saves an explicit Champion confirmation of legacy Tenets of Good', () => {

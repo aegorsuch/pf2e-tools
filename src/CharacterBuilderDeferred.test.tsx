@@ -666,26 +666,26 @@ it('updates class feat slots and progress when a blank slot is added and filled'
       details.querySelector('summary strong')?.textContent === 'Class')!
     await act(async () => { section.open = true; section.dispatchEvent(new Event('toggle')) })
     const count = () => [...section.querySelectorAll('.character-subsection > summary h4')]
-      .find(heading => heading.textContent?.startsWith('Class Feats'))?.textContent
+      .find(heading => heading.textContent?.startsWith('Class Features & Feats'))?.textContent
     const initial = plannedSlots(c, catalog).filter(slot => slot.category === 'class').length
-    expect(count()).toBe(`Class Feats 0/${initial}`)
+    expect(count()).toBe(`Class Features & Feats 0/${initial}`)
     expect(section.querySelector('[aria-label="L02 Class feat"]')).toBeNull()
     const added: Character = { ...c, extraSlots: [{ category: 'class', level: 2, count: 1 }] }
     await render(added)
-    expect(count()).toBe(`Class Feats 0/${initial + 1}`)
+    expect(count()).toBe(`Class Features & Feats 0/${initial + 1}`)
     expect(section.querySelector('[aria-label="L02 Class feat"]')).toBeNull()
     const feats = [...section.querySelectorAll<HTMLDetailsElement>('.character-subsection')]
-      .find(details => details.querySelector(':scope > summary h4')?.textContent?.startsWith('Class Feats'))!
+      .find(details => details.querySelector(':scope > summary h4')?.textContent?.startsWith('Class Features & Feats'))!
     await act(async () => { feats.open = true; feats.dispatchEvent(new Event('toggle')) })
     expect(section.querySelectorAll('[aria-label="L02 Class feat"]')).toHaveLength(2)
     await render({ ...added, feats: [{ name: 'Test feat', type: 'Class Feat', level: 2, slot: 'class:2:1' }] })
-    expect(count()).toBe(`Class Feats 1/${initial + 1}`)
+    expect(count()).toBe(`Class Features & Feats 1/${initial + 1}`)
     expect(section.textContent).toContain('Test feat')
     await render(c)
-    expect(count()).toBe(`Class Feats 0/${initial}`)
+    expect(count()).toBe(`Class Features & Feats 0/${initial}`)
     await act(async () => { feats.open = false; feats.dispatchEvent(new Event('toggle')) })
     await render(added)
-    expect(count()).toBe(`Class Feats 0/${initial + 1}`)
+    expect(count()).toBe(`Class Features & Feats 0/${initial + 1}`)
     await act(async () => { feats.open = true; feats.dispatchEvent(new Event('toggle')) })
     expect(section.querySelectorAll('[aria-label="L02 Class feat"]')).toHaveLength(2)
   } finally {
