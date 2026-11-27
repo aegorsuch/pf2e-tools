@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Children, isValidElement, useState } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
-import { DamageRoll, MultipleDamageRoll, rollSpellDamage, rollTreehealerHealing, rollWarpWorld, spellActionRolls, spellDamage, SpellActions, SpellDamageRolls, sunBladeDamage, WarpWorldRoll } from './SpellDamage'
+import { ChromaticRayRoll, DamageRoll, MultipleDamageRoll, rollChromaticRay, rollSpellDamage, rollTreehealerHealing, rollWarpWorld, spellActionRolls, spellDamage, SpellActions, SpellDamageRolls, sunBladeDamage, WarpWorldRoll } from './SpellDamage'
 import { SpellsSection } from './SpellsSection'
 import type { Character, ContentEntry } from './types'
 
@@ -11,6 +11,28 @@ vi.mock('react', async importOriginal => {
 })
 
 afterEach(() => vi.restoreAllMocks())
+
+it('rolls Chromatic Ray colors and heightened intense color without applying hit outcomes', () => {
+  const random = vi.spyOn(Math, 'random')
+  for (const [index, color, damage] of [[0, 'Red', 30], [1, 'Orange', 40], [2, 'Yellow', 50], [3, 'Green', 25]] as const) {
+    random.mockReturnValue((index + 0.1) / 4)
+    expect(rollChromaticRay(4)).toMatchObject({ color: index, intense: false, effect: expect.stringContaining(`${color}: ${damage}`) })
+    random.mockReturnValue((index + 0.1) / 8)
+    expect(rollChromaticRay(6).effect).toContain(`${color}: ${damage + 10}`)
+  }
+  for (const [index, color] of [[4, 'Blue'], [5, 'Indigo'], [6, 'Violet']] as const) {
+    random.mockReturnValue((index + 0.1) / 8)
+    expect(rollChromaticRay(6).effect).toContain(color)
+  }
+  random.mockReturnValueOnce(0.99).mockReturnValueOnce(0.5)
+  const intense = rollChromaticRay(6)
+  expect(intense).toMatchObject({ color: 3, intense: true, effect: expect.stringContaining('Green: 35 poison') })
+  vi.mocked(useState).mockReturnValueOnce([intense, vi.fn()])
+  const markup = renderToStaticMarkup(<ChromaticRayRoll rank={6} />)
+  expect(markup).toContain('Intense Color: dazzled')
+  expect(markup).toContain('Green: 35 poison damage')
+  expect(renderToStaticMarkup(<SpellActions name="Chromatic Ray" rank={4} />)).toContain('Roll Chromatic Ray')
+})
 
 it('rolls Snowball cold damage at its heightened rank', () => {
   const entry: ContentEntry = { id: 'snowball', name: 'Snowball', systems: ['pf2e'], kind: 'spell',
@@ -38,6 +60,20 @@ it('rolls both Magnetic Acceleration damage types at the cast rank', () => {
     expect(rollSpellDamage(damage)).toBe(rank)
     expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
       .toContain(`Damage: ${rank}d6 bludgeoning + ${rank}d6 piercing`)
+  }
+})
+
+it('rolls heightened Shadow Strike void damage', () => {
+  const entry: ContentEntry = { id: 'shadow-strike', name: 'Shadow Strike', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 4, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 3)).toEqual([])
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  for (const rank of [4, 6, 10]) {
+    const [damage] = spellDamage(entry.name, rank)
+    expect(damage).toEqual({ label: 'Damage', dice: rank + 1, sides: 10, type: 'void' })
+    expect(rollSpellDamage(damage)).toBe(rank + 1)
+    expect(renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />))
+      .toContain(`Damage: ${rank + 1}d10 void`)
   }
 })
 

@@ -46,6 +46,8 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
     case 'Magnetic Acceleration':
       return rank >= 3 ? [{ label: 'Damage', dice: rank, sides: 6, type: 'bludgeoning',
         components: [{ dice: rank, sides: 6, type: 'piercing' }] }] : []
+    case 'Shadow Strike':
+      return rank >= 4 ? [{ label: 'Damage', dice: rank + 1, sides: 10, type: 'void' }] : []
     case 'Splinter Volley': {
       if (rank < 2) return []
       const step = Math.floor(rank / 2)
@@ -505,6 +507,36 @@ export function WarpWorldRoll({ rank }: { rank: number }) {
   </span>
 }
 
+export function rollChromaticRay(rank: number) {
+  const first = Math.floor(Math.random() * (rank >= 6 ? 8 : 4))
+  const intense = first === 7
+  const color = intense ? Math.floor(Math.random() * 7) : first
+  const bonus = rank >= 6 ? 10 : 0
+  const effects = [
+    `Red: ${30 + bonus} fire damage`,
+    `Orange: ${40 + bonus} acid damage`,
+    `Yellow: ${50 + bonus} electricity damage`,
+    `Green: ${25 + bonus} poison damage; Fortitude save or enfeebled 1 for 1 minute (enfeebled 2 on critical failure)`,
+    'Blue: flesh to stone; critical hit also causes clumsy 1 while slowed',
+    'Indigo: confusion; warp mind on a critical hit',
+    'Violet: slowed for 1 minute; Will save or teleported 120 feet away',
+  ]
+  return { color, intense, effect: effects[color] }
+}
+
+export function ChromaticRayRoll({ rank }: { rank: number }) {
+  const [result, setResult] = useState<ReturnType<typeof rollChromaticRay>>()
+  return <span>
+    <button type="button" className="spell-action-button" aria-label={result ? 'Hide Chromatic Ray result' : 'Roll Chromatic Ray'}
+      title={`Two Actions; roll 1d${rank >= 6 ? 8 : 4} for Chromatic Ray`}
+      onClick={() => setResult(result ? undefined : rollChromaticRay(rank))}><ActionIcon actions="Two Actions" /></button>
+    {result && <output aria-live="polite" aria-label="Chromatic Ray result">
+      {' '}{result.intense && <>Intense Color: dazzled until the end of your next turn (blinded on a critical hit); </>}
+      {result.effect}
+    </output>}
+  </span>
+}
+
 export function spellActionRolls(name: string, rank: number, entry?: ContentEntry, spellcastingModifier?: number) {
   const rolls = spellDamage(name, rank, spellcastingModifier,
     typeof entry?.data.dragon_breath_energy === 'string' ? entry.data.dragon_breath_energy : undefined)
@@ -653,6 +685,7 @@ function CurseOfDeathActions({ rank, actions }: { rank: number; actions?: string
 
 export function SpellActions({ name, rank, entry, spellcastingModifier, actionOverride }: { name: string; rank: number; entry?: ContentEntry; spellcastingModifier?: number; actionOverride?: string }) {
   if (name === 'Warp World' && rank >= 4) return <WarpWorldRoll rank={rank} />
+  if (name === 'Chromatic Ray' && rank >= 4) return <ChromaticRayRoll rank={rank} />
   if (name === 'Sun Blade' && rank >= 2) return <SunBladeActions rank={rank} />
   if (name === 'Dread Mosquito Storm') return <DreadMosquitoStormActions />
   if (name === 'Curse of Death' && rank >= 5)
