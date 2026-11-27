@@ -850,18 +850,18 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
             features={[...[
               ...rogueRackets(c, entries).filter(racket => racket !== subclassName).flatMap(racket => {
                 const entry = subclasses.find(candidate => candidate.name === racket)
-                return entry ? [{ entry, label: `${racket} racket (Versatile Rogue)` }] : []
+                return entry ? [{ entry, label: `${racket} Racket (Versatile Rogue)` }] : []
               }),
-              ...additionalInvestigatorMethods.map(entry => ({ entry, label: `${entry.name} methodology (Versatile Investigator)` })),
-              ...additionalEnvoyStyles.map(entry => ({ entry, label: `${entry.name} leadership style (Versatile Envoy)` })),
+              ...additionalInvestigatorMethods.map(entry => ({ entry, label: `${entry.name} Methodology (Versatile Investigator)` })),
+              ...additionalEnvoyStyles.map(entry => ({ entry, label: `${entry.name} Leadership Style (Versatile Envoy)` })),
               ...c.feats.filter(feat => ['Second Innovation', 'Third Innovation'].includes(feat.name)).flatMap(feat => {
                 const entry = subclasses.find(candidate => candidate.name === feat.choice)
-                return entry ? [{ entry, label: `${entry.name} innovation (${feat.name})` }] : []
+                return entry ? [{ entry, label: `${entry.name} Innovation (${feat.name})` }] : []
               }),
               ...c.feats.filter(feat => feat.name === 'Order Explorer').flatMap(feat => {
                 const order = feat.choice === 'Untamed' ? 'Wild' : feat.choice
                 const entry = subclasses.find(candidate => candidate.name === order || candidate.name === feat.choice)
-                return entry ? [{ entry, label: `${feat.choice} order (Order Explorer)` }] : []
+                return entry ? [{ entry, label: `${feat.choice} Order (Order Explorer)` }] : []
               }),
               ...(c.systems.includes('pf2e') && subclass && ['Ranger', 'Rogue', 'Gunslinger'].includes(c.className ?? '')
                 ? subclassFeatureRows(subclass).filter(row => row.level <= c.level).map(row => ({

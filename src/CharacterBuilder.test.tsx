@@ -798,7 +798,7 @@ it('shows Versatile Investigator methodology benefits and skill choices in Class
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   try {
     const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-    expect(markup).toContain('Empiricism methodology (Versatile Investigator)')
+    expect(markup).toContain('Empiricism Methodology (Versatile Investigator)')
     expect(markup).toContain('aria-label="Methodology"')
     expect(markup).toContain('Empiricism (Arcana)')
     expect(markup).not.toContain('aria-label="Empiricism methodology skill"')
