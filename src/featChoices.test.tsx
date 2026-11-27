@@ -813,6 +813,19 @@ it('derives caster status, traditions and spell proficiency from class features'
   expect(classSpellcasting({ ...base, className: 'Witch', subclass: 'Winter' }, classes)?.traditions).toEqual(['Primal'])
 })
 
+it('offers Cleric feats for Basic and Advanced Dogma and counts the choice as taken', () => {
+  const clericFeat = (name: string, level: number): ContentEntry => ({
+    id: name, systems: ['pf2e'], kind: 'feat', source: 'official', name, level, traits: ['Cleric'],
+    description: '', data: {}, effects: [], updatedAt: 1,
+  })
+  const catalog = [clericFeat('Deadly Simplicity', 1), clericFeat('Domain Initiate', 1), clericFeat('Channel Smite', 4)]
+  const c: Character = { ...base, className: 'Fighter', level: 8, feats: [
+    { name: 'Cleric Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+    { name: 'Basic Dogma', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0', choice: 'Deadly Simplicity' }] }
+  expect(featChoiceOptions('Advanced Dogma', c, catalog, 'archetype:8:0')).toEqual(['Channel Smite', 'Domain Initiate'])
+  expect(activeFeatsNamed(c, 'Deadly Simplicity')).toHaveLength(1)
+})
+
 it('gives Spellshot Wizard spellcasting its slots, book choices, and arcana feat selections', () => {
   const dedication = { name: 'Spellshot Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }
   const basic = { name: 'Basic Wizard Spellcasting', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0' }

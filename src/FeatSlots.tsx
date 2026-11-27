@@ -7,7 +7,7 @@ import { DamageRoll, MultipleDamageRoll, rollSpellDamage, rollTreehealerHealing 
 import { PickerDialog } from './PickerDialog'
 import { DeferredContent, DeferredDetails } from './DeferredDetails'
 import { sortPickerOptions } from './PickerSort'
-import { MASTERMIND_SKILLS, abilityMod, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, byName, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, enhancedSensesChoice, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, knownSpellNames, matchesSkill, ownedWeapons, plannedSlots, ranksAt, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassOptions, subclassSkillChoice, temporarySkillTrainings, weaponAttack, weaponHeld, type PlannedSlot, type SectionProps } from './builder'
+import { CLASS_FEAT_GRANTS, MASTERMIND_SKILLS, abilityMod, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, byName, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, enhancedSensesChoice, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, knownSpellNames, matchesSkill, ownedWeapons, plannedSlots, ranksAt, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassOptions, subclassSkillChoice, temporarySkillTrainings, weaponAttack, weaponHeld, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice, StarfinderFieldAgentLoreChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -713,7 +713,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             ...c, name: current, category: s.category, ancestryTraits: ancestryFeatTraits({ ...c, level: Math.min(c.level, s.level) }),
           }) : []
           const currentEntry = sources.find(source => source.id === selection?.sourceId) ?? sources[0] ?? featByName(entries).get(current)
-          const arcanaChoiceEntry = selection && ['Basic Arcana', 'Advanced Arcana'].includes(selection.name)
+          const arcanaChoiceEntry = selection && !!CLASS_FEAT_GRANTS[selection.name]
             && selection.choice ? arcanaChoiceCandidates(entries, selection.choice) : undefined
           const descriptionEntry = arcanaChoiceEntry ?? currentEntry
           const descriptionName = arcanaChoiceEntry ? displayName(arcanaChoiceEntry.name) : selectedName

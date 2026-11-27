@@ -469,7 +469,7 @@ export const activeFeatsNamed = (c: Character, name: string) => {
     byName = new Map()
     for (const feat of c.feats) {
       if (featTakenLevel(feat) > c.level) continue
-      for (const selected of [feat, ...(['Basic Arcana', 'Advanced Arcana'].includes(feat.name) && feat.choice
+      for (const selected of [feat, ...(CLASS_FEAT_GRANTS[feat.name] && feat.choice
         ? [{ ...feat, name: feat.choice, sourceId: undefined }] : [])]) {
         const matches = byName.get(selected.name)
         if (matches) matches.push(selected)
@@ -1556,7 +1556,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
           sourceId: feat.sourceId,
           waivedPrerequisites: feat.name === 'Captain Dedication' && feat.slot === 'archetype:2:g85'
             && activeHomebrewDedications(character).some(rule => rule.slot === feat.slot),
-        })), ...character.feats.filter(feat => ['Basic Arcana', 'Advanced Arcana'].includes(feat.name)
+        })), ...character.feats.filter(feat => CLASS_FEAT_GRANTS[feat.name]
           && feat.choice && featTakenLevel(feat) <= Math.min(level, atLevel)).map(feat => ({
             name: feat.choice!, level: featTakenLevel(feat), category: 'class' as const,
           }))],
@@ -1903,7 +1903,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const taken = new Set([
     ...c.feats.filter((f) => f.slot !== slot.key).map((f) => f.name === 'Living Weapon Joust' ? 'Living Weapon Jousting' : f.name),
     ...c.feats.filter(feat => feat.slot !== slot.key
-      && ['Basic Arcana', 'Advanced Arcana'].includes(feat.name) && feat.choice).map(feat => feat.choice!),
+      && CLASS_FEAT_GRANTS[feat.name] && feat.choice).map(feat => feat.choice!),
     ...(c.feats.some(feat => feat.name === 'Greywatch Initiate') ? INITIATE_TRAINING['Greywatch Initiate'].feats.slice(0, 1) : []),
     ...tokens(entries.find(entry => entry.kind === 'background' && !entry.deleted && entry.name === c.background
       && entry.systems.some(system => c.systems.includes(system)))?.data.feat).filter(name => name !== slot.grantedFeat),
@@ -2213,6 +2213,10 @@ export function avengerEldritchCastingClass(c: Character, entries: ContentEntry[
   return feat?.name.replace(/ Dedication$/, '')
 }
 
+export const CLASS_FEAT_GRANTS: Record<string, string> = Object.assign(Object.create(null), {
+  'Basic Arcana': 'Wizard', 'Advanced Arcana': 'Wizard', 'Basic Dogma': 'Cleric', 'Advanced Dogma': 'Cleric',
+})
+
 export function hasHuntPrey(c: Character, entries: ContentEntry[]) {
   return c.systems.includes('pf2e') && (c.className === 'Ranger' || rogueRackets(c, entries).includes('Avenger'))
 }
@@ -2485,17 +2489,17 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
       && entry.data.class === 'Wizard' && typeof entry.data.grants_focus_spells === 'string'
       && entry.systems.includes('pf2e')).map(entry => entry.name))].sort()
   }
-  if (['Basic Arcana', 'Advanced Arcana'].includes(name) && c.systems.includes('pf2e')) {
+  if (CLASS_FEAT_GRANTS[name] && c.systems.includes('pf2e')) {
     const choiceLevel = index >= 0 ? featTakenLevel(c.feats[index])
       : Number(/^[^:]+:(\d+)/.exec(slotKey)?.[1]) || c.level
-    const level = name === 'Basic Arcana' ? 2 : Math.floor(choiceLevel / 2)
+    const level = name.startsWith('Basic ') ? 2 : Math.floor(choiceLevel / 2)
     if (level < 1) return []
     const used = new Set(c.feats.filter((feat, featIndex) => featIndex !== index
-      && ['Basic Arcana', 'Advanced Arcana'].includes(feat.name) && feat.choice).map(feat => feat.choice!))
+      && CLASS_FEAT_GRANTS[feat.name] && feat.choice).map(feat => feat.choice!))
     const check = featPrerequisiteChecker(c, entries, level, index)
     return [...new Set(entries.filter(entry => entry.kind === 'feat' && !entry.deleted
       && entry.systems.includes('pf2e') && entry.level >= 1 && entry.level <= level
-      && entry.traits.some(trait => trait.toLowerCase() === 'wizard')
+      && entry.traits.some(trait => trait.toLowerCase() === CLASS_FEAT_GRANTS[name].toLowerCase())
       && !used.has(entry.name) && !check(entry).missing.length).map(entry => entry.name))].sort()
   }
   if (name === 'Bestial Manifestation' && c.systems.includes('pf2e')) return ['Claw', 'Hoof', 'Jaws', 'Tail']
@@ -5737,7 +5741,7 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
     })
   }
   if (c.systems.includes('pf2e')) for (const feat of [...activeFeatsNamed(c, 'Spellbook Prodigy'),
-    ...c.feats.filter(feat => ['Basic Arcana', 'Advanced Arcana'].includes(feat.name) && feat.choice === 'Spellbook Prodigy'
+    ...c.feats.filter(feat => CLASS_FEAT_GRANTS[feat.name] === 'Wizard' && feat.choice === 'Spellbook Prodigy'
       && featTakenLevel(feat) <= c.level)]) {
     grants.push({ name: 'Magical Shorthand', source: 'Spellbook Prodigy', level: featTakenLevel(feat) })
   }
