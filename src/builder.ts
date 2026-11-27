@@ -3692,7 +3692,9 @@ export function armorUpgradeEntries(c: Character, entries: ContentEntry[], armor
   const personal = armorItem && armorItem.data.upgrades_allowed !== false && hasPersonalUpgradeSlot(c)
     && armor.worn
     ? (c.personalUpgrades ?? []).slice(0, 1).flatMap(id => armorUpgradeEntry(entries, id) ?? []) : []
-  return [...automatic, ...installed, ...personal]
+  const base = (entry: ContentEntry) => entry.name.replace(/\s*\([^)]*\)$/, '')
+  const taken = new Set([...automatic, ...installed].filter(entry => !isEnergyShieldingUpgrade(entry)).map(base))
+  return [...automatic, ...installed, ...personal.filter(entry => isEnergyShieldingUpgrade(entry) || !taken.has(base(entry)))]
 }
 
 export function energyShieldingVariantId(id: string, type: typeof ENERGY_SHIELDING_TYPES[number]) {

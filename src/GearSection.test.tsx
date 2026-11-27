@@ -3682,6 +3682,12 @@ it('leaves one Paragon Clandestine Suit upgrade slot, or two for Mod Fanatic And
   const personal = { ...android, personalUpgrades: ['extra-3', 'extra-2'] }
   expect(armorUpgradeEntries(personal, entries, personal.armors![0]).map(entry => entry.id)).toContain('extra-3')
   expect(armorUpgradeEntries(personal, entries, personal.armors![0]).map(entry => entry.id)).not.toContain('extra-2')
+  const duplicate = { ...android, personalUpgrades: ['extra-1'] }
+  expect(armorUpgradeEntries(duplicate, entries, duplicate.armors![0]).filter(entry => entry.id === 'extra-1')).toHaveLength(1)
+  const slotMarkup = renderToStaticMarkup(PersonalUpgradeSlot({ c: { ...android, armors: [{ ...android.armors![0], upgrades: ['extra-1'] }] },
+    entries, save: () => {} }))
+  expect(slotMarkup).not.toContain('value="extra-1"')
+  expect(slotMarkup).toContain('value="extra-2"')
   const human = { ...personal, heritage: undefined }
   expect(armorUpgradeEntries(human, entries, human.armors![0]).map(entry => entry.id)).not.toContain('extra-3')
 })

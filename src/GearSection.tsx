@@ -590,13 +590,13 @@ export function WeaponUpgrades({ entries, weapon, upgrades, limit, onChange, eff
 
 export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, energyShieldingTypes, energizedSpikesEnergy,
   onToggleJetpack, onEnergizedSpikesEnergyChange, onChange,
-  automaticUpgrades = [], armorName = 'armor', slotLabel = 'armor upgrade' }: {
+  automaticUpgrades = [], armorName = 'armor', slotLabel = 'armor upgrade', blockedUpgrades = [] }: {
   entries: ContentEntry[]; upgrades: string[]; limit: number; worn: boolean; activeJetpack?: string
   energyShieldingTypes?: OwnedArmor['energyShieldingTypes']
   energizedSpikesEnergy?: EnergizedSpikesEnergy
   onToggleJetpack: (id: string) => void; onChange: (ids: string[]) => void
   onEnergizedSpikesEnergyChange?: (energy: EnergizedSpikesEnergy | undefined) => void
-  automaticUpgrades?: ContentEntry[]; armorName?: string; slotLabel?: string
+  automaticUpgrades?: ContentEntry[]; armorName?: string; slotLabel?: string; blockedUpgrades?: ContentEntry[]
 }) {
   const catalog = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
     && entry.data.item_subcategory === 'Armor Upgrades')
@@ -639,6 +639,7 @@ export function ArmorUpgrades({ entries, upgrades, limit, worn, activeJetpack, e
   }
   const options = catalog.filter(entry => !isEnergyShieldingUpgrade(entry) && !installed.some(item => item?.id === entry.id)
     && !(isDriftDriveRelay(entry) && installed.some(isDriftDriveRelay))
+    && !blockedUpgrades.some(blocked => sameUpgrade(blocked, entry))
     && !automaticUpgrades.some(automatic => sameUpgrade(automatic, entry)
       && !(isEnergyShieldingUpgrade(automatic) && isEnergyShieldingUpgrade(entry))))
     .sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
@@ -2077,6 +2078,8 @@ export function PersonalUpgradeSlot({ c, entries, save }: SectionProps) {
   if (!hasPersonalUpgradeSlot(c)) return null
   return <ArmorUpgrades entries={entries} upgrades={c.personalUpgrades ?? []} limit={1}
     worn={!!c.armors?.some(armor => armor.worn)} armorName="your body" slotLabel="personal upgrade"
+    blockedUpgrades={ownedArmors(c, entries).filter(armor => armor.worn).flatMap(armor =>
+      armorUpgradeEntries({ ...c, personalUpgrades: [] }, entries, armor))}
     onToggleJetpack={() => undefined} onChange={personalUpgrades => save({ personalUpgrades })} />
 }
 
@@ -2337,6 +2340,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                     energyShieldingTypes={a.energyShieldingTypes}
                     energizedSpikesEnergy={a.energizedSpikesEnergy}
                     automaticUpgrades={automaticUpgrades} armorName={a.name}
+                    blockedUpgrades={a.worn ? (c.personalUpgrades ?? []).flatMap(id => armorUpgradeEntry(entries, id) ?? []) : []}
                   onToggleJetpack={id => update(a.id, { activeJetpack: a.activeJetpack === id ? undefined : id })}
                     onEnergizedSpikesEnergyChange={energy => update(a.id, { energizedSpikesEnergy: energy })}
                     onChange={upgrades => {
