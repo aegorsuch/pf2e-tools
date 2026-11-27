@@ -88,6 +88,8 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
     }
     case 'Verdant Code':
       return rank >= 2 ? [{ label: 'Damage', dice: 2, sides: 6, type: 'piercing' }] : []
+    case 'Vital Seed':
+      return rank >= 4 ? [{ label: 'Damage', dice: 2 + Math.floor((rank - 4) / 2), sides: 12, type: 'void' }] : []
     case 'Moonlight Ray': {
       if (rank < 3) return []
       const dice = 5 + 2 * (rank - 3)
