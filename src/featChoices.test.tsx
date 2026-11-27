@@ -895,6 +895,16 @@ it('offers Dogma class feats directly in archetype slots', () => {
   expect(names).not.toContain('Basic Dogma')
 })
 
+it('still lists direct Cleric feats with unmet prerequisites', () => {
+  const mk = (id: string, name: string, level: number, traits: string[], data = {}): ContentEntry => ({ id, systems: ['pf2e'], kind: 'feat',
+    source: 'official', name, level, traits, description: '', data, effects: [], updatedAt: 1 })
+  const entries = [mk('d', 'Cleric Dedication', 2, ['Archetype', 'Dedication']), mk('h', 'Healing Hands', 1, ['Cleric'], { prerequisite: 'healing font' })]
+  const c: Character = { ...base, className: 'Fighter', level: 10,
+    feats: [{ name: 'Cleric Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }] }
+  const slot = plannedSlots(c, entries).find(candidate => candidate.key === 'archetype:4:0')!
+  expect(eligibleFeats(entries, c, slot).map(entry => entry.name)).toContain('Healing Hands')
+})
+
 it('offers Wizard class feats directly under Spellshot Dedication', () => {
   const mk = (id: string, name: string, level: number, traits: string[]): ContentEntry => ({ id, systems: ['pf2e'], kind: 'feat',
     source: 'official', name, level, traits, description: '', data: {}, effects: [], updatedAt: 1 })

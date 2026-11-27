@@ -2251,7 +2251,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
       return true
     }).map(({ entry }) => entry)
   if (slot.category !== 'archetype' || !c.systems.includes('pf2e')) return result
-  const direct = directDedicationClassFeats(c, entries, slot, taken, prerequisites)
+  const direct = directDedicationClassFeats(c, entries, slot, taken)
   const selectedName = c.feats.find(feat => feat.slot === slot.key)?.name
   return [...result.filter(entry => !CLASS_FEAT_GRANTS[entry.name] || entry.name === selectedName),
     ...direct.filter(entry => !result.some(other => other.name === entry.name))]
@@ -2306,8 +2306,7 @@ function countEarlierDirectClassFeats(c: Character, entries: ContentEntry[], slo
 }
 
 // Basic/Advanced Arcana and Dogma are offered as the class feats they grant: the first is level 2 or lower, every later one (Advanced is repeatable) up to half the level.
-function directDedicationClassFeats(c: Character, entries: ContentEntry[], slot: PlannedSlot, taken: Set<string>,
-  prerequisites: (entry: ContentEntry) => { missing: string[] }) {
+function directDedicationClassFeats(c: Character, entries: ContentEntry[], slot: PlannedSlot, taken: Set<string>) {
   const found = new Map<string, ContentEntry>()
   for (const classTrait of new Set(Object.values(CLASS_FEAT_GRANTS))) {
     const dedications = classTrait === 'Wizard' ? ['Wizard Dedication', 'Spellshot Dedication'] : [`${classTrait} Dedication`]
@@ -2318,8 +2317,7 @@ function directDedicationClassFeats(c: Character, entries: ContentEntry[], slot:
     const cap = owned === 0 ? slot.level >= 4 ? 2 : 0 : slot.level >= 6 ? Math.floor(slot.level / 2) : 0
     for (const entry of directClassFeats(entries, trait)) {
       if (entry.level >= 1 && entry.level <= cap && (!taken.has(entry.name) || entry.data.repeatable === true)
-        && !(hasSymbol && /^(Favored Weapon (Symbol|Jousting)|Tethered Favored Weapon)$/.test(entry.name))
-        && !prerequisites(entry).missing.length) found.set(entry.name, entry)
+        && !(hasSymbol && /^(Favored Weapon (Symbol|Jousting)|Tethered Favored Weapon)$/.test(entry.name))) found.set(entry.name, entry)
     }
   }
   return [...found.values()].sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
