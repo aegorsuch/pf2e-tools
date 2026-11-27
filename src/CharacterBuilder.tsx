@@ -36,7 +36,8 @@ import { TechnomancerFeatures } from './TechnomancerFeatures'
 import { GREATER_CROSS_PLATFORM_APPLICATION_FEAT, VERSATILE_FIRMWARE_FEAT } from './technomancer'
 import { CharacterPictures } from './CharacterPictures'
 import { isGrenade, withBreachingGrenades } from './formulas'
-import { subclassFeatureRows } from './subclassFeatures'
+import { subclassBaseDescription, subclassFeatureRows } from './subclassFeatures'
+import { SubclassSlot } from './SubclassSlot'
 import { MYSTIC_CONNECTIONS } from './mystic'
 import { OPERATIVE_EXPLOITS } from './starfinderSubclasses'
 import type { Character, ContentEntry, EntryKind } from './types'
@@ -515,6 +516,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
   const subclasses = subclassOptions(c, entries).filter(entry => entry.data.subclass_type !== 'fatal-method')
   const subclassName = selectedSubclass(c, entries)
   const subclass = subclasses.find((entry) => entry.name === subclassName)
+  const subclassLabel = c.className === 'Necromancer' ? 'Grim Fascination' : c.className === 'Witch' ? 'Patron' : c.className === 'Rogue' ? 'Racket' : c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : c.className === 'Mechanic' ? 'Exocortex' : c.className === 'Envoy' ? 'Leadership style' : c.className === 'Mystic' ? 'Connection' : c.className === 'Operative' ? 'Specialization' : c.className === 'Witchwarper' ? 'Paradox' : c.className === 'Soldier' ? 'Fighting style' : 'Subclass'
   const investigatorMethodNames = [...new Set([...subclasses.map(method => method.name), ...(subclassName ? [subclassName] : [])])]
   const investigatorMethodVariants = c.className === 'Investigator' ? investigatorMethodNames.flatMap(method => {
     const choice = subclassSkillChoice({ ...c, subclass: method }, entries)
@@ -798,9 +800,18 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
             </select></label>
           })()}
           <SearchableFeatSlots {...section} categories={['class']} title="Class Features & Feats" plannedFeatSlots={featSlots}
-            selectors={(c.className === 'Druid' || subclasses.length > 0 || c.className === 'Investigator' && !!subclassName || c.className === 'Necromancer'
+            selectors={[
+              ...(c.className !== 'Druid' && c.className !== 'Investigator' && subclasses.length > 0 ? [{ key: 'subclass-choice', level: 1, control: <SubclassSlot c={c} entries={entries}
+                label={subclassLabel} disabled={!!selectedClassArchetype(c, entries)} selected={subclass}
+                options={subclasses.filter(entry => c.className !== 'Inventor'
+                  || !c.feats.some(feat => ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice === entry.name))}
+                displayName={entry => c.className === 'Ranger' ? `${entry.name} Edge` : entry.name}
+                describe={entry => ['Ranger', 'Rogue', 'Gunslinger'].includes(c.className ?? '') && c.systems.includes('pf2e')
+                  ? { ...entry, description: subclassBaseDescription(entry) } : entry}
+                onChange={name => save({ subclass: name ?? '' })} /> }] : []),
+              ...((c.className === 'Druid' || c.className === 'Investigator' && (subclasses.length > 0 || !!subclassName) || c.className === 'Necromancer'
               || c.className === 'Wizard' && c.systems.includes('pf2e')) ? [{ key: 'class-choice', level: 1, control: <>
-          {c.className !== 'Druid' && (subclasses.length > 0 || c.className === 'Investigator' && !!subclassName) && <>
+          {c.className === 'Investigator' && (subclasses.length > 0 || !!subclassName) && <>
             {c.className === 'Investigator' ? <SearchableSelect label="Methodology" aria-label="Methodology"
               value={methodPickerValue} disabled={!!selectedClassArchetype(c, entries)} onChange={event => {
                 const value = event.target.value
@@ -818,10 +829,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
               {methodPickerValue && !investigatorMethodVariants.some(option => option.value === methodPickerValue)
                 && <option value={methodPickerValue} disabled>{subclassName}{subclassChoice?.options.length ? ' (choose skill)' : ''}</option>}
               {investigatorMethodVariants.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </SearchableSelect> : <Pick label={c.className === 'Necromancer' ? 'Grim Fascination' : c.className === 'Witch' ? 'Patron' : c.className === 'Rogue' ? 'Racket' : c.className === 'Ranger' ? "Hunter's Edge" : c.className === 'Champion' ? 'Cause' : c.className === 'Barbarian' ? 'Instinct' : c.className === 'Inventor' ? 'Innovation' : c.className === 'Mechanic' ? 'Exocortex' : c.className === 'Envoy' ? 'Leadership style' : c.className === 'Mystic' ? 'Connection' : c.className === 'Operative' ? 'Specialization' : c.className === 'Witchwarper' ? 'Paradox' : c.className === 'Soldier' ? 'Fighting style' : 'Subclass'}
-              kind="subclass" value={subclassName} disabled={!!selectedClassArchetype(c, entries)} options={subclasses.filter((entry) => c.className !== 'Inventor'
-                || !c.feats.some((feat) => ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice === entry.name))}
-              onChange={(v) => save({ subclass: v ?? '' })} />}
+            </SearchableSelect> : null}
           </>}
           {c.className === 'Necromancer' && <>
             <Pick label="Fatal Method" kind="fatal method" value={fatalMethod} options={fatalMethods}
@@ -837,7 +845,8 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                 {Object.keys(DRUID_ORDERS).filter((o) => o === subclassName || !c.feats.some((f) => f.name === 'Order Explorer' && (f.choice === o || o === 'Wild' && f.choice === 'Untamed'))).sort((a, b) => (a === 'Wild' ? 'Untamed' : a).localeCompare(b === 'Wild' ? 'Untamed' : b)).map((o) => <option key={o} value={o}>{o === 'Wild' ? 'Untamed' : o}</option>)}
               </SearchableSelect>
           )}
-            </> }] : []}
+            </> }] : []),
+            ]}
             features={[...[
               ...rogueRackets(c, entries).filter(racket => racket !== subclassName).flatMap(racket => {
                 const entry = subclasses.find(candidate => candidate.name === racket)

@@ -431,9 +431,9 @@ it.each([
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-  expect(markup).toMatch(new RegExp(`<select aria-label="${label}"[^>]*disabled`))
+  expect(markup).toMatch(new RegExp(`<button type="button" aria-label="Clear ${label}"[^>]*disabled`))
   const normal = renderToStaticMarkup(<CharacterBuilder character={{ ...c, subclass: '' }} onClose={() => {}} />)
-  expect(normal).not.toMatch(new RegExp(`<select aria-label="${label}"[^>]*disabled`))
+  expect(normal).not.toMatch(new RegExp(`<button type="button" aria-label="Clear ${label}"[^>]*disabled`))
 })
 
 it('shows the locked Avenger Dedication under Dedications instead of Class Feats', () => {
@@ -779,7 +779,7 @@ it('labels Rogue subclass as Racket without duplicating the Versatile Rogue Mast
     rogueRacketSkills: { Mastermind: 'Religion' }, equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   try {
     const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-    expect(markup).toContain('aria-label="Racket"')
+    expect(markup).toContain('aria-label="Clear Racket"')
     expect(markup).not.toContain('aria-label="Subclass"')
     expect(markup).not.toContain('aria-label="Mastermind racket skill"')
   } finally { content.entries = [] }

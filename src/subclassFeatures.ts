@@ -29,3 +29,8 @@ export function subclassFeatureRows(entry: ContentEntry): { name: string; level:
   }
   return rows
 }
+
+// The base feature text before any level-gated ability or deed.
+export function subclassBaseDescription(entry: ContentEntry) {
+  return entry.description.split(SECTION)[0].replace(/\s*Way Skill [^]*$/, '').trim()
+}
