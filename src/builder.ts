@@ -8949,7 +8949,7 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     : entry.data.special_weapon_source === 'Starday Night Special' ? ["Smuggler's Grip"]
     : ['Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle'].includes(name)
       ? ['Flaming Module', 'Glarecaster', "Sniper's Scope"]
-    : name === 'Knife' ? ['Retrieval Boosters']
+    : name === 'Knife' ? ['Retrieval Boosters', "Smuggler's Grip"]
     : name === 'Shuriken Drone' ? ['Retrieval Boosters']
     : name === 'Singing Spear' ? ['Retrieval Boosters', 'Loudener']
     : name === 'Battleglove' || name === 'Doshko' ? ['Suppression Matrix']
