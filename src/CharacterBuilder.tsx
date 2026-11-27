@@ -51,18 +51,6 @@ import { GAUNTLET, HAFT_STRIKER_WEAPON, OVERSIZED_THROW } from './supplemental'
 
 const NONE: ContentEntry[] = []
 
-function SelectedSubclassRules({ entry, label = entry.name }: { entry: ContentEntry, label?: string }) {
-  return <section aria-label={`${entry.name} rules`}>
-    <strong>{label}</strong>
-    {entry.description.split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => {
-      const label = /^([^:.\n]{1,60}):\s+/.exec(paragraph)
-      return <p key={index}>{label && <><strong>{label[1]}</strong>
-        {entry.data.subclass_type === 'fatal-method' && label[1] === 'Consume Thrall' && <> <ActionIcon actions="Free Action" /></>}
-        {' '}</>}{label ? paragraph.slice(label[0].length) : paragraph}</p>
-    })}
-  </section>
-}
-
 function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, backgroundLores, deityLores, disabled }: {
   label: string
   kind: string
@@ -660,6 +648,12 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
       <div className="row">
         <label>Name <input key={`${c.id}:${c.name}`} defaultValue={c.name}
           onBlur={(e) => { if (e.currentTarget.value !== c.name) void save({ name: e.currentTarget.value }) }} /></label>
+          <label>Level <input key={`${c.id}:${c.level}`} aria-label="Character level" type="number" min={1} max={20}
+            defaultValue={c.level} onBlur={(e) => {
+              const level = Math.min(20, Math.max(1, +e.currentTarget.value || 1))
+              e.currentTarget.value = String(level)
+              if (level !== c.level) void save({ level })
+            }} /></label>
       </div>
       <DeferredDetails>
         <summary className="character-section-summary"><strong>Ability Scores</strong></summary>
@@ -741,12 +735,6 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
         <DeferredContent>{() => <div className="character-section-content">
           <div className="row">
             <ClassPick c={c} entries={entries} save={save} options={of('class')} />
-            <label>Level <input key={`${c.id}:${c.level}`} aria-label="Character level" type="number" min={1} max={20}
-              defaultValue={c.level} onBlur={(e) => {
-                const level = Math.min(20, Math.max(1, +e.currentTarget.value || 1))
-                e.currentTarget.value = String(level)
-                if (level !== c.level) void save({ level })
-              }} /></label>
           </div>
           {c.className !== 'Druid' && (subclasses.length > 0 || c.className === 'Investigator' && !!subclassName) && <>
             {c.className === 'Investigator' ? <SearchableSelect label="Methodology" aria-label="Methodology"
@@ -770,24 +758,17 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
               kind="subclass" value={subclassName} disabled={!!selectedClassArchetype(c, entries)} options={subclasses.filter((entry) => c.className !== 'Inventor'
                 || !c.feats.some((feat) => ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice === entry.name))}
               onChange={(v) => save({ subclass: v ?? '' })} />}
-            {subclass && <SelectedSubclassRules entry={subclass} />}
           </>}
           <WitchwarperAnchor c={c} save={save} />
           <TechnomancerFeatures {...section} />
           {c.className === 'Necromancer' && <>
             <Pick label="Fatal Method" kind="fatal method" value={fatalMethod} options={fatalMethods}
               onChange={value => save({ fatalMethod: value as FatalMethod | undefined })} />
-            {fatalMethodEntry && <SelectedSubclassRules entry={fatalMethodEntry} />}
           </>}
           {c.className === 'Wizard' && c.systems.includes('pf2e') && <>
             <Pick label="Arcane Thesis" kind="arcane thesis" value={arcaneThesis} options={arcaneTheses}
               onChange={value => save({ arcaneThesis: value as ArcaneThesis | undefined })} />
-            {arcaneThesisEntry && <SelectedSubclassRules entry={arcaneThesisEntry} />}
           </>}
-          {rogueRackets(c, entries).filter(racket => racket !== subclassName).map(racket => {
-            const entry = subclasses.find(candidate => candidate.name === racket)
-            return entry ? <SelectedSubclassRules key={racket} entry={entry} label={`${racket} racket (Versatile Rogue)`} /> : null
-          })}
           {characterClassSkills(c, entries).choices.length > 0 && (
               <SearchableSelect label="Class skill" aria-label="Class skill" value={c.classSkill ?? ''} onChange={(e) => save({ classSkill: e.target.value || undefined })}>
                 <option value="">Choose skill</option>
@@ -820,7 +801,6 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
             const choice = subclassSkillChoice({ ...c, subclass: method.name }, entries)
             const value = choice ? c.subclassSkillChoices?.[choice.key] ?? '' : ''
             return <Fragment key={method.id}>
-              <SelectedSubclassRules entry={method} label={`${method.name} methodology (Versatile Investigator)`} />
               {choice && (choice.options.length === 0 || value === 'Lore') && <label>{method.name} Lore specialty{' '}
                 <input aria-label={`${method.name} methodology Lore specialty`}
                   key={`${choice.key}:${value}`}
@@ -833,18 +813,12 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
               </label>}
             </Fragment>
           })}
-          {additionalEnvoyStyles.map(style =>
-            <SelectedSubclassRules key={style.id} entry={style} label={`${style.name} leadership style (Versatile Envoy)`} />)}
-          {additionalOperativeSpecializations.map(specialization =>
-            <SelectedSubclassRules key={specialization.id} entry={specialization}
-              label={`${specialization.name} specialization (Versatile Operative)`} />)}
           {c.className === 'Druid' && (
               <SearchableSelect label="Druidic Order" aria-label="Druidic Order" value={subclassName ?? ''} onChange={(e) => save({ order: e.target.value })}>
                 <option value="">No order</option>
                 {Object.keys(DRUID_ORDERS).filter((o) => o === subclassName || !c.feats.some((f) => f.name === 'Order Explorer' && (f.choice === o || o === 'Wild' && f.choice === 'Untamed'))).sort((a, b) => (a === 'Wild' ? 'Untamed' : a).localeCompare(b === 'Wild' ? 'Untamed' : b)).map((o) => <option key={o} value={o}>{o === 'Wild' ? 'Untamed' : o}</option>)}
               </SearchableSelect>
           )}
-          {c.className === 'Druid' && subclass && <SelectedSubclassRules entry={subclass} />}
           {klass && <Info label={klass.name}>{detail(klass)}</Info>}
           {!c.boosts && (() => {
             const choices = boostSlots(c, entries).find(slot => slot.key === 'class')?.options
@@ -858,7 +832,18 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
             </select></label>
           })()}
           <SearchableFeatSlots {...section} categories={['class']} title="Class Features & Feats" plannedFeatSlots={featSlots}
-            features={c.className ? classFeatures(entries, c) : []} prelude={<ClassFeatures {...section} />} />
+            features={[...[
+              ...(subclass ? [{ entry: subclass, label: subclass.name }] : []),
+              ...(fatalMethodEntry ? [{ entry: fatalMethodEntry, label: fatalMethodEntry.name }] : []),
+              ...(arcaneThesisEntry ? [{ entry: arcaneThesisEntry, label: arcaneThesisEntry.name }] : []),
+              ...rogueRackets(c, entries).filter(racket => racket !== subclassName).flatMap(racket => {
+                const entry = subclasses.find(candidate => candidate.name === racket)
+                return entry ? [{ entry, label: `${racket} racket (Versatile Rogue)` }] : []
+              }),
+              ...additionalInvestigatorMethods.map(entry => ({ entry, label: `${entry.name} methodology (Versatile Investigator)` })),
+              ...additionalEnvoyStyles.map(entry => ({ entry, label: `${entry.name} leadership style (Versatile Envoy)` })),
+              ...additionalOperativeSpecializations.map(entry => ({ entry, label: `${entry.name} specialization (Versatile Operative)` })),
+            ].map(({ entry, label }) => ({ ...entry, name: label, level: 1 })), ...(c.className ? classFeatures(entries, c) : [])]} prelude={<ClassFeatures {...section} />} />
         </div>}</DeferredContent>
       </DeferredDetails>
 
