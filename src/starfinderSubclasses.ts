@@ -37,16 +37,22 @@ const choices: Record<string, [string, string, string][]> = {
   ],
 }
 
-export const OPERATIVE_EXPLOITS: Record<string, { exploit: string; enhanced: string }> = {
-  Ghost: { exploit: 'You can Aim at targets you are undetected by as a free action.', enhanced: 'You gain the Ghost Tap action.' },
+type OperativeAction = { name: string; actions: string; description: string }
+
+export const OPERATIVE_EXPLOITS: Record<string, { exploit: string; enhanced: string; exploitAction?: OperativeAction; enhancedAction?: OperativeAction }> = {
+  Ghost: { exploit: 'You can Aim at targets you are undetected by as a free action.', enhanced: 'You gain the Ghost Tap action.',
+    enhancedAction: { name: 'Ghost Tap', actions: 'Free Action', description: 'After a successful Strike against a target you were hidden from or undetected by, attempt Deception against its Will DC; on a success, become hidden from it, or undetected on a critical success.' } },
   Infiltrator: { exploit: 'You gain the Sabotage action.',
+    exploitAction: { name: 'Sabotage', actions: 'Single Action', description: 'Select a single tech creature or tech item within 15 feet that you can detect and attempt a Computers check against the creature\'s Fortitude DC, or the item\'s DC (or the Reflex DC of the creature carrying it). Expert: 30 feet; master: 45 feet; legendary: 60 feet. Critical success: glitching 1 for 1 minute. Success: glitching 1 for 2 rounds. Failure: the target is immune until the end of your next turn. Critical failure: the target is immune for 10 minutes.' },
     enhanced: 'You can Sabotage as a free action whenever you critically hit a tech creature with a melee or ranged attack, targeting the triggering creature. You can Sabotage as a reaction whenever a tech creature or a creature using a tech weapon critically fails a melee attack roll against you, targeting the triggering creature or weapon.' },
   Skirmisher: { exploit: "Your ranged Strikes with one-handed ranged weapons don't trigger reactions that are triggered by a ranged attack.",
     enhanced: 'When you make a successful Strike against an adjacent enemy with a one-handed ranged weapon, you calculate the damage as if the lowest-rolled weapon damage die for the attack had the maximum result instead. At 17th level, the two lowest-rolled damage dice increase to the maximum result.' },
   Sniper: { exploit: 'You ignore the unwieldy and volley trait of guns you wield belonging to the sniper group. You gain one of the following operative feats as a bonus feat: Keep Them in Your Sights or Scope Sight.',
     enhanced: "Your first failed ranged Strike against your mark using a sniper weapon doesn't count toward your multiple attack penalty. You can Reload your sniper weapon as a free action once per turn." },
   Striker: { exploit: 'You have expert proficiency with one-handed melee weapons and unarmed attacks with the agile or finesse traits instead of with martial guns, and you can Aim with and treat such weapons as guns for operative feats. You gain the Reactive Step reaction.',
-    enhanced: 'You gain the Overwhelming Strike free action.' },
+    exploitAction: { name: 'Reactive Step', actions: 'Reaction', description: 'Trigger: A creature within your reach leaves a square during a move action it is using. You Step up to twice directly toward the triggering creature.' },
+    enhanced: 'You gain the Overwhelming Strike free action.',
+    enhancedAction: { name: 'Overwhelming Strike', actions: 'Free Action', description: 'When a Strike hits your mark and deals damage, choose enfeebled 1, off-guard, or suppressed until the end of your next turn; the target is then immune until the end of its next turn.' } },
 }
 
 const paths: Record<string, string> = {

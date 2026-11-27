@@ -859,12 +859,17 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                   c.feats.find(feat => feat.name === 'Versatile Operative' && feat.choice === entry.name) ?? { level: 1 } as Character['feats'][number]) })),
               ].flatMap(({ entry, level }) => {
                 const exploit = OPERATIVE_EXPLOITS[entry.name]
+                const enhancedLevel = Math.max(9, level)
                 return exploit ? [
                   { entry: { ...entry, description: exploit.exploit }, label: `${entry.name} Exploit`, level },
-                  { entry: { ...entry, description: exploit.enhanced }, label: `${entry.name} Enhanced Exploit`, level: Math.max(9, level) },
+                  ...(exploit.exploitAction ? [{ entry: { ...entry, description: exploit.exploitAction.description, data: { ...entry.data, actions: exploit.exploitAction.actions } },
+                    label: exploit.exploitAction.name, level }] : []),
+                  { entry: { ...entry, description: exploit.enhanced }, label: `${entry.name} Enhanced Exploit`, level: enhancedLevel },
+                  ...(exploit.enhancedAction ? [{ entry: { ...entry, description: exploit.enhancedAction.description, data: { ...entry.data, actions: exploit.enhancedAction.actions } },
+                    label: exploit.enhancedAction.name, level: enhancedLevel }] : []),
                 ].filter(row => row.level <= c.level) : []
               }) : []),
-            ].map(({ entry, label, level }: { entry: ContentEntry; label: string; level?: number }) => ({ ...entry, name: label, description: /^Trained in [^.]*\.\s*$/.test(entry.description ?? '') ? '' : entry.description, level: level ?? (/\((Versatile |Second Innovation|Third Innovation|Order Explorer)/.test(label)
+            ].map(({ entry, label, level }: { entry: ContentEntry; label: string; level?: number }) => ({ ...entry, id: `${entry.id}:${label}`, name: label, description: /^Trained in [^.]*\.\s*$/.test(entry.description ?? '') ? '' : entry.description, level: level ?? (/\((Versatile |Second Innovation|Third Innovation|Order Explorer)/.test(label)
               ? featTakenLevel(c.feats.find(feat => (feat.name.startsWith('Versatile ') || /Innovation|Order Explorer/.test(feat.name)) && (feat.choice === entry.name || feat.choice === 'Untamed' && entry.name === 'Wild')) ?? { level: 1 } as Character['feats'][number]) : 1) })), ...(c.className ? classFeatures(entries, c) : [])]} prelude={<ClassFeatures {...section} />} />
         </div>}</DeferredContent>
       </DeferredDetails>
