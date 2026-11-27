@@ -14,3 +14,8 @@ it('extracts gunslinger way deeds with their action costs', () => {
   expect(rows.map(row => [row.name, row.level, row.actions])).toEqual([
     ['Reloading Strike', 1, 'Single Action'], ['Into the Fray', 1, 'Free Action'], ['Finish the Job', 9, 'Single Action']])
 })
+
+it('reads level headings that sit on their own paragraph', () => {
+  expect(subclassFeatureRows(entry('You are talented.\n\nLevel 17 Masterful Hunter\n\nYour mastery of skills allows you to overwhelm your prey.')))
+    .toEqual([{ name: 'Masterful Hunter', level: 17, description: 'Your mastery of skills allows you to overwhelm your prey.', actions: undefined }])
+})

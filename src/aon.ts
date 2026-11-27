@@ -325,8 +325,11 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
       + (system === 'pf2e' && [...RETAINED_LEGACY_FEAT_IDS, ...RETAINED_LEGACY_EQUIPMENT_IDS].some(id => id === hit._id) ? '&NoRedirect=1' : '') : '',
     sourceBook: Array.isArray(s.source) ? s.source.join(', ') : text(s.source),
   }
+  const embeddedWay = kind === 'subclass' && /<document\b/.test(text(s.markdown)) && /Slinger's Reload Action/.test(text(s.text))
   const markdown = kind === 'background'
-    ? text(s.markdown).replace(/^[\s\S]*?\*\*Source\*\*[^\n]*\n/i, '') : text(s.markdown)
+    ? text(s.markdown).replace(/^[\s\S]*?\*\*Source\*\*[^\n]*\n/i, '')
+    : embeddedWay ? text(s.text).replace(/^.*?\bpg\. \d+\s*/, '').replace(/&amp;/g, '&')
+    : kind === 'subclass' ? text(s.markdown).replace(/<title\b[^>]*\bright="(Level \d+)"[^>]*>([^<]*)<\/title>/g, '\n\n$1 $2\n\n') : text(s.markdown)
   const familiarRules = markdown
     .replace(/<title\b[^>]*>[\s\S]*?<\/title>/i, '')
     .replace(/<column\b[^>]*>[\s\S]*?<\/column>/gi, '')
