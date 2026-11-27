@@ -98,10 +98,17 @@ it('opens a skill-filtered picker, adds equipment, and closes', async () => {
   expect(dialog.querySelector('[aria-label="Add Boots"]')).not.toBeNull()
   expect(dialog.querySelector('.gear-results li')?.textContent).toContain('(+2)')
   expect(dialog.querySelector('[aria-label="Add Armbands"]')).toBeNull()
+  expect(dialog.querySelector('.entry-dialog')).toBeNull()
   await act(async () => dialog.querySelector<HTMLButtonElement>('.equipment-name')!.click())
   const details = dialog.querySelector<HTMLDialogElement>('.entry-dialog')!
   expect(details.open).toBe(true)
+  expect(details.textContent).toContain(boots.description)
+  expect(document.activeElement).toBe(details.querySelector('h4'))
   await act(async () => details.close())
+  expect(dialog.querySelector('.entry-dialog')).toBeNull()
+  await act(async () => dialog.querySelector<HTMLButtonElement>('.equipment-name')!.click())
+  expect(dialog.querySelector<HTMLDialogElement>('.entry-dialog')?.open).toBe(true)
+  await act(async () => dialog.querySelector<HTMLDialogElement>('.entry-dialog')!.close())
   expect(dialog.open).toBe(true)
   expect(dialog.querySelector('[aria-label="Add Boots"]')).not.toBeNull()
   await act(async () => dialog.querySelector<HTMLButtonElement>('[aria-label="Add Boots"]')!.click())
@@ -111,6 +118,70 @@ it('opens a skill-filtered picker, adds equipment, and closes', async () => {
   await act(async () => [...dialog.querySelectorAll('button')].find(button => button.textContent === 'Cancel')!.click())
   expect(dialog.open).toBe(false)
   await act(async () => root.unmount())
+})
+
+it('opens the selected duplicate equipment description for priced and owned entries', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  } })
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.removeAttribute('open')
+    this.dispatchEvent(new Event('close'))
+  } })
+  const c: Character = { id: 'duplicates', systems: ['pf2e'], name: 'Test', level: 10,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const parent: ContentEntry = { id: 'parent', name: "Killer's Belt", kind: 'item', systems: ['pf2e'], source: 'official',
+    level: 4, traits: [], description: 'Base parent rules.', data: { usage: 'worn belt', url: 'https://2e.aonprd.com/Equipment.aspx?ID=3968' }, effects: [], updatedAt: 0 }
+  const priced = { ...parent, id: 'priced', name: 'Killer\u2019s Belt', description: 'Base priced rules.',
+    data: { ...parent.data, price: 9500 } }
+  const entries = [parent, priced]
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    const cases: [Character, string][] = [
+      [c, priced.description],
+      [{ ...c, equipment: [{ name: parent.name, qty: 1 }] }, parent.description],
+    ]
+    for (const [character, expected] of cases) {
+      await act(async () => root.render(<EquipmentSearch c={character} entries={entries} save={() => {}} category="Belt" />))
+      expect(container.querySelector('.entry-dialog')).toBeNull()
+      await act(async () => container.querySelector<HTMLButtonElement>('.equipment-name')!.click())
+      const details = container.querySelector<HTMLDialogElement>('.entry-dialog')!
+      expect(details.open).toBe(true)
+      expect(details.textContent).toContain(expected)
+      await act(async () => details.close())
+    }
+  } finally {
+    await act(async () => root.unmount())
+  }
+})
+
+it('opens descriptions for equipment beyond the first forty results', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  } })
+  const c: Character = { id: 'tattoos', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const entries = Array.from({ length: 60 }, (_, index): ContentEntry => ({
+    id: `tattoo-${index}`, name: `Tattoo ${String(index).padStart(2, '0')}`, kind: 'item', systems: ['pf2e'], source: 'official',
+    level: 1, traits: ['Tattoo'], description: `Rules for tattoo ${index}.`, data: { item_category: 'Tattoos' }, effects: [], updatedAt: 0,
+  }))
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () => root.render(<EquipmentSearch c={c} entries={entries} save={() => {}} category="Tattoos" />))
+    const button = [...container.querySelectorAll<HTMLButtonElement>('.equipment-name')].find(item => item.textContent === 'Tattoo 59')!
+    await act(async () => button.click())
+    expect(container.querySelector('.entry-dialog')?.textContent).toContain('Rules for tattoo 59.')
+  } finally {
+    await act(async () => root.unmount())
+  }
 })
 
 it.each([true, false])('sorts skill equipment by highest known item bonus (fixed skill: %s)', async fixed => {

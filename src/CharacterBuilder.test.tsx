@@ -1349,7 +1349,6 @@ it('lists every tattoo beyond the previous forty-result cutoff', () => {
   const markup = renderToStaticMarkup(<EquipmentSearch c={c} entries={entries} save={() => {}} category="Tattoos" />)
   expect([...markup.matchAll(/aria-label="Add Tattoo \d+"/g)]).toHaveLength(60)
   expect(markup).toContain('aria-label="Add Tattoo 59"')
-  expect(markup).toContain('Rules for tattoo 59.')
   expect(markup).toMatch(/<button[^>]*aria-haspopup="dialog"[^>]*>Tattoo 59<\/button>/)
 })
 
@@ -1589,12 +1588,6 @@ it('formats graded equipment titles and sorts by base name while retaining canon
     const search = renderToStaticMarkup(<EquipmentSearch c={c} entries={content.entries} save={() => {}} category="Belt" />)
     expect(search).toContain('aria-label="Add Killer&#x27;s Belt (Greater)"')
     expect(search.match(/aria-label="Add Killer&#x27;s Belt"/g)).toHaveLength(1)
-    expect(search).toContain('Base priced rules.')
-    expect(search).not.toContain('Base parent rules.')
-    const ownedBase = renderToStaticMarkup(<EquipmentSearch c={{ ...c, equipment: [{ name: ordinary.name, qty: 1 }] }}
-      entries={content.entries} save={() => {}} category="Belt" />)
-    expect(ownedBase).toContain('Base parent rules.')
-    expect(ownedBase).not.toContain('Base priced rules.')
     expect(search.indexOf('>Amber Belt</button>')).toBeLessThan(search.indexOf('>Killer&#x27;s Belt</button>'))
     expect(search.indexOf('>Killer&#x27;s Belt</button>')).toBeLessThan(search.indexOf('>Killer&#x27;s Belt (Greater)</button>'))
     expect(renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />))

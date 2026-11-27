@@ -89,7 +89,7 @@ export function EquipmentSearch({ c, entries, save, category, onClose, fixedSkil
     </div>
     <ul className="gear-results">
       {matches.slice(0, limit).map(g => <li key={g.id}>
-        <EntryDescription name={g.name} entry={g} className="equipment-name" /> <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''})
+        <EntryDescription name={g.name} entry={g} className="equipment-name" deferDetails /> <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''})
         {selectedSkill && equipmentSkillBonuses(g, selectedSkill).length > 0
           && <> {'('}{equipmentSkillBonuses(g, selectedSkill).map(value => `+${value}`).join('/')}{')'}</>}{' '}
         <button aria-label={`Add ${equipmentDisplayName(g.name)}`} disabled={equipmentGroupName(g) === 'Rings' && ringsFull
