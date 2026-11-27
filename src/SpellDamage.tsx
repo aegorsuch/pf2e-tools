@@ -88,6 +88,9 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
     }
     case 'Verdant Code':
       return rank >= 2 ? [{ label: 'Damage', dice: 2, sides: 6, type: 'piercing' }] : []
+    case 'Warshard Shot':
+      return rank >= 5 ? [{ label: 'Damage', dice: rank, sides: 6, type: 'piercing',
+        additional: { label: 'Spirit damage', dice: rank, sides: 6, type: 'spirit' } }] : []
     case 'Vital Seed':
       return rank >= 4 ? [{ label: 'Damage', dice: 2 + Math.floor((rank - 4) / 2), sides: 12, type: 'void' }] : []
     case 'Moonlight Ray': {
