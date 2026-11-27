@@ -866,6 +866,13 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
               ...(c.systems.includes('pf2e') && subclass && ['Ranger', 'Rogue', 'Gunslinger'].includes(c.className ?? '')
                 ? subclassFeatureRows(subclass).filter(row => row.level <= c.level).map(row => ({
                   entry: { ...subclass, description: row.description, data: { ...subclass.data, ...(row.actions ? { actions: row.actions } : {}) } }, label: c.className === 'Ranger' && row.name === 'Masterful Hunter' ? `Masterful ${subclass.name} Edge` : row.name, level: row.level })) : []),
+              ...(c.systems.includes('pf2e') && c.className === 'Gunslinger' ? activeFeatsNamed(c, 'Versatile Gunslinger').flatMap(feat => {
+                const way = subclasses.find(entry => entry.name === feat.choice)
+                const taken = featTakenLevel(feat)
+                return way ? subclassFeatureRows(way).map(row => ({ row, way, level: Math.max(row.level, taken) })).filter(({ level }) => level <= c.level)
+                  .map(({ row, way, level }) => ({ entry: { ...way, description: row.description, data: { ...way.data, ...(row.actions ? { actions: row.actions } : {}) } },
+                    label: row.name, level })) : []
+              }) : []),
               ...(c.className === 'Mystic' && c.systems.includes('sf2e') && subclass && MYSTIC_CONNECTIONS[subclass.name] ? [
                 { entry: { ...subclass, description: MYSTIC_CONNECTIONS[subclass.name].harmony }, label: `${subclass.name} Harmony`, level: 1 },
                 { entry: { ...subclass, description: MYSTIC_CONNECTIONS[subclass.name].perfectHarmony }, label: `${subclass.name} Perfect Harmony`, level: 19 },

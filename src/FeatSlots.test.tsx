@@ -1227,13 +1227,13 @@ it('offers a level-14 Versatile Gunslinger way and its selected trained skill', 
   const entries = [feat, sniper, pistolero]
   const tree = () => FeatSlots({ c, entries, categories: ['class'], save: patch => { c = { ...c, ...patch } },
     search: { 'class:14:0:open': '1', 'class:14:0:query': 'pistolero' }, onSearch: () => {} })
-  const label = 'L14 Class: Versatile Gunslinger (Way of the Pistolero - Intimidation)'
+  const label = 'L14 Class: Versatile Way (Way of the Pistolero - Intimidation)'
   expect(renderToStaticMarkup(tree())).toContain(label)
-  expect(detailsMarkup(tree(), 'Versatile Gunslinger')).toContain('Pistolero way benefits.')
+  expect(detailsMarkup(tree(), 'Versatile Way')).toContain('Pistolero way benefits.')
   findButton(tree(), label)!()
   expect(c.feats).toContainEqual(expect.objectContaining({ name: feat.name, choice: pistolero.name, slot: 'class:14:0' }))
   expect(c.subclassSkillChoices?.[`Gunslinger:${pistolero.name}`]).toBe('Intimidation')
-  expect(renderToStaticMarkup(tree())).toContain('Versatile Gunslinger (Way of the Pistolero - Intimidation)')
+  expect(renderToStaticMarkup(tree())).toContain('Versatile Way (Way of the Pistolero - Intimidation)')
 })
 
 it.each([
