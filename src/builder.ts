@@ -2689,6 +2689,10 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Runic Tattoo' && c.systems.includes('pf2e')) return RUNESMITH_RUNES.filter(rune => rune.level <= c.level && (c.className !== 'Runesmith' || !c.runicRepertoire?.length || c.runicRepertoire.includes(rune.name))).map(rune => rune.name)
   if (name === 'Nephilim Lore' && c.systems.includes('pf2e')) return ['Diplomacy', 'Intimidation']
   if (name === 'Sanctified Soul' && c.systems.includes('pf2e')) return ['Holy', 'Unholy']
+  if (name === 'Cleric Dedication' && c.systems.includes('pf2e')) {
+    const { options, required } = deitySanctification(c, entries)
+    return required || !options.length ? undefined : options
+  }
   if (name === 'Energized Spark' && c.systems.includes('pf2e')) {
     const options = ['Air (Slashing)', 'Cold', 'Earth (Bludgeoning)', 'Electricity', 'Fire',
       'Metal (Slashing)', 'Poison', 'Sonic', 'Vitality', 'Void', 'Water (Bludgeoning)', 'Wood (Piercing)']
@@ -8836,7 +8840,7 @@ export function handwrapRuneOptions(c: Character, entries: ContentEntry[]) {
   const available = new Set(unarmed.flatMap((weapon) =>
     eligibleWeaponRunes(entries, { ...weapon, runes: handwrapRunes }).map((rune) => rune.name)))
   const result = propertyRunes(entries, 'Weapon')
-    .filter((rune) => available.has(rune.name) && runeBaseName(rune.name) !== 'Impactful')
+    .filter((rune) => available.has(rune.name) && !['Impactful', 'Hooked'].includes(runeBaseName(rune.name)))
   cache.set(key, result)
   return result
 }
@@ -8936,7 +8940,10 @@ export function deitySanctification(c: Character, entries: ContentEntry[]) {
   const options = tokens(deity?.data.sanctification).flatMap((value): NonNullable<Character['sanctification']>[] =>
     value.toLowerCase() === 'holy' ? ['Holy'] : value.toLowerCase() === 'unholy' ? ['Unholy'] : [])
   const required = deity?.data.sanctification_required === true && options.length === 1 ? options[0] : undefined
-  const selected = required ?? (c.sanctification && options.includes(c.sanctification) ? c.sanctification : undefined)
+  const dedicationChoice = c.className === 'Cleric' || c.className === 'Champion' ? undefined
+    : activeFeatsNamed(c, 'Cleric Dedication').find(feat => feat.choice && options.some(option => option === feat.choice))?.choice
+  const selected = required ?? (c.sanctification && options.includes(c.sanctification) ? c.sanctification
+    : options.find(option => option === dedicationChoice))
   return { options, required, selected }
 }
 

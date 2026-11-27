@@ -11,7 +11,7 @@ import { LanguagesSection } from './LanguagesSection'
 import { SpellsSection } from './SpellsSection'
 import { canSelectWardenFeat, compareFeatSelections, featDisplayName, grantedWardenSpells, selectedFeatEntry, spellWardenLabel, wardenSpellOptions } from './featChoices'
 import { featSelectionLevel, featSelectionPrerequisiteChecker, plannedSlots, activeFeatsNamed, classSpellSlots, eligibleFeats, focusSpells, languageAllowance, migrateAncestralLinguistics, wizardArchetypeSpellbookChoices } from './builder'
-import { classSpellcasting, featChoiceOptions, movementSpeeds, ranksAt, researchedSpellResistanceChoices, resistances, senses, weaponAttack } from './builder'
+import { classSpellcasting, deitySanctification, featChoiceOptions, movementSpeeds, ranksAt, researchedSpellResistanceChoices, resistances, senses, weaponAttack } from './builder'
 import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
@@ -1261,4 +1261,15 @@ it('offers a deity\'s alternate domains for Expanded Domain Initiate and grants 
   expect(featChoiceOptions('Expanded Domain Initiate', c, [deity, repose], 'class:4:0', 0)).toEqual(['Repose'])
   expect(featChoiceOptions('Advanced Domain', c, [deity, repose], 'class:8:0', 1)).toEqual(['Repose'])
   expect(grantedFeatSpells(c, [deity, repose]).map(item => item.entry.name)).toContain('Charitable Urge')
+})
+
+it('lets Cleric Dedication choose the deity sanctification', () => {
+  const deity: ContentEntry = { id: 'deity', systems: ['pf2e'], kind: 'deity', source: 'official', name: 'Sarenrae', level: 0, traits: [],
+    description: '', data: { sanctification: 'holy' }, effects: [], updatedAt: 1 }
+  const c: Character = { ...base, className: 'Rogue', level: 10, deity: 'Sarenrae',
+    feats: [{ name: 'Cleric Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }] }
+  expect(featChoiceOptions('Cleric Dedication', c, [deity], 'archetype:2:0')).toEqual(['Holy'])
+  expect(deitySanctification(c, [deity]).selected).toBeUndefined()
+  const chosen = { ...c, feats: [{ ...c.feats[0], choice: 'Holy' }] }
+  expect(deitySanctification(chosen, [deity]).selected).toBe('Holy')
 })

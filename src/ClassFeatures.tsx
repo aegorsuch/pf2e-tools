@@ -362,8 +362,7 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           Glimpse of Redemption grants resistance {7 + c.level}; Liberating Step grants +4 circumstance to its checks and allows two Steps.
           These benefits apply only to the corresponding legacy champion reactions; verify legacy prerequisites with your GM.</Info>
       </div>}
-      {c.systems.includes('pf2e') && c.level >= 1 && (c.className === 'Champion' || c.className === 'Cleric'
-        || activeFeatsNamed(c, 'Cleric Dedication').length > 0) && <label>Sanctification{' '}
+      {c.systems.includes('pf2e') && c.level >= 1 && (c.className === 'Champion' || c.className === 'Cleric') && <label>Sanctification{' '}
         <select aria-label="Sanctification" value={sanctification.selected ?? ''} disabled={!!sanctification.required || !sanctification.options.length} onChange={(e) => {
           const choice = sanctification.options.find((option) => option === e.target.value)
           if (!sanctification.required) save({ sanctification: choice })
