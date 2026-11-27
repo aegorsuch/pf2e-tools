@@ -171,6 +171,17 @@ it('rolls Admonishing Ray bludgeoning damage scaling 2d6 per rank', () => {
   expect(spellDamage('Admonishing Ray', 4)).toEqual([{ label: 'Damage', dice: 8, sides: 6, type: 'bludgeoning' }])
 })
 
+it('rolls Flense slashing damage with heightened persistent bleed', () => {
+  expect(spellDamage('Flense', 3)).toEqual([{ label: 'Damage', dice: 6, sides: 6, type: 'slashing',
+    additional: { label: 'Persistent bleed (living creature, critical hit)', dice: 3, sides: 4, type: 'persistent bleed' } }])
+})
+
+it('rolls Holy Light fire damage with extra spirit damage against unholy', () => {
+  expect(spellDamage('Holy Light', 2)).toEqual([])
+  expect(spellDamage('Holy Light', 5)).toEqual([{ label: 'Damage', dice: 9, sides: 6, type: 'fire',
+    additional: { label: 'Extra damage against unholy', dice: 9, sides: 6, type: 'spirit' } }])
+})
+
 it('rolls Burstmoji damage and shows heightened hazardous terrain damage', () => {
   expect(spellDamage('Burstmoji', 3)).toEqual([])
   for (const [rank, dice, terrain] of [[4, 6, 5], [7, 12, 11], [10, 18, 17]]) {

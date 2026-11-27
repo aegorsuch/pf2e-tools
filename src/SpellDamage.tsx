@@ -41,6 +41,15 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
         ? [{ label: 'Healing', dice: rank, sides: 10, bonus: spellcastingModifier, type: 'HP' }] : []
     case 'Admonishing Ray':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'bludgeoning' }] : []
+    case 'Flense':
+      return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'slashing',
+        additional: { label: 'Persistent bleed (living creature, critical hit)', dice: rank, sides: 4, type: 'persistent bleed' } }] : []
+    case 'Holy Light': {
+      if (rank < 3) return []
+      const dice = 5 + 2 * (rank - 3)
+      return [{ label: 'Damage', dice, sides: 6, type: 'fire',
+        additional: { label: 'Extra damage against unholy', dice, sides: 6, type: 'spirit' } }]
+    }
     case 'Verdant Code':
       return rank >= 2 ? [{ label: 'Damage', dice: 2, sides: 6, type: 'piercing' }] : []
     case 'Wall of Fire':
