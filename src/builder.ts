@@ -8147,6 +8147,10 @@ export function weaponEntry(entries: ContentEntry[], name: string, id?: string) 
         return parameter ? source.traits.find(value => new RegExp(`^${parameter}\\s+(?:1)?d(?:4|6|8|10|12)$`, 'i').test(value.trim())) ?? trait : trait
       }) }
   }
+  if (entry?.systems.includes('sf2e') && typeof entry.data.upgrade_slots !== 'number'
+    && (entry.data.raptorial_edge || /(?:^|\s)Phase Cutlass$/.test(entry.name))) {
+    entry = { ...entry, data: { ...entry.data, upgrade_slots: entry.data.raptorial_edge ? 2 : 1 } }
+  }
   if (entry?.source === 'official' && entry.name === 'Reinforced Stock'
     && !entry.traits.some(trait => /^two-hand\s+d\d+$/i.test(trait.trim()))) {
     entry = { ...entry, traits: [...entry.traits.filter(trait => !/^two-hand$/i.test(trait.trim())), 'Two-Hand d8'] }

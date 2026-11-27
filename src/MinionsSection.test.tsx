@@ -2689,3 +2689,12 @@ it('gives Kasatha four hands and Skyfire Wings takes one pair', async () => {
   expect(totalHandCapacity({ ...c, activeSpells: ['Skyfire Wings'] })).toBe(2)
   expect(totalHandCapacity({ ...c, ancestry: 'Human', activeSpells: ['Skyfire Wings'] })).toBe(0)
 })
+
+it('shows upgrades on Phase Cutlass and Raptorial Edge', async () => {
+  const { weaponEntry, usesWeaponUpgrades } = await import('./builder')
+  const cutlass: ContentEntry = { id: 'pc', kind: 'weapon', source: 'official', name: 'Tactical Phase Cutlass', systems: ['sf2e'],
+    level: 2, traits: ['Agile'], description: '', data: { weapon_category: 'Martial' }, effects: [], updatedAt: 0 }
+  const edge: ContentEntry = { ...cutlass, id: 're', name: 'Raptorial Edge', data: { weapon_category: 'Martial', raptorial_edge: true } }
+  expect(usesWeaponUpgrades(weaponEntry([cutlass], cutlass.name))).toBe(true)
+  expect(weaponEntry([edge], edge.name, edge.id)?.data.upgrade_slots).toBe(2)
+})
