@@ -7,7 +7,7 @@ import { DamageRoll, MultipleDamageRoll, rollSpellDamage, rollTreehealerHealing 
 import { PickerDialog } from './PickerDialog'
 import { DeferredContent, DeferredDetails } from './DeferredDetails'
 import { sortPickerOptions } from './PickerSort'
-import { MASTERMIND_SKILLS, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, byName, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, enhancedSensesChoice, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, knownSpellNames, matchesSkill, ownedWeapons, plannedSlots, ranksAt, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassOptions, subclassSkillChoice, temporarySkillTrainings, weaponAttack, type PlannedSlot, type SectionProps } from './builder'
+import { MASTERMIND_SKILLS, abilityMod, activeFeatsNamed, ancestryFeatTraits, archetypesOf, automaticFeatGrants, byName, canUseGiantStature, cannyAcumenOptions, clanLoreLabel, conditionValue, eligibleFeats, enhancedSensesChoice, featByName, featChoiceOptions, featSkillChoiceLabel, featEffectChange, featSelectionPrerequisiteChecker, featSelectionLevel, featTakenLevel, featType, giantStatureChange, giantStatureSize, homebrewDedication, investigatorSkillfulLessonSkills, isFeatEffectActive, isGrantedSlot, knownSpellNames, matchesSkill, ownedWeapons, plannedSlots, ranksAt, selectedClassArchetype, selectedFavoredTerrain, selectedFeatEntry, statDefs, subclassOptions, subclassSkillChoice, temporarySkillTrainings, weaponAttack, weaponHeld, type PlannedSlot, type SectionProps } from './builder'
 import { AutomaticFeatChoice, CarryTheirMemoriesChoice, FeatChoice, StarfinderFieldAgentLoreChoice } from './FeatChoice'
 import { isFixedAncestralWeaponFamiliarity } from './weaponFamiliarity'
 import { featPrerequisiteSources, featPrerequisiteSuggestions, featSynergySuggestions } from './featPrerequisites'
@@ -639,6 +639,13 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
             <li className={`feat-slot-row automatic-feat-row${multi && rowIndex > 0 && newLevel ? ' feat-level-start' : ''}`}>
               <EntryDescription character={c} name={row.feature.name} entry={row.feature} entries={entries}
                 className="feat-name" deferDetails={!!onSearch} /> <ActionIcon entry={row.feature} />
+              {c.systems.includes('pf2e') && c.className === 'Gunslinger' && row.feature.name === 'Spinning Crush' && (() => {
+                const weapons = ownedWeapons(c, entries)
+                const striking = Math.min(3, Math.max(0, ...(weapons.some(weapon => weaponHeld(c, entries, weapon))
+                  ? weapons.filter(weapon => weaponHeld(c, entries, weapon)) : weapons).map(weapon => weapon.striking)))
+                return <DamageRoll name="Spinning Crush" actions="Three Actions" toggleResult
+                  damage={{ label: 'Damage', dice: 4 + 2 * striking, sides: 6, bonus: abilityMod(c.abilities.str), type: 'bludgeoning' }} />
+              })()}
             </li>
           </Fragment>
           if (row.kind !== 'slot') {
