@@ -3100,6 +3100,23 @@ export function avengerClericSpellSlots(c: Character, entries: ContentEntry[]) {
   return slots
 }
 
+// A multiclass caster's Loaner Spell is an extra slot of up to 3rd rank instead of a separate picker.
+function loanerSlotRank(c: Character) {
+  if (!c.systems.includes('pf2e') || !activeFeatsNamed(c, 'Loaner Spell').length) return undefined
+  const ranks = Object.keys(wizardArchetypeSpellSlots(c) ?? avengerClericSpellSlots(c, []) ?? {}).map(Number)
+    .filter(rank => rank >= 1 && rank <= 3)
+  return ranks.length ? Math.max(...ranks) : undefined
+}
+
+export const loanerSpellIsSlot = (c: Character) => loanerSlotRank(c) !== undefined
+
+function dedicationSpellSlots(c: Character) {
+  const slots = wizardArchetypeSpellSlots(c) ?? avengerClericSpellSlots(c, [])
+  const rank = loanerSlotRank(c)
+  if (!slots || rank === undefined) return slots
+  return { ...slots, [rank]: slots[rank] + activeFeatsNamed(c, 'Loaner Spell').length }
+}
+
 export function minorMagicInheritedTradition(c: Character, entries: ContentEntry[]) {
   if (!activeFeatsNamed(c, 'Minor Magic').length) return undefined
   const traditions = classSpellcasting(c, entries)?.traditions
@@ -3412,10 +3429,8 @@ export function classSpellSlots(c: Character): Record<number, number> | undefine
     }
     return slots
   }
-  const wizardSlots = wizardArchetypeSpellSlots(c)
-  if (wizardSlots) return wizardSlots
-  const clericSlots = avengerClericSpellSlots(c, [])
-  if (clericSlots) return clericSlots
+  const dedicationSlots = dedicationSpellSlots(c)
+  if (dedicationSlots) return dedicationSlots
   if (!['Druid', 'Necromancer'].includes(c.className ?? '')) return undefined
   const necromancer = c.className === 'Necromancer'
   const slots: Record<number, number> = {}

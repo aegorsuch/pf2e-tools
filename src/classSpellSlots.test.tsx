@@ -431,3 +431,11 @@ it('Divine Breadth adds cleric archetype slots for any Cleric Dedication', () =>
   expect(classSpellSlots({ ...c, feats: c.feats.slice(0, 2) })).toEqual({ 0: 2, 1: 1, 2: 1, 3: 1 })
   expect(classSpellSlots(c)).toEqual({ 0: 2, 1: 2, 2: 1, 3: 1 })
 })
+
+it('turns Loaner Spell into an extra slot of up to 3rd rank for a multiclass caster', () => {
+  const feat = (name: string, slot: string) => ({ name, type: 'Archetype Feat', level: 2, slot })
+  const c: Character = { ...base, className: 'Rogue', level: 10, feats: [feat('Cleric Dedication', 'archetype:2:0'),
+    feat('Basic Cleric Spellcasting', 'archetype:4:0'), { name: 'Loaner Spell', type: 'Class Feat', level: 8, slot: 'class:8:0' }] }
+  expect(classSpellSlots(c)).toEqual({ 0: 2, 1: 1, 2: 1, 3: 2 })
+  expect(classSpellSlots({ ...c, feats: c.feats.slice(0, 2) })).toEqual({ 0: 2, 1: 1, 2: 1, 3: 1 })
+})

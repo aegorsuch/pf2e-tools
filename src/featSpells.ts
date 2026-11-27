@@ -7,7 +7,7 @@ import { getSettings } from './settings'
 import { cantripOptions } from './minorMagic'
 import { GODCLAW_DOMAINS, hellknightTrainingBenefit, hellknightTrainingSpellRules } from './hellknight'
 import { spellAccessGranted } from './featAccess'
-import { classSpellcasting, classSpellSlots, featChoiceOptions, investigatorMethodologies, melodicAdaptationRank } from './builder'
+import { classSpellcasting, classSpellSlots, featChoiceOptions, loanerSpellIsSlot, investigatorMethodologies, melodicAdaptationRank } from './builder'
 
 export const DOMAIN_FEATS = ['Domain Initiate', 'Expanded Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 export const KITSUNE_SPELL_FAMILIARITY_CANTRIPS = ['Daze', 'Forbidding Ward', 'Ghost Sound']
@@ -646,6 +646,7 @@ function computeGrantedFeatSpells(c: Character, entries: ContentEntry[], consoli
       continue
     }
     if (feat.name === 'Loaner Spell' && c.systems.includes('pf2e')) {
+      if (loanerSpellIsSlot(c)) continue
       const entry = feat.choice && featSpellOptions(c, entries, feat)?.find(spell => spell.name === feat.choice)
       if (entry) out.push({ entry, source: feat.name,
         rule: { kind: 'feat', spells: [entry.name], frequency: 'once per day', fixedRank: true, dc: 'class' },

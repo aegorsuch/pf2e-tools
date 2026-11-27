@@ -16,7 +16,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { animistApparitionSlots, avengerClericSpellSlots, minorMagicInheritedTradition, minorMagicSpells, avengerEldritchCastingClass, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, knownSpellNames, selectedGrantedSpellNames, necromancerDirge, necromancerDirgeLearnChecker, necromancerGrantedDirgeSpells, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
+import { animistApparitionSlots, avengerClericSpellSlots, loanerSpellIsSlot, minorMagicInheritedTradition, minorMagicSpells, avengerEldritchCastingClass, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, knownSpellNames, selectedGrantedSpellNames, necromancerDirge, necromancerDirgeLearnChecker, necromancerGrantedDirgeSpells, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, itemSpellUsesChange, type ItemSpell } from './itemSpells'
@@ -1491,7 +1491,7 @@ function investigatorTricksterAceSlots(c: Character, entries: ContentEntry[]) {
 }
 
 function loanerSpellSlots(c: Character, entries: ContentEntry[]) {
-  if (!c.systems.includes('pf2e')) return []
+  if (!c.systems.includes('pf2e') || loanerSpellIsSlot(c)) return []
   const traditions = classSpellcasting(c, entries)?.traditions.map(tradition => tradition.toLowerCase()) ?? []
   return c.feats.flatMap((feat, index) => feat.name === 'Loaner Spell' && featTakenLevel(feat) <= c.level
     ? [{ feat, index, options: (featSpellOptions(c, entries, feat) ?? []).filter(spell => !traditions.length
