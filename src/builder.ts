@@ -25,7 +25,7 @@ import { armorModifications, armorOverdriveActive, inventorArmorResistances } fr
 import { isAncestralEmbrace, isHighhelmPlate, isImmortalBastion, isInheritorPlate, isLibraryRobes, libraryRobesRank, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { weaponWithMode } from './weaponModes'
-import { minorMagicSpells } from './minorMagic'
+import { MAGIC_TRADITIONS, minorMagicSpells as baseMinorMagicSpells } from './minorMagic'
 import { MYSTIC_CONNECTIONS } from './mystic'
 import { STARFINDER_MYSTIC_TRADITIONS, STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 import { eruditeWarrior, isSoldier, soldierStyle } from './soldier'
@@ -2916,6 +2916,18 @@ export function avengerClericSpellSlots(c: Character, entries: ContentEntry[]) {
     for (const rank of ranks.slice(0, -2)) slots[rank]++
   }
   return slots
+}
+
+export function minorMagicInheritedTradition(c: Character, entries: ContentEntry[]) {
+  if (!activeFeatsNamed(c, 'Minor Magic').length) return undefined
+  const traditions = classSpellcasting(c, entries)?.traditions
+  return traditions?.length === 1 ? MAGIC_TRADITIONS.find(tradition => tradition === traditions[0]) : undefined
+}
+
+export function minorMagicSpells(c: Character, entries: ContentEntry[]) {
+  const tradition = minorMagicInheritedTradition(c, entries)
+  return baseMinorMagicSpells(tradition && c.minorMagic?.tradition !== tradition
+    ? { ...c, minorMagic: { ...c.minorMagic, tradition } } : c, entries)
 }
 
 export function classSpellcasting(c: Character, entries: ContentEntry[]) {

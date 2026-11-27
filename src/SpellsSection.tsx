@@ -14,9 +14,9 @@ import { classInnateTradition, dailyInnateUses, innateTraditionOptions, gnomeHer
 import { fiendOptions, plantOptions, undeadOptions, type SummonedFiend } from './summonedFiends'
 import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
-import { MAGIC_TRADITIONS, minorMagicOptions, minorMagicSpells } from './minorMagic'
+import { MAGIC_TRADITIONS, minorMagicOptions } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { animistApparitionSlots, avengerClericSpellSlots, avengerEldritchCastingClass, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, knownSpellNames, selectedGrantedSpellNames, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
+import { animistApparitionSlots, avengerClericSpellSlots, minorMagicInheritedTradition, minorMagicSpells, avengerEldritchCastingClass, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, knownSpellNames, selectedGrantedSpellNames, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, itemSpellUsesChange, type ItemSpell } from './itemSpells'
@@ -1487,8 +1487,11 @@ function investigatorTricksterAceSlots(c: Character, entries: ContentEntry[]) {
 
 function loanerSpellSlots(c: Character, entries: ContentEntry[]) {
   if (!c.systems.includes('pf2e')) return []
+  const traditions = classSpellcasting(c, entries)?.traditions.map(tradition => tradition.toLowerCase()) ?? []
   return c.feats.flatMap((feat, index) => feat.name === 'Loaner Spell' && featTakenLevel(feat) <= c.level
-    ? [{ feat, index, options: featSpellOptions(c, entries, feat) ?? [] }] : [])
+    ? [{ feat, index, options: (featSpellOptions(c, entries, feat) ?? []).filter(spell => !traditions.length
+      || String(spell.data.tradition ?? '').toLowerCase().split(/,\s*/).some(value => traditions.includes(value))
+      || spell.name === feat.choice) }] : [])
 }
 
 function spellSummaryData(c: Character, entries: ContentEntry[]) {
@@ -2058,7 +2061,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       || dailyInnateUses(c, grant) && (/\bper day(?: each)?$/i.test(grant.rule.frequency ?? '')
         || /^(?:once per hour|twice per week)(?: each)?$/i.test(grant.rule.frequency ?? '')) ? undefined : grant.rule.frequency
     const higherDC = grant.rule.dc === 'higher-class-or-spell'
-    const classOnlyDC = grant.rule.dc === 'class'
+    const classOnlyDC = grant.rule.dc === 'class' && !(grant.source === 'Loaner Spell' && casting?.ability)
     const needsClassDC = higherDC && resolution.save || classOnlyDC && (resolution.save || resolution.attack)
     const classDC = needsClassDC ? classDifficultyClass(c, entries) : undefined
     const castingAbility = casting?.ability ?? sc?.ability
@@ -2236,7 +2239,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   }
   const tricksterAceSlots = investigatorTricksterAceSlots(c, entries)
   const loanerSpellSlotsForCharacter = loanerSpellSlots(c, entries)
-  const minorTradition = c.minorMagic?.tradition
+  const inheritedMinorTradition = minorMagicInheritedTradition(c, entries)
+  const minorTradition = inheritedMinorTradition ?? c.minorMagic?.tradition
+  const minorCharacter = inheritedMinorTradition && c.minorMagic?.tradition !== inheritedMinorTradition
+    ? { ...c, minorMagic: { ...c.minorMagic, tradition: inheritedMinorTradition } } : c
   if (activeFeatsNamed(c, 'Minor Magic').length && minorTradition) {
     const choices = c.minorMagic?.cantrips?.[minorTradition] ?? []
     const granted = minorMagicSpells(c, entries)
@@ -2244,7 +2250,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       const current = choices[index] ?? ''
       choiceSlots.push({ key: `Minor Magic:${index}`, label: `Minor Magic cantrip ${index + 1}`,
         tradition: minorTradition, rank: Math.ceil(c.level / 2), current,
-        options: availableInnateOptions(minorMagicOptions(c, entries)
+        options: availableInnateOptions(minorMagicOptions(minorCharacter, entries)
           .filter(entry => !choices.includes(entry.name) || entry.name === current), current),
         entry: granted.find(entry => entry.name === current),
         select: value => {
@@ -2263,9 +2269,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
   const otherSpecialSpells = special.filter(grant => grant.source !== "Trickster's Ace" && grant.source !== 'Loaner Spell')
   const renderChoiceSlot = (slot: typeof choiceSlots[number]) => {
     const details = slot.grant ? grantDetails(slot.grant) : undefined
-    const ability = innateSpellAbility(c)
+    const inheritsCasting = !!inheritedMinorTradition && slot.key.startsWith('Minor Magic:') && !!casting?.ability
+    const ability = inheritsCasting ? casting.ability! : innateSpellAbility(c)
     const modifier = details?.spellcastingModifier ?? abilityMod(c.abilities[ability])
-    const dc = details?.dc ?? 10 + modifier + proficiencyBonus(1, c.level) - spellPenalty(ability)
+    const dc = details?.dc ?? 10 + modifier + proficiencyBonus(inheritsCasting ? Math.max(1, casting.rank) : 1, c.level) - spellPenalty(ability)
     if (slot.entry) return <SpellItem c={c} key={slot.key} name={slot.entry.name} entry={slot.entry} rank={slot.rank}
       nameControl={<SelectedSlotSpell name={slot.entry.name} entry={slot.entry} source={slot.label}
         onClear={() => slot.select('')} />}
@@ -2519,6 +2526,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     </section>)
   const mergedGrantSources = [...tricksterAceSpells, ...loanerSpells]
   const mergeIntoClass = !witchwarper && !!sc && traditions.length > 0 && classSlotRanks.length > 0
+  const minorMerged = mergeIntoClass && !!inheritedMinorTradition
   const mergedGrants = mergeIntoClass ? mergedGrantSources : []
   const extraGrantRanks = [...new Set(mergedGrants.map(grant => grant.rank))]
     .filter(rank => !classSlotRanks.some(slot => slot.rank === rank)).sort((a, b) => a - b)
@@ -2539,7 +2547,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         {renderSpecialGroups(otherSpecialSpells)}
       </div>
       <div hidden={activeCategory !== 'class'}>
-      {!!activeFeatsNamed(c, 'Minor Magic').length && <div className="class-spell-slots">
+      {!!activeFeatsNamed(c, 'Minor Magic').length && !minorMerged && <div className="class-spell-slots">
         <section className="spell-slot-group">
           <h5>Minor Magic · Cantrips (Heightened Level {Math.ceil(c.level / 2)})</h5>
           <label>Tradition{' '}<select aria-label="Minor Magic tradition" value={c.minorMagic?.tradition ?? ''} onChange={event => {
@@ -2847,6 +2855,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 </small>}
               </li>
             })}{cantrip && investigatorClassChoices.map(renderChoiceSlot)}
+              {cantrip && minorMerged && minorMagicChoiceSlots.map(renderChoiceSlot)}
               {mergedGrants.filter(grant => grant.rank === rank).map(renderGrantRow)}</ul>
             {rank === classSlotRanks[0].rank && <>{renderTricksterAceChoices()}{renderLoanerSpellChoices()}</>}
           </section>
