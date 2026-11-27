@@ -20,7 +20,7 @@ import { DamageRoll } from './SpellDamage'
 import { LanguagesSection } from './LanguagesSection'
 import { ArmorProficiency, WeaponProficiency, RageToggle, ResistanceSummary, SensesAndSpeed, SensesAndSpeedSummary, SkillsSection, SkillsSummary } from './SkillsSection'
 import { SpellsPanel } from './SpellsSection'
-import { DeviseAStratagemToggle, HuntPreyToggle, StatusesContent, StatusesSummary, parryTrait } from './StatusesSection'
+import { AIM, AimToggle, DeviseAStratagemToggle, HuntPreyToggle, StatusesContent, StatusesSummary, parryTrait } from './StatusesSection'
 import { boneShieldActive, canUseGiantStature, effectiveHandwraps, hasDermalPlating, isSpellActive, knowsSpell, ringCapacity, ringCount, spellActiveChange, temporaryHpGrant, twinnedDefenseActive } from './builder'
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
@@ -36,6 +36,7 @@ import { TechnomancerFeatures } from './TechnomancerFeatures'
 import { GREATER_CROSS_PLATFORM_APPLICATION_FEAT, VERSATILE_FIRMWARE_FEAT } from './technomancer'
 import { CharacterPictures } from './CharacterPictures'
 import { isGrenade, withBreachingGrenades } from './formulas'
+import { subclassFeatureRows } from './subclassFeatures'
 import { MYSTIC_CONNECTIONS } from './mystic'
 import { OPERATIVE_EXPLOITS } from './starfinderSubclasses'
 import type { Character, ContentEntry, EntryKind } from './types'
@@ -730,6 +731,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <strong>Class</strong>
           <span>{classLabel(c, entries) || 'Choose class'}{classSlots.length > 0 && `, ${classFilled}/${classSlots.length}`}</span>
           <RageToggle {...section} summary />
+          <AimToggle {...section} summary />
           <HuntPreyToggle {...section} summary />
           <DeviseAStratagemToggle {...section} summary />
         </summary>
@@ -852,10 +854,14 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                 const entry = subclasses.find(candidate => candidate.name === order || candidate.name === feat.choice)
                 return entry ? [{ entry, label: `${feat.choice} order (Order Explorer)` }] : []
               }),
+              ...(c.systems.includes('pf2e') && subclass && ['Ranger', 'Rogue', 'Gunslinger'].includes(c.className ?? '')
+                ? subclassFeatureRows(subclass).filter(row => row.level <= c.level).map(row => ({
+                  entry: { ...subclass, description: row.description, data: { ...subclass.data, ...(row.actions ? { actions: row.actions } : {}) } }, label: row.name, level: row.level })) : []),
               ...(c.className === 'Mystic' && c.systems.includes('sf2e') && subclass && MYSTIC_CONNECTIONS[subclass.name] ? [
                 { entry: { ...subclass, description: MYSTIC_CONNECTIONS[subclass.name].harmony }, label: `${subclass.name} Harmony`, level: 1 },
                 { entry: { ...subclass, description: MYSTIC_CONNECTIONS[subclass.name].perfectHarmony }, label: `${subclass.name} Perfect Harmony`, level: 19 },
               ].filter(row => row.level <= c.level) : []),
+              ...(c.className === 'Operative' && c.systems.includes('sf2e') ? [{ entry: AIM, label: 'Aim', level: 1 }] : []),
               ...(c.className === 'Operative' && c.systems.includes('sf2e') ? [
                 ...(subclass ? [{ entry: subclass, level: 1 }] : []),
                 ...additionalOperativeSpecializations.map(entry => ({ entry, level: featTakenLevel(

@@ -1999,10 +1999,8 @@ it('shows selected Puppeteer rules and its free action without expanding a descr
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
   expect(markup).toContain('Puppeteer')
-  const unselected = renderToStaticMarkup(<CharacterBuilder character={{ ...c, fatalMethod: undefined }} onClose={() => {}} />)
   const reaper = renderToStaticMarkup(<CharacterBuilder character={{ ...c, fatalMethod: 'Reaper' }} onClose={() => {}} />)
   expect(reaper).toContain('Reaper')
-  const otherClass = renderToStaticMarkup(<CharacterBuilder character={{ ...c, className: 'Wizard' }} onClose={() => {}} />)
 })
 
 it.each([

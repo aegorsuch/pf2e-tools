@@ -47,6 +47,8 @@ const spiritAspectStatusName = (companion: NonNullable<SectionProps['c']['compan
       ? 'Aspect of the Alpha' : `Aspect of ${companion.spiritAspect}`})`
     : undefined
 
+export const canAim = (c: SectionProps['c']) => c.systems.includes('sf2e') && c.className === 'Operative'
+
 const canDeviseAStratagem = (c: SectionProps['c']) => c.systems.includes('pf2e') && c.className === 'Investigator'
 
 const HUNT_PREY: ContentEntry = {
@@ -57,6 +59,13 @@ const HUNT_PREY: ContentEntry = {
     + 'Ignore the ranged attack penalty in the second range increment against it. '
     + 'You can designate only one prey at a time; choosing another replaces it. The designation lasts until your next daily preparations.',
   data: { url: 'https://2e.aonprd.com/Actions.aspx?ID=2257' },
+}
+
+export const AIM: ContentEntry = {
+  id: 'action:aim', systems: ['sf2e'], kind: 'classFeature', source: 'official', name: 'Aim',
+  level: 1, traits: ['Concentrate'], effects: [], updatedAt: 0,
+  description: 'Choose a creature you can see or hear as your mark. Your next ranged Strike against your mark this turn deals extra precision damage and reduces its cover bonus to AC. Aiming ends if you are no longer able to target the mark.',
+  data: { actions: 'Single Action' },
 }
 
 const PARRY: ContentEntry = {
@@ -159,6 +168,7 @@ export function StatusesSummary({ c, entries, save }: SectionProps) {
   const poisonSpent = Math.max(0, Math.min(poisonTotal, Math.floor(c.simplePoisonsSpent ?? 0)))
   const active = [
     ...(canDeviseAStratagem(c) && c.deviseAStratagemActive ? ['Devise a Stratagem'] : []),
+    ...(canAim(c) && c.aimActive ? ['Aim'] : []),
     ...(hasHuntPrey(c, entries) && c.huntPreyActive ? ['Hunt Prey'] : []),
     ...(c.raging ? ['Rage'] : []),
     ...(defense.shield && shieldRaised(c) ? [defense.shieldLabel] : []),
@@ -253,6 +263,19 @@ export function DeviseAStratagemToggle({ c, save, summary = false }: Pick<Sectio
   return summary
     ? <span className="combat-summary-toggles" onClick={event => event.stopPropagation()}>{toggle}</span>
     : toggle
+}
+
+export function AimToggle({ c, entries, save, summary = false }: SectionProps & { summary?: boolean }) {
+  if (!canAim(c)) return null
+  const content = <><input type="checkbox" aria-label="Aim active" checked={!!c.aimActive}
+      onChange={event => save({ aimActive: event.target.checked })} />{' '}
+    <EntryDescription name="Aim" entry={AIM} character={c} entries={entries} hideButtonActions />{' '}
+    <ActiveSpellActions name="Aim" entry={AIM} actions="Single Action">
+      <label><input type="checkbox" aria-label="Aim active in options" checked={!!c.aimActive}
+        onChange={event => save({ aimActive: event.target.checked })} /> Aim</label>
+    </ActiveSpellActions></>
+  return <span className={summary ? 'combat-summary-toggles' : undefined}
+    onClick={summary ? event => event.stopPropagation() : undefined}>{content}</span>
 }
 
 export function HuntPreyToggle({ c, entries, save, summary = false }: SectionProps & { summary?: boolean }) {
@@ -399,6 +422,8 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
       ? [{ name: 'Poison Weapon', element: <SimplePoisons c={c} entries={entries} save={save} /> }] : []),
     ...(canDeviseAStratagem(c)
       ? [{ name: 'Devise a Stratagem', element: <DeviseAStratagemToggle c={c} save={save} /> }] : []),
+    ...(canAim(c)
+      ? [{ name: 'Aim', element: <AimToggle c={c} entries={entries} save={save} /> }] : []),
     ...(hasHuntPrey(c, entries)
       ? [{ name: 'Hunt Prey', element: <HuntPreyToggle c={c} entries={entries} save={save} /> }] : []),
     ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Space Pirate Dedication').length ? [{
@@ -625,7 +650,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   return <div className="character-section-content">
     <div className="condition-controls" role="group" aria-label="Statuses">
       {controls.map(control => {
-        const entry = !['Heroic Defiance', 'Hunt Prey'].includes(control.name) && !spellControls.some(spell => spell.name === control.name) && entries.find(candidate => (candidate.kind === 'feat' || candidate.kind === 'classFeature')
+        const entry = !['Heroic Defiance', 'Hunt Prey', 'Aim'].includes(control.name) && !spellControls.some(spell => spell.name === control.name) && entries.find(candidate => (candidate.kind === 'feat' || candidate.kind === 'classFeature')
           && !candidate.deleted && candidate.name.toLowerCase() === control.name.toLowerCase()
           && candidate.systems.some(system => c.systems.includes(system))
           && typeof candidate.data.actions === 'string' && /(?:single|one|two|three) action|free action|reaction/i.test(candidate.data.actions))

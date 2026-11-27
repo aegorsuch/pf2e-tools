@@ -220,6 +220,7 @@ export interface Character {
   resistEnergyType?: string
   rangerPrecisionHitsThisRound?: number
   huntPreyActive?: boolean
+  aimActive?: boolean
   fatalMethod?: 'Puppeteer' | 'Reaper'
   arcaneThesis?: 'Improved Familiar Attunement' | 'Metamagical Experimentation' | 'Spell Blending' | 'Spell Substitution' | 'Staff Nexus'
   heritage?: string
