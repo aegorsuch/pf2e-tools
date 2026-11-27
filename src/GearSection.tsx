@@ -4,7 +4,7 @@ import {
   activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, hasDailyAugmentationActivation, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, isSolarianCrystalWeapon, solarianCoreCrystals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, type SectionProps,
 } from './builder'
 import { newId } from './db'
-import { armorUpgradeEntries, armorUpgradeEntry, automaticArmorUpgradeUsesSlot, blessedShieldBenefit, canEquipShield, canRaiseShield, championBlessings, clanPistolRunes, energyShieldingVariantId, equippedHands, equippedOtherShield, forceFieldStats, isEnergyShieldingUpgrade, myrmidonPhaseShield, scaleOfIgroonWeaponRunes, shieldAllowsAttachments, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldBraceEligible, shieldEquipChange, weaponEntry } from './builder'
+import { modFanaticArmorSlot, armorUpgradeEntries, armorUpgradeEntry, automaticArmorUpgradeUsesSlot, blessedShieldBenefit, canEquipShield, canRaiseShield, championBlessings, clanPistolRunes, energyShieldingVariantId, equippedHands, equippedOtherShield, forceFieldStats, isEnergyShieldingUpgrade, myrmidonPhaseShield, scaleOfIgroonWeaponRunes, shieldAllowsAttachments, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldBraceEligible, shieldEquipChange, weaponEntry } from './builder'
 import { confirmRemoval } from './confirmRemoval'
 import { isAncestralEmbrace, isBastionNamedArmor, isHighhelmPlate, isImmortalBastion, isInheritorPlate, isIncendiaryArmor, isLibraryRobes, isMountainArmor, isScaleOfIgroonShield, scaledNamedArmorDescription, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { SourceNote } from './Info'
@@ -2143,9 +2143,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
         const displayName = armorDisplayName({ ...a, name: specificMagicItemName(entry, a.name, true) }, entry)
         const labelName = armorDisplayName({ name: a.name }, entry)
         const upgradeSlots = Math.max(0, armorUpgradeSlots(entry)
-          + (sf2eArmor && c.heritage === 'Mod Fanatic Android' && entry?.data.upgrades_allowed !== false ? 1 : 0)
-          - automaticArmorUpgradeSlotsUsed(entry, c, entries))
-        const automaticUpgrades = sf2eArmor && entry ? automaticSpecificArmorUpgrades(c, entries, entry) : []
+          + (sf2eArmor && entry?.data.upgrades_allowed !== false ? modFanaticArmorSlot(c, a) : 0)
+          - automaticArmorUpgradeSlotsUsed(entry, c, entries, a))
+        const automaticUpgrades = sf2eArmor && entry ? automaticSpecificArmorUpgrades(c, entries, entry, a) : []
         const runesAllowed = !sf2eArmor && entry?.data.runes_allowed !== false
         const granted = isGrantedArmor(a.id)
         const automaticFundamentals = granted && entry?.data.automatic_fundamentals !== false
@@ -2337,7 +2337,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                       const energyShieldingTypes = { ...(a.energyShieldingTypes ?? {}) }
                       for (const id of Object.keys(energyShieldingTypes))
                         if (!upgrades.includes(id)) delete energyShieldingTypes[id]
-                      const automatic = automaticSpecificArmorUpgrades(c, entries, entry)
+                      const automatic = automaticSpecificArmorUpgrades(c, entries, entry, a)
                       const hasEnergizedSpikes = upgrades.some(id => entries.find(candidate => candidate.id === id)?.name
                         .replace(/\s*\([^)]*\)$/, '') === 'Energized Spikes')
                         || automatic.some(item => item.name.replace(/\s*\([^)]*\)$/, '') === 'Energized Spikes')

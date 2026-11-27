@@ -3675,6 +3675,8 @@ it('leaves one Paragon Clandestine Suit upgrade slot, or two for Mod Fanatic And
   const android = characterWith('Mod Fanatic Android')
   expect(armorUpgradeEntries(android, entries, android.armors![0]).map(entry => entry.id))
     .toEqual(expect.arrayContaining(['extra-1', 'extra-2', ...builtIn.map(entry => entry.id)]))
+  const unworn = { ...android, armors: [{ ...android.armors![0], worn: false }] }
+  expect(armorUpgradeEntries(unworn, entries, unworn.armors![0]).map(entry => entry.id)).not.toContain('extra-2')
 })
 
 it('prevents installing more than one grade of Drift Drive Relay', () => {
