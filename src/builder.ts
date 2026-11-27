@@ -7412,6 +7412,15 @@ export function activeCamouflageBonus(c: Character, entries: ContentEntry[]) {
 }
 export const wildwoodInkBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, 'Wildwood Ink')
 export const tradecraftTattooBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, 'Tradecraft Tattoo', 2)
+export function outwitEdge(c: Character, entries: ContentEntry[]) {
+  if (!hasHuntPrey(c, entries) || c.className !== 'Ranger' || selectedSubclass(c, entries) !== 'Outwit' || !c.huntPreyActive) return undefined
+  const worn = wornArmor(c, entries)
+  const armor = worn && armorEntry(c, entries, worn.name, worn.id)
+  const armorRank = armorRanks(c, entries)[(armor && armorCategory(armor)) || 'Unarmored'] ?? 0
+  return { masterful: c.level >= 17, ac: c.level >= 17 && armorRank >= 3 ? 2 : 1 }
+}
+export const outwitSkillBonus = (c: Character, entries: ContentEntry[], rank: number) =>
+  outwitEdge(c, entries) ? (c.level >= 17 && rank >= 3 ? 4 : 2) : 0
 export const hunterArrowheadBonus = (c: Character, entries: ContentEntry[]) => ownedGradedItemBonus(c, entries, "Hunter's Arrowhead")
 export const daredevilBootsBonus = (c: Character, entries: ContentEntry[]) =>
   ownedItemBonus(c, entries, { 'Daredevil Boots': 2, 'Daredevil Boots (Greater)': 3 })
