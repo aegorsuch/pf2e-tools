@@ -328,6 +328,11 @@ it('scales Howling Blizzard damage by rank', () => {
   expect(spellDamage('Howling Blizzard', 7)).toMatchObject([{ dice: 14, sides: 6, type: 'cold' }])
 })
 
+it('scales Fire Ray damage by rank', () => {
+  expect(spellDamage('Fire Ray', 1)).toMatchObject([{ dice: 2, sides: 6, type: 'fire', additional: { dice: 1, sides: 6 } }])
+  expect(spellDamage('Fire Ray', 3)).toMatchObject([{ dice: 6, sides: 6, type: 'fire', additional: { dice: 3, sides: 6 } }])
+})
+
 it('rolls Wall of Fire damage at its actual cast rank', () => {
   const entry: ContentEntry = { id: 'wall-of-fire', name: 'Wall of Fire', systems: ['sf2e'], kind: 'spell',
     source: 'official', level: 4, traits: [], description: '', data: { actions: 'Three Actions' }, effects: [], updatedAt: 1 }

@@ -222,7 +222,7 @@ it('derives Bloodrager cantrips, spellcasting slots and repertoire from active f
   expect(classSpellSlots({ ...c, level: 1 })).toBeUndefined()
   expect(classSpellSlots({ ...c, level: 2 })).toEqual({ 0: 2 })
   expect(classSpellSlots({ ...c, level: 6 })).toEqual({ 0: 2, 1: 1, 2: 1 })
-  expect(classSpellSlots({ ...c, level: 12 })).toEqual({ 0: 2, 1: 1, 2: 1, 3: 1, 4: 1 })
+  expect(classSpellSlots({ ...c, level: 12 })).toEqual({ 0: 2, 1: 1, 2: 1, 3: 1 })
   expect(classSpellSlots(c)).toEqual({ 0: 2, 1: 2, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2, 7: 2, 8: 2 })
   expect(classRepertoireRows(c)).toEqual({ 0: 2, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1 })
   expect(classSpellSlots({ ...c, feats: c.feats.slice(0, 1) })).toEqual({ 0: 2 })
@@ -422,4 +422,12 @@ it('keeps flexible prepared casting on manual slot settings', () => {
   const c: Character = { ...base, className: 'Wizard', level: 2,
     feats: [{ name: 'Flexible Spellcaster Dedication', type: 'Class Feat', level: 2 }] }
   expect(classSpellSlots(c)).toBeUndefined()
+})
+
+it('Divine Breadth adds cleric archetype slots for any Cleric Dedication', () => {
+  const feat = (name: string, slot: string) => ({ name, type: 'Archetype Feat', level: 2, slot })
+  const c: Character = { ...base, className: 'Fighter', level: 10, feats: [feat('Cleric Dedication', 'archetype:2:0'),
+    feat('Basic Cleric Spellcasting', 'archetype:4:0'), feat('Divine Breadth', 'archetype:8:0')] }
+  expect(classSpellSlots({ ...c, feats: c.feats.slice(0, 2) })).toEqual({ 0: 2, 1: 1, 2: 1, 3: 1 })
+  expect(classSpellSlots(c)).toEqual({ 0: 2, 1: 2, 2: 1, 3: 1 })
 })

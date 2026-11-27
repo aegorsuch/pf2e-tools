@@ -3077,7 +3077,10 @@ export function wizardArchetypeSpellbookChoices(c: Character, extraCantrips = 0)
 }
 
 export function avengerClericSpellSlots(c: Character, entries: ContentEntry[]) {
-  if (!avengerEldritchDedication(c, entries, 'Cleric')) return undefined
+  const dedication = c.systems.includes('pf2e') && c.className !== 'Cleric' && c.feats.some(feat => feat.name === 'Cleric Dedication'
+    && featTakenLevel(feat) <= c.level)
+  if (!avengerEldritchDedication(c, entries, 'Cleric')
+    && !(dedication && activeFeatsNamed(c, 'Basic Cleric Spellcasting').length)) return undefined
   const slots: Record<number, number> = { 0: 2 + 2 * activeFeatsNamed(c, 'Cantrip Expansion').length }
   if (!activeFeatsNamed(c, 'Basic Cleric Spellcasting').length) return slots
   const basicRank = Math.min(3, Math.floor((c.level - 2) / 2))
