@@ -593,11 +593,15 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
     ...slots.map((slot, index) => ({ kind: 'slot' as const, level: slot.level, slot, index })),
   ].sort((a, b) => {
     if (a.level !== b.level) return a.level - b.level
-    if (categories?.length !== 1 || !['archetype', 'general', 'skill'].includes(categories[0])) return 0
-    const aFeat = a.kind === 'slot' ? c.feats.find(feat => feat.slot === a.slot.key) : a.kind === 'feature' ? undefined : a.feat
-    const bFeat = b.kind === 'slot' ? c.feats.find(feat => feat.slot === b.slot.key) : b.kind === 'feature' ? undefined : b.feat
-    if (!aFeat || !bFeat) return Number(!aFeat) - Number(!bFeat) || a.level - b.level
-    return displayName(aFeat.name).localeCompare(displayName(bFeat.name)) || compareFeatSelections(aFeat, bFeat) || a.level - b.level
+    const nameOf = (row: typeof a) => row.kind === 'feature' ? row.feature.name
+      : row.kind === 'slot' ? c.feats.find(feat => feat.slot === row.slot.key)?.name
+        : row.kind === 'memory' ? 'Assurance' : row.feat.name
+    const aName = nameOf(a)
+    const bName = nameOf(b)
+    if (!aName || !bName) return Number(!aName) - Number(!bName)
+    const aFeat = a.kind === 'slot' ? c.feats.find(feat => feat.slot === a.slot.key) : a.kind === 'feature' || a.kind === 'memory' ? undefined : a.feat
+    const bFeat = b.kind === 'slot' ? c.feats.find(feat => feat.slot === b.slot.key) : b.kind === 'feature' || b.kind === 'memory' ? undefined : b.feat
+    return displayName(aName).localeCompare(displayName(bName)) || (aFeat && bFeat ? compareFeatSelections(aFeat, bFeat) : 0)
   })
   const Wrapper = bare ? 'div' : 'details'
   return (
