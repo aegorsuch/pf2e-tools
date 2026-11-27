@@ -1287,7 +1287,6 @@ function missingDedicationOptions(entries: ContentEntry[], archetypes: string[])
     const names = [...new Set(cache.available.filter(dedication =>
       dedicationArchetypes(dedication).some(name => archetypes.includes(name))).map(dedication => dedication.name))]
     missing = [names.length ? names.join(' or ') : `${archetypes.join(' or ')} Dedication`]
-    if (cache.missing.size >= 256) cache.missing.delete(cache.missing.keys().next().value!)
     cache.missing.set(key, missing)
   }
   return [...missing]
@@ -1415,6 +1414,7 @@ function featEquivalence(entry: ContentEntry, ancestries: Set<string>) {
 
 const featIndexCache = new WeakMap<ContentEntry[], { entry: ContentEntry; traits: Set<string>; equivalence: string }[]>()
 const featTraitIndexCache = new WeakMap<ContentEntry[], Map<string, ReturnType<typeof featIndex>>>()
+const archetypeFeatIndexCache = new WeakMap<ContentEntry[], ReturnType<typeof featIndex>>()
 function featIndex(entries: ContentEntry[]) {
   let index = featIndexCache.get(entries)
   if (!index) {
@@ -1440,6 +1440,15 @@ function featsWithTrait(entries: ContentEntry[], trait: string) {
     matches = featIndex(entries).filter(feat => feat.traits.has(trait))
     if (traits.size >= 64) traits.delete(traits.keys().next().value!)
     traits.set(trait, matches)
+  }
+  return matches
+}
+
+function archetypeFeats(entries: ContentEntry[]) {
+  let matches = archetypeFeatIndexCache.get(entries)
+  if (!matches) {
+    matches = featIndex(entries).filter(({ entry, traits }) => traits.has('archetype') || archetypesOf(entry).length > 0)
+    archetypeFeatIndexCache.set(entries, matches)
   }
   return matches
 }
@@ -2005,8 +2014,9 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   }))
   const ownedArchetype = slot.category === 'archetype' ? archetypePrerequisites(c, entries, slot.key, true) : undefined
   const candidateTraits = [...new Set([trait, ...ancestryTraits].filter((value): value is string => !!value))]
-  const searchable = slot.category !== 'bonus' && slot.category !== 'archetype' && !classArchetype && candidateTraits.length === 1
-    ? featsWithTrait(entries, candidateTraits[0]) : featIndex(entries)
+  const searchable = slot.category === 'archetype' ? archetypeFeats(entries)
+    : slot.category !== 'bonus' && !classArchetype && candidateTraits.length === 1
+      ? featsWithTrait(entries, candidateTraits[0]) : featIndex(entries)
   const candidates = searchable
     .filter(({ entry: e, traits }) => (!options.name || e.name === options.name)
       && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))

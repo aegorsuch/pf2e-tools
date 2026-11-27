@@ -359,6 +359,25 @@ it('computes feat equivalence only for eligible candidates and reuses it across 
   expect(readRules).toHaveBeenCalledTimes(reads)
 })
 
+it('preserves archetype picker candidates, ordering, systems, and catalog refreshes', () => {
+  const dedication = entry('feat', 'Example Dedication', { archetype: 'Example' }, 2, ['Archetype', 'Dedication'])
+  const traitOnly = entry('feat', 'Alpha', {}, 4, ['Archetype'])
+  const dataOnly = entry('feat', 'Beta', { archetype: 'Example' }, 4, [])
+  const foreign = { ...entry('feat', 'Gamma', {}, 4, ['Archetype']), systems: ['sf2e' as const] }
+  const unrelated = entry('feat', 'Other', {}, 4, ['General'])
+  const catalog = [dataOnly, foreign, unrelated, traitOnly, dedication]
+  const c: Character = { ...base, level: 4, feats: [
+    { name: dedication.name, type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' },
+  ] }
+  const slot = { key: 'archetype:4:0', category: 'archetype' as const, level: 4 }
+  const choices = (entries: ContentEntry[], character = c) => eligibleFeats(entries, character, slot).map(feat => feat.name)
+  const pfCatalog = catalog.filter(feat => feat.systems.includes('pf2e'))
+  expect(choices(pfCatalog)).toEqual(['Alpha', 'Beta'])
+  expect(choices(catalog, { ...c, systems: ['pf2e', 'sf2e'] })).toEqual(['Alpha', 'Beta', 'Gamma'])
+  expect(choices([dedication, dataOnly])).toEqual(['Beta'])
+  expect(choices(pfCatalog)).toEqual(['Alpha', 'Beta'])
+})
+
 it('refreshes heritage eligibility when the house rule changes', () => {
   const previous = getSettings().cyborgTestSubject
   const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Test-Subject Ysoki', level: 1,
