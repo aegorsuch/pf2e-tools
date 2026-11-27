@@ -2495,11 +2495,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         {[...new Set(options.map(entry => entry.name))].map(name => <option key={name}>{name}</option>)}
       </SearchableSelect>
   })
-  const renderSpecialGroups = (grants: typeof special) => [...new Set(grants.map(grant => grant.source))]
-    .map(source => <section className="innate-spell-group" key={source}>
-      <h5>{source} · Spell Rank {grants.find(grant => grant.source === source)?.rank}</h5>
-      <SpellColumns />
-      <ul>{grants.filter(grant => grant.source === source).map(grant => {
+  const renderGrantRow = (grant: typeof special[number]) => {
         const details = grant.source === 'Natural Illusionist'
           ? { note: grant.rule.condition, dc: undefined, attackBonus: undefined, spellcastingModifier: undefined } : grantDetails(grant)
         return <SpellItem c={c} key={`${grant.usageKey}:${grant.entry.name}`} name={grant.entry.name}
@@ -2514,8 +2510,18 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           effectControls={effectControls(grant.entry.name)} effectRank={activeRank(grant.entry.name)} {...buffProps(grant.entry.name)}>
           {controls(grant.entry.name, grant.rank, details.spellcastingModifier, grant.entry)}
         </SpellItem>
-      })}</ul>
+      }
+  const renderSpecialGroups = (grants: typeof special) => [...new Set(grants.map(grant => grant.source))]
+    .map(source => <section className="innate-spell-group" key={source}>
+      <h5>{source} · Spell Rank {grants.find(grant => grant.source === source)?.rank}</h5>
+      <SpellColumns />
+      <ul>{grants.filter(grant => grant.source === source).map(renderGrantRow)}</ul>
     </section>)
+  const mergedGrantSources = [...tricksterAceSpells, ...loanerSpells]
+  const mergeIntoClass = !witchwarper && !!sc && traditions.length > 0 && classSlotRanks.length > 0
+  const mergedGrantRanks = new Set(mergeIntoClass ? classSlotRanks.map(slot => slot.rank) : [])
+  const mergedGrants = mergedGrantSources.filter(grant => mergedGrantRanks.has(grant.rank))
+  const standaloneGrants = (grants: typeof special) => grants.filter(grant => !mergedGrants.includes(grant))
 
   return (
       <div className="character-section-content">
@@ -2554,10 +2560,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
           <SpellColumns />
           <ul>{investigatorClassChoices.map(renderChoiceSlot)}</ul>
         </section></div>}
-      {renderTricksterAceChoices()}
-      {renderSpecialGroups(tricksterAceSpells)}
-      {renderLoanerSpellChoices()}
-      {renderSpecialGroups(loanerSpells)}
+      {!mergeIntoClass && renderTricksterAceChoices()}
+      {renderSpecialGroups(standaloneGrants(tricksterAceSpells))}
+      {!mergeIntoClass && renderLoanerSpellChoices()}
+      {renderSpecialGroups(standaloneGrants(loanerSpells))}
       {(necromancer || wizard || magus || witch || technomancer || wizardSpellbookSlots.length > 0) && c.level >= 1 && <dialog ref={bookDialog}
         className="entry-dialog dirge-dialog" aria-labelledby={bookTitleId}
         onClose={event => { if (event.target === event.currentTarget) setBookOpen(false) }}
@@ -2839,7 +2845,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                   Selected spell unavailable for your current spell list or slot rank.
                 </small>}
               </li>
-            })}{cantrip && investigatorClassChoices.map(renderChoiceSlot)}</ul>
+            })}{cantrip && investigatorClassChoices.map(renderChoiceSlot)}
+              {mergedGrants.filter(grant => grant.rank === rank).map(renderGrantRow)}</ul>
+            {rank === classSlotRanks[0].rank && <>{renderTricksterAceChoices()}{renderLoanerSpellChoices()}</>}
           </section>
         })}
       </div>}
