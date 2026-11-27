@@ -88,6 +88,12 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
     }
     case 'Verdant Code':
       return rank >= 2 ? [{ label: 'Damage', dice: 2, sides: 6, type: 'piercing' }] : []
+    case 'Moonlight Ray': {
+      if (rank < 3) return []
+      const dice = 5 + 2 * (rank - 3)
+      return [{ label: 'Damage', dice, sides: 6, type: 'cold',
+        additional: { label: 'Extra damage against unholy', dice, sides: 6, type: 'spirit' } }]
+    }
     case 'Soul Surge':
       return rank >= 2 ? [{ label: 'Damage', dice: 6 + 2 * (rank - 2), sides: 6, type: 'spirit' }] : []
     case 'Fire Ray':

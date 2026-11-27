@@ -328,6 +328,11 @@ it('scales Howling Blizzard damage by rank', () => {
   expect(spellDamage('Howling Blizzard', 7)).toMatchObject([{ dice: 14, sides: 6, type: 'cold' }])
 })
 
+it('scales Moonlight Ray damage by rank', () => {
+  expect(spellDamage('Moonlight Ray', 3)).toMatchObject([{ dice: 5, sides: 6, type: 'cold', additional: { dice: 5, type: 'spirit' } }])
+  expect(spellDamage('Moonlight Ray', 5)).toMatchObject([{ dice: 9, additional: { dice: 9 } }])
+})
+
 it('scales Soul Surge damage by rank', () => {
   expect(spellDamage('Soul Surge', 2)).toMatchObject([{ dice: 6, sides: 6, type: 'spirit' }])
   expect(spellDamage('Soul Surge', 4)).toMatchObject([{ dice: 10, sides: 6, type: 'spirit' }])
