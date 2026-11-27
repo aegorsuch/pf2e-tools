@@ -166,6 +166,11 @@ it('rolls Verdant Code piercing damage without inventing heightening', () => {
   }
 })
 
+it('rolls Admonishing Ray bludgeoning damage scaling 2d6 per rank', () => {
+  expect(spellDamage('Admonishing Ray', 1)).toEqual([{ label: 'Damage', dice: 2, sides: 6, type: 'bludgeoning' }])
+  expect(spellDamage('Admonishing Ray', 4)).toEqual([{ label: 'Damage', dice: 8, sides: 6, type: 'bludgeoning' }])
+})
+
 it('rolls Burstmoji damage and shows heightened hazardous terrain damage', () => {
   expect(spellDamage('Burstmoji', 3)).toEqual([])
   for (const [rank, dice, terrain] of [[4, 6, 5], [7, 12, 11], [10, 18, 17]]) {
