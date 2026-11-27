@@ -2901,7 +2901,7 @@ export function wizardArchetypeSpellbookChoices(c: Character, extraCantrips = 0)
 
 export function avengerClericSpellSlots(c: Character, entries: ContentEntry[]) {
   if (!avengerEldritchDedication(c, entries, 'Cleric')) return undefined
-  const slots: Record<number, number> = { 0: 2 }
+  const slots: Record<number, number> = { 0: 2 + 2 * activeFeatsNamed(c, 'Cantrip Expansion').length }
   if (!activeFeatsNamed(c, 'Basic Cleric Spellcasting').length) return slots
   const basicRank = Math.min(3, Math.floor((c.level - 2) / 2))
   for (let rank = 1; rank <= basicRank; rank++) slots[rank] = 1
