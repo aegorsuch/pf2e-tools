@@ -2839,7 +2839,7 @@ export function classFeatures(entries: ContentEntry[], c: Character) {
   if (cached) return cached
   const seen = new Set<string>()
   const features = entries
-    .filter((e) => e.kind === 'classFeature' && e.data.class === c.className && e.level <= c.level && !PLANNER_FEATURE.test(e.name)
+    .filter((e) => e.kind === 'classFeature' && e.data.class === c.className && e.level <= c.level && e.name !== c.className && !PLANNER_FEATURE.test(e.name)
       && !(isWarriorOfLegend(c) && e.name === 'Shield Block'))
     .filter((e) => !seen.has(`${e.level}:${e.name}`) && seen.add(`${e.level}:${e.name}`))
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
