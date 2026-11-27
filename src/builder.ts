@@ -1740,6 +1740,7 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
   const plannedCheck = futureFeats ? featPrerequisiteChecker(c, entries, buildLevel, excludedIndex, options) : undefined
   const unplannedCheck = futureFeats ? featPrerequisiteChecker({ ...c, feats: character.feats }, entries, buildLevel, -1, options) : undefined
   const archetype = archetypePrerequisites(character, entries, slot.key, slot.category === 'archetype', multitalented)
+  const plannedArchetype = archetypePrerequisites(c, entries, slot.key, slot.category === 'archetype', multitalented)
   const requirements: Record<string, string[]> = {
     'Third Blessing': ['Second Blessing'], 'Third Innovation': ['Second Innovation'],
     'Pristine Living Weapon': ['Living Weapon', 'Wild Hunter Dedication'],
@@ -1765,7 +1766,7 @@ export function featSelectionPrerequisiteChecker(c: Character, entries: ContentE
         { ...options, substituteMentalAbility: dedicationAbility })(entry) : unplannedCheck?.(entry) : undefined
     // Future feats can satisfy requirements; unrelated level progression cannot.
     const missing = [...result.missing.filter(requirement => !planned || !unplanned
-      || planned.missing.includes(requirement) || !unplanned.missing.includes(requirement)), ...archetype(entry),
+      || planned.missing.includes(requirement) || !unplanned.missing.includes(requirement)), ...(isDedication(entry) ? archetype(entry) : plannedArchetype(entry)),
       ...(requirements[entry.name] ?? []).filter((name) => !character.feats.some((feat) => feat.name === name))]
     if (entry.id === 'homebrew:guardbreak' && !c.feats.some(feat => feat.slot !== slot.key && feat.name === 'Shield Block')
       && !automaticFeatGrants(character, entries).some(feat => feat.name === 'Shield Block')

@@ -899,7 +899,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                     choice={arcanaChoiceEntry ? undefined : selection?.choice} entries={entries} className="feat-name"
                     prerequisites={arcanaChoiceEntry ? selectedPrerequisites(s, arcanaChoiceEntry) : prerequisites}
                     access={descriptionEntry ? featAccess(c, descriptionEntry) : access}
-                    grantSource={arcanaChoiceEntry ? selection?.name : grantSource}
+                    grantSource={arcanaChoiceEntry ? CLASS_FEAT_GRANTS[selection!.name] === 'Cleric' ? undefined : selection?.name : grantSource}
                     deferDetails={!!onSearch}
                     buttonActions={training?.actions} hideButtonActions={!!solarDamage || showFeatActionControls || showWrathRoll || showTreehealerRoll || showBattlePrayerRoll || showPiercingDoom || showAcidicSpitRoll || showTenthLifeRoll || showInscribedBlast || showCoreCannon}
                     descriptionNote={selection?.name === 'Elemental Wrath' ? 'House rule: grants Caustic Blast with its normal acid damage; no damage type selection.'

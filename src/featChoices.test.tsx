@@ -10,7 +10,7 @@ import { FeatSlots } from './FeatSlots'
 import { LanguagesSection } from './LanguagesSection'
 import { SpellsSection } from './SpellsSection'
 import { canSelectWardenFeat, compareFeatSelections, featDisplayName, grantedWardenSpells, selectedFeatEntry, spellWardenLabel, wardenSpellOptions } from './featChoices'
-import { activeFeatsNamed, classSpellSlots, eligibleFeats, focusSpells, languageAllowance, migrateAncestralLinguistics, wizardArchetypeSpellbookChoices } from './builder'
+import { featSelectionPrerequisiteChecker, plannedSlots, activeFeatsNamed, classSpellSlots, eligibleFeats, focusSpells, languageAllowance, migrateAncestralLinguistics, wizardArchetypeSpellbookChoices } from './builder'
 import { classSpellcasting, featChoiceOptions, movementSpeeds, ranksAt, researchedSpellResistanceChoices, resistances, senses, weaponAttack } from './builder'
 import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 import type { Character, ContentEntry } from './types'
@@ -824,6 +824,17 @@ it('offers Cleric feats for Basic and Advanced Dogma and counts the choice as ta
     { name: 'Basic Dogma', type: 'Archetype Feat', level: 4, slot: 'archetype:4:0', choice: 'Deadly Simplicity' }] }
   expect(featChoiceOptions('Advanced Dogma', c, catalog, 'archetype:8:0')).toEqual(['Channel Smite', 'Domain Initiate'])
   expect(activeFeatsNamed(c, 'Deadly Simplicity')).toHaveLength(1)
+})
+
+it('allows archetype feats before a later planned Dedication', () => {
+  const dedication: ContentEntry = { id: 'cleric-dedication', systems: ['pf2e'], kind: 'feat', source: 'official', name: 'Cleric Dedication',
+    level: 2, traits: ['Archetype', 'Dedication'], description: '', data: { archetype: 'Cleric' }, effects: [], updatedAt: 1 }
+  const dogma: ContentEntry = { ...dedication, id: 'basic-dogma', name: 'Basic Dogma', level: 4, traits: ['Archetype'],
+    data: { archetype: 'Cleric', prerequisite: 'Cleric Dedication' } }
+  const c: Character = { ...base, className: 'Fighter', level: 10,
+    feats: [{ name: 'Cleric Dedication', type: 'Archetype Feat', level: 10, slot: 'archetype:10:0' }] }
+  const slot = plannedSlots(c, [dedication, dogma]).find(candidate => candidate.key === 'archetype:4:0')!
+  expect(featSelectionPrerequisiteChecker(c, [dedication, dogma], slot)(dogma).missing).toEqual([])
 })
 
 it('gives Spellshot Wizard spellcasting its slots, book choices, and arcana feat selections', () => {
