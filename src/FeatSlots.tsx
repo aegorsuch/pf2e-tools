@@ -646,6 +646,9 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
                 return <DamageRoll name="Spinning Crush" actions="Three Actions" toggleResult
                   damage={{ label: 'Damage', dice: 4 + 2 * striking, sides: 6, bonus: abilityMod(c.abilities.str), type: 'bludgeoning' }} />
               })()}
+              {c.systems.includes('pf2e') && c.className === 'Gunslinger' && row.feature.name === 'Siegebreaker'
+                && <DamageRoll name="Siegebreaker" actions="Two Actions" toggleResult
+                  damage={{ label: 'Additional damage', dice: 3, sides: 8, type: 'bludgeoning' }} />}
             </li>
           </Fragment>
           if (row.kind !== 'slot') {
