@@ -301,7 +301,7 @@ export async function fetchAonHits(system: GameSystem, fetchFn: typeof fetch, on
     const res = await fetchFn(AON_ENDPOINTS[system], {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ size: 10000, query: contentQuery(category, system), _source: [...SOURCE_FIELDS, 'markdown'] }),
+      body: JSON.stringify({ size: 10000, query: contentQuery(category, system), _source: [...SOURCE_FIELDS, 'markdown', ...(category === 'way' ? ['text'] : [])] }),
     })
     if (!res.ok) throw new Error(`AoN ${category}: HTTP ${res.status}`)
     const json = (await res.json()) as { hits?: { hits?: Hit[] } }

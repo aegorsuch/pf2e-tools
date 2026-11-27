@@ -25,7 +25,7 @@ export function subclassFeatureRows(entry: ContentEntry): { name: string; level:
       text = title[2]
     }
     if (!heading && !deed) continue
-    rows.push({ name, level, description: text.replace(/^Gunslinger Source [^]*?pg\. \d+\s*/, '').trim(), actions })
+    rows.push({ name, level, description: text.replace(/^(?:Gunslinger )?Source [^]*?pg\. \d+\s*/, '').trim(), actions })
   }
   return rows
 }
