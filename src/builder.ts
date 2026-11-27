@@ -2943,8 +2943,8 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Favored Terrain') return [...FAVORED_TERRAINS]
   if (name === 'Terrain Expertise') return terrainExpertiseOptions(c, index)
   if (DOMAIN_FEATS.includes(name)) {
-    const domains = deityDomains(c, entries)
-    if (name === 'Domain Initiate') {
+    const domains = deityDomains(c, entries, name === 'Expanded Domain Initiate')
+    if (name === 'Domain Initiate' || name === 'Expanded Domain Initiate') {
       const level = Math.min(c.level, c.feats[index] ? featTakenLevel(c.feats[index]) : Number(slotKey.split(':')[1]) || c.level)
       const used = new Set(c.feats.flatMap((feat, featIndex) => featIndex !== index
         && featTakenLevel(feat) <= level && feat.name === name && feat.choice
@@ -2953,13 +2953,17 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
     }
     if (!name.startsWith('Advanced')) return domains
     const level = Math.min(c.level, c.feats[index] ? featTakenLevel(c.feats[index]) : Number(slotKey.split(':')[1]) || c.level)
-    const initialNames = name === "Advanced Deity's Domain" ? ["Deity's Domain"] : ['Domain Initiate', "Deity's Domain"]
+    const initialNames = name === "Advanced Deity's Domain" ? ["Deity's Domain"] : ['Domain Initiate', 'Expanded Domain Initiate', "Deity's Domain"]
     const initial = new Set(c.feats.flatMap((feat, featIndex) => featIndex !== index
       && featTakenLevel(feat) <= level && initialNames.includes(feat.name) && feat.choice
       ? [feat.choice.trim().toLowerCase()] : []))
     const used = new Set(c.feats.flatMap((feat, featIndex) => featIndex !== index
       && featTakenLevel(feat) <= level && feat.name === name && feat.choice ? [feat.choice.trim().toLowerCase()] : []))
-    return domains.filter(domain => initial.has(domain.toLowerCase()) && !used.has(domain.toLowerCase()))
+    const expanded = new Set(c.feats.flatMap((feat, featIndex) => featIndex !== index
+      && featTakenLevel(feat) <= level && feat.name === 'Expanded Domain Initiate' && feat.choice ? [feat.choice.trim().toLowerCase()] : []))
+    const advancedDomains = name === 'Advanced Domain'
+      ? [...domains, ...deityDomains(c, entries, true).filter(domain => expanded.has(domain.toLowerCase()))] : domains
+    return advancedDomains.filter(domain => initial.has(domain.toLowerCase()) && !used.has(domain.toLowerCase()))
   }
   if (name === 'Second Blessing' || name === 'Third Blessing') {
     const used = [championBlessing(c), ...c.feats.flatMap((feat) => [
@@ -2993,10 +2997,10 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (spells) return [...new Set(spells.map(spell => spell.name))]
 }
 
-export function deityDomains(c: Character, entries: ContentEntry[]) {
+export function deityDomains(c: Character, entries: ContentEntry[], alternate = false) {
   const deity = byName(entries, 'deity', c.deity)
   const domains = new Map<string, string>()
-  for (const value of tokens(deity?.data.domain_primary ?? deity?.data.domain)) {
+  for (const value of tokens(alternate ? deity?.data.domain_alternate : deity?.data.domain_primary ?? deity?.data.domain)) {
     const domain = value.replace(/\s+/g, ' ')
     const key = domain.toLowerCase()
     if (!domains.has(key)) domains.set(key, domain)

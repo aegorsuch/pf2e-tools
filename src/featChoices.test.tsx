@@ -1240,3 +1240,15 @@ it('offers only summon spells from the caster tradition as Rites of Convocation 
   const witch: Character = { ...base, className: 'Witch' }
   expect(featChoiceOptions('Rites of Convocation', witch, spells, 'class:4')).toEqual(['Summon Entity', 'Summon Lesser Servitor'])
 })
+
+it('offers a deity\'s alternate domains for Expanded Domain Initiate and grants its initial spell', () => {
+  const deity: ContentEntry = { ...spell('Sarenrae', ''), kind: 'deity', traits: [],
+    data: { domain_primary: 'Fire, Healing', domain_alternate: 'Repose' } }
+  const repose: ContentEntry = { ...spell('Charitable Urge', ''), traits: ['Focus'], level: 1, data: { domain: 'Repose' } }
+  const c: Character = { ...base, className: 'Cleric', level: 10, deity: 'Sarenrae',
+    feats: [{ name: 'Expanded Domain Initiate', type: 'Class Feat', level: 4, slot: 'class:4:0', choice: 'Repose' },
+      { name: 'Advanced Domain', type: 'Class Feat', level: 8, slot: 'class:8:0' }] }
+  expect(featChoiceOptions('Expanded Domain Initiate', c, [deity, repose], 'class:4:0', 0)).toEqual(['Repose'])
+  expect(featChoiceOptions('Advanced Domain', c, [deity, repose], 'class:8:0', 1)).toEqual(['Repose'])
+  expect(grantedFeatSpells(c, [deity, repose]).map(item => item.entry.name)).toContain('Charitable Urge')
+})

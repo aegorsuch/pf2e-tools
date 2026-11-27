@@ -9,7 +9,7 @@ import { GODCLAW_DOMAINS, hellknightTrainingBenefit, hellknightTrainingSpellRule
 import { spellAccessGranted } from './featAccess'
 import { classSpellcasting, classSpellSlots, featChoiceOptions, investigatorMethodologies, melodicAdaptationRank } from './builder'
 
-export const DOMAIN_FEATS = ['Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
+export const DOMAIN_FEATS = ['Domain Initiate', 'Expanded Domain Initiate', "Deity's Domain", 'Advanced Domain', "Advanced Deity's Domain"]
 export const KITSUNE_SPELL_FAMILIARITY_CANTRIPS = ['Daze', 'Forbidding Ward', 'Ghost Sound']
 export function isInnateSpellChoice(entry: ContentEntry) {
   return ['Ancestral Cantrip', 'Ancestral Magic', 'Bone Magic', 'Creature Ally', 'Creature Shape',
