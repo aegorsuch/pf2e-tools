@@ -7476,7 +7476,7 @@ const canOversizedThrow = (c: Character, entries: ContentEntry[]) => {
   }
   return occupiedHands < capacity
 }
-const OFFENSIVE_DEFENSE_WEAPON_ID = 'sf2e:soldier:offensive-defense'
+export const OFFENSIVE_DEFENSE_WEAPON_ID = 'sf2e:soldier:offensive-defense'
 const OFFENSIVE_DEFENSE_GRADES = ['Commercial', 'Tactical', 'Advanced', 'Superior', 'Elite', 'Ultimate', 'Paragon']
 
 function offensiveDefenseGrade(name: string, forceField: boolean) {
@@ -7505,7 +7505,7 @@ export function offensiveDefenseAttack(c: Character, entries: ContentEntry[]) {
   const damageDice = grade >= 6 ? 4 : grade >= 4 ? 3 : 2
   const source = grade === 0 ? 'Commercial' : OFFENSIVE_DEFENSE_GRADES[grade]
   const entry: ContentEntry = {
-    id: OFFENSIVE_DEFENSE_WEAPON_ID, kind: 'weapon', source: 'official', name: 'Offensive Defense',
+    id: OFFENSIVE_DEFENSE_WEAPON_ID, kind: 'weapon', source: 'official', name: 'Concussive Blast',
     systems: ['sf2e'], level: 6, traits: ['Area 5-foot burst', 'Unwieldy', 'Tech', `Tracking +${tracking}`],
     description: `Two actions. Area Fire in a 5-foot burst, excluding yourself. Grade: ${source}.`,
     data: { actions: 'Two Actions', weapon_category: 'Martial', weapon_type: 'Melee', weapon_group: 'Shield',

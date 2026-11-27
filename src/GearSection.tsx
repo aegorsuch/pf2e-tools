@@ -28,7 +28,7 @@ import { crimsonClawUsesVersatileSlashing, installedHardlightUpgrades, isFeatEff
 import { getSettings } from './settings'
 import { ARMIGER_ARMOR_ID, automaticArmorFundamentals, automaticArmorPropertyRunes, BONY_PLATE_RUNE_FAMILIES, BONY_PLATES_ID, canWearWithAttachedArmor, INVENTOR_ARMOR_ID, INVENTOR_SUITS, isGrantedArmor } from './grantedArmor'
 import { ARMOR_GAUNTLETS, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, HARDLIGHT_HANDWRAPS, IRON_FIST, OVERSIZED_THROW, SPARK_FIST, UNTAMED_CLAWS } from './supplemental'
-import { supportsMeleeWeaponUpgrade } from './builder'
+import { OFFENSIVE_DEFENSE_WEAPON_ID, supportsMeleeWeaponUpgrade } from './builder'
 import { ENERGIZED_SPIKES_ENERGIES, ENERGY_SHIELDING_TYPES, type Character, type ContentEntry, type EnergyShieldingType, type EnergizedSpikesEnergy, type HardlightGrade, type OwnedArmor, type OwnedShield, type OwnedWeapon } from './types'
 import { TransmutativeCasing } from './TransmutativeCasing'
 import { ExploitiveAssault } from './ExploitiveAssault'
@@ -1712,7 +1712,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         if (displayOnly) return <div key={w.id} className="gear-card">
           <div className="weapon-offense-header">
             <strong><EntryDescription name={displayName} entry={witchAttackEntry(c, entries, w.id, a.entry)} className="equipment-name" /></strong>
-            {w.id === OVERSIZED_THROW.id ? oversizedAction : a.entry?.name === 'Offensive Defense' && <> <ActionIcon entry={a.entry} /></>}
+            {w.id === OVERSIZED_THROW.id ? oversizedAction : a.entry?.id === OFFENSIVE_DEFENSE_WEAPON_ID && <> <ActionIcon entry={a.entry} /></>}
             {c.hardpointWeaponId === w.id && hardpointWeaponEligible(c, entries, w) && weaponHeld(c, entries, w)
               && <SourceNote inlineSource={false} source="Hardpoint" note="Integrated weapon: cannot be disarmed, dropped, or stolen until stowed." />}
             {equipControls}
@@ -1729,7 +1729,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
             {typeof a.entry?.data.form_effect === 'string' && a.entry.data.form_effect && <SourceNote source="Untamed Form" note={a.entry.data.form_effect} inlineSource={false} />}
           </small>}
           {a.areaAttacks.map(area => <small key={area.name}>{area.name}: DC {area.dc} Reflex, {area.shape}
-            <SourceNote source={a.entry?.name === 'Offensive Defense' ? 'Offensive Defense' : 'Suppressing Fire / Primary Target'} note={area.note} /></small>)}
+            <SourceNote source={a.entry?.id === OFFENSIVE_DEFENSE_WEAPON_ID ? 'Offensive Defense' : 'Suppressing Fire / Primary Target'} note={area.note} /></small>)}
           {capacity > 0 && <small>{loaded}/{capacity} loaded</small>}
           {!upgradeWeapon && !fixed && <Runes
             runes={activeRunes.filter(rune => !activeFreeRunes.some(free => runeName(free.name) === runeName(rune)))}
@@ -1803,7 +1803,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
                 {summary.attack.reach > 0 && <span><small>Reach</small><b>{summary.attack.reach} feet</b></span>}
                 {summary.attack.areaAttacks.map(area => <span key={area.name}><small>{area.name}</small>
                   DC {area.dc} Reflex, {area.shape}
-                  <SourceNote source={summary.attack.entry?.name === 'Offensive Defense' ? 'Offensive Defense' : 'Suppressing Fire / Primary Target'} note={area.note} /></span>)}
+                  <SourceNote source={summary.attack.entry?.id === OFFENSIVE_DEFENSE_WEAPON_ID ? 'Offensive Defense' : 'Suppressing Fire / Primary Target'} note={area.note} /></span>)}
                 <span><small>{ABILITY_LABEL[summary.attack.ability]}</small>{signed(summary.attack.mod)}</span>
                 <span><small>Proficiency</small>{signed(summary.attack.prof)}</span>
                 <span><small>Item</small>{signed(summary.attack.item)}</span>

@@ -168,7 +168,7 @@ it('shows scaled Offensive Defense as a weapon-like attack in Offense', () => {
     feats: [{ name: 'Offensive Defense', type: 'Class Feat', level: 6 }],
     armors: [{ id: 'armor', name: 'Armor', potency: 0, resilient: 0, runes: [], upgrades: [forceField.id], worn: true }] }
   const html = renderToStaticMarkup(<SkillsSection c={c} entries={[soldierClass, forceField]} save={() => {}} part="offense" />)
-  expect(html).toContain('Offensive Defense')
+  expect(html).toContain('Concussive Blast')
   expect(html).toContain('Two Actions')
   expect(html).toContain('Damage 2d10 B')
   expect(html).toContain('Area Fire')
