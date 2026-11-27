@@ -865,13 +865,13 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
               }),
               ...(c.systems.includes('pf2e') && subclass && ['Ranger', 'Rogue', 'Gunslinger'].includes(c.className ?? '')
                 ? subclassFeatureRows(subclass).filter(row => row.level <= c.level).map(row => ({
-                  entry: { ...subclass, description: row.description, data: { ...subclass.data, ...(row.actions ? { actions: row.actions } : {}) } }, label: c.className === 'Ranger' && row.name === 'Masterful Hunter' ? `Masterful ${subclass.name} Edge` : row.name, level: row.level })) : []),
+                  entry: { ...subclass, description: row.description, data: { ...subclass.data, ...(row.actions ? { actions: row.actions } : {}) } }, label: c.className === 'Ranger' && row.name === 'Masterful Hunter' ? `Masterful ${subclass.name} Edge` : `${row.name} (${subclass.name})`, level: row.level })) : []),
               ...(c.systems.includes('pf2e') && c.className === 'Gunslinger' ? activeFeatsNamed(c, 'Versatile Gunslinger').flatMap(feat => {
                 const way = subclasses.find(entry => entry.name === feat.choice)
                 const taken = featTakenLevel(feat)
                 return way ? subclassFeatureRows(way).map(row => ({ row, way, level: Math.max(row.level, taken) })).filter(({ level }) => level <= c.level)
                   .map(({ row, way, level }) => ({ entry: { ...way, description: row.description, data: { ...way.data, ...(row.actions ? { actions: row.actions } : {}) } },
-                    label: row.name, level })) : []
+                    label: `${row.name} (${way.name})`, level })) : []
               }) : []),
               ...(c.className === 'Mystic' && c.systems.includes('sf2e') && subclass && MYSTIC_CONNECTIONS[subclass.name] ? [
                 { entry: { ...subclass, description: MYSTIC_CONNECTIONS[subclass.name].harmony }, label: `${subclass.name} Harmony`, level: 1 },
@@ -888,10 +888,10 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                 return exploit ? [
                   { entry: { ...entry, description: exploit.exploit }, label: `${entry.name} Exploit`, level },
                   ...(exploit.exploitAction ? [{ entry: { ...entry, description: exploit.exploitAction.description, data: { ...entry.data, actions: exploit.exploitAction.actions } },
-                    label: exploit.exploitAction.name, level }] : []),
+                    label: `${exploit.exploitAction.name} (${entry.name})`, level }] : []),
                   { entry: { ...entry, description: exploit.enhanced }, label: `${entry.name} Enhanced Exploit`, level: enhancedLevel },
                   ...(exploit.enhancedAction ? [{ entry: { ...entry, description: exploit.enhancedAction.description, data: { ...entry.data, actions: exploit.enhancedAction.actions } },
-                    label: exploit.enhancedAction.name, level: enhancedLevel }] : []),
+                    label: `${exploit.enhancedAction.name} (${entry.name})`, level: enhancedLevel }] : []),
                 ].filter(row => row.level <= c.level) : []
               }) : []),
             ].map(({ entry, label, level }: { entry: ContentEntry; label: string; level?: number }) => ({ ...entry, id: `${entry.id}:${label}`, name: label, description: /^Trained in [^.]*\.\s*$/.test(entry.description ?? '') ? '' : entry.description, level: level ?? (/\((Versatile |Second Innovation|Third Innovation|Order Explorer)/.test(label)
