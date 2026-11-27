@@ -23,6 +23,11 @@ it('pages expanded feat variants and selects a later choice', async () => {
   const root = createRoot(container)
   try {
     await act(async () => root.render(<SearchableFeatSlots c={c} entries={entries} categories={['ancestry']} save={save} />))
+    await act(async () => {
+      const section = container.querySelector('details')!
+      section.open = true
+      section.dispatchEvent(new Event('toggle'))
+    })
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="L01 Ancestry feat"]')!.click())
     const group = document.querySelector<HTMLDetailsElement>('.feat-variant-group')!
     expect(group.open).toBe(false)
@@ -74,6 +79,11 @@ it('reuses feat-choice variants when ancestry search text changes', async () => 
   const root = createRoot(container)
   try {
     await act(async () => root.render(<SearchableFeatSlots c={c} entries={entries} categories={['ancestry']} save={() => {}} />))
+    await act(async () => {
+      const section = container.querySelector('details')!
+      section.open = true
+      section.dispatchEvent(new Event('toggle'))
+    })
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="L01 Ancestry feat"]')!.click())
     const callsAfterOpening = choiceOptions.mock.calls.length
     const input = document.querySelector<HTMLInputElement>('[aria-label="Search L01 Ancestry feats"]')!

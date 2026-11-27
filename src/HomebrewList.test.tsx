@@ -13,13 +13,14 @@ afterEach(() => vi.unstubAllGlobals())
 
 it.each([false, true])('confirms homebrew deletion before invoking its persistence handler: %s', (accepted) => {
   const entry = homebrewCharacterOptions([])[0]
+  const label = "Paragon's Guard Stance"
   const confirm = vi.fn(() => accepted)
   vi.stubGlobal('window', { confirm })
   const onDelete = vi.fn()
   let remove: (() => void) | undefined
   const visit = (node: ReactNode) => Children.forEach(node, (child) => {
     if (!isValidElement<Record<string, unknown>>(child)) return
-    if (child.type === 'button' && child.props['aria-label'] === `Delete ${entry.name}`) remove = child.props.onClick as () => void
+    if (child.type === 'button' && child.props['aria-label'] === `Delete ${label}`) remove = child.props.onClick as () => void
     visit(child.props.children as ReactNode)
   })
   function Inspect() {
@@ -30,7 +31,7 @@ it.each([false, true])('confirms homebrew deletion before invoking its persisten
     return <>{tree}</>
   }
   renderToStaticMarkup(<Inspect />)
-  expect(confirm).toHaveBeenCalledWith(`Remove homebrew "${entry.name}"?`)
+  expect(confirm).toHaveBeenCalledWith(`Remove homebrew "${label}"?`)
   expect(onDelete).toHaveBeenCalledTimes(accepted ? 1 : 0)
   if (accepted) expect(onDelete).toHaveBeenCalledWith(entry.id)
 })

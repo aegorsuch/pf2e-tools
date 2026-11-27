@@ -251,7 +251,7 @@ it('tracks Holo-Roger and shows its conditional Demoralize bonus only while acti
     await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Holo-Roger status"]')!.click())
     expect(container.querySelector('summary')?.textContent).toContain('Holo-Roger')
     expect(container.querySelector<HTMLInputElement>('[aria-label="Holo-Roger active"]')?.checked).toBe(true)
-    expect(container.textContent).toContain('while the holo-flag is projected on a starship')
+    expect(container.textContent).toContain('While projected on a starship, gain a +1 circumstance bonus to Intimidation checks to Demoralize.')
     await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Holo-Roger active"]')!.click())
     expect(container.querySelector<HTMLInputElement>('[aria-label="Holo-Roger status"]')?.checked).toBe(false)
   } finally {

@@ -16,7 +16,7 @@ import { SearchableSelect } from './SearchableSelect'
 import { featSpellOptions } from './featSpells'
 import { MAGIC_TRADITIONS, minorMagicOptions } from './minorMagic'
 import { canChangeUntamedForm, untamedFormOptions, untamedFormRanks } from './builder'
-import { animistApparitionSlots, avengerClericSpellSlots, minorMagicInheritedTradition, minorMagicSpells, avengerEldritchCastingClass, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, knownSpellNames, selectedGrantedSpellNames, necromancerDirge, necromancerDirgeCanLearn, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
+import { animistApparitionSlots, avengerClericSpellSlots, minorMagicInheritedTradition, minorMagicSpells, avengerEldritchCastingClass, classDifficultyClass, classExtraSlots, isSpontaneousClass, classRepertoireRows, classSpellSlots, conditionPenalty, druidSpellList, witchSpellList, giantWeaponClumsy, innateSpellAbility, knownSpellNames, selectedGrantedSpellNames, necromancerDirge, necromancerDirgeCanLearn, necromancerGrantedDirgeSpells, necromancerSpellList, spellDifficultyClass, spellName, wizardArchetypeSpellbookChoices, wizardCurriculum, wizardSchool, wizardSchoolBookSpells, type Ability } from './builder'
 import { hasDivineIntercession } from './divineIntercessions'
 import { SourceNote } from './Info'
 import { itemSpells, itemSpellUses, itemSpellUsesChange, type ItemSpell } from './itemSpells'
@@ -2339,8 +2339,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     const databaseSpells = [...(c.spells ?? []).filter(spell => !programmedNames.has(spell.name.toLowerCase())),
       ...programmedSpellEntries.map(entry => ({ name: entry.name, entryId: entry.id, rank: entry.level,
         cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }))]
+    const grantedDirge = new Set(necromancerGrantedDirgeSpells(c))
     const available = [...((warriorSpells ?? bloodragerSpells ?? clericSpells ?? witchAvailable ?? druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
-      rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: false })) ?? databaseSpells
+      rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: grantedDirge.has(entry.name) })) ?? databaseSpells
       .filter(spell => !forced.some(extra => extra.name === spell.name)).map(spell => ({ ...spell, forced: false }))), ...forced]
       .filter(spell => spell.forced || !preventDuplicateSpells || !selectedGrantNames.has(spell.name.toLowerCase()))
       .map(spell => {

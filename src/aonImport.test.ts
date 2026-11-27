@@ -196,14 +196,14 @@ it('auto-upgrades requested Starfinder armor families and classifies them as spe
     expect(autoUpgrades.map(entry => entry.name)).toContain('Force Field (Paragon)')
     if (name === 'Aquavarius Armor') expect(autoUpgrades.map(entry => entry.name)).not.toContain('Jetpack (Tactical)')
     else expect(autoUpgrades.map(entry => entry.name)).toContain('Jetpack (Tactical)')
-    expect(autoUpgrades).toHaveLength(name === 'Stormbreaker Armor' ? 6 : name === "Drifter's Jacket" || name === 'Clandestine Suit' ? 5
+    expect(autoUpgrades).toHaveLength(name === 'Stormbreaker Armor' || name === 'Clandestine Suit' ? 6 : name === "Drifter's Jacket" ? 5
       : name === 'Aquavarius Armor' || name === 'Rocketeer Armor' ? 3
       : name === 'Carvesong' || name === 'Myrmidon Siegebreaker Plate' ? 4
       : name === 'Retrieval Harness' ? 4
       : 2)
     if (name === 'Clandestine Suit') expect(autoUpgrades.map(entry => entry.name))
       .toEqual(expect.arrayContaining(['Active Camouflage (Advanced)', 'Cloaking Device (Tactical)',
-        'Drift Drive Relay (Advanced)']))
+        'Drift Drive Relay (Advanced)', 'Maneuvering Unit (Superior)']))
     if (name === 'Myrmidon Siegebreaker Plate' || name === 'Stormbreaker Armor')
       expect(autoUpgrades.map(entry => entry.name)).toContain('Mobility Enhancer')
     if (name === 'Myrmidon Siegebreaker Plate') {

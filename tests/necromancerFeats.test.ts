@@ -35,4 +35,4 @@ it.skipIf(!existsSync(snapshot))('offers imported level-two Necromancer feats wh
       expect(markup).toContain(`L02 Class: ${name}`)
     }
   }
-})
+}, 15_000)

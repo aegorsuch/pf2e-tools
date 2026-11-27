@@ -6,7 +6,7 @@ import {
   featChoiceOptions, heritagesFor, initiativeBonus, magicHideChange, maxPropertyRunes, movementSpeeds, ownedArmors, ownedWeapons, plannedSlots, ragingAthleteBenefits, researchedSpellResistance, resistances, senses, signed, speed, weaponAttack, weaponCanUseTwoHands, weaponEntry, weaponEquipped, weaponHands,
 } from './builder'
 import { companionStats } from './companions'
-import { ArmorList, Augmentations, Gadgets, SimplePoisons, WeaponList } from './GearSection'
+import { ArmorList, Augmentations, Gadgets, MechanicWeaponMods, SimplePoisons, WeaponList } from './GearSection'
 import { ClassFeatures } from './ClassFeatures'
 import { SensesAndSpeed, SkillsSection } from './SkillsSection'
 import { MinionsSection } from './MinionsSection'
@@ -1669,12 +1669,12 @@ it('applies active mechanic weapon mods only to eligible weapons and damage type
   expect(weaponAttack({ ...c, level: 4 }, [laser], weapon).damage).toBe('1d6 F')
   expect(weaponAttack({ ...c, className: 'Soldier' }, [laser], weapon)).toMatchObject({ damage: '1d6 F', range: 60, traits: ['Tech'] })
   expect(weaponAttack({ ...c, mechanicWeaponMods: { laser: { damageType: 'slashing' } } }, [laser], weapon).damage).toBe('1d6 F')
-  const markup = renderToStaticMarkup(<WeaponList c={c} entries={[laser]} save={() => {}} displayOnly />)
+  const markup = renderToStaticMarkup(<MechanicWeaponMods c={c} weapon={weapon} attack={weaponAttack(c, [laser], weapon)} save={() => {}} />)
   expect(markup).toContain('Long-range Propulsors')
   expect(markup).toContain('+5 damage to objects, structures, vehicles, and creatures with Hardness.')
   const improved: Character = { ...c, level: 6, feats: [{ name: 'Boosting The Basics', type: 'Class Feat', level: 6 }] }
   expect(weaponAttack(improved, [laser], weapon).range).toBe(120)
-  const improvedMarkup = renderToStaticMarkup(<WeaponList c={improved} entries={[laser]} save={() => {}} displayOnly />)
+  const improvedMarkup = renderToStaticMarkup(<MechanicWeaponMods c={improved} weapon={weapon} attack={weaponAttack(improved, [laser], weapon)} save={() => {}} />)
   expect(improvedMarkup).toContain('+10 damage to objects')
   expect(improvedMarkup).toContain('critically hit or critically failing their save become frightened 1')
 })
@@ -2264,7 +2264,7 @@ it('adds Adapted Augmentations to normal capacity and counts legacy adapted impl
     { id: 'legacy-adapted', entryId: implant.id, name: implant.name, slot: 'adapted' }] }
   expect(canInstallAugmentation(full, implant, 'standard')).toBe(false)
   expect(canInstallAugmentation(full, { ...implant, traits: ['Apex'] }, 'standard')).toBe(false)
-  expect(canInstallAugmentation(full, { ...implant, description: "This augmentation doesn't count against your implant limit." }, 'standard')).toBe(true)
+  expect(canInstallAugmentation(full, { ...implant, name: 'Exempt Implant', description: "This augmentation doesn't count against your implant limit." }, 'standard')).toBe(true)
   const markup = renderToStaticMarkup(<Augmentations c={full} entries={[implant]} save={() => {}} />)
   expect(markup).toContain('aria-label="Augmentation capacity">6/6</small>')
   expect(markup).not.toContain('Augmentation implant slot')

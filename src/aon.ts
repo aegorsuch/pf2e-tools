@@ -11,7 +11,7 @@ export const AON_SITES: Record<GameSystem, string> = {
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '')
 
-function heritageMovementSpeeds(markdown: string, rawSpeed: unknown): Record<string, number | string> {
+function heritageMovementSpeeds(text: string, rawSpeed: unknown): Record<string, number | string> {
   const parsed: Record<string, number | string> = {}
   const modes = ['land', 'climb', 'swim', 'fly', 'burrow'] as const
   const speeds = rawSpeed && typeof rawSpeed === 'object' ? rawSpeed as Record<string, unknown> : {}
@@ -20,7 +20,7 @@ function heritageMovementSpeeds(markdown: string, rawSpeed: unknown): Record<str
     if (typeof raw === 'number' && raw > 0) parsed[`speed_${mode}`] = raw
   }
 
-  const sentences = plain(markdown).split(/(?<=[.!?])\s+/)
+  const sentences = text.split(/(?<=[.!?])\s+/)
   for (const sentence of sentences) {
     if (/\b(?:if|when|while|unless|only if|only while)\b/i.test(sentence)) continue
     for (const mode of modes.slice(1)) {
@@ -45,12 +45,12 @@ function heritageMovementSpeeds(markdown: string, rawSpeed: unknown): Record<str
   return parsed
 }
 
-function heritageSkillGrant(markdown: string) {
+function heritageSkillGrant(text: string) {
   const skills = ['Acrobatics', 'Arcana', 'Athletics', 'Crafting', 'Deception', 'Diplomacy', 'Intimidation',
     'Medicine', 'Nature', 'Occultism', 'Performance', 'Religion', 'Society', 'Stealth', 'Survival',
     'Thievery', 'Computers', 'Piloting']
   const match = new RegExp(`\\byou\\s+(?:also\\s+)?(?:become|are)\\s+trained\\s+in\\s+(${skills.join('|')})(\\s+Lore)?\\b`, 'i')
-    .exec(plain(markdown))
+    .exec(text)
   const skill = match && skills.find(name => name.toLowerCase() === match[1].toLowerCase())
   return skill ? `${skill}${match?.[2] ? ' Lore' : ''}` : undefined
 }
@@ -74,8 +74,8 @@ function featGrants(markdown: string) {
   return [...grants]
 }
 
-function heritageSize(markdown: string) {
-  for (const sentence of plain(markdown).split(/(?<=[.!?])\s+/)) {
+function heritageSize(text: string) {
+  for (const sentence of text.split(/(?<=[.!?])\s+/)) {
     if (/\b(?:if|when|while|unless)\b/i.test(sentence)) continue
     const match = /\b(?:your size is|you are)\s+(Tiny|Small|Medium|Large|Huge)\b/i.exec(sentence)
     if (match) return match[1][0].toUpperCase() + match[1].slice(1).toLowerCase()
@@ -83,8 +83,7 @@ function heritageSize(markdown: string) {
   return undefined
 }
 
-function languageGrantRules(markdown: string) {
-  const text = plain(markdown)
+function languageGrantRules(text: string) {
   const languages = new Set<string>()
   for (const match of text.matchAll(/\byou\s+(?:can\s+)?speak\s+([A-Z][A-Za-z-]*)\b/gi)) languages.add(match[1])
   for (const match of text.matchAll(/\byou\s+know\s+(?:the\s+)?([A-Z][A-Za-z-]*)\s+language\b/gi)) languages.add(match[1])
@@ -114,13 +113,13 @@ function languageGrantRules(markdown: string) {
   }
 }
 
-function heritageResistances(markdown: string) {
+function heritageResistances(text: string) {
   const damageTypes = new Set([
     'acid', 'bludgeoning', 'cold', 'electricity', 'fire', 'force', 'mental', 'negative', 'poison',
     'piercing', 'precision', 'slashing', 'sonic', 'spirit', 'vitality', 'void', 'radiation', 'physical',
   ])
   const grants = new Set<string>()
-  for (const sentence of plain(markdown).split(/(?<=[.!?])\s+/)) {
+  for (const sentence of text.split(/(?<=[.!?])\s+/)) {
     const patterns = [
       /\b(?:gain|gains|have|has|gives you)\s+([a-z][a-z -]*?)\s+resistance equal to half your level\b/gi,
       /\b(?:gain|gains|have|has|gives you)\s+resistance to ([a-z][a-z -]*?) equal to half your level\b/gi,
@@ -190,7 +189,8 @@ function featAttackEntries(feat: ContentEntry, markdown: string): ContentEntry[]
 
 function heritageAttackEntries(heritage: ContentEntry, markdown: string): ContentEntry[] {
   if (heritage.name === 'Fork-Tongued Vesk') return []
-  const sentences = plain(markdown).split(/(?<=[.!?])\s+/)
+  const normalized = plain(markdown)
+  const sentences = normalized.split(/(?<=[.!?])\s+/)
   const entries: ContentEntry[] = []
   const damageTypes = 'acid|bludgeoning|cold|electricity|fire|force|mental|negative|piercing|poison|slashing|sonic|spirit|vitality|void'
   const addAttack = (attackName: string, dice: string, damageType: string, group: string, traits: string[], ranged: boolean, range: number, description: string) => {
@@ -245,7 +245,7 @@ function heritageAttackEntries(heritage: ContentEntry, markdown: string): Conten
     addAttack(attackName, damage[1], damage[2], group, traits,
       match[2]?.toLowerCase() === 'ranged' || range > 0, range, sentence)
   }
-  const standardized = /Ancestral Unarmed Attack\s*\(([^)]+)\)\s+standardized ancestry feat/i.exec(plain(markdown))?.[1]
+  const standardized = /Ancestral Unarmed Attack\s*\(([^)]+)\)\s+standardized ancestry feat/i.exec(normalized)?.[1]
   if (standardized) {
     const attackName = standardized.split(',', 1)[0].trim()
     const damage = new RegExp(`\\b(\\d+d\\d+)\\s+(${damageTypes})\\b`, 'i').exec(standardized)
@@ -259,15 +259,14 @@ function heritageAttackEntries(heritage: ContentEntry, markdown: string): Conten
   return entries
 }
 
-function heritageSenseGrant(markdown: string) {
+function heritageSenseGrant(text: string) {
   const match = /\byou\s+(?:also\s+)?(?:gain|have)\s+(precise|imprecise)\s+(scent|tremorsense|wavesense)(?:\s+with)?(?:\s+(?:a\s+)?range)?\s+of\s+(\d+)\s+feet/i
-    .exec(plain(markdown))
+    .exec(text)
   if (!match) return undefined
   return `${match[2][0].toUpperCase()}${match[2].slice(1)} (${match[1]}) ${match[3]} feet`
 }
 
-function heritageAttributeRules(markdown: string): Record<string, string> {
-  const text = plain(markdown)
+function heritageAttributeRules(text: string): Record<string, string> {
   const abilities = 'Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma'
   const rules: Record<string, string> = {}
   const override = new RegExp(`instead of the normal attribute boosts, you can choose to gain ([^.]+)`, 'i').exec(text)?.[1]
@@ -390,7 +389,7 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     const levels = [...archetypes.matchAll(/\[([^\]]+)\]\([^)]*\)\s*\(Level (\d+)\)/gi)]
     if (levels.length) data.archetype_levels = levels.map((match) => `${match[1]}:${match[2]}`).join(', ')
     if (traits.some(trait => trait.toLowerCase() === 'lineage')) {
-      Object.assign(data, languageGrantRules(text(s.markdown)))
+      Object.assign(data, languageGrantRules(plain(text(s.markdown))))
     }
     const feats = featGrants(text(s.markdown))
     if (system === 'sf2e' && name === 'Shield Ace Dedication' && !feats.includes('Quick Repair')) feats.push('Quick Repair')
@@ -399,12 +398,13 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
   const land = (s.speed as { land?: unknown } | undefined)?.land
   if (typeof land === 'number') data.speed = land
   if (kind === 'heritage') {
-    Object.assign(data, heritageMovementSpeeds(text(s.markdown), s.speed))
-    Object.assign(data, heritageAttributeRules(text(s.markdown)))
-    Object.assign(data, languageGrantRules(text(s.markdown)))
-    const size = heritageSize(text(s.markdown))
+    const heritageText = plain(text(s.markdown))
+    Object.assign(data, heritageMovementSpeeds(heritageText, s.speed))
+    Object.assign(data, heritageAttributeRules(heritageText))
+    Object.assign(data, languageGrantRules(heritageText))
+    const size = heritageSize(heritageText)
     if (size) data.size = size
-    const resistances = heritageResistances(text(s.markdown))
+    const resistances = heritageResistances(heritageText)
     if (resistances.length) {
       const existing = typeof data.resistances === 'string' ? data.resistances.split(',').map(value => value.trim()) : []
       const existingDamage = new Set(existing.map(value => value.split('=')[0].trim().toLowerCase()))
@@ -412,9 +412,9 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     }
     const feats = featGrants(text(s.markdown))
     if (feats.length) data.grants_heritage_feats = feats.join(';')
-    const skill = heritageSkillGrant(text(s.markdown))
+    const skill = heritageSkillGrant(heritageText)
     if (skill) data.grants_skill = skill
-    const sense = heritageSenseGrant(text(s.markdown))
+    const sense = heritageSenseGrant(heritageText)
     if (sense) data.grants_senses = sense
   }
   const leadsTo = kind === 'feat' ? /<title\b[^>]*>[^<]*\bleads to\.\.\.<\/title>([\s\S]*)/i.exec(text(s.markdown))?.[1] : undefined

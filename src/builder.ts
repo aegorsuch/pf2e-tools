@@ -2044,7 +2044,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && archetypesOf(e).includes('Beastmaster') && hasWardenChoice(e)
         && !wardenSpellOptions(e, entries, true).length)
       && !(slot.category === 'archetype' && !!classTrait && traits.has(classTrait)
-        && featSelectionLevel(e, c, entries, 'class', slot) <= Math.min(slot.level, slot.maxFeatLevel ?? slot.level))
+        && featSelectionLevel(e, c, entries, 'class', slot) <= Math.min(slot.level, slot.maxFeatLevel ?? slot.level)
+        && !c.feats.some(feat => feat.slot === slot.key && feat.name === e.name && (!feat.sourceId || feat.sourceId === e.id)))
       && !(classCompanionStages.has(companionProgressionStage(e.name) ?? '') && !traits.has(classTrait ?? '')
         && (traits.has('archetype') || archetypesOf(e).length > 0)
         && !c.feats.some(feat => feat.slot === slot.key && feat.name === e.name && (!feat.sourceId || feat.sourceId === e.id)))
@@ -5872,7 +5873,9 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
       const grantedFeats = tokens(selectedFeatEntry(c, entries, feat.name, feat.sourceId)?.data.grants_feats)
       for (const name of grantedFeats) {
         if (name === 'Additional Lore' && (feat.name === 'Ancestral Skills' && ancestralSkillLores(c, entries, [feat]).length
+          || feat.name === 'Damaya Self-Perfection' && c.systems.includes('sf2e')
           || feat.name !== 'Dwarven Lore' && ancestryLoreGrant(c, entries, feat.name))) continue
+        if (name === 'Legendary Professional' && feat.name === 'Damaya Self-Perfection' && c.systems.includes('sf2e')) continue
         grants.push({ name, source: feat.name, level: featTakenLevel(feat) })
       }
     }
@@ -7820,7 +7823,7 @@ export function ownedWeapons(c: Character, entries: ContentEntry[]): OwnedWeapon
         ...(saved.capacityLoaded !== undefined ? { capacityLoaded: saved.capacityLoaded } : {}) }
     } else weapons.push(grant)
   }
-  const ironFists = c.feats.some((feat) => /^Iron Fists?$/i.test(feat.name))
+  const ironFists = c.feats.some((feat) => /^Iron Fists?$/i.test(feat.name) && featTakenLevel(feat) <= c.level)
   const tusks = c.feats.some((feat) => /^Tusks(?: \(Orc\))?$/i.test(feat.name))
   const haftStriker = !!haftStrikerSource(c, entries)
   const oversizedThrow = canOversizedThrow(c, entries)
@@ -8400,6 +8403,7 @@ function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) 
   return SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name && (isAutomaticUnarmed(name) || name === HAFT_STRIKER_WEAPON.name))
     ?? byName(entries, 'weapon', name) ?? namedWeapons.find(entry => entry.name === resolvedName)
     ?? namedWeapons.find(entry => entry.name === legacyNamedName)
+    ?? namedWeapons.find(entry => entry.data.named_weapon_source === resolvedName && !entry.data.named_weapon_resolver_only)
     ?? SUPPLEMENTAL_WEAPONS.find(entry => entry.name === name)
     ?? [...ATTACHED_WEAPONS, SHIELD_BASH].find(entry => entry.name === name)
 }
@@ -9563,7 +9567,7 @@ export function crimsonClawUsesVersatileSlashing(c: Character, entries: ContentE
 
 function inheritedFreeHandManeuvers(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
   const entry = weaponEntry(entries, weapon.name, weapon.id)
-  if (!entry || !weaponEquipped(c, entries, weapon)
+  if (!entry || isRanged(entry) || !weaponEquipped(c, entries, weapon)
     || !entry.traits.some(trait => /^free[- ]hand$/i.test(trait.trim()))) return []
   const attacks = ownedWeapons(c, entries).filter(candidate => candidate.id !== weapon.id
     && weaponCategory(weaponEntry(entries, candidate.name, candidate.id)) === 'Unarmed')

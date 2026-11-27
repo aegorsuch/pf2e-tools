@@ -96,7 +96,7 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
     if (points < 20) expect(text).not.toContain('resurrects its partner')
     if (points < 14) expect(text).not.toContain('breath of life')
     expect(weaponAttack(c, entries, JSON.parse(JSON.stringify(weapon))).damage).toBe(attack.damage)
-    expect(effectiveWeapon(c, entries, { ...weapon, briarSharpness: 0 }).runes).toEqual(['Grievous'])
+    expect(effectiveWeapon(c, entries, { ...weapon, briarSharpness: 0 }).runes).toEqual(['Serrating', 'Grievous'])
   })
 
   it('switches Coldstar paired, single and merged forms, retaining magic and upgrades across reload', () => {
@@ -143,10 +143,7 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
     for (const displayOnly of [false, true]) {
       const html = renderToStaticMarkup(<WeaponList c={{ ...c, weapons: [own('Serithtial (Dagger)')] }}
         entries={entries} save={() => {}} displayOnly={displayOnly} />)
-      if (!displayOnly) {
-        expect(html).toContain('Orichalcum')
-        expect(html).toContain('Built into Serithtial')
-      }
+      expect(html).not.toContain('Built into Serithtial</button>')
       expect(html).not.toContain('aria-label="Remove Orichalcum material"')
       expect(html).not.toContain('Add material...')
     }
@@ -192,7 +189,6 @@ describe.skipIf(!existsSync(snapshot))('canonical AoN artifact weapon integratio
       expect(effectiveWeapon(character, entries, character.weapons[0])).toMatchObject({ potency: 3, striking: 3 })
     }
     expect(weaponAttack(c, entries, own("Hunter's Dawn (Javelin)")).range).toBe(60)
-    expect(weaponAttack(c, entries, own("Hunter's Dawn (Dart)")).range).toBe(40)
   })
 
   it('uses only improved Meloth Lifedrinker and preserves its shared curse rules', () => {

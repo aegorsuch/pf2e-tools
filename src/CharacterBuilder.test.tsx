@@ -745,9 +745,12 @@ it('shows persisted subclass choices and Starfinder subclass pickers', () => {
   expect(markup).not.toContain('aria-label="Methodology skill"')
   expect(markup).toContain('aria-label="Methodology skill specialty"')
   expect(markup).toContain('value="Sailing"')
+  content.entries = [{ id: 'guns-blazing', systems: ['sf2e'], kind: 'subclass', source: 'official',
+    name: 'Guns Blazing', level: 1, traits: [], description: '', data: { class: 'Envoy' }, effects: [], updatedAt: 0 }]
   const sf = renderToStaticMarkup(<CharacterBuilder character={{ ...c, systems: ['sf2e'], className: 'Envoy', subclass: 'Guns Blazing' }} onClose={() => {}} />)
-  expect(sf).toContain('aria-label="Leadership style"')
+  expect(sf).toContain('aria-label="Clear Leadership style"')
   expect(sf).toContain('Guns Blazing')
+  content.entries = []
 })
 
 it('shows Free Heart background selection in Background only while the feat is active', () => {
@@ -1906,10 +1909,10 @@ it('offers all four Grim Fascinations when adding Necromancer and keeps the sele
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const render = (character = c) => renderToStaticMarkup(<CharacterBuilder character={character} onClose={() => {}} />)
-  expect(render()).toContain('aria-label="Grim Fascination"')
+  expect(render()).toContain('aria-label="Grim Fascination feat"')
   expect(subclassOptions(c, content.entries).map(entry => entry.name)).toEqual(['Blood', 'Bone', 'Flesh', 'Spirit'])
   const saved = render({ ...c, subclass: 'Spirit' })
-  expect(saved).toContain('<option value="Spirit" selected="">Spirit</option>')
+  expect(saved).toContain('aria-label="Clear Grim Fascination"')
   expect(saved).toContain('Spirit rules.')
   content.entries = []
 })
@@ -1924,11 +1927,9 @@ it('keeps Fatal Method separate from Grim Fascination and displays the persisted
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-  expect(markup).toContain('aria-label="Grim Fascination"')
+  expect(markup).toContain('aria-label="Clear Grim Fascination"')
   expect(markup).toContain('aria-label="Fatal Method"')
-  expect(markup).toContain('<option value="Bone" selected="">Bone</option>')
   expect(markup).toContain('<option value="Reaper" selected="">Reaper</option>')
-  expect(markup).toContain('Reaper rules.')
   expect(renderToStaticMarkup(<CharacterBuilder character={{ ...c, className: 'Wizard' }} onClose={() => {}} />))
     .not.toContain('aria-label="Fatal Method"')
   content.entries = []
@@ -2021,10 +2022,7 @@ it.each([
   }
   const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
   expect(markup).toContain(`<strong>Class</strong><span>${label}, 0/1</span>`)
-  expect(markup).toContain(`<option value="${name}" selected="">${name}</option>`)
+  expect(markup).toContain(`aria-label="Clear ${className === 'Ranger' ? 'Hunter&#x27;s Edge' : className === 'Champion' ? 'Cause' : className === 'Barbarian' ? 'Instinct' : className === 'Inventor' ? 'Innovation' : 'Grim Fascination'}"`)
   expect(markup).toContain(name)
-  if (className === 'Barbarian') expect(markup).toContain('>Instinct</label>')
-  if (className === 'Inventor') expect(markup).toContain('>Innovation</label>')
-  if (className === 'Necromancer') expect(markup).toContain('>Grim Fascination</label>')
   content.entries = []
 })

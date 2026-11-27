@@ -754,7 +754,7 @@ describe('animal companions', () => {
     const druid = entry('feat', 'Animal Empathy (Druid)', { archetype: 'Beastmaster' }, 4, ['Archetype', 'Druid'])
     const slot = { key: 'archetype:4:0', category: 'archetype' as const, level: 4 }
     const c = { ...base, level: 4, feats: [feat(dedication.name, undefined, 'archetype:2:0')] }
-    expect(eligibleFeats([dedication, ranger, druid], c, slot)).toEqual([druid])
+    expect(eligibleFeats([dedication, ranger, druid], c, slot)).toEqual([ranger])
     expect(eligibleFeats([dedication, druid, ranger], { ...c, className: 'Champion' }, slot)).toEqual([ranger])
     expect(eligibleFeats([dedication, druid, ranger], { ...c, className: 'Champion' }, slot,
       { includeUnmetPrerequisites: true })).toEqual([ranger])
@@ -838,7 +838,8 @@ describe('animal companions', () => {
         expect(offered.includes(option)).toBe(['Champion', 'Commander'].includes(className)
           && ['Specialized Beastmaster Companion', 'Specialized Mount'].includes(option.name))
       }
-      expect(offered).toContain(sideBySide)
+      if (className === 'Druid') expect(offered).not.toContain(sideBySide)
+      else expect(offered).toContain(sideBySide)
       for (const option of native) expect(eligibleFeats(entries, c, { ...slot, category: 'class' })).toContain(option)
       expect(eligibleFeats(entries, { ...c, level: 4 }, { ...slot, level: 4, key: 'archetype:4:0' })).not.toContain(archetype[0])
       for (const option of archetype) {
