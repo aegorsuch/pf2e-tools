@@ -109,7 +109,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(at('Starday Night Special (Semi-Auto Pistol)', 6)).toEqual(["Smuggler's Grip (Tactical)"])
     expect(at('SLARP Rapid Laser Pistol', 15, ['Flaming Module (Commercial)']))
       .toEqual(['Flaming Module (Tactical)', "Smuggler's Grip (Tactical)"])
-    expect(at('Knife', 6)).toEqual(['Retrieval Boosters', "Smuggler's Grip (Tactical)"])
+    expect(at('Knife', 6)).toEqual(['Retrieval Boosters', "Smuggler's Grip (Tactical)", 'Fear Projector (Commercial)'])
     expect(at('Phase Cutlass', 15)).toEqual(["Smuggler's Grip (Tactical)", 'Entropic Destabilizer (Tactical)', 'Fear Projector (Tactical)'])
     expect(at('Shuriken Drone', 3)).toEqual(['Retrieval Boosters'])
     expect(at('Singing Spear', 15)).toEqual(['Retrieval Boosters', 'Loudener (Tactical)'])
