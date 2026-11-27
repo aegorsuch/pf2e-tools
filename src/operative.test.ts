@@ -332,3 +332,9 @@ it('allows only Computers or Crafting Assurance in Mechanic ingenuity slots', ()
 it('applies Striker proficiency to agile free-hand weapons like Crimson Claw', () => {
   expect(attack({ ...base, level: 13, subclass: 'Striker' }, freeHandClaw).rank).toBe(4)
 })
+
+it('adds Aim precision damage only while Aim is active', () => {
+  const c: Character = { ...base, level: 11, feats: [{ name: 'Devastating Aim', type: 'Class Feat', level: 4 }] }
+  expect(attack(c, simpleGun).additionalDamage.some(damage => damage.source === 'Aim')).toBe(false)
+  expect(attack({ ...c, aimActive: true }, simpleGun).additionalDamage.find(damage => damage.source === 'Aim')?.value).toBe('3d6 precision')
+})

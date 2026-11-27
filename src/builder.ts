@@ -9849,6 +9849,12 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
     rageDamage,
     areaAttacks,
     additionalDamage: [...supportDamage,
+      ...(c.aimActive && c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack
+        && (ranged && !traits.some(trait => /^area(?:\s|$)/i.test(trait))
+          || hasOperativeStriker(c, entries) && !ranged && (category === 'Unarmed' || weaponHands(entries, w, c) === 1)
+            && traits.some(trait => /^(agile|finesse)$/i.test(trait)))
+        ? [{ source: 'Aim', value: `${1 + [5, 11, 17].filter(level => c.level >= level).length}d${activeFeatsNamed(c, 'Devastating Aim').length ? 6 : 4} precision`,
+          note: 'Against your mark within the weapon’s first range increment.' }] : []),
       ...(poisonWeaponDice ? [{ source: 'Poison Weapon', value: `${poisonWeaponDice}d4 poison`, note: 'While Poison Weapon is active.' }] : []),
       ...(w.id !== 'mechanic:turret' && isFeatEffectActive(c, "Infused with Belkzen's Might") ? [{
         source: "Infused with Belkzen's Might",
