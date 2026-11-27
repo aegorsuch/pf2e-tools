@@ -108,6 +108,8 @@ it('shows gun, reaction, and attack-sequence Operative feat rules', () => {
   expect(notes).toContain('it is slowed 1')
   expect(notes).toContain('it is dazzled')
   expect(notes).toContain('Hair Trigger: react with a ranged Strike')
+  const stowed = weaponAttack(c, [...entries, simpleGun], { id: simpleGun.id, name: simpleGun.name, potency: 0, striking: 0, runes: [], stowed: true })
+  expect(stowed.breakdown.notes?.join(' ')).not.toContain('Hair Trigger')
   expect(notes).toContain('Opportune Retort: when a creature critically fails')
   expect(notes).toContain('Tactical Swap (1 action, once per round)')
   expect(notes).toContain('Twin Draw (1 action)')

@@ -10027,7 +10027,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           && traits.some(trait => /^(analog|tech)$/i.test(trait)) && activeFeatsNamed(c, 'Muzzle Flash').length
           ? ['Muzzle Flash (2 actions): Aim, then Strike against your mark; on a hit within your first range increment, it is dazzled until the end of your next turn.'] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged && !areaTrait
-          && traits.some(trait => /^(analog|tech)$/i.test(trait)) && activeFeatsNamed(c, 'Hair Trigger').length
+          && traits.some(trait => /^(analog|tech)$/i.test(trait)) && activeFeatsNamed(c, 'Hair Trigger').length && weaponHeld(c, entries, w)
           ? ['Hair Trigger: react with a ranged Strike against the last creature you Aimed at since your last turn when it moves, uses a manipulate action, makes a ranged attack, or leaves a square during movement. The Strike ignores and does not increase MAP.'] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack && ranged
           && activeFeatsNamed(c, 'Opportune Retort').length
