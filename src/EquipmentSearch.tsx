@@ -8,6 +8,8 @@ import { GearSystemFilter } from './GearSystemFilter'
 import { matchesGearSystem, type GearSystem } from './gearSystem'
 import { PickerSort, sortPickerOptions, type PickerSortOrder } from './PickerSort'
 
+const PAGE = 100
+
 export function EquipmentSearch({ c, entries, save, category, onClose, fixedSkill }: SectionProps & {
   category?: EquipmentGroupName; onClose?: () => void; fixedSkill?: string
 }) {
@@ -15,6 +17,7 @@ export function EquipmentSearch({ c, entries, save, category, onClose, fixedSkil
   const [sort, setSort] = useState<PickerSortOrder>('name')
   const [system, setSystem] = useState<GearSystem>('both')
   const [skill, setSkill] = useState('')
+  const [limit, setLimit] = useState(PAGE)
   const ringsFull = ringCount(c, entries) >= ringCapacity(c)
   const candidates = useMemo(() => entries.filter(entry => entry.kind === 'item'
     && !isCompanionEquipmentItem(entry) && (!category || equipmentFitsGroup(entry, category))).map(entry => {
@@ -29,13 +32,14 @@ export function EquipmentSearch({ c, entries, save, category, onClose, fixedSkil
     }
   }), [category, entries])
   const availableSkills = useMemo(() => {
+    if (fixedSkill) return []
     const found = new Set<string>()
     for (const { entry } of candidates) {
       if (matchesGearSystem(entry, system, c.systems))
         for (const name of equipmentBonusSkills(entry)) found.add(name)
     }
     return EQUIPMENT_BONUS_SKILLS.filter(name => found.has(name))
-  }, [candidates, system, c.systems])
+  }, [candidates, system, c.systems, fixedSkill])
   const selectedSkill = fixedSkill ?? availableSkills.find(name => name === skill) ?? ''
   useEffect(() => {
     if (skill && !selectedSkill) setSkill('')
@@ -73,18 +77,18 @@ export function EquipmentSearch({ c, entries, save, category, onClose, fixedSkil
   return <div className="equipment-search">
     <div className="row">
       <input type="search" aria-label={`Search ${category?.toLowerCase() ?? 'equipment'}`} placeholder={`Search ${category?.toLowerCase() ?? 'equipment'}`}
-        autoFocus={!!onClose} value={query} onChange={event => setQuery(event.target.value)} />
-      <GearSystemFilter value={system} onChange={setSystem} />
+        autoFocus={!!onClose} value={query} onChange={event => { setQuery(event.target.value); setLimit(PAGE) }} />
+      <GearSystemFilter value={system} onChange={value => { setSystem(value); setLimit(PAGE) }} />
       <PickerSort label={`Sort ${category?.toLowerCase() ?? 'equipment'} by`}
-        value={!selectedSkill && sort === 'item-bonus' ? 'name' : sort} onChange={setSort} includeItemBonus={!!selectedSkill} />
-      {!fixedSkill && availableSkills.length > 0 && <label>Skill item bonus <select aria-label="Skill item bonus" value={selectedSkill} onChange={event => setSkill(event.target.value)}>
+        value={!selectedSkill && sort === 'item-bonus' ? 'name' : sort} onChange={value => { setSort(value); setLimit(PAGE) }} includeItemBonus={!!selectedSkill} />
+      {!fixedSkill && availableSkills.length > 0 && <label>Skill item bonus <select aria-label="Skill item bonus" value={selectedSkill} onChange={event => { setSkill(event.target.value); setLimit(PAGE) }}>
         <option value="">All skills</option>
         {availableSkills.map(name => <option key={name}>{name}</option>)}
       </select></label>}
       {onClose && <button type="button" onClick={onClose}>Cancel</button>}
     </div>
     <ul className="gear-results">
-      {matches.map(g => <li key={g.id}>
+      {matches.slice(0, limit).map(g => <li key={g.id}>
         <EntryDescription name={g.name} entry={g} className="equipment-name" /> <ActionIcon entry={g} /> ({g.kind}{g.level ? ` ${g.level}` : ''})
         {selectedSkill && equipmentSkillBonuses(g, selectedSkill).length > 0
           && <> {'('}{equipmentSkillBonuses(g, selectedSkill).map(value => `+${value}`).join('/')}{')'}</>}{' '}
@@ -100,6 +104,9 @@ export function EquipmentSearch({ c, entries, save, category, onClose, fixedSkil
           onClose?.()
         }}>Add</button>
       </li>)}
+      {matches.length > limit && <li><button type="button" onClick={() => setLimit(previous => previous + PAGE)}>
+        Show more ({matches.length - limit} left, or use search)
+      </button></li>}
       {active && !matches.length && <li><small>No matching {category?.toLowerCase() ?? 'equipment'}.</small></li>}
     </ul>
   </div>

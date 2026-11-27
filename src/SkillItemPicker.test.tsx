@@ -13,6 +13,63 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
+it('pages equipment results while searching and sorting the complete list', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const c: Character = { id: 'pages', systems: ['pf2e'], name: 'Test', level: 1,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const entries: ContentEntry[] = Array.from({ length: 125 }, (_, index) => ({
+    id: `item-${index}`, name: `Item ${String(index).padStart(3, '0')}`, kind: 'item',
+    systems: ['pf2e'], source: 'official', level: 125 - index, traits: [],
+    description: '+1 item bonus to Acrobatics checks.', data: {}, effects: [], updatedAt: 0,
+  }))
+  const save = vi.fn()
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const results = () => container.querySelectorAll('.gear-results .equipment-name')
+  const more = () => [...container.querySelectorAll<HTMLButtonElement>('.gear-results button')]
+    .find(button => button.textContent?.startsWith('Show more'))
+  const search = async (value: string) => {
+    const input = container.querySelector<HTMLInputElement>('[aria-label="Search other equipment"]')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  }
+  try {
+    await act(async () => root.render(<EquipmentSearch c={c} entries={entries} save={save} category="Other equipment" />))
+    expect(results()).toHaveLength(100)
+    expect(more()?.textContent).toContain('25 left')
+    expect(container.querySelector('[aria-label="Add Item 124"]')).toBeNull()
+    await act(async () => more()!.click())
+    expect(results()).toHaveLength(125)
+    expect(more()).toBeUndefined()
+    await search('Item')
+    expect(results()).toHaveLength(100)
+    await search('Item 124')
+    expect(results()).toHaveLength(1)
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Add Item 124"]')!.click())
+    expect(save).toHaveBeenCalledWith({ equipment: [{ name: 'Item 124', qty: 1, group: 'Other equipment' }] })
+    await search('')
+    await act(async () => more()!.click())
+    const sort = container.querySelector<HTMLSelectElement>('[aria-label="Sort other equipment by"]')!
+    await act(async () => { sort.value = 'level'; sort.dispatchEvent(new Event('change', { bubbles: true })) })
+    expect(results()).toHaveLength(100)
+    expect(results()[0].textContent).toBe('Item 124')
+    await act(async () => more()!.click())
+    const skill = container.querySelector<HTMLSelectElement>('[aria-label="Skill item bonus"]')!
+    await act(async () => { skill.value = 'Acrobatics'; skill.dispatchEvent(new Event('change', { bubbles: true })) })
+    expect(results()).toHaveLength(100)
+    await act(async () => more()!.click())
+    const system = container.querySelector<HTMLSelectElement>('[aria-label="Systems"]')!
+    await act(async () => { system.value = 'pf2e'; system.dispatchEvent(new Event('change', { bubbles: true })) })
+    expect(results()).toHaveLength(100)
+  } finally {
+    await act(async () => root.unmount())
+  }
+})
+
 it('opens a skill-filtered picker, adds equipment, and closes', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
