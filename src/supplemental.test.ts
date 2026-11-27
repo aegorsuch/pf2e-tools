@@ -834,18 +834,18 @@ it('provides a scaling laser Focus Rifle in the Starfinder Sniper group', () => 
   const advanced = { ...laser, id: 'advanced-laser-rifle', name: 'Advanced Laser Rifle', level: 4,
     data: { ...laser.data, damage: '2d8 F', weapon_tracking: 1, upgrade_slots: 2 } }
   const homebrew = homebrewWeapons([laser, advanced])
-  const focusRifle = homebrew.find(entry => entry.name === 'Laser Focus Rifle')!
+  const focusRifle = homebrew.find(entry => entry.name === 'Focus Rifle')!
   const entries = [laser, advanced, ...homebrew]
   expect(focusRifle).toMatchObject({ source: 'homebrew', traits: ['Tech', 'Unwieldy', 'Volley 30 ft.'], data: {
     weapon_category: 'Martial', weapon_group: 'Sniper', weapon_type: 'Ranged', damage: '1d8 F',
     hands: 2, range: 120, range_increment: 120, reload: 1, upgrade_slots: 1,
     weapon_ammunition: '10 charges', weapon_grade_family: 'homebrew:laser-focus-rifle',
   } })
-  expect(gearPickerEntries(entries, 'weapon').map(entry => entry.name)).toContain('Laser Focus Rifle')
+  expect(gearPickerEntries(entries, 'weapon').map(entry => entry.name)).toContain('Focus Rifle')
   const weapon = { id: 'owned-focus-rifle', name: focusRifle.name, potency: 0, striking: 0, runes: [] }
   const c: Character = { ...base, level: 4, systems: ['sf2e'], weapons: [weapon] }
   expect(weaponAttack(c, entries, weapon)).toMatchObject({
-    damage: '2d8 F', entry: { name: 'Advanced Laser Focus Rifle', data: { weapon_group: 'Sniper', range: 120 } },
+    damage: '2d8 F', entry: { name: 'Advanced Focus Rifle', data: { weapon_group: 'Sniper', range: 120 } },
   })
   expect(weaponAttack({ ...c, className: 'Operative', subclass: 'Sniper' }, entries, weapon).traits)
     .not.toEqual(expect.arrayContaining(['Unwieldy', 'Volley 30 ft.']))

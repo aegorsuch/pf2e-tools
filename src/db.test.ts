@@ -136,7 +136,7 @@ it('refreshes generated Focus Rifle traits in existing installs', async () => {
       weapon_category: 'Simple', weapon_group: 'Laser', weapon_type: 'Ranged', damage: '1d8 F',
       hands: 2, range: 100, reload: 1, upgrade_slots: 1, weapon_ammunition: '10 charges',
     } }
-  const focus = homebrewWeapons([laser]).find(entry => entry.name === 'Laser Focus Rifle')!
+  const focus = homebrewWeapons([laser]).find(entry => entry.name === 'Focus Rifle')!
   mocks.content.where.mockImplementationOnce(() => ({
     anyOf: vi.fn(() => ({ toArray: vi.fn().mockResolvedValue([laser]) })),
     equals: vi.fn(() => ({ filter: vi.fn(() => ({ toArray: vi.fn().mockResolvedValue([]) })) })),

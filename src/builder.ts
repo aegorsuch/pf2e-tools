@@ -8170,6 +8170,7 @@ export function weaponEntry(entries: ContentEntry[], name: string, id?: string) 
 }
 
 function resolveWeaponEntry(entries: ContentEntry[], name: string, id?: string) {
+  name = name.replace(/\bLaser Focus Rifle$/, 'Focus Rifle')
   if (id === solarianFlare.id || name === solarianFlare.name) return solarianFlare
   if (id === 'sf2e:solarian:solar-weapon' || name === 'Solar Weapon') return solarianWeaponEntry(false)
   if (id === 'sf2e:solarian:twin-weapon' || name === 'Twin Solar Weapon') return solarianWeaponEntry(true)
@@ -8955,7 +8956,7 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     : [turretModule[String(entry.data.turret_array)]].filter((module): module is string => !!module)
     : entry.data.special_weapon_source === 'SLARP' || name === 'SLARP Rapid Laser Pistol' ? ["Smuggler's Grip", 'Flaming Module']
     : entry.data.special_weapon_source === 'Starday Night Special' ? ["Smuggler's Grip"]
-    : ['Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle'].includes(name)
+    : ['Laser Rifle', 'Liminal Laser Rifle', 'Focus Rifle', 'Liminal Focus Rifle'].includes(name)
       ? ['Flaming Module', 'Glarecaster', "Sniper's Scope"]
     : name === 'Knife' ? ['Retrieval Boosters', "Smuggler's Grip", 'Fear Projector', 'Suppression Matrix']
     : name === 'Phase Cutlass' ? ["Smuggler's Grip", 'Entropic Destabilizer', 'Fear Projector', 'Suppression Matrix']

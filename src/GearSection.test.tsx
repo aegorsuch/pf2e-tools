@@ -88,7 +88,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     traits: ['Tech'], data: { weapon_category: 'Martial', damage: '1d6 F', hands: 1, upgrade_slots: 4 } })
   const weapons = ['SLARP Rapid Laser Pistol', 'Shuriken Drone', 'Singing Spear', 'Battleglove', 'Doshko', 'Plasma Doshko', 'Plasma Array',
     'Crimson Claw', 'Shock Pad', 'Shock Truncheon', 'Plasma Sword', 'Plasma Caster', 'Tactical Plasma Caster', 'Rotolaser',
-    'Pulse Gauntlet', 'Knife', 'Phase Cutlass', 'Tailblade', 'Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle', 'Other']
+    'Pulse Gauntlet', 'Knife', 'Phase Cutlass', 'Tailblade', 'Laser Rifle', 'Liminal Laser Rifle', 'Focus Rifle', 'Liminal Focus Rifle', 'Other']
     .map(name => {
       const entry = sfWeapon(name)
       return name === 'Plasma Array' ? { ...entry, data: { ...entry.data, upgrade_slots: 5 } } : entry
@@ -152,7 +152,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(at('Tailblade', 5, [], 'Soldier')).toEqual(['Suppression Matrix (Commercial)'])
     expect(at('Tailblade', 13, [], 'Soldier')).toEqual(['Suppression Matrix (Commercial)'])
     expect(at('Tailblade', 14, [], 'Soldier')).toEqual(['Suppression Matrix (Tactical)'])
-    for (const name of ['Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle'])
+    for (const name of ['Laser Rifle', 'Liminal Laser Rifle', 'Focus Rifle', 'Liminal Focus Rifle'])
       expect(at(name, 15)).toEqual(['Flaming Module (Tactical)', 'Glarecaster (Tactical)', "Sniper's Scope (Tactical)"])
     expect(at('Other', 20)).toEqual([])
     const c = { ...character([]), systems: ['sf2e' as const], level: 15,

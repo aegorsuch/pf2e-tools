@@ -680,7 +680,7 @@ export function homebrewWeapons(entries: ContentEntry[]): ContentEntry[] {
     const liminal = /Liminal Laser Rifle$/.test(entry.name)
     const grade = entry.name.replace(liminal ? /Liminal Laser Rifle$/ : /Laser Rifle$/, '').trim()
     const family = liminal ? 'homebrew:liminal-focus-rifle' : 'homebrew:laser-focus-rifle'
-    const focusName = liminal ? 'Liminal Focus Rifle' : 'Laser Focus Rifle'
+    const focusName = liminal ? 'Liminal Focus Rifle' : 'Focus Rifle'
     return { ...entry, id: `${family}${grade ? `:${grade.toLowerCase()}` : ''}`,
       name: `${grade ? `${grade} ` : ''}${focusName}`, source: 'homebrew' as const,
       traits: [...new Set([...entry.traits, 'Unwieldy', 'Volley 30 ft.'])],
