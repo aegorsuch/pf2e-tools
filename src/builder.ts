@@ -3595,7 +3595,7 @@ export function automaticArmorUpgradeUsesSlot(armorName: string | undefined, upg
   if (['Aeon Guard Battle Dress', 'Clandestine Suit', "Drifter's Jacket",
     'Myrmidon Siegebreaker Plate', 'Retrieval Harness', 'Stormbreaker Armor'].includes(family ?? ''))
     return ['Jetpack', 'Force Field'].includes(base) || family === "Drifter's Jacket" && base === 'Active Camouflage'
-      || family === 'Clandestine Suit' && base === 'Drift Drive Relay'
+      || family === 'Clandestine Suit' && ['Drift Drive Relay', 'Maneuvering Unit'].includes(base)
       || family === 'Myrmidon Siegebreaker Plate' && ['Mobility Enhancer', 'Flechette Launcher'].includes(base)
       || family === 'Stormbreaker Armor' && ['Mobility Enhancer', 'Kinetic Generator'].includes(base)
       || family === 'Stormbreaker Armor' && base === 'Energy Shielding'
@@ -3611,7 +3611,7 @@ const AUTOMATIC_UPGRADE_ARMORS = new Set([
 const SPELL_ARMOR_FAMILIES = new Set(['Carveweave', 'Carvesong', 'Mageplate'])
 const AUTOMATIC_ARMOR_UPGRADES = ['Jetpack', 'Force Field']
 const CLOAKING_ARMOR_UPGRADES = ['Active Camouflage', 'Cloaking Device']
-const CLANDESTINE_ARMOR_UPGRADES = ['Drift Drive Relay']
+const CLANDESTINE_ARMOR_UPGRADES = ['Drift Drive Relay', 'Maneuvering Unit']
 const DRIFTER_JACKET_ARMOR_UPGRADES = ['Active Camouflage', 'Drift Drive Relay', 'Maneuvering Unit']
 const MYRMIDON_ARMOR_UPGRADES = ['Mobility Enhancer', 'Flechette Launcher']
 const ROCKETEER_ARMOR_UPGRADES = ['Maneuvering Unit']
