@@ -24,7 +24,7 @@ import { boneShieldActive, canUseGiantStature, effectiveHandwraps, hasDermalPlat
 import { MinionsContent, MinionsSummary } from './MinionsSection'
 import { FormulasContent, FormulasSummary } from './FormulasSection'
 import { constructCompanionChange, faithfulSteedChange } from './companions'
-import { equippedHands, totalHandCapacity } from './builder'
+import { equippedHands, offensiveDefenseAttack, totalHandCapacity } from './builder'
 import { ethnicityLabel, ethnicityOptions } from './featAccess'
 import { db } from './db'
 import { TotalBreakdown } from './TotalBreakdown'
@@ -965,7 +965,12 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           <EquipmentGroup {...section} group="Torso" rows={equipmentGroups.Torso} />
           <WeaponProficiency c={c} entries={entries} />
           <h4>Weapons</h4>
-          <WeaponList {...section} />
+          {(() => {
+            const offensiveDefense = offensiveDefenseAttack(c, entries)
+            return offensiveDefense
+              ? <WeaponList {...section} entries={[...entries, offensiveDefense.entry]} additionalWeapons={[offensiveDefense.weapon]} />
+              : <WeaponList {...section} />
+          })()}
           <EquipmentGroup {...section} group="Wrists" rows={equipmentGroups.Wrists} />
           <EquipmentSearch {...section} />
         </div>}</DeferredContent>
