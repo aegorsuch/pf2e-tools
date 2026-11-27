@@ -8149,7 +8149,7 @@ export function weaponEntry(entries: ContentEntry[], name: string, id?: string) 
   }
   if (entry?.systems.includes('sf2e') && typeof entry.data.upgrade_slots !== 'number'
     && (entry.data.raptorial_edge || /(?:^|\s)Phase Cutlass$/.test(entry.name))) {
-    entry = { ...entry, data: { ...entry.data, upgrade_slots: entry.data.raptorial_edge ? 2 : 1 } }
+    entry = { ...entry, data: { ...entry.data, upgrade_slots: entry.data.raptorial_edge ? 5 : 4 } }
   }
   if (entry?.source === 'official' && entry.name === 'Reinforced Stock'
     && !entry.traits.some(trait => /^two-hand\s+d\d+$/i.test(trait.trim()))) {
@@ -8954,7 +8954,8 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     : ['Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle'].includes(name)
       ? ['Flaming Module', 'Glarecaster', "Sniper's Scope"]
     : name === 'Knife' ? ['Retrieval Boosters', "Smuggler's Grip"]
-    : name === 'Phase Cutlass' || entry.data.special_weapon_source === 'Raptorial Edge' ? ["Smuggler's Grip"]
+    : name === 'Phase Cutlass' || entry.data.special_weapon_source === 'Raptorial Edge'
+      ? ["Smuggler's Grip", 'Entropic Destabilizer', 'Fear Projector']
     : name === 'Shuriken Drone' ? ['Retrieval Boosters']
     : name === 'Singing Spear' ? ['Retrieval Boosters', 'Loudener']
     : name === 'Battleglove' || name === 'Doshko' ? ['Suppression Matrix']

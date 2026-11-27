@@ -81,7 +81,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     ['Suppression Matrix (Commercial)', 4], ['Suppression Matrix (Tactical)', 14],
     ['Glarecaster (Commercial)', 5], ['Glarecaster (Tactical)', 12],
     ["Sniper's Scope (Commercial)", 3], ["Sniper's Scope (Tactical)", 10],
-    ['Fear Projector (Commercial)', 5], ['Fear Projector (Tactical)', 12],
+    ['Entropic Destabilizer (Commercial)', 8], ['Entropic Destabilizer (Tactical)', 15], ['Fear Projector (Commercial)', 5], ['Fear Projector (Tactical)', 12],
   ].map(([name, level]) => ({ ...shifting, id: String(name), name: String(name), level: Number(level),
     systems: ['sf2e' as const], data: { item_subcategory: 'Weapon Upgrades' } }))
   const sfWeapon = (name: string): ContentEntry => ({ ...weapon, id: name, name, systems: ['sf2e'],
@@ -110,7 +110,7 @@ it('grants and scales requested Starfinder weapon upgrades without duplicating s
     expect(at('SLARP Rapid Laser Pistol', 15, ['Flaming Module (Commercial)']))
       .toEqual(['Flaming Module (Tactical)', "Smuggler's Grip (Tactical)"])
     expect(at('Knife', 6)).toEqual(['Retrieval Boosters', "Smuggler's Grip (Tactical)"])
-    expect(at('Phase Cutlass', 6)).toEqual(["Smuggler's Grip (Tactical)"])
+    expect(at('Phase Cutlass', 15)).toEqual(["Smuggler's Grip (Tactical)", 'Entropic Destabilizer (Tactical)', 'Fear Projector (Tactical)'])
     expect(at('Shuriken Drone', 3)).toEqual(['Retrieval Boosters'])
     expect(at('Singing Spear', 15)).toEqual(['Retrieval Boosters', 'Loudener (Tactical)'])
     expect(at('Battleglove', 3)).toEqual([])
