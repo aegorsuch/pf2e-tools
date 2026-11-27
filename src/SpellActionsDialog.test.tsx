@@ -59,6 +59,10 @@ it('uses the Technomancer spell database to learn and prepare Starfinder arcane 
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) {
     this.setAttribute('open', '')
   } })
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value: function (this: HTMLDialogElement) {
+    this.removeAttribute('open')
+    this.dispatchEvent(new Event('close'))
+  } })
   const initial: Character = { id: 'tech', name: 'Test', systems: ['sf2e'], level: 1, className: 'Technomancer',
     abilities: { str: 10, dex: 10, con: 10, int: 18, wis: 10, cha: 10 },
     feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
@@ -79,6 +83,15 @@ it('uses the Technomancer spell database to learn and prepare Starfinder arcane 
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Open Spell Database rank 1"]')!.click())
     expect(container.querySelector('dialog[open]')?.textContent).toContain('Spell Database')
     expect(container.querySelector('[aria-label="Learn Divine Test"]')).toBeNull()
+    expect(container.querySelector('.dirge-options dialog')).toBeNull()
+    const detail = [...container.querySelectorAll<HTMLButtonElement>('.dirge-options button')]
+      .find(button => button.textContent === 'Arcane Test')!
+    await act(async () => detail.click())
+    const description = container.querySelector<HTMLDialogElement>('.dirge-options dialog[open]')!
+    expect(description.textContent).toContain('Arcane Test rules')
+    expect(current.spells).toBeUndefined()
+    await act(async () => description.close())
+    expect(container.querySelector('.dirge-options dialog')).toBeNull()
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Learn Arcane Test"]')!.click())
     expect(current.spells).toContainEqual(expect.objectContaining({ name: 'Arcane Test', entryId: 'Arcane Test' }))
     const slot = container.querySelector<HTMLSelectElement>('select[aria-label="Spell Rank 1 slot 1"]')!
@@ -88,6 +101,7 @@ it('uses the Technomancer spell database to learn and prepare Starfinder arcane 
     await act(async () => root.unmount())
     container.remove()
     Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'close')
     vi.unstubAllGlobals()
   }
 })

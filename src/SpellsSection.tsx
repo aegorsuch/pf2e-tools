@@ -1092,7 +1092,7 @@ export function DirgeLearnOptions({ options, onLearn, marked, showDamage }: { op
   return <ul className="dirge-options">
     {options.map(entry => <li key={entry.id}>
       <button type="button" aria-label={`Learn ${entry.name}`} onClick={() => onLearn(entry)}>+</button>
-      <EntryDescription name={entry.name} entry={entry} />
+      <EntryDescription name={entry.name} entry={entry} deferDetails />
       {' '}<small>{entry.systems.map(system => system.toUpperCase()).join(' / ')}</small>
       {showDamage && <> <small>{spellDamageLabel(entry)}</small></>}
       {marked?.has(entry.name.toLowerCase()) && <> <strong>School</strong></>}
