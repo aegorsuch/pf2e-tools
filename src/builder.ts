@@ -7033,6 +7033,7 @@ export function armorClassBreakdown(c: Character, entries: ContentEntry[]): Tota
     { label: 'Raise Bone Shield', value: raisedBoneShield },
     { label: 'Parry', value: parry },
     { label: 'Current Spell', value: currentSpell },
+    { label: 'Outwit Edge', value: outwitEdge(c, entries)?.ac ?? 0 },
   ].filter(candidate => candidate.value > 0)
   const best = Math.max(0, ...candidates.map(candidate => candidate.value))
   const parts: TotalPart[] = [

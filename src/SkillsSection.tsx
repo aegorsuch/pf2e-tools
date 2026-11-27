@@ -21,7 +21,7 @@ import { backgroundLoreChoiceOptions, backgroundLoreSlots, backgroundSkillSlots,
 import { SearchableSelect } from './SearchableSelect'
 import { characterHeritages } from './heritages'
 import { divineIntercessionWeaknesses, hasDivineIntercession } from './divineIntercessions'
-import { artifactItemSkillBonus, hunterArrowheadBonus, outwitEdge, outwitSkillBonus } from './builder'
+import { artifactItemSkillBonus, hunterArrowheadBonus, outwitSkillBonus } from './builder'
 import { ERUDITE_LORE_KEY, eruditeWarrior, isSoldier, soldierStyle } from './soldier'
 import { isWitchwarper } from './witchwarper'
 import { hellknightBenefitActive, hellknightSkillNotes, hellknightTrainingBenefits } from './hellknight'
@@ -504,8 +504,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const camouflage = s.name === 'Stealth' ? activeCamouflageBonus(c, entries) : undefined
     const tattoo = s.name === 'Crafting' ? tradecraftTattooBonus(c, entries) : undefined
     const artifact = artifactItemSkillBonus(c, entries, s.name)
-    const outwit = s.kind === 'skill' && /^(Deception|Intimidation|Stealth|Arcana|Crafting|Medicine|Nature|Occultism|Religion|Society)$|Lore$/.test(s.name)
-      ? outwitSkillBonus(c, entries, rank) : 0
     const arrowhead = s.name === 'Survival' ? hunterArrowheadBonus(c, entries) : undefined
     const pack = s.name === 'Survival' ? voyagerPackBonus(c, entries) : undefined
     const skillGear = s.name === 'Acrobatics' ? daredevilBootsBonus(c, entries)
@@ -534,9 +532,11 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
     const holoRoger = s.name === 'Intimidation' && c.systems.includes('sf2e')
       && !!activeFeatsNamed(c, 'Space Pirate Dedication').length && c.holoRogerActive
       ? { source: 'Holo-Roger', value: 1 } : undefined
+    const outwit = s.kind === 'skill' && /^(Deception|Intimidation|Stealth|Arcana|Crafting|Medicine|Nature|Occultism|Religion|Society)$|Lore$/.test(s.name)
+      ? outwitSkillBonus(c, entries, rank) : 0
     const circumstance = s.kind === 'perception' ? perceptionCircumstance(c)
       : s.kind === 'save' ? undefined
-        : [armorSkill, assistant, preferment, holoRoger].filter((bonus): bonus is { source: string; value: number } => !!bonus)
+        : [armorSkill, assistant, preferment, holoRoger, outwit ? { source: 'Outwit Edge', value: outwit } : undefined].filter((bonus): bonus is { source: string; value: number } => !!bonus)
           .sort((a, b) => b.value - a.value)[0]
     const clumsyPenalty = ability === 'dex' ? clumsy : 0
     const statusPenalty = Math.max(conditionPenalty(c, ability), clumsyPenalty)
@@ -630,8 +630,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
             note={`+${pilotingInterface.value} item bonus; item bonuses do not stack. Take Control as a free action once per turn${pilotingInterface.daily ? activeFeatsNamed(c, 'Finely Tuned').some(feat => feat.choice === pilotingInterface.source) ? ', twice per day' : ', once per day' : ''} unless it normally takes multiple actions.${pilotingInterface.tactical ? ' Ignore the usual Piloting penalties for Stunt and three-action Drive.' : ''}`} />}
           {s.name === 'Crafting' && dwarvenAxe && <SourceNote inlineSource={false} source="Axe of the Dwarven Lords"
             note={`${itemTotal(4)} to Craft armor, jewelry, metalwork, stonework, snares, traps, and weapons while carrying the axe (+4 item; item bonuses do not stack).`} />}
-          {outwit > 0 && <SourceNote inlineSource={false} source="Outwit Edge"
-            note={`${signed(total + outwit)} against your Hunt Prey target (+${outwit} circumstance${/^(Deception|Intimidation|Stealth)$/.test(s.name) ? '' : ', Recall Knowledge about the prey only'}).`} />}
           {arrowhead && <SourceNote inlineSource={false} source={arrowhead.source}
             note={`Survival ${signed(total + Math.max(0, arrowhead.value - item))} against your Hunt Prey target (+${arrowhead.value} item bonus; item bonuses do not stack).`} />}
           {!!filigreeItem && <SourceNote inlineSource={false} source="Clan dagger filigree" note={`+${filigreeItem} item bonus from ${s.name === 'Athletics' ? "Trudd's Strength" : s.name === 'Society' ? "Kols's Oath" : "Bolka's Blessing"}.`} />}
@@ -1044,7 +1042,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           note="Ranged attacks against you require a successful DC 5 flat check or miss with no effect." />}
         {c.raging && isFeatEffectActive(c, 'Come and Get Me') && <SourceNote source="Come and Get Me"
           note={`Damage rolls against you gain +2 circumstance. A creature that hits you is off-guard to you until the end of your next turn; if you hit it before then, gain ${Math.max(0, abilityMod(c.abilities.con))} temporary HP, doubled on a critical hit, until Rage ends.`} />}
-        {outwitEdge(c, entries) && <SourceNote source="Outwit Edge" note={`+${outwitEdge(c, entries)?.ac} circumstance bonus to AC against your Hunt Prey target's attacks.`} />}
         {skin && <SourceNote source="Animal Skin" note={`+${skin.itemBonus} item AC; Dexterity cap +${skin.dexCap}.`} />}
         {isPioneerHuman(c) && (c.pioneerEnvironment === 'Cold' || c.pioneerEnvironment === 'Heat')
           && <SourceNote source="Pioneer Human"

@@ -37,6 +37,7 @@ import { GREATER_CROSS_PLATFORM_APPLICATION_FEAT, VERSATILE_FIRMWARE_FEAT } from
 import { CharacterPictures } from './CharacterPictures'
 import { isGrenade, withBreachingGrenades } from './formulas'
 import { subclassBaseDescription, subclassFeatureRows } from './subclassFeatures'
+
 import { SubclassSlot } from './SubclassSlot'
 import { MYSTIC_CONNECTIONS } from './mystic'
 import { OPERATIVE_EXPLOITS } from './starfinderSubclasses'
@@ -53,6 +54,8 @@ import { arcaneThesisOptions, selectedArcaneThesis, type ArcaneThesis } from './
 import { fatalMethodOptions, selectedFatalMethod, type FatalMethod } from './fatalMethods'
 import { WitchwarperAnchor } from './WitchwarperFeatures'
 import { GAUNTLET, HAFT_STRIKER_WEAPON, OVERSIZED_THROW } from './supplemental'
+
+const LEVELED_SUBCLASS_CLASSES = ['Alchemist', 'Animist', 'Barbarian', 'Champion', 'Gunslinger', 'Inventor', 'Ranger', 'Rogue']
 
 const NONE: ContentEntry[] = []
 
@@ -806,7 +809,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                 options={subclasses.filter(entry => c.className !== 'Inventor'
                   || !c.feats.some(feat => ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice === entry.name))}
                 displayName={entry => c.className === 'Ranger' ? `${entry.name} Edge` : entry.name}
-                describe={entry => ['Ranger', 'Rogue', 'Gunslinger'].includes(c.className ?? '') && c.systems.includes('pf2e')
+                describe={entry => LEVELED_SUBCLASS_CLASSES.includes(c.className ?? '') && c.systems.includes('pf2e')
                   ? { ...entry, description: subclassBaseDescription(entry) } : entry}
                 onChange={name => save({ subclass: name ?? '' })} /> }] : []),
               ...((c.className === 'Druid' || c.className === 'Investigator' && (subclasses.length > 0 || !!subclassName) || c.className === 'Necromancer'
@@ -863,7 +866,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                 const entry = subclasses.find(candidate => candidate.name === order || candidate.name === feat.choice)
                 return entry ? [{ entry, label: `${feat.choice} Order (Order Explorer)` }] : []
               }),
-              ...(c.systems.includes('pf2e') && subclass && ['Ranger', 'Rogue', 'Gunslinger'].includes(c.className ?? '')
+              ...(c.systems.includes('pf2e') && subclass && LEVELED_SUBCLASS_CLASSES.includes(c.className ?? '')
                 ? subclassFeatureRows(subclass).filter(row => row.level <= c.level).map(row => ({
                   entry: { ...subclass, description: row.description, data: { ...subclass.data, ...(row.actions ? { actions: row.actions } : {}) } }, label: c.className === 'Ranger' && row.name === 'Masterful Hunter' ? `Masterful ${subclass.name} Edge` : `${row.name} (${subclass.name})`, level: row.level })) : []),
               ...(c.systems.includes('pf2e') && c.className === 'Gunslinger' ? activeFeatsNamed(c, 'Versatile Gunslinger').flatMap(feat => {

@@ -19,7 +19,8 @@ export function subclassFeatureRows(entry: ContentEntry): { name: string; level:
       actions = deed[2]
       text = text.slice(deed[0].length)
     } else {
-      const title = /^([A-Z][\w'’-]*(?: [A-Z][\w'’-]*)*)\s+([A-Z][a-z].*)$/s.exec(text)
+      const title = /^([A-Z][\w'’-]*(?: [A-Z][\w'’-]*)*)[ \t]*\n+\s*(\S.*)$/s.exec(text)
+        ?? /^([A-Z][\w'’-]*(?: [A-Z][\w'’-]*)*)\s+([A-Z][a-z].*)$/s.exec(text)
       if (!title) continue
       name = title[1]
       text = title[2]
