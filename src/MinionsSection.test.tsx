@@ -2696,5 +2696,10 @@ it('shows upgrades on Phase Cutlass and Raptorial Edge', async () => {
     level: 2, traits: ['Agile'], description: '', data: { weapon_category: 'Martial' }, effects: [], updatedAt: 0 }
   const edge: ContentEntry = { ...cutlass, id: 're', name: 'Raptorial Edge', data: { weapon_category: 'Martial', raptorial_edge: true } }
   expect(usesWeaponUpgrades(weaponEntry([cutlass], cutlass.name))).toBe(true)
-  expect(weaponEntry([edge], edge.name, edge.id)?.data.upgrade_slots).toBe(5)
+  const slots = (entry: ContentEntry, name: string) => weaponEntry([{ ...entry, name }], name, entry.id)?.data.upgrade_slots
+  expect(slots(cutlass, 'Phase Cutlass')).toBe(1)
+  expect(slots(cutlass, 'Tactical Phase Cutlass')).toBe(2)
+  expect(slots(cutlass, 'Paragon Phase Cutlass')).toBe(4)
+  expect(slots(edge, 'Raptorial Edge')).toBe(2)
+  expect(slots(edge, 'Paragon Raptorial Edge')).toBe(5)
 })

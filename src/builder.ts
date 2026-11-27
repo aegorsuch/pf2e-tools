@@ -8149,7 +8149,11 @@ export function weaponEntry(entries: ContentEntry[], name: string, id?: string) 
   }
   if (entry?.systems.includes('sf2e') && typeof entry.data.upgrade_slots !== 'number'
     && (entry.data.raptorial_edge || /(?:^|\s)Phase Cutlass$/.test(entry.name))) {
-    entry = { ...entry, data: { ...entry.data, upgrade_slots: entry.data.raptorial_edge ? 5 : 4 } }
+    const grade = /^(Commercial|Tactical|Advanced|Superior|Elite|Ultimate|Paragon) /i.exec(entry.name)?.[1]
+    const grades = ['Commercial', 'Tactical', 'Advanced', 'Superior', 'Elite', 'Ultimate', 'Paragon']
+    const index = Math.min(3, Math.max(0, grades.findIndex(value => value.toLowerCase() === grade?.toLowerCase())
+      - (entry.data.raptorial_edge ? 3 : 0)))
+    entry = { ...entry, data: { ...entry.data, upgrade_slots: index + 1 + (entry.data.raptorial_edge ? 1 : 0) } }
   }
   if (entry?.source === 'official' && entry.name === 'Reinforced Stock'
     && !entry.traits.some(trait => /^two-hand\s+d\d+$/i.test(trait.trim()))) {
@@ -8969,11 +8973,12 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     : name === 'Pulse Gauntlet' ? ['Loudener']
     : /^Tail\s*Blade$/i.test(name) ? [c.className === 'Soldier' ? 'Suppression Matrix' : 'Fear Projector'] : []
   const automatic = automaticUpgradeEntries(c, entries, upgrades)
-  if (name !== 'Plasma Caster' && !turret) return automatic
+  const trimmed = name === 'Plasma Caster' || turret || name === 'Phase Cutlass' || !!entry.data.raptorial_edge
+  if (!trimmed) return automatic
   const effective = effectiveWeapon(c, entries, weapon)
   const slots = weaponEntry(entries, effective.name, effective.id)?.data.upgrade_slots
   const saved = weapon.upgrades ?? []
-  let remaining = typeof slots === 'number' ? Math.max(0, slots - saved.length) : 0
+  let remaining = typeof slots === 'number' ? Math.max(0, slots - (entry.data.raptorial_edge ? 1 : 0) - saved.length) : 0
   return automatic.filter(upgrade => {
     const base = upgrade.name.replace(/\s*\([^)]*\)$/, '')
     if (saved.some(id => entries.find(item => item.id === id)?.name.replace(/\s*\([^)]*\)$/, '') === base)) return true
