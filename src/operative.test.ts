@@ -286,6 +286,9 @@ it('applies specialization-specific weapon effects only to eligible weapons', ()
   const versatile = { ...base, level: 10, subclass: 'Ghost', feats: [{ name: feat.name, type: 'Class Feat', level: 10, choice: 'Sniper' }] }
   expect(attack(versatile, sniper, [feat]).traits).not.toContain('Unwieldy')
   expect(attack(versatile, sniper, [feat]).traits).not.toContain('Volley 30 ft.')
+  const versatileStriker = { ...versatile, feats: [{ ...versatile.feats[0], choice: 'Striker' }] }
+  expect(attack(versatileStriker, blade, [feat]).rank).toBe(attack({ ...base, level: 10, subclass: 'Striker' }, blade).rank)
+  expect(attack(versatileStriker, blade, [feat]).rank).toBeGreaterThan(attack(versatile, blade, [feat]).rank)
   expect(attack({ ...base, level: 17, subclass: 'Skirmisher' }, simpleGun).breakdown.notes?.join(' '))
     .toContain('two lowest-rolled weapon damage dice')
   expect(attack({ ...base, level: 17, subclass: 'Skirmisher' }, { ...simpleGun, data: { ...simpleGun.data, hands: 2 } })

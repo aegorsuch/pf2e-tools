@@ -882,6 +882,10 @@ function hasOperativeSniper(c: Character, entries: ContentEntry[], minLevel = 1)
   return operativeSpecializations(c, entries).some(({ entry, level }) => entry.name === 'Sniper' && c.level >= Math.max(minLevel, level))
 }
 
+function hasOperativeStriker(c: Character, entries: ContentEntry[]) {
+  return operativeSpecializations(c, entries).some(({ entry, level }) => entry.name === 'Striker' && c.level >= level)
+}
+
 function operativeSpecializations(c: Character, entries: ContentEntry[]) {
   if (!c.systems.includes('sf2e') || c.className !== 'Operative' || c.level < 1) return []
   const options = subclassOptions({ ...c, className: 'Operative' }, entries)
@@ -6287,12 +6291,12 @@ function weaponTraining(c: Character, entries: ContentEntry[], weapon: OwnedWeap
       Math.max(0, ...professionalSkills.map(skill => skillRankForName(skillRanks, skill)))) : 0
   const operative = c.systems.includes('sf2e') && c.className === 'Operative'
   const gun = operativeGun(entry)
-  const strikerWeapon = operative && c.subclass === 'Striker' && !!entry && !isRanged(entry)
+  const strikerWeapon = operative && hasOperativeStriker(c, entries) && !!entry && !isRanged(entry)
     && (category === 'Unarmed' || weaponHands(entries, weapon, c) === 1)
     && entry.traits.some(trait => /^(agile|finesse)$/i.test(trait))
   const operativeRank = operative ? Math.max(
     gun && category === 'Advanced' ? c.level >= 19 ? 4 : c.level >= 13 ? 3 : c.level >= 5 ? 2 : 1 : 0,
-    gun && (category === 'Simple' || category === 'Martial' && c.subclass !== 'Striker') || strikerWeapon
+    gun && (category === 'Simple' || category === 'Martial' && !hasOperativeStriker(c, entries)) || strikerWeapon
       ? c.level >= 13 ? 4 : c.level >= 5 ? 3 : 2 : 0,
   ) : 0
   const gunslingerFirearmRank = c.systems.includes('pf2e') && c.className === 'Gunslinger'
@@ -9679,7 +9683,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const firmwareLanguages = technomancerFirmwareLanguages(c, entries)
   const { category, rank, familiarity, martialExperience, proficiencySources } =
     weaponTraining(c, entries, w, entry, !!cairn, firmwareLanguages)
-  const strikerWeapon = c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Striker'
+  const strikerWeapon = c.systems.includes('sf2e') && c.className === 'Operative' && hasOperativeStriker(c, entries)
     && !!entry && !ranged && (category === 'Unarmed' || weaponHands(entries, w, c) === 1)
     && (traits.includes('agile') || traits.includes('finesse'))
   const agile = traits.includes('agile')
@@ -9970,7 +9974,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           ? ['Homing Mote: ignore the target’s concealment and cover within the first range increment.'] : []),
         ...(c.systems.includes('sf2e') && c.className === 'Operative' && !formAttack
           && (ranged && !traits.some(trait => /^area(?:\s|$)/i.test(trait))
-            || c.subclass === 'Striker' && !ranged && (category === 'Unarmed' || weaponHands(entries, w, c) === 1)
+            || hasOperativeStriker(c, entries) && !ranged && (category === 'Unarmed' || weaponHands(entries, w, c) === 1)
               && traits.some(trait => /^(agile|finesse)$/i.test(trait)))
           ? [`Aim: against your mark${ranged ? activeFeatsNamed(c, 'Extreme Accuracy').length
               ? ' within the first four range increments' : activeFeatsNamed(c, 'Keep Them In Your Sights').length
@@ -10028,7 +10032,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
           && !formAttack
           ? ['Sabotage (1 action): target a detected tech creature or item within 15 feet with Computers; range increases to 30/45/60 feet at expert/master/legendary. A success glitches it for 2 rounds, a critical success for 1 minute; failure makes it immune until the end of your next turn, and critical failure for 10 minutes.',
             ...(c.level >= 9 ? ['Enhanced Exploit: critically hit a tech creature to Sabotage it as a free action; react to a tech creature or tech-weapon user critically failing a melee attack against you to Sabotage the triggering creature or weapon.'] : [])] : []),
-        ...(c.systems.includes('sf2e') && c.className === 'Operative' && c.subclass === 'Striker'
+        ...(c.systems.includes('sf2e') && c.className === 'Operative'
           && strikerWeapon && !formAttack
           ? ['Reactive Step (reaction): when a creature within reach leaves a square during a move action, Step up to twice directly toward it.',
             ...(c.level >= 9 ? ['Overwhelming Strike (free action): when a Strike hits your mark and deals damage, choose enfeebled 1, off-guard, or suppressed until the end of your next turn; the target is then immune until the end of its next turn.'] : [])] : []),
