@@ -3747,7 +3747,7 @@ it('syncs Magic Hide across spells and companion controls and marks only the aff
     const changed = { ...c, ...magicHideChange(c, active, 'b') }
     const minions = renderToStaticMarkup(<MinionsSection c={changed} entries={[cat]} save={() => {}} />)
     const spells = renderToStaticMarkup(<SpellsSection c={changed} entries={[cat]} save={() => {}} />)
-    expect(minions).toContain(`aria-label="Magic Hide on B"${active ? ' checked=""' : ''}`)
+    expect(minions).not.toContain('aria-label="Magic Hide on B"')
     expect(spells).toContain(`aria-label="Magic Hide active"${active ? ' checked=""' : ''}`)
     expect(minions.match(/title="\+1 Status \(Magic Hide\) \(Magic Hide\)"/g) ?? []).toHaveLength(active ? 1 : 0)
     expect(changed.activeSpells).toContain('Keen Smell')

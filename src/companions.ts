@@ -34,6 +34,12 @@ const COMPANION_MOUNT_FEATS = ['Cavalier Dedication', 'Mounted Parry', 'Mounted 
 export const hasCompanionMountOption = (c: Character, nativeMount?: boolean) =>
   !!nativeMount || COMPANION_MOUNT_FEATS.some(name => activeFeatsNamed(c, name).length > 0)
 
+export function effectiveSpiritAspect(c: Character, companion: NonNullable<Character['companions']>[number]) {
+  const aspect = companion.spiritAspect
+  const hasAlpha = activeFeatsNamed(c, 'Spirit of the Alpha').length > 0
+  return aspect && hasAlpha ? 'Alpha' : aspect === 'Alpha' ? undefined : aspect
+}
+
 const bardingCatalogs = new WeakMap<ContentEntry[], Map<string, ContentEntry[]>>()
 const bardingFamily = (name: string) => /^Barding(?: \((?:Light|Heavy)[^)]*\))?$/i.test(name)
   ? 'Barding' : name.replace(/^Greater (?=Anti-Dragon Barding$)/i, '')
@@ -423,11 +429,10 @@ export function companionStats(c: Character, entries: ContentEntry[], type: stri
     }
   }
 
-  const aspectName = companion?.spiritAspect && knowsSpell(c, entries, 'Spirit of the Beast') ? companion.spiritAspect : undefined
+  const aspectName = companion && knowsSpell(c, entries, 'Spirit of the Beast') ? effectiveSpiritAspect(c, companion) : undefined
   const aspectRank = Math.ceil(level / 2)
-  const alphaKnown = c.feats.some(feat => feat.name === 'Spirit of the Alpha' && featTakenLevel(feat) <= c.level)
   const aspect: AppliedAspect | undefined = aspectName === 'Alpha'
-    ? alphaKnown ? { name: 'Alpha', bonus: 3, saves: Object.values(SPIRIT_ASPECTS).map(a => a.save), skills: Object.values(SPIRIT_ASPECTS).flatMap(a => a.skills) } : undefined
+    ? { name: 'Alpha', bonus: 3, saves: Object.values(SPIRIT_ASPECTS).map(a => a.save), skills: Object.values(SPIRIT_ASPECTS).flatMap(a => a.skills) }
     : aspectName ? { name: aspectName, bonus: aspectRank >= 8 ? 3 : aspectRank >= 5 ? 2 : 1,
       saves: [SPIRIT_ASPECTS[aspectName].save], skills: SPIRIT_ASPECTS[aspectName].skills } : undefined
   const skills: Array<{ name: string; rank: number; bonus: number; clumsy: boolean; note?: string; noteSource?: string }> = Object.entries(rank)

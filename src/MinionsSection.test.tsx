@@ -16,6 +16,7 @@ import { featSpellOptions, grantedFeatSpells, unresolvedFeatSpells } from './fea
 import { FeatChoice } from './FeatChoice'
 import { FeatSlots } from './FeatSlots'
 import { normalizeFiends } from './summonedFiends'
+import { StatusesContent } from './StatusesSection'
 
 function findSelect(node: ReactNode, label: string): ((event: { target: { value: string } }) => void) | undefined {
   let found: ((event: { target: { value: string } }) => void) | undefined
@@ -132,7 +133,7 @@ it('rolls animal companion attack and damage and marks the selected mount', () =
   expect(markup).toContain('title="Single Action; Attack: 1d20+')
   expect(markup).toContain('aria-label="Roll Bristle Jaws: Damage"')
   expect(markup).toContain('title="Damage: 1d8+')
-  expect(markup).toContain('aria-label="Mounted on Bristle" checked=""')
+  expect(markup).not.toContain('aria-label="Mounted on Bristle"')
 })
 
 it('opens Sinking Jaws details and rolls its flat piercing damage', () => {
@@ -623,12 +624,13 @@ it('selects one mounted companion for Mounted Parry and shows its AC source', ()
   const entries = [animal, weapon]
   const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
   const content = () => MinionsContent({ c, entries, save })
-  findToggle(content(), 'Mounted on A')!({ target: { checked: true } })
+  const statuses = () => StatusesContent({ c, entries, save })
+  findToggle(statuses(), 'Mounted on A')!({ target: { checked: true } })
   expect(c.mountedCompanionId).toBe('a')
   expect(renderToStaticMarkup(content())).toContain('Mounted Parry')
-  findToggle(content(), 'Mounted on B')!({ target: { checked: true } })
+  findToggle(statuses(), 'Mounted on B')!({ target: { checked: true } })
   expect(c.mountedCompanionId).toBe('b')
-  findToggle(content(), 'Mounted on B')!({ target: { checked: false } })
+  findToggle(statuses(), 'Mounted on B')!({ target: { checked: false } })
   expect(c.mountedCompanionId).toBeUndefined()
   expect(renderToStaticMarkup(MinionsContent({ c: { ...c, feats: [] }, entries, save }))).not.toContain('Mounted on A')
 })
@@ -640,8 +642,9 @@ it('allows selecting a mount for Mounted Shield and displays its shared AC bonus
     feats: [{ name: 'Mounted Shield', type: 'Archetype Feat', level: 6 }], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true },
     companions: [{ id: 'a', type: 'Bear', name: 'A' }] }
-  const content = () => MinionsContent({ c, entries: [animal], save: patch => { c = { ...c, ...patch } } })
-  findToggle(content(), 'Mounted on A')!({ target: { checked: true } })
+  const save = (patch: Partial<Character>) => { c = { ...c, ...patch } }
+  const content = () => MinionsContent({ c, entries: [animal], save })
+  findToggle(StatusesContent({ c, entries: [animal], save }), 'Mounted on A')!({ target: { checked: true } })
   expect(c.mountedCompanionId).toBe('a')
   expect(renderToStaticMarkup(content())).toContain('+2 Circumstance (Mounted Shield)')
 })
@@ -652,7 +655,7 @@ it.each(['Cavalier Dedication', 'Born In The Saddle', 'Legendary Rider'])('allow
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [{ name, type: 'Archetype Feat', level: 4 }], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     companions: [{ id: 'a', type: 'Bear', name: 'A' }] }
-  expect(renderToStaticMarkup(MinionsContent({ c, entries: [animal], save: () => {} }))).toContain('Mounted on A')
+  expect(renderToStaticMarkup(StatusesContent({ c, entries: [animal], save: () => {} }))).toContain('Mounted on A')
 })
 
 const familiarAbility = (name: string, description: string, abilityType = 'Familiar'): ContentEntry => ({
@@ -1869,8 +1872,8 @@ it('shows alphabetical companion status controls and groups action costs, maneuv
   expect(markup).toContain('<h4>Young Cat</h4>')
   expect(markup).not.toContain('Companions (1)')
   expect(markup.indexOf('Canopy Crawler')).toBeLessThan(markup.indexOf('Enlarge Companion'))
-  expect(markup.indexOf('Enlarge Companion')).toBeLessThan(markup.indexOf('Magic Hide'))
-  expect(markup.indexOf('Magic Hide')).toBeLessThan(markup.indexOf('Pale Horse'))
+  expect(markup.indexOf('Enlarge Companion')).toBeLessThan(markup.indexOf('Pale Horse'))
+  expect(markup).not.toContain('aria-label="Magic Hide on Cat"')
   expect(markup).not.toContain('Actions and maneuvers')
   expect(markup).toContain('<h5>Attacks</h5>')
   expect(markup).toContain('<h5>Maneuvers</h5>')
@@ -2100,6 +2103,7 @@ it('syncs Apex Companion activation with the chosen companion and exposes its ac
   expect(c.activeSpells).toEqual(['Keen Smell', 'Apex Companion'])
   expect(renderToStaticMarkup(control('a'))).not.toContain('checked=""')
   const markup = renderToStaticMarkup(<MinionsSection c={c} entries={entries} save={save} />)
+  expect(markup).not.toContain('aria-label="Apex Companion on B"')
   for (const text of ['<small>Temporary Hit Points</small><b>30</b>', '<h5>Attacks (Reach 15 feet)',
     'Deadly d12', 'Darkvision', 'greater difficult terrain', '40 feet']) expect(markup).toContain(text)
   const spells = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={save} />)

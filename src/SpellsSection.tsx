@@ -9,7 +9,7 @@ import { featTakenLevel, grantedWardenSpells, selectedFeatEntry, spellWardenLabe
 import { ActionIcon } from './ActionIcon'
 import { DamageRoll, SpellActions, SpellDamageRolls, spellActionRolls, spellDamage } from './SpellDamage'
 import { intensifiedElementDamage, RESIST_ENERGY_TYPES } from './builder'
-import { companionAdvancementFor, companionStats } from './companions'
+import { companionAdvancementFor, companionStats, effectiveSpiritAspect } from './companions'
 import { classInnateTradition, dailyInnateUses, innateTraditionOptions, gnomeHeritageCantripOptions, gnomeHeritageTradition, grantedFeatSpells, investigatorEsotericaCantripOptions, mageAutomatonOptions, originalNephilimLineage, unresolvedFeatSpells, type limitedSpellUses } from './featSpells'
 import { fiendOptions, plantOptions, undeadOptions, type SummonedFiend } from './summonedFiends'
 import { SearchableSelect } from './SearchableSelect'
@@ -924,12 +924,13 @@ export function SpiritOfTheBeastOptions({ c, save, companionId, disabled }: Pick
   return <div className="col">{companions.map(companion => <label key={companion.id}>
     {companions.length > 1 && <>{companion.name || companion.type}{' '}</>}
     <SearchableSelect aria-label={`Spirit of the Beast aspect on ${companion.name || companion.type}`}
-      value={companion.spiritAspect ?? ''} disabled={disabled} onChange={event => {
-        const spiritAspect = (['Might', 'Swiftness', 'Insight', 'Alpha'] as const).find(aspect => aspect === event.target.value)
+      value={effectiveSpiritAspect(c, companion) ?? ''} disabled={disabled} onChange={event => {
+        const spiritAspect = (hasAlpha ? ['Alpha'] as const : ['Might', 'Swiftness', 'Insight'] as const)
+          .find(aspect => aspect === event.target.value)
         save({ companions: c.companions?.map(item => item.id === companion.id ? { ...item, spiritAspect } : item) })
       }}>
       <option value="">Spirit of the Beast…</option>
-      {['Insight', 'Might', 'Swiftness', ...(hasAlpha ? ['the Alpha'] : [])].map(aspect =>
+      {(hasAlpha ? ['the Alpha'] : ['Insight', 'Might', 'Swiftness']).map(aspect =>
         <option key={aspect} value={aspect === 'the Alpha' ? 'Alpha' : aspect}>Aspect of {aspect}</option>)}
     </SearchableSelect>
   </label>)}</div>

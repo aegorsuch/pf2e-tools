@@ -11,11 +11,17 @@ export const AON_SITES: Record<GameSystem, string> = {
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '')
 
+const heritageSpeedModes = ['land', 'climb', 'swim', 'fly', 'burrow'] as const
+const heritageMovementPatterns = heritageSpeedModes.slice(1).map(mode => ({
+  mode,
+  fixed: new RegExp(`\\b(\\d+)[- ]foot\\s+${mode}\\s+Speed\\b|\\b${mode}\\s+Speed\\s+(?:of\\s+|equal to\\s+)?(\\d+)\\s+feet\\b|\\b${mode}\\s+Speed\\s+(?:increases?|improves?|becomes?)\\s+(?:to\\s+)?(\\d+)\\s+feet\\b|\\b(?:increase|improve) your ${mode} Speed to (\\d+) feet\\b`, 'i'),
+  equalLand: new RegExp(`\\b${mode}\\s+Speed\\s+equal to\\s+(?:your\\s+)?(?:base\\s+)?(?:land\\s+)?Speed\\b`, 'i'),
+}))
+
 function heritageMovementSpeeds(text: string, rawSpeed: unknown): Record<string, number | string> {
   const parsed: Record<string, number | string> = {}
-  const modes = ['land', 'climb', 'swim', 'fly', 'burrow'] as const
   const speeds = rawSpeed && typeof rawSpeed === 'object' ? rawSpeed as Record<string, unknown> : {}
-  for (const mode of modes) {
+  for (const mode of heritageSpeedModes) {
     const raw = speeds[mode]
     if (typeof raw === 'number' && raw > 0) parsed[`speed_${mode}`] = raw
   }
@@ -23,12 +29,11 @@ function heritageMovementSpeeds(text: string, rawSpeed: unknown): Record<string,
   const sentences = text.split(/(?<=[.!?])\s+/)
   for (const sentence of sentences) {
     if (/\b(?:if|when|while|unless|only if|only while)\b/i.test(sentence)) continue
-    for (const mode of modes.slice(1)) {
-      const fixed = new RegExp(`\\b(\\d+)[- ]foot\\s+${mode}\\s+Speed\\b|\\b${mode}\\s+Speed\\s+(?:of\\s+|equal to\\s+)?(\\d+)\\s+feet\\b|\\b${mode}\\s+Speed\\s+(?:increases?|improves?|becomes?)\\s+(?:to\\s+)?(\\d+)\\s+feet\\b|\\b(?:increase|improve) your ${mode} Speed to (\\d+) feet\\b`, 'i')
-        .exec(sentence)
-      const feet = fixed && Number(fixed.slice(1).find(Boolean))
+    for (const { mode, fixed, equalLand } of heritageMovementPatterns) {
+      const match = fixed.exec(sentence)
+      const feet = match && Number(match.slice(1).find(Boolean))
       if (feet) parsed[`speed_${mode}`] = Math.max(Number(parsed[`speed_${mode}`]) || 0, feet)
-      else if (new RegExp(`\\b${mode}\\s+Speed\\s+equal to\\s+(?:your\\s+)?(?:base\\s+)?(?:land\\s+)?Speed\\b`, 'i').test(sentence)) {
+      else if (equalLand.test(sentence)) {
         parsed[`speed_${mode}`] = 'land'
       }
     }
@@ -137,7 +142,9 @@ function heritageResistances(text: string) {
 
 function featAttackEntries(feat: ContentEntry, markdown: string): ContentEntry[] {
   if (feat.name === 'Ancestral Unarmed Attack') return []
-  const sentences = plain(markdown).split(/(?<=[.!?])\s+/)
+  const normalized = plain(markdown)
+  if (!/unarmed attack/i.test(normalized)) return []
+  const sentences = normalized.split(/(?<=[.!?])\s+/)
   const entries: ContentEntry[] = []
   const damageTypes = 'acid|bludgeoning|cold|electricity|fire|force|mental|negative|piercing|poison|slashing|sonic|spirit|vitality|void'
   const addAttack = (attackName: string, dice: string, damageType: string, group: string, traits: string[], ranged: boolean, range: number, description: string) => {
@@ -329,10 +336,10 @@ export function mapAonHit(hit: Hit, system: GameSystem): ContentEntry | null {
     ? text(s.markdown).replace(/^[\s\S]*?\*\*Source\*\*[^\n]*\n/i, '')
     : embeddedWay ? text(s.text).replace(/^.*?\bpg\. \d+\s*/, '').replace(/&amp;/g, '&')
     : kind === 'subclass' ? text(s.markdown).replace(/<title\b[^>]*\bright="(Level \d+)"[^>]*>([^<]*)<\/title>/g, '\n\n$1 $2\n\n') : text(s.markdown)
-  const familiarRules = markdown
+  const familiarRules = kind === 'familiar' ? markdown
     .replace(/<title\b[^>]*>[\s\S]*?<\/title>/i, '')
     .replace(/<column\b[^>]*>[\s\S]*?<\/column>/gi, '')
-    .replace(/^\s*\*\*(?:Source|Ability Type)\*\*[^\n]*\n/gim, '')
+    .replace(/^\s*\*\*(?:Source|Ability Type)\*\*[^\n]*\n/gim, '') : ''
   if (kind === 'background' && markdown.trim()) data.full_description = true
   for (const f of DATA_FIELDS) {
     const v = s[f]

@@ -503,8 +503,10 @@ it('targets a Witch familiar with Protect Companion instead of its animal compan
     expect(current.protectCompanionFamiliar).toBe('primary')
     expect(companionStats(current, [bear], 'Bear', undefined, 'bear')!.ac).toBe(baseBearAc)
     expect(familiarAc()).toBe(baseAc + 1)
-    expect(container.querySelector<HTMLInputElement>('[aria-label="Protect Companion on Familiar"]')!.checked).toBe(true)
-    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Protect Companion on Familiar"]')!.click())
+    const familiarDefenses = container.querySelector('[data-minion-name="Witch\'s Familiar"] .companion-actions')!
+    expect(familiarDefenses.textContent).not.toContain('Protect Companion')
+    expect(familiarDefenses.querySelector('input')).toBeNull()
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Protect Companion active"]')!.click())
     expect(familiarAc()).toBe(baseAc)
   } finally {
     await act(async () => root.unmount())
@@ -537,8 +539,8 @@ it('synchronizes all-minion Protect Companion toggles', async () => {
     await act(async () => root.render(<Sheet />))
     const toggles = () => [...container.querySelectorAll<HTMLInputElement>('input[aria-label^="Protect Companion"]')]
     expect(container.querySelector('[aria-label="Protect Companion target"]')).toBeNull()
-    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Protect Companion on Familiar"]')!.click())
-    expect(toggles().length).toBeGreaterThan(2)
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Protect Companion active"]')!.click())
+    expect(toggles().length).toBeGreaterThan(0)
     expect(toggles().every(toggle => toggle.checked)).toBe(true)
     await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Protect Companion active"]')!.click())
     expect(toggles().every(toggle => !toggle.checked)).toBe(true)

@@ -375,6 +375,27 @@ it('imports feat-granted natural weapons with damage, traits, range, and feat so
   })
 })
 
+it('imports heritage speeds while ignoring conditional movement', () => {
+  const [heritage] = mapAonHits([{
+    _id: 'heritage-speeds', _source: {
+      name: 'Speed Heritage', category: 'heritage',
+      markdown: 'You gain a 15-foot climb Speed. You gain a swim Speed equal to your land Speed. Your fly Speed increases to 30 feet. While underwater, you have a 20-foot burrow Speed.',
+    },
+  }], 'pf2e')
+  expect(heritage.data).toMatchObject({ speed_climb: 15, speed_swim: 'land', speed_fly: 30 })
+  expect(heritage.data.speed_burrow).toBeUndefined()
+})
+
+it('imports unarmed attacks when markup separates their name', () => {
+  const entries = mapAonHits([{
+    _id: 'marked-attack', _source: {
+      name: 'Marked Attack', category: 'feat',
+      markdown: 'You gain a tail un**arm**ed [attack](/Attacks) that deals 1d6 bludgeoning damage.',
+    },
+  }], 'pf2e')
+  expect(entries.find(entry => entry.data.granted_by_feat === 'Marked Attack')?.data.damage).toBe('1d6 bludgeoning')
+})
+
 it('lists copied class feats as homebrew without changing official feats', () => {
   const entries = mapAonHits([{
     _id: 'feat-4733',

@@ -15,12 +15,48 @@ import { PURIFY_AIR_DESCRIPTION, purifyAirActive, purifyAirAvailable } from './f
 import { summonSpellName } from './summonedFiends'
 import { Fragment } from 'react'
 import type { ContentEntry } from './types'
-import { companionAdvancementFor, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_NAME,
+import { companionAdvancementFor, companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_NAME, effectiveSpiritAspect,
   hasCompanionMountOption, isBadgerCompanion } from './companions'
 import { ActionIcon } from './ActionIcon'
 import { AUTOMATIC_JETPACK_ID, armorUpgradeEntries, automaticSpecificArmorUpgrades, forceFieldAlwaysActive, forceFieldStats, jetpackSpeed } from './builder'
 import type { OwnedArmor } from './types'
 import { weaponBoostChange, weaponBoostDamage } from './weaponBoost'
+import { inventiveOffensiveOptions, isRanged, ranksAt, weaponCategory } from './builder'
+
+export function InventiveOffensiveOptions({ c, entries, save }: SectionProps) {
+  const weapons = ownedWeapons(c, entries).filter(weapon => {
+    const entry = weaponAttack({ ...c, inventiveOffensive: undefined }, entries, weapon).entry
+    return entry && weaponCategory(entry) !== 'Unarmed' && !isRanged(entry)
+      && !weapon.stowed && !weapon.cheekStored && weaponHeld(c, entries, weapon)
+  })
+  const weapon = weapons.find(item => item.id === c.inventiveOffensive?.weaponId)
+  const traits = weapon ? weaponAttack({ ...c, inventiveOffensive: undefined }, entries, weapon).traits : []
+  const options = inventiveOffensiveOptions(traits)
+  const first = options.find(option => option === c.inventiveOffensive?.traits[0]) ?? ''
+  const secondOptions = inventiveOffensiveOptions([...traits, ...(first ? [first] : [])])
+  const second = secondOptions.find(option => option === c.inventiveOffensive?.traits[1]) ?? ''
+  return <>
+    <label>Weapon{' '}<select aria-label="Inventive Offensive weapon" value={weapon?.id ?? ''} onChange={event => {
+      const selected = weapons.find(item => item.id === event.target.value)
+      save({ inventiveOffensive: selected ? { weaponId: selected.id, traits: [] } : undefined })
+    }}>
+      <option value="">None</option>{weapons.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+    </select></label>
+    {weapon && <label>Trait{' '}<select aria-label="Inventive Offensive trait" value={first} onChange={event => {
+      const value = options.find(option => option === event.target.value)
+      const nextSecond = value && second && inventiveOffensiveOptions([...traits, value]).includes(second) ? [second] : []
+      save({ inventiveOffensive: value ? { weaponId: weapon.id, traits: [value, ...nextSecond] } : undefined })
+    }}>
+      <option value="">None</option>{options.map(option => <option key={option}>{option}</option>)}
+    </select></label>}
+    {weapon && (ranksAt(c, entries).Crafting ?? 0) >= 4 && <label>Second trait{' '}
+      <select aria-label="Inventive Offensive second trait" value={second} disabled={!first} onChange={event => {
+        const value = secondOptions.find(option => option === event.target.value)
+        if (first) save({ inventiveOffensive: { weaponId: weapon.id, traits: [first, ...(value ? [value] : [])] } })
+      }}><option value="">None</option>{secondOptions.map(option => <option key={option}>{option}</option>)}</select>
+    </label>}
+  </>
+}
 
 function boostWeapons(c: SectionProps['c'], entries: SectionProps['entries']) {
   if (!c.systems.includes('sf2e')) return []
@@ -41,11 +77,13 @@ const entrenchMeleeEntry = (bonus: number): ContentEntry => ({
 
 const companionLabel = (companion: NonNullable<SectionProps['c']['companions']>[number]) =>
   companion.name || companion.type
-const spiritAspectStatusName = (companion: NonNullable<SectionProps['c']['companions']>[number]) =>
-  companion.spiritAspect
-    ? `Spirit of the Beast (${companionLabel(companion)}: ${companion.spiritAspect === 'Alpha'
-      ? 'Aspect of the Alpha' : `Aspect of ${companion.spiritAspect}`})`
+const spiritAspectStatusName = (c: SectionProps['c'], companion: NonNullable<SectionProps['c']['companions']>[number]) => {
+  const aspect = effectiveSpiritAspect(c, companion)
+  return aspect
+    ? `Spirit of the Beast (${companionLabel(companion)}: ${aspect === 'Alpha'
+      ? 'Aspect of the Alpha' : `Aspect of ${aspect}`})`
     : undefined
+}
 
 export const canAim = (c: SectionProps['c']) => c.systems.includes('sf2e') && c.className === 'Operative'
 
@@ -186,7 +224,7 @@ export function StatusesSummary({ c, entries, save }: SectionProps) {
     ...(c.companions ?? []).filter(companion => companion.id === c.mountedCompanionId)
       .map(companion => `Mounted (${companionLabel(companion)})`),
     ...(knowsSpell(c, entries, 'Spirit of the Beast')
-      ? (c.companions ?? []).flatMap(companion => spiritAspectStatusName(companion) ?? []) : []),
+      ? (c.companions ?? []).flatMap(companion => spiritAspectStatusName(c, companion) ?? []) : []),
     ...(entrenchMeleeActive(c, entries) ? ['Entrench Melee'] : []),
     ...(armorDevices.jetpackActive && armorDevices.jetpack ? [armorDevices.jetpack.name] : []),
     ...(armorDevices.forceFieldActive && armorDevices.forceFieldStats
@@ -197,6 +235,7 @@ export function StatusesSummary({ c, entries, save }: SectionProps) {
     ...boostWeapons(c, entries).filter(boost => boost.active).map(({ weapon, damage }) => `Boost (${weapon.name}: ${damage})`),
     ...(purifyAirActive(c) ? ['Purify Air'] : []),
     ...(c.hardenFleshActive && activeFeatsNamed(c, 'Harden Flesh').length ? ['Harden Flesh'] : []),
+    ...(c.inventiveOffensive?.traits.length && activeFeatsNamed(c, 'Inventive Offensive').length ? ['Inventive Offensive'] : []),
     ...(c.systems.includes('sf2e') && activeFeatsNamed(c, 'Space Pirate Dedication').length
       && c.holoRogerActive ? ['Holo-Roger'] : []),
     ...(c.activeSpells ?? []).flatMap(name => name === 'Shield' && defense.cantrip && !defense.boneShield
@@ -230,7 +269,8 @@ export function StatusesSummary({ c, entries, save }: SectionProps) {
           ? () => save({ mountedCompanionId: undefined })
         : name.startsWith('Spirit of the Beast (')
           ? () => save({ companions: c.companions?.map(companion =>
-            spiritAspectStatusName(companion) === name ? { ...companion, spiritAspect: undefined } : companion) })
+            spiritAspectStatusName(c, companion) === name ? { ...companion, spiritAspect: undefined } : companion) })
+        : name === 'Inventive Offensive' ? () => save({ inventiveOffensive: undefined })
         : name === 'Tenacious Stance' ? () => save({ activeStance: undefined }) : undefined
     if (!toggle) return name
     return <button type="button" className="status-header-toggle" aria-label={name} aria-pressed="true"
@@ -446,6 +486,10 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
     </> }] : []),
     ...(activeFeatsNamed(c, 'Harden Flesh').length
       ? [{ name: 'Harden Flesh', element: <HardenFleshToggle c={c} save={save} /> }] : []),
+    ...(activeFeatsNamed(c, 'Inventive Offensive').length ? [{ name: 'Inventive Offensive', element: <>
+      Inventive Offensive{' '}<ActiveSpellActions name="Inventive Offensive" actions={(ranksAt(c, entries).Crafting ?? 0) >= 2 ? 'Two Actions' : 'Three Actions'}>
+        <InventiveOffensiveOptions c={c} entries={entries} save={save} />
+      </ActiveSpellActions></> }] : []),
     ...companionStatuses.filter(status => status.mountable).map(({ companion }) => ({
       name: `Mounted (${companionLabel(companion)})`,
       element: <label><input type="checkbox" aria-label={`Mounted on ${companionLabel(companion)}`}
@@ -652,7 +696,7 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
   return <div className="character-section-content">
     <div className="condition-controls" role="group" aria-label="Statuses">
       {controls.map(control => {
-        const entry = !['Heroic Defiance', 'Hunt Prey', 'Aim'].includes(control.name) && !spellControls.some(spell => spell.name === control.name) && entries.find(candidate => (candidate.kind === 'feat' || candidate.kind === 'classFeature')
+        const entry = !['Heroic Defiance', 'Hunt Prey', 'Aim', 'Inventive Offensive'].includes(control.name) && !spellControls.some(spell => spell.name === control.name) && entries.find(candidate => (candidate.kind === 'feat' || candidate.kind === 'classFeature')
           && !candidate.deleted && candidate.name.toLowerCase() === control.name.toLowerCase()
           && candidate.systems.some(system => c.systems.includes(system))
           && typeof candidate.data.actions === 'string' && /(?:single|one|two|three) action|free action|reaction/i.test(candidate.data.actions))

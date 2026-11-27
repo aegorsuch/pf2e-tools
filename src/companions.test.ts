@@ -719,6 +719,14 @@ describe('animal companions', () => {
     expect(companionStats({ ...c, feats: [] }, [bear], 'Bear', undefined, 'a')!.fortitude).toBe(none.fortitude)
     expect([alpha.fortitude - none.fortitude, alpha.reflex - none.reflex, alpha.will - none.will, alpha.perception - none.perception]).toEqual([3, 3, 3, 3])
     expect(alpha.skills.find(s => s.name === 'Athletics')!.bonus).toBe(none.skills.find(s => s.name === 'Athletics')!.bonus + 3)
+    for (const spiritAspect of ['Might', 'Swiftness', 'Insight'] as const) {
+      const upgraded = companionStats({ ...c, companions: [{ id: 'a', name: '', type: 'Bear', spiritAspect }] }, [bear], 'Bear', undefined, 'a')!
+      expect([upgraded.fortitude, upgraded.reflex, upgraded.will, upgraded.perception])
+        .toEqual([alpha.fortitude, alpha.reflex, alpha.will, alpha.perception])
+    }
+    const beforeFeat = { ...c, level: 19, companions: [{ id: 'a', name: '', type: 'Bear', spiritAspect: 'Might' as const }] }
+    expect(companionStats(beforeFeat, [bear], 'Bear', undefined, 'a')!.reflex)
+      .toBe(companionStats({ ...beforeFeat, companions: [{ id: 'a', name: '', type: 'Bear' }] }, [bear], 'Bear', undefined, 'a')!.reflex)
   })
 
   it('hides legacy Beastmaster Heal Animal while preserving saved selections and native healing', () => {

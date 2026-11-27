@@ -46,7 +46,7 @@ import { fulminatingShotDamage } from './fulminatingShot'
 import { ANCESTRAL_AVATAR } from './battleForms'
 import { spellActiveChange } from './builder'
 import { shieldEntry } from './builder'
-import { augmentationBaseDailyUses, augmentationLimitSources, hasDermalPlating, intensifiedElementDamage, inventiveOffensiveOptions, isQuantumMultitoolAppendage, isQuickChargeHand, ranksAt, testSubjectDatajack } from './builder'
+import { augmentationBaseDailyUses, augmentationLimitSources, hasDermalPlating, intensifiedElementDamage, isQuantumMultitoolAppendage, isQuickChargeHand, testSubjectDatajack } from './builder'
 import { cloakingSkinUsageKey, itemSpells, itemSpellUses, itemSpellUsesChange, presenceIntensifierUsageKey } from './itemSpells'
 import { AUTOMATIC_JETPACK_ID, armorUpgradeSlots, automaticArmorUpgradeSlotsUsed, automaticSpecificArmorUpgrades, jetpackSpeed } from './builder'
 import { weaponGradeFamily } from './builder'
@@ -1463,14 +1463,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
         const pristineNote = pristineSource
           ? `${pristineSource}: treated as cold iron and silver. Critical hit against a creature with a weakness to cold iron or silver: 1d6 persistent bleed.`
           : undefined
-        const inventive = !!activeFeatsNamed(c, 'Inventive Offensive').length && !unarmed
-          && !!a.entry && !isRanged(a.entry) && !w.stowed && !w.cheekStored && weaponHeld(c, entries, w)
-        const baseTraits = inventive ? weaponAttack({ ...c, inventiveOffensive: undefined }, entries, w).traits : []
-        const inventiveOptions = inventiveOffensiveOptions(baseTraits)
-        const savedInventive = c.inventiveOffensive?.weaponId === w.id ? c.inventiveOffensive.traits : []
-        const firstInventive = inventiveOptions.find(option => option === savedInventive[0]) ?? ''
-        const secondOptions = inventiveOffensiveOptions([...baseTraits, ...(firstInventive ? [firstInventive] : [])])
-        const secondInventive = secondOptions.find(option => option === savedInventive[1]) ?? ''
         const combinationWeaponForForm = (form: 'Melee' | 'Ranged') => {
           const target = forms.find(entry => entry.name.endsWith(`(${form})`))
           if (!target) return undefined
@@ -1484,7 +1476,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           const targetHands = weaponHands(entries, targetWeapon, c)
           return !unknownHands && handsUsed - (hands ?? 0) + (targetHands ?? handLimit + 1) <= handLimit
         }
-        const legendaryCrafting = inventive && (ranksAt(c, entries).Crafting ?? 0) >= 4
         const compactDamage = (damage: string) => damage.replace(/\b(bludgeoning|piercing|slashing)\b/gi, type => type[0].toUpperCase())
         const untamedPersistent = !a.upgrades.some(upgrade => upgrade.name === 'Merciful')
           && c.level >= 11 && ['Untamed Claws', 'Untamed Jaws'].includes(w.name)
@@ -1563,32 +1554,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           && freeRunes.findIndex(other => runeName(other.name) === runeName(rune.name)) === index)
         const crushing = activeRunes.some((rune) => runeName(rune) === 'Crushing (Greater)') ? 2 : activeRunes.includes('Crushing') ? 1 : 0
         const equipControls = <>
-            {inventive && <span onClick={event => event.stopPropagation()}>
-              <label>Inventive Offensive <ActionIcon actions={(ranksAt(c, entries).Crafting ?? 0) >= 2 ? 'Two Actions' : 'Three Actions'} />{' '}
-                <select aria-label={`Inventive Offensive: ${displayName}`} value={firstInventive} onChange={event => {
-                  const value = inventiveOptions.find(option => option === event.target.value)
-                  const nextSecond = value && secondInventive && inventiveOffensiveOptions([...baseTraits, value]).includes(secondInventive)
-                    ? [secondInventive] : []
-                  save({ inventiveOffensive: value ? { weaponId: w.id, traits: [value, ...nextSecond] } : undefined })
-                }}>
-                  <option value="">None</option>
-                  {inventiveOptions.map(option => <option key={option}>{option}</option>)}
-                </select>
-              </label>
-              {legendaryCrafting && <label> Second trait{' '}
-                <select aria-label={`Inventive Offensive second trait: ${displayName}`} value={secondInventive}
-                  disabled={!firstInventive} onChange={event => {
-                    if (!firstInventive) return
-                    const value = secondOptions.find(option => option === event.target.value)
-                    save({ inventiveOffensive: { weaponId: w.id, traits: [firstInventive, ...(value ? [value] : [])] } })
-                  }}>
-                  <option value="">None</option>
-                  {secondOptions.map(option => <option key={option}>{option}</option>)}
-                </select>
-              </label>}
-              <SourceNote source="Inventive Offensive"
-                note="Ends after a successful hit that deals damage, or when you stop wielding the weapon. Clear the selection when it ends." />
-            </span>}
             {namedSource === 'Briar' && <label>Sharpness Points{' '}
               <input aria-label="Briar Sharpness Points" type="number" min={0} max={BRIAR_MAX_SHARPNESS} step={1} value={briarSharpnessPoints(w.briarSharpness)}
                 onChange={event => {

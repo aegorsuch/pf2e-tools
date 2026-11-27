@@ -20,6 +20,7 @@ import { EntryDescription } from './EntryDescription'
 import { ClassFeatures } from './ClassFeatures'
 import { DamageRoll, MultipleDamageRoll } from './SpellDamage'
 import type { GearSystem } from './gearSystem'
+import { InventiveOffensiveOptions, StatusesContent, StatusesSummary } from './StatusesSection'
 
 beforeEach(() => vi.stubGlobal('window', { confirm: vi.fn(() => true) }))
 afterEach(() => vi.unstubAllGlobals())
@@ -385,14 +386,21 @@ it.each([false, true])('applies Inventive Offensive to one held melee weapon (di
       { id: 'two', name: sword.name, potency: 0, striking: 0, runes: [] },
     ] }
   const tree = () => WeaponList({ c, entries: [sword], save: patch => { c = { ...c, ...patch } }, displayOnly })
-  const control = (label: string) => findElement(tree(), e => e.props['aria-label'] === label)!
-  const first = control('Inventive Offensive: Longsword')
-  const options = renderToStaticMarkup(tree())
+  const controls = () => InventiveOffensiveOptions({ c, entries: [sword], save: patch => { c = { ...c, ...patch } } })
+  const control = (label: string) => findElement(controls(), e => e.props['aria-label'] === label)!
+  expect(renderToStaticMarkup(tree())).not.toContain('Inventive Offensive:')
+  const statuses = renderToStaticMarkup(<StatusesContent c={c} entries={[sword]} save={() => {}} />)
+  expect(statuses).toContain('aria-label="Inventive Offensive options"')
+  ;(control('Inventive Offensive weapon').props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'one' } })
+  const first = control('Inventive Offensive trait')
+  const options = renderToStaticMarkup(controls())
   expect(options).not.toContain('<option>Deadly d6</option>')
   expect(options).not.toContain('<option>Versatile B</option>')
   ;(first.props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Trip' } })
-  ;(control('Inventive Offensive second trait: Longsword').props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Shove' } })
+  ;(control('Inventive Offensive second trait').props.onChange as (event: { target: { value: string } }) => void)({ target: { value: 'Shove' } })
   expect(weaponAttack(c, [sword], c.weapons![0]).traits).toEqual(expect.arrayContaining(['Trip', 'Shove']))
+  expect(renderToStaticMarkup(<StatusesSummary c={c} entries={[sword]} save={() => {}} />))
+    .toContain('aria-label="Inventive Offensive"')
   expect(weaponAttack(c, [sword], c.weapons![1]).traits).not.toContain('Trip')
   expect(weaponAttack({ ...c, rankOverrides: { Crafting: 3 } }, [sword], c.weapons![0]).traits).not.toContain('Shove')
   expect(inventiveOffensiveChange({ ...c, rankOverrides: { Crafting: 3 } }, [sword]))

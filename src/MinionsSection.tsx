@@ -3,10 +3,10 @@ import { Info, SourceNote } from './Info'
 import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, bardingOptions, companionItemName, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor,
   companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME, equippedBarding,
-  hasCompanionMountOption, hasConstructInnovation, isBadgerCompanion, isCompanionEquipmentItem, minionFerocity, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, languageGroups, magicHideChange, mechanicExocortexes, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, spellDCText, summonedMounts, technomancerFirmwareLanguages, type SectionProps, type TotalBreakdown } from './builder'
+  hasConstructInnovation, isBadgerCompanion, isCompanionEquipmentItem, minionFerocity, specializationOptions } from './companions'
+import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, knowsSpell, languageAllowance, languageGroups, mechanicExocortexes, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, spellDCText, summonedMounts, technomancerFirmwareLanguages, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
-import { ActiveSpellActions, CompanionSpellOptions, ProtectCompanionOptions, SpiritOfTheBeastOptions } from './SpellsSection'
+import { ActiveSpellActions, CompanionSpellOptions, SpiritOfTheBeastOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
 import { formatTraitLabel } from './GearTraits'
 import { DamageRoll } from './SpellDamage'
@@ -738,7 +738,6 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   const { companions, constructAdvancement, leshy, undeadFamiliar, crocodileFamiliar, familiar, wasp, spiritFamiliar, glyph, seaFriend, pet } = minionSummaryData(c)
   const lashuntaAlly = activeLashuntaAlly(c)
   const ferocity = minionFerocity(c)
-  const magicHideKnown = knowsSpell(c, entries, 'Magic Hide')
   const protectedByCompanion = protectCompanionApplies(c, entries)
   const needsConstructEntry = hasConstructInnovation(c) || companions.some(comp => comp.type === CONSTRUCT_COMPANION_NAME)
   const servoShell = technomancerFirmwareLanguages(c, entries).has('ServoShell')
@@ -912,16 +911,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   description: `Once per hour: 30-foot cone, ${stats.primalHowl} sonic damage, basic Fortitude save against your spell DC; frightened 1 on a failure or frightened 2 on a critical failure. The fright is an emotion, fear, and mental effect.` }] : []),
               ].sort((a, b) => a.name.localeCompare(b.name))
               const statusControls = [
-                ...(hasCompanionMountOption(c, stats?.mount) ? [{ name: 'Mounted', element: <label><input type="checkbox"
-                  aria-label={`Mounted on ${comp.name || comp.type}`} checked={c.mountedCompanionId === comp.id}
-                  onChange={event => save({ mountedCompanionId: event.target.checked ? comp.id : undefined,
-                    ...(event.target.checked ? { mountedSummon: undefined } : {}) })} /> Mounted</label> }] : []),
-                ...(magicHideKnown ? [{ name: 'Magic Hide', element: <label><input type="checkbox"
-                  aria-label={`Magic Hide on ${comp.name || comp.type}`} checked={isMagicHideActive(c, entries, comp.id)}
-                  onChange={event => save(magicHideChange(c, event.target.checked, comp.id))} /> Magic Hide</label> }] : []),
-                ...(knowsSpell(c, entries, 'Protect Companion') ? [{ name: 'Protect Companion',
-                  element: <ProtectCompanionOptions c={c} save={save} companionId={comp.id} entries={entries} showDetails /> }] : []),
-                ...(['Apex Companion', 'Canopy Crawler', 'Enlarge Companion'] as const).filter(name => knowsSpell(c, entries, name))
+                ...(['Canopy Crawler', 'Enlarge Companion'] as const).filter(name => knowsSpell(c, entries, name))
                   .map(name => ({ name, element: <CompanionSpellOptions key={name} c={c} entries={entries}
                     save={save} name={name} companionId={comp.id} toggleOnly /> })),
                 ...(knowsSpell(c, entries, 'Spirit of the Beast') ? [{ name: 'Spirit of the Beast', element:
@@ -1410,15 +1400,12 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             <div className="gear-stats">
               <span><small>Hit Points</small><b>{familiarEffects.hitPoints}</b></span>
               {minionDefense && <>
-                <span><small>Armor Class</small><b>{minionDefense.ac + Number(protectedFamiliar)}</b>
-                  {protectedFamiliar && <SourceNote source="Protect Companion" note="+1 Circumstance (Protect Companion)" inlineSource />}</span>
+                <span><small>Armor Class</small><b>{minionDefense.ac + Number(protectedFamiliar)}</b></span>
                 <span><small>Fortitude</small>{signed(minionDefense.fortitude)}</span>
                 <span><small>Reflex</small>{signed(minionDefense.reflex)}</span>
                 <span><small>Will</small>{signed(minionDefense.will)}</span>
               </>}
             </div>
-            {knowsSpell(c, entries, 'Protect Companion') && <ProtectCompanionOptions c={c} save={save}
-              familiarTarget={isWasp ? 'wasp' : 'primary'} />}
             {(familiarEffects.resistances.length > 0 || familiarOaken) && <div><small>Resistances</small> {familiarEffects.resistances
               .map(resistance => `${resistance.damage} ${resistance.value}`).join(', ')}
               {familiarOaken && <>{familiarEffects.resistances.length > 0 && ', '}

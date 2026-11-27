@@ -770,6 +770,15 @@ it('shows Mounted and Spirit of the Beast in Statuses for eligible companions', 
   expect(renderToStaticMarkup(summary)).toContain('Spirit of the Beast (Bristle: Aspect of Might)</button>')
   findButton(summary, 'Spirit of the Beast (Bristle: Aspect of Might)')!()
   expect(c.companions?.[0].spiritAspect).toBeUndefined()
+  c = { ...c, level: 20, feats: [...c.feats, { name: 'Spirit of the Alpha', type: 'Archetype Feat', level: 20 }],
+    companions: [{ ...c.companions![0], spiritAspect: 'Might' }] }
+  const upgraded = StatusesSummary({ c, entries, save })
+  expect(renderToStaticMarkup(upgraded)).toContain('Spirit of the Beast (Bristle: Aspect of the Alpha)</button>')
+  const choices = renderToStaticMarkup(SpiritOfTheBeastOptions({ c, save, companionId: 'bear' }))
+  expect(choices).toContain('<option value="Alpha" selected="">Aspect of the Alpha</option>')
+  expect(choices).not.toContain('Aspect of Might')
+  findButton(upgraded, 'Spirit of the Beast (Bristle: Aspect of the Alpha)')!()
+  expect(c.companions?.[0].spiritAspect).toBeUndefined()
   expect(renderToStaticMarkup(StatusesContent({ c: { ...c, spells: [] }, entries, save })))
     .not.toContain('Spirit of the Beast aspect on Bristle')
 })
