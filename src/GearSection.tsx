@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import {
   propertyRunes, eligibleWeaponRunes, runeBaseName, runeName, canBeOsteoArmament, osteoArmamentRune, activeBattleForm, withoutBattleForm, STRIKING_LABEL, gearPickerEntries, isMagicItem, armorCategory, isRanged, weaponDamage, weaponRuneApplies, maxPropertyRunes, ownedArmors, ownedWeapons, signed, weaponAttack, weaponCategory, isAutomaticUnarmed, isLockedWeapon,
-  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, hasDailyAugmentationActivation, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, isSolarianCrystalWeapon, solarianCoreCrystals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isFavoredWeapon, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, rogueRackets, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, type SectionProps,
+  activeFeatsNamed, alloyedAttackMaterial, animalStrengthSource, animalStrengthRuneSources, armorProficiencyRank, augmentationLimitUsed, augmentationExemption, augmentationLimit, baseItems, canInstallAugmentation, hasAnimalStrength, hasDailyAugmentationActivation, armorDisplayName, armorEntry, armorGauntlet, automaticHardlightGrade, automaticWeaponFundamentals, isSolarianCrystalWeapon, solarianCoreCrystals, blessedArmamentRune, bulkLimits, canAttachWeapon, canBeLivingWeapon, canBeVerdantWeapon, canBeWeaponInnovation, combinationForms, combinationName, effectiveHandwraps, effectiveWeapon, equippedShield, hardpointWeaponEligible, totalHandCapacity, usesWeaponUpgrades, weaponCanUseTwoHands, weaponEquipped, weaponHeld, weaponHands, ownedShields, shieldChange, hasAutomaticWeaponFundamentals, haftStrikerSource, haftStrikerWeapons, handwrapRuneOptions, isBucklerShield, isGrantedDwarfClanWeapon, isWoodArmor, livingWeaponEnhancements, livingWeaponRunes, PLAYING_CARD_WEAPONS, proficiencyBonus, RANKS, SHIELD_RUNES, shieldAcBonus, shieldMaterial, shieldMaterialOptions, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldStats, speedBonuses, type SectionProps,
 } from './builder'
 import { newId } from './db'
 import { hasPersonalUpgradeSlot, armorUpgradeEntries, armorUpgradeEntry, automaticArmorUpgradeUsesSlot, blessedShieldBenefit, canEquipShield, canRaiseShield, championBlessings, clanPistolRunes, energyShieldingVariantId, equippedHands, equippedOtherShield, forceFieldStats, isEnergyShieldingUpgrade, myrmidonPhaseShield, scaleOfIgroonWeaponRunes, shieldAllowsAttachments, shieldAllowsUpgrades, shieldAttachmentOptions, shieldAttachmentSource, shieldBraceEligible, shieldEquipChange, weaponEntry } from './builder'
@@ -1556,8 +1556,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               && <SourceNote source={rune.source} note={rune.note} inlineSource={rune.source === 'Gravity Weapon' || rune.source === 'Pharasma (Moderate Boon)'} />}</Fragment>)}
             {summary.fulminatingShot && ` + ${summary.fulminatingShot}`}{untamedPersistent && ` + ${untamedPersistent}`}</>}{summary.inactive && ' (inactive)'}
         </>
-        const avengerNote = rogueRackets(c, entries).includes('Avenger') && isFavoredWeapon(c, entries, w.name)
-          ? 'Avenger: sneak attack applies to your prey; critical specialization applies on a critical hit against an off-guard target.' : undefined
         const activeRunes = forms.length || card ? enhanced.runes.filter(rune => weaponRuneApplies(entries, enhanced, rune)) : enhanced.runes
         const activeFreeRunes = freeRunes.filter((rune, index) =>
           (!(forms.length || card) || weaponRuneApplies(entries, enhanced, rune.name))
@@ -1741,7 +1739,6 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
           {namedSource !== 'Serithtial' && namedWeaponNotes}
           {attackSummaries.map(summary => summary.attack.range > 0 && !inlineRange(summary) && !summary.attack.traits.some(trait => /^thrown(?:\s|$)/i.test(trait.trim()))
             && <small key={`${summary.form ?? 'weapon'}-range`}>{summary.form ? `${summary.form} range` : 'Range'} {summary.attack.range} feet</small>)}
-          {avengerNote && <small>{avengerNote}</small>}
         </div>
         return (
           <details key={w.id} className="gear-card" aria-label={displayName} open={!c.collapsedWeaponIds?.includes(w.id)} onToggle={event => {
@@ -1785,8 +1782,7 @@ export function WeaponList({ c, entries, save, displayOnly = false, additionalWe
               <button type="button" aria-label={`Increase ${displayName} loaded ammunition`} disabled={loaded === capacity}
                 onClick={() => update(w.id, { capacityLoaded: loaded + 1 })}>+</button>
             </div>}
-            {avengerNote && <small>{avengerNote}</small>}
-            {gauntlet && w.id === GAUNTLET.id && <label>Armor gauntlet{' '}
+              {gauntlet && w.id === GAUNTLET.id && <label>Armor gauntlet{' '}
               <select aria-label="Armor gauntlet" value={gauntlet.name} disabled={gauntlet.locked} onChange={(e) => {
                 const choice = ARMOR_GAUNTLETS.find((name) => name === e.target.value)
                 if (choice) save({ armors: ownedArmors(c, entries).map((armor) => armor.id === gauntlet.armor.id ? { ...armor, gauntlet: choice } : armor) })

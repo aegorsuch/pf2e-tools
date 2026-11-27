@@ -115,8 +115,7 @@ it('grants Avenger divine skill, medium armor and deity-favored weapon proficien
   expect(weaponAttack({ ...c, level: 9 }, [rogue, deity, saber], { id: 'saber', name: saber.name, potency: 0, striking: 0, runes: [] }).rank).toBe(0)
   const withWeapon = { ...c, weapons: [{ id: 'saber', name: saber.name, potency: 0, striking: 0, runes: [] }] }
   const markup = renderToStaticMarkup(createElement(WeaponList, { c: withWeapon, entries: [rogue, deity, saber], save: () => {}, displayOnly: true }))
-  expect(markup).toContain('critical specialization applies on a critical hit against an off-guard target')
-  expect(markup).toContain('sneak attack applies to your prey')
+  expect(markup).not.toContain('sneak attack applies to your prey')
 })
 
 it('trains Intimidation, Religion, and Stealth from the Avenger racket', () => {

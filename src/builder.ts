@@ -8156,7 +8156,7 @@ export const FINESSE_SCIMITAR = { id: 'finesse-scimitar', name: 'Finesse Scimita
 function finesseScimitarEntry(entries: ContentEntry[]): ContentEntry | undefined {
   const base = byName(entries, 'weapon', FINESSE_SCIMITAR.base)
   return base ? { ...base, id: FINESSE_SCIMITAR.id, name: FINESSE_SCIMITAR.name,
-    traits: base.traits.filter(trait => !/^uncommon$/i.test(trait.trim())), data: { ...base.data, rarity: 'Common' },
+    traits: base.traits.filter(trait => !/^(uncommon|goblin)$/i.test(trait.trim())), data: { ...base.data, rarity: 'Common' },
     description: 'A lighter, finesse version of the scimitar available to Avengers in Sarenrae\'s service. It uses the dogslicer\'s statistics (d6 slashing, agile, backstabber, finesse, 1 Bulk) and counts as a scimitar for Sarenrae\'s favored weapon and for all other purposes.' } : undefined
 }
 export const PLAYING_CARD_WEAPONS = [
