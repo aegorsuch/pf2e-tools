@@ -88,6 +88,11 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
     }
     case 'Verdant Code':
       return rank >= 2 ? [{ label: 'Damage', dice: 2, sides: 6, type: 'piercing' }] : []
+    case "Deity's Strike": {
+      const bonus = rank >= 9 ? 1 : 0
+      return rank >= 7 ? [{ label: 'Damage', dice: 7 + bonus, sides: 12, type: 'force',
+        additional: { label: 'Spirit damage', dice: 5 + bonus, sides: 6, type: 'spirit' } }] : []
+    }
     case 'Doom Mark':
       return rank >= 6 ? [{ label: 'Damage', dice: rank, sides: 8, type: 'void' }] : []
     case 'Warshard Shot':

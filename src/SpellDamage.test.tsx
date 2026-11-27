@@ -328,6 +328,11 @@ it('scales Howling Blizzard damage by rank', () => {
   expect(spellDamage('Howling Blizzard', 7)).toMatchObject([{ dice: 14, sides: 6, type: 'cold' }])
 })
 
+it("heightens Deity's Strike at 9th rank", () => {
+  expect(spellDamage("Deity's Strike", 8)).toMatchObject([{ dice: 7, sides: 12, type: 'force', additional: { dice: 5, type: 'spirit' } }])
+  expect(spellDamage("Deity's Strike", 9)).toMatchObject([{ dice: 8, additional: { dice: 6 } }])
+})
+
 it('scales Doom Mark void damage by rank', () => {
   expect(spellDamage('Doom Mark', 6)).toMatchObject([{ dice: 6, sides: 8, type: 'void' }])
   expect(spellDamage('Doom Mark', 8)).toMatchObject([{ dice: 8 }])
