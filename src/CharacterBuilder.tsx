@@ -36,6 +36,7 @@ import { TechnomancerFeatures } from './TechnomancerFeatures'
 import { GREATER_CROSS_PLATFORM_APPLICATION_FEAT, VERSATILE_FIRMWARE_FEAT } from './technomancer'
 import { CharacterPictures } from './CharacterPictures'
 import { isGrenade, withBreachingGrenades } from './formulas'
+import { OPERATIVE_EXPLOITS } from './starfinderSubclasses'
 import type { Character, ContentEntry, EntryKind } from './types'
 import { WORN_EQUIPMENT_GROUPS, equipmentDisplayName, equipmentGroupName, type EquipmentGroupName } from './equipmentGroups'
 import { DivineIntercessions } from './intercessionPicker'
@@ -852,9 +853,19 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                 const entry = subclasses.find(candidate => candidate.name === order || candidate.name === feat.choice)
                 return entry ? [{ entry, label: `${feat.choice} order (Order Explorer)` }] : []
               }),
-              ...additionalOperativeSpecializations.map(entry => ({ entry, label: `${entry.name} specialization (Versatile Operative)` })),
-            ].map(({ entry, label }) => ({ ...entry, name: label, description: /^Trained in [^.]*\.\s*$/.test(entry.description ?? '') ? '' : entry.description, level: /\((Versatile |Second Innovation|Third Innovation|Order Explorer)/.test(label)
-              ? featTakenLevel(c.feats.find(feat => (feat.name.startsWith('Versatile ') || /Innovation|Order Explorer/.test(feat.name)) && (feat.choice === entry.name || feat.choice === 'Untamed' && entry.name === 'Wild')) ?? { level: 1 } as Character['feats'][number]) : 1 })), ...(c.className ? classFeatures(entries, c) : [])]} prelude={<ClassFeatures {...section} />} />
+              ...(c.className === 'Operative' && c.systems.includes('sf2e') ? [
+                ...(subclass ? [{ entry: subclass, level: 1 }] : []),
+                ...additionalOperativeSpecializations.map(entry => ({ entry, level: featTakenLevel(
+                  c.feats.find(feat => feat.name === 'Versatile Operative' && feat.choice === entry.name) ?? { level: 1 } as Character['feats'][number]) })),
+              ].flatMap(({ entry, level }) => {
+                const exploit = OPERATIVE_EXPLOITS[entry.name]
+                return exploit ? [
+                  { entry: { ...entry, description: exploit.exploit }, label: `${entry.name} Exploit`, level },
+                  { entry: { ...entry, description: exploit.enhanced }, label: `${entry.name} Enhanced Exploit`, level: Math.max(9, level) },
+                ].filter(row => row.level <= c.level) : []
+              }) : []),
+            ].map(({ entry, label, level }: { entry: ContentEntry; label: string; level?: number }) => ({ ...entry, name: label, description: /^Trained in [^.]*\.\s*$/.test(entry.description ?? '') ? '' : entry.description, level: level ?? (/\((Versatile |Second Innovation|Third Innovation|Order Explorer)/.test(label)
+              ? featTakenLevel(c.feats.find(feat => (feat.name.startsWith('Versatile ') || /Innovation|Order Explorer/.test(feat.name)) && (feat.choice === entry.name || feat.choice === 'Untamed' && entry.name === 'Wild')) ?? { level: 1 } as Character['feats'][number]) : 1) })), ...(c.className ? classFeatures(entries, c) : [])]} prelude={<ClassFeatures {...section} />} />
         </div>}</DeferredContent>
       </DeferredDetails>
 

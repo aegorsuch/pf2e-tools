@@ -37,6 +37,18 @@ const choices: Record<string, [string, string, string][]> = {
   ],
 }
 
+export const OPERATIVE_EXPLOITS: Record<string, { exploit: string; enhanced: string }> = {
+  Ghost: { exploit: 'You can Aim at targets you are undetected by as a free action.', enhanced: 'You gain the Ghost Tap action.' },
+  Infiltrator: { exploit: 'You gain the Sabotage action.',
+    enhanced: 'You can Sabotage as a free action whenever you critically hit a tech creature with a melee or ranged attack, targeting the triggering creature. You can Sabotage as a reaction whenever a tech creature or a creature using a tech weapon critically fails a melee attack roll against you, targeting the triggering creature or weapon.' },
+  Skirmisher: { exploit: "Your ranged Strikes with one-handed ranged weapons don't trigger reactions that are triggered by a ranged attack.",
+    enhanced: 'When you make a successful Strike against an adjacent enemy with a one-handed ranged weapon, you calculate the damage as if the lowest-rolled weapon damage die for the attack had the maximum result instead. At 17th level, the two lowest-rolled damage dice increase to the maximum result.' },
+  Sniper: { exploit: 'You ignore the unwieldy and volley trait of guns you wield belonging to the sniper group. You gain one of the following operative feats as a bonus feat: Keep Them in Your Sights or Scope Sight.',
+    enhanced: "Your first failed ranged Strike against your mark using a sniper weapon doesn't count toward your multiple attack penalty. You can Reload your sniper weapon as a free action once per turn." },
+  Striker: { exploit: 'You have expert proficiency with one-handed melee weapons and unarmed attacks with the agile or finesse traits instead of with martial guns, and you can Aim with and treat such weapons as guns for operative feats. You gain the Reactive Step reaction.',
+    enhanced: 'You gain the Overwhelming Strike free action.' },
+}
+
 const paths: Record<string, string> = {
   Envoy: '1-envoy/leadership-styles', Mystic: '2-mystic/connections',
   Operative: '3-operative/specializations', Witchwarper: '6-witchwarper/paradoxes',

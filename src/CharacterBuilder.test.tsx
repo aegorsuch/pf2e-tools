@@ -822,7 +822,9 @@ it('shows Versatile Operative specialization choices and selected benefits in Cl
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   try {
     const markup = renderToStaticMarkup(<CharacterBuilder character={c} onClose={() => {}} />)
-    expect(markup).toContain('Ghost specialization (Versatile Operative)')
+    expect(markup).toContain('Ghost Exploit')
+    expect(markup).toContain('Ghost Enhanced Exploit')
+    expect(markup).not.toContain('specialization (Versatile Operative)')
     const selecting = renderToStaticMarkup(<CharacterBuilder character={{ ...c, feats: [{ ...c.feats[0], choice: undefined }] }}
       onClose={() => {}} />)
     expect(selecting).toContain('aria-label="Versatile Operative specialization"')
