@@ -33,7 +33,7 @@ interface FeatSlotsProps extends SectionProps {
   plannedFeatSlots?: PlannedSlot[]
   features?: ContentEntry[]
   prelude?: ReactNode
-  selectors?: { key: string; level: number; control: ReactNode }[]
+  selectors?: { key: string; level: number; name?: string; control: ReactNode }[]
 }
 
 function ConstellationVortexRoll({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
@@ -600,7 +600,7 @@ export function FeatSlots({ c, entries, save, categories, title = 'Feat slots', 
   ].map(row => {
     const selected = row.kind === 'slot' ? featBySlot.get(row.slot.key) : undefined
     const feat = row.kind === 'slot' ? selected : row.kind === 'feature' || row.kind === 'memory' || row.kind === 'selector' ? undefined : row.feat
-    const name = row.kind === 'selector' ? '\0' : row.kind === 'feature' ? row.feature.name
+    const name = row.kind === 'selector' ? row.selector.name ?? '\0' : row.kind === 'feature' ? row.feature.name
       : row.kind === 'slot' ? selected?.name : row.kind === 'memory' ? 'Assurance' : row.feat.name
     return { row, feat, sortName: name ? displayName(name) : undefined }
   }).sort((a, b) => {

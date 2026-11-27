@@ -801,7 +801,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
           })()}
           <SearchableFeatSlots {...section} categories={['class']} title="Class Features & Feats" plannedFeatSlots={featSlots}
             selectors={[
-              ...(c.className !== 'Druid' && c.className !== 'Investigator' && subclasses.length > 0 ? [{ key: 'subclass-choice', level: 1, control: <SubclassSlot c={c} entries={entries}
+              ...(c.className !== 'Druid' && c.className !== 'Investigator' && subclasses.length > 0 ? [{ key: 'subclass-choice', level: 1, name: subclass ? (c.className === 'Ranger' ? `${subclass.name} Edge` : subclass.name) : subclassLabel, control: <SubclassSlot c={c} entries={entries}
                 label={subclassLabel} disabled={!!selectedClassArchetype(c, entries)} selected={subclass}
                 options={subclasses.filter(entry => c.className !== 'Inventor'
                   || !c.feats.some(feat => ['Second Innovation', 'Third Innovation'].includes(feat.name) && feat.choice === entry.name))}
