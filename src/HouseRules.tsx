@@ -125,6 +125,8 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
     description: 'The background grants two free attribute boosts instead of requiring Intelligence or Charisma for one.' },
   { key: 'iconFreeBoosts', label: 'Icon: Two Free Boosts',
     description: 'The background grants two free attribute boosts instead of requiring Constitution or Charisma for one.' },
+  { key: 'cultistFreeBoosts', label: 'Cultist: Two Free Boosts',
+    description: 'The background grants two free attribute boosts instead of requiring Intelligence or Charisma for one.' },
   { key: 'unarmedCountsAsWeapons', label: 'Unarmed attacks count as weapons',
     description: 'For Twin Parry, a worn free-hand weapon can pair with a separate unarmed attack even while both hands hold another weapon, such as a bow in its shooting grip.' },
   { key: 'warmaskScaling', label: 'Orc Warmask Item Bonus Scaling',

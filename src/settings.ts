@@ -82,6 +82,7 @@ export interface Settings {
   testSubjectDatajackScaling: boolean
   studentOfApotheosisStrengthWisdom: boolean // Kept for compatibility with saved settings.
   iconFreeBoosts: boolean
+  cultistFreeBoosts: boolean
   // House rule: General Training and Advanced General Training can each be selected once
   singleTrainingFeats: boolean
   // House rule: Inventors have Access to uncommon firearms, firearm ammunition, and the Bladed Gauntlet
@@ -122,7 +123,7 @@ const DEFAULTS: Settings = {
   consolidateInnateTraditions: true,   uniqueInnateSpellChoices: true, automaticSfWeaponUpgrades: true, plasmaTurret: true, rocketFistHandWeapons: true, plasmaCasterOneHanded: true,
   presenceIntensifierDaily: true,
   testSubjectDatajackScaling: true,
-  studentOfApotheosisStrengthWisdom: true, iconFreeBoosts: true, singleTrainingFeats: true, inventorFirearmAccess: true,
+  studentOfApotheosisStrengthWisdom: true, iconFreeBoosts: true, cultistFreeBoosts: true, singleTrainingFeats: true, inventorFirearmAccess: true,
   inventorArmorGauntlets: true, bucklerMeleeFinesse: true, freeHandFinesse: true, staffAcrobatSpear: true,
   staffAcrobatNoPrerequisites: true, whirlwindStanceNoPrerequisites: true, unarmedCountsAsWeapons: true,
   barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true,

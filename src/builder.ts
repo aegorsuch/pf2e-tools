@@ -315,6 +315,7 @@ export function boostSlots(c: Character, entries: ContentEntry[]): BoostSlot[] {
       && (bg.data.background_base ?? bg.name) === 'Student of Apotheosis')
       || (getSettings().iconFreeBoosts && bg.systems.includes('sf2e')
         && (bg.data.background_base ?? bg.name) === 'Icon')
+      || getSettings().cultistFreeBoosts && (bg.data.background_base ?? bg.name) === 'Cultist'
       ? [] : parseAbilities(bg.data.attribute)
     slots.push({ key: 'background:0', label: 'Background', options: opts.length ? opts : undefined, group: 'background' })
     slots.push({ key: 'background:1', label: 'Background (free)', group: 'background' })
