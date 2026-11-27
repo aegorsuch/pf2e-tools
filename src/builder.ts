@@ -1436,7 +1436,7 @@ export function featSelectionLevel(entry: ContentEntry, c: Character, entries: C
     && c.feats.filter(feat => feat.name === entry.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1) return 16
   if (category === 'archetype' && entry.systems.includes('pf2e') && !entry.traits.some(trait => /^(archetype|dedication)$/i.test(trait))
     && entry.traits.some(trait => Object.values(CLASS_FEAT_GRANTS).some(granted => granted.toLowerCase() === trait.toLowerCase()))) {
-    return Math.max(entry.level, 2)
+    return Math.max(entry.level * 2, 2)
   }
   const classArchetype = category === 'class' && !entry.traits.some(trait => trait.toLowerCase() === c.className?.toLowerCase())
     ? selectedClassArchetype(c, entries)?.name : undefined
