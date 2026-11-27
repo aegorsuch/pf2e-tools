@@ -328,6 +328,11 @@ it('scales Howling Blizzard damage by rank', () => {
   expect(spellDamage('Howling Blizzard', 7)).toMatchObject([{ dice: 14, sides: 6, type: 'cold' }])
 })
 
+it('scales Doom Mark void damage by rank', () => {
+  expect(spellDamage('Doom Mark', 6)).toMatchObject([{ dice: 6, sides: 8, type: 'void' }])
+  expect(spellDamage('Doom Mark', 8)).toMatchObject([{ dice: 8 }])
+})
+
 it('scales Warshard Shot piercing and spirit damage by rank', () => {
   expect(spellDamage('Warshard Shot', 5)).toMatchObject([{ dice: 5, sides: 6, type: 'piercing', additional: { dice: 5, type: 'spirit' } }])
   expect(spellDamage('Warshard Shot', 7)).toMatchObject([{ dice: 7, additional: { dice: 7 } }])
