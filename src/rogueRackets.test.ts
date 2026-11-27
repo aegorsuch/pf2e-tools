@@ -118,6 +118,17 @@ it('grants Avenger divine skill, medium armor and deity-favored weapon proficien
   expect(markup).not.toContain('sneak attack applies to your prey')
 })
 
+it('adds Emblazon Armament status damage to the deity favored weapon only', () => {
+  const deity: ContentEntry = { ...rogue, id: 'deity', kind: 'deity', name: 'Deity', data: { favored_weapon: 'Sawtooth Saber' } }
+  const saber: ContentEntry = { ...dagger, name: 'Sawtooth Saber' }
+  const c: Character = { ...base, deity: deity.name, feats: [{ name: 'Emblazon Armament', type: 'Class Feat', level: 2, slot: 'class:2:0' }] }
+  const attack = (name: string, character: Character) => weaponAttack(character, [rogue, deity, saber, dagger],
+    { id: name, name, potency: 0, striking: 0, runes: [] }).damage
+  const without = attack(saber.name, { ...c, feats: [] })
+  expect(attack(saber.name, c)).not.toBe(without)
+  expect(attack(dagger.name, c)).toBe(attack(dagger.name, { ...c, feats: [] }))
+})
+
 it('trains Intimidation, Religion, and Stealth from the Avenger racket', () => {
   const avenger = { ...base, level: 1, subclass: 'Avenger', deity: undefined }
   expect(ranksAt(avenger, [rogue])).toMatchObject({ Intimidation: 1, Religion: 1, Stealth: 1 })

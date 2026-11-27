@@ -2154,7 +2154,7 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
     ...direct.filter(entry => !result.some(other => other.name === entry.name))]
 }
 
-// Basic/Advanced Arcana and Dogma are offered as the class feats they grant: the first is level 2 or lower, the second up to half the level.
+// Basic/Advanced Arcana and Dogma are offered as the class feats they grant: the first is level 2 or lower, every later one (Advanced is repeatable) up to half the level.
 function directDedicationClassFeats(c: Character, entries: ContentEntry[], slot: PlannedSlot, taken: Set<string>,
   prerequisites: (entry: ContentEntry) => { missing: string[] }) {
   const found = new Map<string, ContentEntry>()
@@ -2165,9 +2165,11 @@ function directDedicationClassFeats(c: Character, entries: ContentEntry[], slot:
       && !entry.traits.some(trait => /^(archetype|dedication)$/i.test(trait))
     const owned = c.feats.filter(feat => feat.slot !== slot.key && feat.slot?.startsWith('archetype:')
       && entries.some(entry => entry.name === feat.name && isClassFeat(entry))).length
-    const cap = owned === 0 ? 2 : owned === 1 ? Math.floor(slot.level / 2) : 0
+    const hasSymbol = [...taken].some(name => /^Favored Weapon Symbol\b/.test(name))
+    const cap = owned === 0 ? 2 : Math.floor(slot.level / 2)
     for (const entry of entries) {
       if (entry.level >= 1 && entry.level <= cap && isClassFeat(entry) && !taken.has(entry.name)
+        && !(hasSymbol && /^(Favored Weapon (Symbol|Jousting)|Tethered Favored Weapon)$/.test(entry.name))
         && !prerequisites(entry).missing.length) found.set(entry.name, entry)
     }
   }
@@ -9828,6 +9830,7 @@ export function weaponAttack(c: Character, entries: ContentEntry[], w: OwnedWeap
   const damageBonus = (formAttack && form ? (formAttack.data.form_damage_bonus === undefined ? form.damageBonus : num(formAttack.data.form_damage_bonus)) + (dragonFormAttack && !dragonDamage && !elementalDamage && !spiritDamage ? rageDamage : 0) : flat + Math.max(mechanicSpecialization, barbarianSpecialization, cairnSpecialization, starfinderSpecialization) + (dragonDamage || elementalDamage || spiritDamage ? 0 : rageDamage)
     + (w.id === 'mechanic:turret' && c.subclass === 'Turret' && mechanicMods?.pinpointShot ? abilityMod(c.abilities.int) : 0)
   ) + (scionTransformation && !ranged ? 2 : 0) + warriorLegendDamage - damagePenalty + (propulsiveShield ? dice : 0)
+  + (c.systems.includes('pf2e') && activeFeatsNamed(c, 'Emblazon Armament').length && isFavoredWeapon(c, entries, w.name) ? 1 : 0)
   const livingSource = w.name === HAFT_STRIKER_WEAPON.name ? haftStrikerSource(c, entries) : w
   const jousting = !ranged && num(entry?.data.hands) === 1 && (
     c.level >= 4 && hasActiveFeatVariant(c, 'Favored Weapon Jousting') && isFavoredWeapon(c, entries, livingSource?.name ?? w.name)
