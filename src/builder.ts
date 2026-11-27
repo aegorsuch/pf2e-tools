@@ -8958,8 +8958,8 @@ export function automaticWeaponUpgrades(c: Character, entries: ContentEntry[], w
     : ['Laser Rifle', 'Liminal Laser Rifle', 'Laser Focus Rifle', 'Liminal Focus Rifle'].includes(name)
       ? ['Flaming Module', 'Glarecaster', "Sniper's Scope"]
     : name === 'Knife' ? ['Retrieval Boosters', "Smuggler's Grip", 'Fear Projector', 'Suppression Matrix']
-    : name === 'Phase Cutlass' || entry.data.special_weapon_source === 'Raptorial Edge'
-      ? ["Smuggler's Grip", 'Entropic Destabilizer', 'Fear Projector', 'Suppression Matrix']
+    : name === 'Phase Cutlass' ? ["Smuggler's Grip", 'Entropic Destabilizer', 'Fear Projector', 'Suppression Matrix']
+    : entry.data.special_weapon_source === 'Raptorial Edge' ? ["Smuggler's Grip", 'Fear Projector', 'Suppression Matrix']
     : name === 'Shuriken Drone' ? ['Retrieval Boosters']
     : name === 'Singing Spear' ? ['Retrieval Boosters', 'Loudener']
     : name === 'Battleglove' || name === 'Doshko' ? ['Suppression Matrix']
