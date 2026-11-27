@@ -617,8 +617,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
               No free hand required; success suppresses until your next turn.`} />}
           {ink && <SourceNote inlineSource={false} source={ink.source}
             note={`Stealth ${signed(total + forestIncrease)} in forests`} />}
-          {camouflage && <SourceNote inlineSource={false} source={camouflage.source}
-            note={`+${camouflage.value} item bonus to Stealth while wearing the armor; item bonuses do not stack.`} />}
           {artifact && <SourceNote inlineSource={false} source={artifact.source} note={`+${artifact.value} item bonus while carried; item bonuses do not stack.`} />}
           {s.name === 'Medicine' && skillGear && skillGear.source !== 'Marvelous Medicines (Greater)'
             && <SourceNote inlineSource={false} source={skillGear.source}
