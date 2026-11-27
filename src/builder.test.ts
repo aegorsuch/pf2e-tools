@@ -3529,6 +3529,9 @@ describe('languageAllowance', () => {
     const arcana = { name: 'Basic Arcana', type: 'Class Feat', level: 2, slot: 'class:2:1', choice: 'Spellbook Prodigy' }
     const c: Character = { ...base, className: 'Wizard', level: 2, feats: [arcana] }
     expect(automaticFeatGrants(c, [])).toContainEqual({ name: 'Magical Shorthand', source: 'Spellbook Prodigy', level: 2 })
+    expect(automaticFeatGrants(c, []).filter(grant => grant.name === 'Magical Shorthand')).toHaveLength(1)
+    const direct: Character = { ...c, feats: [{ name: 'Spellbook Prodigy', type: 'Archetype Feat', level: 2, slot: 'archetype:2:0' }] }
+    expect(automaticFeatGrants(direct, []).filter(grant => grant.name === 'Magical Shorthand')).toHaveLength(1)
     expect(automaticFeatGrants({ ...c, level: 1 }, []).some(grant => grant.name === 'Magical Shorthand')).toBe(false)
   })
 

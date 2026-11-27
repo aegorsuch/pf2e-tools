@@ -5794,9 +5794,7 @@ function computeAutomaticFeatGrants(c: Character, entries: ContentEntry[]) {
       name: 'Additional Lore', choice: lore.replace(/ Lore$/, ''), source: feat.name, level: featTakenLevel(feat),
     })
   }
-  if (c.systems.includes('pf2e')) for (const feat of [...activeFeatsNamed(c, 'Spellbook Prodigy'),
-    ...c.feats.filter(feat => CLASS_FEAT_GRANTS[feat.name] === 'Wizard' && feat.choice === 'Spellbook Prodigy'
-      && featTakenLevel(feat) <= c.level)]) {
+  if (c.systems.includes('pf2e')) for (const feat of activeFeatsNamed(c, 'Spellbook Prodigy')) {
     grants.push({ name: 'Magical Shorthand', source: 'Spellbook Prodigy', level: featTakenLevel(feat) })
   }
   for (const feat of activeFeatsNamed(c, 'Knowledge Of The Realm Before')) {
