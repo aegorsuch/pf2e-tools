@@ -166,7 +166,7 @@ it('trains Intimidation, Religion, and Stealth from the Avenger racket', () => {
   expect(ranksAt(avenger, [rogue])).toMatchObject({ Intimidation: 1, Religion: 1, Stealth: 1 })
 })
 
-it('auto-scales the Avenger deity skill and rejects Avenger as a versatile racket', () => {
+it('auto-scales the Avenger deity skill and hides Avenger from the versatile racket picker', () => {
   const deity: ContentEntry = { ...rogue, id: 'deity', kind: 'deity', name: 'Deity', data: { skill: 'Arcana' } }
   const settings = getSettings()
   try {
@@ -177,9 +177,9 @@ it('auto-scales the Avenger deity skill and rejects Avenger as a versatile racke
     const c: Character = { ...base, level: 15, deity: deity.name, feats: [{ name: 'Versatile Rogue',
       type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Avenger' }] }
     expect(featChoiceOptions('Versatile Rogue', c, [rogue, deity], 'class:10:0')).not.toContain('Avenger')
-    expect(ranksAt(c, [rogue, deity]).Arcana).toBeUndefined()
+    expect(ranksAt(c, [rogue, deity]).Arcana).toBe(4)
     updateSettings({ autoClassSkills: false })
-    expect(ranksAt(c, [rogue, deity]).Arcana).toBeUndefined()
+    expect(ranksAt(c, [rogue, deity]).Arcana).toBe(1)
   } finally { updateSettings(settings) }
 })
 

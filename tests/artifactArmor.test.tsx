@@ -24,7 +24,7 @@ it.skipIf(!existsSync(snapshot))('parses actual canonical armor, shield, and mas
   expect(catalog).toHaveLength(wanted.size)
   expect(gearPickerEntries(catalog, 'armor').filter(entry => entry.data.named_armor)).toHaveLength(4)
   expect(effectiveArmor(character, catalog, owned('Ancestral Embrace'))).toMatchObject({ potency: 4, resilient: 3 })
-  expect(effectiveArmor(character, catalog, owned(artifact))).toMatchObject({ potency: 3, resilient: 3, runes: ['Fortification (Greater)'] })
+  expect(effectiveArmor(character, catalog, owned(artifact))).toMatchObject({ potency: 3, resilient: 3, runes: ['Fortification (Greater)', 'Moonweave (Major)', 'Sunweave (Major)'] })
   expect(armorEntry(character, catalog, artifact)?.data).toMatchObject({ strength: 2, check_penalty: 0, bulk: 1.1 })
   expect(namedArmorAbilities(armorEntry(character, catalog, artifact)).map(ability => ability.name))
     .toEqual(['Senses', 'Summary', 'Adaptation', 'Calistria’s Sting', 'Purge Toxins'])

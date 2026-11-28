@@ -294,7 +294,7 @@ it('offers learned Spellshot cantrips despite stale prepared slots outside the c
   expect(choices(html, 'Cantrip slot 2')).not.toContain('Live Wire')
 })
 
-it('allows preparing a learned cantrip also granted by another source', () => {
+it('does not reoffer a learned cantrip also granted by another source', () => {
   const ignition = spell('Ignition', 1, 'Arcane', ['Cantrip'])
   const grant: ContentEntry = { ...spell('Test Innate Magic'), kind: 'feat',
     spellGrants: [{ kind: 'innate', spells: ['Ignition'], tradition: 'Arcane' }] }
@@ -302,7 +302,7 @@ it('allows preparing a learned cantrip also granted by another source', () => {
     feats: [taken('Spellshot Dedication', 2), taken(grant.name, 1)],
     spells: [{ name: ignition.name, entryId: ignition.id, rank: 0, cantrip: true }] }
   expect(selectedGrantedSpellNames(c, [ignition, grant]).has('ignition')).toBe(true)
-  expect(choices(render(c, [ignition, grant]), 'Cantrip slot 1')).toContain('Ignition')
+  expect(choices(render(c, [ignition, grant]), 'Cantrip slot 1')).not.toContain('Ignition')
 })
 
 it('excludes the Epitaph slot when granting Spell Battery at level 20', () => {

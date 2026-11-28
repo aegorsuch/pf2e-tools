@@ -930,9 +930,8 @@ it.each([
   expect(content).not.toContain('poison damage')
   const summary = renderToStaticMarkup(<StatusesSummary c={c} entries={[]} save={() => {}} />)
   expect(summary).not.toContain('Simple poisons')
-  expect(summary).toContain('Poison Weapon 5/8')
-  expect(renderToStaticMarkup(<StatusesSummary c={{ ...c, poisonWeaponActive: true }} entries={[]} save={() => {}} />))
-    .toContain('Poison Weapon 5/8 (active)')
+  expect(summary).toContain('Poison Weapon')
+  expect(summary).not.toContain('5/8')
 })
 
 it('renders each available status in its own alphabetical row', () => {

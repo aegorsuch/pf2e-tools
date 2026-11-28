@@ -150,7 +150,7 @@ it('retains explicit learned access to uncommon spells', () => {
   expect(render(c, [rare])).toContain('aria-label="Remove Rare Magic"')
 })
 
-it.each(['', 'aon:pf2e:heal', 'aon:sf2e:heal', 'Heal'])('deduplicates Druid choices within each system while preserving saved preparation %j', selected => {
+it.each(['', 'aon:pf2e:heal', 'aon:sf2e:heal', 'Heal'])('deduplicates Druid choices to the class system while preserving saved preparation %j', selected => {
   const entries = [
     { ...spell('Heal'), id: 'aon:sf2e:heal', systems: ['sf2e'] as Character['systems'] },
     { ...spell('Guidance', 1, 'Primal', ['Cantrip']), id: 'aon:sf2e:guidance', systems: ['sf2e'] as Character['systems'] },
@@ -166,20 +166,20 @@ it.each(['', 'aon:pf2e:heal', 'aon:sf2e:heal', 'Heal'])('deduplicates Druid choi
   const html = render(c, entries)
   if (!selected) {
     const healChoices = choices(html, 'Spell Rank 1 slot 1')
-    expect(healChoices.match(/>Heal<\/option>/g)).toHaveLength(2)
+    expect(healChoices.match(/>Heal<\/option>/g)).toHaveLength(1)
     expect(healChoices).toContain('value="aon:pf2e:heal"')
-    expect(healChoices).toContain('value="aon:sf2e:heal"')
+    expect(healChoices).not.toContain('value="aon:sf2e:heal"')
     expect(healChoices).not.toContain('value="aon:pf2e:heal-duplicate"')
   }
   const cantripChoices = choices(html, 'Cantrip slot 1')
-  expect(cantripChoices.match(/>Guidance<\/option>/g)).toHaveLength(2)
+  expect(cantripChoices.match(/>Guidance<\/option>/g)).toHaveLength(1)
   expect(cantripChoices).toContain('value="aon:pf2e:guidance"')
-  expect(cantripChoices).toContain('value="aon:sf2e:guidance"')
+  expect(cantripChoices).not.toContain('value="aon:sf2e:guidance"')
   expect(cantripChoices).not.toContain('value="aon:pf2e:guidance-duplicate"')
   if (selected) {
     expect(html).toContain('aria-label="Clear Heal spell slot"')
     expect(html).not.toContain('aria-label="Details: Heal"')
-    expect(html).not.toContain('disabled="" aria-label="Cast spell slot rank 1 slot 1"')
+    if (selected !== 'aon:sf2e:heal') expect(html).not.toContain('disabled="" aria-label="Cast spell slot rank 1 slot 1"')
   }
   expect(html).not.toContain('(unavailable)')
   expect(JSON.stringify(c)).toBe(before)
