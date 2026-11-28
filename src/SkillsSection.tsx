@@ -103,7 +103,8 @@ const movementLabel = (movement: { name: string; feet: number }) =>
   `${movement.name === 'Land' ? '' : `${movement.name === 'Climb' ? 'Climbing' : movement.name} `}${movement.feet} ft.`
 
 const displayedSenses = (c: SectionProps['c'], entries: SectionProps['entries']) =>
-  senses(c, entries).filter(sense => !(sense.source === 'Melodic Adaptation' && /^Detect magic \(30-foot emanation, rank \d+\)$/i.test(sense.value)))
+  senses(c, entries).filter(sense => !/^Limited Telepathy\b/i.test(sense.value)
+    && !(sense.source === 'Melodic Adaptation' && /^Detect magic \(30-foot emanation, rank \d+\)$/i.test(sense.value)))
 
 export function SensesAndSpeedSummary({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
   const characterSenses = displayedSenses(c, entries)

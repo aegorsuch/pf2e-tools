@@ -87,6 +87,15 @@ it('summarizes current senses and movement speeds in the section header', () => 
     .toContain('Speed 25 ft., Fly 20 ft.')
 })
 
+it('omits Limited Telepathy from the Senses and Speed section and its summary', () => {
+  const c: Character = { ...base, systems: ['sf2e'], ancestry: 'Lashunta' }
+  const summary = renderToStaticMarkup(<SensesAndSpeedSummary c={c} entries={[]} />)
+  const detail = renderToStaticMarkup(<SensesAndSpeed c={c} entries={[]} save={() => {}} />)
+  expect(summary).not.toContain('Limited Telepathy')
+  expect(detail).not.toContain('Limited Telepathy')
+  expect(builder.senses(c, [])).toContainEqual({ value: 'Limited Telepathy 30 feet', source: 'Lashunta' })
+})
+
 it('shows professional weapon toolkit bonuses only while held', () => {
   const tool: ContentEntry = { ...mechanic, id: 'tool', kind: 'weapon', name: 'SLARP Rapid Laser Pistol', level: 4,
     traits: ['Tech'], data: { weapon_type: 'Ranged', weapon_category: 'Martial', hands: 1, damage: '2d6 F',
