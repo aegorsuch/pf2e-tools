@@ -22,7 +22,7 @@ it('places a nested picker inside its native dialog and closes it on Escape', ()
   const close = vi.fn()
   const panel = { contains: vi.fn(() => false) }
   vi.mocked(useRef).mockReturnValueOnce({ current: panel })
-    .mockReturnValueOnce({ current: null }).mockReturnValueOnce({ current: close })
+    .mockReturnValueOnce({ current: close })
   const body = {}
   vi.stubGlobal('document', { body })
   PickerDialog({ label: 'Learn dirge spell picker', searchLabel: 'Search', query: '', onQuery: () => {},
@@ -45,15 +45,14 @@ it.each([true, false])('keeps viewport still when opening and closing a picker (
     focus = vi.fn()
   }
   const previous = new Trigger()
-  const search = { focus: vi.fn() }
-  vi.mocked(useRef).mockReturnValueOnce({ current: null })
-    .mockReturnValueOnce({ current: search }).mockReturnValueOnce({ current: () => {} })
+  const panel = { focus: vi.fn() }
+  vi.mocked(useRef).mockReturnValueOnce({ current: panel }).mockReturnValueOnce({ current: () => {} })
   PickerDialog({ label: 'Ancestry picker', searchLabel: 'Search feats', query: '', onQuery: () => {}, onClose: () => {}, children: null })
   vi.stubGlobal('HTMLElement', Trigger)
   vi.stubGlobal('document', { activeElement: previous })
   const setup = vi.mocked(useEffect).mock.calls[1][0]
   const cleanup = setup()
-  expect(search.focus).toHaveBeenCalledWith({ preventScroll: true })
+  expect(panel.focus).toHaveBeenCalledWith({ preventScroll: true })
   if (typeof cleanup !== 'function') throw new Error('Missing focus cleanup')
   cleanup()
   if (connected) expect(previous.focus).toHaveBeenCalledWith({ preventScroll: true })

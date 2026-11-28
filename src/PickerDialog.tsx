@@ -11,16 +11,15 @@ export function PickerDialog({ label, searchLabel, query, onQuery, onClose, chil
   container?: HTMLElement
 }) {
   const panel = useRef<HTMLDivElement>(null)
-  const search = useRef<HTMLInputElement>(null)
   const close = useRef(onClose)
   useEffect(() => { close.current = onClose }, [onClose])
   useEffect(() => {
     const previous = document.activeElement
-    search.current?.focus({ preventScroll: true })
+    panel.current?.focus({ preventScroll: true })
     return () => { if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true }) }
   }, [])
   const content = <div className="feat-modal-backdrop" onClick={() => close.current()}>
-    <div ref={panel} className="feat-modal" role="dialog" aria-modal="true" aria-label={label}
+    <div ref={panel} className="feat-modal" role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}
       onClick={event => event.stopPropagation()} onKeyDown={event => {
         const dialog = event.target instanceof Element ? event.target.closest('dialog[open]') : null
         if (dialog && panel.current?.contains(dialog)) return
@@ -44,7 +43,7 @@ export function PickerDialog({ label, searchLabel, query, onQuery, onClose, chil
         }
       }}>
       <label>{searchLabel}{' '}
-        <input ref={search} type="search" aria-label={searchLabel} placeholder={searchLabel} value={query}
+        <input type="search" aria-label={searchLabel} placeholder={searchLabel} value={query}
           onChange={event => onQuery(event.target.value)} />
       </label>
       {children}

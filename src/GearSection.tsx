@@ -477,7 +477,7 @@ export function Search({ c, entries, save, kind, label, onPick }: SectionProps &
         ))}
       </div>
       <div className="row">
-        <input type="search" aria-label={`Search ${kind}s`} autoFocus placeholder={`Search ${kind}s`} value={q}
+        <input type="search" aria-label={`Search ${kind}s`} placeholder={`Search ${kind}s`} value={q}
           onChange={(e) => { setQ(e.target.value); setLimit(GEAR_SEARCH_PAGE) }} />
         <PickerSort label={`Sort ${kind}s by`} value={sort} onChange={value => { setSort(value); setLimit(GEAR_SEARCH_PAGE) }} />
         <button type="button" onClick={close}>Cancel</button>

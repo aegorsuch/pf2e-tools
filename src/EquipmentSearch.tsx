@@ -77,7 +77,7 @@ export function EquipmentSearch({ c, entries, save, category, onClose, fixedSkil
   return <div className="equipment-search">
     <div className="row">
       <input type="search" aria-label={`Search ${category?.toLowerCase() ?? 'equipment'}`} placeholder={`Search ${category?.toLowerCase() ?? 'equipment'}`}
-        autoFocus={!!onClose} value={query} onChange={event => { setQuery(event.target.value); setLimit(PAGE) }} />
+        value={query} onChange={event => { setQuery(event.target.value); setLimit(PAGE) }} />
       <GearSystemFilter value={system} onChange={value => { setSystem(value); setLimit(PAGE) }} />
       <PickerSort label={`Sort ${category?.toLowerCase() ?? 'equipment'} by`}
         value={!selectedSkill && sort === 'item-bonus' ? 'name' : sort} onChange={value => { setSort(value); setLimit(PAGE) }} includeItemBonus={!!selectedSkill} />
