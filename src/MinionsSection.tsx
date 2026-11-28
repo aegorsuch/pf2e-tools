@@ -4,7 +4,7 @@ import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, bardingOptions, companionItemName, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor,
   companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME, equippedBarding,
   hasConstructInnovation, isBadgerCompanion, isCompanionEquipmentItem, minionFerocity, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classSpellSlots, classSpellcasting, featTakenLevel, knowsSpell, languageAllowance, languageGroups, mechanicExocortexes, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, spellDCText, summonedMounts, technomancerFirmwareLanguages, type SectionProps, type TotalBreakdown } from './builder'
+import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classDifficultyClass, spellDifficultyClass, classSpellSlots, classSpellcasting, featTakenLevel, knowsSpell, languageAllowance, languageGroups, mechanicExocortexes, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, spellDCText, summonedMounts, technomancerFirmwareLanguages, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
 import { ActiveSpellActions, CompanionSpellOptions, SpiritOfTheBeastOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
@@ -246,6 +246,24 @@ function SummonedMountToggle({ c, entries, save, mountKey }: SectionProps & { mo
   return <label><input type="checkbox" aria-label={`Mounted on ${mount.name}`} checked={c.mountedSummon === mountKey}
     onChange={event => save({ mountedSummon: event.target.checked ? mountKey : undefined,
       ...(event.target.checked ? { mountedCompanionId: undefined } : {}) })} /> Mounted</label>
+}
+
+function SwarmkeeperSwarm({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
+  const has = (name: string) => activeFeatsNamed(c, name).length > 0
+  const dc = Math.max(classDifficultyClass(c, entries) ?? 0, spellDifficultyClass(c, entries) ?? 0)
+  const walk = has('Mobile Swarm') ? 20 : 15
+  const speeds = [`${walk} feet`, `climb ${walk} feet`, ...(has('Mobile Swarm') ? ['swim 20 feet'] : []), ...(has('Buzzing Death Cicadas') ? ['fly 20 feet'] : [])]
+  return <details className="character-subsection" data-minion-name="Swarm" open>
+    <summary><h4>Swarm</h4></summary>
+    <div className="gear-traits"><span>{has('Expanded Swarm') ? 'Large or Huge' : 'Large'}</span></div>
+    <section className="companion-actions"><h5>Defenses</h5>
+      <div>Uses your defenses. Damage dealt to the swarm is dealt to you instead. Immune to grappled, prone, restrained and single-target mental effects.</div>
+      <div>Resistance {c.level} physical; weakness {c.level} area and splash</div></section>
+    <section className="companion-actions"><h5>Speed</h5><div>{speeds.join(', ')}</div></section>
+    <section className="companion-actions"><h5>Bite and Sting</h5>
+      <div className="companion-action"><div className="companion-action-title"><ActionIcon actions="Single Action" /><b>Bite and Sting</b>
+        <span>{Math.floor(c.level / 2)}d4 piercing, basic Reflex{dc ? ` DC ${dc}` : ''}</span></div></div></section>
+  </details>
 }
 
 function SummonedCreature({ name, displayName = name, protectedByCompanion = false, c, entries, save }: SectionProps & {
@@ -541,7 +559,7 @@ export function MinionsSummary({ c, entries = [] }: Pick<SectionProps, 'c'> & Pa
       ...(waspState ? [`Wasp Familiar (${waspState.selectedCount}/${waspState.totalCount})`] : []),
       ...(pet ? [seaFriend ? aquaticFamiliar
         ? (() => { const state = familiarDisplayState(c, entries, false, true); return `Aquatic Pet (${state.selectedCount}/${state.totalCount})` })()
-        : 'Aquatic Pet' : 'Pet'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
+        : 'Aquatic Pet' : 'Pet'] : []), ...(activeFeatsNamed(c, 'Swarmkeeper Dedication').length ? ['Swarm'] : []), ...(activeCaypinAlly(c) ? ['Summoned Caypin'] : []),
       ...(activeCatAlly(c) ? ['Summoned Cat'] : []),
       ...Array.from({ length: followerCount(c) }, (_, index) => {
         return followerTitle(c, index)
@@ -757,12 +775,13 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
     || activeFeatsNamed(c, 'Animal Trainer Dedication').length > 0
     || activeFeatsNamed(c, "Commander's Companion").length > 0
   const beastmaster = activeFeatsNamed(c, 'Beastmaster Dedication').length > 0
-  const companionGrant = faithfulSteed ? 'Faithful Steed'
+  const swarmkeeper = activeFeatsNamed(c, 'Swarmkeeper Dedication').length > 0
+  const companionGrant = swarmkeeper && !beastmaster ? undefined : faithfulSteed ? 'Faithful Steed'
     : activeFeatsNamed(c, "Commander's Companion").length > 0 ? "Commander's Companion"
       : animalCompanionGrant ? 'Animal Companion' : beastmaster ? 'Beastmaster Dedication' : undefined
   const companionLimit = beastmaster && !getSettings().singleAnimalCompanion ? Math.min(4, (animalCompanionGrant || faithfulSteed ? 1 : 0) + 1
-    + activeFeatsNamed(c, 'Additional Companion').length) : 1
-  const needsCompanionOptions = companions.length === 0 && !!companionGrant
+    + activeFeatsNamed(c, 'Additional Companion').length) - Number(swarmkeeper) : 1
+  const needsCompanionOptions = companions.length === 0 && !!companionGrant && companionLimit > 0
     || companions.length > 0 && companions.length < companionLimit
   const types = needsCompanionOptions ? companionTypes(companionEntries) : []
   const familiarAbilityCatalog = familiarAbilityEntries(entries, c)
@@ -827,6 +846,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
   return (
       <div className="character-section-content minions-section-content">
         <SortedMinionSections>
+        {swarmkeeper && <SwarmkeeperSwarm c={c} entries={entries} />}
         {activeCaypinAlly(c) && <SummonedCreature c={c} entries={entries} save={save} name="Caypin" protectedByCompanion={protectedByCompanion} />}
         {activeCatAlly(c) && <SummonedCreature c={c} entries={entries} save={save} name="Leopard" displayName="Cat" protectedByCompanion={protectedByCompanion} />}
         {lashuntaAlly && <SummonedCreature c={c} entries={entries} save={save} name={lashuntaAlly} protectedByCompanion={protectedByCompanion} />}
@@ -856,7 +876,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           <TurretFeatures c={c} entries={entries} save={save} />
         </details>}
         {servoShell && <ServoShellMinibot c={c} entries={entries} save={save} />}
-        {companions.length === 0 && companionGrant && <details className="character-subsection" data-minion-name="Animal Companion" open>
+        {companions.length === 0 && companionGrant && companionLimit > 0 && <details className="character-subsection" data-minion-name="Animal Companion" open>
           <summary><h4>Animal Companion</h4></summary>
           <span className="companion-choice"><span>{companionGrant}</span>
             <SearchableSelect aria-label="Choose Faithful Steed" value="" onChange={(e) => {
