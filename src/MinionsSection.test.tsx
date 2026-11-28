@@ -1084,6 +1084,8 @@ it('combines Calistria’s wasp and aquatic pet into one familiar with shared ab
   expect(html).toContain('aria-haspopup="dialog">Flier</button>')
   const specialSection = html.indexOf('<h5>Special</h5>')
   expect(specialSection).toBeGreaterThanOrEqual(0)
+  const speedSection = html.indexOf('<h5>Speed</h5>', specialSection)
+  expect(html.slice(specialSection, speedSection)).toContain('>Aquatic</span>')
   expect(html.indexOf('aria-haspopup="dialog">Burrower</button>')).toBeGreaterThan(specialSection)
   expect(html.indexOf('aria-haspopup="dialog">Flier</button>')).toBeGreaterThan(specialSection)
   findSelect(tree(), 'Wasp familiar ability')!({ target: { value: 'familiar:Fast Movement' } })

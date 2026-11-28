@@ -1326,6 +1326,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             resistance: [...grantedResistance, ...(data?.abilityOptions?.resistance ?? []).slice(0, resistanceCount * 2)],
           }, spellcastingModifier, isAquatic)
           const amphibious = movementAbilities.some(ability => ability.toLowerCase() === 'amphibious')
+          const aquaticNote = amphibious ? 'Breathes air and water.' : 'Breathes water instead of air.'
           const baseSpeeds = minionMovementSpeeds(movementAbilities.filter(ability => ability.toLowerCase() !== 'fast movement'), undefined, isAquatic)
             .filter(speed => speed.feet === 25 && !(amphibious && speed.movement === 'Swim'))
           const savedSpeed = amphibious && data?.abilityOptions?.fastMovement === 'Swim' ? 'Land' : data?.abilityOptions?.fastMovement
@@ -1445,6 +1446,8 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             return { key: `granted:${index}:${grant}`, name: isLeshy && name === leshyAbility ? `Leshy Familiar (${name})` : grant, entry,
               after: name === 'Medic' || name === 'Restorative Familiar' ? healingAbilityControls(name) : undefined }
           }))
+          if (isAquatic) familiarAbilityItems.push({ key: 'aquatic-special', name: 'Aquatic',
+            after: <SourceNote source="Aquatic" note={aquaticNote} inlineSource={false} /> })
           if (isWasp) {
             const existingNames = new Set(familiarAbilityItems.map(item => item.name.toLowerCase()))
             familiarAbilityItems.push(...['Burrower', 'Flier'].filter(name => !existingNames.has(name.toLowerCase()))
@@ -1505,7 +1508,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             : isCrocodile ? 'Crocodile Familiar' : glyph ? 'Glyph Familiar' : c.className === 'Witch' ? "Witch's Familiar" : 'Familiar'}</h4> ({selectedCount}/{totalCount})</summary>
           <article className="gear-card">
           {isAquatic && <div className="gear-traits"><span>Aquatic<SourceNote source="Aquatic"
-            note={amphibious ? 'Breathes air and water.' : 'Breathes water instead of air.'} /></span></div>}
+            note={aquaticNote} /></span></div>}
           {!isWasp && !spiritFamiliar && !isUndead && specificFamiliars.length > 0 && <header className="row">
             <SearchableSelect aria-label="Specific familiar" value={data?.specificFamiliar ?? ''} onChange={event => {
               const selected = specificFamiliars.find(option => option.entry.name === event.target.value)
