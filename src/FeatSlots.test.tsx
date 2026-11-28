@@ -2803,6 +2803,18 @@ it('does not offer or accept duplicate blessings, including when no distinct cho
   expect(renderToStaticMarkup(tree())).not.toContain('>Second Blessing')
 })
 
+it("offers Deity's Domain again for a different domain", () => {
+  const feat: ContentEntry = { id: 'domain', kind: 'feat', name: "Deity's Domain", level: 1, traits: ['Champion'],
+    source: 'official', systems: ['pf2e'], description: '', data: {}, effects: [], updatedAt: 0 }
+  const entries: ContentEntry[] = [feat, { ...feat, id: 'chosen', name: 'Chosen', kind: 'deity', data: { domain_primary: 'Zeal, Water' } }]
+  const c: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 4, className: 'Champion', deity: 'Chosen',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: "Deity's Domain", type: 'Class Feat', level: 2, slot: 'class:2', choice: 'Water' }],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(FeatSlots({ c, entries, save: () => {}, categories: ['class'] }))
+  expect(markup).toContain('>Deity&#x27;s Domain (Zeal)</option>')
+})
+
 it('shows only distinct domains granted by the selected deity in the feat picker', () => {
   let c: Character = { id: 'c', systems: ['pf2e'], name: 'Test', level: 1, className: 'Champion', deity: 'Chosen',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },

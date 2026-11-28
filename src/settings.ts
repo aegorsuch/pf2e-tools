@@ -2,6 +2,8 @@ import { useSyncExternalStore } from 'react'
 
 export interface Settings {
   singleAdditionalArms: boolean
+  // House rule: Deity's Domain and Advanced Deity's Domain can be taken repeatedly, each with a different domain
+  repeatableDeityDomain: boolean
   singleAugmentedBody: boolean
   singleDistantTelepath: boolean
   adoptedDwarfClanDagger: boolean
@@ -109,7 +111,7 @@ export interface Settings {
 
 const KEY = 'app-settings'
 const DEFAULTS: Settings = {
-  singleAdditionalArms: true, singleAugmentedBody: true, singleDistantTelepath: true, adoptedDwarfClanDagger: true,
+  repeatableDeityDomain: true, singleAdditionalArms: true, singleAugmentedBody: true, singleDistantTelepath: true, adoptedDwarfClanDagger: true,
   disableAdoptedAncestry: true, disableAncientElfMultitalented: true, disableBeastmasterWardenSpells: true,
   exclusiveCyborgHearts: true, cyberbornTestSubjectFeat: true, autoClassSkills: false, sf2eDeitySkills: true, orderExplorerSkills: true,
   autoLores: false, deityLore: true, ysokiAncestralLorePlaces: true, freeArchetype: true, ignoreArchetypeFeatMinimums: true, rangerSnarecrafter: false,

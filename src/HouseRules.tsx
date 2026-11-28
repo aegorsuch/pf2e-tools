@@ -3,6 +3,8 @@ import { updateSettings, useSettings, type Settings } from './settings'
 const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'aquaticPetFamiliar', label: 'Friend of the Sea Aquatic Pet Uses Familiar Rules' },
   { key: 'gauntletHandwrapRunes', label: 'Gauntlets Inherit Handwrap Property Runes' },
+  { key: 'repeatableDeityDomain', label: "Deity's Domain: Repeatable",
+    description: "Deity's Domain and Advanced Deity's Domain can be taken multiple times, each with a different domain." },
   { key: 'singleAdditionalArms', label: 'Additional Arms: Once' },
   { key: 'singleAugmentedBody', label: 'Augmented Body: Once' },
   { key: 'singleDistantTelepath', label: 'Distant Telepath: Once' },

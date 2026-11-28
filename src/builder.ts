@@ -2170,6 +2170,8 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key && featTakenLevel(feat) <= slot.level).length === 1
         || e.name === 'Expansive Array'
         && c.feats.filter(feat => feat.name === e.name && feat.slot !== slot.key).length === 1
+        || getSettings().repeatableDeityDomain && ["Deity's Domain", "Advanced Deity's Domain"].includes(e.name)
+          && !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || ['Iruxi Armaments', 'Brutal Anatomy', 'Predatory', 'Ancestral Resistance', "Witch's Armaments", 'Energized Spark'].includes(e.name) && !!featChoiceOptions(e.name, c, entries, slot.key)?.length
         || c.systems.includes('sf2e') && c.className === 'Technomancer'
           && ['Cross-platform Application', 'Advanced Cross-platform Application', 'Versatile Firmware',
