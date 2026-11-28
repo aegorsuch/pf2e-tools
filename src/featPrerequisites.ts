@@ -80,7 +80,7 @@ export const ignoresFeatPrerequisites = (entry: ContentEntry) =>
   entry.kind === 'feat' && (entry.systems.includes('pf2e')
     && (["pilgrim's token", 'sanctify water', 'exhort the faithful', 'battle prayer', 'sacred defense',
       'ancestral linguistics', 'ancestral longevity', 'expert longevity', 'otherworldly acumen',
-      'universal longevity', 'wandering heart'].includes(key(entry.name))
+      'universal longevity'].includes(key(entry.name))
       || key(entry.name) === 'staff acrobat dedication' && getSettings().staffAcrobatNoPrerequisites
       || key(entry.name) === 'whirlwind stance' && getSettings().whirlwindStanceNoPrerequisites)
     || entry.systems.includes('sf2e') && ['religious talisman', 'deific obedience'].includes(key(entry.name)))

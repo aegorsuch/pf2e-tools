@@ -2567,7 +2567,7 @@ describe('shared prerequisite enforcement', () => {
     expect(check({ ...enshrined, feats: [] }, noMemory).missing).toEqual(['Memories of Valor'])
   })
 
-  it('ignores Wandering Heart environmental heritage requirements when selecting the feat', () => {
+  it('requires an environmental Elf heritage when selecting Wandering Heart', () => {
     const prerequisite = 'Arctic Elf, Cavern Elf, Desert Elf, Woodland Elf, or any other elf heritage based on adapting to an environment'
     for (const heritage of ['Arctic Elf', 'Cavern Elf', 'Desert Elf', 'Woodland Elf', 'Aquatic Elf']) {
       expect(check(prerequisite, { ...base, ancestry: 'Elf', heritage })).toEqual({ missing: [], manual: [] })
@@ -2580,9 +2580,12 @@ describe('shared prerequisite enforcement', () => {
     const feat = entry('feat', 'Wandering Heart', { prerequisite }, 13, ['Elf'])
     const slot = { key: 'ancestry:13:0', category: 'ancestry' as const, level: 13 }
     const elf = { ...base, level: 13, ancestry: 'Elf' }
+    expect(featSelectionPrerequisiteChecker({ ...elf, heritage: 'Whisper Elf' }, [feat], slot)(feat).missing)
+      .toContain(prerequisite)
     expect(eligibleFeats([feat], { ...elf, heritage: 'Woodland Elf' }, slot)).toContain(feat)
-      expect(eligibleFeats([feat], { ...elf, heritage: 'Ancient Elf' }, slot)).toContain(feat)
-      expect(eligibleFeats([feat], { ...elf, ancestry: 'Human', heritage: 'Ancient Elf' }, slot)).not.toContain(feat)
+    expect(eligibleFeats([feat], { ...elf, heritage: 'Ancient Elf' }, slot)).not.toContain(feat)
+    expect(eligibleFeats([feat], { ...elf, heritage: 'Whisper Elf' }, slot)).not.toContain(feat)
+    expect(eligibleFeats([feat], { ...elf, ancestry: 'Human', heritage: 'Ancient Elf' }, slot)).not.toContain(feat)
   })
 
   it('ignores selected feat prerequisites for Otherworldly Acumen, Expert Longevity, and Universal Longevity', () => {
