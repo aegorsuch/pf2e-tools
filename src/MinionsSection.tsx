@@ -858,7 +858,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
         {servoShell && <ServoShellMinibot c={c} entries={entries} save={save} />}
         {companions.length === 0 && companionGrant && <details className="character-subsection" data-minion-name="Animal Companion" open>
           <summary><h4>Animal Companion</h4></summary>
-          <span>{companionGrant}{' '}
+          <span className="companion-choice"><span>{companionGrant}</span>
             <SearchableSelect aria-label="Choose Faithful Steed" value="" onChange={(e) => {
               const type = types.find((type) => type.name === e.target.value)
                 if (type) save({ ...(faithfulSteed ? { faithfulSteedGranted: true } : {}),
@@ -942,7 +942,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             return (
               <details key={comp.id} className="character-subsection" data-minion-name={companionTitle(c, index)} open>
                 <summary><h4>{companionTitle(c, index)}</h4></summary>
-                {index === 0 && companions.length < companionLimit && <span>Beastmaster companion{' '}
+                {index === 0 && companions.length < companionLimit && <span className="companion-choice"><span>Beastmaster companion</span>
                   <SearchableSelect aria-label="Choose additional companion" value="" onChange={(e) => {
                     const type = types.find((type) => type.name === e.target.value)
                     if (type) save({ companions: [...companions, { id: newId(), type: type.name, name: '' }] })

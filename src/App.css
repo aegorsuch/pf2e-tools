@@ -465,6 +465,10 @@
   width: 100%;
 }
 
+.companion-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; min-width: 0; }
+.companion-choice > .searchable-select { flex: 1 1 14rem; }
+.companion-choice .searchable-select > .feat-picker-button { flex: 1 1 auto; width: 100%; }
+
 .focus-point {
   display: grid;
   place-items: center;
