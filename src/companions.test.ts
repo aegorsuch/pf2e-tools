@@ -33,7 +33,7 @@ describe('animal companions', () => {
       shield: { id: 's', name: 'Steel Shield', hardness: 5, hp: 20, damage: 0, raised: true } }
     const stats = (character: Character, id: string) => companionStats(character, [bear], 'Bear', undefined, id)!
     const baseline = { ...c, activeSpells: [], shield: undefined }
-    expect(stats(c, 'bear').ac).toBe(stats(baseline, 'bear').ac)
+    expect(stats(c, 'bear').ac).toBe(stats(baseline, 'bear').ac + 1)
     expect(stats({ ...c, shield: undefined }, 'other').ac).toBe(stats(baseline, 'other').ac + 1)
     expect(stats(c, 'other').ac).toBe(stats(baseline, 'other').ac + 2)
     expect(stats({ ...c, feats: [] }, 'other').protectCompanion).toBe(0)

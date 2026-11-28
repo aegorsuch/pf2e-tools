@@ -2850,7 +2850,7 @@ it('applies Magic Hide and Protect Companion to the Swarmkeeper swarm', () => {
     lores: [], equipment: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
   const ac = (character: Character) => /Armor Class<\/small><b>(\d+)/.exec(renderToStaticMarkup(<MinionsContent c={character} entries={[]} save={() => {}} />))?.[1]
   const base = Number(ac(c))
-  expect(Number(ac({ ...c, activeSpells: ['Magic Hide'], magicHideCompanionId: 'swarm' }))).toBe(base + 1)
-  expect(Number(ac({ ...c, activeSpells: ['Protect Companion'], protectCompanionId: 'swarm' }))).toBe(base + 1)
-  expect(Number(ac({ ...c, activeSpells: ['Magic Hide'] }))).toBe(base)
+  expect(Number(ac({ ...c, activeSpells: ['Magic Hide'] }))).toBe(base + 1)
+  expect(Number(ac({ ...c, activeSpells: ['Protect Companion'] }))).toBe(base + 1)
+  expect(Number(ac({ ...c, spells: [], activeSpells: ['Magic Hide'] }))).toBe(base)
 })

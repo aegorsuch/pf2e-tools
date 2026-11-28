@@ -625,7 +625,7 @@ it('targets a Witch familiar with Protect Companion instead of its animal compan
     const target = container.querySelector<HTMLSelectElement>('[aria-label="Protect Companion target"]')!
     await act(async () => { target.value = 'familiar:primary'; target.dispatchEvent(new Event('change', { bubbles: true })) })
     expect(current.protectCompanionFamiliar).toBe('primary')
-    expect(companionStats(current, [bear], 'Bear', undefined, 'bear')!.ac).toBe(baseBearAc)
+    expect(companionStats(current, [bear], 'Bear', undefined, 'bear')!.ac).toBe(baseBearAc + 1)
     expect(familiarAc()).toBe(baseAc + 1)
     const familiarDefenses = container.querySelector('[data-minion-name="Witch\'s Familiar"] .companion-actions')!
     expect(familiarDefenses.textContent).not.toContain('Protect Companion')

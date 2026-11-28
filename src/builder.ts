@@ -8305,6 +8305,8 @@ export function protectCompanionApplies(c: Character, entries: ContentEntry[],
   target?: { companionId?: string; familiar?: 'primary' | 'wasp' | 'aquatic' }) {
   if (!isSpellActive(c, entries, 'Protect Companion')) return false
   if (getSettings().protectCompanionAll) return true
+  if (target?.companionId !== undefined) return target.companionId === SWARM_TARGET_ID ? hasSwarmkeeperSwarm(c)
+    : !!c.companions?.some(companion => companion.id === target.companionId)
   const selected = protectCompanionTarget(c)
   return !!target && (target.companionId !== undefined && target.companionId === selected?.companionId
     || target.familiar !== undefined && target.familiar === selected?.familiar)
@@ -8347,7 +8349,9 @@ export function enlargeCompanionSize(c: Character, naturalSize?: string) {
 }
 
 export function isMagicHideActive(c: Character, entries: ContentEntry[], companionId?: string) {
-  return isSpellActive(c, entries, 'Magic Hide') && (companionId === undefined || companionId === magicHideTarget(c))
+  return isSpellActive(c, entries, 'Magic Hide')
+    && (companionId === undefined || companionId === SWARM_TARGET_ID ? hasSwarmkeeperSwarm(c) || companionId === undefined
+      : !!c.companions?.some(companion => companion.id === companionId))
 }
 
 export function magicHideChange(c: Character, active: boolean, companionId = magicHideTarget(c)): Partial<Character> {

@@ -3750,20 +3750,17 @@ it.each([[1, 30], [4, 30], [5, 60], [20, 60]])('adds active Keen Smell scent at 
   expect(markup).toContain('aria-label="Keen Smell note"')
 })
 
-it('applies Magic Hide only to the selected companion while the known spell is active', () => {
+it('applies Magic Hide to all companions while the known spell is active', () => {
   const cat = content('companion', 'Cat', { strength: 2, dexterity: 3, constitution: 1, hp: 6, size: 'Small', speed: 35 })
   const c: Character = { ...base, companions: [{ id: 'a', type: 'Cat', name: 'A' }, { id: 'b', type: 'Cat', name: 'B' }],
     activeSpells: ['Magic Hide'], magicHideCompanionId: 'b', spells: [{ name: 'Magic Hide', rank: 1, cantrip: false }] }
   const normal = companionStats({ ...c, activeSpells: [] }, [cat], 'Cat')!.ac
-  expect(companionStats(c, [cat], 'Cat', undefined, 'a')!.ac).toBe(normal)
+  expect(companionStats(c, [cat], 'Cat', undefined, 'a')!.ac).toBe(normal + 1)
   expect(companionStats(c, [cat], 'Cat', undefined, 'b')!.ac).toBe(normal + 1)
   expect(companionStats({ ...c, spells: [] }, [cat], 'Cat', undefined, 'b')!.ac).toBe(normal)
-  const stale = { ...c, magicHideCompanionId: 'removed-companion' }
-  expect(companionStats(stale, [cat], 'Cat', undefined, 'a')!.ac).toBe(normal + 1)
-  expect(companionStats(stale, [cat], 'Cat', undefined, 'b')!.ac).toBe(normal)
 })
 
-it('syncs Magic Hide across spells and companion controls and marks only the affected AC', () => {
+it('syncs Magic Hide across spells and companion controls and marks every companion AC', () => {
   const cat = content('companion', 'Cat', { strength: 2, dexterity: 3, constitution: 1, hp: 6, size: 'Small', speed: 35 })
   const c: Character = { ...base, companions: [{ id: 'a', type: 'Cat', name: 'A' }, { id: 'b', type: 'Cat', name: 'B' }],
     activeSpells: ['Keen Smell'], spells: [{ name: 'Magic Hide', rank: 1, cantrip: false }] }
@@ -3773,7 +3770,7 @@ it('syncs Magic Hide across spells and companion controls and marks only the aff
     const spells = renderToStaticMarkup(<SpellsSection c={changed} entries={[cat]} save={() => {}} />)
     expect(minions).not.toContain('aria-label="Magic Hide on B"')
     expect(spells).toContain(`aria-label="Magic Hide active"${active ? ' checked=""' : ''}`)
-    expect(minions.match(/title="\+1 Status \(Magic Hide\) \(Magic Hide\)"/g) ?? []).toHaveLength(active ? 1 : 0)
+    expect(minions.match(/title="\+1 Status \(Magic Hide\) \(Magic Hide\)"/g) ?? []).toHaveLength(active ? 2 : 0)
     expect(changed.activeSpells).toContain('Keen Smell')
     if (active) expect(minions).toMatch(/<b>\d+<button[^>]*>\*<\/button><span[^>]*popover="auto"/)
   }
