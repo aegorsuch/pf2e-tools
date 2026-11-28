@@ -8,7 +8,7 @@ import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
 import { EquipmentSearch } from './EquipmentSearch'
 export { EquipmentSearch } from './EquipmentSearch'
-import { CLASS_ARCHETYPES, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldRaiseLabel, showParryControl, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
+import { CLASS_ARCHETYPES, DEVOTED_BLESSINGS, championBlessing, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldRaiseLabel, showParryControl, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { featTakenLevel } from './featChoices'
 import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, deitySanctification, boostSlots, classFeatures, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, hasPersonalUpgradeSlot, ownedArmors, warriorLegendWeakness } from './builder'
 import { ClassFeatures } from './ClassFeatures'
@@ -566,6 +566,15 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
   const sanctificationOptions: ContentEntry[] = sanctification.options.map(option => ({ id: `sanctification:${option}`, systems: ['pf2e'],
     kind: 'classFeature', source: 'official', name: option, level: 1, traits: [option], data: {}, effects: [], updatedAt: 0,
     description: `You gain the ${option.toLowerCase()} trait.` }))
+  const blessingDescriptions: Record<string, string> = {
+    'Blessed Armament': "Select one weapon or handwraps of mighty blows. You gain that armament's critical specialization effect, and you grant it a property rune of your choice: fearsome, ghost touch, returning, shifting, or vitalizing. You can change the armament, rune, or both during daily preparations.",
+    'Blessed Shield': 'In your hands, a shield gains the minor reinforcing rune, scaling with your level. If it already has the appropriate rune, or is a sturdy shield of the same level, its Hardness instead increases by 1.',
+    'Blessed Swiftness': "You gain a +5-foot status bonus to Speed (or your mount does, if mounted). When an ally's movement in your aura triggers an enemy's reaction, the ally gains a +2 status bonus to all defenses against it.",
+  }
+  const takenBlessings = c.feats.flatMap(feat => ['Second Blessing', 'Third Blessing'].includes(feat.name) && feat.choice ? [feat.choice] : [])
+  const blessingOptions: ContentEntry[] = DEVOTED_BLESSINGS.filter(name => !takenBlessings.includes(name)).map(name => ({
+    id: `blessing:${name}`, systems: ['pf2e'], kind: 'classFeature', source: 'official', name, level: 3, traits: [], data: {}, effects: [],
+    updatedAt: 0, description: blessingDescriptions[name] }))
   const arcaneTheses = arcaneThesisOptions(entries)
   const arcaneThesis = selectedArcaneThesis(c)
   const subclassChoice = subclassSkillChoice(c, entries)
@@ -840,6 +849,11 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                     || c.feats.some(feat => feat.name === 'Vow of Mortal Defiance')}
                   selected={sanctificationOptions.find(entry => entry.name === sanctification.selected)}
                   onChange={name => save({ sanctification: name === 'Holy' || name === 'Unholy' ? name : undefined })} /> }] : []),
+              ...(c.systems.includes('pf2e') && c.className === 'Champion' && c.level >= 3 ? [{
+                key: 'blessing', level: 3, name: championBlessing(c) ?? 'Blessing of the Devoted', control: <SubclassSlot c={c} entries={entries}
+                  label="Blessing of the Devoted" options={blessingOptions}
+                  selected={blessingOptions.find(entry => entry.name === championBlessing(c))}
+                  onChange={name => save({ blessing: DEVOTED_BLESSINGS.find(blessing => blessing === name) ?? '' })} /> }] : []),
               ...(c.className === 'Wizard' && c.systems.includes('pf2e') ? [{ key: 'arcane-thesis', level: 1,
                 name: arcaneThesis ?? 'Arcane Thesis', control: <SubclassSlot c={c} entries={entries}
                   label="Arcane Thesis" options={arcaneTheses.filter(entry => entry.name === arcaneThesis

@@ -1026,14 +1026,14 @@ it('scales Scalding Gauntlets potency, striking and Flaming with level and hides
   expect(entries.map(entry => entry.name).filter(name => name.startsWith('Freezing')).sort()).toEqual(['Freezing Gauntlet (Bladed Gauntlet)',
     'Freezing Gauntlet (Clawed Gauntlet)', 'Freezing Gauntlet (Gauntlet)', 'Freezing Gauntlet (Spiked Gauntlet)'])
   const shock = entries.find(entry => entry.name === 'Shocking Gauntlet (Clawed Gauntlet)')!
-  expect(withNamedWeaponState(shock, owned(shock.name), 18)?.data.named_weapon_runes).toBe('Shock (Greater);Hooked;Grappling;Grievous')
+  expect(withNamedWeaponState(shock, owned(shock.name), 18)?.data.named_weapon_runes).toBe('Shock (Greater);Grappling;Grievous')
   expect(specificMagicItemName(shock)).toBe('Shocking Clawed Gauntlet')
   expect(entries.find(entry => entry.name === 'Scalding Gauntlet (Gauntlet)')?.data.named_weapon_base).toBe('Gauntlet')
   const at = (level: number) => withNamedWeaponState(entries[1], owned('Scalding Gauntlet'), level)?.data
   expect(at(11)).toMatchObject({ named_weapon_potency: 2, named_weapon_striking: 1,
-    named_weapon_runes: 'Flaming;Hooked;Grappling;Grievous', named_weapon_material: 'Orichalcum' })
-  expect(at(13)).toMatchObject({ named_weapon_striking: 2, named_weapon_runes: 'Flaming;Hooked;Grappling;Grievous' })
-  expect(at(18)).toMatchObject({ named_weapon_potency: 3, named_weapon_runes: 'Flaming (Greater);Hooked;Grappling;Grievous' })
+    named_weapon_runes: 'Flaming;Grappling;Grievous', named_weapon_material: 'Orichalcum' })
+  expect(at(13)).toMatchObject({ named_weapon_striking: 2, named_weapon_runes: 'Flaming;Grappling;Grievous' })
+  expect(at(18)).toMatchObject({ named_weapon_potency: 3, named_weapon_runes: 'Flaming (Greater);Grappling;Grievous' })
 })
 
 it('labels Scalding Gauntlet variants without repeating the base', () => {

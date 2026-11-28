@@ -1,5 +1,5 @@
 import { Info } from './Info'
-import { activeFeatsNamed, barbarianInstinct, byName, canBeGiantWeapon, canBeOsteoArmament, canBeVerdantWeapon, isGiantInstinct, ownedWeapons, weaponEquipped, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessing, championBlessings, classFeatures, precisionEdgeDamageDice, runeBaseName, runeName, selectedSubclass, solarWeaponTraitBudget, solarWeaponTraits, SOLAR_WEAPON_TRAITS, weaponRuneApplies, type SectionProps } from './builder'
+import { activeFeatsNamed, barbarianInstinct, byName, canBeGiantWeapon, canBeOsteoArmament, canBeVerdantWeapon, isGiantInstinct, ownedWeapons, weaponEquipped, blessedArmamentRuneOptions, blessedArmamentTargets, championBlessings, classFeatures, precisionEdgeDamageDice, runeBaseName, runeName, selectedSubclass, solarWeaponTraitBudget, solarWeaponTraits, SOLAR_WEAPON_TRAITS, weaponRuneApplies, type SectionProps } from './builder'
 import type { OwnedWeapon } from './types'
 import { HANDWRAPS } from './supplemental'
 import { SearchableSelect } from './SearchableSelect'
@@ -23,7 +23,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
   const precisionEdge = c.systems.includes('pf2e') && c.className === 'Ranger'
     && selectedSubclass(c, entries) === 'Precision'
   const precisionEdgeDice = precisionEdgeDamageDice(c, entries)
-  const blessing = championBlessing(c)
   const extraBlessings = c.feats.flatMap((feat) => ['Second Blessing', 'Third Blessing'].includes(feat.name) && feat.choice ? [feat.choice] : [])
   const showArmament = c.className === 'Champion' && c.level >= 3 && championBlessings(c).includes('Blessed Armament')
   const targets = showArmament ? blessedArmamentTargets(c, entries) : []
@@ -371,15 +370,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           onChange={event => save({ legacyTenetsOfGood: event.target.checked })} /> Confirm legacy Tenets of Good
       </label>}
       {c.className === 'Champion' && c.level >= 3 && <div className="col">
-        <label>Blessing of the Devoted{' '}
-          <select aria-label="Blessing of the Devoted" value={blessing ?? ''} onChange={(e) => {
-            const choice = (['Blessed Armament', 'Blessed Shield', 'Blessed Swiftness'] as const).find((name) => name === e.target.value)
-            save({ blessing: choice ?? '' })
-          }}>
-            <option value="">Choose blessing</option>
-            {['Blessed Armament', 'Blessed Shield', 'Blessed Swiftness'].map((name) => <option key={name} disabled={extraBlessings.includes(name)}>{name}</option>)}
-          </select>
-        </label>
         {extraBlessings.length > 0 && <small>Additional blessings: {extraBlessings.join(', ')}.</small>}
         {showArmament && <>
           {targets.length > 1 ? <span>Blessed armament{' '}

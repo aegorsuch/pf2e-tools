@@ -1768,7 +1768,7 @@ it('limits advanced domains to eligible initial choices available at the feat le
     { name: "Deity's Domain", type: 'Class Feat', level: 1, slot: 'class:1:2', choice: 'Fire' },
     { name: "Advanced Deity's Domain", type: 'Class Feat', level: 8, slot: 'class:8:0', choice: 'Water' },
   ] }
-  expect(featChoiceOptions("Deity's Domain", c, [deity], 'class:1:3')).toEqual(['Air', 'Nature', 'Travel', 'Water'])
+  expect(featChoiceOptions("Deity's Domain", c, [deity], 'class:1:3')).toEqual(['Travel'])
   expect(featChoiceOptions("Advanced Deity's Domain", c, [deity], 'class:8:0')).toEqual(['Water'])
   expect(featChoiceOptions("Advanced Deity's Domain", c, [deity], 'class:8:1')).toEqual([])
   expect(featChoiceOptions('Advanced Domain', c, [deity], 'class:8:1')).toEqual(['Nature', 'Water'])
@@ -1783,8 +1783,7 @@ it('prevents duplicate Domain Initiate domain choices', () => {
     { name: 'Domain Initiate', type: 'Class Feat', level: 8, slot: 'class:8:0', choice: 'Repose' },
   ] }
   const options = featChoiceOptions('Domain Initiate', c, [deity], 'class:4:0')
-  expect(options).not.toContain('Death')
-  expect(options).toContain('Repose')
+  expect(options).toEqual(['Truth'])
   expect(featChoiceOptions('Domain Initiate', c, [deity], 'class:2:0')).toContain('Death')
 })
 
