@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { pushBackLayer } from './backLayers'
 
 export function PickerDialog({ label, searchLabel, query, onQuery, onClose, children, container }: {
   label: string
@@ -18,6 +19,7 @@ export function PickerDialog({ label, searchLabel, query, onQuery, onClose, chil
     panel.current?.focus({ preventScroll: true })
     return () => { if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true }) }
   }, [])
+  useEffect(() => pushBackLayer(() => close.current()), [])
   const content = <div className="feat-modal-backdrop" onClick={() => close.current()}>
     <div ref={panel} className="feat-modal" role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}
       onClick={event => event.stopPropagation()} onKeyDown={event => {

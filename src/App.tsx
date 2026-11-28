@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { watchNativeDialogs } from './backLayers'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { db, ensureSupplementalContent, newId, removeEntry, saveEntry } from './db'
@@ -102,6 +103,7 @@ export default function App() {
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [applyCharacter])
+  useEffect(() => watchNativeDialogs(), [])
   const [status, setStatus] = useState('')
   const [user, setUser] = useState<User | null>(null)
   const [authError, setAuthError] = useState('')
