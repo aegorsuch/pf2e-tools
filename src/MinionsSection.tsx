@@ -801,7 +801,7 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
     + activeFeatsNamed(c, 'Additional Companion').length) : 1
   const needsCompanionOptions = companions.length === 0 && !!companionGrant
     || companions.length > 0 && companions.length < companionLimit
-  const types = needsCompanionOptions ? companionTypes(companionEntries) : []
+  const types = needsCompanionOptions || companions.length > 0 ? companionTypes(companionEntries) : []
   const familiarAbilityCatalog = familiarAbilityEntries(entries, c)
   const minionDefense = familiar || wasp || pet ? (() => {
     const base = (breakdown: TotalBreakdown) => breakdown.parts

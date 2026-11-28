@@ -769,6 +769,19 @@ it('opens Special summaries by name without asterisks and capitalizes attack lab
   expect(JSON.stringify({ c, horse })).toBe(before)
 })
 
+it('lists companion types in the type picker once a companion is chosen', () => {
+  const horse: ContentEntry = { id: 'horse', systems: ['pf2e'], name: 'Horse', kind: 'companion', source: 'official', level: 1,
+    traits: ['Animal'], description: '', effects: [], updatedAt: 0, data: { size: 'Medium', hp: 8 } }
+  const c: Character = {
+    id: 'steed', systems: ['pf2e'], name: 'Test', level: 1, className: 'Champion',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Faithful Steed', type: 'Class Feat', level: 1 }], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'first', type: 'Horse', name: '' }],
+  }
+  const markup = renderToStaticMarkup(<MinionsContent c={c} entries={[horse]} save={() => {}} />)
+  expect(markup).toContain('<option value="Horse"')
+})
+
 it('removes companion and familiar naming controls without erasing saved names', () => {
   let c: Character = {
     id: 'named-companions', systems: ['pf2e'], name: 'Test', level: 1, className: 'Ranger',
