@@ -2219,6 +2219,10 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               } : isIncendiaryArmor(a.name) ? {
                 'Living Flame': { name: 'Living Flame', damage: { label: 'Damage', dice: 10, sides: 6, type: 'fire',
                   note: 'DC 40 basic Reflex save' }, disabled: !a.worn && !a.livingFlameActive, toggleResult: true },
+              } : ["Slithermaw's Bane", "Slithermaw's Bane (Artifact)"].includes(a.name) ? {
+                'Calistria’s Sting': { name: 'Calistria’s Sting', damage: { label: 'Persistent poison', dice: 7, sides: 6,
+                  type: 'persistent poison', ...(a.name === "Slithermaw's Bane" ? { note: 'DC 34 basic Fortitude save' } : {}) },
+                  disabled: !a.worn, toggleResult: true, showNote: true },
               } : undefined} avatar={isAncestralEmbrace(entry?.name) ? {
               active: !!c.activeSpells?.includes(ANCESTRAL_AVATAR) && a.worn,
               disabled: !a.worn,

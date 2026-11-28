@@ -666,6 +666,18 @@ it('keeps situational effects manual and exposes source activations in expandabl
   expect(gearPickerEntries(entries, 'shield').some(entry => entry.name === scale.name)).toBe(true)
 })
 
+it('makes Calistria’s Sting rollable on both Slithermaw armors', () => {
+  for (const name of [bane.name, artifact.name]) {
+    const html = renderToStaticMarkup(<ArmorList c={{ ...character, armors: [owned(name)] }}
+      entries={entries} save={() => {}} part="armor" />)
+    expect(html).toContain('aria-label="Roll Calistria’s Sting: Persistent poison"')
+    expect(html).toContain('Reaction; Persistent poison: 7d6 persistent poison')
+  }
+  const baseArmor = renderToStaticMarkup(<ArmorList c={{ ...character, armors: [owned(bane.name)] }}
+    entries={entries} save={() => {}} part="armor" />)
+  expect(baseArmor).toContain('DC 34 basic Fortitude save')
+})
+
 it('uses source shield durability and preserves saved base stats without material or rune upgrades', () => {
   expect(shieldStats(shield, character, entries)).toMatchObject({ hardness: 20, hp: 160 })
   expect(shieldStats({ ...shield, hardness: 25, hp: 200 }, character, entries)).toMatchObject({ hardness: 25, hp: 200 })
