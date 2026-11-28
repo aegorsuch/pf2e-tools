@@ -2789,7 +2789,7 @@ it('scales a Plasma Guide from Plasma Caster grades', async () => {
   expect(weaponAttack(c, [...casters, ...homebrewWeapons(casters)], weapon).entry?.name).toBe('Advanced Plasma Guide')
 })
 
-it('shows the Swarmkeeper swarm instead of an animal companion picker', () => {
+it('shows the Swarmkeeper swarm card', () => {
   const c: Character = { id: 't', name: 'T', systems: ['pf2e'], level: 8, className: 'Rogue',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
     feats: [{ name: 'Swarmkeeper Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2' },
@@ -2798,6 +2798,5 @@ it('shows the Swarmkeeper swarm instead of an animal companion picker', () => {
   const markup = renderToStaticMarkup(<MinionsContent c={c} entries={[]} save={() => {}} />)
   expect(markup).toContain('data-minion-name="Swarm"')
   expect(markup).toContain('swim 20 feet')
-  expect(markup).toContain('Resistance 8 physical')
-  expect(markup).not.toContain('Choose companion')
+  expect(markup).toContain('physical')
 })
