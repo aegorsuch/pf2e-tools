@@ -51,6 +51,22 @@ export const SHOVING_MODULE: ContentEntry = {
   description: 'This weapon upgrade grants the shove trait.',
 }
 
+export const MAZMEZZ_DEITY: ContentEntry = {
+  id: 'homebrew:mazmezz', systems: ['pf2e'], kind: 'deity', source: 'homebrew',
+  name: 'Mazmezz', level: 0, traits: [],
+  description: 'Mazmezz, the Creeping Queen, is the demon lord of vermin, bindings and driders. Converted from Pathfinder 1e.',
+  data: {
+    alignment: 'CE', epithet: 'The Creeping Queen', deity_category: 'Demon Lords', rarity: 'uncommon',
+    area_of_concern: 'bindings, driders, vermin', religious_symbol: 'skull in spiderweb',
+    favored_weapon: 'Net', divine_font: 'Harm', skill: 'Survival', attribute: 'Dexterity, Constitution',
+    domain: 'Destruction, Nature, Pain, Swarm, Change', domain_primary: 'Destruction, Nature, Pain, Swarm', domain_alternate: 'Change',
+    sanctification: 'unholy', sanctification_required: false,
+    edict: 'ensnare and bind others, spread vermin and filth, corrupt the natural world', anathema: 'destroy spiders or vermin needlessly, free captives bound in webs without payment',
+    sourceBook: 'Homebrew',
+  },
+  effects: [], updatedAt: 1,
+}
+
 export const KILLERS_BELT_MAJOR: ContentEntry = {
   id: 'homebrew:killers-belt-major', systems: ['pf2e'], kind: 'item', source: 'homebrew',
   name: "Killer's Belt (Major)", level: 17, traits: ['Invested', 'Magical'],
