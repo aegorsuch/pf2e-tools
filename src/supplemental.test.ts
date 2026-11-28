@@ -360,6 +360,14 @@ it('provides Caravan Contortionist background boosts, skills, and Quick Squeeze'
   expect(background.data.feat).toBe('Quick Squeeze')
 })
 
+it('provides Nar-Voth Outcast background boosts, skills, and Charming Liar', () => {
+  const background = homebrewCharacterOptions([]).find(entry => entry.name === 'Nar-Voth Outcast')!
+  const c = { ...base, background: background.name }
+  expect(backgroundSkills(background)).toEqual(['Deception', 'Nar-Voth Lore'])
+  expect(boostSlots(c, [background]).find(slot => slot.key === 'background:0')?.options).toEqual(['con', 'cha'])
+  expect(background.data.feat).toBe('Charming Liar')
+})
+
 it('provides Matanji Demon Hunter the Demon Slayer background benefits', () => {
   const background = homebrewCharacterOptions([]).find(entry => entry.name === 'Matanji Demon Hunter')!
   const c = { ...base, level: 1, background: background.name }

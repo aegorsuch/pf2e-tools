@@ -948,7 +948,9 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
                   requirements: stats.maneuverRequirements,
                   damage: (comp.type === 'Thruneosaurus Rex' && stats.maneuver === 'Hellfire Gaze'
                     || comp.type === 'Riding Drake' && stats.maneuver === 'Fire Breath') && c.level >= 2
-                    ? { label: 'Damage', dice: Math.floor(c.level / 2), sides: 6, type: 'fire' } : undefined,
+                    ? { label: 'Damage', dice: Math.floor(c.level / 2), sides: 6, type: 'fire' }
+                    : comp.type === 'Riding Tarantula' && stats.maneuver === 'Hair Barrage'
+                      ? { label: 'Damage', dice: 4 + Math.max(0, Math.floor((c.level - 6) / 4)), sides: 6, type: 'piercing' } : undefined,
                   description: stats.maneuverDescription || 'Description unavailable from Archives of Nethys.' }] : []),
                 ...(stats?.beastmasterManeuvers ?? []).map(maneuver => ({ ...maneuver, traits: maneuver.traits ?? '', requirements: maneuver.requirements,
                   damage: maneuver.damage })),

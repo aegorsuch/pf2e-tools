@@ -58,7 +58,7 @@ export const MAZMEZZ_DEITY: ContentEntry = {
   data: {
     alignment: 'CE', epithet: 'The Creeping Queen', deity_category: 'Demon Lords', rarity: 'uncommon',
     area_of_concern: 'bindings, driders, vermin', religious_symbol: 'skull in spiderweb',
-    favored_weapon: 'Scorpion Whip', divine_font: 'Harm', skill: 'Survival', attribute: 'Dexterity, Constitution',
+    favored_weapon: 'Scorpion Whip', divine_font: 'Harm', skill: 'Deception', attribute: 'Dexterity, Constitution',
     domain: 'Destruction, Nature, Pain, Swarm, Change', domain_primary: 'Destruction, Nature, Pain, Swarm', domain_alternate: 'Change',
     sanctification: 'unholy', sanctification_required: false,
     edict: 'ensnare and bind others, spread vermin and filth, corrupt the natural world', anathema: 'destroy spiders or vermin needlessly, free captives bound in webs without payment',
@@ -671,6 +671,12 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
       ...homebrewFeat('direwolf-bonded', 'Direwolf Bonded', 1, ['Rare'],
         "You grew up hunting beside a direwolf, learning to read its signals and coordinate your movements. Sarkorian hunters passed down this partnership as a way to track and bring down quarry across their rugged homeland. Playful wrestling with your growing wolf taught you to hold your own against much larger creatures. Greater challenges, distant hunting grounds, or loyalty to your bonded wolf might draw you toward adventure.\n\nChoose two attribute boosts. One must be to Dexterity or Wisdom, and one is a free attribute boost.\n\nYou're trained in Nature and Sarkoris Lore. You gain the Canny Acumen general feat and the Titan Wrestler skill feat.\n\nTrained direwolves can Aid your Nature, Perception, and Survival checks; this benefit also applies to other characters with the Direwolf Bonded background.",
         { attribute: 'Dexterity, Wisdom', skill: 'Nature, Sarkoris Lore', feat: 'Canny Acumen, Titan Wrestler', rarity: 'rare' }),
+      kind: 'background',
+    },
+    {
+      ...homebrewFeat('nar-voth-outcast', 'Nar-Voth Outcast', 1, [],
+        "You were raised in the harsh, regimented society of the hryngar of Nar-Voth, but you chafed under its rules and turned your talent for deceit to your own ends. Guarding slave caravans, guiding surface-dwelling explorers through the Darklands, and patiently planning betrayals taught you that a convincing lie and a well-timed betrayal can accomplish more than brute force. Whether you fled your clan, were cast out, or simply grew bored of their order, your pursuit of chaos eventually drew you to the surface.\n\nChoose two attribute boosts. One must be to Constitution or Charisma, and one is a free attribute boost.\n\nYou're trained in Deception and Nar-Voth Lore. You gain the Charming Liar skill feat.",
+        { attribute: 'Constitution, Charisma', skill: 'Deception, Nar-Voth Lore', feat: 'Charming Liar' }),
       kind: 'background',
     },
   ]

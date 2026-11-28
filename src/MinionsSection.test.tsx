@@ -2040,6 +2040,19 @@ it.each([[8, 4], [19, 9], [20, 10]])('rolls Hellfire Gaze at companion level %i'
   expect(markup).toContain(`title="Two Actions; Damage: ${dice}d6 fire"`)
 })
 
+it.each([[6, 4], [10, 5], [18, 7]])('rolls Riding Tarantula Hair Barrage at companion level %i', (level, dice) => {
+  const c: Character = { id: 'tarantula', systems: ['pf2e'], name: 'Test', level,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [], equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    companions: [{ id: 'tarantula', type: 'Riding Tarantula', name: '' }] }
+  const companion: ContentEntry = { ...CONSTRUCT_COMPANION_ENTRY, id: 'tarantula', name: 'Riding Tarantula',
+    traits: ['Animal'], data: { size: 'Large', hp: 8, companion_maneuver: 'Hair Barrage',
+      companion_maneuver_actions: 'Two Actions', companion_maneuver_description: 'Basic Reflex save.' } }
+  const markup = renderToStaticMarkup(<MinionsSection c={c} entries={[companion]} save={() => {}} />)
+  expect(markup).toContain('aria-label="Roll Hair Barrage: Damage"')
+  expect(markup).toContain(`title="Two Actions; Damage: ${dice}d6 piercing"`)
+})
+
 it.each([[2, 1], [8, 4], [19, 9], [20, 10]])('rolls Riding Drake Fire Breath at companion level %i', (level, dice) => {
   const c: Character = { id: 'drake', systems: ['pf2e'], name: 'Test', level,
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
