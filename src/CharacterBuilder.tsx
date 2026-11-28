@@ -8,7 +8,7 @@ import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
 import { EquipmentSearch } from './EquipmentSearch'
 export { EquipmentSearch } from './EquipmentSearch'
-import { CLASS_ARCHETYPES, DEVOTED_BLESSINGS, championBlessing, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldRaiseLabel, showParryControl, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
+import { CLASS_ARCHETYPES, DEVOTED_BLESSINGS, championBlessing, championDevotionOptions, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldRaiseLabel, showParryControl, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { featTakenLevel } from './featChoices'
 import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, deitySanctification, boostSlots, classFeatures, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, hasPersonalUpgradeSlot, ownedArmors, warriorLegendWeakness } from './builder'
 import { ClassFeatures } from './ClassFeatures'
@@ -575,6 +575,8 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
   const blessingOptions: ContentEntry[] = DEVOTED_BLESSINGS.filter(name => !takenBlessings.includes(name)).map(name => ({
     id: `blessing:${name}`, systems: ['pf2e'], kind: 'classFeature', source: 'official', name, level: 3, traits: [], data: {}, effects: [],
     updatedAt: 0, description: blessingDescriptions[name] }))
+  const devotionOptions: ContentEntry[] = championDevotionOptions(c, entries).map(name => entries.find(entry => entry.kind === 'spell' && entry.name === name && !entry.deleted && entry.systems.includes('pf2e'))
+    ?? { id: `devotion:${name}`, systems: ['pf2e'], kind: 'spell', source: 'official', name, level: 1, traits: ['Focus'], data: {}, effects: [], updatedAt: 0, description: '' })
   const arcaneTheses = arcaneThesisOptions(entries)
   const arcaneThesis = selectedArcaneThesis(c)
   const subclassChoice = subclassSkillChoice(c, entries)
@@ -854,6 +856,11 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
                   label="Blessing of the Devoted" options={blessingOptions}
                   selected={blessingOptions.find(entry => entry.name === championBlessing(c))}
                   onChange={name => save({ blessing: DEVOTED_BLESSINGS.find(blessing => blessing === name) ?? '' })} /> }] : []),
+              ...(c.systems.includes('pf2e') && c.className === 'Champion' ? [{
+                key: 'devotion-spell', level: 1, name: c.devotionSpell ?? 'Devotion Spell', control: <SubclassSlot c={c} entries={entries}
+                  label="Devotion Spell" options={devotionOptions}
+                  selected={devotionOptions.find(entry => entry.name === c.devotionSpell)}
+                  onChange={name => save({ devotionSpell: championDevotionOptions(c, entries).find(option => option === name) })} /> }] : []),
               ...(c.className === 'Wizard' && c.systems.includes('pf2e') ? [{ key: 'arcane-thesis', level: 1,
                 name: arcaneThesis ?? 'Arcane Thesis', control: <SubclassSlot c={c} entries={entries}
                   label="Arcane Thesis" options={arcaneTheses.filter(entry => entry.name === arcaneThesis

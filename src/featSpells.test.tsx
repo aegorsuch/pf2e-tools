@@ -1447,9 +1447,8 @@ it('shows champion sanctification and devotion spell choices without a blessing'
   const deity = entry('Patron', 'deity', { divine_font: 'Heal', sanctification: 'holy, unholy' })
   const c: Character = { ...base, level: 1, className: 'Champion', deity: deity.name, devotionSpell: 'Lay on Hands' }
   const spells = renderToStaticMarkup(<SpellsSection c={c} entries={[deity, entry('Lay on Hands', 'spell')]} save={() => {}} />)
-  expect(spells).toContain('aria-label="Devotion spell"')
+  expect(spells).not.toContain('aria-label="Devotion spell"')
   expect(spells).toContain('Lay on Hands')
-  expect(spells).not.toContain('Devotion Spells')
   expect(spells).not.toContain('Touch of the Void')
   const features = renderToStaticMarkup(<ClassFeatures c={c} entries={[deity]} save={() => {}} />)
   expect(features).not.toContain('aria-label="Devotion spell"')

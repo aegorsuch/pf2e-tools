@@ -3044,7 +3044,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       </div>
       <div hidden={activeCategory !== 'focus'}>
       {spellcastingSummary}
-      <DevotionSpellChoice c={c} entries={entries} save={save} />
       {(focusPoints > 0 || allFocus.length > 0 || !!activeFeatsNamed(c, 'Floral Restoration').length
         || !!activeFeatsNamed(c, 'Desperate Warden').length) && (
         <div>
