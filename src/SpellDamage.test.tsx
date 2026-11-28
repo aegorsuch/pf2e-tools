@@ -118,8 +118,10 @@ it('rolls Chilling Darkness cold damage and conditional spirit damage at heighte
     const [damage] = spellDamage(entry.name, rank)
     expect(damage).toEqual({ label: 'Damage', dice, sides: 6, type: 'cold',
       additional: { label: 'Extra damage against holy creatures', dice, sides: 6, type: 'spirit' } })
+    const additional = damage.additional
+    if (!additional) throw new Error('Expected conditional spirit damage')
     expect(rollSpellDamage(damage)).toBe(dice)
-    expect(rollSpellDamage({ label: 'Damage', ...damage.additional })).toBe(dice)
+    expect(rollSpellDamage({ label: 'Damage', ...additional })).toBe(dice)
     const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)
     expect(markup).toContain(`Damage: ${dice}d6 cold; Extra damage against holy creatures: ${dice}d6 spirit`)
     expect(markup).toContain('aria-label="Roll Chilling Darkness: Damage and Extra damage against holy creatures"')
