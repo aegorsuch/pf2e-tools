@@ -10,7 +10,7 @@ import { EquipmentSearch } from './EquipmentSearch'
 export { EquipmentSearch } from './EquipmentSearch'
 import { CLASS_ARCHETYPES, DEVOTED_BLESSINGS, championBlessing, championDevotionOptions, backgroundSkills, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldRaiseLabel, showParryControl, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { featTakenLevel } from './featChoices'
-import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, deitySanctification, boostSlots, classFeatures, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, hasPersonalUpgradeSlot, ownedArmors, warriorLegendWeakness } from './builder'
+import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, deitySanctification, boostSlots, classFeatures, deityFavoredWeapons, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, hasPersonalUpgradeSlot, ownedArmors, warriorLegendWeakness } from './builder'
 import { ClassFeatures } from './ClassFeatures'
 import { classArchetypeSlotViews, featSectionGrants, SearchableFeatSlots } from './FeatSlots'
 import { ArmorList, PersonalUpgradeSlot, Augmentations, BulkLimits, DermalPlatingToggle, Gadgets, GrenadeMods, GrenadeSpecialist, HandwrapsGear, MunitionsCrafter, SimplePoisons, WarmaskGear, WeaponList } from './GearSection'
@@ -228,7 +228,7 @@ export function ClassPick({ c, entries, save, options }: SectionProps & { option
     }} />
 }
 
-function DeityCard({ deity }: { deity?: ContentEntry }) {
+function DeityCard({ deity, favoredWeapon }: { deity?: ContentEntry; favoredWeapon?: string }) {
   if (!deity) return null
   const d = deity.data
   const line = (label: string, value: unknown) => value ? <p><b>{label}</b> {String(value)}</p> : null
@@ -247,7 +247,7 @@ function DeityCard({ deity }: { deity?: ContentEntry }) {
       {line('Divine Font', String(d.divine_font ?? '').replace(/, /g, ' or '))}
       {line('Divine Sanctification', d.sanctification)}
       {line('Divine Skill', d.skill)}
-      {line('Favored Weapon', String(d.favored_weapon ?? '').replace(/, /g, ' or '))}
+      {line('Favored Weapon', favoredWeapon ?? String(d.favored_weapon ?? '').replace(/, /g, ' or '))}
       {line('Domains', d.domain_primary ?? d.domain)}
       {line('Alternate Domains', d.domain_alternate)}
       {d.cleric_spells && (
@@ -1008,7 +1008,7 @@ export function CharacterBuilder({ character, catalog, onClose, deityLores = NON
         </summary>
         <div className="character-section-content">
           <Pick label="Deity" kind="deity" value={c.deity} options={of('deity')} onChange={(v) => save({ deity: v })} />
-          <DeityCard deity={deity} />
+          <DeityCard deity={deity} favoredWeapon={deityFavoredWeapons(c, entries).join(' or ')} />
           {deity && <DivineIntercessions deity={deity} selected={c.divineIntercessions?.[deity.name] ?? []}
             onChange={selected => save({ divineIntercessions: { ...c.divineIntercessions, [deity.name]: selected } })} />}
         </div>

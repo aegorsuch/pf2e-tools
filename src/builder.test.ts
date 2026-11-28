@@ -8,7 +8,7 @@ import { characterHeritages } from './heritages'
 import { automaticFeatChoiceKey, coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting, wizardSchoolBookSpells } from './builder'
-import { fastHealing, hasRemainingFeatSelections, protectCompanionTarget, protectCompanionTargets } from './builder'
+import { deityFavoredWeapons, fastHealing, hasRemainingFeatSelections, isFavoredWeapon, protectCompanionTarget, protectCompanionTargets } from './builder'
 import { homebrewCharacterOptions } from './supplemental'
 import { maxEtchedRunes, runicRepertoireSize } from './runesmithRunes'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
@@ -795,6 +795,29 @@ it('offers the aquatic familiar as a separate Protect Companion target only whil
   ]))
   updateSettings({ aquaticPetFamiliar: false })
   expect(protectCompanionTargets(c).some(target => target.familiar === 'aquatic')).toBe(false)
+})
+
+it('uses Scorpion Whip as Calistria’s default favored weapon house rule', () => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  const deity = entry('deity', 'Calistria', { favored_weapon: 'whip' })
+  const otherDeity = entry('deity', 'Iomedae', { favored_weapon: 'longsword' })
+  const whip = entry('weapon', 'Whip', { weapon_category: 'Martial', damage: '1d4 slashing' })
+  const scorpionWhip = entry('weapon', 'Scorpion Whip', { weapon_category: 'Martial', damage: '1d4 slashing' })
+  const c = { ...base, deity: 'Calistria' }
+  const entries = [deity, otherDeity, whip, scorpionWhip]
+
+  expect(getSettings().calistriaScorpionWhip).toBe(true)
+  updateSettings({ calistriaScorpionWhip: true })
+  expect(deityFavoredWeapons(c, entries)).toEqual(['Scorpion Whip'])
+  expect(isFavoredWeapon(c, entries, 'Scorpion Whip')).toBe(true)
+  expect(isFavoredWeapon(c, entries, 'Whip')).toBe(false)
+  expect(deityFavoredWeapons({ ...c, deity: 'Iomedae' }, entries)).toEqual(['longsword'])
+
+  updateSettings({ calistriaScorpionWhip: false })
+  expect(deityFavoredWeapons(c, entries)).toEqual(['whip'])
+  expect(isFavoredWeapon(c, entries, 'Scorpion Whip')).toBe(false)
+  expect(isFavoredWeapon(c, entries, 'Whip')).toBe(true)
 })
 
 it('uses one Protect Companion target for combined familiars and migrates saved wasp targeting', () => {

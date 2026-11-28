@@ -4,6 +4,8 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
   { key: 'aquaticPetFamiliar', label: 'Friend of the Sea Aquatic Pet Uses Familiar Rules' },
   { key: 'combineWaspAndAquaticFamiliar', label: 'Combine Calistria’s Wasp Familiar and Aquatic Pet',
     description: 'When both are granted, combine their abilities and selections into one familiar.' },
+  { key: 'calistriaScorpionWhip', label: 'Calistria’s Favored Weapon Is Scorpion Whip',
+    description: 'Treat the Scorpion Whip as Calistria’s favored weapon instead of the published weapon.' },
   { key: 'gauntletHandwrapRunes', label: 'Gauntlets Inherit Handwrap Property Runes' },
   { key: 'repeatableDeityDomain', label: "Deity's Domain: Repeatable",
     description: "Deity's Domain and Advanced Deity's Domain can be taken multiple times, each with a different domain." },

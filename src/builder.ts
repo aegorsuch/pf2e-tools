@@ -1660,8 +1660,7 @@ export function featPrerequisiteChecker(c: Character, entries: ContentEntry[], l
         get armor() { return armor ??= armorRanks(character, entries) },
         get weapons() { return weapons ??= weaponRanks(character, entries) },
         hellknightWeapons: HELLKNIGHT_FAVORED_WEAPONS[hellknightOrder(character) ?? ''],
-        deityFavoredWeapons: tokens(byName(entries, 'deity', character.deity)?.data.favored_weapon)
-          .flatMap(value => value.split(/\s+or\s+/i)).map(value => value.trim()).filter(Boolean),
+        deityFavoredWeapons: deityFavoredWeapons(character, entries),
         hasDivineFont: character.className === 'Cleric' && character.level >= 1,
         deityFontOptions: tokens(byName(entries, 'deity', character.deity)?.data.divine_font).map(value => value.toLowerCase()),
         healingFont: (() => {
@@ -8892,13 +8891,18 @@ export function championBlessings(c: Character) {
 }
 
 export function isFavoredWeapon(c: Character, entries: ContentEntry[], name: string) {
-  const favored = tokens(byName(entries, 'deity', c.deity)?.data.favored_weapon)
-    .flatMap((weapon) => weapon.split(/\s+or\s+/i)).map((weapon) => weapon.toLowerCase())
+  const favored = deityFavoredWeapons(c, entries).map(weapon => weapon.toLowerCase())
   if (!favored.length) return false
   const entry = weaponEntry(entries, name)
   const base = entry?.data.named_weapon ? namedWeaponBaseName(entry) : name === FINESSE_SCIMITAR.name ? FINESSE_SCIMITAR.counts : name
   return favored.includes(base.replace(/ \(Animal Feature\)$/, '')
     .replace(/^(Shobhad Longrifle) \((?:Pathfinder|Starfinder)\)$/, '$1').toLowerCase())
+}
+
+export function deityFavoredWeapons(c: Character, entries: ContentEntry[]) {
+  const value = c.deity?.trim().toLowerCase() === 'calistria' && getSettings().calistriaScorpionWhip
+    ? 'Scorpion Whip' : byName(entries, 'deity', c.deity)?.data.favored_weapon
+  return tokens(value).flatMap(weapon => weapon.split(/\s+or\s+/i)).map(weapon => weapon.trim()).filter(Boolean)
 }
 
 export function emblazonWeaponBenefit(c: Character, entries: ContentEntry[], weapon: OwnedWeapon) {
