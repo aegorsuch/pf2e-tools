@@ -69,6 +69,14 @@ export function elfAtavismOptions(c: Character, entries: ContentEntry[]) {
     .filter(entry => !isVersatileHeritage(entry) && entry.systems.some(system => c.systems.includes(system)))
 }
 
+const WANDERING_HEART_HERITAGES = new Set(['Aquatic Elf', 'Arctic Elf', 'Cavern Elf', 'Desert Elf', 'Woodland Elf'])
+
+export function wanderingHeartHeritages(c: Character, entries: ContentEntry[]) {
+  if (!c.systems.includes('pf2e') || c.ancestry !== 'Elf') return []
+  return elfAtavismOptions(c, entries)
+    .filter(entry => entry.systems.includes('pf2e') && WANDERING_HEART_HERITAGES.has(entry.name))
+}
+
 const namedEntryCache = new WeakMap<ContentEntry[], { heritage: Map<string, ContentEntry[]>; ancestry: Map<string, ContentEntry[]> }>()
 function namedEntries(entries: ContentEntry[]) {
   let index = namedEntryCache.get(entries)
@@ -87,8 +95,13 @@ function namedEntries(entries: ContentEntry[]) {
 }
 
 export function characterHeritages(c: Character, entries: ContentEntry[]) {
-  const primary = c.heritage === undefined ? undefined : namedEntries(entries).heritage.get(c.heritage)
+  const savedPrimary = c.heritage === undefined ? undefined : namedEntries(entries).heritage.get(c.heritage)
     ?.find(entry => entry.systems.some(system => c.systems.includes(system)))
+  const wanderingHeart = c.ancestry === 'Elf'
+    ? c.feats.find(feat => feat.name === 'Wandering Heart' && featTakenLevel(feat) <= c.level) : undefined
+  const changedHeritage = wanderingHeart?.choice
+    ? wanderingHeartHeritages(c, entries).find(entry => entry.name === wanderingHeart.choice) : undefined
+  const primary = changedHeritage ?? savedPrimary
   const atavism = c.feats.some(feat => ['Elf Atavism', 'Elven Atavism'].includes(feat.name))
   const choices = new Set(atavism ? c.feats.filter(feat => ['Elf Atavism', 'Elven Atavism'].includes(feat.name)
     && featTakenLevel(feat) <= c.level).map(feat => feat.choice) : [])

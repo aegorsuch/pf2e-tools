@@ -204,8 +204,6 @@ export function StatusesSummary({ c, entries, save }: SectionProps) {
   const defense = defenseToggles(c, entries)
   const armorDevices = armorDeviceStatuses(c, entries)
   const stance = activeStance(c, entries)
-  const poisonTotal = Math.max(0, Math.floor(c.level))
-  const poisonSpent = Math.max(0, Math.min(poisonTotal, Math.floor(c.simplePoisonsSpent ?? 0)))
   const active = [
     ...(canDeviseAStratagem(c) && c.deviseAStratagemActive ? ['Devise a Stratagem'] : []),
     ...(canAim(c) && c.aimActive ? ['Aim'] : []),
@@ -217,8 +215,8 @@ export function StatusesSummary({ c, entries, save }: SectionProps) {
       : defense.cantrip && isSpellActive(c, entries, 'Shield') ? ['Raise Shield Cantrip (+1 AC)'] : []),
     ...(defense.parryWeapon && defense.parry > 0 && (c.parrying || defense.stanceParry) ? ['Parry'] : []),
     ...(stance ? [stance.name] : []),
-    ...(activeFeatsNamed(c, 'Poison Weapon').length
-      ? [`Poison Weapon ${poisonTotal - poisonSpent}/${poisonTotal}${c.poisonWeaponActive ? ' (active)' : ''}`] : []),
+    ...(activeFeatsNamed(c, 'Poison Weapon').length ? ['Poison Weapon'] : []),
+    ...(activeFeatsNamed(c, 'Divine Insight').length && c.hourlyFeatUses?.['Divine Insight'] ? ['Divine Insight used'] : []),
     ...(activeFeatsNamed(c, 'Divine Strike').length && c.dailyFeatUses?.['Divine Strike'] ? ['Divine Strike used'] : []),
     ...(c.companions ?? []).filter(companion => isBadgerCompanion(companion) && companion.badgerRageActive)
       .map(companion => `Badger Rage (${companion.name || companion.type})`),
@@ -463,6 +461,12 @@ export function StatusesContent({ c, entries, save }: SectionProps) {
     </> }] : []),
     ...(activeFeatsNamed(c, 'Poison Weapon').length
       ? [{ name: 'Poison Weapon', element: <SimplePoisons c={c} entries={entries} save={save} /> }] : []),
+    ...(activeFeatsNamed(c, 'Divine Insight').length ? [{ name: 'Divine Insight', element:
+      <button type="button" className={`spell-action-button status-action-button${c.hourlyFeatUses?.['Divine Insight'] ? ' on' : ''}`}
+        aria-label="Divine Insight used" aria-pressed={!!c.hourlyFeatUses?.['Divine Insight']}
+        onClick={() => save({ hourlyFeatUses: { ...c.hourlyFeatUses, 'Divine Insight': !c.hourlyFeatUses?.['Divine Insight'] } })}>
+        {c.hourlyFeatUses?.['Divine Insight'] && <span aria-hidden="true">✓</span>} Divine Insight
+      </button> }] : []),
     ...(activeFeatsNamed(c, 'Divine Strike').length ? [{ name: 'Divine Strike', element:
       <button type="button" className={`spell-action-button status-action-button${c.dailyFeatUses?.['Divine Strike'] ? ' on' : ''}`}
         aria-label="Divine Strike used" aria-pressed={!!c.dailyFeatUses?.['Divine Strike']}

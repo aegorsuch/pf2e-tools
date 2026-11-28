@@ -552,10 +552,11 @@ export function FeatChoice({ c, entries, save, index }: SectionProps & { index: 
     </SearchableSelect>
   }
   const atavism = feat.name === 'Elf Atavism' || feat.name === 'Elven Atavism'
-  if (atavism || ['Adopted Ancestry', 'Skill Training', 'Weapon Proficiency', 'Technomagical Scrapper', 'Exceptional Artisan'].includes(feat.name)) {
+  const wanderingHeart = feat.name === 'Wandering Heart'
+  if (atavism || wanderingHeart || ['Adopted Ancestry', 'Skill Training', 'Weapon Proficiency', 'Technomagical Scrapper', 'Exceptional Artisan'].includes(feat.name)) {
     const options = featChoiceOptions(feat.name, c, entries, feat.slot ?? '', index)
     if (!options) return null
-    const label = atavism ? 'heritage' : feat.name === 'Adopted Ancestry' ? 'ancestry'
+    const label = atavism || wanderingHeart ? 'heritage' : feat.name === 'Adopted Ancestry' ? 'ancestry'
       : feat.name === 'Weapon Proficiency' ? 'advanced weapon' : 'skill'
     const choiceControl = <span className="feat-choice">
       <SearchableSelect aria-label={`${feat.name} ${label}`} value={feat.choice ?? ''} onChange={(e) => {

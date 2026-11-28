@@ -126,16 +126,14 @@ it('combines Calistria’s wasp and aquatic familiar abilities when enabled', ()
   onTestFinished(() => updateSettings(previous))
   updateSettings({ aquaticPetFamiliar: true, combineWaspAndAquaticFamiliar: true })
   const c: Character = { ...character, deity: 'Calistria',
-    feats: [
-      { name: 'Friend of the Sea', type: 'Class Feat', level: 1 },
-      { name: 'Enhanced Familiar', type: 'Class Feat', level: 4 },
-    ],
+    feats: [{ name: 'Friend of the Sea', type: 'Class Feat', level: 1 }],
     divineIntercessions: { Calistria: ['moderate-boon'] },
-    waspFamiliar: { abilities: ['Resistance'] }, pet: { abilities: ['Darkvision', 'Tough', 'Climber'] } }
-  const entries = [ability('Resistance', ''), ability('Climber', '')]
+    waspFamiliar: { abilities: ['Resistance', 'Climber', 'Fast Movement', 'Echolocation'] },
+    pet: { abilities: ['Darkvision', 'Tough', 'Scent', 'Amphibious'] } }
+  const entries = ['Resistance', 'Climber', 'Fast Movement', 'Echolocation', 'Scent', 'Amphibious'].map(name => ability(name, ''))
   expect(combineWaspAndAquaticFamiliar(c)).toBe(true)
   expect(activeFamiliarAbilities(c, entries)).toEqual([
-    'Resistance', 'Climber', 'Darkvision', 'Tough', 'Burrower', 'Flier',
+    'Resistance', 'Climber', 'Fast Movement', 'Echolocation', 'Scent', 'Amphibious', 'Darkvision', 'Tough', 'Burrower', 'Flier',
   ])
   updateSettings({ combineWaspAndAquaticFamiliar: false })
   expect(combineWaspAndAquaticFamiliar(c)).toBe(false)

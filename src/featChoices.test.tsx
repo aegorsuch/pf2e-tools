@@ -16,6 +16,7 @@ import { grantedFeatSpells, unresolvedFeatSpells } from './featSpells'
 import type { Character, ContentEntry } from './types'
 import { getSettings, updateSettings } from './settings'
 import { PILOTING_INTERFACES } from './supplemental'
+import { characterHeritages } from './heritages'
 
 const spell = (name: string, tier: string): ContentEntry => ({
   id: name, systems: ['pf2e'], kind: 'spell', source: 'official', name, level: tier === 'Initiate' ? 1 : 2,
@@ -242,6 +243,27 @@ it('applies only the active Atavism heritage benefits while retaining primary he
   expect(unresolvedFeatSpells(future, catalog)).toEqual([])
   expect(grantedFeatSpells({ ...c, feats: [] }, [...catalog, detect])).toEqual([])
   expect(c.heritage).toBe('Aiuvarin')
+})
+
+it('offers environmental Elf heritages for Wandering Heart and replaces primary heritage benefits', () => {
+  const heritage = (name: string, data: ContentEntry['data'] = {}): ContentEntry =>
+    ({ ...entries[0], id: name, name, kind: 'heritage', traits: [], data })
+  const catalog = [
+    heritage('Aquatic Elf'), heritage('Arctic Elf', { resistances: 'cold=half' }),
+    heritage('Cavern Elf'), heritage('Desert Elf', { resistances: 'fire=half' }),
+    heritage('Woodland Elf'), heritage('Seer Elf', { vision: 'Low-light Vision' }),
+  ]
+  let c: Character = { ...base, ancestry: 'Elf', heritage: 'Seer Elf', level: 9,
+    feats: [{ name: 'Wandering Heart', type: 'Ancestry Feat', level: 8 }] }
+  const tree = () => FeatChoice({ c, entries: catalog, index: 0, save: patch => { c = { ...c, ...patch } } })
+  expect(featChoiceOptions('Wandering Heart', c, catalog, '', 0))
+    .toEqual(['Aquatic Elf', 'Arctic Elf', 'Cavern Elf', 'Desert Elf', 'Woodland Elf'])
+  findSelect(tree())!.onChange({ target: { value: 'Aquatic Elf' } })
+  expect(c.feats[0].choice).toBe('Aquatic Elf')
+  expect(characterHeritages(c, catalog).map(entry => entry.name)).toEqual(['Aquatic Elf'])
+  expect(movementSpeeds(c, catalog)).toContainEqual({ name: 'Swim', feet: 30, source: 'Aquatic Elf' })
+  expect(senses(c, catalog).some(sense => sense.source === 'Seer Elf')).toBe(false)
+  expect(featChoiceOptions('Wandering Heart', { ...c, ancestry: 'Human' }, catalog, '', 0)).toEqual([])
 })
 
 it('preserves full heritage rules instead of truncated catalog summaries', () => {

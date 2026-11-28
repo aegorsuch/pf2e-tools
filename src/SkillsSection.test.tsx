@@ -10,6 +10,7 @@ import { getSettings, updateSettings } from './settings'
 import { ADVANCED_PILOTING_INSTRUMENTS, GREATER_GENETIC_BACKUP, KILLERS_BELT_MAJOR, PILOTING_INTERFACES, SUPERIOR_DATAJACK } from './supplemental'
 import { INITIATE_TRAINING } from './featChoices'
 import { SearchableSelect } from './SearchableSelect'
+import { StatusesContent, StatusesSummary } from './StatusesSection'
 
 const ranger: ContentEntry = {
   id: 'ranger', systems: ['pf2e'], kind: 'class', source: 'official', name: 'Ranger', level: 1,
@@ -530,7 +531,7 @@ it('tracks Divine Insight hourly and marks eligible Recall Knowledge checks', ()
   const render = (character: Character) => renderToStaticMarkup(<SkillsSection c={character} entries={[deity]} save={() => {}} />)
   const row = (html: string, skill: string) => html.split('<div class="skill-row').find(part => part.includes(`class="skill-name">${skill} `)) ?? ''
   const html = render(c)
-  expect(html).toContain('aria-label="Divine Insight used"')
+  expect(html).not.toContain('aria-label="Divine Insight used"')
   for (const skill of ['Religion', 'Nature', 'Example Lore']) expect(row(html, skill)).toContain('Divine Insight note')
   expect(row(html, 'Other Lore')).toContain('Only for Lore about your deity.')
   expect(row(html, 'Arcana')).not.toContain('Divine Insight note')
@@ -539,18 +540,34 @@ it('tracks Divine Insight hourly and marks eligible Recall Knowledge checks', ()
   expect(render({ ...c, level: 0 })).not.toContain('Divine Insight used')
 
   const save = vi.fn()
-  let change: ((event: { target: { checked: boolean } }) => void) | undefined
+  let toggle: (() => void) | undefined
   const visit = (node: ReactNode) => Children.forEach(node, child => {
     if (!isValidElement<Record<string, unknown>>(child)) return
-    if (child.type === 'input' && child.props['aria-label'] === 'Divine Insight used') change = child.props.onChange as typeof change
+    if (child.type === 'button' && child.props['aria-label'] === 'Divine Insight used') toggle = child.props.onClick as typeof toggle
     visit(child.props.children as ReactNode)
   })
-  visit(SkillsSection({ c, entries: [deity], save }))
-  if (!change) throw new Error('Missing Divine Insight use control')
-  change({ target: { checked: true } })
+  const statuses = StatusesContent({ c, entries: [deity], save })
+  const statusHtml = renderToStaticMarkup(statuses)
+  expect(statusHtml).toContain('aria-label="Divine Insight used"')
+  expect(statusHtml).toContain('aria-pressed="false"')
+  visit(statuses)
+  if (!toggle) throw new Error('Missing Divine Insight use control')
+  toggle()
   expect(save).toHaveBeenCalledWith(expect.objectContaining({ hourlyFeatUses: { Other: true, 'Divine Insight': true } }))
-  change({ target: { checked: false } })
+  expect(renderToStaticMarkup(StatusesSummary({ c: { ...c, hourlyFeatUses: { Other: true, 'Divine Insight': true } },
+    entries: [deity], save }))).toContain('Divine Insight used')
+  visit(StatusesContent({ c: { ...c, hourlyFeatUses: { Other: true, 'Divine Insight': true } }, entries: [deity], save }))
+  toggle()
   expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ hourlyFeatUses: { Other: true, 'Divine Insight': false } }))
+})
+
+it('keeps Poison Weapon counts and active state out of the Statuses header', () => {
+  const c: Character = { ...base, level: 20, simplePoisonsSpent: 1, poisonWeaponActive: true,
+    feats: [{ name: 'Poison Weapon', type: 'Class Feat', level: 1 }] }
+  const html = renderToStaticMarkup(StatusesSummary({ c, entries: [], save: () => {} }))
+  expect(html).toContain('<strong>Statuses</strong><span>Poison Weapon</span>')
+  expect(html).not.toContain('19/20')
+  expect(html).not.toContain('(active)')
 })
 
 it('shows Hellknight Preferment at the Intimidation total instead of a separate circumstance column', () => {

@@ -129,13 +129,17 @@ export function familiarAbilitySlots(c: Character, entries: ContentEntry[], isWa
     activeSpecific, selectableAbilityLimit, emissaryAbility, leshySecret, leshyAbility }
 }
 
+export function combinedWaspAbilityLimit(c: Character, entries: ContentEntry[]) {
+  return Math.max(4, familiarAbilitySlots(c, entries, true).selectableAbilityLimit, c.waspFamiliar?.abilities?.length ?? 0)
+}
+
 export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
   const state = familiarSelection(c)
   const aquatic = aquaticPetFamiliar(c)
   const aquaticChoices = aquatic ? (c.pet?.abilities ?? []).filter(name => !!name && !['darkvision', 'tough'].includes(key(name))).slice(0, 2) : []
   const catalog = familiarAbilityEntries(entries, c)
   if (combineWaspAndAquaticFamiliar(c)) {
-    const waspLimit = familiarAbilitySlots(c, entries, true).selectableAbilityLimit
+    const waspLimit = combinedWaspAbilityLimit(c, entries)
     const choices = [...(c.waspFamiliar?.abilities ?? []).slice(0, waspLimit), ...aquaticChoices]
     const grants = ['Darkvision', 'Tough', 'Burrower', 'Flier']
     return [...choices.flatMap((name, index) => {

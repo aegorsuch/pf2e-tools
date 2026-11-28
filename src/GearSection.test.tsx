@@ -833,6 +833,21 @@ it('scales the granted Test-Subject Datajack at its grade levels', () => {
   }
 })
 
+it('offers Speed Suspension once instead of separate grade selections', () => {
+  const suspension = (name: string, level: number): ContentEntry => ({ ...weapon, id: name, name,
+    kind: 'item', level, systems: ['sf2e'], data: { item_category: 'Augmentations' } })
+  const options = [
+    suspension('Speed Suspension', 4), suspension('Speed Suspension (Commercial)', 4),
+    suspension('Speed Suspension (Tactical)', 8), suspension('Speed Suspension (Advanced)', 12),
+  ]
+  const html = renderToStaticMarkup(<Augmentations c={{ ...character([]), systems: ['sf2e'], level: 10 }}
+    entries={options} save={() => {}} />)
+  expect(html).toContain('Speed Suspension (level 4)')
+  expect(html).not.toContain('Speed Suspension (Commercial)')
+  expect(html).not.toContain('Speed Suspension (Tactical)')
+  expect(html).not.toContain('Speed Suspension (Advanced)')
+})
+
 it('shows augmentation slot sources only when capacity is modified', () => {
   const c: Character = { ...character([]), systems: ['sf2e'], ancestry: 'Ysoki', heritage: 'Cyborg',
     feats: [{ name: 'Augmented Shell', type: 'Ancestry Feat', level: 1 }] }

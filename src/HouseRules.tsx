@@ -6,6 +6,7 @@ const RULES: { key: keyof Settings; label: string; description?: string }[] = [
     description: 'When both are granted, combine their abilities and selections into one familiar.' },
   { key: 'calistriaScorpionWhip', label: 'Calistria’s Favored Weapon Is Scorpion Whip',
     description: 'Treat the Scorpion Whip as Calistria’s favored weapon instead of the published weapon.' },
+  { key: 'treeClimberLandSpeed', label: 'Tree Climber Climb Speed Matches Land Speed' },
   { key: 'gauntletHandwrapRunes', label: 'Gauntlets Inherit Handwrap Property Runes' },
   { key: 'repeatableDeityDomain', label: "Deity's Domain: Repeatable",
     description: "Deity's Domain and Advanced Deity's Domain can be taken multiple times, each with a different domain." },

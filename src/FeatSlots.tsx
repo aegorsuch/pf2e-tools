@@ -70,9 +70,12 @@ function ConstellationVortexRoll({ c, entries }: Pick<SectionProps, 'c' | 'entri
 function TreehealerRoll() {
   const [result, setResult] = useState<{ target: number; self: number }>()
   return <span>
-    <button type="button" className="spell-action-button" aria-label="Roll Treehealer: Healing"
-      title="10 minutes; Healing: 7d8+56 HP; you regain half the amount"
-      onClick={() => setResult(rollTreehealerHealing())}>Roll healing</button>
+    <button type="button" className="spell-action-button"
+      aria-label={result ? 'Hide Treehealer healing' : 'Roll Treehealer: Healing'} aria-expanded={!!result}
+      title={result ? 'Hide healing result' : '10 minutes; Healing: 7d8+56 HP; you regain half the amount'}
+      onClick={() => setResult(current => current ? undefined : rollTreehealerHealing())}>
+      {result ? 'Hide healing' : 'Roll healing'}
+    </button>
     {result && <output aria-live="polite" aria-label="Treehealer healing result">
       Plant creature: {result.target} HP; you: {result.self} HP
     </output>}

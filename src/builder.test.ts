@@ -4588,15 +4588,17 @@ it('treats Plasma Caster as one-handed when its house rule is enabled', () => {
   } finally { updateSettings({ plasmaCasterOneHanded: previous }) }
 })
 
-it('applies Speed Suspension grades and Augmented Mobility to augmentation-granted movement', () => {
-  for (const [name, bonus] of [['Speed Suspension (Commercial)', 5], ['Speed Suspension (Tactical)', 10],
-    ['Speed Suspension (Advanced)', 15]] as const) {
-    const c: Character = { ...base, systems: ['sf2e'], level: 10,
-      augmentations: [{ id: 'suspension', entryId: name, name, slot: 'standard' }] }
+it('automatically scales Speed Suspension with character level and Augmented Mobility', () => {
+  for (const [level, bonus] of [[4, 5], [7, 5], [8, 10], [11, 10], [12, 15], [20, 15]] as const) {
+    const c: Character = { ...base, systems: ['sf2e'], level,
+      augmentations: [{ id: 'suspension', entryId: 'speed-suspension', name: 'Speed Suspension', slot: 'standard' }] }
     expect(speed(c, [])).toBe(25 + bonus)
     expect(speed({ ...c, feats: [{ name: 'Augmented Mobility', type: 'Archetype Feat', level: 6 }] }, []))
-      .toBe(30 + bonus)
+      .toBe((level >= 6 ? 30 : 25) + bonus)
   }
+  const legacyUpgrade: Character = { ...base, systems: ['sf2e'], level: 5,
+    augmentations: [{ id: 'suspension', entryId: 'legacy', name: 'Speed Suspension (Advanced)', slot: 'standard' }] }
+  expect(speed(legacyUpgrade, [])).toBe(30)
 
   const wings: ContentEntry = { ...entry('item', 'Ultralight Wings (Tactical)', { item_category: 'Augmentations' }, 8),
     id: 'wings', systems: ['sf2e'], description: 'While deployed, you gain a fly Speed of 30 feet.' }

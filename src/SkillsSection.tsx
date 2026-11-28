@@ -1189,11 +1189,6 @@ export function SkillsSection({ c: original, entries, save: saveOriginal, part =
           : { dailyFeatUses: { ...c.dailyFeatUses, 'Memories of Valor': event.target.checked } })} />
         Memories of Valor used
       </label>}
-      {!!activeFeatsNamed(c, 'Divine Insight').length && <label><input type="checkbox" aria-label="Divine Insight used"
-        checked={!!c.hourlyFeatUses?.['Divine Insight']}
-        onChange={event => save({ hourlyFeatUses: { ...c.hourlyFeatUses, 'Divine Insight': event.target.checked } })} />
-        Divine Insight used <SourceNote source="Divine Insight" note="Once per hour. Clear after an hour has passed." />
-      </label>}
       {!!activeFeatsNamed(c, "Emancipator's Mask").length && <SourceNote source="Emancipator's Mask"
         note="Roll twice and use the higher result when checking to free another creature from immobilized, paralyzed, or controlled. Immediately after a single-target non-cantrip spell, its target can attempt to Escape." />}
       {!!activeFeatsNamed(c, "Storyteller's Mask").length && <SourceNote source="Storyteller's Mask"

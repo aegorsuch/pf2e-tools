@@ -3645,10 +3645,16 @@ it('scales ring capacity with fingered hands, not prehensile tails, and counts q
 it('adds Nimble Elf speed and Tree Climber climb speed only when feats are active', () => {
   const elf = content('ancestry', 'Elf', { speed: 30 })
   const c: Character = { ...base, ancestry: 'Elf', level: 9, feats: [feat('Nimble Elf', 1), feat('Tree Climber', 9)] }
-  expect(speed(c, [elf])).toBe(35)
-  expect(movementSpeeds(c, [elf])).toContainEqual({ name: 'Climb', feet: 10, source: 'Tree Climber' })
-  expect(movementSpeeds({ ...c, level: 8 }, [elf])).not.toContainEqual(expect.objectContaining({ source: 'Tree Climber' }))
-  expect(speed({ ...c, feats: [] }, [elf])).toBe(30)
+  const previous = getSettings().treeClimberLandSpeed
+  try {
+    expect(getSettings().treeClimberLandSpeed).toBe(true)
+    expect(speed(c, [elf])).toBe(35)
+    expect(movementSpeeds(c, [elf])).toContainEqual({ name: 'Climb', feet: 35, source: 'Tree Climber' })
+    updateSettings({ treeClimberLandSpeed: false })
+    expect(movementSpeeds(c, [elf])).toContainEqual({ name: 'Climb', feet: 10, source: 'Tree Climber' })
+    expect(movementSpeeds({ ...c, level: 8 }, [elf])).not.toContainEqual(expect.objectContaining({ source: 'Tree Climber' }))
+    expect(speed({ ...c, feats: [] }, [elf])).toBe(30)
+  } finally { updateSettings({ treeClimberLandSpeed: previous }) }
 })
 
 it('explains calculated AC, saves and attacks with capped Dexterity and non-stacking conditional bonuses', () => {

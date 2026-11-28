@@ -40,7 +40,7 @@ import { armorModifications, armorModificationOptions, armorModificationSlots, t
 import { turretName, turretWeapon } from './mechanicTurret'
 import { weaponBoostChange, weaponBoostDamage } from './weaponBoost'
 import { clearItemGlitching, enduringGrenadeMods, enduringWeaponMods, setEnduringMod } from './mechanicEnduring'
-import { namedArmorEnhancements, namedArmorRuneLimit } from './namedArmor'
+import { isSlithermawBane, namedArmorEnhancements, namedArmorRuneLimit } from './namedArmor'
 import { NamedArmorAbilities } from './NamedArmorAbilities'
 import { fulminatingShotDamage } from './fulminatingShot'
 import { ANCESTRAL_AVATAR } from './battleForms'
@@ -197,7 +197,8 @@ export function Augmentations({ c, entries, save }: SectionProps) {
   const limitSources = augmentationLimitSources(c)
   const standardUsed = augmentationLimitUsed(c)
   const options = entries.filter(entry => entry.kind === 'item' && !entry.deleted && entry.systems.includes('sf2e')
-    && String(entry.data.item_category).toLowerCase() === 'augmentations')
+    && String(entry.data.item_category).toLowerCase() === 'augmentations'
+    && !/^Speed Suspension \((?:Commercial|Tactical|Advanced)\)$/i.test(entry.name))
     .sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level)
   const apexInstalled = installedApexAugmentations(c)
   const apexActive = activeApexAugmentation(c)
@@ -2115,6 +2116,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               'Includes a Drift Drive Relay and Maneuvering Unit at no extra cost; neither uses an upgrade slot.'].filter(Boolean).join('\n\n') }
           : displayEntry
         const bonyPlates = a.id === BONY_PLATES_ID
+        const slithermawBane = isSlithermawBane(a.name)
         const body = !!entry?.data.attached
         const wornLocked = body || !!a.strongholdWallActive || !canWearWithAttachedArmor(a, attached)
         const armorTraits = [...new Set((entry?.traits ?? []).filter(trait => !sf2eArmor || !/^resilient\b/i.test(trait)))]
@@ -2274,9 +2276,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                       ? <SourceNote source="Solar Rampart" note="Worn armor Bulk reduced by 1, minimum 1." />
                       : <SourceNote source="Walking Armory" note="Armor Bulk reduced by 1, minimum 1, because your Strength meets its requirement." />)}</span>
                 <span><small>Group</small>{String(entry.data.armor_group || '—')}</span>
-                <span><small>Speed</small>{hasStrengthRequirement
+                {!slithermawBane && <span><small>Speed</small>{hasStrengthRequirement
                   ? `${penalty(speedPenalty)} ft (${penalty(effectiveSpeedPenalty)} ft)`
-                  : `${penalty(speedPenalty)} ft`}</span>
+                  : `${penalty(speedPenalty)} ft`}</span>}
                 {booster && <span><small>{booster.source.replace(' (status)', '')}</small>{signed(booster.feet)} ft status</span>}
                 {starfinder && <span><small>AC increase</small>+{Number(entry.data.grade_ac_bonus)}</span>}
                 {sf2eArmor && entry?.data.armor_grade && Number.isFinite(gradeSaveBonus) && gradeSaveBonus > 0
@@ -2284,7 +2286,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
               </div>
             )}
             <div className="row">
-              {entry?.data.named_armor_material === 'Keep Stone' ? <div className="gear-runes"><span>Material:</span>
+              {!slithermawBane && (entry?.data.named_armor_material === 'Keep Stone' ? <div className="gear-runes"><span>Material:</span>
                 <Material name="Keep Stone" entries={entries} equipment="Armor" source="Built into armor" />
               </div> : isHighhelmPlate(a.name) || isLibraryRobes(a.name) || entry?.data.named_armor_material === 'Orichalcum' ? null
                 : entry?.data.named_armor_material ? <span>Material: {String(entry.data.named_armor_material)}</span>
@@ -2304,7 +2306,7 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                   <option value="">Add material...</option>
                   {[...ARMOR_MATERIALS].sort((a, b) => a.localeCompare(b)).map((name) => <option key={name}>{name}</option>)}
                 </SearchableSelect>
-              </span>}
+              </span>)}
               {sf2eArmor && entry && (upgradeSlots > 0 || !!a.upgrades?.length || automaticUpgrades.length > 0)
                   && entry.data.upgrades_allowed !== false
                 && <ArmorUpgrades entries={entries} upgrades={a.upgrades ?? []}
@@ -2330,9 +2332,9 @@ export function ArmorList({ c, entries, save, part = 'all' }: SectionProps & { p
                       ...(a.activeForceField && !armorUpgradeEntries(c, entries, { ...a, upgrades })
                           .some(upgrade => forceFieldStats(upgrade)) ? { activeForceField: false } : {}) })
                     }} />}
-              {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
+              {runesAllowed && !starfinder && !automaticFundamentals && !slithermawBane && <Level label="Potency" value={a.potency} options={automatic.potency > 3 ? [...POTENCY, automatic.potency] : POTENCY} minimum={automatic.potency} format={(n) => (n ? `+${n}` : 'None')}
                 onChange={(potency) => update(a.id, { potency, runes: a.runes.slice(0, runeLimit(potency, a.material)) })} />}
-              {runesAllowed && !starfinder && !automaticFundamentals && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}
+              {runesAllowed && !starfinder && !automaticFundamentals && !slithermawBane && <Level label="Resilient" value={a.resilient} options={POTENCY} minimum={automatic.resilient} format={(n) => ['None', 'Resilient', 'Greater', 'Major'][n]}
                 onChange={(resilient) => update(a.id, { resilient })} />}
             </div>
             {runesAllowed ? <><Runes runes={bonyPlates ? [] : a.runes.filter(rune => !fixedRunes.includes(rune)

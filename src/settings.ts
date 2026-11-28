@@ -109,6 +109,7 @@ export interface Settings {
   aquaticPetFamiliar: boolean
   combineWaspAndAquaticFamiliar: boolean
   calistriaScorpionWhip: boolean
+  treeClimberLandSpeed: boolean
 }
 
 const KEY = 'app-settings'
@@ -138,6 +139,7 @@ const DEFAULTS: Settings = {
   singleAnimalCompanion: true, protectCompanionAll: true, familiarFastMovementAllSpeeds: true, aquaticPetFamiliar: true,
   combineWaspAndAquaticFamiliar: true,
   calistriaScorpionWhip: true,
+  treeClimberLandSpeed: true,
 }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]

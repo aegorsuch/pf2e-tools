@@ -250,7 +250,7 @@ it('checks Guiding Heal against known deity font options without guessing a mixe
 it('checks official Cleric prerequisites against actual deity, sanctification, and font', () => {
   const hits: Parameters<typeof mapAonHit>[0][] = JSON.parse(snapshot)
   const names = ['False Faith', 'Healing Hands', 'Harming Hands', 'Divine Castigation', 'Versatile Font',
-    'Sacred Ground', 'Sanctify Armament', 'Eternal Blessing', 'Eternal Bane', 'Warpriest’s Armor']
+    'Sacred Ground', 'Sanctify Armament', 'Eternal Blessing', 'Eternal Bane', 'Warpriest’s Armor', 'Castigating Weapon']
   const feats = names.flatMap(name => {
     const hit = hits.find(item => item._source?.name === name)
     const feat = hit && mapAonHit(hit, 'pf2e')
@@ -270,6 +270,11 @@ it('checks official Cleric prerequisites against actual deity, sanctification, a
     .toContain('deity that allows clerics to have both fonts')
   expect(result('Sacred Ground')).toEqual({ missing: [], manual: [] })
   expect(result('Divine Castigation')).toEqual({ missing: [], manual: [] })
+  expect(result('Castigating Weapon', { ...cleric, feats: [], weapons: [
+    { id: 'holy-weapon', name: 'Holy weapon', potency: 0, striking: 0, runes: ['Holy'] },
+  ] }).missing).toEqual(['Divine Castigation'])
+  expect(result('Castigating Weapon', { ...cleric, feats: [selected('Divine Castigation')] }))
+    .toEqual({ missing: [], manual: [] })
   expect(result('Sanctify Armament', { ...cleric, sanctification: undefined }).missing).toEqual(['holy or unholy trait'])
   expect(result('Eternal Blessing')).toEqual({ missing: [], manual: [] })
   expect(result('Eternal Bane').missing).toEqual(['unholy'])
@@ -1899,7 +1904,7 @@ describe('shared prerequisite enforcement', () => {
         { name: 'Burrowing Specialist', type: 'Ancestry Feat', level: 9, sourceId: fast.id },
       ] }
     expect(movementSpeeds(character, [slow, fast])).toEqual(expect.arrayContaining([
-      expect.objectContaining({ name: 'Climb', feet: 10, source: 'Tree Climber' }),
+      expect.objectContaining({ name: 'Climb', feet: 25, source: 'Tree Climber' }),
       expect.objectContaining({ name: 'Burrow', feet: 25, source: 'Burrowing Specialist' }),
     ]))
     expect(senses({ ...character, feats: character.feats.slice(0, 2) }, [])).toEqual([])

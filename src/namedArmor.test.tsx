@@ -576,7 +576,7 @@ it('derives named armor bases, fundamental runes, elven construction, and immuta
   expect(effectiveArmor(character, entries, owned(bane.name))).toMatchObject({ potency: 2, resilient: 2 })
   const upgraded = { ...owned(artifact.name), potency: 4, runes: ['Shadow', 'Fortification (Greater)'] }
   expect(effectiveArmor(character, entries, upgraded)).toMatchObject({
-    potency: 4, resilient: 3, runes: ['Fortification (Greater)', 'Shadow'],
+    potency: 4, resilient: 3, runes: ['Fortification (Greater)', 'Shadow', 'Moonweave (Major)', 'Sunweave (Major)'],
   })
   const generated = armorEntry(character, entries, artifact.name)!
   expect(generated.data).toMatchObject({ ac: 2, dex_cap: 3, check_penalty: 0, strength: 2, bulk: 1.1 })
@@ -645,7 +645,7 @@ it('keeps situational effects manual and exposes source activations in expandabl
   const html = renderToStaticMarkup(<ArmorList c={c} entries={entries} save={() => {}} />)
   expect(html).toContain('Potency <b>+4</b>')
   expect(html).toContain('Built into Slithermaw')
-  expect(html).toContain('High-grade dawnsilver elven chain')
+  expect(html).not.toContain('High-grade dawnsilver elven chain')
   expect(html).toContain('<summary>Calistria’s Sting ')
   expect(html).toContain('<summary>Purge Toxins ')
   expect(html).toContain('Counteract rank 9th')
@@ -755,10 +755,33 @@ it("labels Slithermaw's Bane as an Elven Chain Shirt", () => {
   expect(specificMagicItemName(generated)).toBe("Slithermaw's Bane Elven Chain Shirt")
 })
 
-it("gives Slithermaw's Bane the major weave runes and Orichalcum", () => {
-  const generated = armorEntry(character, entries, bane.name)!
-  expect(String(generated.data.named_armor_runes).split(';')).toEqual(expect.arrayContaining(['Moonweave (Major)', 'Sunweave (Major)']))
-  expect(generated.data.named_armor_material).toBe('Orichalcum')
+it("scales Slithermaw's Bane Moonweave and Sunweave runes with character level", () => {
+  const cases = [
+    [1, []], [5, ['Moonweave']], [7, ['Moonweave', 'Sunweave']],
+    [11, ['Moonweave', 'Sunweave (Greater)']],
+    [13, ['Moonweave (Greater)', 'Sunweave (Greater)']],
+    [17, ['Moonweave (Major)', 'Sunweave (Greater)']],
+    [18, ['Moonweave (Major)', 'Sunweave (Major)']],
+  ] as const
+  for (const name of [bane.name, artifact.name]) {
+    for (const [level, runes] of cases) {
+      const armor = owned(name)
+      const effective = effectiveArmor({ ...character, level, armors: [armor] }, entries, armor)
+      expect(effective.runes).toEqual([...(name === artifact.name ? ['Fortification (Greater)'] : []), ...runes])
+    }
+  }
+  expect(armorEntry({ ...character, level: 20 }, entries, bane.name)?.data.named_armor_material).toBe('Orichalcum')
+})
+
+it("hides Speed, material, Potency, and Resilient fields for Slithermaw's Bane", () => {
+  for (const name of [bane.name, artifact.name]) {
+    const html = renderToStaticMarkup(<ArmorList c={{ ...character, armors: [owned(name)] }}
+      entries={entries} save={() => {}} part="armor" />)
+    expect(html).not.toContain('<small>Speed</small>')
+    expect(html).not.toContain('High-grade dawnsilver elven chain')
+    expect(html).not.toContain('aria-label="Potency"')
+    expect(html).not.toContain('aria-label="Resilient"')
+  }
 })
 
 it("orders Slithermaw's Bane artifact sections as senses, summary, then alphabetized activations", () => {

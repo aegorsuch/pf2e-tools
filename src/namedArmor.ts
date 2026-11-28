@@ -46,12 +46,14 @@ export const isHighhelmPlate = (name?: string) =>
     'Highhelm Stronghold Breastplate', 'Highhelm Stronghold Plate'].includes(name)
 export const isLibraryRobes = (name?: string) => name === 'Library Robes' || name === 'Library Scroll Robes'
 export const libraryRobesRank = (level: number) => level >= 19 ? 9 : level >= 15 ? 8 : level >= 12 ? 6 : 5
+export const isSlithermawBane = (name?: string) =>
+  name === "Slithermaw's Bane" || name === "Slithermaw's Bane (Artifact)"
 export const isImmortalBastion = (name?: string) =>
   !!name && ['Immortal Bastion Plate', 'Immortal Full Plate', 'Immortal Breastplate', 'Immortal Bastion'].includes(name)
 export const scalingBastionRuneFamilies = (name?: string): readonly string[] =>
   isIncendiaryArmor(name) ? ['Fortification', 'Moonweave', 'Sunweave', 'Energy-Resistant: Fire']
     : isInheritorPlate(name) || isScalingPlateVariant(name) ? INHERITOR_RUNE_FAMILIES : isImmortalBastion(name) ? INHERITOR_RUNE_FAMILIES : isHighhelmPlate(name) ? ['Fortification', 'Moonweave', 'Sunweave']
-    : isLibraryRobes(name) ? ['Moonweave', 'Sunweave'] : []
+    : isLibraryRobes(name) || isSlithermawBane(name) ? ['Moonweave', 'Sunweave'] : []
 const BODY = /\n\n-{3,}\s*\n\n/
 export const SCALE_OF_IGROON_FORTRESS = 'Scale of Igroon (Fortress Shield)'
 export const isScaleOfIgroonShield = (name?: string) =>
@@ -183,6 +185,12 @@ export function scaleAncestralEmbrace(entry: ContentEntry | undefined, level: nu
 
 export function scaleInheritorPlate(entry: ContentEntry | undefined, level: number) {
   if (!entry?.data.named_armor || !scalingBastionRuneFamilies(entry.name).length) return entry
+  if (isSlithermawBane(entry.name)) {
+    const fixedRunes = String(entry.data.named_armor_runes ?? '').split(';').filter(Boolean)
+      .filter(rune => !/^(?:Moonweave|Sunweave)(?: \((?:Lesser|Greater|Major|True)\))?$/.test(rune))
+    return { ...entry, data: { ...entry.data, named_armor_runes: fixedRunes.join(';'),
+      automatic_property_runes: automaticArmigerRunes(level).filter(rune => /^(?:Moonweave|Sunweave)/.test(rune)).join(';') } }
+  }
   const fortification = level >= 12
   const highhelm = isHighhelmPlate(entry.name)
   const immortal = isImmortalBastion(entry.name)

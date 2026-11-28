@@ -1069,10 +1069,7 @@ it('combines Calistria’s wasp and aquatic pet into one familiar with shared ab
   let c: Character = {
     id: 'combined-familiar', systems: ['pf2e'], name: 'Test', level: 8, deity: 'Calistria',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 18, cha: 10 },
-    feats: [
-      { name: 'Friend of the Sea', type: 'Class Feat', level: 1 },
-      { name: 'Enhanced Familiar', type: 'Class Feat', level: 4 },
-    ],
+    feats: [{ name: 'Friend of the Sea', type: 'Class Feat', level: 1 }],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     divineIntercessions: { Calistria: ['moderate-boon'] },
     waspFamiliar: { abilities: ['Resistance'] },
@@ -1080,8 +1077,8 @@ it('combines Calistria’s wasp and aquatic pet into one familiar with shared ab
   }
   const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
   let html = renderToStaticMarkup(tree())
-  expect(html).toContain('<h4>Combined Familiar</h4> (2/6)')
-  expect(html).not.toContain('<h4>Wasp Familiar</h4>')
+  expect(html).toContain('<h4>Wasp Familiar</h4> (2/6)')
+  expect(html).not.toContain('<h4>Combined Familiar</h4>')
   expect(html).not.toContain('<h4>Aquatic Pet</h4>')
   expect(html).toContain('aria-haspopup="dialog">Burrower</button>')
   expect(html).toContain('aria-haspopup="dialog">Flier</button>')
@@ -1089,16 +1086,16 @@ it('combines Calistria’s wasp and aquatic pet into one familiar with shared ab
   expect(specialSection).toBeGreaterThanOrEqual(0)
   expect(html.indexOf('aria-haspopup="dialog">Burrower</button>')).toBeGreaterThan(specialSection)
   expect(html.indexOf('aria-haspopup="dialog">Flier</button>')).toBeGreaterThan(specialSection)
-  findSelect(tree(), 'Combined familiar ability')!({ target: { value: 'familiar:Fast Movement' } })
+  findSelect(tree(), 'Wasp familiar ability')!({ target: { value: 'familiar:Fast Movement' } })
   expect(c.waspFamiliar?.abilities).toEqual(['Resistance', 'Fast Movement'])
-  findSelect(tree(), 'Combined familiar ability')!({ target: { value: 'familiar:Echolocation' } })
+  findSelect(tree(), 'Wasp familiar ability')!({ target: { value: 'familiar:Echolocation' } })
   expect(c.waspFamiliar?.abilities).toEqual(['Resistance', 'Fast Movement', 'Echolocation'])
-  findSelect(tree(), 'Combined familiar ability')!({ target: { value: 'familiar:Scent' } })
+  findSelect(tree(), 'Wasp familiar ability')!({ target: { value: 'familiar:Scent' } })
   expect(c.waspFamiliar?.abilities).toEqual(['Resistance', 'Fast Movement', 'Echolocation', 'Scent'])
-  findSelect(tree(), 'Combined familiar ability')!({ target: { value: 'familiar:Amphibious' } })
+  findSelect(tree(), 'Wasp familiar ability')!({ target: { value: 'familiar:Amphibious' } })
   html = renderToStaticMarkup(tree())
   expect(c.pet?.abilities).toEqual(['Darkvision', 'Tough', 'Climber', 'Amphibious'])
-  expect(html).toContain('<h4>Combined Familiar</h4> (6/6)')
+  expect(html).toContain('<h4>Wasp Familiar</h4> (6/6)')
 
   updateSettings({ combineWaspAndAquaticFamiliar: false })
   html = renderToStaticMarkup(tree())

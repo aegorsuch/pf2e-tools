@@ -22,7 +22,7 @@ import { RUNESMITH_RUNES } from './runesmithRunes'
 import { TENGU_BITE, TENGU_DOGFANG_BITE, ANIMAL_FEATURE_CLAWS, ANIMAL_FEATURE_JAWS, ANIMAL_FEATURES, ARMOR_GAUNTLETS, ATTACHED_WEAPONS, CAIRN_FIST, CLAN_DAGGER, CLAN_DAGGER_DEXTERITY, CLAN_PISTOL, FIST, GAUNTLET, HAFT_STRIKER_WEAPON, HANDWRAPS, HARDLIGHT_GRADES, IRON_FIST, FIRST_WORLD_ARMAMENTS, AUTOMATON_CLAW, AUTOMATON_PINCER, IRUXI_CLAWS, IRUXI_FANGS, IRUXI_TAIL, ENERGY_BLAST, SKYFIRE_WING, ORC_TUSKS, OVERSIZED_THROW, SHIELD_BASH, SPARK_FIST, SUPPLEMENTAL_WEAPONS, UNTAMED_CLAWS, UNTAMED_JAWS } from './supplemental'
 import { warmaskSource, WARMASK_SOURCES } from './warmask'
 import { armorModifications, armorOverdriveActive, inventorArmorResistances } from './inventorArmor'
-import { isAncestralEmbrace, isHighhelmPlate, isImmortalBastion, isInheritorPlate, isLibraryRobes, libraryRobesRank, isNamedArmor, isScaleOfIgroonShield, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
+import { isAncestralEmbrace, isHighhelmPlate, isImmortalBastion, isInheritorPlate, isLibraryRobes, isNamedArmor, isScaleOfIgroonShield, isSlithermawBane, libraryRobesRank, makeNamedArmorEntries, makeNamedShieldEntry, namedArmorEnhancements, namedArmorRuneLimit, scaleAncestralEmbrace, scaleInheritorPlate, scalingBastionRuneFamilies, SCALE_OF_IGROON_FORTRESS } from './namedArmor'
 import { hasWeaponRuneCapacity, weaponWithModifications } from './inventorWeapon'
 import { weaponWithMode } from './weaponModes'
 import { MAGIC_TRADITIONS, minorMagicSpells as baseMinorMagicSpells } from './minorMagic'
@@ -38,7 +38,7 @@ import { boostingTheBasics } from './mechanicMods'
 import { adoptedAncestryText, featDisplayName, isStanceFeat } from './featChoices'
 import { equipmentDisplayName, equipmentGroupName } from './equipmentGroups'
 import { divineAttackDamage, hasDivineIntercession, TORAG_BOON_FEAT_SLOT } from './divineIntercessions'
-import { characterHeritages, characterSize, elfAtavismOptions, isVersatileHeritage } from './heritages'
+import { characterHeritages, characterSize, elfAtavismOptions, isVersatileHeritage, wanderingHeartHeritages } from './heritages'
 import { hasArcaneThesis, selectedArcaneThesis, versatileThesisOptions, VERSATILE_THESIS_FEAT } from './arcaneTheses'
 import { fatalMethodGrants, selectedFatalMethod } from './fatalMethods'
 import { ELEMENTAL_GAUNTLET_SOURCES, makeNamedWeaponEntries, namedWeaponBaseName, namedWeaponDamage, namedWeaponEnhancements, withNamedWeaponState } from './namedWeapons'
@@ -2363,7 +2363,7 @@ function eldritchTricksterDedications(entries: ContentEntry[]) {
 export function rogueRackets(c: Character, entries: ContentEntry[]) {
   if (c.className !== 'Rogue') return []
   const primary = selectedSubclass(c, entries)
-  const taken = [primary, ...activeFeatsNamed(c, 'Versatile Rogue').map(feat => feat.choice).filter(name => name !== 'Avenger')]
+  const taken = [primary, ...activeFeatsNamed(c, 'Versatile Rogue').map(feat => feat.choice)]
   return [...new Set(taken.filter((name): name is string => !!name && ROGUE_RACKETS.some(racket => racket === name)))]
 }
 
@@ -2780,6 +2780,8 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Elf Atavism' || name === 'Elven Atavism') return elfAtavismOptions(c, entries)
     .filter(entry => !getSettings().disableAncientElfMultitalented || entry.name !== 'Ancient Elf')
     .map(entry => entry.name).sort((a, b) => a.localeCompare(b))
+  if (name === 'Wandering Heart') return wanderingHeartHeritages(c, entries)
+    .filter(entry => entry.name !== c.heritage).map(entry => entry.name).sort((a, b) => a.localeCompare(b))
   if (name === 'Exocortex Experimenter' && c.systems.includes('sf2e')) {
     const used = new Set([c.subclass?.toLowerCase(),
       ...c.feats.filter((feat, i) => i !== index && feat.name === name).map(feat => feat.choice?.toLowerCase())])
@@ -3735,9 +3737,9 @@ export function speedBonuses(c: Character, entries: ContentEntry[] = [], options
   const dashSpeed = options.includeUncannyDash && activeFeatsNamed(c, 'Uncanny Dash').length
     && activeFeatsNamed(c, 'Gg-os Frame').length ? 10 : 0
   const skeletonSpeed = activeFeatsNamed(c, 'Reinforced Skeleton').length ? 5 : 0
-  const suspension = c.systems.includes('sf2e') ? Math.max(0, ...(c.augmentations ?? []).filter(item => /^Speed Suspension\b/i.test(item.name))
-    .map(item => /\(Advanced\)$/i.test(item.name) ? 15 : /\(Tactical\)$/i.test(item.name) ? 10 : 5))
-    : 0
+  const hasSpeedSuspension = c.systems.includes('sf2e')
+    && (c.augmentations ?? []).some(item => /^Speed Suspension\b/i.test(item.name))
+  const suspension = hasSpeedSuspension ? c.level >= 12 ? 15 : c.level >= 8 ? 10 : 5 : 0
   const augmentedMobility = suspension && activeFeatsNamed(c, 'Augmented Mobility').length ? 5 : 0
   const fleet = activeFeatsNamed(c, 'Fleet').length ? 'Fleet'
     : activeFeatsNamed(c, 'Gg-os Frame').length ? 'Gg-os Frame (Fleet)' : undefined
@@ -4194,7 +4196,9 @@ export function movementSpeeds(c: Character, entries: ContentEntry[], options: M
     const feet = Number(/Option\(s\):\s*(\d+)\s*(?:feet|ft)/i.exec(source?.description ?? '')?.[1])
     if (feet > 0) movement.push(fixed('Burrow', feet, 'Burrowing Specialist'))
   }
-  if (activeFeatsNamed(c, 'Tree Climber').length && ancestryFeatTraits(c).includes('elf')) movement.push(fixed('Climb', 10, 'Tree Climber'))
+  if (activeFeatsNamed(c, 'Tree Climber').length && ancestryFeatTraits(c).includes('elf')) {
+    movement.push(getSettings().treeClimberLandSpeed ? atLandSpeed('Climb', 'Tree Climber') : fixed('Climb', 10, 'Tree Climber'))
+  }
   const pahtraClimb = c.systems.includes('sf2e') && ancestryFeatTraits(c).includes('pahtra')
     && activeFeatsNamed(c, 'Climbing Claws').length > 0
   if (pahtraClimb) movement.push(atLandSpeed('Climb', 'Climbing Claws'))
@@ -8291,7 +8295,7 @@ export function protectCompanionTargets(c: Character) {
       companionId: undefined, familiar: 'wasp' as const }] : []),
     ...(aquaticPetFamiliar(c) && !combinedFamiliars ? [{ key: 'familiar:aquatic', name: c.pet?.name || 'Aquatic Pet',
       companionId: undefined, familiar: 'aquatic' as const }] : []),
-    ...(combinedFamiliars ? [{ key: 'familiar:combined', name: c.waspFamiliar?.name || c.pet?.name || 'Combined Familiar',
+    ...(combinedFamiliars ? [{ key: 'familiar:combined', name: c.waspFamiliar?.name || 'Wasp Familiar',
       companionId: undefined, familiar: 'aquatic' as const }] : []),
   ]
 }
@@ -8694,11 +8698,20 @@ export function effectiveArmor(c: Character, entries: ContentEntry[], armor: Own
   if (named) {
     const families = scalingBastionRuneFamilies(armor.name)
     if (families.length) {
+      if (isSlithermawBane(armor.name)) {
+        const potency = Math.max(armor.potency, named.potency)
+        const resilient = Math.max(armor.resilient, named.resilient)
+        const builtIn = named.runes
+        const fixed = automaticArmorPropertyRunes(namedEntry)
+        const remaining = Math.max(0, maxPropertyRunes(potency, material) - builtIn.length - fixed.length)
+        const saved = armor.runes.filter(rune => !families.some(family => family === runeBaseName(rune))).slice(0, remaining)
+        return { ...armor, material, potency, resilient, runes: [...new Set([...builtIn, ...saved, ...fixed])] }
+      }
       const automatic = automaticArmorFundamentals(c.level, namedEntry)
       const fixed = automaticArmorPropertyRunes(namedEntry)
-      const material = isHighhelmPlate(armor.name) ? 'Keep Stone' : isLibraryRobes(armor.name) ? undefined : 'Orichalcum'
-      const remaining = Math.max(0, maxPropertyRunes(automatic.potency, material) - fixed.length)
-      return { ...armor, material, ...automatic,
+        const fixedMaterial = isHighhelmPlate(armor.name) ? 'Keep Stone' : isLibraryRobes(armor.name) ? undefined : 'Orichalcum'
+        const remaining = Math.max(0, maxPropertyRunes(automatic.potency, fixedMaterial) - fixed.length)
+        return { ...armor, material: fixedMaterial, ...automatic,
         runes: [...armor.runes.filter(rune => !families.some(family => family === runeBaseName(rune))).slice(0, remaining), ...fixed] }
     }
     const runes = [...new Set([...named.runes, ...armor.runes])]
