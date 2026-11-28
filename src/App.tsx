@@ -69,7 +69,7 @@ export default function App() {
   })
   const [editingId, setEditingId] = useState<string | null>(restoredCharacter.id)
   const [navigationError, setNavigationError] = useState(restoredCharacter.error)
-  const openCharacter = useCallback((id: string | null) => {
+  const applyCharacter = useCallback((id: string | null) => {
     setEditingId(id)
     try {
       if (id) window.sessionStorage.setItem(OPEN_CHARACTER_KEY, id)
@@ -81,6 +81,27 @@ export default function App() {
       return false
     }
   }, [])
+  const openCharacter = useCallback((id: string | null) => {
+    if (id && !window.history.state?.pfChar) window.history.pushState({ pfChar: true }, '')
+    else if (!id && window.history.state?.pfChar) { window.history.back() }
+    return applyCharacter(id)
+  }, [applyCharacter])
+  const openDraft = useCallback((entry: ContentEntry) => {
+    if (!window.history.state?.pfDraft) window.history.pushState({ pfDraft: true }, '')
+    setDraft(entry)
+  }, [])
+  const closeDraft = useCallback(() => {
+    if (window.history.state?.pfDraft) window.history.back()
+    setDraft(null)
+  }, [])
+  useEffect(() => {
+    const onPop = () => {
+      if (!window.history.state?.pfChar) applyCharacter(null)
+      if (!window.history.state?.pfDraft) setDraft(null)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [applyCharacter])
   const [status, setStatus] = useState('')
   const [user, setUser] = useState<User | null>(null)
   const [authError, setAuthError] = useState('')
@@ -234,7 +255,7 @@ export default function App() {
       {draft && catalogError && <p role="alert">{catalogError} <button type="button" onClick={() => setCatalogRetry(value => value + 1)}>Retry</button></p>}
 
       {draft && (
-        <form className="col" onSubmit={async (e) => { e.preventDefault(); await saveEntry(draft); setDraft(null) }}>
+        <form className="col" onSubmit={async (e) => { e.preventDefault(); await saveEntry(draft); closeDraft() }}>
           <div className="row">
             {SYSTEMS.map((s) => (
               <label key={s.id}>
@@ -272,7 +293,7 @@ export default function App() {
           )}
           <div className="row">
             <button disabled={!draft.systems.length}>Save</button>
-            <button type="button" onClick={() => setDraft(null)}>Cancel</button>
+            <button type="button" onClick={closeDraft}>Cancel</button>
           </div>
         </form>
       )}
@@ -314,13 +335,13 @@ export default function App() {
       </ul>
       <div className="home-section-heading">
         <h2>Homebrew Content ({homebrew.length})</h2>
-        <button type="button" onClick={() => { setCatalogRetry(value => value + 1); setDraft(blank(enabled)) }}>Add homebrew</button>
+        <button type="button" onClick={() => { setCatalogRetry(value => value + 1); openDraft(blank(enabled)) }}>Add homebrew</button>
       </div>
       <label className="homebrew-search">Search homebrew
         <input type="search" value={homebrewSearch} onChange={event => setHomebrewSearch(event.target.value)} />
       </label>
       <Suspense fallback={null}><HomebrewList entries={entries ?? NO_ENTRIES} search={homebrewSearch} rulesOpen={rulesOpen} onRulesToggle={setRulesOpen}
-        onEdit={entry => { setCatalogRetry(value => value + 1); setDraft(entry) }} onDelete={(id) => {
+        onEdit={entry => { setCatalogRetry(value => value + 1); openDraft(entry) }} onDelete={(id) => {
         void removeEntry(id).catch((error: unknown) =>
           setStatus(`Could not delete homebrew: ${error instanceof Error ? error.message : String(error)}`))
       }} /></Suspense>
