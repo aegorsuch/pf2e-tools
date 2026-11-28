@@ -342,6 +342,10 @@ it("rolls Nature's Bounty as 3d10+12, +6 per rank above 4th", () => {
   expect(spellDamage("Nature's Bounty", 6)).toMatchObject([{ bonus: 24 }])
 })
 
+it('rolls Savor the Sting initial and persistent mental damage', () => {
+  expect(spellDamage('Savor the Sting', 2)).toMatchObject([{ dice: 2, sides: 4, type: 'mental' }, { dice: 2, sides: 4, type: 'persistent mental' }])
+})
+
 it('scales Doom Mark void damage by rank', () => {
   expect(spellDamage('Doom Mark', 6)).toMatchObject([{ dice: 6, sides: 8, type: 'void' }])
   expect(spellDamage('Doom Mark', 8)).toMatchObject([{ dice: 8 }])
