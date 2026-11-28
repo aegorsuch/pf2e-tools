@@ -93,6 +93,9 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return rank >= 7 ? [{ label: 'Damage', dice: 7 + bonus, sides: 12, type: 'force',
         additional: { label: 'Spirit damage', dice: 5 + bonus, sides: 6, type: 'spirit' } }] : []
     }
+    case 'Cry of Destruction':
+      return [{ label: 'Damage', dice: rank, sides: 8, type: 'sonic' },
+        { label: 'Damage (already damaged an enemy this turn)', dice: rank, sides: 12, type: 'sonic' }]
     case 'Doom Mark':
       return rank >= 6 ? [{ label: 'Damage', dice: rank, sides: 8, type: 'void' }] : []
     case 'Warshard Shot':

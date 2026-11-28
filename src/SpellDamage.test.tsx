@@ -333,6 +333,10 @@ it("heightens Deity's Strike at 9th rank", () => {
   expect(spellDamage("Deity's Strike", 9)).toMatchObject([{ dice: 8, additional: { dice: 6 } }])
 })
 
+it('rolls Cry of Destruction as d8s, or d12s after already damaging an enemy', () => {
+  expect(spellDamage('Cry of Destruction', 3)).toMatchObject([{ dice: 3, sides: 8, type: 'sonic' }, { dice: 3, sides: 12 }])
+})
+
 it('scales Doom Mark void damage by rank', () => {
   expect(spellDamage('Doom Mark', 6)).toMatchObject([{ dice: 6, sides: 8, type: 'void' }])
   expect(spellDamage('Doom Mark', 8)).toMatchObject([{ dice: 8 }])
