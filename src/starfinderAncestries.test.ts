@@ -305,6 +305,19 @@ it('grants limited telepathy from a Telepathy Node and satisfies Distant Telepat
   expect(eligibleFeats(distantTelepath, c, { key: 'ancestry:1:0', category: 'ancestry', level: 1 })).toContain(feat)
 })
 
+it('offers one Distant Telepath and excludes unrelated generic ancestry feats', () => {
+  const feats = mapAonHits(hits.filter(hit => hit._source?.category === 'feat'), 'sf2e')
+  const c: Character = { ...base, ancestry: 'Elf', augmentations: [
+    { id: 'telepathy-node', entryId: 'telepathy-node', name: 'Telepathy Node', slot: 'brain' },
+  ] }
+  const offered = eligibleFeats(feats, c, { key: 'ancestry:1:0', category: 'ancestry', level: 1 })
+  expect(offered.filter(feat => feat.name === 'Distant Telepath')).toHaveLength(1)
+  expect(offered.map(feat => feat.name).filter(name => [
+    'Ancestral Unarmed Attack', 'Basic Flight', 'Creature Speech', 'Internal Compartment',
+    'Unconventional Weaponry', 'Swimming Specialist',
+  ].includes(name))).toEqual([])
+})
+
 it('grants Sensitive Antennae thoughtsense and improves its precision at level 9', () => {
   const c: Character = { ...base, ancestry: 'Lashunta', level: 5,
     feats: [{ name: 'Sensitive Antennae', type: 'Ancestry Feat', level: 5 }] }

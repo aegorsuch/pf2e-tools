@@ -2049,15 +2049,22 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   }))
   const ownedArchetype = slot.category === 'archetype' ? archetypePrerequisites(c, entries, slot.key, true) : undefined
   const candidateTraits = [...new Set([trait, ...ancestryTraits].filter((value): value is string => !!value))]
+  const genericDistantTelepath = slot.category === 'ancestry' && c.systems[0]
+    ? featsWithTrait(entries, 'ancestry').filter(({ entry }) => entry.name === 'Distant Telepath'
+      && entry.systems.includes(c.systems[0]))
+    : []
   const searchable = slot.category === 'archetype' ? archetypeFeats(entries)
     : slot.category === 'ancestry' && candidateTraits.length === 1
-      ? [...new Map([...featsWithTrait(entries, candidateTraits[0]), ...featsWithTrait(entries, 'ancestry')]
+      ? [...new Map([...featsWithTrait(entries, candidateTraits[0])
+        .filter(({ entry }) => entry.name !== 'Distant Telepath' || !genericDistantTelepath.length),
+        ...genericDistantTelepath]
         .map(item => [item.entry.id, item])).values()]
     : slot.category !== 'bonus' && !classArchetype && candidateTraits.length === 1
       ? featsWithTrait(entries, candidateTraits[0]) : featIndex(entries)
   const candidates = searchable
     .filter(({ entry: e, traits }) => (!options.name || e.name === options.name)
-      && (slot.category === 'bonus' || !!trait && traits.has(trait) || slot.category === 'ancestry' && traits.has('ancestry')
+      && (slot.category === 'bonus' || !!trait && traits.has(trait)
+        || slot.category === 'ancestry' && e.name === 'Distant Telepath' && traits.has('ancestry')
         || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0
         || !!classArchetypeDedication && !!classArchetype && archetypesOf(e).includes(classArchetype)
