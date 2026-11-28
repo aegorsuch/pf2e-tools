@@ -58,7 +58,7 @@ export const MAZMEZZ_DEITY: ContentEntry = {
   data: {
     alignment: 'CE', epithet: 'The Creeping Queen', deity_category: 'Demon Lords', rarity: 'uncommon',
     area_of_concern: 'bindings, driders, vermin', religious_symbol: 'skull in spiderweb',
-    favored_weapon: 'Net', divine_font: 'Harm', skill: 'Survival', attribute: 'Dexterity, Constitution',
+    favored_weapon: 'Bola', divine_font: 'Harm', skill: 'Survival', attribute: 'Dexterity, Constitution',
     domain: 'Destruction, Nature, Pain, Swarm, Change', domain_primary: 'Destruction, Nature, Pain, Swarm', domain_alternate: 'Change',
     sanctification: 'unholy', sanctification_required: false,
     edict: 'ensnare and bind others, spread vermin and filth, corrupt the natural world', anathema: 'destroy spiders or vermin needlessly, free captives bound in webs without payment',
