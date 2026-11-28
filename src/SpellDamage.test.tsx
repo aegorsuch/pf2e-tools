@@ -337,6 +337,11 @@ it('rolls Cry of Destruction as d8s, or d12s after already damaging an enemy', (
   expect(spellDamage('Cry of Destruction', 3)).toMatchObject([{ dice: 3, sides: 8, type: 'sonic' }, { dice: 3, sides: 12 }])
 })
 
+it("rolls Nature's Bounty as 3d10+12, +6 per rank above 4th", () => {
+  expect(spellDamage("Nature's Bounty", 4)).toMatchObject([{ dice: 3, sides: 10, bonus: 12, type: 'HP' }])
+  expect(spellDamage("Nature's Bounty", 6)).toMatchObject([{ bonus: 24 }])
+})
+
 it('scales Doom Mark void damage by rank', () => {
   expect(spellDamage('Doom Mark', 6)).toMatchObject([{ dice: 6, sides: 8, type: 'void' }])
   expect(spellDamage('Doom Mark', 8)).toMatchObject([{ dice: 8 }])

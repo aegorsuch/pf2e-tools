@@ -96,6 +96,8 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
     case 'Cry of Destruction':
       return [{ label: 'Damage', dice: rank, sides: 8, type: 'sonic' },
         { label: 'Damage (already damaged an enemy this turn)', dice: rank, sides: 12, type: 'sonic' }]
+    case "Nature's Bounty":
+      return rank >= 4 ? [{ label: 'Healing', dice: 3, sides: 10, bonus: 12 + 6 * (rank - 4), type: 'HP' }] : []
     case 'Doom Mark':
       return rank >= 6 ? [{ label: 'Damage', dice: rank, sides: 8, type: 'void' }] : []
     case 'Warshard Shot':
