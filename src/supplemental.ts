@@ -324,6 +324,21 @@ export const PERSISTENT_SPELLS = [
   { name: 'Enlarge Companion', level: 18 },
 ] as const
 
+const POISON_DART: ContentEntry = {
+  id: 'homebrew:poison-dart',
+  systems: ['pf2e'],
+  kind: 'spell',
+  source: 'homebrew',
+  name: 'Poison Dart',
+  level: 1,
+  traits: ['Attack', 'Cantrip', 'Concentrate', 'Manipulate', 'Poison'],
+  description: "**Traditions** Divine, Primal\n\n**Cast** Two Actions\n\n**Range** 30 feet; **Targets** 1 creature\n\nYou form a needle-thin dart of venomous magic and fling it at one creature. Make a spell attack roll against the target's AC. On a hit, the dart deals 2d4 poison damage. On a critical hit, the target is knocked prone.\n\n**Heightened (+1)** The damage increases by 1d4.",
+  data: { tradition: 'Divine, Primal', actions: 'Two Actions', range_text: '30 feet',
+    target: '1 creature', duration_text: 'instantaneous', sourceBook: 'Homebrew' },
+  effects: [],
+  updatedAt: 1,
+}
+
 const COPIED_FEAT_IDS: Record<string, string> = {
   'aon:pf2e:feat-4733:ranger': 'homebrew:deimatic-display-ranger',
   'aon:pf2e:feat-5418:druid': 'homebrew:ears-of-the-forest-druid',
@@ -679,6 +694,7 @@ export function homebrewCharacterOptions(entries: ContentEntry[]): ContentEntry[
         { attribute: 'Constitution, Charisma', skill: 'Deception, Nar-Voth Lore', feat: 'Charming Liar' }),
       kind: 'background',
     },
+    POISON_DART,
   ]
 }
 

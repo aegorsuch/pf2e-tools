@@ -10,6 +10,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { removeColdIronTusks } from './supplemental'
 import { mapAonHits } from './aon'
 import { sfSpecificWeapons } from './sfSpecificWeapons'
+import { spellResolution } from './spellDefense'
 import { groupHomebrew } from './HomebrewList'
 import sf2eSnapshot from '../public/data/aon-sf2e.json?raw'
 
@@ -535,6 +536,17 @@ it('provides Divine homebrew copies of Ignition and Tailwind without changing of
     { id: 'homebrew:tailwind-divine', name: 'Tailwind', source: 'homebrew', data: { tradition: 'Divine' } },
   ])
   expect(originals.map(entry => entry.data.tradition)).toEqual(['Arcane, Occult, Primal', 'Arcane, Occult, Primal'])
+})
+
+it('provides Poison Dart as a Divine and Primal PF2e attack cantrip', () => {
+  const spell = homebrewCharacterOptions([]).find(entry => entry.id === 'homebrew:poison-dart')!
+  expect(spell).toMatchObject({
+    systems: ['pf2e'], kind: 'spell', source: 'homebrew', name: 'Poison Dart', level: 1,
+    traits: ['Attack', 'Cantrip', 'Concentrate', 'Manipulate', 'Poison'],
+    data: { tradition: 'Divine, Primal', actions: 'Two Actions', range_text: '30 feet', target: '1 creature' },
+  })
+  expect(spellResolution(spell).attack).toBe(true)
+  expect(spell.description).toContain('On a critical hit, the target is knocked prone.')
 })
 
 it('copies Twinned Defense for Ranger and adds Avenger Twin Parry stance options', () => {

@@ -196,6 +196,9 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return [{ label: 'Damage', dice, sides: 4, type: 'poison',
         additional: { label: 'Failure persistent', dice, sides: 4, type: 'poison' } }]
     }
+    case 'Poison Dart':
+      return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 4, type: 'poison',
+        note: 'On a critical hit, the target is knocked prone' }] : []
     case 'Slashing Gust':
       return rank >= 1 ? [{ label: 'Damage', dice: rank + 1, sides: 4, type: 'slashing',
         additional: { label: 'Critical hit persistent', dice: rank, sides: 4, type: 'bleed' } }] : []

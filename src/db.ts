@@ -68,7 +68,7 @@ export async function ensureSupplementalContent() {
         'homebrew:tethered-favored-weapon', 'homebrew:direwolf-bonded', 'homebrew:rider',
         'homebrew:sarkorian-direwolf', 'homebrew:snow-leopard', 'homebrew:ranger-twinned-defense-stance',
         'homebrew:avenger-twin-parry', 'homebrew:avenger-twinned-defense-stance',
-        'homebrew:ignition-divine', 'homebrew:tailwind-divine',
+        'homebrew:ignition-divine', 'homebrew:tailwind-divine', 'homebrew:poison-dart',
         'homebrew:persistent-magic-hide', 'homebrew:mobile-hunter', 'homebrew:divine-warrior', 'homebrew:primal-warrior', 'homebrew:instinctive-support',
         'homebrew:ears-of-the-forest-druid', 'homebrew:ears-of-the-forest-ranger', 'homebrew:opening-stance-ranger',
         'homebrew:versatile-envoy', 'homebrew:versatile-operative', PLASMA_ARRAY.id, SUPERIOR_DATAJACK.id, GREATER_GENETIC_BACKUP.id].includes(entry.id)

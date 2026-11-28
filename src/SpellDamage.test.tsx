@@ -579,6 +579,8 @@ it('shows conditional and alternative damage for cantrips in one action roll', (
     dice: 3, components: [{ dice: 3, type: 'electricity' }, { dice: 3, type: 'persistent electricity (critical hit)' }],
   })
   expect(spellDamage('Puff of Poison', 5)[0]).toMatchObject({ dice: 3, additional: { dice: 3, type: 'poison' } })
+  expect(spellDamage('Poison Dart', 1)[0]).toMatchObject({ dice: 2, sides: 4, type: 'poison' })
+  expect(spellDamage('Poison Dart', 5)[0]).toMatchObject({ dice: 6, sides: 4, type: 'poison' })
   expect(spellDamage('Needle Darts', 5)[0].additional).toMatchObject({ bonus: 5, type: 'bleed' })
   expect(spellDamage('Slashing Gust', 5)[0].additional).toMatchObject({ dice: 5, sides: 4, type: 'bleed' })
   expect(spellDamage('Redistribute Potential', 1)[0].type).toBe('cold or fire')
