@@ -423,6 +423,9 @@ export function createFeatPrerequisiteChecker(entries: ContentEntry[], context: 
     if (facts.className === 'Champion' && ['blessed armament', 'blessed shield', 'blessed swiftness'].includes(name)) {
       return resultFor(!!facts.championBlessings?.some(blessing => key(blessing) === name), text)
     }
+    if (name === 'divine ally (steed)') {
+      return facts.className === 'Champion' && facts.feats.some(feat => key(feat.name) === 'faithful steed') ? met() : manual(text)
+    }
     if (name === 'tenets of good' || name === 'tenets of evil') {
       if (facts.className !== 'Champion' || level < 1) return manual(text)
       const tenets = championCauseTenets(facts.subclass)

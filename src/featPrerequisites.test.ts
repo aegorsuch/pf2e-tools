@@ -2221,6 +2221,15 @@ describe('shared prerequisite enforcement', () => {
     expect(featPrerequisiteChecker({ ...c, className: 'Fighter' }, data)(manifold).missing).toEqual(["hunter's edge", 'masterful hunter'])
   })
 
+  it('checks Fiendish Mount prerequisites against Faithful Steed and evil tenets', () => {
+    const mount = entry('feat', 'Fiendish Mount', { prerequisite: 'divine ally (steed); tenets of evil' }, 20)
+    const data = [mount, entry('feat', 'Faithful Steed')]
+    const c: Character = { ...base, className: 'Champion', level: 20, subclass: 'Desecrator', feats: [selected('Faithful Steed')] }
+    expect(featPrerequisiteChecker(c, data)(mount)).toEqual({ missing: [], manual: [] })
+    expect(featPrerequisiteChecker({ ...c, subclass: 'Redeemer' }, data)(mount).missing).toEqual(['tenets of evil'])
+    expect(featPrerequisiteChecker({ ...c, feats: [] }, data)(mount).manual).toEqual(['divine ally (steed)'])
+  })
+
   it('accepts a faithful steed for Ferocious Beasts without requiring the Animal Companion feat', () => {
     const beasts = entry('feat', 'Ferocious Beasts', {
       prerequisite: 'Bonded Animal, animal companion, or Pet; Orc Ferocity',
