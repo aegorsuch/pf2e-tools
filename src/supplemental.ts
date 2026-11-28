@@ -332,9 +332,9 @@ const POISON_DART: ContentEntry = {
   name: 'Poison Dart',
   level: 1,
   traits: ['Attack', 'Cantrip', 'Concentrate', 'Manipulate', 'Poison'],
-  description: "**Traditions** Divine, Primal\n\n**Cast** Two Actions\n\n**Range** 30 feet; **Targets** 1 creature\n\nYou form a needle-thin dart of venomous magic and fling it at one creature. Make a spell attack roll against the target's AC. On a hit, the dart deals 2d4 poison damage. On a critical hit, the target is knocked prone.\n\n**Heightened (+1)** The damage increases by 1d4.",
-  data: { tradition: 'Divine, Primal', actions: 'Two Actions', range_text: '30 feet',
-    target: '1 creature', duration_text: 'instantaneous', sourceBook: 'Homebrew' },
+  description: "**Source** Homebrew\n\n**Traditions** Divine, Primal\n\n**Range** 30 feet\n**Target** 1 creature\n**Defense** AC\n\n---\n\nYou form a needle-thin dart of venomous magic and fling it at one creature. Make a spell attack roll against the target's AC. The dart deals 2d4 poison damage.\n\n**Critical Success** The target takes double damage and is knocked prone.\n**Success** The target takes full damage.\n\n---\n**Heightened (+1)** The damage increases by 1d4.",
+  data: { tradition: 'Divine, Primal', actions: 'Two Actions', range: 30, range_text: '30 feet',
+    target: '1 creature', saving_throw: 'AC', sourceBook: 'Homebrew' },
   effects: [],
   updatedAt: 1,
 }

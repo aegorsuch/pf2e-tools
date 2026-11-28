@@ -543,10 +543,12 @@ it('provides Poison Dart as a Divine and Primal PF2e attack cantrip', () => {
   expect(spell).toMatchObject({
     systems: ['pf2e'], kind: 'spell', source: 'homebrew', name: 'Poison Dart', level: 1,
     traits: ['Attack', 'Cantrip', 'Concentrate', 'Manipulate', 'Poison'],
-    data: { tradition: 'Divine, Primal', actions: 'Two Actions', range_text: '30 feet', target: '1 creature' },
+    data: { tradition: 'Divine, Primal', actions: 'Two Actions', range: 30, range_text: '30 feet',
+      target: '1 creature', saving_throw: 'AC', sourceBook: 'Homebrew' },
   })
   expect(spellResolution(spell).attack).toBe(true)
-  expect(spell.description).toContain('On a critical hit, the target is knocked prone.')
+  expect(spell.description).toContain('**Critical Success** The target takes double damage and is knocked prone.')
+  expect(spell.description).toContain('**Heightened (+1)** The damage increases by 1d4.')
 })
 
 it('copies Twinned Defense for Ranger and adds Avenger Twin Parry stance options', () => {
