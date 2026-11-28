@@ -253,7 +253,7 @@ it('derives Bloodrager cantrips, spellcasting slots and repertoire from active f
   expect(classSpellSlots({ ...c, level: 1 })).toBeUndefined()
   expect(classSpellSlots({ ...c, level: 2 })).toEqual({ 0: 2 })
   expect(classSpellSlots({ ...c, level: 6 })).toEqual({ 0: 2, 1: 1, 2: 1 })
-  expect(classSpellSlots({ ...c, level: 12 })).toEqual({ 0: 2, 1: 1, 2: 1, 3: 1 })
+  expect(classSpellSlots({ ...c, level: 12 })).toEqual({ 0: 2, 1: 1, 2: 1, 3: 1, 4: 1 })
   expect(classSpellSlots(c)).toEqual({ 0: 2, 1: 2, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2, 7: 2, 8: 2 })
   expect(classRepertoireRows(c)).toEqual({ 0: 2, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1 })
   expect(classSpellSlots({ ...c, feats: c.feats.slice(0, 1) })).toEqual({ 0: 2 })
