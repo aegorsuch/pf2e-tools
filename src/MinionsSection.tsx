@@ -1445,6 +1445,11 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
             return { key: `granted:${index}:${grant}`, name: isLeshy && name === leshyAbility ? `Leshy Familiar (${name})` : grant, entry,
               after: name === 'Medic' || name === 'Restorative Familiar' ? healingAbilityControls(name) : undefined }
           }))
+          if (isWasp) {
+            const existingNames = new Set(familiarAbilityItems.map(item => item.name.toLowerCase()))
+            familiarAbilityItems.push(...['Burrower', 'Flier'].filter(name => !existingNames.has(name.toLowerCase()))
+              .map(name => ({ key: `wasp-special:${name}`, name, entry: familiarAbilityEntry(name, familiarAbilityCatalog, c) })))
+          }
           if (patronAbility) familiarAbilityItems.push({ key: `patron:${patronAbility.id}`, name: patronAbility.name, entry: patronAbility })
           if (emissaryAbility) {
             const entry = familiarAbilityEntry(emissaryAbility, familiarAbilityCatalog, c)
@@ -1521,11 +1526,6 @@ export function MinionsContent({ c, entries, save }: SectionProps) {
           </label>}
           {activeSpecific && specificSummary.map(text => <p key={text} className="companion-description">{text}</p>)}
           {isCrocodile && <small>Tiny crocodile familiar granted by Crocodile's Twin.</small>}
-          {isWasp && <div className="gear-runes">{['Burrower', 'Flier'].map(name => {
-            const entry = familiarAbilityEntry(name, familiarAbilityCatalog, c)
-            return entry ? <EntryDescription key={name} name={name} entry={entry} entries={entries} character={c}
-              buttonLabel={name} /> : <small key={name}>{name}</small>
-          })}</div>}
           {isUndead && <>
             <div className="gear-traits"><EntryDescription name="Undead" entry={UNDEAD_FAMILIAR_TRAIT}
               className="gear-trait" entries={entries} character={c} /></div>
