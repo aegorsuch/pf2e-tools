@@ -1274,3 +1274,15 @@ it('lets Cleric Dedication choose the deity sanctification', () => {
   const chosen = { ...c, feats: [{ ...c.feats[0], choice: 'Holy' }] }
   expect(deitySanctification(chosen, [deity]).selected).toBe('Holy')
 })
+
+it('never offers a domain already taken by another Domain Initiate, even in a later slot', () => {
+  const entry = (name: string, kind: 'deity' | 'feat', data = {}) => ({ id: name, kind, name, level: 1, traits: [], source: 'official' as const,
+    systems: ['pf2e' as const], description: '', data, effects: [], updatedAt: 0 })
+  const entries = [entry('D', 'deity', { domain_primary: 'Destruction, Fire' }), entry('Domain Initiate', 'feat')]
+  const c = { id: 'c', name: 'C', systems: ['pf2e' as const], level: 6, className: 'Cleric', deity: 'D',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Domain Initiate', type: 'Class Feat', level: 2, slot: 'class:2' },
+      { name: 'Domain Initiate', type: 'Class Feat', level: 4, slot: 'class:4', choice: 'Destruction' }],
+    lores: [], equipment: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  expect(featChoiceOptions('Domain Initiate', c, entries, 'class:2', 0)).toEqual(['Fire'])
+})

@@ -2948,10 +2948,10 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Terrain Expertise') return terrainExpertiseOptions(c, index)
   if (DOMAIN_FEATS.includes(name)) {
     const domains = deityDomains(c, entries, name === 'Expanded Domain Initiate')
-    if (name === 'Domain Initiate' || name === 'Expanded Domain Initiate') {
-      const level = Math.min(c.level, c.feats[index] ? featTakenLevel(c.feats[index]) : Number(slotKey.split(':')[1]) || c.level)
+    if (!name.startsWith('Advanced') && name !== 'Advanced Domain') {
+      const sameDomainFeat = name === 'Expanded Domain Initiate' ? ['Expanded Domain Initiate'] : ['Domain Initiate', "Deity's Domain"]
       const used = new Set(c.feats.flatMap((feat, featIndex) => featIndex !== index
-        && featTakenLevel(feat) <= level && feat.name === name && feat.choice
+        && sameDomainFeat.includes(feat.name) && feat.choice
         ? [feat.choice.trim().toLowerCase()] : []))
       return domains.filter(domain => !used.has(domain.toLowerCase()))
     }
