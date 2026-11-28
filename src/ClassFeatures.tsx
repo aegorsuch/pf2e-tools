@@ -23,7 +23,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
   const precisionEdge = c.systems.includes('pf2e') && c.className === 'Ranger'
     && selectedSubclass(c, entries) === 'Precision'
   const precisionEdgeDice = precisionEdgeDamageDice(c, entries)
-  const extraBlessings = c.feats.flatMap((feat) => ['Second Blessing', 'Third Blessing'].includes(feat.name) && feat.choice ? [feat.choice] : [])
   const showArmament = c.className === 'Champion' && c.level >= 3 && championBlessings(c).includes('Blessed Armament')
   const targets = showArmament ? blessedArmamentTargets(c, entries) : []
   const target = c.blessedArmament?.weaponId ? targets.find(weapon => weapon.id === c.blessedArmament?.weaponId) : targets[0]
@@ -370,7 +369,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
           onChange={event => save({ legacyTenetsOfGood: event.target.checked })} /> Confirm legacy Tenets of Good
       </label>}
       {c.className === 'Champion' && c.level >= 3 && <div className="col">
-        {extraBlessings.length > 0 && <small>Additional blessings: {extraBlessings.join(', ')}.</small>}
         {showArmament && <>
           {targets.length > 1 ? <span>Blessed armament{' '}
             <SearchableSelect aria-label="Blessed armament" value={target?.id ?? ''} onChange={(e) => {
@@ -382,7 +380,6 @@ export function ClassFeatures({ c, entries, save }: SectionProps) {
               {[...targets].sort((a, b) => a.name.localeCompare(b.name)).map((weapon) => <option key={weapon.id} value={weapon.id}>{weapon.name}</option>)}
             </SearchableSelect>
           </span> : target ? <span>Blessed armament: {target.name}</span> : null}
-          {!targets.length && <small>Add your deity's favored weapon, or handwraps for a favored unarmed attack.</small>}
           <span>Free property rune{' '}
             <SearchableSelect aria-label="Blessed armament rune" disabled={!target} value={c.blessedArmament?.rune ?? ''}
               optionLevel={value => entries.find(entry => entry.kind === 'item' && runeName(entry.name) === runeName(value))?.level} onChange={(e) => {
