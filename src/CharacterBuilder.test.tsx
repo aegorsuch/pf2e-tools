@@ -898,6 +898,8 @@ it('renders characters with many unrelated feats without blocking editor startup
   expect(markup).toContain('<strong>Languages</strong>')
   expect(markup).toContain('1/2: Common')
   expect(markup).not.toContain('aria-label="Language slots note"')
+  const telepath = renderToStaticMarkup(<CharacterBuilder character={{ ...c, systems: ['sf2e'], ancestry: 'Lashunta' }} onClose={() => {}} />)
+  expect(telepath).toMatch(/<strong>Languages<\/strong><span>[^<]*Telepathy 30 feet/)
   const withIntelligence = renderToStaticMarkup(<CharacterBuilder character={{ ...c, abilities: { ...c.abilities, int: 12 } }} onClose={() => {}} />)
   expect(withIntelligence).toContain('aria-label="Language slots note"')
   expect(withIntelligence).toContain('+1 Intelligence')

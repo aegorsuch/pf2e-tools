@@ -99,6 +99,37 @@ it('excludes a feat-granted spell from class spell choices', () => {
   expect(cantripPicker).not.toContain('Tangle Vine')
 })
 
+it('does not reoffer a learned cantrip that is also granted by another source', () => {
+  const grant: ContentEntry = { ...baseEntry('Protect Companion Grant'), id: 'protect-companion-grant', kind: 'feat',
+    spellGrants: [{ kind: 'innate', spells: ['Protect Companion'], tradition: 'divine', frequency: 'at will', heightened: true }] }
+  const spell: ContentEntry = { ...baseEntry('Protect Companion'), kind: 'spell', traits: ['Cantrip'],
+    data: { tradition: 'Divine' } }
+  const cleric: ContentEntry = { ...baseEntry('Cleric'), data: { tradition: 'Divine' } }
+  const c: Character = { ...base, className: 'Cleric', level: 1,
+    spells: [{ name: spell.name, rank: 0, cantrip: true, entryId: spell.id }],
+    feats: [{ name: grant.name, type: 'Ancestry Feat', level: 1, sourceId: grant.id }] }
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={[grant, spell, cleric]} save={() => {}} />)
+  const cantripPicker = /<select[^>]*aria-label="Cantrip slot 1"[\s\S]*?<\/select>/.exec(html)?.[0]
+  expect(cantripPicker).toBeDefined()
+  expect(cantripPicker).not.toContain('Protect Companion')
+})
+
+it('shows duplicate same-system spell records only once in a class slot picker', () => {
+  const ray = (id: string): ContentEntry => ({ ...baseEntry('Admonishing Ray'), id, kind: 'spell', level: 1,
+    data: { tradition: 'Occult' } })
+  const bard: ContentEntry = { ...baseEntry('Bard'), data: { tradition: 'Occult' } }
+  const c: Character = { ...base, className: 'Bard', level: 1,
+    spells: [
+      { name: 'Admonishing Ray', rank: 1, cantrip: false, entryId: 'admonishing-ray-one' },
+      { name: 'Admonishing Ray', rank: 1, cantrip: false, entryId: 'admonishing-ray-two' },
+    ] }
+  const html = renderToStaticMarkup(<SpellsSection c={c}
+    entries={[ray('admonishing-ray-one'), ray('admonishing-ray-two'), bard]} save={() => {}} />)
+  const rankPicker = /<select[^>]*aria-label="Spell Rank 1 slot 1"[\s\S]*?<\/select>/.exec(html)?.[0]
+  expect(rankPicker).toBeDefined()
+  expect(rankPicker?.match(/Admonishing Ray/g)).toHaveLength(1)
+})
+
 it.each([
   ['Bard', 1, { 0: 5, 1: 2 }],
   ['Bard', 3, { 0: 5, 1: 3, 2: 2 }],

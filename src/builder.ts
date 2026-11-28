@@ -2050,11 +2050,15 @@ export function eligibleFeats(entries: ContentEntry[], c: Character, slot: Plann
   const ownedArchetype = slot.category === 'archetype' ? archetypePrerequisites(c, entries, slot.key, true) : undefined
   const candidateTraits = [...new Set([trait, ...ancestryTraits].filter((value): value is string => !!value))]
   const searchable = slot.category === 'archetype' ? archetypeFeats(entries)
+    : slot.category === 'ancestry' && candidateTraits.length === 1
+      ? [...new Map([...featsWithTrait(entries, candidateTraits[0]), ...featsWithTrait(entries, 'ancestry')]
+        .map(item => [item.entry.id, item])).values()]
     : slot.category !== 'bonus' && !classArchetype && candidateTraits.length === 1
       ? featsWithTrait(entries, candidateTraits[0]) : featIndex(entries)
   const candidates = searchable
     .filter(({ entry: e, traits }) => (!options.name || e.name === options.name)
-      && (slot.category === 'bonus' || !!trait && traits.has(trait) || ancestryTraits.some((ancestry) => traits.has(ancestry))
+      && (slot.category === 'bonus' || !!trait && traits.has(trait) || slot.category === 'ancestry' && traits.has('ancestry')
+        || ancestryTraits.some((ancestry) => traits.has(ancestry))
         || slot.category === 'archetype' && archetypesOf(e).length > 0
         || !!classArchetypeDedication && !!classArchetype && archetypesOf(e).includes(classArchetype)
           && !(classArchetype === 'Spellshot' && archetypesOf(e).includes('Wizard') && traits.has('archetype'))
@@ -5616,6 +5620,9 @@ function limitedTelepathy(c: Character, entries: ContentEntry[]) {
   const heritages = new Set([c.heritage, ...characterHeritages(c, entries).map(heritage => heritage.name)])
   let telepathy: { feet: number; source: string } | undefined
   if (testSubjectAdaptation(c) === 'Psychic Augmentation') telepathy = { feet: 30, source: 'Test-Subject Ysoki' }
+  if (!telepathy && c.augmentations?.some(augmentation => /^Telepathy Node$/i.test(augmentation.name.trim()))) {
+    telepathy = { feet: 30, source: 'Telepathy Node' }
+  }
   for (const heritage of ['Asanan Elf', 'Damai Human', 'Psychic Binnaquid']) {
     if (heritages.has(heritage)) telepathy = { feet: 30, source: heritage }
   }

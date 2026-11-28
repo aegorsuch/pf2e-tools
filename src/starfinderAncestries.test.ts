@@ -293,6 +293,18 @@ it('shows limited telepathy and increases its range for each active Distant Tele
   } finally { updateSettings({ singleDistantTelepath: previous }) }
 })
 
+it('grants limited telepathy from a Telepathy Node and satisfies Distant Telepath prerequisites', () => {
+  const c: Character = { ...base, ancestry: 'Human', augmentations: [
+    { id: 'telepathy-node', entryId: 'telepathy-node', name: 'Telepathy Node', slot: 'brain' },
+  ] }
+  const distantTelepath = mapAonHits(hits.filter(hit => hit._source?.name === 'Distant Telepath'), 'sf2e')
+  const feat = distantTelepath.find(entry => entry.traits.some(trait => trait.toLowerCase() === 'ancestry'))
+  if (!feat) throw new Error('Distant Telepath feat missing from Starfinder data')
+  expect(senses(c, entries)).toContainEqual({ value: 'Limited Telepathy 30 feet', source: 'Telepathy Node' })
+  expect(featPrerequisiteChecker(c, distantTelepath)(feat).missing).toEqual([])
+  expect(eligibleFeats(distantTelepath, c, { key: 'ancestry:1:0', category: 'ancestry', level: 1 })).toContain(feat)
+})
+
 it('grants Sensitive Antennae thoughtsense and improves its precision at level 9', () => {
   const c: Character = { ...base, ancestry: 'Lashunta', level: 5,
     feats: [{ name: 'Sensitive Antennae', type: 'Ancestry Feat', level: 5 }] }

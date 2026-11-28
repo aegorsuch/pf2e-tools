@@ -2362,7 +2362,6 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     const databaseSpells = [...(c.spells ?? []).filter(spell => !programmedNames.has(spell.name.toLowerCase())),
       ...programmedSpellEntries.map(entry => ({ name: entry.name, entryId: entry.id, rank: entry.level,
         cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }))]
-    const learnedNames = new Set(databaseSpells.map(spell => spell.name.toLowerCase()))
     const grantedDirge = new Set(necromancerGrantedDirgeSpells(c))
     const baseAvailable = [...((warriorSpells ?? bloodragerSpells ?? clericSpells ?? witchAvailable ?? druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
       rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: grantedDirge.has(entry.name) })) ?? databaseSpells
@@ -2385,8 +2384,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       .map(entry => ({ name: entry.name, entryId: entry.id, rank: entry.level,
         cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: false }))
     const available = [...availableClassSpells, ...deitySpells]
-      .filter(spell => spell.forced || preparedClass && learnedNames.has(spell.name.toLowerCase())
-        || !preventDuplicateSpells || !selectedGrantNames.has(spell.name.toLowerCase()))
+      .filter(spell => spell.forced || !preventDuplicateSpells
+        || !selectedGrantNames.has(spell.name.toLowerCase()))
       .map(spell => {
         const entry = spell.entryId ? spellIndex.byId.get(spell.entryId) : spellIndex.byName.get(spell.name)
         const baseRank = entry && Number.isInteger(entry.level) && entry.level >= 1 && entry.level <= 10
@@ -2797,6 +2796,10 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
                 slotOptions = slotOptions.filter(option => !taken.has(option.entryId ?? option.name)
                   && !taken.has(option.name))
               }
+              const selectedOptionIndex = slotOptions.findIndex(option => (option.entryId ?? option.name) === selectedValue)
+              if (selectedOptionIndex > 0) slotOptions = [slotOptions[selectedOptionIndex],
+                ...slotOptions.filter((_, optionIndex) => optionIndex !== selectedOptionIndex)]
+              slotOptions = uniqueSpellVariants(slotOptions, () => classSystem ?? '')
               let optionIndex: Map<string, typeof slotOptions[number]> | undefined
               const spellOption = (value: string) => {
                 optionIndex ??= new Map(slotOptions.map(spell => [spell.entryId ?? spell.name, spell]))
