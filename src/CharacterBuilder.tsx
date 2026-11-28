@@ -8,7 +8,7 @@ import { EntryDescription } from './EntryDescription'
 import { SearchableSelect } from './SearchableSelect'
 import { EquipmentSearch } from './EquipmentSearch'
 export { EquipmentSearch } from './EquipmentSearch'
-import { CLASS_ARCHETYPES, DEVOTED_BLESSINGS, championBlessing, championDevotionOptions, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldRaiseLabel, showParryControl, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
+import { CLASS_ARCHETYPES, DEVOTED_BLESSINGS, championBlessing, championDevotionOptions, backgroundSkills, DRUID_ORDERS, activeFeatsNamed, armorClassBreakdown, classLabel, selectedClassArchetype, selectedSubclass, subclassOptions, subclassSkillChoice, characterClassSkills, ancestryFlaws, characterAncestryLabel, computeAbilities, defenseSummary, equippedShield, featChoiceOptions, freeHeartBackground, hasCyborgHeritage, hasParryWeapon, heritagesFor, inventiveOffensiveChange, isPioneerHuman, isVersatileHeritage, languageAllowance, migrateAncestralLinguistics, ownedWeapons, parryValue, plannedSlots, rogueRackets, shieldAcBonus, shieldAlwaysRaisedSource, shieldRaised, shieldRaisedChange, shieldRaiseLabel, showParryControl, activeHomebrewDedications, homebrewDedication, orphanedArchetypeFeats, syncClassArchetypeDedication, syncOrderExplorerFeats, terrainExpertiseOptions, testSubjectAdaptation, unslottedFeats, type SectionProps } from './builder'
 import { featTakenLevel } from './featChoices'
 import { ABILITY_LABEL, WARRIOR_LEGEND_DAMAGE_TYPES, deitySanctification, boostSlots, classFeatures, deityLabel, isGrantedDwarfClanWeapon, isLockedWeapon, hasPersonalUpgradeSlot, ownedArmors, warriorLegendWeakness } from './builder'
 import { ClassFeatures } from './ClassFeatures'
@@ -87,6 +87,7 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
 }) {
   const [ready, setReady] = useState(false)
   const [deitySort, setDeitySort] = useState<'name' | 'category'>('name')
+  const [backgroundSort, setBackgroundSort] = useState<'name' | 'skill'>('name')
   const variants = useMemo<BackgroundVariant[]>(() => kind === 'background' ? backgroundVariants(options, deityLores)
     : options.map(background => ({ value: background.name, background })), [options, kind, deityLores])
   const selectedLore = backgroundLores?.[value ?? '']?.[0]
@@ -110,6 +111,16 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
       return [...groups].sort(([a], [b]) => (a === 'Other' ? 1 : b === 'Other' ? -1 : a.localeCompare(b)))
         .map(([category, names]) => <optgroup key={category} label={category}>{names.map(option)}</optgroup>)
     }
+    if (kind === 'background' && backgroundSort === 'skill') {
+      const groups = new Map<string, string[]>()
+      for (const name of [...labels.keys()].sort()) {
+        const skills = backgroundSkills(byName.get(name)).filter(skill => !/\blore$/i.test(skill))
+        const group = skills[0] ?? 'Lore'
+        groups.set(group, [...(groups.get(group) ?? []), name])
+      }
+      return [...groups].sort(([a], [b]) => a.localeCompare(b))
+        .map(([group, names]) => <optgroup key={group} label={group}>{names.map(option)}</optgroup>)
+    }
     if (kind !== 'heritage') return [...labels.keys()].sort().map(option)
     const names = [...labels.keys()].sort()
     return [false, true].map(versatile => {
@@ -118,7 +129,7 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
         {group.map(option)}
       </optgroup>
     })
-  }, [labels, ready, kind, byName, ancestry, deitySort])
+  }, [labels, ready, kind, byName, ancestry, deitySort, backgroundSort])
   const prepare = () => {
     // Populate before the browser opens its native select popup.
     if (!ready) flushSync(() => setReady(true))
@@ -129,6 +140,12 @@ function Pick({ label, kind, value, options, onChange, ancestry, terrainLore, ba
         <select aria-label="Sort deities by" value={deitySort} onChange={event => setDeitySort(event.target.value === 'category' ? 'category' : 'name')}>
           <option value="name">Alphabetical</option>
           <option value="category">Category</option>
+        </select>
+      </label>}
+      {kind === 'background' && <label>Sort by{' '}
+        <select aria-label="Sort backgrounds by" value={backgroundSort} onChange={event => setBackgroundSort(event.target.value === 'skill' ? 'skill' : 'name')}>
+          <option value="name">Alphabetical</option>
+          <option value="skill">Skill granted</option>
         </select>
       </label>}
       <SearchableSelect label={label} aria-label={label} value={selectedValue ?? ''} disabled={disabled} onPrepare={prepare} optionCount={labels.size}
