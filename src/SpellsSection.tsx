@@ -2,7 +2,7 @@ import { EntryDescription } from './EntryDescription'
 import { apparitionLimit, attunedApparitions, primaryApparition, type Apparition } from './apparitions'
 import { confirmRemoval } from './confirmRemoval'
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeBattleForm, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, investigatorMethodologies, isMagicHideActive, isSpellActive, knowsSpell, magicHideChange, proficiencyBonus, protectCompanionTarget, protectCompanionTargets, rogueRackets, signed, spellActiveChange, spellRemovalChange, untamedShiftChoices, type SectionProps } from './builder'
+import { ABILITIES, ABILITY_LABEL, abilityMod, activeAnimalFeatures, activeBattleForm, activeFeatsNamed, activeUntamedShiftEffects, boneShieldActive, boneShieldChange, canopyCrawlerAffects, canopyCrawlerTarget, championDevotionOptions, classSpellcasting, companionSpellTarget, focusSpells, investigatorMethodologies, hasSwarmkeeperSwarm, isMagicHideActive, isSpellActive, magicHideTarget, SWARM_TARGET_ID, knowsSpell, magicHideChange, proficiencyBonus, protectCompanionTarget, protectCompanionTargets, rogueRackets, signed, spellActiveChange, spellRemovalChange, untamedShiftChoices, type SectionProps } from './builder'
 import { ANIMAL_FEATURES, PERSISTENT_SPELLS } from './supplemental'
 import type { Character, ContentEntry } from './types'
 import { featTakenLevel, grantedWardenSpells, selectedFeatEntry, spellWardenLabel } from './featChoices'
@@ -1557,9 +1557,16 @@ export function automatedSpellStatusControls({ c, entries, save }: SectionProps)
         : actions && <> <ActiveSpellActions name={name} entry={entry} actions={actions}>{toggle}</ActiveSpellActions></>}
     </>
   }
+  const magicHideTargets = [...(c.companions ?? []).map(companion => ({ id: companion.id, name: companion.name || companion.type })),
+    ...(hasSwarmkeeperSwarm(c) ? [{ id: SWARM_TARGET_ID, name: 'Swarm' }] : [])]
   const controls = STATUS_TRACKED_SPELL_EFFECTS.filter(name => names.has(name)).map(name => ({ name, element: statusElement(name,
-    <input type="checkbox" aria-label={`${name} status`} checked={name === 'Magic Hide' ? isMagicHideActive(c, entries) : !!c.activeSpells?.includes(name)}
-      onChange={event => save(name === 'Magic Hide' ? magicHideChange(c, event.target.checked) : spellActiveChange(c, name, event.target.checked))} />) }))
+    <><input type="checkbox" aria-label={`${name} status`} checked={name === 'Magic Hide' ? isMagicHideActive(c, entries) : !!c.activeSpells?.includes(name)}
+      onChange={event => save(name === 'Magic Hide' ? magicHideChange(c, event.target.checked) : spellActiveChange(c, name, event.target.checked))} />
+    {name === 'Magic Hide' && magicHideTargets.length > 1 && <label>Target{' '}
+      <select aria-label="Magic Hide target" value={magicHideTarget(c) ?? ''} onChange={event => {
+        if (magicHideTargets.some(target => target.id === event.target.value)) save({ magicHideCompanionId: event.target.value })
+      }}>{magicHideTargets.map(target => <option key={target.id} value={target.id}>{target.name}</option>)}</select>
+    </label>}</>) }))
   if (names.has('Summon Animal')) {
     const specialAlly = c.systems.includes('sf2e') && ['Vesk', 'Shirren', 'Lashunta', 'Pahtra'].includes(c.ancestry ?? '')
       && data.featSpells.some(grant => grant.source === 'Creature Ally' && grant.entry.name === 'Summon Animal')

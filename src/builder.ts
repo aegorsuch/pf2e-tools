@@ -8263,8 +8263,15 @@ export function canChangeUntamedForm(c: Character, entries: ContentEntry[]) {
     && isSpellActive(c, entries, 'Untamed Form') && c.untamedForm?.originalDuration === '1 minute'
 }
 
+export const SWARM_TARGET_ID = 'swarm'
+
+export function hasSwarmkeeperSwarm(c: Character) {
+  return activeFeatsNamed(c, 'Swarmkeeper Dedication').length > 0
+}
+
 export function magicHideTarget(c: Character) {
-  return companionSpellTarget(c, c.magicHideCompanionId)
+  return c.magicHideCompanionId === SWARM_TARGET_ID && hasSwarmkeeperSwarm(c) ? SWARM_TARGET_ID
+    : companionSpellTarget(c, c.magicHideCompanionId)
 }
 
 export function companionSpellTarget(c: Character, savedId?: string) {
@@ -8276,6 +8283,8 @@ export function protectCompanionTargets(c: Character) {
   return [
     ...(c.companions ?? []).map(companion => ({ key: `companion:${companion.id}`, name: companion.name || companion.type,
       companionId: companion.id, familiar: undefined })),
+    ...(hasSwarmkeeperSwarm(c) ? [{ key: `companion:${SWARM_TARGET_ID}`, name: 'Swarm',
+      companionId: SWARM_TARGET_ID, familiar: undefined }] : []),
     ...(familiar ? [{ key: 'familiar:primary', name: c.familiar?.name || 'Familiar',
       companionId: undefined, familiar: 'primary' as const }] : []),
     ...(wasp ? [{ key: 'familiar:wasp', name: c.waspFamiliar?.name || 'Wasp Familiar',

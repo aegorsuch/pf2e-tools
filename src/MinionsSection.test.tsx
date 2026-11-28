@@ -2826,3 +2826,31 @@ it('shows the Swarmkeeper swarm card', () => {
   expect(markup).toContain('swim 20 feet')
   expect(markup).toContain('physical')
 })
+
+it('adds Swarmkeeper feat actions to the swarm card', () => {
+  const feat = (name: string, level: number) => ({ name, type: 'Archetype Feat', level, slot: `archetype:${level}:${name}` })
+  const c: Character = { id: 't', name: 'T', systems: ['pf2e'], level: 12, className: 'Rogue',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [feat('Swarmkeeper Dedication', 2), feat('Aphet Flash', 4), feat('Pyre Ant Sting', 4), feat('Sportlebore Choke', 8),
+      feat('Buzzing Death Cicadas', 12), feat("Weaver's Web", 4), feat('Distracting Bites', 6)],
+    lores: [], equipment: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const markup = renderToStaticMarkup(<MinionsContent c={c} entries={[]} save={() => {}} />)
+  expect(markup).toContain('<b>Aphet Flash</b>')
+  expect(markup).toContain('Persistent poison: 3d6 persistent poison')
+  expect(markup).toContain('Damage: 6d4 piercing')
+  expect(markup).toContain('Damage: 6d4 mental')
+  expect(markup).toContain("Weaver&#x27;s Web, Distracting Bites")
+})
+
+it('applies Magic Hide and Protect Companion to the Swarmkeeper swarm', () => {
+  const c: Character = { id: 't', name: 'T', systems: ['pf2e'], level: 8, className: 'Rogue',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    feats: [{ name: 'Swarmkeeper Dedication', type: 'Archetype Feat', level: 2, slot: 'archetype:2' }],
+    spells: [{ name: 'Magic Hide', rank: 0, cantrip: true }, { name: 'Protect Companion', rank: 0, cantrip: true }],
+    lores: [], equipment: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0 }
+  const ac = (character: Character) => /Armor Class<\/small><b>(\d+)/.exec(renderToStaticMarkup(<MinionsContent c={character} entries={[]} save={() => {}} />))?.[1]
+  const base = Number(ac(c))
+  expect(Number(ac({ ...c, activeSpells: ['Magic Hide'], magicHideCompanionId: 'swarm' }))).toBe(base + 1)
+  expect(Number(ac({ ...c, activeSpells: ['Protect Companion'], protectCompanionId: 'swarm' }))).toBe(base + 1)
+  expect(Number(ac({ ...c, activeSpells: ['Magic Hide'] }))).toBe(base)
+})

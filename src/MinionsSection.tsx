@@ -4,7 +4,7 @@ import { EntryDescription } from './EntryDescription'
 import { ADVANCED_TYPES, bardingOptions, companionItemName, beastmasterSpecializationKey, companionAdvancement, companionAdvancementFor,
   companionStats, constructCompanionAdvancement, CONSTRUCT_COMPANION_ENTRY, CONSTRUCT_COMPANION_NAME, equippedBarding,
   hasConstructInnovation, isBadgerCompanion, isCompanionEquipmentItem, minionFerocity, specializationOptions } from './companions'
-import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classDifficultyClass, maxHp, spellDifficultyClass, classSpellSlots, classSpellcasting, featTakenLevel, knowsSpell, languageAllowance, languageGroups, mechanicExocortexes, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, spellDCText, summonedMounts, technomancerFirmwareLanguages, type SectionProps, type TotalBreakdown } from './builder'
+import { ABILITY_LABEL, ABILITIES, activeFeatsNamed, armorClassBreakdown, classDifficultyClass, maxHp, spellDifficultyClass, classSpellSlots, classSpellcasting, featTakenLevel, isMagicHideActive, knowsSpell, languageAllowance, languageGroups, mechanicExocortexes, migrateAncestralLinguistics, oakenResilience, protectCompanionApplies, ranksAt, savingThrowBreakdown, signed, SWARM_TARGET_ID, spellDCText, summonedMounts, technomancerFirmwareLanguages, type SectionProps, type TotalBreakdown } from './builder'
 import { adoptedAncestryText, isCompanionAdvancement, isCompanionSpecialization, selectedFeatEntry } from './featChoices'
 import { ActiveSpellActions, CompanionSpellOptions, SpiritOfTheBeastOptions } from './SpellsSection'
 import { ActionIcon } from './ActionIcon'
@@ -257,7 +257,17 @@ function SwarmkeeperSwarm({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
   const ranks = ranksAt(c, entries)
   const base = (breakdown: TotalBreakdown) => breakdown.parts
     .filter(part => !/\((?:circumstance|status)\)/i.test(part.label)).reduce((sum, part) => sum + part.value, 0)
-  const specials = ['Swarm Forth', ...(has('Veil of Bugs') ? ['Veil of Bugs'] : []), ...(has('Carried with the Swarm') ? ['Carried with the Swarm'] : [])]
+  const specials = ['Swarm Forth', ...(has('Veil of Bugs') ? ['Veil of Bugs'] : []), ...(has('Carried with the Swarm') ? ['Carried with the Swarm'] : []),
+    ...(has("Weaver's Web") ? ["Weaver's Web"] : []), ...(has('Distracting Bites') ? ['Distracting Bites'] : [])]
+  const save = dc ? ` DC ${dc}` : ''
+  const extraAttacks = [
+    ...(has('Pyre Ant Sting') ? [{ name: 'Pyre Ant Sting', actions: 'Single Action', damage: { label: 'Persistent poison', dice: 1 + Math.floor((c.level - 4) / 4), sides: 6, type: 'persistent poison' },
+      text: `— Fortitude${save}; persistent poison, enfeebled 1 on a critical failure` }] : []),
+    ...(has('Sportlebore Choke') ? [{ name: 'Sportlebore Choke', actions: 'Single Action', damage: { label: 'Damage', dice: 4 + Math.max(0, Math.floor((c.level - 8) / 2)), sides: 4, type: 'piercing' },
+      text: `— basic Fortitude${save}; sickened 1 (2 on a critical failure); immune for 1 hour` }] : []),
+    ...(has('Buzzing Death Cicadas') ? [{ name: 'Death Drone', actions: 'Single Action', damage: { label: 'Damage', dice: 6, sides: 4, type: 'mental' },
+      text: `— basic Will${save}; frightened 1 on a failure (2 on a critical failure)` }] : []),
+  ]
   return <details className="character-subsection" data-minion-name="Swarm" open>
     <summary><h4>Swarm</h4></summary>
     <div className="gear-traits"><span>{has('Expanded Swarm') ? 'Large or Huge' : 'Large'}</span><span>Swarm</span></div>
@@ -265,11 +275,17 @@ function SwarmkeeperSwarm({ c, entries }: Pick<SectionProps, 'c' | 'entries'>) {
       <div className="companion-action"><div className="companion-action-title">
         <DamageRoll name="Swarm Bite and Sting" damage={{ label: 'Bite and Sting', dice, sides: 4, type: 'piercing' }} actions="Single Action" toggleResult />
         <b>Bite and Sting</b><span>— {dice}d4 piercing, basic Reflex{dc ? ` DC ${dc}` : ''}</span></div></div>
+      {has('Aphet Flash') && <div className="companion-action"><div className="companion-action-title">
+        <b>Aphet Flash</b><span>— Fortitude{save}; dazzled 1 round (2 on a critical failure); once per round</span></div></div>}
+      {extraAttacks.map(attack => <div key={attack.name} className="companion-action"><div className="companion-action-title">
+        <DamageRoll name={attack.name} damage={attack.damage} actions={attack.actions} toggleResult />
+        <b>{attack.name}</b><span>{attack.text}</span></div></div>)}
     </section>
     <section className="companion-actions"><h5>Defenses</h5>
       <div className="gear-stats">
         <span><small>Hit Points</small><b>{maxHp(c, entries)}</b></span>
-        <span><small>Armor Class</small><b>{base(armorClassBreakdown(c, entries))}</b></span>
+        <span><small>Armor Class</small><b>{base(armorClassBreakdown(c, entries)) + (isMagicHideActive(c, entries, SWARM_TARGET_ID) ? 1 : 0)
+          + (protectCompanionApplies(c, entries, { companionId: SWARM_TARGET_ID }) ? 1 : 0)}</b></span>
         <span><small>Fortitude</small>{signed(base(savingThrowBreakdown(c, entries, 'Fortitude', ranks)))}</span>
         <span><small>Reflex</small>{signed(base(savingThrowBreakdown(c, entries, 'Reflex', ranks)))}</span>
         <span><small>Will</small>{signed(base(savingThrowBreakdown(c, entries, 'Will', ranks)))}</span>
