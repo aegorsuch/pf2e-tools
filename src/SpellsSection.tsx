@@ -1981,6 +1981,15 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
     }
     return { spells, byId, byName }
   }, [entries, systemsKey])
+  const classSystem = useMemo(() => {
+    const classEntry = entries.find(entry => entry.kind === 'class' && entry.name === c.className && !entry.deleted)
+    return classEntry?.systems.find(system => c.systems.includes(system))
+      ?? (c.systems.includes('pf2e') ? 'pf2e' : c.systems[0])
+  }, [entries, c.className, c.systems])
+  const classSpellEntries = useMemo(() => spellIndex.spells.filter(entry =>
+    !classSystem || entry.systems.includes(classSystem)), [spellIndex, classSystem])
+  const classSpellByName = useMemo(() => new Map(classSpellEntries.map(entry => [entry.name.toLowerCase(), entry])),
+    [classSpellEntries])
   const spellEntry = (name: string, id?: string) => id ? spellIndex.byId.get(id) : spellIndex.byName.get(name)
   const arcaneBookOptions = useMemo(() => bookOpen && bookSource !== 'Dirge' && bookSource !== 'Witch' ? uniqueSpellVariants(
     arcaneSpellbookOptions(c, spellIndex.spells, bookRank, bookSource === 'Technomancer' ? 'sf2e' : 'pf2e'),
@@ -2344,9 +2353,9 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
       const entry = extra.spell ? spellIndex.byName.get(extra.spell) : undefined
       return entry ? [{ name: entry.name, entryId: entry.id, rank: entry.level, cantrip: false, forced: true }] : []
     }) : []
-    const bloodragerSpells = bloodrager ? spellIndex.spells.filter(entry => spellAccessGranted(c, entry)) : undefined
+    const bloodragerSpells = bloodrager ? classSpellEntries.filter(entry => spellAccessGranted(c, entry)) : undefined
     const warriorSpells = warrior ? featSpellOptions(c, entries, warrior) : undefined
-    const clericSpells = avengerCleric ? spellIndex.spells.filter(entry => spellAccessGranted(c, entry)
+    const clericSpells = avengerCleric ? classSpellEntries.filter(entry => spellAccessGranted(c, entry)
       && !entry.traits.some(trait => trait.toLowerCase() === 'focus')
       && String(entry.data.tradition ?? '').split(',').some(tradition => tradition.trim().toLowerCase() === 'divine')) : undefined
     const programmedNames = new Set(programmedSpellEntries.map(entry => entry.name.toLowerCase()))
@@ -2355,9 +2364,27 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip') }))]
     const learnedNames = new Set(databaseSpells.map(spell => spell.name.toLowerCase()))
     const grantedDirge = new Set(necromancerGrantedDirgeSpells(c))
-    const available = [...((warriorSpells ?? bloodragerSpells ?? clericSpells ?? witchAvailable ?? druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
+    const baseAvailable = [...((warriorSpells ?? bloodragerSpells ?? clericSpells ?? witchAvailable ?? druidAvailable ?? dirge)?.map(entry => ({ name: entry.name, entryId: entry.id,
       rank: entry.level, cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: grantedDirge.has(entry.name) })) ?? databaseSpells
       .filter(spell => !forced.some(extra => extra.name === spell.name)).map(spell => ({ ...spell, forced: false }))), ...forced]
+    const availableClassSpells = baseAvailable.flatMap(spell => {
+      const entry = spell.entryId ? spellIndex.byId.get(spell.entryId) : classSpellByName.get(spell.name.toLowerCase())
+      if (classSystem && entry && !entry.systems.includes(classSystem)) return []
+      return [entry && !spell.entryId ? { ...spell, entryId: entry.id } : spell]
+    })
+    const deitySpellNames = new Set<string>()
+    if (classSystem === 'pf2e' && c.deity?.trim().toLowerCase() === 'calistria' && selectedTradition.toLowerCase() === 'divine') {
+      const calistriaSpells = new Set(['gouging claw', 'puff of poison'])
+      for (const entry of classSpellEntries) {
+        if (calistriaSpells.has(entry.name.toLowerCase()) && spellAccessGranted(c, entry)) deitySpellNames.add(entry.name.toLowerCase())
+      }
+    }
+    const availableNames = new Set(availableClassSpells.map(spell => spell.name.toLowerCase()))
+    const deitySpells = classSpellEntries.filter(entry => deitySpellNames.has(entry.name.toLowerCase())
+      && !availableNames.has(entry.name.toLowerCase()))
+      .map(entry => ({ name: entry.name, entryId: entry.id, rank: entry.level,
+        cantrip: entry.traits.some(trait => trait.toLowerCase() === 'cantrip'), forced: false }))
+    const available = [...availableClassSpells, ...deitySpells]
       .filter(spell => spell.forced || preparedClass && learnedNames.has(spell.name.toLowerCase())
         || !preventDuplicateSpells || !selectedGrantNames.has(spell.name.toLowerCase()))
       .map(spell => {
@@ -2373,6 +2400,7 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         const entry = spell.entryId ? spellIndex.byId.get(spell.entryId) : spellIndex.byName.get(spell.name)
         const traditions = String(entry?.data.tradition ?? '').toLowerCase().split(/,\s*/)
         return preparedClass || spell.forced || !selectedTradition || !entry || traditions.includes(selectedTradition.toLowerCase())
+          || deitySpellNames.has(spell.name.toLowerCase())
       })
       .sort((a, b) => (rank === 0 ? 0 : b.baseRank - a.baseRank)
         || a.name.localeCompare(b.name) || (a.entryId ?? '').localeCompare(b.entryId ?? ''))
@@ -2381,7 +2409,8 @@ export function SpellsContent({ c, entries, save, data }: SectionProps & { data?
         return [...entry?.systems ?? []].sort().join(',')
       }) : options }
     })
-  }, [druidAvailable, witchAvailable, dirge, c, entries, warrior, preparedClass, selectedTradition, spellIndex, bard,
+  }, [druidAvailable, witchAvailable, dirge, c, entries, warrior, preparedClass, selectedTradition, spellIndex,
+    classSpellEntries, classSpellByName, classSystem, bard,
     bloodrager, avengerCleric, programmedSpellEntries, selectedGrantNames, preventDuplicateSpells])
   const manualCacheSlots = automaticSlots === undefined
     ? extraSlots.filter(extra => extra.source === 'Cache Caster') : []

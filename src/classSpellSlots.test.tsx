@@ -418,6 +418,57 @@ it('adds Cleric Divine Font slots at the highest spell rank, restricted to Heal 
   expect(classSpellSlots({ ...c, level: 15 })?.[8]).toBe(8)
 })
 
+it('adds Gouging Claw and Puff of Poison to Calistria Divine spell options only', () => {
+  const cantrip = (name: string): ContentEntry => ({
+    ...baseEntry(name), id: name, kind: 'spell', level: 1, traits: ['Cantrip'],
+    data: { tradition: 'Arcane, Primal' },
+  })
+  const entries = [
+    { ...baseEntry('Cleric'), data: { tradition: 'Divine', attribute: 'Wisdom' } },
+    cantrip('Gouging Claw'),
+    cantrip('Puff of Poison'),
+  ]
+  const picker = (deity: string) => {
+    const c: Character = { ...base, className: 'Cleric', deity, level: 1 }
+    return /<select[^>]*aria-label="Cantrip slot 1"[\s\S]*?<\/select>/
+      .exec(renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />))?.[0] ?? ''
+  }
+  const calistria = picker('Calistria')
+  expect(calistria).toContain('Gouging Claw')
+  expect(calistria).toContain('Puff of Poison')
+  expect(picker('Erastil')).not.toContain('Gouging Claw')
+  expect(picker('Erastil')).not.toContain('Puff of Poison')
+})
+
+it('uses PF2e spell variants for Rogue Cleric Dedication slots, including Loaner Spell', () => {
+  const pf2eVoidWarp: ContentEntry = {
+    ...baseEntry('Void Warp'), id: 'void-warp-pf2e', kind: 'spell', level: 1, traits: ['Cantrip'],
+    data: { tradition: 'Divine' },
+  }
+  const sf2eVoidWarp: ContentEntry = {
+    ...pf2eVoidWarp, id: 'void-warp-sf2e', systems: ['sf2e'] as ContentEntry['systems'],
+  }
+  const c: Character = { ...base, className: 'Rogue', systems: ['pf2e', 'sf2e'], level: 10,
+    feats: [
+      { name: 'Cleric Dedication', type: 'Archetype Feat', level: 2 },
+      { name: 'Basic Cleric Spellcasting', type: 'Archetype Feat', level: 4 },
+      { name: 'Loaner Spell', type: 'Class Feat', level: 8 },
+    ],
+    spells: [
+      { name: 'Void Warp', rank: 1, cantrip: true, entryId: pf2eVoidWarp.id },
+      { name: 'Void Warp', rank: 1, cantrip: true, entryId: sf2eVoidWarp.id },
+    ] }
+  const entries: ContentEntry[] = [
+    { ...baseEntry('Rogue'), systems: ['pf2e'] as ContentEntry['systems'] }, pf2eVoidWarp, sf2eVoidWarp,
+  ]
+  const html = renderToStaticMarkup(<SpellsSection c={c} entries={entries} save={() => {}} />)
+  const cantripPicker = /<select[^>]*aria-label="Cantrip slot 1"[\s\S]*?<\/select>/.exec(html)?.[0] ?? ''
+  expect(cantripPicker).toContain('value="void-warp-pf2e"')
+  expect(cantripPicker).not.toContain('value="void-warp-sf2e"')
+  expect(html).toContain('aria-label="Spell Rank 3 slot 2"')
+  expect(html).not.toContain('aria-label="Loaner Spell"')
+})
+
 it('keeps flexible prepared casting on manual slot settings', () => {
   const c: Character = { ...base, className: 'Wizard', level: 2,
     feats: [{ name: 'Flexible Spellcaster Dedication', type: 'Class Feat', level: 2 }] }
