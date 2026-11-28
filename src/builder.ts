@@ -2364,7 +2364,7 @@ function eldritchTricksterDedications(entries: ContentEntry[]) {
 export function rogueRackets(c: Character, entries: ContentEntry[]) {
   if (c.className !== 'Rogue') return []
   const primary = selectedSubclass(c, entries)
-  const taken = [primary, ...activeFeatsNamed(c, 'Versatile Rogue').map(feat => feat.choice)]
+  const taken = [primary, ...activeFeatsNamed(c, 'Versatile Rogue').map(feat => feat.choice).filter(name => name !== 'Avenger')]
   return [...new Set(taken.filter((name): name is string => !!name && ROGUE_RACKETS.some(racket => racket === name)))]
 }
 
@@ -2908,7 +2908,7 @@ export function featChoiceOptions(name: string, c: Character, entries: ContentEn
   if (name === 'Versatile Rogue') {
     const used = new Set([selectedSubclass(c, entries), ...c.feats.flatMap((feat, i) =>
       i !== index && feat.name === name && featTakenLevel(feat) <= c.level && feat.choice ? [feat.choice] : [])])
-    return ROGUE_RACKETS.filter(racket => !used.has(racket)
+    return ROGUE_RACKETS.filter(racket => racket !== 'Avenger' && !used.has(racket)
       && (racket !== 'Eldritch Trickster' || eldritchTricksterDedications(entries).size > 0)).sort((a, b) => a.localeCompare(b))
   }
   if (name === 'Versatile Investigator') {

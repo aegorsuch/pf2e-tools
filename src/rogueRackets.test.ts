@@ -89,14 +89,14 @@ it('offers a different repeatable racket and its benefits without an extra skill
   const versatile = { name: 'Versatile Rogue', type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Ruffian' }
   const c: Character = { ...base, feats: [versatile] }
   expect(homebrewCharacterOptions([]).find(entry => entry.name === versatile.name)?.data.repeatable).toBe(true)
-  expect(featChoiceOptions(versatile.name, c, [rogue], 'class:10:0')).toEqual(['Avenger', 'Mastermind', 'Ruffian', 'Scoundrel'])
+  expect(featChoiceOptions(versatile.name, c, [rogue], 'class:10:0')).toEqual(['Mastermind', 'Ruffian', 'Scoundrel'])
   expect(ranksAt(c, [rogue]).Intimidation).toBe(1)
   expect(armorRanks(c, [rogue]).Medium).toBe(2)
   expect(plannedSlots(c).filter(slot => slot.category === 'skill').map(slot => slot.level))
     .toEqual(Array.from({ length: c.level }, (_, index) => index + 1))
   expect(plannedSlots(c).some(slot => slot.grantedBy === 'Versatile Rogue')).toBe(false)
   expect(featChoiceOptions(versatile.name, { ...c, feats: [versatile, { ...versatile, slot: 'class:12:0', choice: 'Scoundrel' }] },
-    [rogue], 'class:12:0')).toEqual(['Avenger', 'Mastermind', 'Scoundrel'])
+    [rogue], 'class:12:0')).toEqual(['Mastermind', 'Scoundrel'])
   const duplicates = { ...base, level: 20, feats: [
     { ...versatile, choice: 'Thief' }, { ...versatile, slot: 'class:12:0' }, { ...versatile, slot: 'class:14:0' },
   ] }
@@ -107,12 +107,11 @@ it('grants Avenger divine skill, medium armor and deity-favored weapon proficien
   const deity: ContentEntry = { ...rogue, id: 'deity', kind: 'deity', name: 'Deity',
     data: { skill: 'Religion', favored_weapon: 'Sawtooth Saber' } }
   const saber: ContentEntry = { ...dagger, name: 'Sawtooth Saber', data: { ...dagger.data, weapon_category: 'Advanced' } }
-  const c: Character = { ...base, deity: deity.name, feats: [{ name: 'Versatile Rogue', type: 'Class Feat', level: 10,
-    slot: 'class:10:0', choice: 'Avenger' }] }
+  const c: Character = { ...base, subclass: 'Avenger', deity: deity.name, feats: [] }
   expect(ranksAt(c, [rogue, deity]).Religion).toBe(1)
   expect(armorRanks(c, [rogue]).Medium).toBe(2)
   expect(weaponAttack(c, [rogue, deity, saber], { id: 'saber', name: saber.name, potency: 0, striking: 0, runes: [] }).rank).toBe(2)
-  expect(weaponAttack({ ...c, level: 9 }, [rogue, deity, saber], { id: 'saber', name: saber.name, potency: 0, striking: 0, runes: [] }).rank).toBe(0)
+  expect(weaponAttack({ ...c, level: 9 }, [rogue, deity, saber], { id: 'saber', name: saber.name, potency: 0, striking: 0, runes: [] }).rank).toBe(2)
   const withWeapon = { ...c, weapons: [{ id: 'saber', name: saber.name, potency: 0, striking: 0, runes: [] }] }
   const markup = renderToStaticMarkup(createElement(WeaponList, { c: withWeapon, entries: [rogue, deity, saber], save: () => {}, displayOnly: true }))
   expect(markup).not.toContain('sneak attack applies to your prey')
@@ -167,7 +166,7 @@ it('trains Intimidation, Religion, and Stealth from the Avenger racket', () => {
   expect(ranksAt(avenger, [rogue])).toMatchObject({ Intimidation: 1, Religion: 1, Stealth: 1 })
 })
 
-it('auto-scales the Avenger deity skill for primary and additional rackets', () => {
+it('auto-scales the Avenger deity skill and rejects Avenger as a versatile racket', () => {
   const deity: ContentEntry = { ...rogue, id: 'deity', kind: 'deity', name: 'Deity', data: { skill: 'Arcana' } }
   const settings = getSettings()
   try {
@@ -177,12 +176,10 @@ it('auto-scales the Avenger deity skill for primary and additional rackets', () 
     }
     const c: Character = { ...base, level: 15, deity: deity.name, feats: [{ name: 'Versatile Rogue',
       type: 'Class Feat', level: 10, slot: 'class:10:0', choice: 'Avenger' }] }
-    expect(ranksAt(c, [rogue, deity], 10).Arcana).toBeUndefined()
-    expect(ranksAt(c, [rogue, deity], 11).Arcana).toBe(3)
-    expect(ranksAt(c, [rogue, deity]).Arcana).toBe(4)
-    expect(ranksAt({ ...c, deity: undefined }, [rogue, deity]).Arcana).toBeUndefined()
+    expect(featChoiceOptions('Versatile Rogue', c, [rogue, deity], 'class:10:0')).not.toContain('Avenger')
+    expect(ranksAt(c, [rogue, deity]).Arcana).toBeUndefined()
     updateSettings({ autoClassSkills: false })
-    expect(ranksAt(c, [rogue, deity]).Arcana).toBe(1)
+    expect(ranksAt(c, [rogue, deity]).Arcana).toBeUndefined()
   } finally { updateSettings(settings) }
 })
 
@@ -215,7 +212,7 @@ it('offers Eldritch Trickster with its spellcasting multiclass dedication slot',
   const entries = [rogue, wizard, fighter, ...casting]
   expect(featChoiceOptions('Versatile Rogue', base, entries, 'class:10:0')).toContain('Eldritch Trickster')
   expect(featChoiceOptions('Versatile Rogue', base, entries, 'class:10:0'))
-    .toEqual(['Avenger', 'Eldritch Trickster', 'Mastermind', 'Ruffian', 'Scoundrel'])
+    .toEqual(['Eldritch Trickster', 'Mastermind', 'Ruffian', 'Scoundrel'])
   const c: Character = { ...base, feats: [{ name: 'Versatile Rogue', type: 'Class Feat', level: 10,
     slot: 'class:10:0', choice: 'Eldritch Trickster' }] }
   const slot = plannedSlots(c).find(candidate => candidate.grantedBy === 'Eldritch Trickster')!
