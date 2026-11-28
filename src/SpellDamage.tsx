@@ -43,6 +43,12 @@ export function spellDamage(name: string, rank: number, spellcastingModifier?: n
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 6, type: 'bludgeoning' }] : []
     case 'Snowball':
       return rank >= 1 ? [{ label: 'Damage', dice: 2 * rank, sides: 4, type: 'cold' }] : []
+    case 'Chilling Darkness': {
+      if (rank < 3) return []
+      const dice = 5 + 2 * (rank - 3)
+      return [{ label: 'Damage', dice, sides: 6, type: 'cold',
+        additional: { label: 'Extra damage against holy creatures', dice, sides: 6, type: 'spirit' } }]
+    }
     case 'Magnetic Acceleration':
       return rank >= 3 ? [{ label: 'Damage', dice: rank, sides: 6, type: 'bludgeoning',
         components: [{ dice: rank, sides: 6, type: 'piercing' }] }] : []

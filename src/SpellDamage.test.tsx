@@ -108,6 +108,24 @@ it('rolls Silver Spear piercing and conditional spirit damage at heightened rank
   }
 })
 
+it('rolls Chilling Darkness cold damage and conditional spirit damage at heightened ranks', () => {
+  const entry: ContentEntry = { id: 'chilling-darkness', name: 'Chilling Darkness', systems: ['pf2e'], kind: 'spell',
+    source: 'official', level: 3, traits: ['Attack', 'Cold', 'Darkness', 'Unholy'], description: '',
+    data: { actions: 'Two Actions' }, effects: [], updatedAt: 1 }
+  expect(spellDamage(entry.name, 2)).toEqual([])
+  vi.spyOn(Math, 'random').mockReturnValue(0)
+  for (const [rank, dice] of [[3, 5], [4, 7], [5, 9], [10, 19]]) {
+    const [damage] = spellDamage(entry.name, rank)
+    expect(damage).toEqual({ label: 'Damage', dice, sides: 6, type: 'cold',
+      additional: { label: 'Extra damage against holy creatures', dice, sides: 6, type: 'spirit' } })
+    expect(rollSpellDamage(damage)).toBe(dice)
+    expect(rollSpellDamage({ label: 'Damage', ...damage.additional })).toBe(dice)
+    const markup = renderToStaticMarkup(<SpellActions name={entry.name} rank={rank} entry={entry} />)
+    expect(markup).toContain(`Damage: ${dice}d6 cold; Extra damage against holy creatures: ${dice}d6 spirit`)
+    expect(markup).toContain('aria-label="Roll Chilling Darkness: Damage and Extra damage against holy creatures"')
+  }
+})
+
 it('rolls Rend Magic initial and spellcasting-triggered damage separately at heightened ranks', () => {
   expect(spellDamage('Rend Magic', 2)).toEqual([])
   vi.spyOn(Math, 'random').mockReturnValue(0)
