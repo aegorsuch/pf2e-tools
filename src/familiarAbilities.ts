@@ -22,6 +22,10 @@ export function aquaticPetFamiliar(c: Character) {
   return getSettings().aquaticPetFamiliar && activeFeatsNamed(c, 'Friend of the Sea').length > 0
 }
 
+export function combineWaspAndAquaticFamiliar(c: Character) {
+  return getSettings().combineWaspAndAquaticFamiliar && familiarSelection(c).wasp && aquaticPetFamiliar(c)
+}
+
 export function familiarSelection(c: Character) {
   const leshyGrant = activeFeatsNamed(c, 'Leshy Familiar').length > 0
   const undeadGrant = activeFeatsNamed(c, 'Undead Familiar').length > 0
@@ -130,6 +134,17 @@ export function activeFamiliarAbilities(c: Character, entries: ContentEntry[]) {
   const aquatic = aquaticPetFamiliar(c)
   const aquaticChoices = aquatic ? (c.pet?.abilities ?? []).filter(name => !!name && !['darkvision', 'tough'].includes(key(name))).slice(0, 2) : []
   const catalog = familiarAbilityEntries(entries, c)
+  if (combineWaspAndAquaticFamiliar(c)) {
+    const waspLimit = familiarAbilitySlots(c, entries, true).selectableAbilityLimit
+    const choices = [...(c.waspFamiliar?.abilities ?? []).slice(0, waspLimit), ...aquaticChoices]
+    const grants = ['Darkvision', 'Tough', 'Burrower', 'Flier']
+    return [...choices.flatMap((name, index) => {
+      const entry = familiarAbilityEntry(name, catalog, c)
+      if (!entry || /^specific familiar\b/i.test(String(entry.data.ability_type ?? ''))) return []
+      const others = [...grants, ...choices.filter((_, otherIndex) => otherIndex !== index)]
+      return familiarAbilityUnavailableReason(entry, c, others, state.undeadFamiliar, entries, choices.slice(0, index)) ? [] : [entry.name]
+    }), ...grants]
+  }
   const aquaticAbilities = aquaticChoices.flatMap((name, index) => {
     const entry = familiarAbilityEntry(name, catalog, c)
     if (!entry || /^specific familiar\b/i.test(String(entry.data.ability_type ?? ''))) return []

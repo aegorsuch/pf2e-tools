@@ -1,6 +1,7 @@
 import { expect, it, onTestFinished } from 'vitest'
 import { activeFamiliarAbilities, familiarAbilityCapacity, familiarAbilityEffects, familiarAbilityEntries, familiarMedicRank,
-  familiarAbilityUnavailableReason, familiarSelection, familiarSpellBenefits, specificFamiliarGrants, specificFamiliarOptions, specificFamiliarSections } from './familiarAbilities'
+  familiarAbilityUnavailableReason, familiarSelection, familiarSpellBenefits, specificFamiliarGrants, specificFamiliarOptions,
+  specificFamiliarSections, combineWaspAndAquaticFamiliar } from './familiarAbilities'
 import { featChoiceOptions } from './builder'
 import { getSettings, updateSettings } from './settings'
 import type { Character, ContentEntry } from './types'
@@ -118,6 +119,26 @@ it('applies aquatic familiar master abilities independently of the primary famil
   expect(familiarSpellBenefits(c, entries, { 0: 5, 1: 2, 4: 1 })).toEqual({ cantrip: true, batteryRank: 1 })
   updateSettings({ aquaticPetFamiliar: false })
   expect(familiarSpellBenefits(c, entries, { 0: 5, 1: 2, 4: 1 })).toEqual({ cantrip: false, batteryRank: undefined })
+})
+
+it('combines Calistria’s wasp and aquatic familiar abilities when enabled', () => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ aquaticPetFamiliar: true, combineWaspAndAquaticFamiliar: true })
+  const c: Character = { ...character, deity: 'Calistria',
+    feats: [
+      { name: 'Friend of the Sea', type: 'Class Feat', level: 1 },
+      { name: 'Enhanced Familiar', type: 'Class Feat', level: 4 },
+    ],
+    divineIntercessions: { Calistria: ['moderate-boon'] },
+    waspFamiliar: { abilities: ['Resistance'] }, pet: { abilities: ['Darkvision', 'Tough', 'Climber'] } }
+  const entries = [ability('Resistance', ''), ability('Climber', '')]
+  expect(combineWaspAndAquaticFamiliar(c)).toBe(true)
+  expect(activeFamiliarAbilities(c, entries)).toEqual([
+    'Resistance', 'Climber', 'Darkvision', 'Tough', 'Burrower', 'Flier',
+  ])
+  updateSettings({ combineWaspAndAquaticFamiliar: false })
+  expect(combineWaspAndAquaticFamiliar(c)).toBe(false)
 })
 
 it('recognizes Animist Spirit Familiar and offers only the Spirit specific familiar', () => {

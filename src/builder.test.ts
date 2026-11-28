@@ -8,7 +8,7 @@ import { characterHeritages } from './heritages'
 import { automaticFeatChoiceKey, coreAttunementOptions, grantedFeatSpells } from './featSpells'
 import { apexSkillBonus, shieldStats, activeHomebrewDedications, homebrewDedication, hitPointBonuses, terrainExpertiseBenefits, terrainExpertiseOptions, normalizeGrantedSkillSpending } from './builder'
 import { characterClassSkills, classExtraSlots, classRepertoireRows, classSpellSlots, classSpellcasting, wizardSchoolBookSpells } from './builder'
-import { fastHealing, hasRemainingFeatSelections, protectCompanionTargets } from './builder'
+import { fastHealing, hasRemainingFeatSelections, protectCompanionTarget, protectCompanionTargets } from './builder'
 import { homebrewCharacterOptions } from './supplemental'
 import { maxEtchedRunes, runicRepertoireSize } from './runesmithRunes'
 import { STARFINDER_SUBCLASSES } from './starfinderSubclasses'
@@ -795,6 +795,25 @@ it('offers the aquatic familiar as a separate Protect Companion target only whil
   ]))
   updateSettings({ aquaticPetFamiliar: false })
   expect(protectCompanionTargets(c).some(target => target.familiar === 'aquatic')).toBe(false)
+})
+
+it('uses one Protect Companion target for combined familiars and migrates saved wasp targeting', () => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ aquaticPetFamiliar: true, combineWaspAndAquaticFamiliar: true })
+  const c: Character = { ...base, deity: 'Calistria', feats: [
+    { name: 'Friend of the Sea', type: 'Class Feat', level: 1 },
+  ], divineIntercessions: { Calistria: ['moderate-boon'] },
+  waspFamiliar: { name: 'Wasp' }, pet: { name: 'Fish' }, protectCompanionFamiliar: 'wasp' }
+  expect(protectCompanionTargets(c)).toEqual([
+    expect.objectContaining({ familiar: 'aquatic', name: 'Wasp' }),
+  ])
+  expect(protectCompanionTarget(c)).toMatchObject({ familiar: 'aquatic', name: 'Wasp' })
+  updateSettings({ combineWaspAndAquaticFamiliar: false })
+  expect(protectCompanionTargets(c)).toEqual(expect.arrayContaining([
+    expect.objectContaining({ familiar: 'wasp', name: 'Wasp' }),
+    expect.objectContaining({ familiar: 'aquatic', name: 'Fish' }),
+  ]))
 })
 
 it('grants Pet only once from Friend of the Sea whether or not its catalog grant is present', () => {

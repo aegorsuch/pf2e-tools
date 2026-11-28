@@ -1001,7 +1001,10 @@ it('alphabetizes chosen Pet abilities with non-removable Friend of the Sea grant
   const c: Character = {
     id: 'minions', systems: ['pf2e'], name: 'Test', level: 8, className: 'Druid',
     abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-    feats: [{ name: 'Friend of the Sea', type: 'Class Feat', level: 1 }],
+    feats: [
+      { name: 'Friend of the Sea', type: 'Class Feat', level: 1 },
+      { name: 'Enhanced Familiar', type: 'Class Feat', level: 4 },
+    ],
     equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
     pet: { abilities: ['Fast Movement', 'Amphibious', 'Darkvision', 'Tough'] },
   }
@@ -1057,6 +1060,48 @@ it('treats the aquatic pet as an independent familiar while preserving legacy ab
   expect(c.pet?.name).toBe('Fish')
   updateSettings({ aquaticPetFamiliar: false })
   expect(renderToStaticMarkup(tree())).toContain('aria-label="Remove Pet ability')
+})
+
+it('combines Calistria’s wasp and aquatic pet into one familiar with shared ability slots', () => {
+  const previous = getSettings()
+  onTestFinished(() => updateSettings(previous))
+  updateSettings({ aquaticPetFamiliar: true, combineWaspAndAquaticFamiliar: true })
+  let c: Character = {
+    id: 'combined-familiar', systems: ['pf2e'], name: 'Test', level: 8, deity: 'Calistria',
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 18, cha: 10 },
+    feats: [
+      { name: 'Friend of the Sea', type: 'Class Feat', level: 1 },
+      { name: 'Enhanced Familiar', type: 'Class Feat', level: 4 },
+    ],
+    equipment: [], lores: [], languages: [], entryIds: [], extraSlots: [], updatedAt: 0,
+    divineIntercessions: { Calistria: ['moderate-boon'] },
+    waspFamiliar: { abilities: ['Resistance'] },
+    pet: { name: 'Fish', abilities: ['Darkvision', 'Tough', 'Climber'] },
+  }
+  const tree = () => MinionsContent({ c, entries: familiarEntries, save: patch => { c = { ...c, ...patch } } })
+  let html = renderToStaticMarkup(tree())
+  expect(html).toContain('<h4>Combined Familiar</h4> (2/6)')
+  expect(html).not.toContain('<h4>Wasp Familiar</h4>')
+  expect(html).not.toContain('<h4>Aquatic Pet</h4>')
+  expect(html).toContain('aria-label="Burrower: Burrower"')
+  expect(html).toContain('aria-label="Flier: Flier"')
+  findSelect(tree(), 'Combined familiar ability')!({ target: { value: 'familiar:Fast Movement' } })
+  expect(c.waspFamiliar?.abilities).toEqual(['Resistance', 'Fast Movement'])
+  findSelect(tree(), 'Combined familiar ability')!({ target: { value: 'familiar:Echolocation' } })
+  expect(c.waspFamiliar?.abilities).toEqual(['Resistance', 'Fast Movement', 'Echolocation'])
+  findSelect(tree(), 'Combined familiar ability')!({ target: { value: 'familiar:Scent' } })
+  expect(c.waspFamiliar?.abilities).toEqual(['Resistance', 'Fast Movement', 'Echolocation', 'Scent'])
+  findSelect(tree(), 'Combined familiar ability')!({ target: { value: 'familiar:Amphibious' } })
+  html = renderToStaticMarkup(tree())
+  expect(c.pet?.abilities).toEqual(['Darkvision', 'Tough', 'Climber', 'Amphibious'])
+  expect(html).toContain('<h4>Combined Familiar</h4> (6/6)')
+
+  updateSettings({ combineWaspAndAquaticFamiliar: false })
+  html = renderToStaticMarkup(tree())
+  expect(html).toContain('<h4>Wasp Familiar</h4>')
+  expect(html).toContain('<h4>Aquatic Pet</h4>')
+  expect(c.waspFamiliar?.abilities).toEqual(['Resistance', 'Fast Movement', 'Echolocation', 'Scent'])
+  expect(c.pet?.abilities).toEqual(['Darkvision', 'Tough', 'Climber', 'Amphibious'])
 })
 
 it.each(['Pet', 'Familiar'])('shows %s defenses without the owner’s status penalties', name => {

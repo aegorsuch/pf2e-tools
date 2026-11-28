@@ -107,6 +107,7 @@ export interface Settings {
   protectCompanionAll: boolean
   familiarFastMovementAllSpeeds: boolean
   aquaticPetFamiliar: boolean
+  combineWaspAndAquaticFamiliar: boolean
 }
 
 const KEY = 'app-settings'
@@ -134,6 +135,7 @@ const DEFAULTS: Settings = {
   staffAcrobatNoPrerequisites: true, whirlwindStanceNoPrerequisites: true, unarmedCountsAsWeapons: true,
   barbarianIgnoreAgile: true, barbarianWarJavelinAccess: true, warmaskScaling: true, cyborgTestSubject: true,
   singleAnimalCompanion: true, protectCompanionAll: true, familiarFastMovementAllSpeeds: true, aquaticPetFamiliar: true,
+  combineWaspAndAquaticFamiliar: true,
 }
 
 const settingKeys = Object.keys(DEFAULTS) as (keyof Settings)[]

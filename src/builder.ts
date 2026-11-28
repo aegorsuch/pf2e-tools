@@ -30,7 +30,7 @@ import { MYSTIC_CONNECTIONS } from './mystic'
 import { STARFINDER_MYSTIC_TRADITIONS, STARFINDER_SUBCLASSES } from './starfinderSubclasses'
 import { eruditeWarrior, isSoldier, soldierStyle } from './soldier'
 import { isWitchwarper, witchwarperParadox, witchwarperRepertoireSlots, witchwarperSpellcasting, witchwarperSpellOptions, witchwarperSpellSlots } from './witchwarper'
-import { aquaticPetFamiliar, familiarSelection, familiarSpellBenefits, purifyAirActive } from './familiarAbilities'
+import { aquaticPetFamiliar, combineWaspAndAquaticFamiliar, familiarSelection, familiarSpellBenefits, purifyAirActive } from './familiarAbilities'
 import { DRONE_CHASSIS } from './droneChassis'
 import { energyNeutralizerResistances } from './mechanicEnergy'
 import { FORCE_FIELD_PGA_RESISTANCE_TYPES, greaterCrossPlatformLanguageOptions, TECHNOMANCER_LANGUAGE_RULES, TECHNOMANCER_PROGRAMMING_LANGUAGES, versatileFirmwareLanguageOptions, versatileTechnomancerLanguageOptions } from './technomancer'
@@ -8280,6 +8280,7 @@ export function companionSpellTarget(c: Character, savedId?: string) {
 
 export function protectCompanionTargets(c: Character) {
   const { familiar, wasp } = familiarSelection(c)
+  const combinedFamiliars = combineWaspAndAquaticFamiliar(c)
   return [
     ...(c.companions ?? []).map(companion => ({ key: `companion:${companion.id}`, name: companion.name || companion.type,
       companionId: companion.id, familiar: undefined })),
@@ -8287,17 +8288,21 @@ export function protectCompanionTargets(c: Character) {
       companionId: SWARM_TARGET_ID, familiar: undefined }] : []),
     ...(familiar ? [{ key: 'familiar:primary', name: c.familiar?.name || 'Familiar',
       companionId: undefined, familiar: 'primary' as const }] : []),
-    ...(wasp ? [{ key: 'familiar:wasp', name: c.waspFamiliar?.name || 'Wasp Familiar',
+    ...(wasp && !combinedFamiliars ? [{ key: 'familiar:wasp', name: c.waspFamiliar?.name || 'Wasp Familiar',
       companionId: undefined, familiar: 'wasp' as const }] : []),
-    ...(aquaticPetFamiliar(c) ? [{ key: 'familiar:aquatic', name: c.pet?.name || 'Aquatic Pet',
+    ...(aquaticPetFamiliar(c) && !combinedFamiliars ? [{ key: 'familiar:aquatic', name: c.pet?.name || 'Aquatic Pet',
+      companionId: undefined, familiar: 'aquatic' as const }] : []),
+    ...(combinedFamiliars ? [{ key: 'familiar:combined', name: c.waspFamiliar?.name || c.pet?.name || 'Combined Familiar',
       companionId: undefined, familiar: 'aquatic' as const }] : []),
   ]
 }
 
 export function protectCompanionTarget(c: Character) {
   const targets = protectCompanionTargets(c)
-  return targets.find(target => c.protectCompanionFamiliar
-    ? target.familiar === c.protectCompanionFamiliar : target.companionId !== undefined && target.companionId === c.protectCompanionId)
+  const savedFamiliar = combineWaspAndAquaticFamiliar(c) && c.protectCompanionFamiliar === 'wasp'
+    ? 'aquatic' : c.protectCompanionFamiliar
+  return targets.find(target => savedFamiliar
+    ? target.familiar === savedFamiliar : target.companionId !== undefined && target.companionId === c.protectCompanionId)
     ?? targets[0]
 }
 
